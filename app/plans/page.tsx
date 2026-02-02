@@ -2,13 +2,13 @@
 
 import { useEffect, useState } from 'react';
 import { api } from '../lib/api';
-import { Plan, CreatePlanRequest, PlanPerformance } from '../lib/types';
+import { Plan, CreatePlanRequest, PlanPerformanceDetail } from '../lib/types';
 import Header from '../components/Header';
 import { PageLoader } from '../components/LoadingSpinner';
 
 export default function PlansPage() {
   const [plans, setPlans] = useState<Plan[]>([]);
-  const [performance, setPerformance] = useState<PlanPerformance[]>([]);
+  const [performance, setPerformance] = useState<PlanPerformanceDetail[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
