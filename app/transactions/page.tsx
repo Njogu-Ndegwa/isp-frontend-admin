@@ -76,6 +76,13 @@ export default function TransactionsPage() {
     loadData();
   }, [statusFilter, dateRange]);
 
+  // Reset expanded transaction when leaving the page
+  useEffect(() => {
+    return () => {
+      setExpandedTx(null);
+    };
+  }, []);
+
   const loadData = async () => {
     try {
       setLoading(true);
@@ -317,10 +324,10 @@ export default function TransactionsPage() {
                     right: formatTransactionDate(tx)
                   }}
                   footer={tx.status !== 'failed' && tx.mpesa_receipt_number ? (
-                    <>
+                    <div className="flex items-center justify-between w-full">
                       <span>Receipt: <span className="font-mono">{tx.mpesa_receipt_number}</span></span>
                       <span className="font-mono">#{tx.transaction_id}</span>
-                    </>
+                    </div>
                   ) : undefined}
                   expandableContent={tx.status === 'failed' ? (
                     <div className="border-t border-red-500/10 pt-3">

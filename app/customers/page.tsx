@@ -72,6 +72,24 @@ export default function CustomersPage() {
     return `${hours.toFixed(1)}h remaining`;
   };
 
+  // Safe date formatting for customer expiry
+  const formatCustomerExpiry = (expiry: string | undefined): string => {
+    try {
+      if (!expiry) return '-';
+      const date = new Date(expiry);
+      if (isNaN(date.getTime())) return '-';
+      return formatDateGMT3(expiry, {
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+    } catch (e) {
+      console.error('Date formatting error:', e);
+      return '-';
+    }
+  };
+
   if (error) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -306,12 +324,7 @@ export default function CustomersPage() {
                     left: customer.router?.name || '-',
                     right: customer.status === 'active' && customer.hours_remaining !== undefined 
                       ? formatTimeRemaining(customer.hours_remaining)
-                      : formatDateGMT3(customer.expiry, {
-                          month: 'short',
-                          day: 'numeric',
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        }) || '-'
+                      : formatCustomerExpiry(customer.expiry)
                   }}
                   layout="compact"
                   className="animate-fade-in"

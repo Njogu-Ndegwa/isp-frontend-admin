@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import MoreMenu from './MoreMenu';
 
 const mainNavItems = [
@@ -49,6 +49,11 @@ export default function MobileBottomNav() {
   const [showMoreMenu, setShowMoreMenu] = useState(false);
 
   const isMoreActive = ['/plans', '/ratings', '/advertisers', '/ads', '/ads/analytics'].some(path => pathname?.startsWith(path));
+
+  // Close More menu when navigating to a different page
+  useEffect(() => {
+    setShowMoreMenu(false);
+  }, [pathname]);
 
   return (
     <>

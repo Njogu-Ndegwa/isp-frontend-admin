@@ -1,5 +1,6 @@
 'use client';
 
+import React from 'react';
 import Link from 'next/link';
 
 interface DataField {
@@ -157,7 +158,7 @@ export default function MobileDataCard({
           
           {/* Row 3: Footer or Expandable Content */}
           {footer && (
-            <div className="flex items-center justify-between text-xs text-foreground-muted">
+            <div className="flex items-center justify-between text-xs text-foreground-muted mt-3 pt-3 border-t border-border/50">
               {footer}
             </div>
           )}
