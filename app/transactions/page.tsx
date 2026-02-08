@@ -8,6 +8,7 @@ import Header from '../components/Header';
 import { PageLoader } from '../components/LoadingSpinner';
 import StatCard from '../components/StatCard';
 import MobileDataCard from '../components/MobileDataCard';
+import SearchInput from '../components/SearchInput';
 
 type StatusFilter = 'all' | 'completed' | 'pending' | 'failed' | 'expired';
 
@@ -68,10 +69,6 @@ export default function TransactionsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedTx, setExpandedTx] = useState<number | null>(null);
   const [mobileDisplayCount, setMobileDisplayCount] = useState(50);
-  const [dateRange, setDateRange] = useState({
-    startDate: '',
-    endDate: '',
-  });
 
   // Track the active request so we can cancel stale ones on unmount or re-fetch
   const abortRef = useRef<AbortController | null>(null);
@@ -92,16 +89,16 @@ export default function TransactionsPage() {
         api.getTransactions(
           1,
           undefined,
-          dateRange.startDate || undefined,
-          dateRange.endDate || undefined,
+          undefined,
+          undefined,
           status,
           controller.signal
         ),
         api.getTransactionSummary(
           1,
           undefined,
-          dateRange.startDate || undefined,
-          dateRange.endDate || undefined,
+          undefined,
+          undefined,
           controller.signal
         ),
       ]);
@@ -119,7 +116,7 @@ export default function TransactionsPage() {
         setLoading(false);
       }
     }
-  }, [statusFilter, dateRange.startDate, dateRange.endDate]);
+  }, [statusFilter]);
 
   // Fetch data when filters change; abort on unmount
   useEffect(() => {
@@ -241,57 +238,27 @@ export default function TransactionsPage() {
 
       {/* Filters */}
       <div className="space-y-3 mb-6 animate-fade-in">
-        {/* Search */}
-        <div className="relative">
-          <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-            <svg className="w-5 h-5 text-foreground-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
-          </div>
-          <input
-            type="text"
-            placeholder="Search phone, name, receipt..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="input pl-10"
-          />
-        </div>
+        <SearchInput
+          value={searchQuery}
+          onChange={setSearchQuery}
+          placeholder="Search phone, name, receipt..."
+        />
 
-        {/* Status Filter (scrollable on mobile) + Date Range */}
-        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-          {/* Status Filter */}
-          <div className="flex rounded-lg border border-border overflow-x-auto flex-shrink-0 no-scrollbar">
-            {(['all', 'completed', 'pending', 'failed', 'expired'] as StatusFilter[]).map((status) => (
-              <button
-                key={status}
-                onClick={() => setStatusFilter(status)}
-                className={`px-3 py-2 text-sm font-medium capitalize transition-colors whitespace-nowrap ${
-                  statusFilter === status
-                    ? 'bg-accent-primary text-background'
-                    : 'bg-background-secondary text-foreground-muted hover:text-foreground'
-                }`}
-              >
-                {status}
-              </button>
-            ))}
-          </div>
-
-          {/* Date Range */}
-          <div className="flex items-center gap-2">
-            <input
-              type="date"
-              value={dateRange.startDate}
-              onChange={(e) => setDateRange({ ...dateRange, startDate: e.target.value })}
-              className="input w-auto flex-1 sm:flex-none text-sm"
-            />
-            <span className="text-foreground-muted text-sm">to</span>
-            <input
-              type="date"
-              value={dateRange.endDate}
-              onChange={(e) => setDateRange({ ...dateRange, endDate: e.target.value })}
-              className="input w-auto flex-1 sm:flex-none text-sm"
-            />
-          </div>
+        {/* Status Filter */}
+        <div className="flex rounded-lg border border-border overflow-x-auto flex-shrink-0 no-scrollbar">
+          {(['all', 'completed', 'pending', 'failed', 'expired'] as StatusFilter[]).map((status) => (
+            <button
+              key={status}
+              onClick={() => setStatusFilter(status)}
+              className={`px-3 py-2 text-sm font-medium capitalize transition-colors whitespace-nowrap ${
+                statusFilter === status
+                  ? 'bg-accent-primary text-background'
+                  : 'bg-background-secondary text-foreground-muted hover:text-foreground'
+              }`}
+            >
+              {status}
+            </button>
+          ))}
         </div>
       </div>
 

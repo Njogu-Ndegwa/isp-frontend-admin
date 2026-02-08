@@ -8,6 +8,7 @@ import Header from '../components/Header';
 import { PageLoader } from '../components/LoadingSpinner';
 import StatCard from '../components/StatCard';
 import MobileDataCard from '../components/MobileDataCard';
+import SearchInput from '../components/SearchInput';
 
 type FilterStatus = 'all' | 'active' | 'inactive';
 
@@ -169,21 +170,11 @@ export default function CustomersPage() {
 
       {/* Filters */}
       <div className="space-y-3 mb-6 animate-fade-in">
-        {/* Search */}
-        <div className="relative">
-          <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-            <svg className="w-5 h-5 text-foreground-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
-          </div>
-          <input
-            type="text"
-            placeholder="Search by name, phone, or MAC address..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="input pl-10"
-          />
-        </div>
+        <SearchInput
+          value={searchQuery}
+          onChange={setSearchQuery}
+          placeholder="Search by name, phone, or MAC address..."
+        />
 
         {/* Status Filter */}
         <div className="flex rounded-lg border border-border overflow-x-auto flex-shrink-0 no-scrollbar">
