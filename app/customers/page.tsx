@@ -295,10 +295,7 @@ export default function CustomersPage() {
                       onDelete={() => console.log('Delete customer', customer.id)}
                       className="animate-fade-in"
                     >
-                      <div 
-                        className="p-4"
-                        style={{ animationDelay: `${index * 0.05}s`, opacity: 0 }}
-                      >
+                      <div className="p-4">
                         {/* Header */}
                         <div className="flex items-start gap-3 mb-3">
                           <div className="w-10 h-10 rounded-full bg-accent-primary/10 flex items-center justify-center text-accent-primary font-medium flex-shrink-0">

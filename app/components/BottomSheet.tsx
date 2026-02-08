@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { createPortal } from 'react-dom';
 
 interface BottomSheetProps {
@@ -16,6 +16,7 @@ export default function BottomSheet({ isOpen, onClose, children, title }: Bottom
   const [startY, setStartY] = useState(0);
   const [currentY, setCurrentY] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
+  const contentRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setIsMounted(true);
@@ -43,12 +44,12 @@ export default function BottomSheet({ isOpen, onClose, children, title }: Bottom
     }, 300);
   };
 
-  const handleTouchStart = (e: React.TouchEvent) => {
+  const handleDragHandleTouchStart = (e: React.TouchEvent) => {
     setStartY(e.touches[0].clientY);
     setIsDragging(true);
   };
 
-  const handleTouchMove = (e: React.TouchEvent) => {
+  const handleDragHandleTouchMove = (e: React.TouchEvent) => {
     if (!isDragging) return;
     const y = e.touches[0].clientY;
     const diff = y - startY;
@@ -57,7 +58,7 @@ export default function BottomSheet({ isOpen, onClose, children, title }: Bottom
     }
   };
 
-  const handleTouchEnd = () => {
+  const handleDragHandleTouchEnd = () => {
     setIsDragging(false);
     if (currentY > 100) {
       handleClose();
@@ -70,6 +71,11 @@ export default function BottomSheet({ isOpen, onClose, children, title }: Bottom
     if (e.target === e.currentTarget) {
       handleClose();
     }
+  };
+
+  // Prevent clicks from bubbling up and causing issues
+  const handleContentClick = (e: React.MouseEvent | React.TouchEvent) => {
+    e.stopPropagation();
   };
 
   if (!isMounted || !isOpen) return null;
@@ -93,12 +99,15 @@ export default function BottomSheet({ isOpen, onClose, children, title }: Bottom
           transform: `translateY(${isClosing ? '100%' : `${currentY}px`})`,
           maxHeight: '85vh',
         }}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
+        onClick={handleContentClick}
       >
-        {/* Drag Handle */}
-        <div className="flex justify-center pt-3 pb-2">
+        {/* Drag Handle - only this area handles swipe to close */}
+        <div 
+          className="flex justify-center pt-3 pb-2 cursor-grab active:cursor-grabbing touch-none"
+          onTouchStart={handleDragHandleTouchStart}
+          onTouchMove={handleDragHandleTouchMove}
+          onTouchEnd={handleDragHandleTouchEnd}
+        >
           <div className="w-9 h-1 bg-foreground-muted/30 rounded-full" />
         </div>
 
@@ -109,8 +118,12 @@ export default function BottomSheet({ isOpen, onClose, children, title }: Bottom
           </div>
         )}
 
-        {/* Content */}
-        <div className="overflow-y-auto max-h-[calc(85vh-60px)]">
+        {/* Content - clicks work normally here */}
+        <div 
+          ref={contentRef}
+          className="overflow-y-auto max-h-[calc(85vh-60px)]"
+          onClick={handleContentClick}
+        >
           {children}
         </div>
       </div>

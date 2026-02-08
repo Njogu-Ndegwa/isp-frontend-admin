@@ -94,22 +94,8 @@ export default function TransactionsPage() {
     return true;
   });
 
-  // Compute failure analytics from transaction data
+  // Get failed transactions count for stat display
   const failedTransactions = transactions.filter((tx) => tx.status === 'failed');
-  const failureBySource = failedTransactions.reduce<Record<string, { count: number; amount: number }>>((acc, tx) => {
-    const source = tx.failure_source || 'unknown';
-    if (!acc[source]) acc[source] = { count: 0, amount: 0 };
-    acc[source].count += 1;
-    acc[source].amount += tx.amount;
-    return acc;
-  }, {});
-  const failureByCode = failedTransactions.reduce<Record<string, { count: number; code: string; desc: string }>>((acc, tx) => {
-    const code = tx.result_code || 'unknown';
-    if (!acc[code]) acc[code] = { count: 0, code, desc: tx.result_desc || RESULT_CODE_LABELS[code] || 'Unknown error' };
-    acc[code].count += 1;
-    return acc;
-  }, {});
-  const failureLostRevenue = failedTransactions.reduce((sum, tx) => sum + tx.amount, 0);
 
   const getStatusBadge = (status: MpesaTransaction['status']) => {
     const badges = {
@@ -188,7 +174,7 @@ export default function TransactionsPage() {
             <StatCard
               title="Failed"
               value={summary.status_breakdown.failed?.count || 0}
-              subtitle={`KES ${failureLostRevenue.toLocaleString()} lost`}
+              subtitle="Transaction failures"
               icon={
                 <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -273,95 +259,6 @@ export default function TransactionsPage() {
         <PageLoader />
       ) : (
         <>
-          {/* Failure Analysis Section */}
-          {failedTransactions.length > 0 && (statusFilter === 'all' || statusFilter === 'failed') && (
-            <div className="card p-4 sm:p-6 mb-6 animate-fade-in">
-              <h3 className="text-base sm:text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
-                <svg className="w-5 h-5 text-red-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                </svg>
-                Failure Analysis
-                <span className="text-xs sm:text-sm font-normal text-foreground-muted ml-1 sm:ml-2">
-                  {failedTransactions.length} failed
-                </span>
-              </h3>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
-                {/* By Failure Source */}
-                <div>
-                  <h4 className="text-xs sm:text-sm font-medium text-foreground-muted mb-2 sm:mb-3 uppercase tracking-wide">By Source</h4>
-                  <div className="space-y-2">
-                    {Object.entries(failureBySource)
-                      .sort(([, a], [, b]) => b.count - a.count)
-                      .map(([source, data]) => {
-                        const sourceInfo = FAILURE_SOURCE_LABELS[source] || { label: source, color: 'text-foreground-muted' };
-                        const pct = Math.round((data.count / failedTransactions.length) * 100);
-                        return (
-                          <div key={source} className="flex items-center gap-2 sm:gap-3 p-2.5 sm:p-3 rounded-lg bg-background-tertiary">
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center justify-between mb-1">
-                                <span className={`text-xs sm:text-sm font-medium ${sourceInfo.color} capitalize`}>
-                                  {sourceInfo.label}
-                                </span>
-                                <span className="text-[10px] sm:text-xs text-foreground-muted">
-                                  {data.count} ({pct}%)
-                                </span>
-                              </div>
-                              <div className="h-1.5 rounded-full bg-background overflow-hidden">
-                                <div
-                                  className="h-full rounded-full bg-red-500/60 transition-all duration-500"
-                                  style={{ width: `${pct}%` }}
-                                />
-                              </div>
-                            </div>
-                            <span className="text-xs sm:text-sm font-semibold text-foreground-muted whitespace-nowrap">
-                              KES {data.amount.toLocaleString()}
-                            </span>
-                          </div>
-                        );
-                      })}
-                  </div>
-                </div>
-
-                {/* By Result Code */}
-                <div>
-                  <h4 className="text-xs sm:text-sm font-medium text-foreground-muted mb-2 sm:mb-3 uppercase tracking-wide">By Reason</h4>
-                  <div className="space-y-2">
-                    {Object.values(failureByCode)
-                      .sort((a, b) => b.count - a.count)
-                      .slice(0, 6)
-                      .map((item) => {
-                        const pct = Math.round((item.count / failedTransactions.length) * 100);
-                        return (
-                          <div key={item.code} className="flex items-center gap-2 sm:gap-3 p-2.5 sm:p-3 rounded-lg bg-background-tertiary">
-                            <div className="flex-shrink-0 w-10 sm:w-12 h-7 sm:h-8 rounded bg-red-500/10 flex items-center justify-center">
-                              <span className="text-[10px] sm:text-xs font-mono text-red-400">{item.code}</span>
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center justify-between gap-1">
-                                <p className="text-xs sm:text-sm text-foreground truncate" title={item.desc}>
-                                  {item.desc}
-                                </p>
-                                <span className="text-[10px] sm:text-xs text-foreground-muted flex-shrink-0">
-                                  {item.count} ({pct}%)
-                                </span>
-                              </div>
-                              <div className="h-1.5 rounded-full bg-background overflow-hidden mt-1">
-                                <div
-                                  className="h-full rounded-full bg-red-500/60 transition-all duration-500"
-                                  style={{ width: `${pct}%` }}
-                                />
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
           {/* Mobile Transaction Cards with Pull-to-Refresh */}
           <PullToRefresh onRefresh={loadData} className="md:hidden">
             <div className="space-y-3 animate-fade-in">
