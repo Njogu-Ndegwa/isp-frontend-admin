@@ -14,7 +14,7 @@ export default function CustomersPage() {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [filter, setFilter] = useState<FilterStatus>('all');
+  const [filter, setFilter] = useState<FilterStatus>('active');
   const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {

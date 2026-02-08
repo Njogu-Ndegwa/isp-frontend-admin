@@ -74,7 +74,7 @@ export default function TransactionsPage() {
 
   useEffect(() => {
     loadData();
-  }, [statusFilter, dateRange]);
+  }, [statusFilter, dateRange.startDate, dateRange.endDate]);
 
   // Reset expanded transaction when leaving the page
   useEffect(() => {
