@@ -13,15 +13,18 @@ export default function PullToRefresh({
   onRefresh, 
   children, 
   className = '',
-  pullDistance = 80 
+  pullDistance = 120 
 }: PullToRefreshProps) {
   const [isPulling, setIsPulling] = useState(false);
   const [pullProgress, setPullProgress] = useState(0);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const startYRef = useRef(0);
+  const startXRef = useRef(0);
   const containerRef = useRef<HTMLDivElement>(null);
   const isTouchingRef = useRef(false);
+  const isHorizontalScrollRef = useRef(false);
+  const moveCountRef = useRef(0);
 
   // Check if element is at the top
   const isAtTop = useCallback(() => {
@@ -29,30 +32,80 @@ export default function PullToRefresh({
     return containerRef.current.scrollTop <= 0;
   }, []);
 
+  // Check if element or any of its parents are horizontally scrollable
+  const isInHorizontalScroller = useCallback((element: HTMLElement | null): boolean => {
+    if (!element) return false;
+    
+    let current: HTMLElement | null = element;
+    while (current && current !== containerRef.current) {
+      const overflowX = window.getComputedStyle(current).overflowX;
+      if (overflowX === 'auto' || overflowX === 'scroll') {
+        return true;
+      }
+      current = current.parentElement;
+    }
+    return false;
+  }, []);
+
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     if (!isAtTop() || isRefreshing) return;
     
     startYRef.current = e.touches[0].clientY;
+    startXRef.current = e.touches[0].clientX;
     isTouchingRef.current = true;
-    setIsPulling(true);
+    isHorizontalScrollRef.current = false;
+    moveCountRef.current = 0;
   }, [isAtTop, isRefreshing]);
 
   const handleTouchMove = useCallback((e: React.TouchEvent) => {
-    if (!isTouchingRef.current || !isPulling || isRefreshing) return;
+    if (!isTouchingRef.current || isRefreshing) return;
     
     const currentY = e.touches[0].clientY;
-    const diff = currentY - startYRef.current;
+    const currentX = e.touches[0].clientX;
+    const diffY = currentY - startYRef.current;
+    const diffX = currentX - startXRef.current;
     
-    if (diff > 0) {
-      // Only allow pulling down
+    moveCountRef.current += 1;
+    
+    // After a few move events, determine if this is horizontal scrolling
+    if (moveCountRef.current === 3) {
+      // If horizontal movement is greater than vertical, it's likely a horizontal scroll
+      if (Math.abs(diffX) > Math.abs(diffY)) {
+        isHorizontalScrollRef.current = true;
+        return;
+      }
+      
+      // Check if we're inside a horizontally scrollable element
+      if (isInHorizontalScroller(e.target as HTMLElement)) {
+        isHorizontalScrollRef.current = true;
+        return;
+      }
+    }
+    
+    // If we're in a horizontal scroller and moving horizontally, don't pull
+    if (isHorizontalScrollRef.current) {
+      return;
+    }
+    
+    if (diffY > 10 && !isPulling) {
+      setIsPulling(true);
+    }
+    
+    if (isPulling && diffY > 0) {
+      // Only allow pulling down when at top
       e.preventDefault();
-      const progress = Math.min(diff / pullDistance, 1.5);
+      const progress = Math.min(diffY / pullDistance, 1.5);
       setPullProgress(progress);
     }
-  }, [isPulling, isRefreshing, pullDistance]);
+  }, [isPulling, isRefreshing, pullDistance, isInHorizontalScroller]);
 
   const handleTouchEnd = useCallback(async () => {
     isTouchingRef.current = false;
+    
+    if (isHorizontalScrollRef.current) {
+      isHorizontalScrollRef.current = false;
+      return;
+    }
     
     if (!isPulling || isRefreshing) return;
     
@@ -85,7 +138,7 @@ export default function PullToRefresh({
     if (!container) return;
 
     const preventScroll = (e: TouchEvent) => {
-      if (isPulling && isAtTop()) {
+      if (isPulling && isAtTop() && !isHorizontalScrollRef.current) {
         e.preventDefault();
       }
     };
