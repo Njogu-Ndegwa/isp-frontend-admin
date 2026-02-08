@@ -265,7 +265,8 @@ class ApiClient {
     routerId?: number,
     startDate?: string,
     endDate?: string,
-    status?: string
+    status?: string,
+    signal?: AbortSignal
   ): Promise<MpesaTransaction[]> {
     const params = new URLSearchParams();
     if (userId) params.append('user_id', userId.toString());
@@ -276,7 +277,7 @@ class ApiClient {
     
     const response = await fetch(
       `${BASE_URL}/mpesa/transactions?${params.toString()}`,
-      { headers: this.getHeaders() }
+      { headers: this.getHeaders(), signal }
     );
     return this.handleResponse<MpesaTransaction[]>(response);
   }
@@ -285,7 +286,8 @@ class ApiClient {
     userId?: number,
     routerId?: number,
     startDate?: string,
-    endDate?: string
+    endDate?: string,
+    signal?: AbortSignal
   ): Promise<TransactionSummary> {
     const params = new URLSearchParams();
     if (userId) params.append('user_id', userId.toString());
@@ -295,7 +297,7 @@ class ApiClient {
     
     const response = await fetch(
       `${BASE_URL}/mpesa/transactions/summary?${params.toString()}`,
-      { headers: this.getHeaders() }
+      { headers: this.getHeaders(), signal }
     );
     return this.handleResponse<TransactionSummary>(response);
   }

@@ -72,6 +72,14 @@ export default function CustomersPage() {
     return `${hours.toFixed(1)}h remaining`;
   };
 
+  const getTimeRemainingColor = (hours?: number) => {
+    if (hours === undefined || hours === null) return 'text-foreground-muted';
+    if (hours < 1) return 'text-red-400';       // Critical: less than 1 hour
+    if (hours < 6) return 'text-orange-400';     // Warning: less than 6 hours
+    if (hours < 24) return 'text-amber-400';     // Caution: less than 24 hours
+    return 'text-emerald-400';                   // Good: 24+ hours remaining
+  };
+
   // Safe date formatting for customer expiry
   const formatCustomerExpiry = (expiry: string | undefined): string => {
     try {
@@ -276,7 +284,7 @@ export default function CustomersPage() {
                                 })}
                               </p>
                               {customer.hours_remaining !== undefined && (
-                                <p className="text-xs text-accent-primary">
+                                <p className={`text-xs font-medium ${getTimeRemainingColor(customer.hours_remaining)}`}>
                                   {formatTimeRemaining(customer.hours_remaining)}
                                 </p>
                               )}
@@ -323,7 +331,7 @@ export default function CustomersPage() {
                   secondary={{
                     left: customer.router?.name || '-',
                     right: customer.status === 'active' && customer.hours_remaining !== undefined 
-                      ? formatTimeRemaining(customer.hours_remaining)
+                      ? <span className={`font-medium ${getTimeRemainingColor(customer.hours_remaining)}`}>{formatTimeRemaining(customer.hours_remaining)}</span>
                       : formatCustomerExpiry(customer.expiry)
                   }}
                   layout="compact"

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { api } from '../lib/api';
 import { MpesaTransaction, TransactionSummary } from '../lib/types';
 import { formatDateGMT3 } from '../lib/dateUtils';
@@ -67,25 +67,26 @@ export default function TransactionsPage() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedTx, setExpandedTx] = useState<number | null>(null);
+  const [mobileDisplayCount, setMobileDisplayCount] = useState(50);
   const [dateRange, setDateRange] = useState({
     startDate: '',
     endDate: '',
   });
 
-  useEffect(() => {
-    loadData();
-  }, [statusFilter, dateRange.startDate, dateRange.endDate]);
+  // Track the active request so we can cancel stale ones on unmount or re-fetch
+  const abortRef = useRef<AbortController | null>(null);
 
-  // Reset expanded transaction when leaving the page
-  useEffect(() => {
-    return () => {
-      setExpandedTx(null);
-    };
-  }, []);
+  const loadData = useCallback(async () => {
+    // Cancel any in-flight request before starting a new one
+    if (abortRef.current) {
+      abortRef.current.abort();
+    }
+    const controller = new AbortController();
+    abortRef.current = controller;
 
-  const loadData = async () => {
     try {
       setLoading(true);
+      setError(null);
       const status = statusFilter === 'all' ? undefined : statusFilter;
       const [txData, summaryData] = await Promise.all([
         api.getTransactions(
@@ -93,30 +94,50 @@ export default function TransactionsPage() {
           undefined,
           dateRange.startDate || undefined,
           dateRange.endDate || undefined,
-          status
+          status,
+          controller.signal
         ),
         api.getTransactionSummary(
           1,
           undefined,
           dateRange.startDate || undefined,
-          dateRange.endDate || undefined
+          dateRange.endDate || undefined,
+          controller.signal
         ),
       ]);
-      setTransactions(txData);
-      setSummary(summaryData);
+      // Only update state if this request wasn't cancelled
+      if (!controller.signal.aborted) {
+        setTransactions(txData || []);
+        setSummary(summaryData);
+      }
     } catch (err) {
+      // Silently ignore AbortError (expected when navigating away)
+      if (controller.signal.aborted) return;
       setError(err instanceof Error ? err.message : 'Failed to load transactions');
     } finally {
-      setLoading(false);
+      if (!controller.signal.aborted) {
+        setLoading(false);
+      }
     }
-  };
+  }, [statusFilter, dateRange.startDate, dateRange.endDate]);
 
-  const filteredTransactions = transactions.filter((tx) => {
+  // Fetch data when filters change; abort on unmount
+  useEffect(() => {
+    setMobileDisplayCount(50); // Reset pagination when filters change
+    loadData();
+    return () => {
+      if (abortRef.current) {
+        abortRef.current.abort();
+      }
+    };
+  }, [loadData]);
+
+  const filteredTransactions = (transactions || []).filter((tx) => {
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       return (
-        tx.phone_number.includes(query) ||
-        tx.customer?.name.toLowerCase().includes(query) ||
+        (tx.phone_number || '').includes(query) ||
+        tx.customer?.name?.toLowerCase().includes(query) ||
         tx.mpesa_receipt_number?.toLowerCase().includes(query) ||
         tx.reference?.toLowerCase().includes(query) ||
         tx.result_desc?.toLowerCase().includes(query) ||
@@ -127,7 +148,7 @@ export default function TransactionsPage() {
   });
 
   // Get failed transactions count for stat display
-  const failedTransactions = transactions.filter((tx) => tx.status === 'failed');
+  const failedTransactions = (transactions || []).filter((tx) => tx.status === 'failed');
 
   const getStatusBadge = (status: MpesaTransaction['status']) => {
     const badges = {
@@ -291,7 +312,7 @@ export default function TransactionsPage() {
         <PageLoader />
       ) : (
         <>
-          {/* Mobile Transaction Cards */}
+          {/* Mobile Transaction Cards — paginated to keep DOM light */}
           <div className="md:hidden space-y-3 animate-fade-in">
             {filteredTransactions.length === 0 ? (
               <div className="card p-8 text-center text-foreground-muted">
@@ -301,93 +322,109 @@ export default function TransactionsPage() {
                 {searchQuery ? 'No transactions match your search' : 'No transactions found'}
               </div>
             ) : (
-              filteredTransactions.map((tx) => (
-                <MobileDataCard
-                  key={tx.transaction_id}
-                  id={tx.transaction_id}
-                  title={tx.customer?.name || '-'}
-                  subtitle={tx.phone_number}
-                  avatar={{
-                    text: tx.customer?.name?.charAt(0).toUpperCase() || '?',
-                    color: 'secondary'
-                  }}
-                  status={{
-                    label: tx.status,
-                    variant: tx.status === 'completed' ? 'success' : tx.status === 'failed' ? 'danger' : tx.status === 'pending' ? 'warning' : 'neutral'
-                  }}
-                  value={{
-                    text: `KES ${tx.amount.toLocaleString()}`,
-                    highlight: true
-                  }}
-                  secondary={{
-                    left: tx.plan?.name || '-',
-                    right: formatTransactionDate(tx)
-                  }}
-                  footer={tx.status !== 'failed' && tx.mpesa_receipt_number ? (
-                    <div className="flex items-center justify-between w-full">
-                      <span>Receipt: <span className="font-mono">{tx.mpesa_receipt_number}</span></span>
-                      <span className="font-mono">#{tx.transaction_id}</span>
-                    </div>
-                  ) : undefined}
-                  expandableContent={tx.status === 'failed' ? (
-                    <div className="border-t border-red-500/10 pt-3">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          {tx.failure_source && (
-                            <span className={`text-[10px] font-medium ${FAILURE_SOURCE_LABELS[tx.failure_source]?.color || 'text-foreground-muted'} uppercase tracking-wider`}>
-                              {FAILURE_SOURCE_LABELS[tx.failure_source]?.label || tx.failure_source}
-                            </span>
-                          )}
-                          {tx.result_code && (
-                            <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-red-500/10 text-[10px] font-mono text-red-400">
-                              {tx.result_code}
-                            </span>
-                          )}
-                        </div>
-                        <svg className="w-4 h-4 text-foreground-muted/50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={expandedTx === tx.transaction_id ? "M19 9l-7 7-7-7" : "M9 5l7 7-7 7"} />
-                        </svg>
+              <>
+                {filteredTransactions.slice(0, mobileDisplayCount).map((tx) => (
+                  <MobileDataCard
+                    key={tx.transaction_id}
+                    id={tx.transaction_id}
+                    title={tx.customer?.name || '-'}
+                    subtitle={tx.phone_number}
+                    avatar={{
+                      text: tx.customer?.name?.charAt(0).toUpperCase() || '?',
+                      color: 'secondary'
+                    }}
+                    status={{
+                      label: tx.status,
+                      variant: tx.status === 'completed' ? 'success' : tx.status === 'failed' ? 'danger' : tx.status === 'pending' ? 'warning' : 'neutral'
+                    }}
+                    value={{
+                      text: `KES ${(tx.amount ?? 0).toLocaleString()}`,
+                      highlight: true
+                    }}
+                    secondary={{
+                      left: tx.plan?.name || '-',
+                      right: formatTransactionDate(tx)
+                    }}
+                    footer={tx.status !== 'failed' && tx.mpesa_receipt_number ? (
+                      <div className="flex items-center justify-between w-full">
+                        <span>Receipt: <span className="font-mono">{tx.mpesa_receipt_number}</span></span>
+                        <span className="font-mono">#{tx.transaction_id}</span>
                       </div>
-                      <p className="text-xs text-red-400/80 mt-1">
-                        {tx.result_desc || RESULT_CODE_LABELS[tx.result_code || ''] || '-'}
-                      </p>
-                      {expandedTx === tx.transaction_id && (
-                        <div className="mt-2 p-3 rounded-lg bg-red-500/5 border border-red-500/10 text-xs space-y-2">
-                          <div className="flex justify-between">
-                            <span className="text-foreground-muted">Source:</span>
-                            <span className="text-foreground capitalize">{tx.failure_source || 'Unknown'}</span>
+                    ) : undefined}
+                    expandableContent={tx.status === 'failed' ? (
+                      <div className="border-t border-red-500/10 pt-3">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            {tx.failure_source && (
+                              <span className={`text-[10px] font-medium ${FAILURE_SOURCE_LABELS[tx.failure_source]?.color || 'text-foreground-muted'} uppercase tracking-wider`}>
+                                {FAILURE_SOURCE_LABELS[tx.failure_source]?.label || tx.failure_source}
+                              </span>
+                            )}
+                            {tx.result_code && (
+                              <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-red-500/10 text-[10px] font-mono text-red-400">
+                                {tx.result_code}
+                              </span>
+                            )}
                           </div>
-                          <div className="flex justify-between">
-                            <span className="text-foreground-muted">Result Code:</span>
-                            <span className="font-mono text-red-400">{tx.result_code || '-'}</span>
-                          </div>
-                          <div>
-                            <span className="text-foreground-muted">Description:</span>
-                            <p className="text-foreground mt-0.5">{tx.result_desc || '-'}</p>
-                          </div>
-                          {tx.checkout_request_id && (
-                            <div>
-                              <span className="text-foreground-muted">Checkout ID:</span>
-                              <p className="font-mono text-foreground-muted text-[10px] mt-0.5 break-all">{tx.checkout_request_id}</p>
-                            </div>
-                          )}
-                          <div className="flex justify-between">
-                            <span className="text-foreground-muted">Transaction ID:</span>
-                            <span className="font-mono text-foreground-muted">#{tx.transaction_id}</span>
-                          </div>
+                          <svg className="w-4 h-4 text-foreground-muted/50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={expandedTx === tx.transaction_id ? "M19 9l-7 7-7-7" : "M9 5l7 7-7 7"} />
+                          </svg>
                         </div>
-                      )}
-                    </div>
-                  ) : undefined}
-                  highlight={tx.status === 'failed'}
-                  highlightColor="danger"
-                  onClick={tx.status === 'failed' ? () => {
-                    setExpandedTx(expandedTx === tx.transaction_id ? null : tx.transaction_id);
-                  } : undefined}
-                  layout="compact"
-                  className="animate-fade-in"
-                />
-              ))
+                        <p className="text-xs text-red-400/80 mt-1">
+                          {tx.result_desc || RESULT_CODE_LABELS[tx.result_code || ''] || '-'}
+                        </p>
+                        {expandedTx === tx.transaction_id && (
+                          <div className="mt-2 p-3 rounded-lg bg-red-500/5 border border-red-500/10 text-xs space-y-2">
+                            <div className="flex justify-between">
+                              <span className="text-foreground-muted">Source:</span>
+                              <span className="text-foreground capitalize">{tx.failure_source || 'Unknown'}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-foreground-muted">Result Code:</span>
+                              <span className="font-mono text-red-400">{tx.result_code || '-'}</span>
+                            </div>
+                            <div>
+                              <span className="text-foreground-muted">Description:</span>
+                              <p className="text-foreground mt-0.5">{tx.result_desc || '-'}</p>
+                            </div>
+                            {tx.checkout_request_id && (
+                              <div>
+                                <span className="text-foreground-muted">Checkout ID:</span>
+                                <p className="font-mono text-foreground-muted text-[10px] mt-0.5 break-all">{tx.checkout_request_id}</p>
+                              </div>
+                            )}
+                            <div className="flex justify-between">
+                              <span className="text-foreground-muted">Transaction ID:</span>
+                              <span className="font-mono text-foreground-muted">#{tx.transaction_id}</span>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ) : undefined}
+                    highlight={tx.status === 'failed'}
+                    highlightColor="danger"
+                    onClick={tx.status === 'failed' ? () => {
+                      setExpandedTx(expandedTx === tx.transaction_id ? null : tx.transaction_id);
+                    } : undefined}
+                    layout="compact"
+                  />
+                ))}
+
+                {/* Load More button */}
+                {filteredTransactions.length > mobileDisplayCount && (
+                  <button
+                    onClick={() => setMobileDisplayCount((prev) => prev + 50)}
+                    className="w-full py-3 text-sm font-medium text-accent-primary bg-accent-primary/5 border border-accent-primary/20 rounded-xl active:opacity-70 transition-colors"
+                  >
+                    Show More ({filteredTransactions.length - mobileDisplayCount} remaining)
+                  </button>
+                )}
+
+                {/* Count indicator */}
+                <p className="text-center text-xs text-foreground-muted pb-2">
+                  Showing {Math.min(mobileDisplayCount, filteredTransactions.length)} of {filteredTransactions.length} transactions
+                </p>
+              </>
             )}
           </div>
 
