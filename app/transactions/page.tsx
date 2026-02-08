@@ -241,36 +241,23 @@ export default function TransactionsPage() {
 
       {/* Filters */}
       <div className="space-y-3 mb-6 animate-fade-in">
-        {/* Row 1: Search + Refresh */}
-        <div className="flex items-center gap-2 sm:gap-4">
-          <div className="flex-1">
-            <div className="relative">
-              <svg
-                className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-foreground-muted"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
-              <input
-                type="text"
-                placeholder="Search phone, name, receipt..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="input pl-10"
-              />
-            </div>
-          </div>
-          <button onClick={loadData} className="btn-secondary flex items-center gap-2 flex-shrink-0">
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+        {/* Search */}
+        <div className="relative">
+          <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+            <svg className="w-5 h-5 text-foreground-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
-            <span className="hidden sm:inline">Refresh</span>
-          </button>
+          </div>
+          <input
+            type="text"
+            placeholder="Search phone, name, receipt..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="input pl-10"
+          />
         </div>
 
-        {/* Row 2: Status Filter (scrollable on mobile) + Date Range */}
+        {/* Status Filter (scrollable on mobile) + Date Range */}
         <div className="flex flex-col sm:flex-row sm:items-center gap-3">
           {/* Status Filter */}
           <div className="flex rounded-lg border border-border overflow-x-auto flex-shrink-0 no-scrollbar">

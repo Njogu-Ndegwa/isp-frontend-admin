@@ -6,6 +6,7 @@ import { Customer } from '../lib/types';
 import { formatDateGMT3 } from '../lib/dateUtils';
 import Header from '../components/Header';
 import { PageLoader } from '../components/LoadingSpinner';
+import StatCard from '../components/StatCard';
 import MobileDataCard from '../components/MobileDataCard';
 
 type FilterStatus = 'all' | 'active' | 'inactive';
@@ -124,36 +125,73 @@ export default function CustomersPage() {
         subtitle={`Manage your ${customers.length} registered customers`} 
       />
 
-      {/* Filters */}
-      <div className="flex flex-wrap items-center gap-4 mb-6 animate-fade-in">
-        {/* Search */}
-        <div className="flex-1 min-w-[250px]">
-          <div className="relative">
-            <svg
-              className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-foreground-muted"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
-            <input
-              type="text"
-              placeholder="Search by name, phone, or MAC address..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="input pl-10"
+      {/* Summary Stats */}
+      {customers.length > 0 && (
+        <div className="grid grid-cols-3 gap-3 sm:gap-6 mb-6">
+          <div className="animate-fade-in delay-1" style={{ opacity: 0 }}>
+            <StatCard
+              title="Total"
+              value={customers.length}
+              icon={
+                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+              }
+              accent="primary"
+            />
+          </div>
+          <div className="animate-fade-in delay-2" style={{ opacity: 0 }}>
+            <StatCard
+              title="Active"
+              value={customers.filter((c) => c.status === 'active').length}
+              icon={
+                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              }
+              accent="success"
+            />
+          </div>
+          <div className="animate-fade-in delay-3" style={{ opacity: 0 }}>
+            <StatCard
+              title="Inactive"
+              value={customers.filter((c) => c.status === 'inactive').length}
+              icon={
+                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                </svg>
+              }
+              accent="info"
             />
           </div>
         </div>
+      )}
+
+      {/* Filters */}
+      <div className="space-y-3 mb-6 animate-fade-in">
+        {/* Search */}
+        <div className="relative">
+          <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+            <svg className="w-5 h-5 text-foreground-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          </div>
+          <input
+            type="text"
+            placeholder="Search by name, phone, or MAC address..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="input pl-10"
+          />
+        </div>
 
         {/* Status Filter */}
-        <div className="flex rounded-lg border border-border overflow-hidden">
+        <div className="flex rounded-lg border border-border overflow-x-auto flex-shrink-0 no-scrollbar">
           {(['all', 'active', 'inactive'] as FilterStatus[]).map((status) => (
             <button
               key={status}
               onClick={() => setFilter(status)}
-              className={`px-4 py-2 text-sm font-medium capitalize transition-colors ${
+              className={`px-3 py-2 text-sm font-medium capitalize transition-colors whitespace-nowrap ${
                 filter === status
                   ? 'bg-accent-primary text-background'
                   : 'bg-background-secondary text-foreground-muted hover:text-foreground'
@@ -163,60 +201,12 @@ export default function CustomersPage() {
             </button>
           ))}
         </div>
-
-        {/* Refresh Button */}
-        <button onClick={loadCustomers} className="btn-secondary flex items-center gap-2">
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-          </svg>
-          Refresh
-        </button>
       </div>
 
       {loading ? (
         <PageLoader />
       ) : (
         <>
-          {/* Stats */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-            <div className="card p-4 flex items-center gap-4">
-              <div className="p-3 rounded-lg bg-accent-primary/10 text-accent-primary">
-                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
-                </svg>
-              </div>
-              <div>
-                <p className="text-foreground-muted text-sm">Total</p>
-                <p className="text-2xl font-bold text-foreground">{customers.length}</p>
-              </div>
-            </div>
-            <div className="card p-4 flex items-center gap-4">
-              <div className="p-3 rounded-lg bg-success/10 text-success">
-                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-              <div>
-                <p className="text-foreground-muted text-sm">Active</p>
-                <p className="text-2xl font-bold text-success">
-                  {customers.filter((c) => c.status === 'active').length}
-                </p>
-              </div>
-            </div>
-            <div className="card p-4 flex items-center gap-4">
-              <div className="p-3 rounded-lg bg-foreground-muted/10 text-foreground-muted">
-                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
-                </svg>
-              </div>
-              <div>
-                <p className="text-foreground-muted text-sm">Inactive</p>
-                <p className="text-2xl font-bold text-foreground">
-                  {customers.filter((c) => c.status === 'inactive').length}
-                </p>
-              </div>
-            </div>
-          </div>
 
           {/* Desktop Table - Hidden on Mobile */}
           <div className="hidden md:block card animate-fade-in">
