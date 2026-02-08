@@ -234,19 +234,20 @@ export default function DashboardPage() {
       />
 
       {/* Filter Bar: Router & Period Selectors */}
-      <div className="flex items-center gap-4 animate-fade-in flex-wrap">
-        {/* Router Selector */}
-        <RouterSelector
-          selectedRouterId={selectedRouterId}
-          onRouterChange={setSelectedRouterId}
-          userId={1}
-        />
-        
-        <div className="w-px h-6 bg-border hidden sm:block" />
-        
-        {/* Period Selector */}
-        <span className="text-foreground-muted text-sm">Period:</span>
-        <div className="flex gap-1 p-1 bg-background-tertiary rounded-lg flex-wrap">
+      <div className="space-y-3 animate-fade-in">
+        {/* Row 1: Router + Period label */}
+        <div className="flex items-center gap-3 sm:gap-4 flex-wrap">
+          <RouterSelector
+            selectedRouterId={selectedRouterId}
+            onRouterChange={setSelectedRouterId}
+            userId={1}
+          />
+          <div className="w-px h-6 bg-border hidden sm:block" />
+          <span className="text-foreground-muted text-sm hidden sm:inline">Period:</span>
+        </div>
+
+        {/* Row 2: Period pills (scrollable on mobile) */}
+        <div className="flex gap-1 p-1 bg-background-tertiary rounded-lg overflow-x-auto no-scrollbar">
           {DATE_FILTER_OPTIONS.map(({ filter, label }) => (
             <button
               key={label}
@@ -254,7 +255,7 @@ export default function DashboardPage() {
                 setDateFilter(filter);
                 setShowCustomRange(false);
               }}
-              className={`period-pill ${
+              className={`period-pill whitespace-nowrap flex-shrink-0 ${
                 isFilterEqual(dateFilter, filter) && !showCustomRange ? 'period-pill-active' : 'period-pill-inactive'
               }`}
             >
@@ -263,7 +264,7 @@ export default function DashboardPage() {
           ))}
           <button
             onClick={() => setShowCustomRange(!showCustomRange)}
-            className={`period-pill ${
+            className={`period-pill whitespace-nowrap flex-shrink-0 ${
               dateFilter.type === 'custom' || showCustomRange ? 'period-pill-active' : 'period-pill-inactive'
             }`}
           >
@@ -273,24 +274,24 @@ export default function DashboardPage() {
         
         {/* Custom Date Range Picker */}
         {showCustomRange && (
-          <div className="flex items-center gap-2 p-2 bg-background-tertiary rounded-lg ml-2 animate-fade-in">
+          <div className="flex items-center gap-2 p-2 bg-background-tertiary rounded-lg animate-fade-in flex-wrap sm:flex-nowrap">
             <input
               type="date"
               value={customStartDate}
               onChange={(e) => setCustomStartDate(e.target.value)}
-              className="px-2 py-1 text-sm bg-background border border-border rounded-md text-foreground focus:outline-none focus:ring-1 focus:ring-amber-500"
+              className="px-2 py-1.5 text-sm bg-background border border-border rounded-md text-foreground focus:outline-none focus:ring-1 focus:ring-amber-500 flex-1 min-w-0"
             />
             <span className="text-foreground-muted text-sm">to</span>
             <input
               type="date"
               value={customEndDate}
               onChange={(e) => setCustomEndDate(e.target.value)}
-              className="px-2 py-1 text-sm bg-background border border-border rounded-md text-foreground focus:outline-none focus:ring-1 focus:ring-amber-500"
+              className="px-2 py-1.5 text-sm bg-background border border-border rounded-md text-foreground focus:outline-none focus:ring-1 focus:ring-amber-500 flex-1 min-w-0"
             />
             <button
               onClick={applyCustomRange}
               disabled={!customStartDate || !customEndDate}
-              className="btn-primary text-xs px-3 py-1 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="btn-primary text-xs px-3 py-1.5 disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
             >
               Apply
             </button>
@@ -408,14 +409,14 @@ export default function DashboardPage() {
           {/* Revenue & Plan Performance Row */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Daily Trend - 2/3 width */}
-            <div className="lg:col-span-2 card p-6 animate-fade-in" style={{ animationDelay: '0.25s', opacity: 0 }}>
-              <div className="flex items-center justify-between mb-5">
-                <h3 className="font-semibold text-foreground flex items-center gap-2">
+            <div className="lg:col-span-2 card p-4 sm:p-6 animate-fade-in" style={{ animationDelay: '0.25s', opacity: 0 }}>
+              <div className="flex items-center justify-between mb-4 sm:mb-5">
+                <h3 className="font-semibold text-foreground flex items-center gap-2 text-sm sm:text-base">
                   <span className="w-1.5 h-5 rounded-full bg-amber-500" />
                   Daily Revenue
                 </h3>
-                <span className="text-xs text-foreground-muted">
-                  {data.dailyTrend.length} active days
+                <span className="text-[10px] sm:text-xs text-foreground-muted">
+                  {data.dailyTrend.length} days
                 </span>
               </div>
               {data.dailyTrend.length === 0 ? (
@@ -430,9 +431,9 @@ export default function DashboardPage() {
             </div>
 
             {/* Plan Performance - 1/3 width */}
-            <div className="card p-6 animate-fade-in" style={{ animationDelay: '0.3s', opacity: 0 }}>
-              <div className="flex items-center justify-between mb-5">
-                <h3 className="font-semibold text-foreground flex items-center gap-2">
+            <div className="card p-4 sm:p-6 animate-fade-in" style={{ animationDelay: '0.3s', opacity: 0 }}>
+              <div className="flex items-center justify-between mb-4 sm:mb-5">
+                <h3 className="font-semibold text-foreground flex items-center gap-2 text-sm sm:text-base">
                   <span className="w-1.5 h-5 rounded-full bg-emerald-500" />
                   Plan Performance
                 </h3>
@@ -450,23 +451,23 @@ export default function DashboardPage() {
 
           {/* Selected Day Detail - Only show if selected */}
           {selectedDayData && (
-            <div className="card p-6 animate-fade-in" style={{ animationDelay: '0.35s', opacity: 0 }}>
+            <div className="card p-4 sm:p-6 animate-fade-in" style={{ animationDelay: '0.35s', opacity: 0 }}>
               <DayDetailCard dayData={selectedDayData} />
             </div>
           )}
 
           {/* Active Days Grid */}
           <div className="animate-fade-in" style={{ animationDelay: '0.4s', opacity: 0 }}>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold text-foreground flex items-center gap-2">
+            <div className="flex items-center justify-between mb-3 sm:mb-4">
+              <h3 className="font-semibold text-foreground flex items-center gap-2 text-sm sm:text-base">
                 <span className="w-1.5 h-5 rounded-full bg-orange-500" />
                 Day Breakdown
               </h3>
-              <span className="text-xs text-foreground-muted">
-                Click to view details
+              <span className="text-[10px] sm:text-xs text-foreground-muted">
+                Tap to view
               </span>
             </div>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 sm:gap-3">
               {Object.entries(data.days)
                 .sort(([a], [b]) => b.localeCompare(a))
                 .map(([date, day]) => (
@@ -490,7 +491,7 @@ function RadialGauge({
   value, 
   label, 
   icon,
-  size = 120,
+  size = 110,
   thresholds = { warning: 60, danger: 80 },
   subtitle
 }: { 
@@ -519,10 +520,10 @@ function RadialGauge({
                     normalizedValue >= thresholds.warning ? 'Warning' : 'Normal';
 
   return (
-    <div className={`relative flex flex-col items-center p-4 rounded-2xl bg-gradient-to-b ${color.bg}`}>
-      <div className="relative" style={{ width: size, height: size }}>
+    <div className={`relative flex flex-col items-center p-3 sm:p-4 rounded-2xl bg-gradient-to-b ${color.bg}`}>
+      <div className="relative w-[90px] h-[90px] sm:w-[110px] sm:h-[110px]" style={{ maxWidth: size, maxHeight: size }}>
         {/* Background circle */}
-        <svg className="absolute inset-0 -rotate-90" width={size} height={size}>
+        <svg className="absolute inset-0 -rotate-90 w-full h-full" viewBox={`0 0 ${size} ${size}`}>
           <circle
             cx={size / 2}
             cy={size / 2}
@@ -549,17 +550,17 @@ function RadialGauge({
         
         {/* Center content */}
         <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <div className={`mb-1 ${color.text}`}>{icon}</div>
-          <span className={`text-2xl font-bold stat-value ${color.text}`}>
+          <div className={`mb-0.5 sm:mb-1 ${color.text}`}>{icon}</div>
+          <span className={`text-lg sm:text-2xl font-bold stat-value ${color.text}`}>
             {normalizedValue.toFixed(0)}%
           </span>
-          <span className={`text-[10px] font-medium ${color.text}`}>{riskLevel}</span>
+          <span className={`text-[9px] sm:text-[10px] font-medium ${color.text}`}>{riskLevel}</span>
         </div>
       </div>
       
-      <div className="mt-2 text-center">
-        <p className="text-sm font-medium text-foreground">{label}</p>
-        {subtitle && <p className="text-[10px] text-foreground-muted mt-0.5">{subtitle}</p>}
+      <div className="mt-1.5 sm:mt-2 text-center">
+        <p className="text-xs sm:text-sm font-medium text-foreground">{label}</p>
+        {subtitle && <p className="text-[9px] sm:text-[10px] text-foreground-muted mt-0.5 truncate max-w-full">{subtitle}</p>}
       </div>
     </div>
   );
@@ -579,26 +580,26 @@ function BandwidthSpeedometer({
   const uploadPercent = Math.min((upload / maxSpeed) * 100, 100);
   
   return (
-    <div className="p-4 rounded-2xl bg-gradient-to-br from-background-tertiary to-background">
-      <div className="flex items-center justify-between mb-4">
-        <span className="text-xs text-foreground-muted uppercase tracking-wide font-medium">Live Bandwidth</span>
+    <div className="p-3 sm:p-4 rounded-2xl bg-gradient-to-br from-background-tertiary to-background">
+      <div className="flex items-center justify-between mb-3 sm:mb-4">
+        <span className="text-[10px] sm:text-xs text-foreground-muted uppercase tracking-wide font-medium">Live Bandwidth</span>
         <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
       </div>
       
-      <div className="space-y-4">
+      <div className="space-y-3 sm:space-y-4">
         {/* Download */}
         <div>
-          <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center justify-between mb-1.5 sm:mb-2">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-cyan-500/20 flex items-center justify-center">
-                <svg className="w-4 h-4 text-cyan-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-cyan-500/20 flex items-center justify-center">
+                <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-cyan-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
                 </svg>
               </div>
-              <span className="text-sm text-foreground-muted">Download</span>
+              <span className="text-xs sm:text-sm text-foreground-muted">Download</span>
             </div>
-            <span className="text-xl font-bold text-cyan-500 stat-value">
-              {download.toFixed(2)} <span className="text-xs font-normal">Mbps</span>
+            <span className="text-lg sm:text-xl font-bold text-cyan-500 stat-value">
+              {download.toFixed(2)} <span className="text-[10px] sm:text-xs font-normal">Mbps</span>
             </span>
           </div>
           <div className="h-3 bg-background rounded-full overflow-hidden relative">
@@ -613,17 +614,17 @@ function BandwidthSpeedometer({
         
         {/* Upload */}
         <div>
-          <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center justify-between mb-1.5 sm:mb-2">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-emerald-500/20 flex items-center justify-center">
-                <svg className="w-4 h-4 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-emerald-500/20 flex items-center justify-center">
+                <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10l7-7m0 0l7 7m-7-7v18" />
                 </svg>
               </div>
-              <span className="text-sm text-foreground-muted">Upload</span>
+              <span className="text-xs sm:text-sm text-foreground-muted">Upload</span>
             </div>
-            <span className="text-xl font-bold text-emerald-500 stat-value">
-              {upload.toFixed(2)} <span className="text-xs font-normal">Mbps</span>
+            <span className="text-lg sm:text-xl font-bold text-emerald-500 stat-value">
+              {upload.toFixed(2)} <span className="text-[10px] sm:text-xs font-normal">Mbps</span>
             </span>
           </div>
           <div className="h-3 bg-background rounded-full overflow-hidden relative">
@@ -638,9 +639,9 @@ function BandwidthSpeedometer({
       </div>
       
       {/* Combined total */}
-      <div className="mt-4 pt-3 border-t border-border/30 flex items-center justify-between">
-        <span className="text-xs text-foreground-muted">Total Throughput</span>
-        <span className="text-sm font-semibold text-foreground">
+      <div className="mt-3 sm:mt-4 pt-2.5 sm:pt-3 border-t border-border/30 flex items-center justify-between">
+        <span className="text-[10px] sm:text-xs text-foreground-muted">Total Throughput</span>
+        <span className="text-xs sm:text-sm font-semibold text-foreground">
           {(download + upload).toFixed(2)} Mbps
         </span>
       </div>
@@ -717,27 +718,27 @@ function MikroTikSection({
   const bandwidth = data.bandwidth ?? { downloadMbps: 0, uploadMbps: 0 };
   
   return (
-    <div className="card p-5 animate-fade-in flex-1">
+    <div className="card p-4 sm:p-5 animate-fade-in flex-1">
       {/* Header */}
-      <div className="flex items-center justify-between mb-5">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center">
-            <RouterIcon className="w-5 h-5 text-emerald-500" />
+      <div className="flex items-start sm:items-center justify-between mb-4 sm:mb-5 gap-3">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center flex-shrink-0">
+            <RouterIcon className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-500" />
           </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <p className="font-semibold text-foreground">{routerName}</p>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <p className="font-semibold text-foreground text-sm sm:text-base">{routerName}</p>
               <span className="badge badge-success text-[10px]">Online</span>
               {data.cached && <span className="badge bg-blue-500/20 text-blue-400 text-[10px]">Cached</span>}
               {loading && <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />}
             </div>
-            <p className="text-xs text-foreground-muted">
-              {system.boardName} • {system.platform || 'Unknown'} {system.version ? `v${system.version}` : ''} • Uptime: {uptime}
+            <p className="text-[10px] sm:text-xs text-foreground-muted truncate">
+              {system.boardName} • {system.platform || 'Unknown'} {system.version ? `v${system.version}` : ''} • Up: {uptime}
             </p>
           </div>
         </div>
         {data.generatedAt && (
-          <div className="text-right hidden sm:block">
+          <div className="text-right hidden sm:block flex-shrink-0">
             <p className="text-xs text-foreground-muted">Last updated</p>
             <p className="text-xs text-foreground-muted" suppressHydrationWarning>
               {formatGMT3Date(parseUTCTimestamp(data.generatedAt), { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
@@ -747,7 +748,7 @@ function MikroTikSection({
       </div>
 
       {/* Main Metrics Grid - Radial Gauges + Bandwidth */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-5">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-4 sm:mb-5">
         {/* CPU Gauge */}
         <RadialGauge 
           value={cpuLoad}
@@ -775,13 +776,13 @@ function MikroTikSection({
         />
         
         {/* Active Users Card */}
-        <div className="p-4 rounded-2xl bg-gradient-to-b from-amber-500/20 to-amber-500/5 flex flex-col items-center justify-center">
-          <div className="w-16 h-16 rounded-2xl bg-amber-500/20 flex items-center justify-center mb-3">
-            <UsersIcon className="w-8 h-8 text-amber-500" />
+        <div className="p-3 sm:p-4 rounded-2xl bg-gradient-to-b from-amber-500/20 to-amber-500/5 flex flex-col items-center justify-center">
+          <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-2xl bg-amber-500/20 flex items-center justify-center mb-2 sm:mb-3">
+            <UsersIcon className="w-6 h-6 sm:w-8 sm:h-8 text-amber-500" />
           </div>
-          <span className="text-3xl font-bold text-amber-500 stat-value">{activeUsers}</span>
-          <span className="text-sm font-medium text-foreground mt-1">Active Users</span>
-          <span className="text-[10px] text-foreground-muted">Currently online</span>
+          <span className="text-2xl sm:text-3xl font-bold text-amber-500 stat-value">{activeUsers}</span>
+          <span className="text-xs sm:text-sm font-medium text-foreground mt-1">Active Users</span>
+          <span className="text-[9px] sm:text-[10px] text-foreground-muted">Currently online</span>
         </div>
       </div>
 
@@ -889,53 +890,53 @@ function BandwidthSection({
   const avgUpload = data.history.reduce((sum, d) => sum + (d.avgUploadMbps ?? 0), 0) / data.history.length;
 
   return (
-    <div className="card p-5 animate-fade-in">
+    <div className="card p-4 sm:p-5 animate-fade-in">
       {/* Header */}
-      <div className="flex items-center justify-between mb-5">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 sm:mb-5 gap-2 sm:gap-0">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-cyan-500/10 flex items-center justify-center">
-            <BandwidthIcon className="w-5 h-5 text-cyan-500" />
+          <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-cyan-500/10 flex items-center justify-center flex-shrink-0">
+            <BandwidthIcon className="w-4 h-4 sm:w-5 sm:h-5 text-cyan-500" />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <p className="font-semibold text-foreground">Bandwidth History</p>
+              <p className="font-semibold text-foreground text-sm sm:text-base">Bandwidth History</p>
               {loading && <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />}
             </div>
-            <p className="text-xs text-foreground-muted">
-              Last {data.periodHours} hours • {data.count} data points
+            <p className="text-[10px] sm:text-xs text-foreground-muted">
+              Last {data.periodHours}h • {data.count} points
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-4 text-right">
-          <div>
-            <p className="text-xs text-foreground-muted">Current Avg</p>
-            <p className="text-sm font-semibold">
+        <div className="flex items-center gap-4 ml-12 sm:ml-0">
+          <div className="sm:text-right">
+            <p className="text-[10px] sm:text-xs text-foreground-muted">Current Avg</p>
+            <p className="text-xs sm:text-sm font-semibold">
               <span className="text-cyan-500">↓{(latestPoint.avgDownloadMbps ?? 0).toFixed(2)}</span>
               <span className="text-foreground-muted mx-1">/</span>
               <span className="text-emerald-500">↑{(latestPoint.avgUploadMbps ?? 0).toFixed(2)}</span>
-              <span className="text-foreground-muted text-xs ml-1">Mbps</span>
+              <span className="text-foreground-muted text-[10px] sm:text-xs ml-1">Mbps</span>
             </p>
           </div>
         </div>
       </div>
 
       {/* Stats Row */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
-        <div className="p-3 rounded-lg bg-background-tertiary">
-          <p className="text-[10px] text-foreground-muted uppercase tracking-wide">Peak Download</p>
-          <p className="text-lg font-bold text-cyan-500 stat-value">{maxDownload.toFixed(2)} <span className="text-xs font-normal">Mbps</span></p>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3 mb-4 sm:mb-5">
+        <div className="p-2.5 sm:p-3 rounded-lg bg-background-tertiary">
+          <p className="text-[9px] sm:text-[10px] text-foreground-muted uppercase tracking-wide">Peak Down</p>
+          <p className="text-base sm:text-lg font-bold text-cyan-500 stat-value">{maxDownload.toFixed(2)} <span className="text-[10px] sm:text-xs font-normal">Mbps</span></p>
         </div>
-        <div className="p-3 rounded-lg bg-background-tertiary">
-          <p className="text-[10px] text-foreground-muted uppercase tracking-wide">Peak Upload</p>
-          <p className="text-lg font-bold text-emerald-500 stat-value">{maxUpload.toFixed(2)} <span className="text-xs font-normal">Mbps</span></p>
+        <div className="p-2.5 sm:p-3 rounded-lg bg-background-tertiary">
+          <p className="text-[9px] sm:text-[10px] text-foreground-muted uppercase tracking-wide">Peak Up</p>
+          <p className="text-base sm:text-lg font-bold text-emerald-500 stat-value">{maxUpload.toFixed(2)} <span className="text-[10px] sm:text-xs font-normal">Mbps</span></p>
         </div>
-        <div className="p-3 rounded-lg bg-background-tertiary">
-          <p className="text-[10px] text-foreground-muted uppercase tracking-wide">Avg Download</p>
-          <p className="text-lg font-bold text-foreground stat-value">{avgDownload.toFixed(2)} <span className="text-xs font-normal">Mbps</span></p>
+        <div className="p-2.5 sm:p-3 rounded-lg bg-background-tertiary">
+          <p className="text-[9px] sm:text-[10px] text-foreground-muted uppercase tracking-wide">Avg Down</p>
+          <p className="text-base sm:text-lg font-bold text-foreground stat-value">{avgDownload.toFixed(2)} <span className="text-[10px] sm:text-xs font-normal">Mbps</span></p>
         </div>
-        <div className="p-3 rounded-lg bg-background-tertiary">
-          <p className="text-[10px] text-foreground-muted uppercase tracking-wide">Avg Upload</p>
-          <p className="text-lg font-bold text-foreground stat-value">{avgUpload.toFixed(2)} <span className="text-xs font-normal">Mbps</span></p>
+        <div className="p-2.5 sm:p-3 rounded-lg bg-background-tertiary">
+          <p className="text-[9px] sm:text-[10px] text-foreground-muted uppercase tracking-wide">Avg Up</p>
+          <p className="text-base sm:text-lg font-bold text-foreground stat-value">{avgUpload.toFixed(2)} <span className="text-[10px] sm:text-xs font-normal">Mbps</span></p>
         </div>
       </div>
 
@@ -1091,9 +1092,9 @@ function TopUsersSection({
               <th className="text-left pb-2 font-medium">#</th>
               <th className="text-left pb-2 font-medium">User</th>
               <th className="text-right pb-2 font-medium">↓ Down</th>
-              <th className="text-right pb-2 font-medium">↑ Up</th>
-              <th className="text-right pb-2 font-medium">Total</th>
-              <th className="text-right pb-2 font-medium">Speed</th>
+              <th className="text-right pb-2 font-medium hidden sm:table-cell">↑ Up</th>
+              <th className="text-right pb-2 font-medium hidden lg:table-cell">Total</th>
+              <th className="text-right pb-2 font-medium hidden sm:table-cell">Speed</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-border/30">
@@ -1109,7 +1110,7 @@ function TopUsersSection({
                   className={`${isActive ? 'bg-emerald-500/5' : ''} hover:bg-background-tertiary/50 transition-colors`}
                 >
                   {/* Rank */}
-                  <td className="py-2 pr-2">
+                  <td className="py-2 pr-1.5 sm:pr-2">
                     <span className={`font-bold ${
                       rank === 1 ? 'text-amber-500' :
                       rank === 2 ? 'text-zinc-400' :
@@ -1123,13 +1124,13 @@ function TopUsersSection({
                   {/* User Info */}
                   <td className="py-2">
                     <div className="flex items-center gap-1.5">
-                      <span className="font-mono text-foreground">{user.customerPhone}</span>
+                      <span className="font-mono text-foreground text-[11px] sm:text-xs">{user.customerPhone}</span>
                       {isActive && (
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" title="Active" />
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse flex-shrink-0" title="Active" />
                       )}
                     </div>
                     {/* Mini progress bar */}
-                    <div className="w-20 h-1 bg-background-tertiary rounded-full mt-1 overflow-hidden">
+                    <div className="w-16 sm:w-20 h-1 bg-background-tertiary rounded-full mt-1 overflow-hidden">
                       <div 
                         className="h-full bg-gradient-to-r from-cyan-500 to-cyan-400 rounded-full"
                         style={{ width: `${downloadPercent}%` }}
@@ -1142,18 +1143,18 @@ function TopUsersSection({
                     {formatUsage(user.downloadMB)}
                   </td>
                   
-                  {/* Upload */}
-                  <td className="py-2 text-right text-emerald-500 font-medium">
+                  {/* Upload - hidden on small screens */}
+                  <td className="py-2 text-right text-emerald-500 font-medium hidden sm:table-cell">
                     {formatUsage(user.uploadMB)}
                   </td>
                   
-                  {/* Total */}
-                  <td className="py-2 text-right font-semibold text-foreground">
+                  {/* Total - hidden on small/medium */}
+                  <td className="py-2 text-right font-semibold text-foreground hidden lg:table-cell">
                     {formatUsage(user.totalMB)}
                   </td>
                   
-                  {/* Current Speed */}
-                  <td className="py-2 text-right">
+                  {/* Current Speed - hidden on small screens */}
+                  <td className="py-2 text-right hidden sm:table-cell">
                     {isActive ? (
                       <span className="text-emerald-500">
                         {formatRate(downloadRate)}/s
@@ -1196,7 +1197,7 @@ function BandwidthChart({ data }: { data: BandwidthDataPoint[] }) {
   if (displayData.length === 0) return null;
 
   return (
-    <div className="h-64 w-full">
+    <div className="h-48 sm:h-64 w-full">
       <ResponsiveContainer width="100%" height="100%">
         <AreaChart
           data={displayData}
@@ -1348,22 +1349,22 @@ function DailyTrendChart({
           <button
             key={day.date}
             onClick={() => onDateSelect(day.date)}
-            className={`w-full group flex items-center gap-4 p-3 rounded-xl transition-all duration-200 ${
+            className={`w-full group flex items-center gap-2 sm:gap-4 p-2.5 sm:p-3 rounded-xl transition-all duration-200 ${
               isSelected
                 ? 'bg-amber-500/10 ring-1 ring-amber-500/30'
                 : 'hover:bg-background-tertiary'
             }`}
           >
-            <div className="w-20 text-left flex-shrink-0">
-              <p className={`text-sm font-medium ${isSelected ? 'text-amber-500' : 'text-foreground'}`}>
+            <div className="w-14 sm:w-20 text-left flex-shrink-0">
+              <p className={`text-xs sm:text-sm font-medium ${isSelected ? 'text-amber-500' : 'text-foreground'}`}>
                 {formatLocalDate(day.date, { weekday: 'short' })}
               </p>
-              <p className="text-xs text-foreground-muted">
+              <p className="text-[10px] sm:text-xs text-foreground-muted">
                 {formatLocalDate(day.date, { month: 'short', day: 'numeric' })}
               </p>
             </div>
             
-            <div className="flex-1 h-8 bg-background-tertiary rounded-lg overflow-hidden">
+            <div className="flex-1 h-6 sm:h-8 bg-background-tertiary rounded-lg overflow-hidden min-w-0">
               <div
                 className={`h-full rounded-lg transition-all duration-500 ${
                   isSelected 
@@ -1374,12 +1375,12 @@ function DailyTrendChart({
               />
             </div>
             
-            <div className="w-28 text-right flex-shrink-0">
-              <p className={`font-semibold stat-value ${isSelected ? 'text-amber-500' : 'text-foreground'}`}>
+            <div className="w-20 sm:w-28 text-right flex-shrink-0">
+              <p className={`font-semibold stat-value text-xs sm:text-base ${isSelected ? 'text-amber-500' : 'text-foreground'}`}>
                 KES {day.revenue.toLocaleString()}
               </p>
-              <p className="text-xs text-foreground-muted">
-                {day.transactions} tx · {day.users} users
+              <p className="text-[10px] sm:text-xs text-foreground-muted">
+                {day.transactions} tx · {day.users}
               </p>
             </div>
           </button>
@@ -1432,17 +1433,17 @@ function PlanPerformanceList({ plans, totalRevenue }: { plans: { name: string; c
 function DayDetailCard({ dayData }: { dayData: DayDetail }) {
   return (
     <div>
-      <div className="flex items-center justify-between mb-5">
-        <div>
-          <p className="text-xs text-foreground-muted uppercase tracking-wide font-medium">Selected Day</p>
-          <h3 className="font-semibold text-foreground">{dayData.dateLabel}</h3>
+      <div className="flex items-center justify-between mb-4 sm:mb-5 gap-3">
+        <div className="min-w-0">
+          <p className="text-[10px] sm:text-xs text-foreground-muted uppercase tracking-wide font-medium">Selected Day</p>
+          <h3 className="font-semibold text-foreground text-sm sm:text-base truncate">{dayData.dateLabel}</h3>
         </div>
-        <span className="text-2xl font-bold text-amber-500 stat-value">
+        <span className="text-xl sm:text-2xl font-bold text-amber-500 stat-value flex-shrink-0">
           KES {dayData.totalRevenue.toLocaleString()}
         </span>
       </div>
 
-      <div className="grid grid-cols-4 gap-3 mb-5">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 mb-4 sm:mb-5">
         <MetricBox value={dayData.totalTransactions} label="Tx" />
         <MetricBox value={dayData.uniqueUsers} label="Users" color="emerald" />
         <MetricBox value={`${dayData.repeatCustomerPercent.toFixed(0)}%`} label="Repeat" color="amber" />
@@ -1450,20 +1451,20 @@ function DayDetailCard({ dayData }: { dayData: DayDetail }) {
       </div>
 
       {/* Top Spenders */}
-      <div className="mb-5">
-        <p className="text-xs text-foreground-muted uppercase tracking-wide font-medium mb-3">Top Spenders</p>
+      <div className="mb-4 sm:mb-5">
+        <p className="text-[10px] sm:text-xs text-foreground-muted uppercase tracking-wide font-medium mb-2 sm:mb-3">Top Spenders</p>
         <div className="space-y-2">
           {dayData.topSpenders.slice(0, 3).map((spender, i) => (
-            <div key={i} className="flex items-center justify-between p-2.5 rounded-lg bg-background-tertiary">
+            <div key={i} className="flex items-center justify-between p-2 sm:p-2.5 rounded-lg bg-background-tertiary">
               <div className="flex items-center gap-2">
-                <span className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold ${
+                <span className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${
                   i === 0 ? 'bg-amber-500/20 text-amber-500' : 'bg-foreground-muted/10 text-foreground-muted'
                 }`}>
                   {i + 1}
                 </span>
-                <span className="font-mono text-sm text-foreground">****{spender.phone}</span>
+                <span className="font-mono text-xs sm:text-sm text-foreground">****{spender.phone}</span>
               </div>
-              <span className="font-semibold text-sm text-amber-500 stat-value">
+              <span className="font-semibold text-xs sm:text-sm text-amber-500 stat-value">
                 KES {spender.amount.toLocaleString()}
               </span>
             </div>
@@ -1472,18 +1473,18 @@ function DayDetailCard({ dayData }: { dayData: DayDetail }) {
       </div>
 
       {/* Timeline */}
-      <div className="p-3 rounded-lg bg-background-tertiary">
+      <div className="p-2.5 sm:p-3 rounded-lg bg-background-tertiary">
         <div className="flex items-center justify-between text-center">
           <div>
-            <p className="text-lg font-semibold text-foreground">{convertUTCTimeToLocal(dayData.firstTransaction, dayData.date)}</p>
-            <p className="text-xs text-foreground-muted">First Tx</p>
+            <p className="text-base sm:text-lg font-semibold text-foreground">{convertUTCTimeToLocal(dayData.firstTransaction, dayData.date)}</p>
+            <p className="text-[10px] sm:text-xs text-foreground-muted">First Tx</p>
           </div>
-          <div className="flex-1 mx-4">
+          <div className="flex-1 mx-2 sm:mx-4">
             <div className="h-0.5 bg-gradient-to-r from-emerald-500 via-amber-500 to-orange-500 rounded-full" />
           </div>
           <div>
-            <p className="text-lg font-semibold text-foreground">{convertUTCTimeToLocal(dayData.lastTransaction, dayData.date)}</p>
-            <p className="text-xs text-foreground-muted">Last Tx</p>
+            <p className="text-base sm:text-lg font-semibold text-foreground">{convertUTCTimeToLocal(dayData.lastTransaction, dayData.date)}</p>
+            <p className="text-[10px] sm:text-xs text-foreground-muted">Last Tx</p>
           </div>
         </div>
       </div>
@@ -1510,12 +1511,12 @@ function MetricBox({
   };
 
   return (
-    <div className="text-center p-2.5 rounded-lg bg-background-tertiary">
-      <p className={`text-lg font-bold stat-value ${colorClass[color]}`}>
-        {prefix && <span className="text-xs font-normal">{prefix} </span>}
+    <div className="text-center p-2 sm:p-2.5 rounded-lg bg-background-tertiary">
+      <p className={`text-base sm:text-lg font-bold stat-value ${colorClass[color]}`}>
+        {prefix && <span className="text-[10px] sm:text-xs font-normal">{prefix} </span>}
         {value}
       </p>
-      <p className="text-[10px] text-foreground-muted uppercase tracking-wide">{label}</p>
+      <p className="text-[9px] sm:text-[10px] text-foreground-muted uppercase tracking-wide">{label}</p>
     </div>
   );
 }
@@ -1535,19 +1536,19 @@ function DayCard({
       onClick={onClick}
       className={`day-card text-left ${isSelected ? 'day-card-active' : ''}`}
     >
-      <p className={`font-medium text-sm ${isSelected ? 'text-amber-500' : 'text-foreground'}`}>
+      <p className={`font-medium text-xs sm:text-sm ${isSelected ? 'text-amber-500' : 'text-foreground'}`}>
         {formatLocalDate(day.date, { weekday: 'short', month: 'short', day: 'numeric' })}
       </p>
-      <div className="flex items-baseline justify-between mt-2">
-        <span className="text-xs text-foreground-muted">{day.totalTransactions} tx</span>
-        <span className={`font-semibold text-sm stat-value ${isSelected ? 'text-amber-500' : 'text-foreground'}`}>
+      <div className="flex items-baseline justify-between mt-1.5 sm:mt-2">
+        <span className="text-[10px] sm:text-xs text-foreground-muted">{day.totalTransactions} tx</span>
+        <span className={`font-semibold text-xs sm:text-sm stat-value ${isSelected ? 'text-amber-500' : 'text-foreground'}`}>
           KES {day.totalRevenue.toLocaleString()}
         </span>
       </div>
-      <div className="flex items-center gap-2 mt-2">
-        <span className="text-[10px] text-foreground-muted">{day.uniqueUsers} users</span>
-        <span className="text-[10px] text-foreground-muted">·</span>
-        <span className="text-[10px] text-foreground-muted">{day.repeatCustomerPercent.toFixed(0)}% repeat</span>
+      <div className="flex items-center gap-1 sm:gap-2 mt-1.5 sm:mt-2">
+        <span className="text-[9px] sm:text-[10px] text-foreground-muted">{day.uniqueUsers} users</span>
+        <span className="text-[9px] sm:text-[10px] text-foreground-muted">·</span>
+        <span className="text-[9px] sm:text-[10px] text-foreground-muted">{day.repeatCustomerPercent.toFixed(0)}%</span>
       </div>
     </button>
   );

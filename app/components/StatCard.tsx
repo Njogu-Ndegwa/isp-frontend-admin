@@ -56,14 +56,14 @@ export default function StatCard({
   const styles = accentStyles[accent];
 
   return (
-    <div className="group relative overflow-hidden bg-background-secondary border border-border rounded-2xl p-5 transition-all duration-300 hover:border-border-hover hover:shadow-lg">
+    <div className="group relative overflow-hidden bg-background-secondary border border-border rounded-2xl p-3.5 sm:p-5 transition-all duration-300 hover:border-border-hover hover:shadow-lg">
       {/* Subtle gradient overlay */}
       <div className="absolute inset-0 bg-gradient-to-br from-white/[0.02] to-transparent pointer-events-none" />
       
       {/* Content */}
       <div className="relative">
-        <div className="flex items-center justify-between mb-4">
-          <div className={`p-2.5 rounded-xl ${styles.iconBg} ring-1 ${styles.ring}`}>
+        <div className="flex items-center justify-between mb-2.5 sm:mb-4">
+          <div className={`p-2 sm:p-2.5 rounded-xl ${styles.iconBg} ring-1 ${styles.ring}`}>
             <div className={styles.iconColor}>{icon}</div>
           </div>
           {trend && (
@@ -89,12 +89,12 @@ export default function StatCard({
         </div>
         
         <div>
-          <p className="text-foreground-muted text-xs font-medium uppercase tracking-wider mb-1.5">{title}</p>
-          <p className={`font-bold text-foreground stat-value ${size === 'large' ? 'text-3xl' : 'text-2xl'}`}>
+          <p className="text-foreground-muted text-[10px] sm:text-xs font-medium uppercase tracking-wider mb-1 sm:mb-1.5">{title}</p>
+          <p className={`font-bold text-foreground stat-value ${size === 'large' ? 'text-xl sm:text-3xl' : 'text-lg sm:text-2xl'}`}>
             {value}
           </p>
           {subtitle && (
-            <p className="text-foreground-muted text-xs mt-1.5">{subtitle}</p>
+            <p className="text-foreground-muted text-[10px] sm:text-xs mt-1 sm:mt-1.5">{subtitle}</p>
           )}
         </div>
       </div>

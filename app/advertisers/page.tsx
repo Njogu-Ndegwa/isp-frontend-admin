@@ -6,6 +6,7 @@ import { Advertiser, CreateAdvertiserRequest } from '../lib/types';
 import { formatDateGMT3 } from '../lib/dateUtils';
 import Header from '../components/Header';
 import { PageLoader } from '../components/LoadingSpinner';
+import PullToRefresh from '../components/PullToRefresh';
 
 export default function AdvertisersPage() {
   const [advertisers, setAdvertisers] = useState<Advertiser[]>([]);
@@ -110,7 +111,7 @@ export default function AdvertisersPage() {
       {loading ? (
         <PageLoader />
       ) : (
-        <>
+        <PullToRefresh onRefresh={loadAdvertisers}>
           {/* Stats */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
             <div className="card p-4 flex items-center gap-4">
@@ -209,7 +210,7 @@ export default function AdvertisersPage() {
               </table>
             </div>
           </div>
-        </>
+        </PullToRefresh>
       )}
 
       {/* Create Advertiser Modal */}

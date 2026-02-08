@@ -7,6 +7,7 @@ import Header from '../components/Header';
 import { PageLoader } from '../components/LoadingSpinner';
 import { useAuth } from '../context/AuthContext';
 import Link from 'next/link';
+import PullToRefresh from '../components/PullToRefresh';
 
 export default function RoutersPage() {
   const { isAuthenticated } = useAuth();
@@ -132,9 +133,9 @@ export default function RoutersPage() {
       {loading ? (
         <PageLoader />
       ) : (
-        <>
+        <PullToRefresh onRefresh={loadRouters}>
           {/* Routers Grid */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6 mb-6">
             {routers.map((router, index) => (
               <div
                 key={router.id}
@@ -227,7 +228,7 @@ export default function RoutersPage() {
               <p className="text-foreground-muted">No routers are configured for your account</p>
             </div>
           )}
-        </>
+        </PullToRefresh>
       )}
     </div>
   );

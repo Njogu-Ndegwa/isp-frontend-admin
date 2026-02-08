@@ -678,3 +678,90 @@ tbody tr:last-child td {
 .leaflet-control-attribution a {
   color: #aaa !important;
 }
+
+/* Mobile Safe Area Utilities */
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.pt-safe {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+/* Hide on mobile breakpoint (< 500px) */
+@media (max-width: 499px) {
+  .hide-mobile {
+    display: none !important;
+  }
+}
+
+/* Show only on mobile breakpoint (< 500px) */
+@media (min-width: 500px) {
+  .show-mobile {
+    display: none !important;
+  }
+}
+
+/* Mobile Bottom Nav spacing utility */
+.pb-nav {
+  padding-bottom: calc(4rem + env(safe-area-inset-bottom, 0px));
+}
+
+/* Touch action utilities for swipeable cards */
+.touch-pan-x {
+  touch-action: pan-x;
+}
+
+.touch-pan-y {
+  touch-action: pan-y;
+}
+
+.touch-none {
+  touch-action: none;
+}
+
+/* Prevent text selection during swipe gestures */
+.select-none {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* Pull to refresh spinner animation */
+@keyframes spin-slow {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-spin-slow {
+  animation: spin-slow 1s linear infinite;
+}
+
+/* Swipe action backgrounds */
+.swipe-action-edit {
+  background: rgba(245, 158, 11, 0.9);
+}
+
+.swipe-action-delete {
+  background: rgba(239, 68, 68, 0.9);
+}
+
+/* Mobile card enhancements */
+.mobile-card {
+  transition: transform 0.2s ease, background-color 0.2s ease;
+}
+
+.mobile-card:active {
+  transform: scale(0.98);
+  background-color: var(--background-tertiary);
+}
+
+/* Haptic feedback simulation (visual) */
+@media (hover: none) {
+  .haptic:active {
+    opacity: 0.8;
+  }
+}

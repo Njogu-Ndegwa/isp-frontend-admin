@@ -5,6 +5,7 @@ import { api } from '../lib/api';
 import { Plan, CreatePlanRequest, PlanPerformanceDetail } from '../lib/types';
 import Header from '../components/Header';
 import { PageLoader } from '../components/LoadingSpinner';
+import PullToRefresh from '../components/PullToRefresh';
 
 export default function PlansPage() {
   const [plans, setPlans] = useState<Plan[]>([]);
@@ -119,9 +120,9 @@ export default function PlansPage() {
       {loading ? (
         <PageLoader />
       ) : (
-        <>
+        <PullToRefresh onRefresh={loadData}>
           {/* Plans Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
             {plans.map((plan, index) => {
               const perf = getPlanPerformance(plan.id);
               return (
@@ -214,7 +215,7 @@ export default function PlansPage() {
               </button>
             </div>
           )}
-        </>
+        </PullToRefresh>
       )}
 
       {/* Create Plan Modal */}

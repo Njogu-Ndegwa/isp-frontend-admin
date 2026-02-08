@@ -31,7 +31,7 @@ export default function Header({
   }, []);
 
   return (
-    <header className="mb-8">
+    <header className="mb-5 sm:mb-8">
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
           <p className="text-foreground-muted text-sm mb-1" suppressHydrationWarning>

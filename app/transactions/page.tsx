@@ -7,6 +7,7 @@ import { formatDateGMT3 } from '../lib/dateUtils';
 import Header from '../components/Header';
 import { PageLoader } from '../components/LoadingSpinner';
 import StatCard from '../components/StatCard';
+import PullToRefresh from '../components/PullToRefresh';
 
 type StatusFilter = 'all' | 'completed' | 'pending' | 'failed' | 'expired';
 
@@ -361,27 +362,28 @@ export default function TransactionsPage() {
             </div>
           )}
 
-          {/* Mobile Transaction Cards */}
-          <div className="md:hidden space-y-3 animate-fade-in">
-            {filteredTransactions.length === 0 ? (
-              <div className="card p-8 text-center text-foreground-muted">
-                <svg className="w-12 h-12 mx-auto mb-4 text-foreground-muted/50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                </svg>
-                {searchQuery ? 'No transactions match your search' : 'No transactions found'}
-              </div>
-            ) : (
-              filteredTransactions.map((tx, index) => (
-                <div
-                  key={tx.transaction_id}
-                  className={`card p-4 animate-fade-in ${tx.status === 'failed' ? 'border-red-500/20' : ''}`}
-                  style={{ animationDelay: `${index * 0.03}s`, opacity: 0 }}
-                  onClick={() => {
-                    if (tx.status === 'failed') {
-                      setExpandedTx(expandedTx === tx.transaction_id ? null : tx.transaction_id);
-                    }
-                  }}
-                >
+          {/* Mobile Transaction Cards with Pull-to-Refresh */}
+          <PullToRefresh onRefresh={loadData} className="md:hidden">
+            <div className="space-y-3 animate-fade-in">
+              {filteredTransactions.length === 0 ? (
+                <div className="card p-8 text-center text-foreground-muted">
+                  <svg className="w-12 h-12 mx-auto mb-4 text-foreground-muted/50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                  </svg>
+                  {searchQuery ? 'No transactions match your search' : 'No transactions found'}
+                </div>
+              ) : (
+                filteredTransactions.map((tx, index) => (
+                  <div
+                    key={tx.transaction_id}
+                    className={`card p-4 animate-fade-in ${tx.status === 'failed' ? 'border-red-500/20' : ''}`}
+                    style={{ animationDelay: `${index * 0.03}s`, opacity: 0 }}
+                    onClick={() => {
+                      if (tx.status === 'failed') {
+                        setExpandedTx(expandedTx === tx.transaction_id ? null : tx.transaction_id);
+                      }
+                    }}
+                  >
                   {/* Top row: Customer + Amount */}
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-3 min-w-0">
@@ -480,7 +482,8 @@ export default function TransactionsPage() {
                 </div>
               ))
             )}
-          </div>
+            </div>
+          </PullToRefresh>
 
           {/* Desktop Transactions Table */}
           <div className="card animate-fade-in hidden md:block">

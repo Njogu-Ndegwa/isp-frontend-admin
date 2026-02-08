@@ -6,6 +6,7 @@ import { api } from '../lib/api';
 import { Ad, Advertiser, CreateAdRequest } from '../lib/types';
 import Header from '../components/Header';
 import { PageLoader } from '../components/LoadingSpinner';
+import PullToRefresh from '../components/PullToRefresh';
 
 const CATEGORIES = [
   'electronics',
@@ -210,9 +211,9 @@ export default function AdsPage() {
       {loading ? (
         <PageLoader />
       ) : (
-        <>
+        <PullToRefresh onRefresh={loadData}>
           {/* Stats */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-6">
             <div className="card p-4 flex items-center gap-4">
               <div className="p-3 rounded-lg bg-accent-primary/10 text-accent-primary">
                 <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -399,7 +400,7 @@ export default function AdsPage() {
               </button>
             </div>
           )}
-        </>
+        </PullToRefresh>
       )}
 
       {/* Create Ad Modal */}

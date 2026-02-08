@@ -6,6 +6,7 @@ import { api } from '../lib/api';
 import { Rating, RatingSummary, CustomerMapData } from '../lib/types';
 import Header from '../components/Header';
 import { PageLoader } from '../components/LoadingSpinner';
+import PullToRefresh from '../components/PullToRefresh';
 
 // Dynamically import the map component to avoid SSR issues with Leaflet
 const RatingsMap = dynamic(() => import('./RatingsMap'), {
@@ -149,7 +150,7 @@ export default function RatingsPage() {
       {loading ? (
         <PageLoader />
       ) : (
-        <>
+        <PullToRefresh onRefresh={loadData}>
           {/* Summary Cards */}
           {summary && (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6 animate-fade-in">
@@ -353,7 +354,7 @@ export default function RatingsPage() {
               </div>
             )}
           </div>
-        </>
+        </PullToRefresh>
       )}
     </div>
   );
