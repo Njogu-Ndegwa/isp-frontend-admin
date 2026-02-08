@@ -303,7 +303,7 @@ export default function TransactionsPage() {
                     title={tx.customer?.name || '-'}
                     subtitle={tx.phone_number}
                     avatar={{
-                      text: tx.customer?.name.charAt(0).toUpperCase() || '?',
+                      text: tx.customer?.name?.charAt(0).toUpperCase() || '?',
                       color: 'secondary'
                     }}
                     status={{
@@ -433,7 +433,7 @@ export default function TransactionsPage() {
                         <td>
                           <div className="flex items-center gap-3">
                             <div className="w-8 h-8 rounded-full bg-accent-secondary/10 flex items-center justify-center text-accent-secondary font-medium text-sm">
-                              {tx.customer?.name.charAt(0).toUpperCase() || '?'}
+                              {tx.customer?.name?.charAt(0).toUpperCase() || '?'}
                             </div>
                             <span className="font-medium text-foreground">{tx.customer?.name || '-'}</span>
                           </div>
