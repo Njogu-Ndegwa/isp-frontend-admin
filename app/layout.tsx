@@ -3,6 +3,7 @@ import { Outfit, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "./context/AuthContext";
 import ClientLayout from "./components/ClientLayout";
+import ErrorBoundary from "./components/ErrorBoundary";
 
 const outfit = Outfit({
   variable: "--font-geist-sans",
@@ -32,9 +33,11 @@ export default function RootLayout({
         className={`${outfit.variable} ${jetbrainsMono.variable} antialiased grid-pattern`}
         suppressHydrationWarning
       >
-        <AuthProvider>
-          <ClientLayout>{children}</ClientLayout>
-        </AuthProvider>
+        <ErrorBoundary>
+          <AuthProvider>
+            <ClientLayout>{children}</ClientLayout>
+          </AuthProvider>
+        </ErrorBoundary>
       </body>
     </html>
   );

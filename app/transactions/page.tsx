@@ -12,6 +12,31 @@ import MobileDataCard from '../components/MobileDataCard';
 
 type StatusFilter = 'all' | 'completed' | 'pending' | 'failed' | 'expired';
 
+// Safe date formatting function to prevent crashes
+const formatTransactionDate = (tx: MpesaTransaction): string => {
+  try {
+    const dateStr = tx.transaction_date || tx.created_at;
+    if (!dateStr) return '-';
+    
+    // Validate date string
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) {
+      console.warn('Invalid date:', dateStr);
+      return '-';
+    }
+    
+    return formatDateGMT3(dateStr, {
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  } catch (e) {
+    console.error('Date formatting error:', e, tx);
+    return '-';
+  }
+};
+
 // Friendly labels for M-Pesa result codes
 const RESULT_CODE_LABELS: Record<string, string> = {
   '0': 'Success',
@@ -295,12 +320,7 @@ export default function TransactionsPage() {
                         value: tx.plan?.name || '-'
                       },
                       {
-                        value: formatDateGMT3(tx.transaction_date || tx.created_at, {
-                          month: 'short',
-                          day: 'numeric',
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        }),
+                        value: formatTransactionDate(tx),
                         className: 'text-xs text-foreground-muted'
                       }
                     ]}
@@ -482,12 +502,7 @@ export default function TransactionsPage() {
                           )}
                         </td>
                         <td className="text-foreground-muted text-sm">
-                          {formatDateGMT3(tx.transaction_date || tx.created_at, {
-                            month: 'short',
-                            day: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })}
+                          {formatTransactionDate(tx)}
                         </td>
                       </tr>
                     ))

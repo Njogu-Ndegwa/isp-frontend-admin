@@ -53,17 +53,30 @@ export default function MobileBottomNav() {
   return (
     <>
       {/* Bottom Navigation Bar */}
-      <nav className="fixed bottom-0 left-0 right-0 z-[9999] md:hidden pointer-events-auto">
-        {/* Safe area background */}
-        <div className="bg-background-secondary/95 backdrop-blur-xl border-t border-border">
-          <div className="flex items-center justify-around h-16" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
+      <nav className="fixed bottom-0 left-0 right-0 z-[9999] md:hidden">
+        {/* 
+          Container uses min-height to allow expansion for safe area
+          The inner flex container has fixed height for consistent icon positioning
+        */}
+        <div 
+          className="bg-background-secondary/95 backdrop-blur-xl border-t border-border"
+          style={{ 
+            minHeight: 'calc(4rem + env(safe-area-inset-bottom, 0px))',
+            paddingBottom: 'env(safe-area-inset-bottom, 0px)'
+          }}
+        >
+          {/* 
+            Inner container has fixed height and centers content
+            This ensures icons stay in the same position regardless of safe area
+          */}
+          <div className="flex items-center justify-around h-16">
             {mainNavItems.map((item) => {
               const isActive = pathname === item.href;
               return (
                 <Link
                   key={item.href}
                   href={item.href}
-                  className="flex flex-col items-center justify-center flex-1 h-full relative"
+                  className="flex flex-col items-center justify-center flex-1 h-full relative active:opacity-70"
                 >
                   {/* Active indicator dot */}
                   {isActive && (
@@ -86,7 +99,7 @@ export default function MobileBottomNav() {
             {/* More Button */}
             <button
               onClick={() => setShowMoreMenu(true)}
-              className="flex flex-col items-center justify-center flex-1 h-full relative"
+              className="flex flex-col items-center justify-center flex-1 h-full relative active:opacity-70"
             >
               {/* Active indicator dot */}
               {isMoreActive && (
