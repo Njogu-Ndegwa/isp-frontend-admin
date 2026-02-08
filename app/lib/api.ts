@@ -22,6 +22,9 @@ import {
   AdClicksResponse,
   AdImpressionsResponse,
   AdAnalytics,
+  Rating,
+  RatingSummary,
+  CustomerMapData,
 } from './types';
 
 const BASE_URL = 'https://isp.bitwavetechnologies.com/api';
@@ -430,6 +433,69 @@ class ApiClient {
       { headers: this.getHeaders(true) }
     );
     return this.handleResponse<AdAnalytics>(response);
+  }
+
+  // Ratings
+  async getRatings(
+    userId?: number,
+    includeLocation = true
+  ): Promise<Rating[]> {
+    const params = new URLSearchParams();
+    if (userId) params.append('user_id', userId.toString());
+    if (includeLocation) params.append('include_location', 'true');
+
+    const response = await fetch(
+      `${BASE_URL}/ratings?${params.toString()}`,
+      { headers: this.getHeaders() }
+    );
+    return this.handleResponse<Rating[]>(response);
+  }
+
+  async getRatingsSummary(userId?: number): Promise<RatingSummary> {
+    const params = new URLSearchParams();
+    if (userId) params.append('user_id', userId.toString());
+
+    const response = await fetch(
+      `${BASE_URL}/ratings/summary?${params.toString()}`,
+      { headers: this.getHeaders() }
+    );
+    return this.handleResponse<RatingSummary>(response);
+  }
+
+  async getCustomersMapData(
+    userId?: number,
+    withRatings = true
+  ): Promise<CustomerMapData[]> {
+    const params = new URLSearchParams();
+    if (userId) params.append('user_id', userId.toString());
+    if (withRatings) params.append('with_ratings', 'true');
+
+    const response = await fetch(
+      `${BASE_URL}/customers/map?${params.toString()}`,
+      { headers: this.getHeaders() }
+    );
+    return this.handleResponse<CustomerMapData[]>(response);
+  }
+
+  async getRatingsByLocation(
+    minLat: number,
+    maxLat: number,
+    minLng: number,
+    maxLng: number,
+    userId?: number
+  ): Promise<Rating[]> {
+    const params = new URLSearchParams();
+    params.append('min_lat', minLat.toString());
+    params.append('max_lat', maxLat.toString());
+    params.append('min_lng', minLng.toString());
+    params.append('max_lng', maxLng.toString());
+    if (userId) params.append('user_id', userId.toString());
+
+    const response = await fetch(
+      `${BASE_URL}/ratings/by-location?${params.toString()}`,
+      { headers: this.getHeaders() }
+    );
+    return this.handleResponse<Rating[]>(response);
   }
 }
 

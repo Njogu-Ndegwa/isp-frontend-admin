@@ -262,6 +262,10 @@ export interface MpesaTransaction {
   mpesa_receipt_number: string;
   transaction_date: string;
   created_at: string;
+  // Failure detail fields (present on failed transactions)
+  failure_source?: 'client' | 'server' | 'timeout' | 'mpesa' | string;
+  result_code?: string;
+  result_desc?: string;
   customer: TransactionCustomer;
   router: TransactionRouter;
   plan: TransactionPlan;
@@ -591,4 +595,43 @@ export interface AdAnalytics {
   };
   total_impressions: number;
   top_ads_by_clicks: TopAdByClicks[];
+}
+
+// Rating Types
+export interface Rating {
+  id: number;
+  phone: string;
+  rating: number;
+  comment?: string;
+  latitude?: number;
+  longitude?: number;
+  created_at: string;
+  customer_id?: number;
+  customer_name?: string;
+}
+
+export interface RatingSummary {
+  total_ratings: number;
+  average_rating: number;
+  rating_distribution: {
+    1: number;
+    2: number;
+    3: number;
+    4: number;
+    5: number;
+  };
+  ratings_with_comments: number;
+  ratings_with_location: number;
+}
+
+export interface CustomerMapData {
+  id: number;
+  phone: string;
+  name?: string;
+  latitude: number;
+  longitude: number;
+  rating?: number;
+  last_rating_comment?: string;
+  total_ratings?: number;
+  average_rating?: number;
 }
