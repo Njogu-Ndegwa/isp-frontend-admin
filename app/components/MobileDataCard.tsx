@@ -25,7 +25,18 @@ interface MobileDataCardProps {
     label: string;
     color?: string;
   };
-  fields: DataField[];
+  // Legacy fields prop - kept for backward compatibility
+  fields?: DataField[];
+  // New compact layout props
+  value?: {
+    text: string;
+    highlight?: boolean;
+  };
+  secondary?: {
+    left: React.ReactNode;
+    right: React.ReactNode;
+  };
+  footer?: React.ReactNode;
   href?: string;
   onClick?: () => void;
   className?: string;
@@ -33,6 +44,7 @@ interface MobileDataCardProps {
   rightAction?: React.ReactNode;
   highlight?: boolean;
   highlightColor?: 'danger' | 'warning' | 'success';
+  layout?: 'compact' | 'fields';
 }
 
 const avatarColors = {
@@ -60,6 +72,9 @@ export default function MobileDataCard({
   status,
   badge,
   fields,
+  value,
+  secondary,
+  footer,
   href,
   onClick,
   className = '',
@@ -67,6 +82,7 @@ export default function MobileDataCard({
   rightAction,
   highlight = false,
   highlightColor = 'danger',
+  layout = 'fields',
 }: MobileDataCardProps) {
   const CardWrapper = href ? Link : onClick ? 'button' : 'div';
   const wrapperProps = href
@@ -83,6 +99,80 @@ export default function MobileDataCard({
       : 'border-success/20'
     : '';
 
+  // Compact layout (original transaction design)
+  if (layout === 'compact') {
+    return (
+      <CardWrapper {...(wrapperProps as any)}>
+        <div className={`card p-4 mobile-card ${highlightBorder} ${className}`}>
+          {/* Row 1: Avatar + Title/Subtitle (left) | Value + Status (right) */}
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-3 min-w-0">
+              {/* Avatar */}
+              {avatar && (
+                <div className={`w-9 h-9 rounded-full flex items-center justify-center font-medium text-sm flex-shrink-0 ${avatarColors[avatar.color || 'primary']}`}>
+                  {avatar.text}
+                </div>
+              )}
+              
+              {/* Title & Subtitle */}
+              <div className="min-w-0">
+                <h3 className="font-medium text-foreground truncate">{title}</h3>
+                {subtitle && (
+                  <p className="text-xs text-foreground-muted font-mono truncate">{subtitle}</p>
+                )}
+              </div>
+            </div>
+            
+            {/* Value + Status */}
+            <div className="text-right flex-shrink-0 ml-3">
+              {value && (
+                <p className={`font-semibold ${value.highlight ? 'text-accent-primary' : 'text-foreground'}`}>
+                  {value.text}
+                </p>
+              )}
+              {status && (
+                <span className={`badge ${badgeClasses[status.variant]} capitalize text-[11px]`}>
+                  {status.label}
+                </span>
+              )}
+              {badge && (
+                <span className={`text-xs ${badge.color || 'text-foreground-muted'}`}>
+                  {badge.label}
+                </span>
+              )}
+            </div>
+          </div>
+          
+          {/* Row 2: Secondary info (optional) */}
+          {secondary && (
+            <div className="flex items-center justify-between text-sm mb-3">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="text-foreground truncate">{secondary.left}</span>
+              </div>
+              <span className="text-xs text-foreground-muted flex-shrink-0">
+                {secondary.right}
+              </span>
+            </div>
+          )}
+          
+          {/* Row 3: Footer or Expandable Content */}
+          {footer && (
+            <div className="flex items-center justify-between text-xs text-foreground-muted">
+              {footer}
+            </div>
+          )}
+          
+          {expandableContent && (
+            <div className="mt-3 pt-3 border-t border-border">
+              {expandableContent}
+            </div>
+          )}
+        </div>
+      </CardWrapper>
+    );
+  }
+
+  // Legacy fields layout (vertical list with icons)
   return (
     <CardWrapper {...(wrapperProps as any)}>
       <div className={`card p-4 mobile-card ${highlightBorder} ${className}`}>
@@ -125,19 +215,21 @@ export default function MobileDataCard({
         <div className="h-px bg-border mb-3" />
         
         {/* Fields */}
-        <div className="space-y-2">
-          {fields.map((field, index) => (
-            <div key={index} className={`flex items-center gap-2 text-sm ${field.className || ''}`}>
-              {field.icon && (
-                <span className="text-foreground-muted flex-shrink-0">{field.icon}</span>
-              )}
-              {field.label && (
-                <span className="text-foreground-muted flex-shrink-0">{field.label}:</span>
-              )}
-              <span className="text-foreground truncate">{field.value}</span>
-            </div>
-          ))}
-        </div>
+        {fields && fields.length > 0 && (
+          <div className="space-y-2">
+            {fields.map((field, index) => (
+              <div key={index} className={`flex items-center gap-2 text-sm ${field.className || ''}`}>
+                {field.icon && (
+                  <span className="text-foreground-muted flex-shrink-0">{field.icon}</span>
+                )}
+                {field.label && (
+                  <span className="text-foreground-muted flex-shrink-0">{field.label}:</span>
+                )}
+                <span className="text-foreground truncate">{field.value}</span>
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* Expandable Content */}
         {expandableContent && (

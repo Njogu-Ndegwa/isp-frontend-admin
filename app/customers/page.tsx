@@ -6,7 +6,6 @@ import { Customer } from '../lib/types';
 import { formatDateGMT3 } from '../lib/dateUtils';
 import Header from '../components/Header';
 import { PageLoader } from '../components/LoadingSpinner';
-import PullToRefresh from '../components/PullToRefresh';
 import MobileDataCard from '../components/MobileDataCard';
 
 type FilterStatus = 'all' | 'active' | 'inactive';
@@ -276,56 +275,49 @@ export default function CustomersPage() {
             </div>
           </div>
 
-          {/* Mobile Cards - Pull to Refresh */}
-          <div className="md:hidden">
-            <PullToRefresh onRefresh={loadCustomers} className="min-h-[400px]">
-              {filteredCustomers.length === 0 ? (
-                <div className="card p-8 text-center text-foreground-muted">
-                  <svg className="w-12 h-12 mx-auto mb-4 text-foreground-muted/50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
-                  </svg>
-                  {searchQuery ? 'No customers match your search' : 'No customers found'}
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {filteredCustomers.map((customer) => (
-                    <MobileDataCard
-                      key={customer.id}
-                      id={customer.id}
-                      title={customer.name || 'Unknown'}
-                      avatar={{
-                        text: (customer.name || '?').charAt(0).toUpperCase(),
-                        color: 'primary'
-                      }}
-                      status={{
-                        label: customer.status,
-                        variant: customer.status === 'active' ? 'success' : customer.status === 'expired' ? 'danger' : 'neutral'
-                      }}
-                      fields={[
-                        ...(customer.phone ? [{
-                          icon: <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg>,
-                          value: <span className="font-mono">{customer.phone}</span>
-                        }] : []),
-                        {
-                          icon: <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>,
-                          value: customer.plan?.name || 'No Plan'
-                        },
-                        {
-                          icon: <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0" /></svg>,
-                          value: customer.router?.name || '-'
-                        },
-                        ...(customer.status === 'active' && customer.hours_remaining !== undefined ? [{
-                          icon: <svg className="w-4 h-4 flex-shrink-0 text-accent-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>,
-                          value: <span className="text-accent-primary">{formatTimeRemaining(customer.hours_remaining)}</span>,
-                          className: 'text-accent-primary'
-                        }] : [])
-                      ]}
-                      className="animate-fade-in"
-                    />
-                  ))}
-                </div>
-              )}
-            </PullToRefresh>
+          {/* Mobile Cards */}
+          <div className="md:hidden space-y-3">
+            {filteredCustomers.length === 0 ? (
+              <div className="card p-8 text-center text-foreground-muted">
+                <svg className="w-12 h-12 mx-auto mb-4 text-foreground-muted/50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+                {searchQuery ? 'No customers match your search' : 'No customers found'}
+              </div>
+            ) : (
+              filteredCustomers.map((customer) => (
+                <MobileDataCard
+                  key={customer.id}
+                  id={customer.id}
+                  title={customer.name || 'Unknown'}
+                  subtitle={customer.phone || undefined}
+                  avatar={{
+                    text: (customer.name || '?').charAt(0).toUpperCase(),
+                    color: 'primary'
+                  }}
+                  status={{
+                    label: customer.status,
+                    variant: customer.status === 'active' ? 'success' : customer.status === 'expired' ? 'danger' : 'neutral'
+                  }}
+                  value={{
+                    text: customer.plan?.name || 'No Plan'
+                  }}
+                  secondary={{
+                    left: customer.router?.name || '-',
+                    right: customer.status === 'active' && customer.hours_remaining !== undefined 
+                      ? formatTimeRemaining(customer.hours_remaining)
+                      : formatDateGMT3(customer.expiry, {
+                          month: 'short',
+                          day: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        }) || '-'
+                  }}
+                  layout="compact"
+                  className="animate-fade-in"
+                />
+              ))
+            )}
           </div>
         </>
       )}

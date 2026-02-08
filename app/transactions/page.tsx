@@ -286,107 +286,103 @@ export default function TransactionsPage() {
         <>
           {/* Mobile Transaction Cards */}
           <div className="md:hidden space-y-3 animate-fade-in">
-              {filteredTransactions.length === 0 ? (
-                <div className="card p-8 text-center text-foreground-muted">
-                  <svg className="w-12 h-12 mx-auto mb-4 text-foreground-muted/50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                  </svg>
-                  {searchQuery ? 'No transactions match your search' : 'No transactions found'}
-                </div>
-              ) : (
-                filteredTransactions.map((tx) => (
-                  <MobileDataCard
-                    key={tx.transaction_id}
-                    id={tx.transaction_id}
-                    title={tx.customer?.name || '-'}
-                    subtitle={tx.phone_number}
-                    avatar={{
-                      text: tx.customer?.name?.charAt(0).toUpperCase() || '?',
-                      color: 'secondary'
-                    }}
-                    status={{
-                      label: tx.status,
-                      variant: tx.status === 'completed' ? 'success' : tx.status === 'failed' ? 'danger' : tx.status === 'pending' ? 'warning' : 'neutral'
-                    }}
-                    rightAction={
-                      <div className="text-right">
-                        <p className="font-semibold text-accent-primary">KES {tx.amount.toLocaleString()}</p>
-                      </div>
-                    }
-                    fields={[
-                      {
-                        value: tx.plan?.name || '-'
-                      },
-                      {
-                        value: formatTransactionDate(tx),
-                        className: 'text-xs text-foreground-muted'
-                      }
-                    ]}
-                    highlight={tx.status === 'failed'}
-                    highlightColor="danger"
-                    onClick={tx.status === 'failed' ? () => {
-                      setExpandedTx(expandedTx === tx.transaction_id ? null : tx.transaction_id);
-                    } : undefined}
-                    expandableContent={tx.status === 'failed' ? (
-                      <div className="mt-3 pt-3 border-t border-red-500/10">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            {tx.failure_source && (
-                              <span className={`text-[10px] font-medium ${FAILURE_SOURCE_LABELS[tx.failure_source]?.color || 'text-foreground-muted'} uppercase tracking-wider`}>
-                                {FAILURE_SOURCE_LABELS[tx.failure_source]?.label || tx.failure_source}
-                              </span>
-                            )}
-                            {tx.result_code && (
-                              <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-red-500/10 text-[10px] font-mono text-red-400">
-                                {tx.result_code}
-                              </span>
-                            )}
-                          </div>
-                          <svg className="w-4 h-4 text-foreground-muted/50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={expandedTx === tx.transaction_id ? "M19 9l-7 7-7-7" : "M9 5l7 7-7 7"} />
-                          </svg>
+            {filteredTransactions.length === 0 ? (
+              <div className="card p-8 text-center text-foreground-muted">
+                <svg className="w-12 h-12 mx-auto mb-4 text-foreground-muted/50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                </svg>
+                {searchQuery ? 'No transactions match your search' : 'No transactions found'}
+              </div>
+            ) : (
+              filteredTransactions.map((tx) => (
+                <MobileDataCard
+                  key={tx.transaction_id}
+                  id={tx.transaction_id}
+                  title={tx.customer?.name || '-'}
+                  subtitle={tx.phone_number}
+                  avatar={{
+                    text: tx.customer?.name?.charAt(0).toUpperCase() || '?',
+                    color: 'secondary'
+                  }}
+                  status={{
+                    label: tx.status,
+                    variant: tx.status === 'completed' ? 'success' : tx.status === 'failed' ? 'danger' : tx.status === 'pending' ? 'warning' : 'neutral'
+                  }}
+                  value={{
+                    text: `KES ${tx.amount.toLocaleString()}`,
+                    highlight: true
+                  }}
+                  secondary={{
+                    left: tx.plan?.name || '-',
+                    right: formatTransactionDate(tx)
+                  }}
+                  footer={tx.status !== 'failed' && tx.mpesa_receipt_number ? (
+                    <>
+                      <span>Receipt: <span className="font-mono">{tx.mpesa_receipt_number}</span></span>
+                      <span className="font-mono">#{tx.transaction_id}</span>
+                    </>
+                  ) : undefined}
+                  expandableContent={tx.status === 'failed' ? (
+                    <div className="border-t border-red-500/10 pt-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          {tx.failure_source && (
+                            <span className={`text-[10px] font-medium ${FAILURE_SOURCE_LABELS[tx.failure_source]?.color || 'text-foreground-muted'} uppercase tracking-wider`}>
+                              {FAILURE_SOURCE_LABELS[tx.failure_source]?.label || tx.failure_source}
+                            </span>
+                          )}
+                          {tx.result_code && (
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-red-500/10 text-[10px] font-mono text-red-400">
+                              {tx.result_code}
+                            </span>
+                          )}
                         </div>
-                        <p className="text-xs text-red-400/80 mt-1">
-                          {tx.result_desc || RESULT_CODE_LABELS[tx.result_code || ''] || '-'}
-                        </p>
-                        {expandedTx === tx.transaction_id && (
-                          <div className="mt-2 p-3 rounded-lg bg-red-500/5 border border-red-500/10 text-xs space-y-2">
-                            <div className="flex justify-between">
-                              <span className="text-foreground-muted">Source:</span>
-                              <span className="text-foreground capitalize">{tx.failure_source || 'Unknown'}</span>
-                            </div>
-                            <div className="flex justify-between">
-                              <span className="text-foreground-muted">Result Code:</span>
-                              <span className="font-mono text-red-400">{tx.result_code || '-'}</span>
-                            </div>
-                            <div>
-                              <span className="text-foreground-muted">Description:</span>
-                              <p className="text-foreground mt-0.5">{tx.result_desc || '-'}</p>
-                            </div>
-                            {tx.checkout_request_id && (
-                              <div>
-                                <span className="text-foreground-muted">Checkout ID:</span>
-                                <p className="font-mono text-foreground-muted text-[10px] mt-0.5 break-all">{tx.checkout_request_id}</p>
-                              </div>
-                            )}
-                            <div className="flex justify-between">
-                              <span className="text-foreground-muted">Transaction ID:</span>
-                              <span className="font-mono text-foreground-muted">#{tx.transaction_id}</span>
-                            </div>
+                        <svg className="w-4 h-4 text-foreground-muted/50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={expandedTx === tx.transaction_id ? "M19 9l-7 7-7-7" : "M9 5l7 7-7 7"} />
+                        </svg>
+                      </div>
+                      <p className="text-xs text-red-400/80 mt-1">
+                        {tx.result_desc || RESULT_CODE_LABELS[tx.result_code || ''] || '-'}
+                      </p>
+                      {expandedTx === tx.transaction_id && (
+                        <div className="mt-2 p-3 rounded-lg bg-red-500/5 border border-red-500/10 text-xs space-y-2">
+                          <div className="flex justify-between">
+                            <span className="text-foreground-muted">Source:</span>
+                            <span className="text-foreground capitalize">{tx.failure_source || 'Unknown'}</span>
                           </div>
-                        )}
-                      </div>
-                    ) : tx.mpesa_receipt_number ? (
-                      <div className="mt-2 flex items-center justify-between text-xs text-foreground-muted">
-                        <span>Receipt: <span className="font-mono">{tx.mpesa_receipt_number}</span></span>
-                        <span className="font-mono">#{tx.transaction_id}</span>
-                      </div>
-                    ) : undefined}
-                    className="animate-fade-in"
-                  />
-                ))
-              )}
-            </div>
+                          <div className="flex justify-between">
+                            <span className="text-foreground-muted">Result Code:</span>
+                            <span className="font-mono text-red-400">{tx.result_code || '-'}</span>
+                          </div>
+                          <div>
+                            <span className="text-foreground-muted">Description:</span>
+                            <p className="text-foreground mt-0.5">{tx.result_desc || '-'}</p>
+                          </div>
+                          {tx.checkout_request_id && (
+                            <div>
+                              <span className="text-foreground-muted">Checkout ID:</span>
+                              <p className="font-mono text-foreground-muted text-[10px] mt-0.5 break-all">{tx.checkout_request_id}</p>
+                            </div>
+                          )}
+                          <div className="flex justify-between">
+                            <span className="text-foreground-muted">Transaction ID:</span>
+                            <span className="font-mono text-foreground-muted">#{tx.transaction_id}</span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ) : undefined}
+                  highlight={tx.status === 'failed'}
+                  highlightColor="danger"
+                  onClick={tx.status === 'failed' ? () => {
+                    setExpandedTx(expandedTx === tx.transaction_id ? null : tx.transaction_id);
+                  } : undefined}
+                  layout="compact"
+                  className="animate-fade-in"
+                />
+              ))
+            )}
+          </div>
 
           {/* Desktop Transactions Table */}
           <div className="card animate-fade-in hidden md:block">
