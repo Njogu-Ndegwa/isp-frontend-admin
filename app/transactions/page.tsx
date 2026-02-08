@@ -7,7 +7,6 @@ import { formatDateGMT3 } from '../lib/dateUtils';
 import Header from '../components/Header';
 import { PageLoader } from '../components/LoadingSpinner';
 import StatCard from '../components/StatCard';
-import PullToRefresh from '../components/PullToRefresh';
 import MobileDataCard from '../components/MobileDataCard';
 
 type StatusFilter = 'all' | 'completed' | 'pending' | 'failed' | 'expired';
@@ -285,9 +284,8 @@ export default function TransactionsPage() {
         <PageLoader />
       ) : (
         <>
-          {/* Mobile Transaction Cards with Pull-to-Refresh */}
-          <PullToRefresh onRefresh={loadData} className="md:hidden">
-            <div className="space-y-3 animate-fade-in">
+          {/* Mobile Transaction Cards */}
+          <div className="md:hidden space-y-3 animate-fade-in">
               {filteredTransactions.length === 0 ? (
                 <div className="card p-8 text-center text-foreground-muted">
                   <svg className="w-12 h-12 mx-auto mb-4 text-foreground-muted/50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -389,7 +387,6 @@ export default function TransactionsPage() {
                 ))
               )}
             </div>
-          </PullToRefresh>
 
           {/* Desktop Transactions Table */}
           <div className="card animate-fade-in hidden md:block">
