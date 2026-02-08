@@ -754,6 +754,31 @@ tbody tr:last-child td {
   transition: transform 0.2s ease, background-color 0.2s ease;
 }
 
+/* Mobile Bottom Navigation Protection */
+/* Ensure bottom nav is always clickable and on top */
+nav[class*="fixed bottom-0"] {
+  touch-action: none;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+nav[class*="fixed bottom-0"] * {
+  touch-action: manipulation;
+}
+
+/* Prevent content from interfering with bottom nav clicks */
+nav[class*="fixed bottom-0"]:active,
+nav[class*="fixed bottom-0"]:focus {
+  pointer-events: auto;
+}
+
+/* Ensure proper stacking context for bottom nav */
+nav[class*="fixed bottom-0"] {
+  transform: translateZ(0);
+  will-change: transform;
+}
+
 .mobile-card:active {
   transform: scale(0.98);
   background-color: var(--background-tertiary);

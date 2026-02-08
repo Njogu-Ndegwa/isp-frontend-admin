@@ -53,10 +53,10 @@ export default function MobileBottomNav() {
   return (
     <>
       {/* Bottom Navigation Bar */}
-      <nav className="fixed bottom-0 left-0 right-0 z-50 md:hidden">
+      <nav className="fixed bottom-0 left-0 right-0 z-[9999] md:hidden pointer-events-auto">
         {/* Safe area background */}
         <div className="bg-background-secondary/95 backdrop-blur-xl border-t border-border">
-          <div className="flex items-center justify-around h-16 pb-safe">
+          <div className="flex items-center justify-around h-16" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
             {mainNavItems.map((item) => {
               const isActive = pathname === item.href;
               return (

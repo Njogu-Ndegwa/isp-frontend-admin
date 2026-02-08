@@ -6,8 +6,8 @@ import { Customer } from '../lib/types';
 import { formatDateGMT3 } from '../lib/dateUtils';
 import Header from '../components/Header';
 import { PageLoader } from '../components/LoadingSpinner';
-import SwipeableCard from '../components/SwipeableCard';
 import PullToRefresh from '../components/PullToRefresh';
+import MobileDataCard from '../components/MobileDataCard';
 
 type FilterStatus = 'all' | 'active' | 'inactive';
 
@@ -288,68 +288,40 @@ export default function CustomersPage() {
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {filteredCustomers.map((customer, index) => (
-                    <SwipeableCard
+                  {filteredCustomers.map((customer) => (
+                    <MobileDataCard
                       key={customer.id}
-                      onEdit={() => console.log('Edit customer', customer.id)}
-                      onDelete={() => console.log('Delete customer', customer.id)}
+                      id={customer.id}
+                      title={customer.name || 'Unknown'}
+                      avatar={{
+                        text: (customer.name || '?').charAt(0).toUpperCase(),
+                        color: 'primary'
+                      }}
+                      status={{
+                        label: customer.status,
+                        variant: customer.status === 'active' ? 'success' : customer.status === 'expired' ? 'danger' : 'neutral'
+                      }}
+                      fields={[
+                        ...(customer.phone ? [{
+                          icon: <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg>,
+                          value: <span className="font-mono">{customer.phone}</span>
+                        }] : []),
+                        {
+                          icon: <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>,
+                          value: customer.plan?.name || 'No Plan'
+                        },
+                        {
+                          icon: <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0" /></svg>,
+                          value: customer.router?.name || '-'
+                        },
+                        ...(customer.status === 'active' && customer.hours_remaining !== undefined ? [{
+                          icon: <svg className="w-4 h-4 flex-shrink-0 text-accent-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>,
+                          value: <span className="text-accent-primary">{formatTimeRemaining(customer.hours_remaining)}</span>,
+                          className: 'text-accent-primary'
+                        }] : [])
+                      ]}
                       className="animate-fade-in"
-                    >
-                      <div className="p-4">
-                        {/* Header */}
-                        <div className="flex items-start gap-3 mb-3">
-                          <div className="w-10 h-10 rounded-full bg-accent-primary/10 flex items-center justify-center text-accent-primary font-medium flex-shrink-0">
-                            {(customer.name || '?').charAt(0).toUpperCase()}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <h3 className="font-medium text-foreground truncate">{customer.name || 'Unknown'}</h3>
-                            <span className={`badge ${getStatusBadge(customer.status)} text-xs capitalize`}>
-                              {customer.status}
-                            </span>
-                          </div>
-                        </div>
-
-                        {/* Divider */}
-                        <div className="h-px bg-border mb-3" />
-
-                        {/* Details */}
-                        <div className="space-y-2 text-sm">
-                          {customer.phone && (
-                            <div className="flex items-center gap-2 text-foreground-muted">
-                              <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                              </svg>
-                              <span className="font-mono">{customer.phone}</span>
-                            </div>
-                          )}
-                          
-                          <div className="flex items-center gap-2 text-foreground-muted">
-                            <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                            </svg>
-                            <span>{customer.plan?.name || 'No Plan'}</span>
-                          </div>
-
-                          <div className="flex items-center gap-2 text-foreground-muted">
-                            <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0" />
-                            </svg>
-                            <span>{customer.router?.name || '-'}</span>
-                          </div>
-
-                          {customer.status === 'active' && (
-                            <div className="flex items-center gap-2">
-                              <svg className="w-4 h-4 flex-shrink-0 text-accent-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                              </svg>
-                              <span className="text-accent-primary">
-                                {formatTimeRemaining(customer.hours_remaining)}
-                              </span>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </SwipeableCard>
+                    />
                   ))}
                 </div>
               )}
