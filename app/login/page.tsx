@@ -14,7 +14,7 @@ export default function LoginPage() {
 
   // Redirect if already authenticated
   if (isAuthenticated) {
-    router.push('/');
+    router.push('/dashboard');
     return null;
   }
 
@@ -24,7 +24,7 @@ export default function LoginPage() {
       setLoading(true);
       setError(null);
       await login(credentials);
-      router.push('/');
+      router.push('/dashboard');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Invalid credentials');
     } finally {
@@ -143,7 +143,7 @@ export default function LoginPage() {
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
             </svg>
-            Back to Dashboard
+            Back to Home
           </Link>
         </div>
 

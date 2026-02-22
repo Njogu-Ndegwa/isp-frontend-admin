@@ -6,9 +6,9 @@ import MobileBottomNav from './MobileBottomNav';
 
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const isLoginPage = pathname === '/login';
+  const isPublicPage = pathname === '/' || pathname === '/login' || pathname === '/landing';
 
-  if (isLoginPage) {
+  if (isPublicPage) {
     return <main className="min-h-screen">{children}</main>;
   }
 
