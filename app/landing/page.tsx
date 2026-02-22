@@ -71,7 +71,7 @@ function DashboardMockup() {
 /*  Data                                                               */
 /* ------------------------------------------------------------------ */
 const HERO_PHOTO = 'https://images.unsplash.com/photo-1558494949-ef010cbdcc31?w=1920&q=80';
-const TOWER_PHOTO = 'https://images.unsplash.com/photo-1529310399831-ed472b81d589?w=1920&q=80';
+const TOWER_PHOTO = 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=1920&q=80';
 
 const PHONE_NUMBER = '+254795635364';
 const PHONE_DISPLAY = '0795 635 364';
@@ -307,7 +307,7 @@ export default function LandingPage() {
       {/*  PHOTO BREAK — single dramatic image                          */}
       {/* ============================================================ */}
       <section className="relative min-h-[50vh] md:min-h-[60vh] flex items-center justify-center overflow-hidden">
-        <Image src={TOWER_PHOTO} alt="Telecommunications tower at sunset" fill className="object-cover" sizes="100vw" quality={80} />
+        <Image src={TOWER_PHOTO} alt="Earth at night showing global network connectivity" fill className="object-cover" sizes="100vw" quality={80} />
         <div className="absolute inset-0 bg-[#09090b]/50" />
         <div className="relative z-10 max-w-3xl mx-auto px-4 text-center">
           <Reveal>
