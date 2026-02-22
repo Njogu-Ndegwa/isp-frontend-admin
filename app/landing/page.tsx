@@ -73,8 +73,8 @@ function DashboardMockup() {
 const HERO_PHOTO = 'https://images.unsplash.com/photo-1558494949-ef010cbdcc31?w=1920&q=80';
 const TOWER_PHOTO = 'https://images.unsplash.com/photo-1529310399831-ed472b81d589?w=1920&q=80';
 
-const PHONE_NUMBER = '+254712345678';
-const PHONE_DISPLAY = '0712 345 678';
+const PHONE_NUMBER = '+254795635364';
+const PHONE_DISPLAY = '0795 635 364';
 
 const NAV_LINKS = [
   { label: 'Features', href: '#features' },
