@@ -58,7 +58,7 @@ export default function StatCard({
   return (
     <div className="group relative overflow-hidden bg-background-secondary border border-border rounded-2xl p-3.5 sm:p-5 transition-all duration-300 hover:border-border-hover hover:shadow-lg">
       {/* Subtle gradient overlay */}
-      <div className="absolute inset-0 bg-gradient-to-br from-white/[0.02] to-transparent pointer-events-none" />
+      <div className="absolute inset-0 bg-gradient-to-br from-foreground/[0.02] to-transparent pointer-events-none" />
       
       {/* Content */}
       <div className="relative">

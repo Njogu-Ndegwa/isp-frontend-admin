@@ -334,17 +334,26 @@ export interface RouterUsersResponse {
 
 // Auth Types
 export interface LoginRequest {
-  username: string;
+  email: string;
   password: string;
+}
+
+export interface AuthUser {
+  id: number;
+  email: string;
+  role: string;
+  organization_name: string;
 }
 
 export interface LoginResponse {
   access_token: string;
   token_type: string;
+  user: AuthUser;
 }
 
 export interface AuthState {
   token: string | null;
+  user: AuthUser | null;
   isAuthenticated: boolean;
 }
 

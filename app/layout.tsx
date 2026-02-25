@@ -4,6 +4,7 @@ import "./globals.css";
 import { AuthProvider } from "./context/AuthContext";
 import ClientLayout from "./components/ClientLayout";
 import ErrorBoundary from "./components/ErrorBoundary";
+import ThemeProvider from "./components/ThemeProvider";
 
 const outfit = Outfit({
   variable: "--font-geist-sans",
@@ -34,9 +35,11 @@ export default function RootLayout({
         suppressHydrationWarning
       >
         <ErrorBoundary>
-          <AuthProvider>
-            <ClientLayout>{children}</ClientLayout>
-          </AuthProvider>
+          <ThemeProvider>
+            <AuthProvider>
+              <ClientLayout>{children}</ClientLayout>
+            </AuthProvider>
+          </ThemeProvider>
         </ErrorBoundary>
       </body>
     </html>

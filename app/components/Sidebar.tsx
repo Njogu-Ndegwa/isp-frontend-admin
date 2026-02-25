@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '../context/AuthContext';
+import ThemeToggle from './ThemeToggle';
 
 const navItems = [
   {
@@ -169,8 +170,9 @@ export default function Sidebar() {
         </div>
       </nav>
 
-      {/* User section */}
-      <div className="p-3 border-t border-border">
+      {/* Theme toggle & User section */}
+      <div className="p-3 border-t border-border space-y-1">
+        <ThemeToggle />
         {isAuthenticated ? (
           <button
             onClick={logout}

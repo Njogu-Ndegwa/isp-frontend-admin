@@ -969,15 +969,15 @@ function BandwidthTooltip({ active, payload, label }: { active?: boolean; payloa
   if (!active || !payload || payload.length === 0) return null;
 
   return (
-    <div className="bg-[#1a1a1f] border border-[#2a2a35] rounded-lg p-3 shadow-xl">
-      <p className="font-medium text-white/90 mb-2 text-sm">{label}</p>
+    <div className="bg-background-secondary border border-border rounded-lg p-3 shadow-xl">
+      <p className="font-medium text-foreground/90 mb-2 text-sm">{label}</p>
       {payload.map((entry, index) => (
         <div key={index} className="flex items-center gap-2 text-sm">
           <span 
             className="w-2.5 h-2.5 rounded-full" 
             style={{ backgroundColor: entry.color }}
           />
-          <span className="text-white/70">
+          <span className="text-foreground-muted">
             {entry.dataKey === 'avgDownloadMbps' ? 'Avg Download' : 'Avg Upload'}:
           </span>
           <span className="font-semibold" style={{ color: entry.color }}>
@@ -1113,7 +1113,7 @@ function TopUsersSection({
                   <td className="py-2 pr-1.5 sm:pr-2">
                     <span className={`font-bold ${
                       rank === 1 ? 'text-amber-500' :
-                      rank === 2 ? 'text-zinc-400' :
+                      rank === 2 ? 'text-foreground-muted' :
                       rank === 3 ? 'text-orange-600' :
                       'text-foreground-muted'
                     }`}>
@@ -1216,7 +1216,7 @@ function BandwidthChart({ data }: { data: BandwidthDataPoint[] }) {
           
           <CartesianGrid 
             strokeDasharray="3 3" 
-            stroke="#ffffff10" 
+            stroke="var(--border)" 
             vertical={false}
           />
           
@@ -1224,7 +1224,7 @@ function BandwidthChart({ data }: { data: BandwidthDataPoint[] }) {
             dataKey="time" 
             axisLine={false}
             tickLine={false}
-            tick={{ fill: '#888', fontSize: 11 }}
+            tick={{ fill: 'var(--foreground-muted)', fontSize: 11 }}
             interval="preserveStartEnd"
             minTickGap={50}
           />
@@ -1232,21 +1232,21 @@ function BandwidthChart({ data }: { data: BandwidthDataPoint[] }) {
           <YAxis 
             axisLine={false}
             tickLine={false}
-            tick={{ fill: '#888', fontSize: 11 }}
+            tick={{ fill: 'var(--foreground-muted)', fontSize: 11 }}
             tickFormatter={(value) => `${value.toFixed(1)}`}
             width={45}
           />
           
           <Tooltip 
             content={<BandwidthTooltip />}
-            cursor={{ stroke: '#ffffff30', strokeWidth: 1 }}
+            cursor={{ stroke: 'var(--border-hover)', strokeWidth: 1 }}
           />
           
           <Legend 
             verticalAlign="top"
             height={36}
             formatter={(value) => (
-              <span className="text-sm text-white/70">
+              <span className="text-sm text-foreground-muted">
                 {value === 'avgDownloadMbps' ? 'Avg Download' : 'Avg Upload'}
               </span>
             )}

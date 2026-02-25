@@ -37,18 +37,18 @@ const DASHBOARD_SCREENSHOT = 'https://res.cloudinary.com/dhffnvn2d/image/upload/
 function DashboardMockup() {
   return (
     <div className="relative w-full max-w-5xl mx-auto">
-      <div className="rounded-xl border border-white/[0.08] overflow-hidden shadow-2xl shadow-black/60">
+      <div className="rounded-xl border border-border overflow-hidden shadow-2xl shadow-black/60">
         {/* Browser chrome */}
-        <div className="flex items-center gap-2 px-3 sm:px-4 py-2.5 bg-[#1a1a1d] border-b border-white/[0.06]">
+        <div className="flex items-center gap-2 px-3 sm:px-4 py-2.5 bg-background-secondary border-b border-border">
           <div className="flex gap-1.5">
             <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full bg-red-500/70" />
             <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full bg-yellow-500/70" />
             <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full bg-green-500/70" />
           </div>
           <div className="flex-1 mx-4 sm:mx-8">
-            <div className="flex items-center gap-2 bg-[#09090b] rounded-md px-3 py-1 max-w-sm mx-auto">
-              <svg className="w-3 h-3 text-zinc-600 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
-              <span className="text-[10px] sm:text-xs text-zinc-500 truncate">isp.bitwavetechnologies.com</span>
+            <div className="flex items-center gap-2 bg-background-tertiary rounded-md px-3 py-1 max-w-sm mx-auto">
+              <svg className="w-3 h-3 text-foreground-muted flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
+              <span className="text-[10px] sm:text-xs text-foreground-muted truncate">isp.bitwavetechnologies.com</span>
             </div>
           </div>
         </div>
@@ -149,21 +149,21 @@ export default function LandingPage() {
             <span className="text-lg font-bold gradient-text hidden sm:block">Bitwave</span>
           </button>
           <div className="hidden md:flex items-center gap-8">
-            {NAV_LINKS.map(l => (<button key={l.href} onClick={() => scrollTo(l.href.slice(1))} className="text-sm font-medium text-white/70 hover:text-white transition-colors">{l.label}</button>))}
+            {NAV_LINKS.map(l => (<button key={l.href} onClick={() => scrollTo(l.href.slice(1))} className={`text-sm font-medium transition-colors ${scrolled ? 'text-foreground-muted hover:text-foreground' : 'text-white/70 hover:text-white'}`}>{l.label}</button>))}
           </div>
           <div className="hidden md:flex items-center gap-3">
-            <Link href="/login" className="btn-ghost text-sm text-white/70 hover:text-white">Sign In</Link>
+            <Link href="/login" className={`btn-ghost text-sm ${scrolled ? 'text-foreground-muted hover:text-foreground' : 'text-white/70 hover:text-white'}`}>Sign In</Link>
             <button onClick={() => scrollTo('contact')} className="btn-primary text-sm">Request Demo</button>
           </div>
-          <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="md:hidden p-2 rounded-lg hover:bg-white/10 transition-colors" aria-label="Toggle menu">
+          <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className={`md:hidden p-2 rounded-lg transition-colors ${scrolled ? 'hover:bg-background-tertiary text-foreground' : 'hover:bg-white/10 text-white'}`} aria-label="Toggle menu">
             <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               {mobileMenuOpen ? <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /> : <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />}
             </svg>
           </button>
         </div>
-        <div className={`md:hidden overflow-hidden transition-all duration-300 ${mobileMenuOpen ? 'max-h-80 border-b border-border' : 'max-h-0'}`} style={{ background: 'rgba(9,9,11,0.95)', backdropFilter: 'blur(20px)' }}>
+        <div className={`md:hidden overflow-hidden transition-all duration-300 bg-background/95 backdrop-blur-xl ${mobileMenuOpen ? 'max-h-80 border-b border-border' : 'max-h-0'}`}>
           <div className="px-4 py-4 space-y-3">
-            {NAV_LINKS.map(l => (<button key={l.href} onClick={() => scrollTo(l.href.slice(1))} className="block w-full text-left text-sm font-medium text-white/70 hover:text-white py-2 transition-colors">{l.label}</button>))}
+            {NAV_LINKS.map(l => (<button key={l.href} onClick={() => scrollTo(l.href.slice(1))} className="block w-full text-left text-sm font-medium text-foreground-muted hover:text-foreground py-2 transition-colors">{l.label}</button>))}
             <div className="pt-3 border-t border-border flex gap-3">
               <Link href="/login" className="btn-secondary text-sm flex-1 text-center">Sign In</Link>
               <button onClick={() => scrollTo('contact')} className="btn-primary text-sm flex-1">Request Demo</button>

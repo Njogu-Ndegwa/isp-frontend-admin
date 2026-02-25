@@ -201,7 +201,7 @@ export default function RatingsMap({ ratings, mapData, onSelectRating, selectedR
       <div
         ref={mapContainerRef}
         className="h-[500px] rounded-xl overflow-hidden"
-        style={{ background: '#1a1a2e' }}
+        style={{ background: 'var(--background-tertiary)' }}
       />
       
       {/* Legend */}

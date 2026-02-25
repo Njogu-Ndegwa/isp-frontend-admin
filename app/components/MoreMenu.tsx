@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import BottomSheet from './BottomSheet';
 import { useAuth } from '../context/AuthContext';
+import ThemeToggle from './ThemeToggle';
 
 interface MoreMenuProps {
   isOpen: boolean;
@@ -117,6 +118,11 @@ export default function MoreMenu({ isOpen, onClose }: MoreMenuProps) {
               <NavItem key={item.href} item={item} />
             ))}
           </div>
+        </div>
+
+        {/* Theme Toggle */}
+        <div className="mb-4 border-t border-border pt-4">
+          <ThemeToggle />
         </div>
 
         {/* Logout Button */}
