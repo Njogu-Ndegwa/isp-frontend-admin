@@ -61,8 +61,8 @@ export default function DashboardPage() {
   const [dateFilter, setDateFilter] = useState<DateFilter>({ type: 'preset', preset: 'today' });
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   
-  // Router filter state (default to router 3)
-  const [selectedRouterId, setSelectedRouterId] = useState<number | null>(3);
+  // Router filter state (default to all routers)
+  const [selectedRouterId, setSelectedRouterId] = useState<number | null>(null);
   
   // Custom date range state
   const [showCustomRange, setShowCustomRange] = useState(false);
