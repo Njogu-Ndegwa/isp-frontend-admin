@@ -134,7 +134,6 @@ export default function TransactionsPage() {
       const query = searchQuery.toLowerCase();
       return (
         (tx.phone_number || '').includes(query) ||
-        tx.customer?.name?.toLowerCase().includes(query) ||
         tx.mpesa_receipt_number?.toLowerCase().includes(query) ||
         tx.reference?.toLowerCase().includes(query) ||
         tx.result_desc?.toLowerCase().includes(query) ||
@@ -241,7 +240,7 @@ export default function TransactionsPage() {
         <SearchInput
           value={searchQuery}
           onChange={setSearchQuery}
-          placeholder="Search phone, name, receipt..."
+          placeholder="Search phone, receipt, reference..."
         />
 
         {/* Status Filter */}
@@ -281,10 +280,9 @@ export default function TransactionsPage() {
                   <MobileDataCard
                     key={tx.transaction_id}
                     id={tx.transaction_id}
-                    title={tx.customer?.name || '-'}
-                    subtitle={tx.phone_number}
+                    title={tx.phone_number}
                     avatar={{
-                      text: tx.customer?.name?.charAt(0).toUpperCase() || '?',
+                      text: tx.phone_number?.slice(-2) || '?',
                       color: 'secondary'
                     }}
                     status={{
@@ -389,7 +387,6 @@ export default function TransactionsPage() {
                 <thead>
                   <tr>
                     <th>ID</th>
-                    <th>Customer</th>
                     <th>Phone</th>
                     <th>Plan</th>
                     <th>Amount</th>
@@ -401,7 +398,7 @@ export default function TransactionsPage() {
                 <tbody>
                   {filteredTransactions.length === 0 ? (
                     <tr>
-                      <td colSpan={8} className="text-center text-foreground-muted py-12">
+                      <td colSpan={7} className="text-center text-foreground-muted py-12">
                         <svg className="w-12 h-12 mx-auto mb-4 text-foreground-muted/50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
                         </svg>
@@ -421,14 +418,6 @@ export default function TransactionsPage() {
                         }}
                       >
                         <td className="font-mono text-sm text-foreground-muted">#{tx.transaction_id}</td>
-                        <td>
-                          <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-full bg-accent-secondary/10 flex items-center justify-center text-accent-secondary font-medium text-sm">
-                              {tx.customer?.name?.charAt(0).toUpperCase() || '?'}
-                            </div>
-                            <span className="font-medium text-foreground">{tx.customer?.name || '-'}</span>
-                          </div>
-                        </td>
                         <td className="font-mono text-sm text-foreground-muted">{tx.phone_number}</td>
                         <td>
                           <div>

@@ -7,12 +7,14 @@ import { Router } from '../lib/types';
 interface RouterSelectorProps {
   selectedRouterId: number | null;
   onRouterChange: (routerId: number | null) => void;
+  onRoutersLoaded?: (routers: Router[]) => void;
   userId?: number;
 }
 
 export default function RouterSelector({
   selectedRouterId,
   onRouterChange,
+  onRoutersLoaded,
   userId = 1,
 }: RouterSelectorProps) {
   const [routers, setRouters] = useState<Router[]>([]);
@@ -26,14 +28,20 @@ export default function RouterSelector({
         setError(null);
         const data = await api.getRoutersByUserId(userId);
         setRouters(data);
+        onRoutersLoaded?.(data);
+        if (data.length > 0 && !selectedRouterId) {
+          onRouterChange(data[0].id);
+        }
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load routers');
+        onRoutersLoaded?.([]);
       } finally {
         setLoading(false);
       }
     };
 
     loadRouters();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
 
   if (loading) {
@@ -55,7 +63,12 @@ export default function RouterSelector({
   }
 
   if (routers.length === 0) {
-    return null;
+    return (
+      <div className="flex items-center gap-2">
+        <span className="text-foreground-muted text-sm">Router:</span>
+        <span className="text-xs text-foreground-muted">No routers configured</span>
+      </div>
+    );
   }
 
   return (
@@ -66,11 +79,10 @@ export default function RouterSelector({
           value={selectedRouterId ?? ''}
           onChange={(e) => {
             const value = e.target.value;
-            onRouterChange(value === '' ? null : parseInt(value, 10));
+            if (value) onRouterChange(parseInt(value, 10));
           }}
           className="appearance-none px-3 py-2 pr-8 text-sm bg-background-tertiary border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-amber-500 cursor-pointer min-w-[160px]"
         >
-          <option value="">All Routers</option>
           {routers.map((router) => (
             <option key={router.id} value={router.id}>
               {router.name}
@@ -93,17 +105,6 @@ export default function RouterSelector({
           </svg>
         </div>
       </div>
-      {selectedRouterId && (
-        <button
-          onClick={() => onRouterChange(null)}
-          className="text-xs text-foreground-muted hover:text-foreground transition-colors"
-          title="Clear router filter"
-        >
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        </button>
-      )}
     </div>
   );
 }

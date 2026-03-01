@@ -61,8 +61,9 @@ export default function DashboardPage() {
   const [dateFilter, setDateFilter] = useState<DateFilter>({ type: 'preset', preset: 'today' });
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   
-  // Router filter state (default to all routers)
+  // Router filter state (null until a router is loaded)
   const [selectedRouterId, setSelectedRouterId] = useState<number | null>(null);
+  const [hasRouters, setHasRouters] = useState<boolean | null>(null); // null = still loading
   
   // Custom date range state
   const [showCustomRange, setShowCustomRange] = useState(false);
@@ -80,8 +81,9 @@ export default function DashboardPage() {
     return false;
   };
 
-  // Fetch analytics (non-blocking)
+  // Fetch analytics (non-blocking) — only when a router is selected
   const loadAnalytics = useCallback(async () => {
+    if (!selectedRouterId) return;
     try {
       setAnalyticsLoading(true);
       setAnalyticsError(null);
@@ -97,10 +99,7 @@ export default function DashboardPage() {
         options = { startDate: dateFilter.startDate, endDate: dateFilter.endDate };
       }
       
-      // Add router filter if selected
-      if (selectedRouterId) {
-        options.routerId = selectedRouterId;
-      }
+      options.routerId = selectedRouterId;
       
       const analytics = await api.getDashboardAnalytics(1, options);
       setData(analytics);
@@ -114,12 +113,13 @@ export default function DashboardPage() {
     }
   }, [dateFilter, selectedRouterId]);
 
-  // Fetch MikroTik metrics (non-blocking)
+  // Fetch MikroTik metrics (non-blocking) — only when a router is selected
   const loadMikrotik = useCallback(async () => {
+    if (!selectedRouterId) return;
     try {
       setMikrotikLoading(true);
       setMikrotikError(null);
-      const metrics = await api.getMikroTikMetrics(selectedRouterId ?? undefined);
+      const metrics = await api.getMikroTikMetrics(selectedRouterId);
       setMikrotik(metrics);
     } catch (err) {
       setMikrotikError(err instanceof Error ? err.message : 'Failed to load router metrics');
@@ -128,12 +128,13 @@ export default function DashboardPage() {
     }
   }, [selectedRouterId]);
 
-  // Fetch bandwidth history (non-blocking)
+  // Fetch bandwidth history (non-blocking) — only when a router is selected
   const loadBandwidth = useCallback(async () => {
+    if (!selectedRouterId) return;
     try {
       setBandwidthLoading(true);
       setBandwidthError(null);
-      const history = await api.getBandwidthHistory(24, selectedRouterId ?? undefined);
+      const history = await api.getBandwidthHistory(24, selectedRouterId);
       setBandwidth(history);
     } catch (err) {
       setBandwidthError(err instanceof Error ? err.message : 'Failed to load bandwidth data');
@@ -142,12 +143,13 @@ export default function DashboardPage() {
     }
   }, [selectedRouterId]);
 
-  // Fetch top users (non-blocking)
+  // Fetch top users (non-blocking) — only when a router is selected
   const loadTopUsers = useCallback(async () => {
+    if (!selectedRouterId) return;
     try {
       setTopUsersLoading(true);
       setTopUsersError(null);
-      const users = await api.getTopUsers(10, selectedRouterId ?? undefined);
+      const users = await api.getTopUsers(10, selectedRouterId);
       setTopUsers(users);
     } catch (err) {
       setTopUsersError(err instanceof Error ? err.message : 'Failed to load top users');
@@ -240,6 +242,7 @@ export default function DashboardPage() {
           <RouterSelector
             selectedRouterId={selectedRouterId}
             onRouterChange={setSelectedRouterId}
+            onRoutersLoaded={(routers) => setHasRouters(routers.length > 0)}
             userId={1}
           />
           <div className="w-px h-6 bg-border hidden sm:block" />
@@ -299,8 +302,27 @@ export default function DashboardPage() {
         )}
       </div>
 
+      {/* No routers state */}
+      {hasRouters === false && (
+        <div className="card p-12 text-center animate-fade-in">
+          <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-foreground-muted/10 flex items-center justify-center">
+            <RouterIcon className="w-8 h-8 text-foreground-muted" />
+          </div>
+          <h3 className="text-xl font-semibold text-foreground mb-2">No Routers Configured</h3>
+          <p className="text-foreground-muted mb-4 max-w-md mx-auto">
+            Add a router to start seeing dashboard analytics, bandwidth data, and active users.
+          </p>
+          <a href="/routers" className="btn-primary inline-flex items-center gap-2">
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            Add Router
+          </a>
+        </div>
+      )}
+
       {/* Analytics Section - Key Metrics FIRST */}
-      {analyticsError ? (
+      {hasRouters !== false && analyticsError ? (
         <div className="card p-6 text-center">
           <div className="w-12 h-12 mx-auto mb-4 rounded-xl bg-red-500/10 flex items-center justify-center">
             <svg className="w-6 h-6 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -373,35 +395,39 @@ export default function DashboardPage() {
       )}
 
       {/* Router Health & Top Users - Side by Side, Same Height */}
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-        {/* MikroTik Router Status - Takes 2/3, determines row height */}
-        <div className="xl:col-span-2 flex flex-col">
-          <MikroTikSection 
-            data={mikrotik} 
-            loading={mikrotikLoading} 
-            error={mikrotikError}
-            onRetry={loadMikrotik}
-          />
+      {selectedRouterId && (
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+          {/* MikroTik Router Status - Takes 2/3, determines row height */}
+          <div className="xl:col-span-2 flex flex-col">
+            <MikroTikSection 
+              data={mikrotik} 
+              loading={mikrotikLoading} 
+              error={mikrotikError}
+              onRetry={loadMikrotik}
+            />
+          </div>
+          
+          {/* Top Users - Takes 1/3, matches MikroTik height with scrollable content */}
+          <div className="xl:col-span-1 flex flex-col">
+            <TopUsersSection
+              data={topUsers}
+              loading={topUsersLoading}
+              error={topUsersError}
+              onRetry={loadTopUsers}
+            />
+          </div>
         </div>
-        
-        {/* Top Users - Takes 1/3, matches MikroTik height with scrollable content */}
-        <div className="xl:col-span-1 flex flex-col">
-          <TopUsersSection
-            data={topUsers}
-            loading={topUsersLoading}
-            error={topUsersError}
-            onRetry={loadTopUsers}
-          />
-        </div>
-      </div>
+      )}
 
       {/* Bandwidth History - Full Width Chart */}
-      <BandwidthSection
-        data={bandwidth}
-        loading={bandwidthLoading}
-        error={bandwidthError}
-        onRetry={loadBandwidth}
-      />
+      {selectedRouterId && (
+        <BandwidthSection
+          data={bandwidth}
+          loading={bandwidthLoading}
+          error={bandwidthError}
+          onRetry={loadBandwidth}
+        />
+      )}
 
       {/* Analytics Charts Section */}
       {!analyticsError && !analyticsLoading && data && (
