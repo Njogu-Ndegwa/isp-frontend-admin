@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { api } from '../lib/api';
-import { Router, RouterUsersResponse, HotspotUser, CreateRouterRequest } from '../lib/types';
+import { Router, RouterUsersResponse, HotspotUser, CreateRouterRequest, UpdateRouterRequest } from '../lib/types';
 import Header from '../components/Header';
 import { PageLoader } from '../components/LoadingSpinner';
 import { useAuth } from '../context/AuthContext';
@@ -20,6 +20,7 @@ export default function RoutersPage() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [deletingRouter, setDeletingRouter] = useState<number | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null);
+  const [editingRouter, setEditingRouter] = useState<Router | null>(null);
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -197,6 +198,15 @@ export default function RoutersPage() {
                       <span className="badge badge-neutral text-xs">
                         {router.auth_method?.replace(/_/g, ' ') || 'API'}
                       </span>
+                      <button
+                          onClick={() => setEditingRouter(router)}
+                          className="p-1.5 rounded-lg hover:bg-accent-primary/10 text-foreground-muted hover:text-accent-primary transition-colors"
+                          title="Edit router"
+                        >
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                          </svg>
+                        </button>
                       {deleteConfirm === router.id ? (
                         <div className="flex items-center gap-1">
                           <button
@@ -314,6 +324,17 @@ export default function RoutersPage() {
           onClose={() => setShowCreateModal(false)}
           onSuccess={() => {
             setShowCreateModal(false);
+            loadRouters();
+          }}
+        />
+      )}
+
+      {editingRouter && (
+        <EditRouterModal
+          router={editingRouter}
+          onClose={() => setEditingRouter(null)}
+          onSuccess={() => {
+            setEditingRouter(null);
             loadRouters();
           }}
         />
@@ -482,6 +503,174 @@ function CreateRouterModal({
                 </>
               ) : (
                 'Add Router'
+              )}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function EditRouterModal({
+  router,
+  onClose,
+  onSuccess,
+}: {
+  router: Router;
+  onClose: () => void;
+  onSuccess: () => void;
+}) {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
+  const [formData, setFormData] = useState<UpdateRouterRequest & { password: string }>({
+    name: router.name,
+    ip_address: router.ip_address,
+    username: '',
+    password: '',
+    port: router.port,
+  });
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      setLoading(true);
+      setError(null);
+      const updates: UpdateRouterRequest = {
+        name: formData.name,
+        ip_address: formData.ip_address,
+        port: formData.port,
+      };
+      if (formData.username) updates.username = formData.username;
+      if (formData.password) updates.password = formData.password;
+      await api.updateRouter(router.id, updates);
+      onSuccess();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update router');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+
+      <div className="relative w-full max-w-lg card p-6 animate-fade-in max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-xl font-bold text-foreground">Edit Router</h2>
+          <button onClick={onClose} className="p-2 rounded-lg hover:bg-background-tertiary transition-colors">
+            <svg className="w-5 h-5 text-foreground-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        {error && (
+          <div className="mb-4 p-3 rounded-lg bg-danger/10 border border-danger/30 text-danger text-sm">
+            {error}
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-2">Router Name</label>
+            <input
+              type="text"
+              value={formData.name}
+              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              className="input"
+              placeholder="e.g., My Router"
+              required
+            />
+          </div>
+
+          <div className="grid grid-cols-3 gap-4">
+            <div className="col-span-2">
+              <label className="block text-sm font-medium text-foreground mb-2">IP Address</label>
+              <input
+                type="text"
+                value={formData.ip_address}
+                onChange={(e) => setFormData({ ...formData, ip_address: e.target.value })}
+                className="input"
+                placeholder="e.g., 192.168.1.1"
+                pattern="^(\d{1,3}\.){3}\d{1,3}$"
+                title="Enter a valid IP address (e.g., 192.168.1.1)"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-2">API Port</label>
+              <input
+                type="number"
+                value={formData.port}
+                onChange={(e) => setFormData({ ...formData, port: parseInt(e.target.value) || 8728 })}
+                className="input"
+                min={1}
+                max={65535}
+                required
+              />
+            </div>
+          </div>
+
+          <div className="pt-2 border-t border-border">
+            <p className="text-xs text-foreground-muted mb-3">Leave blank to keep current credentials</p>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-2">Username</label>
+                <input
+                  type="text"
+                  value={formData.username}
+                  onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+                  className="input"
+                  placeholder="Leave blank to keep current"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-2">Password</label>
+                <div className="relative">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    value={formData.password}
+                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                    className="input pr-10"
+                    placeholder="Leave blank to keep current"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-foreground-muted hover:text-foreground transition-colors"
+                  >
+                    {showPassword ? (
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                      </svg>
+                    ) : (
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                      </svg>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex gap-3 pt-2">
+            <button type="button" onClick={onClose} className="btn-secondary flex-1">
+              Cancel
+            </button>
+            <button type="submit" disabled={loading} className="btn-primary flex-1 flex items-center justify-center gap-2">
+              {loading ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                'Save Changes'
               )}
             </button>
           </div>

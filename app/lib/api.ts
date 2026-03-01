@@ -12,6 +12,7 @@ import {
   TransactionSummary,
   Router,
   CreateRouterRequest,
+  UpdateRouterRequest,
   RouterUsersResponse,
   LoginRequest,
   LoginResponse,
@@ -322,6 +323,15 @@ class ApiClient {
       method: 'POST',
       headers: this.getHeaders(),
       body: JSON.stringify(router),
+    });
+    return this.handleResponse<Router>(response);
+  }
+
+  async updateRouter(routerId: number, updates: UpdateRouterRequest): Promise<Router> {
+    const response = await fetch(`${BASE_URL}/routers/${routerId}`, {
+      method: 'PUT',
+      headers: this.getHeaders(),
+      body: JSON.stringify(updates),
     });
     return this.handleResponse<Router>(response);
   }

@@ -317,6 +317,14 @@ export interface CreateRouterRequest {
   port: number;
 }
 
+export interface UpdateRouterRequest {
+  name?: string;
+  ip_address?: string;
+  username?: string;
+  password?: string;
+  port?: number;
+}
+
 export interface HotspotSession {
   address: string;
   login_time: string;
