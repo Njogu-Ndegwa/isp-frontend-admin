@@ -394,29 +394,24 @@ export default function DashboardPage() {
         </>
       )}
 
-      {/* Router Health & Top Users - Side by Side, Same Height */}
+      {/* Router Health */}
       {selectedRouterId && (
-        <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-          {/* MikroTik Router Status - Takes 2/3, determines row height */}
-          <div className="xl:col-span-2 flex flex-col">
-            <MikroTikSection 
-              data={mikrotik} 
-              loading={mikrotikLoading} 
-              error={mikrotikError}
-              onRetry={loadMikrotik}
-            />
-          </div>
-          
-          {/* Top Users - Takes 1/3, matches MikroTik height with scrollable content */}
-          <div className="xl:col-span-1 flex flex-col">
-            <TopUsersSection
-              data={topUsers}
-              loading={topUsersLoading}
-              error={topUsersError}
-              onRetry={loadTopUsers}
-            />
-          </div>
-        </div>
+        <MikroTikSection 
+          data={mikrotik} 
+          loading={mikrotikLoading} 
+          error={mikrotikError}
+          onRetry={loadMikrotik}
+        />
+      )}
+
+      {/* Top Downloaders - Full Width */}
+      {selectedRouterId && (
+        <TopUsersSection
+          data={topUsers}
+          loading={topUsersLoading}
+          error={topUsersError}
+          onRetry={loadTopUsers}
+        />
       )}
 
       {/* Bandwidth History - Full Width Chart */}
@@ -1015,7 +1010,7 @@ function BandwidthTooltip({ active, payload, label }: { active?: boolean; payloa
   );
 }
 
-// Top Users Section Component
+// Top Users Section Component — full-width table
 function TopUsersSection({
   data,
   loading,
@@ -1027,15 +1022,13 @@ function TopUsersSection({
   error: string | null;
   onRetry: () => void;
 }) {
-  // Format rate to Kbps or Mbps
   const formatRate = (bps: number) => {
     if (bps === 0) return '-';
     const kbps = bps / 1000;
-    if (kbps < 1000) return `${kbps.toFixed(0)}K`;
-    return `${(kbps / 1000).toFixed(1)}M`;
+    if (kbps < 1000) return `${kbps.toFixed(0)} Kbps`;
+    return `${(kbps / 1000).toFixed(1)} Mbps`;
   };
 
-  // Format MB to appropriate unit
   const formatUsage = (mb: number) => {
     if (mb >= 1024) return `${(mb / 1024).toFixed(1)} GB`;
     return `${mb.toFixed(0)} MB`;
@@ -1043,20 +1036,18 @@ function TopUsersSection({
 
   if (error) {
     return (
-      <div className="card p-4 border-red-500/30 animate-fade-in flex-1 flex flex-col">
+      <div className="card p-5 border-red-500/30 animate-fade-in">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-red-500/10 flex items-center justify-center">
-              <TopUsersIcon className="w-4 h-4 text-red-500" />
+            <div className="w-10 h-10 rounded-xl bg-red-500/10 flex items-center justify-center">
+              <TopUsersIcon className="w-5 h-5 text-red-500" />
             </div>
             <div>
-              <p className="font-medium text-foreground text-sm">Top Downloaders</p>
+              <p className="font-medium text-foreground">Top Downloaders</p>
               <p className="text-xs text-red-400">{error}</p>
             </div>
           </div>
-          <button onClick={onRetry} className="btn-ghost text-xs">
-            Retry
-          </button>
+          <button onClick={onRetry} className="btn-ghost text-xs">Retry</button>
         </div>
       </div>
     );
@@ -1064,26 +1055,31 @@ function TopUsersSection({
 
   if (loading && !data) {
     return (
-      <div className="card p-4 animate-fade-in flex-1 flex flex-col">
-        <div className="flex items-center gap-3 mb-3">
-          <div className="w-8 h-8 rounded-lg skeleton" />
-          <div className="w-32 h-4 skeleton" />
+      <div className="card p-5 animate-fade-in">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-10 h-10 rounded-xl skeleton" />
+          <div>
+            <div className="w-32 h-4 skeleton mb-1" />
+            <div className="w-24 h-3 skeleton" />
+          </div>
         </div>
-        <div className="flex-1 skeleton rounded-lg" />
+        <div className="h-48 skeleton rounded-lg" />
       </div>
     );
   }
 
   if (!data || data.topUsers.length === 0) {
     return (
-      <div className="card p-4 animate-fade-in flex-1 flex flex-col">
-        <div className="flex items-center gap-3 mb-3">
-          <div className="w-8 h-8 rounded-lg bg-violet-500/10 flex items-center justify-center">
-            <TopUsersIcon className="w-4 h-4 text-violet-500" />
+      <div className="card p-5 animate-fade-in">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-10 h-10 rounded-xl bg-violet-500/10 flex items-center justify-center">
+            <TopUsersIcon className="w-5 h-5 text-violet-500" />
           </div>
-          <p className="font-semibold text-foreground text-sm">Top Downloaders</p>
+          <p className="font-semibold text-foreground">Top Downloaders</p>
         </div>
-        <p className="text-sm text-foreground-muted text-center flex-1 flex items-center justify-center">No active users</p>
+        <div className="text-center py-8 text-foreground-muted">
+          <p className="text-sm">No active users</p>
+        </div>
       </div>
     );
   }
@@ -1091,36 +1087,81 @@ function TopUsersSection({
   const maxDownload = Math.max(...data.topUsers.map(u => u.downloadMB));
 
   return (
-    <div className="card p-4 animate-fade-in flex-1 flex flex-col">
-      {/* Compact Header */}
-      <div className="flex items-center justify-between mb-3 flex-shrink-0">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-violet-500/10 flex items-center justify-center">
-            <TopUsersIcon className="w-4 h-4 text-violet-500" />
+    <div className="card p-4 sm:p-5 animate-fade-in">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-4 sm:mb-5">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-violet-500/10 flex items-center justify-center flex-shrink-0">
+            <TopUsersIcon className="w-4 h-4 sm:w-5 sm:h-5 text-violet-500" />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <p className="font-semibold text-foreground text-sm">Top Downloaders</p>
+              <p className="font-semibold text-foreground text-sm sm:text-base">Top Downloaders</p>
               {loading && <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />}
             </div>
+            <p className="text-[10px] sm:text-xs text-foreground-muted">
+              {data.topUsers.length} users • {data.totalQueues} total queues
+            </p>
           </div>
         </div>
-        <span className="text-[10px] text-foreground-muted" suppressHydrationWarning>
-          {data.totalQueues} queues
-        </span>
       </div>
 
-      {/* Compact Table - Scrollable content, scrollbar on left */}
-      <div className="overflow-y-auto overflow-x-hidden flex-1 min-h-0" style={{ direction: 'rtl' }}>
-        <table className="w-full text-xs" style={{ direction: 'ltr' }}>
+      {/* Mobile: Card layout */}
+      <div className="md:hidden space-y-2">
+        {data.topUsers.map((user, index) => {
+          const [uploadRate, downloadRate] = (user.currentRate || '0/0').split('/').map(Number);
+          const isActive = downloadRate > 0 || uploadRate > 0;
+          const downloadPercent = (user.downloadMB / maxDownload) * 100;
+          const rank = index + 1;
+
+          return (
+            <div
+              key={user.mac}
+              className={`p-3 rounded-xl border ${isActive ? 'border-emerald-500/20 bg-emerald-500/5' : 'border-border/50 bg-background-tertiary/50'}`}
+            >
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2.5">
+                  <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
+                    rank === 1 ? 'bg-amber-500/20 text-amber-500' :
+                    rank === 2 ? 'bg-foreground-muted/10 text-foreground-muted' :
+                    rank === 3 ? 'bg-orange-500/20 text-orange-500' :
+                    'bg-foreground-muted/10 text-foreground-muted'
+                  }`}>
+                    {rank}
+                  </span>
+                  <span className="font-mono text-sm text-foreground">{user.customerPhone}</span>
+                  {isActive && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />}
+                </div>
+                <span className="text-sm font-semibold text-cyan-500">{formatUsage(user.downloadMB)}</span>
+              </div>
+              <div className="h-1.5 bg-background rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-gradient-to-r from-cyan-500 to-violet-500 rounded-full transition-all duration-500"
+                  style={{ width: `${downloadPercent}%` }}
+                />
+              </div>
+              <div className="flex items-center justify-between mt-2 text-xs text-foreground-muted">
+                <span>↑ {formatUsage(user.uploadMB)}</span>
+                <span>Total: {formatUsage(user.totalMB)}</span>
+                {isActive && <span className="text-emerald-500">{formatRate(downloadRate)}</span>}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Desktop: Full table */}
+      <div className="hidden md:block overflow-x-auto">
+        <table className="w-full">
           <thead>
-            <tr className="text-foreground-muted text-[10px] uppercase tracking-wider">
-              <th className="text-left pb-2 font-medium">#</th>
-              <th className="text-left pb-2 font-medium">User</th>
-              <th className="text-right pb-2 font-medium">↓ Down</th>
-              <th className="text-right pb-2 font-medium hidden sm:table-cell">↑ Up</th>
-              <th className="text-right pb-2 font-medium hidden lg:table-cell">Total</th>
-              <th className="text-right pb-2 font-medium hidden sm:table-cell">Speed</th>
+            <tr className="text-foreground-muted text-xs uppercase tracking-wider border-b border-border">
+              <th className="text-left pb-3 font-medium w-12">#</th>
+              <th className="text-left pb-3 font-medium">User</th>
+              <th className="text-left pb-3 font-medium">Usage</th>
+              <th className="text-right pb-3 font-medium">Download</th>
+              <th className="text-right pb-3 font-medium">Upload</th>
+              <th className="text-right pb-3 font-medium">Total</th>
+              <th className="text-right pb-3 font-medium">Speed</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-border/30">
@@ -1131,62 +1172,54 @@ function TopUsersSection({
               const rank = index + 1;
 
               return (
-                <tr 
-                  key={user.mac} 
+                <tr
+                  key={user.mac}
                   className={`${isActive ? 'bg-emerald-500/5' : ''} hover:bg-background-tertiary/50 transition-colors`}
                 >
-                  {/* Rank */}
-                  <td className="py-2 pr-1.5 sm:pr-2">
-                    <span className={`font-bold ${
-                      rank === 1 ? 'text-amber-500' :
-                      rank === 2 ? 'text-foreground-muted' :
-                      rank === 3 ? 'text-orange-600' :
+                  <td className="py-3">
+                    <span className={`inline-flex w-7 h-7 rounded-full items-center justify-center text-xs font-bold ${
+                      rank === 1 ? 'bg-amber-500/20 text-amber-500' :
+                      rank === 2 ? 'bg-gray-500/15 text-gray-400' :
+                      rank === 3 ? 'bg-orange-500/20 text-orange-600' :
                       'text-foreground-muted'
                     }`}>
                       {rank}
                     </span>
                   </td>
-                  
-                  {/* User Info */}
-                  <td className="py-2">
-                    <div className="flex items-center gap-1.5">
-                      <span className="font-mono text-foreground text-[11px] sm:text-xs">{user.customerPhone}</span>
-                      {isActive && (
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse flex-shrink-0" title="Active" />
-                      )}
+                  <td className="py-3">
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono text-sm text-foreground">{user.customerPhone}</span>
+                      {isActive && <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse flex-shrink-0" title="Active now" />}
                     </div>
-                    {/* Mini progress bar */}
-                    <div className="w-16 sm:w-20 h-1 bg-background-tertiary rounded-full mt-1 overflow-hidden">
-                      <div 
-                        className="h-full bg-gradient-to-r from-cyan-500 to-cyan-400 rounded-full"
+                    {user.customerName && user.customerName !== user.customerPhone && (
+                      <p className="text-xs text-foreground-muted mt-0.5">{user.customerName}</p>
+                    )}
+                  </td>
+                  <td className="py-3 w-40">
+                    <div className="h-2 bg-background-tertiary rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-gradient-to-r from-cyan-500 to-violet-500 rounded-full transition-all duration-500"
                         style={{ width: `${downloadPercent}%` }}
                       />
                     </div>
                   </td>
-                  
-                  {/* Download */}
-                  <td className="py-2 text-right text-cyan-500 font-medium">
-                    {formatUsage(user.downloadMB)}
+                  <td className="py-3 text-right">
+                    <span className="text-sm font-semibold text-cyan-500">{formatUsage(user.downloadMB)}</span>
                   </td>
-                  
-                  {/* Upload - hidden on small screens */}
-                  <td className="py-2 text-right text-emerald-500 font-medium hidden sm:table-cell">
-                    {formatUsage(user.uploadMB)}
+                  <td className="py-3 text-right">
+                    <span className="text-sm font-medium text-emerald-500">{formatUsage(user.uploadMB)}</span>
                   </td>
-                  
-                  {/* Total - hidden on small/medium */}
-                  <td className="py-2 text-right font-semibold text-foreground hidden lg:table-cell">
-                    {formatUsage(user.totalMB)}
+                  <td className="py-3 text-right">
+                    <span className="text-sm font-semibold text-foreground">{formatUsage(user.totalMB)}</span>
                   </td>
-                  
-                  {/* Current Speed - hidden on small screens */}
-                  <td className="py-2 text-right hidden sm:table-cell">
+                  <td className="py-3 text-right">
                     {isActive ? (
-                      <span className="text-emerald-500">
-                        {formatRate(downloadRate)}/s
+                      <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-emerald-500/10 text-emerald-500 text-xs font-medium">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                        {formatRate(downloadRate)}
                       </span>
                     ) : (
-                      <span className="text-foreground-muted">-</span>
+                      <span className="text-sm text-foreground-muted">Idle</span>
                     )}
                   </td>
                 </tr>
