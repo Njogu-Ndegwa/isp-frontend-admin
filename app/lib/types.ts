@@ -302,7 +302,18 @@ export interface TransactionSummary {
 export interface Router {
   id: number;
   name: string;
+  identity: string;
   ip_address: string;
+  port: number;
+  auth_method: string;
+}
+
+export interface CreateRouterRequest {
+  name: string;
+  identity: string;
+  ip_address: string;
+  username: string;
+  password: string;
   port: number;
 }
 

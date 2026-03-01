@@ -11,6 +11,7 @@ import {
   MpesaTransaction,
   TransactionSummary,
   Router,
+  CreateRouterRequest,
   RouterUsersResponse,
   LoginRequest,
   LoginResponse,
@@ -35,7 +36,7 @@ class ApiClient {
     return localStorage.getItem('auth_token');
   }
 
-  private getHeaders(authenticated = false): HeadersInit {
+  private getHeaders(authenticated = true): HeadersInit {
     const headers: HeadersInit = {
       'Content-Type': 'application/json',
     };
@@ -52,6 +53,12 @@ class ApiClient {
 
   private async handleResponse<T>(response: Response): Promise<T> {
     if (!response.ok) {
+      if (response.status === 401 && typeof window !== 'undefined') {
+        localStorage.removeItem('auth_token');
+        localStorage.removeItem('auth_user');
+        window.location.href = '/login';
+        throw new Error('Session expired. Please log in again.');
+      }
       const error = await response.json().catch(() => ({ detail: 'An error occurred' }));
       throw new Error(error.detail || `HTTP error! status: ${response.status}`);
     }
@@ -308,6 +315,23 @@ class ApiClient {
       headers: this.getHeaders(true),
     });
     return this.handleResponse<Router[]>(response);
+  }
+
+  async createRouter(router: CreateRouterRequest): Promise<Router> {
+    const response = await fetch(`${BASE_URL}/routers/create`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify(router),
+    });
+    return this.handleResponse<Router>(response);
+  }
+
+  async deleteRouter(routerId: number): Promise<{ message: string }> {
+    const response = await fetch(`${BASE_URL}/routers/${routerId}?force=true`, {
+      method: 'DELETE',
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<{ message: string }>(response);
   }
 
   async getRoutersByUserId(userId: number): Promise<Router[]> {
