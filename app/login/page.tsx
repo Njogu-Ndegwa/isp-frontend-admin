@@ -82,7 +82,7 @@ export default function LoginPage() {
                 className="input"
                 placeholder="Enter your email"
                 required
-                autoComplete="email"
+                autoComplete="off"
               />
             </div>
 
@@ -98,7 +98,7 @@ export default function LoginPage() {
                   className="input pr-10"
                   placeholder="Enter your password"
                   required
-                  autoComplete="off"
+                  autoComplete="new-password"
                   data-lpignore="true"
                   data-1p-ignore
                 />

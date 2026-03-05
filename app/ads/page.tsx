@@ -506,7 +506,7 @@ function CreateAdModal({
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4" autoComplete="off">
           {/* Advertiser Selection */}
           <div>
             <label className="block text-sm font-medium text-foreground mb-2">Advertiser</label>

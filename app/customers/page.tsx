@@ -9,8 +9,19 @@ import { PageLoader } from '../components/LoadingSpinner';
 import StatCard from '../components/StatCard';
 import MobileDataCard from '../components/MobileDataCard';
 import SearchInput from '../components/SearchInput';
+import DataTable, { DataTableColumn } from '../components/DataTable';
 
 type FilterStatus = 'all' | 'active' | 'inactive';
+
+const CUSTOMER_COLUMNS: DataTableColumn[] = [
+  { key: 'name', label: 'Customer' },
+  { key: 'phone', label: 'Phone' },
+  { key: 'mac_address', label: 'MAC Address' },
+  { key: 'plan', label: 'Plan' },
+  { key: 'router', label: 'Router' },
+  { key: 'status', label: 'Status' },
+  { key: 'expiry', label: 'Expiry' },
+];
 
 export default function CustomersPage() {
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -200,87 +211,74 @@ export default function CustomersPage() {
         <>
 
           {/* Desktop Table - Hidden on Mobile */}
-          <div className="hidden md:block card animate-fade-in">
-            <div className="overflow-x-auto">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Customer</th>
-                    <th>Phone</th>
-                    <th>MAC Address</th>
-                    <th>Plan</th>
-                    <th>Router</th>
-                    <th>Status</th>
-                    <th>Expiry</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredCustomers.length === 0 ? (
-                    <tr>
-                      <td colSpan={7} className="text-center text-foreground-muted py-12">
-                        <svg className="w-12 h-12 mx-auto mb-4 text-foreground-muted/50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
-                        </svg>
-                        {searchQuery ? 'No customers match your search' : 'No customers found'}
-                      </td>
-                    </tr>
+          <DataTable<Customer>
+            columns={CUSTOMER_COLUMNS}
+            data={filteredCustomers}
+            rowKey={(c) => c.id}
+            renderCell={(customer, key) => {
+              switch (key) {
+                case 'name':
+                  return (
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-accent-primary/10 flex items-center justify-center text-accent-primary font-medium text-sm">
+                        {(customer.name || '?').charAt(0).toUpperCase()}
+                      </div>
+                      <span className="font-medium text-foreground">{customer.name || 'Unknown'}</span>
+                    </div>
+                  );
+                case 'phone':
+                  return <span className="font-mono text-sm text-foreground-muted">{customer.phone || '-'}</span>;
+                case 'mac_address':
+                  return <span className="font-mono text-xs text-foreground-muted">{customer.mac_address || '-'}</span>;
+                case 'plan':
+                  return (
+                    <div>
+                      <p className="font-medium text-foreground">{customer.plan?.name || 'No Plan'}</p>
+                      <p className="text-xs text-foreground-muted">KES {customer.plan?.price ?? '-'}</p>
+                    </div>
+                  );
+                case 'router':
+                  return <span className="text-foreground-muted">{customer.router?.name || '-'}</span>;
+                case 'status':
+                  return (
+                    <span className={`badge ${getStatusBadge(customer.status)} capitalize`}>
+                      {customer.status}
+                    </span>
+                  );
+                case 'expiry':
+                  return customer.status === 'active' ? (
+                    <div>
+                      <p className="text-foreground text-sm">
+                        {formatDateGMT3(customer.expiry, {
+                          month: 'short',
+                          day: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                      </p>
+                      {customer.hours_remaining !== undefined && (
+                        <p className={`text-xs font-medium ${getTimeRemainingColor(customer.hours_remaining)}`}>
+                          {formatTimeRemaining(customer.hours_remaining)}
+                        </p>
+                      )}
+                    </div>
                   ) : (
-                    filteredCustomers.map((customer, index) => (
-                      <tr 
-                        key={customer.id}
-                        className="animate-fade-in"
-                        style={{ animationDelay: `${index * 0.05}s`, opacity: 0 }}
-                      >
-                        <td>
-                          <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-full bg-accent-primary/10 flex items-center justify-center text-accent-primary font-medium text-sm">
-                              {(customer.name || '?').charAt(0).toUpperCase()}
-                            </div>
-                            <span className="font-medium text-foreground">{customer.name || 'Unknown'}</span>
-                          </div>
-                        </td>
-                        <td className="font-mono text-sm text-foreground-muted">{customer.phone || '-'}</td>
-                        <td className="font-mono text-xs text-foreground-muted">{customer.mac_address || '-'}</td>
-                        <td>
-                          <div>
-                            <p className="font-medium text-foreground">{customer.plan?.name || 'No Plan'}</p>
-                            <p className="text-xs text-foreground-muted">KES {customer.plan?.price ?? '-'}</p>
-                          </div>
-                        </td>
-                        <td className="text-foreground-muted">{customer.router?.name || '-'}</td>
-                        <td>
-                          <span className={`badge ${getStatusBadge(customer.status)} capitalize`}>
-                            {customer.status}
-                          </span>
-                        </td>
-                        <td>
-                          {customer.status === 'active' ? (
-                            <div>
-                              <p className="text-foreground text-sm">
-                                {formatDateGMT3(customer.expiry, {
-                                  month: 'short',
-                                  day: 'numeric',
-                                  hour: '2-digit',
-                                  minute: '2-digit',
-                                })}
-                              </p>
-                              {customer.hours_remaining !== undefined && (
-                                <p className={`text-xs font-medium ${getTimeRemainingColor(customer.hours_remaining)}`}>
-                                  {formatTimeRemaining(customer.hours_remaining)}
-                                </p>
-                              )}
-                            </div>
-                          ) : (
-                            <span className="text-foreground-muted">-</span>
-                          )}
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
+                    <span className="text-foreground-muted">-</span>
+                  );
+                default:
+                  return null;
+              }
+            }}
+            rowStyle={(_c, index) => ({ animationDelay: `${index * 0.05}s`, opacity: 0 })}
+            emptyState={{
+              icon: (
+                <svg className="w-12 h-12 text-foreground-muted/50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+              ),
+              message: searchQuery ? 'No customers match your search' : 'No customers found',
+            }}
+          />
 
           {/* Mobile Cards */}
           <div className="md:hidden space-y-3">

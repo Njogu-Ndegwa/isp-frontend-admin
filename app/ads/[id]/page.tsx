@@ -8,8 +8,25 @@ import { Ad, AdClick, AdImpression, AdsResponse, AdClicksResponse, AdImpressions
 import { formatDateGMT3 } from '../../lib/dateUtils';
 import Header from '../../components/Header';
 import { PageLoader } from '../../components/LoadingSpinner';
+import DataTable, { DataTableColumn } from '../../components/DataTable';
 
 type TabType = 'overview' | 'clicks' | 'impressions';
+
+const CLICK_COLUMNS: DataTableColumn[] = [
+  { key: 'type', label: 'Type' },
+  { key: 'device_id', label: 'Device ID' },
+  { key: 'mac_address', label: 'MAC Address' },
+  { key: 'session', label: 'Session' },
+  { key: 'time', label: 'Time' },
+];
+
+const IMPRESSION_COLUMNS: DataTableColumn[] = [
+  { key: 'device_id', label: 'Device ID' },
+  { key: 'session', label: 'Session' },
+  { key: 'placement', label: 'Placement' },
+  { key: 'co_displayed', label: 'Co-displayed Ads' },
+  { key: 'time', label: 'Time' },
+];
 
 export default function AdDetailPage() {
   const params = useParams();
@@ -422,52 +439,43 @@ export default function AdDetailPage() {
             </span>
           </div>
 
-          <div className="card">
-            <div className="overflow-x-auto">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Type</th>
-                    <th>Device ID</th>
-                    <th>MAC Address</th>
-                    <th>Session</th>
-                    <th>Time</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {clicks.length === 0 ? (
-                    <tr>
-                      <td colSpan={5} className="text-center text-foreground-muted py-12">
-                        No clicks recorded yet
-                      </td>
-                    </tr>
-                  ) : (
-                    clicks.map((click) => (
-                      <tr key={click.id}>
-                        <td>
-                          <span className={`badge ${getClickTypeBadge(click.click_type)} flex items-center gap-1.5 w-fit`}>
-                            {getClickTypeIcon(click.click_type)}
-                            <span className="capitalize">{click.click_type.replace('_', ' ')}</span>
-                          </span>
-                        </td>
-                        <td className="font-mono text-xs text-foreground-muted">{click.device_id}</td>
-                        <td className="font-mono text-xs text-foreground-muted">{click.mac_address}</td>
-                        <td className="font-mono text-xs text-foreground-muted">{click.session_id}</td>
-                        <td className="text-sm text-foreground-muted">
-                          {formatDateGMT3(click.created_at, {
-                            month: 'short',
-                            day: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })}
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
+          <DataTable<AdClick>
+            columns={CLICK_COLUMNS}
+            data={clicks}
+            rowKey={(c) => c.id}
+            renderCell={(click, key) => {
+              switch (key) {
+                case 'type':
+                  return (
+                    <span className={`badge ${getClickTypeBadge(click.click_type)} flex items-center gap-1.5 w-fit`}>
+                      {getClickTypeIcon(click.click_type)}
+                      <span className="capitalize">{click.click_type.replace('_', ' ')}</span>
+                    </span>
+                  );
+                case 'device_id':
+                  return <span className="font-mono text-xs text-foreground-muted">{click.device_id}</span>;
+                case 'mac_address':
+                  return <span className="font-mono text-xs text-foreground-muted">{click.mac_address}</span>;
+                case 'session':
+                  return <span className="font-mono text-xs text-foreground-muted">{click.session_id}</span>;
+                case 'time':
+                  return (
+                    <span className="text-sm text-foreground-muted">
+                      {formatDateGMT3(click.created_at, {
+                        month: 'short',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
+                    </span>
+                  );
+                default:
+                  return null;
+              }
+            }}
+            emptyState={{ message: 'No clicks recorded yet' }}
+            className="card animate-fade-in"
+          />
 
           {clicksTotal > 50 && (
             <div className="flex items-center justify-center gap-2 mt-4">
@@ -501,51 +509,38 @@ export default function AdDetailPage() {
             </span>
           </div>
 
-          <div className="card">
-            <div className="overflow-x-auto">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Device ID</th>
-                    <th>Session</th>
-                    <th>Placement</th>
-                    <th>Co-displayed Ads</th>
-                    <th>Time</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {impressions.length === 0 ? (
-                    <tr>
-                      <td colSpan={5} className="text-center text-foreground-muted py-12">
-                        No impressions recorded yet
-                      </td>
-                    </tr>
-                  ) : (
-                    impressions.map((impression) => (
-                      <tr key={impression.id}>
-                        <td className="font-mono text-xs text-foreground-muted">{impression.device_id}</td>
-                        <td className="font-mono text-xs text-foreground-muted">{impression.session_id}</td>
-                        <td>
-                          <span className="badge badge-neutral">{impression.placement}</span>
-                        </td>
-                        <td className="text-sm text-foreground-muted">
-                          {impression.ad_ids.length} ads
-                        </td>
-                        <td className="text-sm text-foreground-muted">
-                          {formatDateGMT3(impression.created_at, {
-                            month: 'short',
-                            day: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })}
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
+          <DataTable<AdImpression>
+            columns={IMPRESSION_COLUMNS}
+            data={impressions}
+            rowKey={(imp) => imp.id}
+            renderCell={(impression, key) => {
+              switch (key) {
+                case 'device_id':
+                  return <span className="font-mono text-xs text-foreground-muted">{impression.device_id}</span>;
+                case 'session':
+                  return <span className="font-mono text-xs text-foreground-muted">{impression.session_id}</span>;
+                case 'placement':
+                  return <span className="badge badge-neutral">{impression.placement}</span>;
+                case 'co_displayed':
+                  return <span className="text-sm text-foreground-muted">{impression.ad_ids.length} ads</span>;
+                case 'time':
+                  return (
+                    <span className="text-sm text-foreground-muted">
+                      {formatDateGMT3(impression.created_at, {
+                        month: 'short',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
+                    </span>
+                  );
+                default:
+                  return null;
+              }
+            }}
+            emptyState={{ message: 'No impressions recorded yet' }}
+            className="card animate-fade-in"
+          />
 
           {impressionsTotal > 50 && (
             <div className="flex items-center justify-center gap-2 mt-4">
@@ -705,7 +700,7 @@ function EditAdModal({
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4" autoComplete="off">
           {/* Status Toggle */}
           <div className="flex items-center justify-between p-4 rounded-lg bg-background-tertiary">
             <div>

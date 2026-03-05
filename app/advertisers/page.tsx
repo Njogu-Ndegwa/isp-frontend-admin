@@ -8,6 +8,16 @@ import Header from '../components/Header';
 import { PageLoader } from '../components/LoadingSpinner';
 import PullToRefresh from '../components/PullToRefresh';
 import SearchInput from '../components/SearchInput';
+import DataTable, { DataTableColumn } from '../components/DataTable';
+
+const ADVERTISER_COLUMNS: DataTableColumn[] = [
+  { key: 'business', label: 'Business' },
+  { key: 'contact', label: 'Contact Person' },
+  { key: 'email', label: 'Email' },
+  { key: 'phone', label: 'Phone' },
+  { key: 'status', label: 'Status' },
+  { key: 'joined', label: 'Joined' },
+];
 
 export default function AdvertisersPage() {
   const [advertisers, setAdvertisers] = useState<Advertiser[]>([]);
@@ -137,66 +147,57 @@ export default function AdvertisersPage() {
           </div>
 
           {/* Advertisers Table */}
-          <div className="card animate-fade-in">
-            <div className="overflow-x-auto">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Business</th>
-                    <th>Contact Person</th>
-                    <th>Email</th>
-                    <th>Phone</th>
-                    <th>Status</th>
-                    <th>Joined</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredAdvertisers.length === 0 ? (
-                    <tr>
-                      <td colSpan={6} className="text-center text-foreground-muted py-12">
-                        <svg className="w-12 h-12 mx-auto mb-4 text-foreground-muted/50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                        </svg>
-                        {searchQuery ? 'No advertisers match your search' : 'No advertisers yet. Add your first advertiser!'}
-                      </td>
-                    </tr>
-                  ) : (
-                    filteredAdvertisers.map((advertiser, index) => (
-                      <tr 
-                        key={advertiser.id}
-                        className="animate-fade-in"
-                        style={{ animationDelay: `${index * 0.05}s`, opacity: 0 }}
-                      >
-                        <td>
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500/20 to-orange-500/20 flex items-center justify-center text-amber-500 font-bold text-sm">
-                              {advertiser.business_name.charAt(0).toUpperCase()}
-                            </div>
-                            <span className="font-medium text-foreground">{advertiser.business_name}</span>
-                          </div>
-                        </td>
-                        <td className="text-foreground">{advertiser.name}</td>
-                        <td className="text-foreground-muted">{advertiser.email}</td>
-                        <td className="font-mono text-sm text-foreground-muted">{advertiser.phone_number}</td>
-                        <td>
-                          <span className={`badge ${advertiser.is_active ? 'badge-success' : 'badge-neutral'}`}>
-                            {advertiser.is_active ? 'Active' : 'Inactive'}
-                          </span>
-                        </td>
-                        <td className="text-foreground-muted text-sm">
-                          {formatDateGMT3(advertiser.created_at, {
-                            month: 'short',
-                            day: 'numeric',
-                            year: 'numeric',
-                          })}
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
+          <DataTable<Advertiser>
+            columns={ADVERTISER_COLUMNS}
+            data={filteredAdvertisers}
+            rowKey={(a) => a.id}
+            renderCell={(advertiser, key) => {
+              switch (key) {
+                case 'business':
+                  return (
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500/20 to-orange-500/20 flex items-center justify-center text-amber-500 font-bold text-sm">
+                        {advertiser.business_name.charAt(0).toUpperCase()}
+                      </div>
+                      <span className="font-medium text-foreground">{advertiser.business_name}</span>
+                    </div>
+                  );
+                case 'contact':
+                  return <span className="text-foreground">{advertiser.name}</span>;
+                case 'email':
+                  return <span className="text-foreground-muted">{advertiser.email}</span>;
+                case 'phone':
+                  return <span className="font-mono text-sm text-foreground-muted">{advertiser.phone_number}</span>;
+                case 'status':
+                  return (
+                    <span className={`badge ${advertiser.is_active ? 'badge-success' : 'badge-neutral'}`}>
+                      {advertiser.is_active ? 'Active' : 'Inactive'}
+                    </span>
+                  );
+                case 'joined':
+                  return (
+                    <span className="text-foreground-muted text-sm">
+                      {formatDateGMT3(advertiser.created_at, {
+                        month: 'short',
+                        day: 'numeric',
+                        year: 'numeric',
+                      })}
+                    </span>
+                  );
+                default:
+                  return null;
+              }
+            }}
+            rowStyle={(_a, index) => ({ animationDelay: `${index * 0.05}s`, opacity: 0 })}
+            emptyState={{
+              icon: (
+                <svg className="w-12 h-12 text-foreground-muted/50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                </svg>
+              ),
+              message: searchQuery ? 'No advertisers match your search' : 'No advertisers yet. Add your first advertiser!',
+            }}
+          />
         </PullToRefresh>
       )}
 
@@ -266,7 +267,7 @@ function CreateAdvertiserModal({
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4" autoComplete="off">
           <div>
             <label className="block text-sm font-medium text-foreground mb-2">Business Name</label>
             <input

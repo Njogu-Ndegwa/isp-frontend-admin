@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { api } from '../lib/api';
-import { Router, RouterUsersResponse, HotspotUser, CreateRouterRequest, UpdateRouterRequest } from '../lib/types';
+import { Router, RouterUsersResponse, HotspotUser, CreateRouterRequest, UpdateRouterRequest, PaymentMethod } from '../lib/types';
 import Header from '../components/Header';
 import { PageLoader } from '../components/LoadingSpinner';
 import { useAuth } from '../context/AuthContext';
@@ -191,6 +191,20 @@ export default function RoutersPage() {
                             Identity: <span className="text-foreground">{router.identity}</span>
                           </p>
                         )}
+                        <div className="flex items-center gap-1.5 mt-1">
+                          {(router.payment_methods ?? ['mpesa', 'voucher']).map((method) => (
+                            <span
+                              key={method}
+                              className={`text-[10px] font-medium uppercase tracking-wider px-1.5 py-0.5 rounded ${
+                                method === 'mpesa'
+                                  ? 'bg-success/10 text-success'
+                                  : 'bg-accent-primary/10 text-accent-primary'
+                              }`}
+                            >
+                              {method === 'mpesa' ? 'M-Pesa' : 'Voucher'}
+                            </span>
+                          ))}
+                        </div>
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
@@ -360,6 +374,7 @@ function CreateRouterModal({
     username: 'admin',
     password: '',
     port: 8728,
+    payment_methods: ['mpesa', 'voucher'],
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -396,7 +411,7 @@ function CreateRouterModal({
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4" autoComplete="off">
           <div>
             <label className="block text-sm font-medium text-foreground mb-2">Router Name</label>
             <input
@@ -406,6 +421,7 @@ function CreateRouterModal({
               className="input"
               placeholder="e.g., My Router"
               required
+              autoComplete="off"
             />
           </div>
 
@@ -418,6 +434,7 @@ function CreateRouterModal({
               className="input"
               placeholder="e.g., MikroTik-Office"
               required
+              autoComplete="off"
             />
           </div>
 
@@ -433,6 +450,7 @@ function CreateRouterModal({
                 pattern="^(\d{1,3}\.){3}\d{1,3}$"
                 title="Enter a valid IP address (e.g., 192.168.1.1)"
                 required
+                autoComplete="off"
               />
             </div>
             <div>
@@ -445,6 +463,7 @@ function CreateRouterModal({
                 min={1}
                 max={65535}
                 required
+                autoComplete="off"
               />
             </div>
           </div>
@@ -458,6 +477,7 @@ function CreateRouterModal({
               className="input"
               placeholder="e.g., admin"
               required
+              autoComplete="off"
             />
           </div>
 
@@ -471,6 +491,7 @@ function CreateRouterModal({
                 className="input pr-10"
                 placeholder="Router API password"
                 required
+                autoComplete="new-password"
               />
               <button
                 type="button"
@@ -490,6 +511,11 @@ function CreateRouterModal({
               </button>
             </div>
           </div>
+
+          <PaymentMethodsField
+            value={formData.payment_methods ?? ['mpesa', 'voucher']}
+            onChange={(methods) => setFormData({ ...formData, payment_methods: methods })}
+          />
 
           <div className="flex gap-3 pt-2">
             <button type="button" onClick={onClose} className="btn-secondary flex-1">
@@ -530,6 +556,7 @@ function EditRouterModal({
     username: '',
     password: '',
     port: router.port,
+    payment_methods: router.payment_methods ?? ['mpesa', 'voucher'],
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -541,6 +568,7 @@ function EditRouterModal({
         name: formData.name,
         ip_address: formData.ip_address,
         port: formData.port,
+        payment_methods: formData.payment_methods,
       };
       if (formData.username) updates.username = formData.username;
       if (formData.password) updates.password = formData.password;
@@ -573,7 +601,7 @@ function EditRouterModal({
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4" autoComplete="off">
           <div>
             <label className="block text-sm font-medium text-foreground mb-2">Router Name</label>
             <input
@@ -583,6 +611,7 @@ function EditRouterModal({
               className="input"
               placeholder="e.g., My Router"
               required
+              autoComplete="off"
             />
           </div>
 
@@ -598,6 +627,7 @@ function EditRouterModal({
                 pattern="^(\d{1,3}\.){3}\d{1,3}$"
                 title="Enter a valid IP address (e.g., 192.168.1.1)"
                 required
+                autoComplete="off"
               />
             </div>
             <div>
@@ -610,9 +640,15 @@ function EditRouterModal({
                 min={1}
                 max={65535}
                 required
+                autoComplete="off"
               />
             </div>
           </div>
+
+          <PaymentMethodsField
+            value={formData.payment_methods ?? ['mpesa', 'voucher']}
+            onChange={(methods) => setFormData({ ...formData, payment_methods: methods })}
+          />
 
           <div className="pt-2 border-t border-border">
             <p className="text-xs text-foreground-muted mb-3">Leave blank to keep current credentials</p>
@@ -625,6 +661,7 @@ function EditRouterModal({
                   onChange={(e) => setFormData({ ...formData, username: e.target.value })}
                   className="input"
                   placeholder="Leave blank to keep current"
+                  autoComplete="off"
                 />
               </div>
 
@@ -637,6 +674,7 @@ function EditRouterModal({
                     onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                     className="input pr-10"
                     placeholder="Leave blank to keep current"
+                    autoComplete="new-password"
                   />
                   <button
                     type="button"
@@ -676,6 +714,58 @@ function EditRouterModal({
           </div>
         </form>
       </div>
+    </div>
+  );
+}
+
+function PaymentMethodsField({
+  value,
+  onChange,
+}: {
+  value: PaymentMethod[];
+  onChange: (methods: PaymentMethod[]) => void;
+}) {
+  const toggle = (method: PaymentMethod) => {
+    const has = value.includes(method);
+    if (has && value.length === 1) return; // must keep at least one
+    onChange(has ? value.filter((m) => m !== method) : [...value, method]);
+  };
+
+  return (
+    <div>
+      <label className="block text-sm font-medium text-foreground mb-2">Payment Methods</label>
+      <div className="flex gap-3">
+        {([
+          { key: 'mpesa' as PaymentMethod, label: 'M-Pesa (STK Push)', icon: (
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          )},
+          { key: 'voucher' as PaymentMethod, label: 'Voucher / Cash', icon: (
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z" />
+            </svg>
+          )},
+        ]).map(({ key, label, icon }) => {
+          const active = value.includes(key);
+          return (
+            <button
+              key={key}
+              type="button"
+              onClick={() => toggle(key)}
+              className={`flex-1 flex items-center gap-2 px-3 py-2.5 rounded-lg border text-sm font-medium transition-all ${
+                active
+                  ? 'border-accent-primary bg-accent-primary/10 text-accent-primary'
+                  : 'border-border bg-background-secondary text-foreground-muted hover:text-foreground'
+              }`}
+            >
+              {icon}
+              {label}
+            </button>
+          );
+        })}
+      </div>
+      <p className="text-xs text-foreground-muted mt-1.5">At least one method must be selected</p>
     </div>
   );
 }

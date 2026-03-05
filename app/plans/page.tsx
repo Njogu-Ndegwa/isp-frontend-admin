@@ -287,7 +287,7 @@ function CreatePlanModal({
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4" autoComplete="off">
           <div>
             <label className="block text-sm font-medium text-foreground mb-2">Plan Name</label>
             <input

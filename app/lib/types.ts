@@ -299,6 +299,8 @@ export interface TransactionSummary {
 }
 
 // Router Types
+export type PaymentMethod = 'mpesa' | 'voucher';
+
 export interface Router {
   id: number;
   name: string;
@@ -306,6 +308,7 @@ export interface Router {
   ip_address: string;
   port: number;
   auth_method: string;
+  payment_methods?: PaymentMethod[];
 }
 
 export interface CreateRouterRequest {
@@ -315,6 +318,7 @@ export interface CreateRouterRequest {
   username: string;
   password: string;
   port: number;
+  payment_methods?: PaymentMethod[];
 }
 
 export interface UpdateRouterRequest {
@@ -323,6 +327,7 @@ export interface UpdateRouterRequest {
   username?: string;
   password?: string;
   port?: number;
+  payment_methods?: PaymentMethod[];
 }
 
 export interface HotspotSession {
@@ -662,4 +667,66 @@ export interface CustomerMapData {
   last_rating_comment?: string;
   total_ratings?: number;
   average_rating?: number;
+}
+
+// Voucher Types
+export interface VoucherPlan {
+  id: number;
+  name: string;
+  price: number;
+  speed?: string;
+  duration?: string;
+}
+
+export interface VoucherRouter {
+  id: number;
+  name: string;
+}
+
+export interface Voucher {
+  id: number;
+  code: string;
+  status: 'available' | 'used' | 'disabled' | 'expired';
+  plan_id?: number;
+  plan?: VoucherPlan;
+  router_id?: number;
+  router?: VoucherRouter | null;
+  batch_id?: string;
+  redeemed_by?: string | null;
+  redeemed_at?: string | null;
+  expires_at?: string | null;
+  used_at?: string | null;
+  created_at: string;
+}
+
+export interface VoucherStats {
+  total: number;
+  available: number;
+  used: number;
+  disabled: number;
+  expired: number;
+}
+
+export interface GenerateVouchersRequest {
+  plan_id: number;
+  quantity: number;
+  router_id?: number | null;
+  expires_at?: string | null;
+}
+
+export interface VouchersListResponse {
+  vouchers: Voucher[];
+  total: number;
+  page: number;
+  per_page: number;
+  pages: number;
+}
+
+export interface VoucherFilters {
+  status?: string;
+  plan_id?: number;
+  router_id?: number;
+  batch_id?: string;
+  page?: number;
+  per_page?: number;
 }

@@ -27,6 +27,11 @@ import {
   Rating,
   RatingSummary,
   CustomerMapData,
+  Voucher,
+  VoucherStats,
+  GenerateVouchersRequest,
+  VouchersListResponse,
+  VoucherFilters,
 } from './types';
 
 const BASE_URL = 'https://isp.bitwavetechnologies.com/api';
@@ -532,6 +537,73 @@ class ApiClient {
       { headers: this.getHeaders() }
     );
     return this.handleResponse<Rating[]>(response);
+  }
+
+  // Vouchers
+  async generateVouchers(request: GenerateVouchersRequest): Promise<Voucher[]> {
+    const response = await fetch(`${BASE_URL}/vouchers/generate`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify(request),
+    });
+    return this.handleResponse<Voucher[]>(response);
+  }
+
+  async getVouchers(filters: VoucherFilters = {}): Promise<VouchersListResponse> {
+    const params = new URLSearchParams();
+    if (filters.status) params.append('status', filters.status);
+    if (filters.plan_id) params.append('plan_id', filters.plan_id.toString());
+    if (filters.router_id) params.append('router_id', filters.router_id.toString());
+    if (filters.batch_id) params.append('batch_id', filters.batch_id);
+    params.append('page', (filters.page ?? 1).toString());
+    params.append('per_page', (filters.per_page ?? 50).toString());
+
+    const response = await fetch(
+      `${BASE_URL}/vouchers?${params.toString()}`,
+      { headers: this.getHeaders() }
+    );
+    return this.handleResponse<VouchersListResponse>(response);
+  }
+
+  async getVoucherStats(): Promise<VoucherStats> {
+    const response = await fetch(`${BASE_URL}/vouchers/stats`, {
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<VoucherStats>(response);
+  }
+
+  async disableVoucher(voucherId: number): Promise<Voucher> {
+    const response = await fetch(`${BASE_URL}/vouchers/${voucherId}/disable`, {
+      method: 'PATCH',
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<Voucher>(response);
+  }
+
+  getVouchersDownloadUrl(filters: { status?: string; batch_id?: string; plan_id?: number } = {}): string {
+    const params = new URLSearchParams();
+    if (filters.status) params.append('status', filters.status);
+    if (filters.batch_id) params.append('batch_id', filters.batch_id);
+    if (filters.plan_id) params.append('plan_id', filters.plan_id.toString());
+    const query = params.toString();
+    return `${BASE_URL}/vouchers/download${query ? `?${query}` : ''}`;
+  }
+
+  async downloadVouchersCSV(filters: { status?: string; batch_id?: string; plan_id?: number } = {}): Promise<void> {
+    const url = this.getVouchersDownloadUrl(filters);
+    const response = await fetch(url, { headers: this.getHeaders() });
+    if (!response.ok) {
+      throw new Error(`Download failed: ${response.status}`);
+    }
+    const blob = await response.blob();
+    const objectUrl = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = objectUrl;
+    a.download = 'vouchers.csv';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(objectUrl);
   }
 }
 
