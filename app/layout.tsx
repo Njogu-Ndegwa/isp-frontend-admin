@@ -2,7 +2,9 @@ import type { Metadata } from "next";
 import { Outfit, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "./context/AuthContext";
+import { AlertProvider } from "./context/AlertContext";
 import ClientLayout from "./components/ClientLayout";
+import AlertContainer from "./components/AlertContainer";
 import ErrorBoundary from "./components/ErrorBoundary";
 import ThemeProvider from "./components/ThemeProvider";
 
@@ -36,9 +38,12 @@ export default function RootLayout({
       >
         <ErrorBoundary>
           <ThemeProvider>
-            <AuthProvider>
-              <ClientLayout>{children}</ClientLayout>
-            </AuthProvider>
+            <AlertProvider>
+              <AuthProvider>
+                <AlertContainer />
+                <ClientLayout>{children}</ClientLayout>
+              </AuthProvider>
+            </AlertProvider>
           </ThemeProvider>
         </ErrorBoundary>
       </body>

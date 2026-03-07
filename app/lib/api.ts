@@ -57,9 +57,9 @@ class ApiClient {
     return headers;
   }
 
-  private async handleResponse<T>(response: Response): Promise<T> {
+  private async handleResponse<T>(response: Response, skipAuthRedirect = false): Promise<T> {
     if (!response.ok) {
-      if (response.status === 401 && typeof window !== 'undefined') {
+      if (response.status === 401 && typeof window !== 'undefined' && !skipAuthRedirect) {
         localStorage.removeItem('auth_token');
         localStorage.removeItem('auth_user');
         window.location.href = '/login';
@@ -367,10 +367,10 @@ class ApiClient {
   async login(credentials: LoginRequest): Promise<LoginResponse> {
     const response = await fetch(`${BASE_URL}/auth/login`, {
       method: 'POST',
-      headers: this.getHeaders(),
+      headers: this.getHeaders(false),
       body: JSON.stringify(credentials),
     });
-    return this.handleResponse<LoginResponse>(response);
+    return this.handleResponse<LoginResponse>(response, true);
   }
 
   // Advertisers
