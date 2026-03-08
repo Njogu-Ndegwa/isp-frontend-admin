@@ -272,14 +272,16 @@ class ApiClient {
     return this.handleResponse<PlanPerformanceResponse>(response);
   }
 
-  // M-Pesa Transactions
+  // Transactions (Mobile + Cash)
   async getTransactions(
     userId?: number,
     routerId?: number,
     startDate?: string,
     endDate?: string,
     status?: string,
-    signal?: AbortSignal
+    signal?: AbortSignal,
+    paymentMethod?: string,
+    date?: string
   ): Promise<MpesaTransaction[]> {
     const params = new URLSearchParams();
     if (userId) params.append('user_id', userId.toString());
@@ -287,7 +289,9 @@ class ApiClient {
     if (startDate) params.append('start_date', startDate);
     if (endDate) params.append('end_date', endDate);
     if (status) params.append('status', status);
-    
+    if (paymentMethod) params.append('payment_method', paymentMethod);
+    if (date) params.append('date', date);
+
     const response = await fetch(
       `${BASE_URL}/mpesa/transactions?${params.toString()}`,
       { headers: this.getHeaders(), signal }
@@ -300,14 +304,18 @@ class ApiClient {
     routerId?: number,
     startDate?: string,
     endDate?: string,
-    signal?: AbortSignal
+    signal?: AbortSignal,
+    paymentMethod?: string,
+    date?: string
   ): Promise<TransactionSummary> {
     const params = new URLSearchParams();
     if (userId) params.append('user_id', userId.toString());
     if (routerId) params.append('router_id', routerId.toString());
     if (startDate) params.append('start_date', startDate);
     if (endDate) params.append('end_date', endDate);
-    
+    if (paymentMethod) params.append('payment_method', paymentMethod);
+    if (date) params.append('date', date);
+
     const response = await fetch(
       `${BASE_URL}/mpesa/transactions/summary?${params.toString()}`,
       { headers: this.getHeaders(), signal }

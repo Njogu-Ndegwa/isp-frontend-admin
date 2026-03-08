@@ -9,12 +9,16 @@ import { PageLoader } from '../components/LoadingSpinner';
 import StatCard from '../components/StatCard';
 import MobileDataCard from '../components/MobileDataCard';
 import SearchInput from '../components/SearchInput';
+import FilterSelect from '../components/FilterSelect';
+import FilterDatePicker from '../components/FilterDatePicker';
 import DataTable, { DataTableColumn } from '../components/DataTable';
 
 type StatusFilter = 'all' | 'completed' | 'pending' | 'failed' | 'expired';
+type PaymentMethodFilter = 'all' | 'mobile_money' | 'cash';
 
 const TRANSACTION_COLUMNS: DataTableColumn[] = [
   { key: 'id', label: 'ID' },
+  { key: 'type', label: 'Type' },
   { key: 'phone', label: 'Phone' },
   { key: 'plan', label: 'Plan' },
   { key: 'amount', label: 'Amount' },
@@ -23,19 +27,17 @@ const TRANSACTION_COLUMNS: DataTableColumn[] = [
   { key: 'date', label: 'Date' },
 ];
 
-// Safe date formatting function to prevent crashes
 const formatTransactionDate = (tx: MpesaTransaction): string => {
   try {
     const dateStr = tx.transaction_date || tx.created_at;
     if (!dateStr) return '-';
-    
-    // Validate date string
+
     const date = new Date(dateStr);
     if (isNaN(date.getTime())) {
       console.warn('Invalid date:', dateStr);
       return '-';
     }
-    
+
     return formatDateGMT3(dateStr, {
       month: 'short',
       day: 'numeric',
@@ -48,7 +50,6 @@ const formatTransactionDate = (tx: MpesaTransaction): string => {
   }
 };
 
-// Friendly labels for M-Pesa result codes
 const RESULT_CODE_LABELS: Record<string, string> = {
   '0': 'Success',
   '1': 'Insufficient balance',
@@ -60,7 +61,7 @@ const RESULT_CODE_LABELS: Record<string, string> = {
   '17': 'System internal error',
   '26': 'System busy',
   '1001': 'Unable to lock subscriber',
-  '1028': 'Unable to complete M-Pesa transaction',
+  '1028': 'Unable to complete mobile transaction',
   '9999': 'Request timeout',
 };
 
@@ -68,7 +69,15 @@ const FAILURE_SOURCE_LABELS: Record<string, { label: string; color: string }> = 
   client: { label: 'Client', color: 'text-amber-400' },
   server: { label: 'Server', color: 'text-red-400' },
   timeout: { label: 'Timeout', color: 'text-orange-400' },
-  mpesa: { label: 'M-Pesa', color: 'text-rose-400' },
+  mpesa: { label: 'Mobile', color: 'text-rose-400' },
+};
+
+const PAYMENT_METHOD_LABELS: Record<string, { label: string; color: string; bg: string }> = {
+  mobile_money: { label: 'Mobile', color: 'text-green-400', bg: 'bg-green-500/10' },
+  cash: { label: 'Cash', color: 'text-amber-400', bg: 'bg-amber-500/10' },
+  card: { label: 'Card', color: 'text-purple-400', bg: 'bg-purple-500/10' },
+  bank_transfer: { label: 'Bank', color: 'text-cyan-400', bg: 'bg-cyan-500/10' },
+  other: { label: 'Other', color: 'text-gray-400', bg: 'bg-gray-500/10' },
 };
 
 export default function TransactionsPage() {
@@ -77,15 +86,15 @@ export default function TransactionsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+  const [methodFilter, setMethodFilter] = useState<PaymentMethodFilter>('all');
+  const [dateFilter, setDateFilter] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedTx, setExpandedTx] = useState<number | null>(null);
   const [mobileDisplayCount, setMobileDisplayCount] = useState(50);
 
-  // Track the active request so we can cancel stale ones on unmount or re-fetch
   const abortRef = useRef<AbortController | null>(null);
 
   const loadData = useCallback(async () => {
-    // Cancel any in-flight request before starting a new one
     if (abortRef.current) {
       abortRef.current.abort();
     }
@@ -96,6 +105,8 @@ export default function TransactionsPage() {
       setLoading(true);
       setError(null);
       const status = statusFilter === 'all' ? undefined : statusFilter;
+      const method = methodFilter === 'all' ? undefined : methodFilter;
+      const exactDate = dateFilter || undefined;
       const [txData, summaryData] = await Promise.all([
         api.getTransactions(
           1,
@@ -103,23 +114,25 @@ export default function TransactionsPage() {
           undefined,
           undefined,
           status,
-          controller.signal
+          controller.signal,
+          method,
+          exactDate
         ),
         api.getTransactionSummary(
           1,
           undefined,
           undefined,
           undefined,
-          controller.signal
+          controller.signal,
+          method,
+          exactDate
         ),
       ]);
-      // Only update state if this request wasn't cancelled
       if (!controller.signal.aborted) {
         setTransactions(txData || []);
         setSummary(summaryData);
       }
     } catch (err) {
-      // Silently ignore AbortError (expected when navigating away)
       if (controller.signal.aborted) return;
       setError(err instanceof Error ? err.message : 'Failed to load transactions');
     } finally {
@@ -127,11 +140,10 @@ export default function TransactionsPage() {
         setLoading(false);
       }
     }
-  }, [statusFilter]);
+  }, [statusFilter, methodFilter, dateFilter]);
 
-  // Fetch data when filters change; abort on unmount
   useEffect(() => {
-    setMobileDisplayCount(50); // Reset pagination when filters change
+    setMobileDisplayCount(50);
     loadData();
     return () => {
       if (abortRef.current) {
@@ -147,6 +159,7 @@ export default function TransactionsPage() {
         (tx.phone_number || '').includes(query) ||
         tx.mpesa_receipt_number?.toLowerCase().includes(query) ||
         tx.reference?.toLowerCase().includes(query) ||
+        tx.payment_reference?.toLowerCase().includes(query) ||
         tx.result_desc?.toLowerCase().includes(query) ||
         tx.result_code?.includes(query)
       );
@@ -154,7 +167,6 @@ export default function TransactionsPage() {
     return true;
   });
 
-  // Get failed transactions count for stat display
   const failedTransactions = (transactions || []).filter((tx) => tx.status === 'failed');
 
   const getStatusBadge = (status: MpesaTransaction['status']) => {
@@ -165,6 +177,22 @@ export default function TransactionsPage() {
       expired: 'badge-neutral',
     };
     return badges[status] || 'badge-neutral';
+  };
+
+  const getPaymentMethodBadge = (method: string) => {
+    const info = PAYMENT_METHOD_LABELS[method] || PAYMENT_METHOD_LABELS.other;
+    return (
+      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold ${info.color} ${info.bg}`}>
+        {info.label}
+      </span>
+    );
+  };
+
+  const getReceiptDisplay = (tx: MpesaTransaction) => {
+    if (tx.payment_method === 'voucher') {
+      return tx.payment_reference || '-';
+    }
+    return tx.mpesa_receipt_number || tx.payment_reference || '-';
   };
 
   if (error) {
@@ -188,12 +216,12 @@ export default function TransactionsPage() {
 
   return (
     <div>
-      <Header title="M-Pesa Transactions" subtitle="View and manage payment transactions" />
+      <Header title="Transactions" subtitle="View and manage all payment transactions" />
 
       {/* Summary Stats */}
       {summary && (
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6 mb-6">
-          <div className="animate-fade-in delay-1" style={{ opacity: 0 }}>
+          <div className="animate-fade-in delay-1">
             <StatCard
               title="Total Transactions"
               value={summary.total_transactions}
@@ -205,7 +233,7 @@ export default function TransactionsPage() {
               accent="primary"
             />
           </div>
-          <div className="animate-fade-in delay-2" style={{ opacity: 0 }}>
+          <div className="animate-fade-in delay-2">
             <StatCard
               title="Total Amount"
               value={`KES ${summary.total_amount.toLocaleString()}`}
@@ -217,7 +245,7 @@ export default function TransactionsPage() {
               accent="success"
             />
           </div>
-          <div className="animate-fade-in delay-3" style={{ opacity: 0 }}>
+          <div className="animate-fade-in delay-3">
             <StatCard
               title="Completed"
               value={summary.status_breakdown.completed?.count || 0}
@@ -230,7 +258,7 @@ export default function TransactionsPage() {
               accent="success"
             />
           </div>
-          <div className="animate-fade-in delay-4" style={{ opacity: 0 }}>
+          <div className="animate-fade-in delay-4">
             <StatCard
               title="Failed"
               value={summary.status_breakdown.failed?.count || 0}
@@ -247,36 +275,95 @@ export default function TransactionsPage() {
       )}
 
       {/* Filters */}
-      <div className="space-y-3 mb-6 animate-fade-in">
-        <SearchInput
-          value={searchQuery}
-          onChange={setSearchQuery}
-          placeholder="Search phone, receipt, reference..."
-        />
-
-        {/* Status Filter */}
-        <div className="flex rounded-lg border border-border overflow-x-auto flex-shrink-0 no-scrollbar">
-          {(['all', 'completed', 'pending', 'failed', 'expired'] as StatusFilter[]).map((status) => (
-            <button
-              key={status}
-              onClick={() => setStatusFilter(status)}
-              className={`px-3 py-2 text-sm font-medium capitalize transition-colors whitespace-nowrap ${
-                statusFilter === status
-                  ? 'bg-accent-primary text-background'
-                  : 'bg-background-secondary text-foreground-muted hover:text-foreground'
-              }`}
-            >
-              {status}
-            </button>
-          ))}
+      <div className="mb-6 animate-fade-in">
+        <div className="flex flex-col sm:flex-row gap-3">
+          <div className="flex-1">
+            <SearchInput
+              value={searchQuery}
+              onChange={setSearchQuery}
+              placeholder="Search phone, receipt, reference..."
+            />
+          </div>
+          <div className="grid grid-cols-3 gap-2 sm:flex">
+            <FilterSelect
+              value={methodFilter}
+              onChange={(v) => setMethodFilter(v as PaymentMethodFilter)}
+              options={[
+                { value: 'all', label: 'All Types' },
+                { value: 'mobile_money', label: 'Mobile Money' },
+                { value: 'cash', label: 'Cash' },
+              ]}
+            />
+            <FilterSelect
+              value={statusFilter}
+              onChange={(v) => setStatusFilter(v as StatusFilter)}
+              options={[
+                { value: 'all', label: 'All Status' },
+                { value: 'completed', label: 'Completed' },
+                { value: 'pending', label: 'Pending' },
+                { value: 'failed', label: 'Failed' },
+                { value: 'expired', label: 'Expired' },
+              ]}
+            />
+            <FilterDatePicker
+              value={dateFilter}
+              onChange={setDateFilter}
+            />
+          </div>
         </div>
+
+        {/* Active Filters */}
+        {(methodFilter !== 'all' || statusFilter !== 'all' || dateFilter) && (
+          <div className="flex items-center gap-2 mt-3 flex-wrap">
+            <span className="text-xs text-foreground-muted">Filters:</span>
+            {methodFilter !== 'all' && (
+              <button
+                onClick={() => setMethodFilter('all')}
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-accent-primary/10 text-accent-primary hover:bg-accent-primary/20 transition-colors"
+              >
+                {PAYMENT_METHOD_LABELS[methodFilter]?.label || methodFilter}
+                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            )}
+            {statusFilter !== 'all' && (
+              <button
+                onClick={() => setStatusFilter('all')}
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-accent-primary/10 text-accent-primary hover:bg-accent-primary/20 transition-colors capitalize"
+              >
+                {statusFilter}
+                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            )}
+            {dateFilter && (() => {
+              const [y, m, d] = dateFilter.split('-').map(Number);
+              const label = (y && m && d)
+                ? `${d} ${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][m - 1]} ${y}`
+                : dateFilter;
+              return (
+                <button
+                  onClick={() => setDateFilter('')}
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-accent-primary/10 text-accent-primary hover:bg-accent-primary/20 transition-colors"
+                >
+                  {label}
+                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+              );
+            })()}
+            <button
+              onClick={() => { setMethodFilter('all'); setStatusFilter('all'); setDateFilter(''); }}
+              className="text-xs text-foreground-muted hover:text-foreground transition-colors underline underline-offset-2"
+            >
+              Clear all
+            </button>
+          </div>
+        )}
       </div>
 
       {loading ? (
         <PageLoader />
       ) : (
         <>
-          {/* Mobile Transaction Cards — paginated to keep DOM light */}
+          {/* Mobile Transaction Cards */}
           <div className="md:hidden space-y-3 animate-fade-in">
             {filteredTransactions.length === 0 ? (
               <div className="card p-8 text-center text-foreground-muted">
@@ -289,9 +376,9 @@ export default function TransactionsPage() {
               <>
                 {filteredTransactions.slice(0, mobileDisplayCount).map((tx) => (
                   <MobileDataCard
-                    key={tx.transaction_id}
+                    key={`${tx.payment_method}-${tx.transaction_id}`}
                     id={tx.transaction_id}
-                    title={tx.phone_number}
+                    title={tx.phone_number || tx.customer?.name || '-'}
                     avatar={{
                       text: tx.phone_number?.slice(-2) || '?',
                       color: 'secondary'
@@ -305,12 +392,17 @@ export default function TransactionsPage() {
                       highlight: true
                     }}
                     secondary={{
-                      left: tx.plan?.name || '-',
+                      left: (
+                        <span className="flex items-center gap-1.5">
+                          {getPaymentMethodBadge(tx.payment_method)}
+                          <span>{tx.plan?.name || '-'}</span>
+                        </span>
+                      ),
                       right: formatTransactionDate(tx)
                     }}
-                    footer={tx.status !== 'failed' && tx.mpesa_receipt_number ? (
+                    footer={tx.status !== 'failed' ? (
                       <div className="flex items-center justify-between w-full">
-                        <span>Receipt: <span className="font-mono">{tx.mpesa_receipt_number}</span></span>
+                        <span className="truncate">{getReceiptDisplay(tx) !== '-' ? `Ref: ${getReceiptDisplay(tx)}` : ''}</span>
                         <span className="font-mono">#{tx.transaction_id}</span>
                       </div>
                     ) : undefined}
@@ -373,7 +465,6 @@ export default function TransactionsPage() {
                   />
                 ))}
 
-                {/* Load More button */}
                 {filteredTransactions.length > mobileDisplayCount && (
                   <button
                     onClick={() => setMobileDisplayCount((prev) => prev + 50)}
@@ -383,7 +474,6 @@ export default function TransactionsPage() {
                   </button>
                 )}
 
-                {/* Count indicator */}
                 <p className="text-center text-xs text-foreground-muted pb-2">
                   Showing {Math.min(mobileDisplayCount, filteredTransactions.length)} of {filteredTransactions.length} transactions
                 </p>
@@ -395,13 +485,15 @@ export default function TransactionsPage() {
           <DataTable<MpesaTransaction>
             columns={TRANSACTION_COLUMNS}
             data={filteredTransactions}
-            rowKey={(tx) => tx.transaction_id}
+            rowKey={(tx) => `${tx.payment_method}-${tx.transaction_id}`}
             renderCell={(tx, key) => {
               switch (key) {
                 case 'id':
                   return <span className="font-mono text-sm text-foreground-muted">#{tx.transaction_id}</span>;
+                case 'type':
+                  return getPaymentMethodBadge(tx.payment_method);
                 case 'phone':
-                  return <span className="font-mono text-sm text-foreground-muted">{tx.phone_number}</span>;
+                  return <span className="font-mono text-sm text-foreground-muted">{tx.phone_number || tx.customer?.name || '-'}</span>;
                 case 'plan':
                   return (
                     <div>
@@ -437,7 +529,7 @@ export default function TransactionsPage() {
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={expandedTx === tx.transaction_id ? "M19 9l-7 7-7-7" : "M9 5l7 7-7 7"} />
                         </svg>
                       </div>
-                      <p className="text-xs text-red-400/80 mt-0.5 truncate" title={tx.result_desc}>
+                      <p className="text-xs text-red-400/80 mt-0.5 truncate" title={tx.result_desc || undefined}>
                         {tx.result_desc || RESULT_CODE_LABELS[tx.result_code || ''] || '-'}
                       </p>
                       {expandedTx === tx.transaction_id && (
@@ -464,7 +556,7 @@ export default function TransactionsPage() {
                       )}
                     </div>
                   ) : (
-                    <span className="font-mono text-xs text-foreground-muted">{tx.mpesa_receipt_number || '-'}</span>
+                    <span className="font-mono text-xs text-foreground-muted">{getReceiptDisplay(tx)}</span>
                   );
                 case 'date':
                   return <span className="text-foreground-muted text-sm">{formatTransactionDate(tx)}</span>;
@@ -478,7 +570,7 @@ export default function TransactionsPage() {
               }
             }}
             rowClassName={(tx) => tx.status === 'failed' ? 'cursor-pointer hover:bg-red-500/5' : ''}
-            rowStyle={(_tx, index) => ({ animationDelay: `${index * 0.03}s`, opacity: 0 })}
+            rowStyle={(_tx, index) => ({ animationDelay: `${index * 0.03}s` })}
             emptyState={{
               icon: (
                 <svg className="w-12 h-12 text-foreground-muted/50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -489,9 +581,43 @@ export default function TransactionsPage() {
             }}
           />
 
+          {/* Method Breakdown */}
+          {summary?.method_breakdown && Object.keys(summary.method_breakdown).length > 1 && (
+            <div className="card p-4 sm:p-6 mt-4 sm:mt-6 animate-fade-in delay-2">
+              <h3 className="text-base sm:text-lg font-semibold text-foreground mb-3 sm:mb-4 flex items-center gap-2">
+                <svg className="w-5 h-5 text-accent-primary flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                </svg>
+                Revenue by Payment Type
+              </h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+                {Object.entries(summary.method_breakdown).map(([method, data]) => {
+                  const info = PAYMENT_METHOD_LABELS[method] || PAYMENT_METHOD_LABELS.other;
+                  return (
+                    <div
+                      key={method}
+                      className="p-3 sm:p-4 rounded-lg bg-background-tertiary flex items-center justify-between"
+                    >
+                      <div className="min-w-0">
+                        <p className="font-medium text-foreground text-sm sm:text-base truncate flex items-center gap-2">
+                          <span className={`inline-block w-2 h-2 rounded-full ${info.bg.replace('/10', '')}`} />
+                          {info.label}
+                        </p>
+                        <p className="text-xs sm:text-sm text-foreground-muted">{data.count} transactions</p>
+                      </div>
+                      <p className="text-base sm:text-lg font-bold text-accent-primary flex-shrink-0 ml-3">
+                        KES {data.amount.toLocaleString()}
+                      </p>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {/* Router Breakdown */}
           {summary && Object.keys(summary.router_breakdown).length > 0 && (
-            <div className="card p-4 sm:p-6 mt-4 sm:mt-6 animate-fade-in delay-3" style={{ opacity: 0 }}>
+            <div className="card p-4 sm:p-6 mt-4 sm:mt-6 animate-fade-in delay-3">
               <h3 className="text-base sm:text-lg font-semibold text-foreground mb-3 sm:mb-4 flex items-center gap-2">
                 <svg className="w-5 h-5 text-accent-primary flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2" />
@@ -521,10 +647,3 @@ export default function TransactionsPage() {
     </div>
   );
 }
-
-
-
-
-
-
-

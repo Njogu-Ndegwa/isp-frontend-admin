@@ -40,6 +40,7 @@
    Sophisticated midnight theme with warm amber accents
    ============================================================ */
 .dark {
+  color-scheme: dark;
   --background: #09090b;
   --background-secondary: #18181b;
   --background-tertiary: #27272a;

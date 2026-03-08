@@ -253,19 +253,20 @@ export interface TransactionPlan {
 
 export interface MpesaTransaction {
   transaction_id: number;
-  checkout_request_id: string;
+  checkout_request_id: string | null;
   phone_number: string;
   amount: number;
-  reference: string;
-  lipay_tx_no: string;
+  reference: string | null;
+  lipay_tx_no: string | null;
   status: 'pending' | 'completed' | 'failed' | 'expired';
-  mpesa_receipt_number: string;
-  transaction_date: string;
+  payment_method: 'mobile_money' | 'cash' | 'card' | 'bank_transfer' | 'other';
+  payment_reference: string | null;
+  mpesa_receipt_number: string | null;
+  transaction_date: string | null;
   created_at: string;
-  // Failure detail fields (present on failed transactions)
-  failure_source?: 'client' | 'server' | 'timeout' | 'mpesa' | string;
-  result_code?: string;
-  result_desc?: string;
+  failure_source?: 'client' | 'server' | 'timeout' | 'mpesa' | string | null;
+  result_code?: string | null;
+  result_desc?: string | null;
   customer: TransactionCustomer;
   router: TransactionRouter;
   plan: TransactionPlan;
@@ -291,8 +292,10 @@ export interface TransactionSummary {
     failed?: StatusBreakdown;
     expired?: StatusBreakdown;
   };
+  method_breakdown?: Record<string, StatusBreakdown>;
   router_breakdown: Record<string, RouterBreakdown>;
   period: {
+    date?: string;
     start_date: string;
     end_date: string;
   };

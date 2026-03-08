@@ -20,7 +20,7 @@ export default function SearchInput({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="input pr-10"
+        className="input h-[42px] pr-10"
       />
       <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3">
         <svg
