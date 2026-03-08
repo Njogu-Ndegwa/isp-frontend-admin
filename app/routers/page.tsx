@@ -2,15 +2,68 @@
 
 import { useEffect, useState } from 'react';
 import { api } from '../lib/api';
-import { Router, RouterUsersResponse, HotspotUser, CreateRouterRequest, UpdateRouterRequest, PaymentMethod } from '../lib/types';
+import {
+  Router,
+  RouterUsersResponse,
+  HotspotUser,
+  CreateRouterRequest,
+  UpdateRouterRequest,
+  PaymentMethod,
+  ProvisionToken,
+  ProvisionTokenResponse,
+} from '../lib/types';
 import Header from '../components/Header';
 import { PageLoader } from '../components/LoadingSpinner';
 import { useAuth } from '../context/AuthContext';
 import Link from 'next/link';
 import PullToRefresh from '../components/PullToRefresh';
+import DataTable, { DataTableColumn } from '../components/DataTable';
+import MobileDataCard from '../components/MobileDataCard';
+
+type Tab = 'routers' | 'provision';
+
+const formatSafeDate = (dateStr: string | null | undefined): string => {
+  try {
+    if (!dateStr) return '-';
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return '-';
+    return date.toLocaleDateString('en-GB', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  } catch {
+    return '-';
+  }
+};
+
+const ROUTER_COLUMNS: DataTableColumn[] = [
+  { key: 'name', label: 'Router' },
+  { key: 'ip', label: 'IP Address' },
+  { key: 'identity', label: 'Identity' },
+  { key: 'payment', label: 'Payment' },
+  { key: 'auth', label: 'Auth' },
+  { key: 'status', label: 'Status' },
+  { key: 'actions', label: '' },
+];
+
+const PROVISION_COLUMNS: DataTableColumn[] = [
+  { key: 'router_name', label: 'Router' },
+  { key: 'identity', label: 'Identity' },
+  { key: 'wireguard_ip', label: 'WireGuard IP' },
+  { key: 'status', label: 'Status' },
+  { key: 'created_at', label: 'Created' },
+  { key: 'provisioned_at', label: 'Provisioned' },
+  { key: 'command', label: 'Command' },
+];
 
 export default function RoutersPage() {
   const { isAuthenticated } = useAuth();
+  const [activeTab, setActiveTab] = useState<Tab>('routers');
+
+  // Router state
   const [routers, setRouters] = useState<Router[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -22,6 +75,14 @@ export default function RoutersPage() {
   const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null);
   const [editingRouter, setEditingRouter] = useState<Router | null>(null);
 
+  // Provision state
+  const [tokens, setTokens] = useState<ProvisionToken[]>([]);
+  const [tokensLoading, setTokensLoading] = useState(false);
+  const [tokensError, setTokensError] = useState<string | null>(null);
+  const [generating, setGenerating] = useState(false);
+  const [newTokenResult, setNewTokenResult] = useState<ProvisionTokenResponse | null>(null);
+  const [expandedToken, setExpandedToken] = useState<number | null>(null);
+
   useEffect(() => {
     if (isAuthenticated) {
       loadRouters();
@@ -29,6 +90,12 @@ export default function RoutersPage() {
       setLoading(false);
     }
   }, [isAuthenticated]);
+
+  useEffect(() => {
+    if (isAuthenticated && activeTab === 'provision' && tokens.length === 0 && !tokensLoading) {
+      loadTokens();
+    }
+  }, [activeTab, isAuthenticated]);
 
   const loadRouters = async () => {
     try {
@@ -42,13 +109,25 @@ export default function RoutersPage() {
     }
   };
 
+  const loadTokens = async () => {
+    try {
+      setTokensLoading(true);
+      setTokensError(null);
+      const data = await api.getProvisionTokens();
+      setTokens(data);
+    } catch (err) {
+      setTokensError(err instanceof Error ? err.message : 'Failed to load provisioning tokens');
+    } finally {
+      setTokensLoading(false);
+    }
+  };
+
   const loadRouterUsers = async (routerId: number) => {
     if (selectedRouter === routerId) {
       setSelectedRouter(null);
       setRouterUsers(null);
       return;
     }
-
     try {
       setUsersLoading(true);
       setSelectedRouter(routerId);
@@ -75,6 +154,20 @@ export default function RoutersPage() {
       setError(err instanceof Error ? err.message : 'Failed to delete router');
     } finally {
       setDeletingRouter(null);
+    }
+  };
+
+  const handleGenerate = async () => {
+    try {
+      setGenerating(true);
+      setTokensError(null);
+      const result = await api.createProvisionToken();
+      setNewTokenResult(result);
+      await loadTokens();
+    } catch (err) {
+      setTokensError(err instanceof Error ? err.message : 'Failed to generate token');
+    } finally {
+      setGenerating(false);
     }
   };
 
@@ -112,6 +205,153 @@ export default function RoutersPage() {
     );
   }
 
+  return (
+    <div>
+      <Header title="Routers" subtitle="Manage your MikroTik routers and hotspot users" />
+
+      {/* Tabs */}
+      <div className="flex items-center gap-1 mb-6 p-1 bg-background-secondary rounded-xl w-fit animate-fade-in">
+        <button
+          onClick={() => setActiveTab('routers')}
+          className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+            activeTab === 'routers'
+              ? 'bg-accent-primary text-white shadow-sm'
+              : 'text-foreground-muted hover:text-foreground'
+          }`}
+        >
+          <span className="flex items-center gap-2">
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2" />
+            </svg>
+            Routers
+            {routers.length > 0 && (
+              <span className={`text-xs px-1.5 py-0.5 rounded-full ${
+                activeTab === 'routers' ? 'bg-white/20' : 'bg-foreground-muted/20'
+              }`}>{routers.length}</span>
+            )}
+          </span>
+        </button>
+        <button
+          onClick={() => setActiveTab('provision')}
+          className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+            activeTab === 'provision'
+              ? 'bg-accent-primary text-white shadow-sm'
+              : 'text-foreground-muted hover:text-foreground'
+          }`}
+        >
+          <span className="flex items-center gap-2">
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
+            Auto-Provision
+            {tokens.length > 0 && (
+              <span className={`text-xs px-1.5 py-0.5 rounded-full ${
+                activeTab === 'provision' ? 'bg-white/20' : 'bg-foreground-muted/20'
+              }`}>{tokens.length}</span>
+            )}
+          </span>
+        </button>
+      </div>
+
+      {activeTab === 'routers' ? (
+        <RoutersTab
+          routers={routers}
+          loading={loading}
+          error={error}
+          selectedRouter={selectedRouter}
+          routerUsers={routerUsers}
+          usersLoading={usersLoading}
+          deleteConfirm={deleteConfirm}
+          deletingRouter={deletingRouter}
+          loadRouters={loadRouters}
+          loadRouterUsers={loadRouterUsers}
+          handleDeleteRouter={handleDeleteRouter}
+          setShowCreateModal={setShowCreateModal}
+          setDeleteConfirm={setDeleteConfirm}
+          setEditingRouter={setEditingRouter}
+          formatBytes={formatBytes}
+        />
+      ) : (
+        <ProvisionTab
+          tokens={tokens}
+          loading={tokensLoading}
+          error={tokensError}
+          generating={generating}
+          expandedToken={expandedToken}
+          setExpandedToken={setExpandedToken}
+          loadTokens={loadTokens}
+          handleGenerate={handleGenerate}
+        />
+      )}
+
+      {showCreateModal && (
+        <CreateRouterModal
+          onClose={() => setShowCreateModal(false)}
+          onSuccess={() => {
+            setShowCreateModal(false);
+            loadRouters();
+          }}
+        />
+      )}
+
+      {editingRouter && (
+        <EditRouterModal
+          router={editingRouter}
+          onClose={() => setEditingRouter(null)}
+          onSuccess={() => {
+            setEditingRouter(null);
+            loadRouters();
+          }}
+        />
+      )}
+
+      {newTokenResult && (
+        <NewTokenModal
+          result={newTokenResult}
+          onClose={() => setNewTokenResult(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Routers Tab
+// ---------------------------------------------------------------------------
+
+function RoutersTab({
+  routers,
+  loading,
+  error,
+  selectedRouter,
+  routerUsers,
+  usersLoading,
+  deleteConfirm,
+  deletingRouter,
+  loadRouters,
+  loadRouterUsers,
+  handleDeleteRouter,
+  setShowCreateModal,
+  setDeleteConfirm,
+  setEditingRouter,
+  formatBytes,
+}: {
+  routers: Router[];
+  loading: boolean;
+  error: string | null;
+  selectedRouter: number | null;
+  routerUsers: RouterUsersResponse | null;
+  usersLoading: boolean;
+  deleteConfirm: number | null;
+  deletingRouter: number | null;
+  loadRouters: () => Promise<void>;
+  loadRouterUsers: (id: number) => Promise<void>;
+  handleDeleteRouter: (id: number) => Promise<void>;
+  setShowCreateModal: (v: boolean) => void;
+  setDeleteConfirm: (v: number | null) => void;
+  setEditingRouter: (r: Router | null) => void;
+  formatBytes: (b: string) => string;
+}) {
   if (error) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -123,18 +363,78 @@ export default function RoutersPage() {
           </div>
           <h2 className="text-xl font-semibold text-foreground mb-2">Failed to Load Routers</h2>
           <p className="text-foreground-muted mb-4">{error}</p>
-          <button onClick={loadRouters} className="btn-primary">
-            Try Again
-          </button>
+          <button onClick={loadRouters} className="btn-primary">Try Again</button>
         </div>
       </div>
     );
   }
 
-  return (
-    <div>
-      <Header title="Routers" subtitle="Manage your MikroTik routers and hotspot users" />
+  const renderActions = (router: Router) => (
+    <div className="flex items-center gap-1 justify-end">
+      <button
+        onClick={(e) => { e.stopPropagation(); loadRouterUsers(router.id); }}
+        className="p-1.5 rounded-lg hover:bg-accent-primary/10 text-foreground-muted hover:text-accent-primary transition-colors"
+        title="View hotspot users"
+      >
+        {usersLoading && selectedRouter === router.id ? (
+          <div className="w-4 h-4 border-2 border-foreground-muted/30 border-t-foreground-muted rounded-full animate-spin" />
+        ) : (
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+          </svg>
+        )}
+      </button>
+      <button
+        onClick={(e) => { e.stopPropagation(); setEditingRouter(router); }}
+        className="p-1.5 rounded-lg hover:bg-accent-primary/10 text-foreground-muted hover:text-accent-primary transition-colors"
+        title="Edit router"
+      >
+        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+        </svg>
+      </button>
+      {deleteConfirm === router.id ? (
+        <>
+          <button
+            onClick={(e) => { e.stopPropagation(); handleDeleteRouter(router.id); }}
+            disabled={deletingRouter === router.id}
+            className="p-1.5 rounded-lg bg-danger/10 hover:bg-danger/20 text-danger transition-colors"
+            title="Confirm delete"
+          >
+            {deletingRouter === router.id ? (
+              <div className="w-4 h-4 border-2 border-danger/30 border-t-danger rounded-full animate-spin" />
+            ) : (
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+            )}
+          </button>
+          <button
+            onClick={(e) => { e.stopPropagation(); setDeleteConfirm(null); }}
+            className="p-1.5 rounded-lg hover:bg-background-tertiary text-foreground-muted transition-colors"
+            title="Cancel"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </>
+      ) : (
+        <button
+          onClick={(e) => { e.stopPropagation(); setDeleteConfirm(router.id); }}
+          className="p-1.5 rounded-lg hover:bg-danger/10 text-foreground-muted hover:text-danger transition-colors"
+          title="Delete router"
+        >
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+          </svg>
+        </button>
+      )}
+    </div>
+  );
 
+  return (
+    <>
       {/* Actions */}
       <div className="flex items-center justify-between mb-6 animate-fade-in">
         <div className="flex items-center gap-2 text-foreground-muted">
@@ -163,199 +463,544 @@ export default function RoutersPage() {
         <PageLoader />
       ) : (
         <PullToRefresh onRefresh={loadRouters}>
-          {/* Routers Grid */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6 mb-6">
-            {routers.map((router, index) => (
-              <div
-                key={router.id}
-                className={`card overflow-hidden animate-fade-in ${
-                  selectedRouter === router.id ? 'ring-2 ring-accent-primary' : ''
-                }`}
-                style={{ animationDelay: `${index * 0.1}s`, opacity: 0 }}
-              >
-                <div className="p-6">
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex items-center gap-4">
-                      <div className="p-3 rounded-lg bg-accent-primary/10">
-                        <svg className="w-8 h-8 text-accent-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01" />
-                        </svg>
-                      </div>
-                      <div>
-                        <h3 className="text-lg font-bold text-foreground">{router.name}</h3>
-                        <p className="text-foreground-muted font-mono text-sm">
-                          {router.ip_address}:{router.port}
-                        </p>
-                        {router.identity && (
-                          <p className="text-foreground-muted text-xs mt-0.5">
-                            Identity: <span className="text-foreground">{router.identity}</span>
-                          </p>
-                        )}
-                        <div className="flex items-center gap-1.5 mt-1">
-                          {(router.payment_methods ?? ['mpesa', 'voucher']).map((method) => (
-                            <span
-                              key={method}
-                              className={`text-[10px] font-medium uppercase tracking-wider px-1.5 py-0.5 rounded ${
-                                method === 'mpesa'
-                                  ? 'bg-success/10 text-success'
-                                  : 'bg-accent-primary/10 text-accent-primary'
-                              }`}
-                            >
-                              {method === 'mpesa' ? 'Mobile' : 'Voucher'}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="badge badge-success">Online</span>
-                      <span className="badge badge-neutral text-xs">
-                        {router.auth_method?.replace(/_/g, ' ') || 'API'}
-                      </span>
-                      <button
-                          onClick={() => setEditingRouter(router)}
-                          className="p-1.5 rounded-lg hover:bg-accent-primary/10 text-foreground-muted hover:text-accent-primary transition-colors"
-                          title="Edit router"
-                        >
-                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                          </svg>
-                        </button>
-                      {deleteConfirm === router.id ? (
-                        <div className="flex items-center gap-1">
-                          <button
-                            onClick={() => handleDeleteRouter(router.id)}
-                            disabled={deletingRouter === router.id}
-                            className="p-1.5 rounded-lg bg-danger/10 hover:bg-danger/20 text-danger transition-colors"
-                            title="Confirm delete"
-                          >
-                            {deletingRouter === router.id ? (
-                              <div className="w-4 h-4 border-2 border-danger/30 border-t-danger rounded-full animate-spin" />
-                            ) : (
-                              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                              </svg>
-                            )}
-                          </button>
-                          <button
-                            onClick={() => setDeleteConfirm(null)}
-                            className="p-1.5 rounded-lg hover:bg-background-tertiary text-foreground-muted transition-colors"
-                            title="Cancel"
-                          >
-                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                          </button>
-                        </div>
-                      ) : (
-                        <button
-                          onClick={() => setDeleteConfirm(router.id)}
-                          className="p-1.5 rounded-lg hover:bg-danger/10 text-foreground-muted hover:text-danger transition-colors"
-                          title="Delete router"
-                        >
-                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                          </svg>
-                        </button>
-                      )}
-                    </div>
-                  </div>
-
-                  <button
-                    onClick={() => loadRouterUsers(router.id)}
-                    className="w-full btn-secondary flex items-center justify-center gap-2"
-                  >
-                    {usersLoading && selectedRouter === router.id ? (
-                      <>
-                        <div className="w-4 h-4 border-2 border-foreground-muted/30 border-t-foreground-muted rounded-full animate-spin" />
-                        Loading...
-                      </>
-                    ) : selectedRouter === router.id ? (
-                      <>
-                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
-                        </svg>
-                        Hide Users
-                      </>
-                    ) : (
-                      <>
-                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
-                        </svg>
-                        View Hotspot Users
-                      </>
-                    )}
-                  </button>
-                </div>
-
-                {/* Users Section */}
-                {selectedRouter === router.id && routerUsers && (
-                  <div className="border-t border-border p-6 bg-background-tertiary/50">
-                    <div className="flex items-center justify-between mb-4">
-                      <h4 className="font-semibold text-foreground">Hotspot Users</h4>
-                      <div className="flex gap-4 text-sm">
-                        <span className="text-foreground-muted">
-                          Total: <span className="font-semibold text-foreground">{routerUsers.total_users}</span>
-                        </span>
-                        <span className="text-foreground-muted">
-                          Active: <span className="font-semibold text-success">{routerUsers.active_sessions}</span>
-                        </span>
-                      </div>
-                    </div>
-
-                    {routerUsers.users.length === 0 ? (
-                      <p className="text-center text-foreground-muted py-4">No hotspot users found</p>
-                    ) : (
-                      <div className="space-y-3 max-h-96 overflow-y-auto">
-                        {routerUsers.users.map((user, i) => (
-                          <UserCard key={i} user={user} formatBytes={formatBytes} />
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
+          {/* Mobile Cards */}
+          <div className="md:hidden space-y-3">
+            {routers.length === 0 ? (
+              <div className="card p-8 text-center text-foreground-muted">
+                <svg className="w-12 h-12 mx-auto mb-4 text-foreground-muted/50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2" />
+                </svg>
+                No routers configured yet
               </div>
-            ))}
+            ) : (
+              routers.map((router) => (
+                <MobileDataCard
+                  key={router.id}
+                  id={router.id}
+                  title={router.name}
+                  subtitle={`${router.ip_address}:${router.port}`}
+                  avatar={{
+                    text: router.name.charAt(0).toUpperCase(),
+                    color: 'primary',
+                  }}
+                  status={{
+                    label: 'Online',
+                    variant: 'success',
+                  }}
+                  value={{
+                    text: router.identity || '-',
+                  }}
+                  secondary={{
+                    left: (
+                      <span className="flex items-center gap-1">
+                        {(router.payment_methods ?? ['mpesa', 'voucher']).map((m) => (
+                          <span key={m} className={`text-[10px] font-medium uppercase px-1.5 py-0.5 rounded ${
+                            m === 'mpesa' ? 'bg-success/10 text-success' : 'bg-accent-primary/10 text-accent-primary'
+                          }`}>{m === 'mpesa' ? 'Mobile' : 'Voucher'}</span>
+                        ))}
+                      </span>
+                    ),
+                    right: router.auth_method?.replace(/_/g, ' ') || 'API',
+                  }}
+                  rightAction={renderActions(router)}
+                  expandableContent={
+                    selectedRouter === router.id && routerUsers ? (
+                      <div className="border-t border-border pt-3">
+                        <div className="flex items-center justify-between mb-3">
+                          <span className="text-xs font-semibold text-foreground">Hotspot Users</span>
+                          <div className="flex gap-3 text-xs text-foreground-muted">
+                            <span>Total: <span className="font-semibold text-foreground">{routerUsers.total_users}</span></span>
+                            <span>Active: <span className="font-semibold text-success">{routerUsers.active_sessions}</span></span>
+                          </div>
+                        </div>
+                        {routerUsers.users.length === 0 ? (
+                          <p className="text-center text-foreground-muted text-xs py-3">No hotspot users found</p>
+                        ) : (
+                          <div className="space-y-2 max-h-64 overflow-y-auto">
+                            {routerUsers.users.map((user, i) => (
+                              <UserCard key={i} user={user} formatBytes={formatBytes} />
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ) : undefined
+                  }
+                  onClick={() => loadRouterUsers(router.id)}
+                  layout="compact"
+                  className="animate-fade-in"
+                />
+              ))
+            )}
           </div>
 
-          {routers.length === 0 && (
-            <div className="card p-12 text-center">
-              <svg className="w-16 h-16 mx-auto mb-4 text-foreground-muted/50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2" />
-              </svg>
-              <h3 className="text-xl font-semibold text-foreground mb-2">No Routers Found</h3>
-              <p className="text-foreground-muted mb-4">No routers are configured for your account</p>
-              <button onClick={() => setShowCreateModal(true)} className="btn-primary">
-                Add Router
-              </button>
+          {/* Desktop Table */}
+          <DataTable<Router>
+            columns={ROUTER_COLUMNS}
+            data={routers}
+            rowKey={(r) => r.id}
+            onRowClick={(router) => loadRouterUsers(router.id)}
+            renderCell={(router, key) => {
+              switch (key) {
+                case 'name':
+                  return (
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-accent-primary/10 flex items-center justify-center text-accent-primary font-medium text-sm">
+                        {router.name.charAt(0).toUpperCase()}
+                      </div>
+                      <span className="font-medium text-foreground">{router.name}</span>
+                    </div>
+                  );
+                case 'ip':
+                  return <span className="font-mono text-sm text-foreground-muted">{router.ip_address}:{router.port}</span>;
+                case 'identity':
+                  return <span className="text-sm text-foreground-muted">{router.identity || '-'}</span>;
+                case 'payment':
+                  return (
+                    <div className="flex items-center gap-1">
+                      {(router.payment_methods ?? ['mpesa', 'voucher']).map((method) => (
+                        <span
+                          key={method}
+                          className={`text-[10px] font-medium uppercase tracking-wider px-1.5 py-0.5 rounded ${
+                            method === 'mpesa'
+                              ? 'bg-success/10 text-success'
+                              : 'bg-accent-primary/10 text-accent-primary'
+                          }`}
+                        >
+                          {method === 'mpesa' ? 'Mobile' : 'Voucher'}
+                        </span>
+                      ))}
+                    </div>
+                  );
+                case 'auth':
+                  return (
+                    <span className="badge badge-neutral text-xs">
+                      {router.auth_method?.replace(/_/g, ' ') || 'API'}
+                    </span>
+                  );
+                case 'status':
+                  return <span className="badge badge-success">Online</span>;
+                case 'actions':
+                  return renderActions(router);
+                default:
+                  return null;
+              }
+            }}
+            rowStyle={(_, index) => ({ animationDelay: `${index * 0.05}s`, opacity: 0 })}
+            emptyState={{
+              icon: (
+                <svg className="w-12 h-12 text-foreground-muted/50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2" />
+                </svg>
+              ),
+              message: 'No routers configured yet',
+            }}
+          />
+
+          {/* Hotspot Users Detail (below table when a router is selected) */}
+          {selectedRouter && routerUsers && (
+            <div className="hidden md:block card mt-4 p-6 animate-fade-in">
+              <div className="flex items-center justify-between mb-4">
+                <h4 className="font-semibold text-foreground">
+                  Hotspot Users &mdash; {routers.find(r => r.id === selectedRouter)?.name}
+                </h4>
+                <div className="flex items-center gap-4">
+                  <div className="flex gap-4 text-sm">
+                    <span className="text-foreground-muted">
+                      Total: <span className="font-semibold text-foreground">{routerUsers.total_users}</span>
+                    </span>
+                    <span className="text-foreground-muted">
+                      Active: <span className="font-semibold text-success">{routerUsers.active_sessions}</span>
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => { loadRouterUsers(selectedRouter); }}
+                    className="p-1.5 rounded-lg hover:bg-background-tertiary text-foreground-muted transition-colors"
+                    title="Close"
+                  >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+              {routerUsers.users.length === 0 ? (
+                <p className="text-center text-foreground-muted py-4">No hotspot users found</p>
+              ) : (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 max-h-96 overflow-y-auto">
+                  {routerUsers.users.map((user, i) => (
+                    <UserCard key={i} user={user} formatBytes={formatBytes} />
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </PullToRefresh>
       )}
+    </>
+  );
+}
 
-      {showCreateModal && (
-        <CreateRouterModal
-          onClose={() => setShowCreateModal(false)}
-          onSuccess={() => {
-            setShowCreateModal(false);
-            loadRouters();
-          }}
-        />
+// ---------------------------------------------------------------------------
+// Provision Tab
+// ---------------------------------------------------------------------------
+
+function StatusBadge({ status, expired }: { status: string; expired: boolean }) {
+  if (expired && status === 'pending') {
+    return <span className="badge badge-danger">Expired</span>;
+  }
+  switch (status) {
+    case 'provisioned':
+      return <span className="badge badge-success">Provisioned</span>;
+    case 'pending':
+      return <span className="badge badge-warning">Pending</span>;
+    default:
+      return <span className="badge badge-neutral">{status}</span>;
+  }
+}
+
+function CopyButton({ text, label }: { text: string; label?: boolean }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      const textarea = document.createElement('textarea');
+      textarea.value = text;
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textarea);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  return (
+    <button
+      onClick={handleCopy}
+      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${
+        copied
+          ? 'bg-success/20 text-success'
+          : 'bg-accent-primary/10 text-accent-primary hover:bg-accent-primary/20'
+      }`}
+    >
+      {copied ? (
+        <>
+          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+          </svg>
+          {label !== false && 'Copied!'}
+        </>
+      ) : (
+        <>
+          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+          </svg>
+          {label !== false && 'Copy'}
+        </>
+      )}
+    </button>
+  );
+}
+
+function ProvisionTab({
+  tokens,
+  loading,
+  error,
+  generating,
+  expandedToken,
+  setExpandedToken,
+  loadTokens,
+  handleGenerate,
+}: {
+  tokens: ProvisionToken[];
+  loading: boolean;
+  error: string | null;
+  generating: boolean;
+  expandedToken: number | null;
+  setExpandedToken: (id: number | null) => void;
+  loadTokens: () => Promise<void>;
+  handleGenerate: () => Promise<void>;
+}) {
+  const pendingCount = tokens.filter(t => t.status === 'pending' && !t.expired).length;
+  const provisionedCount = tokens.filter(t => t.status === 'provisioned').length;
+
+  if (error && !tokens.length) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-danger/10 flex items-center justify-center">
+            <svg className="w-8 h-8 text-danger" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+          </div>
+          <h2 className="text-xl font-semibold text-foreground mb-2">Failed to Load Tokens</h2>
+          <p className="text-foreground-muted mb-4">{error}</p>
+          <button onClick={loadTokens} className="btn-primary">Try Again</button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      {/* Actions */}
+      <div className="flex items-center justify-between mb-6 animate-fade-in">
+        <div className="flex items-center gap-3 text-sm text-foreground-muted">
+          <span>{tokens.length} tokens</span>
+          {pendingCount > 0 && <span className="badge badge-warning">{pendingCount} pending</span>}
+          {provisionedCount > 0 && <span className="badge badge-success">{provisionedCount} provisioned</span>}
+        </div>
+        <div className="flex items-center gap-2">
+          <button onClick={loadTokens} className="btn-secondary flex items-center gap-2">
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            Refresh
+          </button>
+          <button
+            onClick={handleGenerate}
+            disabled={generating}
+            className="btn-primary flex items-center gap-2"
+          >
+            {generating ? (
+              <>
+                <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+                Generating...
+              </>
+            ) : (
+              <>
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+                Generate Token
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+
+      {error && (
+        <div className="mb-4 p-3 rounded-lg bg-danger/10 border border-danger/20 text-sm text-danger flex items-center gap-2">
+          <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          {error}
+        </div>
       )}
 
-      {editingRouter && (
-        <EditRouterModal
-          router={editingRouter}
-          onClose={() => setEditingRouter(null)}
-          onSuccess={() => {
-            setEditingRouter(null);
-            loadRouters();
-          }}
-        />
+      {loading ? (
+        <PageLoader />
+      ) : tokens.length === 0 ? (
+        <div className="card p-12 text-center animate-fade-in">
+          <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-accent-primary/10 flex items-center justify-center">
+            <svg className="w-10 h-10 text-accent-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
+          </div>
+          <h2 className="text-xl font-bold text-foreground mb-2">No Provisioning Tokens</h2>
+          <p className="text-foreground-muted mb-6 max-w-md mx-auto">
+            Generate your first token to auto-provision a MikroTik router with one click.
+          </p>
+          <button
+            onClick={handleGenerate}
+            disabled={generating}
+            className="btn-primary inline-flex items-center gap-2"
+          >
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
+            Generate First Token
+          </button>
+        </div>
+      ) : (
+        <PullToRefresh onRefresh={loadTokens}>
+          {/* Mobile cards */}
+          <div className="md:hidden space-y-3 animate-fade-in">
+            {tokens.map((token) => (
+              <MobileDataCard
+                key={token.id}
+                id={token.id}
+                title={token.router_name}
+                subtitle={token.identity}
+                avatar={{
+                  text: token.router_name.charAt(0),
+                  color: token.status === 'provisioned' ? 'success' : token.expired ? 'danger' : 'warning',
+                }}
+                status={{
+                  label: token.expired && token.status === 'pending' ? 'Expired' : token.status,
+                  variant: token.status === 'provisioned' ? 'success' : token.expired ? 'danger' : 'warning',
+                }}
+                value={{
+                  text: token.wireguard_ip,
+                  highlight: false,
+                }}
+                secondary={{
+                  left: formatSafeDate(token.created_at),
+                  right: token.provisioned_at ? formatSafeDate(token.provisioned_at) : '',
+                }}
+                expandableContent={
+                  token.status === 'pending' && !token.expired && token.command ? (
+                    <div className="border-t border-border pt-3 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-medium text-foreground-muted">MikroTik Command</span>
+                        <CopyButton text={token.command} />
+                      </div>
+                      <div className="bg-background-tertiary rounded-lg p-3 overflow-x-auto">
+                        <code className="text-xs font-mono text-foreground break-all whitespace-pre-wrap">{token.command}</code>
+                      </div>
+                    </div>
+                  ) : undefined
+                }
+                onClick={
+                  token.status === 'pending' && !token.expired && token.command
+                    ? () => setExpandedToken(expandedToken === token.id ? null : token.id)
+                    : undefined
+                }
+                layout="compact"
+              />
+            ))}
+          </div>
+
+          {/* Desktop table */}
+          <DataTable<ProvisionToken>
+            columns={PROVISION_COLUMNS}
+            data={tokens}
+            rowKey={(t) => t.id}
+            renderCell={(token, key) => {
+              switch (key) {
+                case 'router_name':
+                  return <span className="font-medium text-foreground">{token.router_name}</span>;
+                case 'identity':
+                  return <span className="font-mono text-sm text-foreground-muted">{token.identity}</span>;
+                case 'wireguard_ip':
+                  return <span className="font-mono text-sm text-foreground-muted">{token.wireguard_ip}</span>;
+                case 'status':
+                  return <StatusBadge status={token.status} expired={token.expired} />;
+                case 'created_at':
+                  return <span className="text-sm text-foreground-muted">{formatSafeDate(token.created_at)}</span>;
+                case 'provisioned_at':
+                  return token.provisioned_at
+                    ? <span className="text-sm text-success">{formatSafeDate(token.provisioned_at)}</span>
+                    : <span className="text-sm text-foreground-muted">-</span>;
+                case 'command':
+                  if (token.status === 'pending' && !token.expired && token.command) {
+                    return <CopyButton text={token.command} />;
+                  }
+                  if (token.status === 'provisioned' && token.router_id) {
+                    return (
+                      <span className="inline-flex items-center gap-1 text-xs font-medium text-success">
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                        Router #{token.router_id}
+                      </span>
+                    );
+                  }
+                  return <span className="text-sm text-foreground-muted">-</span>;
+                default:
+                  return null;
+              }
+            }}
+            emptyState={{
+              icon: (
+                <svg className="w-12 h-12 text-foreground-muted/50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+              ),
+              message: 'No provisioning tokens yet',
+            }}
+            rowStyle={(_, index) => ({ animationDelay: `${index * 0.05}s`, opacity: 0 })}
+          />
+        </PullToRefresh>
       )}
+    </>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// New Token Modal
+// ---------------------------------------------------------------------------
+
+function NewTokenModal({
+  result,
+  onClose,
+}: {
+  result: ProvisionTokenResponse;
+  onClose: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative w-full max-w-lg card p-6 animate-fade-in max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-bold text-foreground">Token Generated</h3>
+          <button onClick={onClose} className="p-1 rounded-lg hover:bg-background-tertiary text-foreground-muted">
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <div className="space-y-3">
+          <div className="flex items-center gap-3 p-3 rounded-lg bg-success/5 border border-success/20">
+            <div className="p-2 rounded-lg bg-success/10">
+              <svg className="w-5 h-5 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+            <div>
+              <p className="font-semibold text-foreground">{result.router_name}</p>
+              <p className="text-sm text-foreground-muted">
+                {result.identity} &middot; {result.wireguard_ip}
+              </p>
+            </div>
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="text-xs font-medium text-foreground-muted">MikroTik Command</span>
+              <CopyButton text={result.command} />
+            </div>
+            <div className="bg-background-tertiary rounded-lg p-3 overflow-x-auto">
+              <code className="text-xs font-mono text-foreground break-all whitespace-pre-wrap">{result.command}</code>
+            </div>
+          </div>
+
+          {result.note && (
+            <div className="flex gap-2 p-3 rounded-lg bg-warning/5 border border-warning/20">
+              <svg className="w-5 h-5 text-warning flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+              <p className="text-xs text-foreground-muted leading-relaxed">{result.note}</p>
+            </div>
+          )}
+
+          <div className="flex items-center gap-2 text-xs text-foreground-muted">
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            Expires in {result.expires_in_hours} hours
+          </div>
+        </div>
+
+        <button onClick={onClose} className="btn-primary w-full mt-5">
+          Done
+        </button>
+      </div>
     </div>
   );
 }
+
+// ---------------------------------------------------------------------------
+// Create / Edit Router Modals + helpers (unchanged)
+// ---------------------------------------------------------------------------
 
 function CreateRouterModal({
   onClose,
@@ -727,7 +1372,7 @@ function PaymentMethodsField({
 }) {
   const toggle = (method: PaymentMethod) => {
     const has = value.includes(method);
-    if (has && value.length === 1) return; // must keep at least one
+    if (has && value.length === 1) return;
     onChange(has ? value.filter((m) => m !== method) : [...value, method]);
   };
 
@@ -818,23 +1463,16 @@ function UserCard({ user, formatBytes }: { user: HotspotUser; formatBytes: (byte
             <svg className="w-4 h-4 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
             </svg>
-            <span className="text-foreground-muted">↓ {formatBytes(user.session.bytes_in)}</span>
+            <span className="text-foreground-muted">&darr; {formatBytes(user.session.bytes_in)}</span>
           </div>
           <div className="flex items-center gap-2">
             <svg className="w-4 h-4 text-accent-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10l7-7m0 0l7 7m-7-7v18" />
             </svg>
-            <span className="text-foreground-muted">↑ {formatBytes(user.session.bytes_out)}</span>
+            <span className="text-foreground-muted">&uarr; {formatBytes(user.session.bytes_out)}</span>
           </div>
         </div>
       )}
     </div>
   );
 }
-
-
-
-
-
-
-

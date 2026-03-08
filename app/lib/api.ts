@@ -14,6 +14,8 @@ import {
   CreateRouterRequest,
   UpdateRouterRequest,
   RouterUsersResponse,
+  ProvisionTokenResponse,
+  ProvisionToken,
   LoginRequest,
   LoginResponse,
   Advertiser,
@@ -369,6 +371,23 @@ class ApiClient {
       headers: this.getHeaders(true),
     });
     return this.handleResponse<RouterUsersResponse>(response);
+  }
+
+  // Provisioning
+  async createProvisionToken(): Promise<ProvisionTokenResponse> {
+    const response = await fetch(`${BASE_URL}/provision/create`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify({}),
+    });
+    return this.handleResponse<ProvisionTokenResponse>(response);
+  }
+
+  async getProvisionTokens(): Promise<ProvisionToken[]> {
+    const response = await fetch(`${BASE_URL}/provision/tokens`, {
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<ProvisionToken[]>(response);
   }
 
   // Authentication

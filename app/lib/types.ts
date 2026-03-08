@@ -359,6 +359,32 @@ export interface RouterUsersResponse {
   active_sessions: number;
 }
 
+// Provisioning Types
+export interface ProvisionTokenResponse {
+  token: string;
+  router_name: string;
+  identity: string;
+  wireguard_ip: string;
+  command: string;
+  note: string;
+  created_at: string;
+  expires_in_hours: number;
+}
+
+export interface ProvisionToken {
+  id: number;
+  token: string;
+  router_name: string;
+  identity: string;
+  wireguard_ip: string;
+  status: 'pending' | 'provisioned' | 'expired';
+  expired: boolean;
+  command: string | null;
+  created_at: string;
+  provisioned_at: string | null;
+  router_id: number | null;
+}
+
 // Auth Types
 export interface LoginRequest {
   email: string;
