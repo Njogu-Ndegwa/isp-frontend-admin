@@ -189,9 +189,6 @@ export default function TransactionsPage() {
   };
 
   const getReceiptDisplay = (tx: MpesaTransaction) => {
-    if (tx.payment_method === 'voucher') {
-      return tx.payment_reference || '-';
-    }
     return tx.mpesa_receipt_number || tx.payment_reference || '-';
   };
 
