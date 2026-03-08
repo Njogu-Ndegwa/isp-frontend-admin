@@ -578,67 +578,91 @@ export default function TransactionsPage() {
             }}
           />
 
-          {/* Method Breakdown */}
-          {summary?.method_breakdown && Object.keys(summary.method_breakdown).length > 1 && (
-            <div className="card p-4 sm:p-6 mt-4 sm:mt-6 animate-fade-in delay-2">
-              <h3 className="text-base sm:text-lg font-semibold text-foreground mb-3 sm:mb-4 flex items-center gap-2">
-                <svg className="w-5 h-5 text-accent-primary flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
-                </svg>
-                Revenue by Payment Type
-              </h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
-                {Object.entries(summary.method_breakdown).map(([method, data]) => {
-                  const info = PAYMENT_METHOD_LABELS[method] || PAYMENT_METHOD_LABELS.other;
-                  return (
+          {/* Method Breakdown (completed only) */}
+          {(() => {
+            const completed = (transactions || []).filter(tx => tx.status === 'completed');
+            const byMethod: Record<string, { count: number; amount: number }> = {};
+            completed.forEach(tx => {
+              const m = tx.payment_method || 'other';
+              if (!byMethod[m]) byMethod[m] = { count: 0, amount: 0 };
+              byMethod[m].count += 1;
+              byMethod[m].amount += tx.amount ?? 0;
+            });
+            const entries = Object.entries(byMethod);
+            if (entries.length <= 1) return null;
+            return (
+              <div className="card p-4 sm:p-6 mt-4 sm:mt-6 animate-fade-in delay-2">
+                <h3 className="text-base sm:text-lg font-semibold text-foreground mb-3 sm:mb-4 flex items-center gap-2">
+                  <svg className="w-5 h-5 text-accent-primary flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                  </svg>
+                  Revenue by Payment Type
+                </h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+                  {entries.map(([method, data]) => {
+                    const info = PAYMENT_METHOD_LABELS[method] || PAYMENT_METHOD_LABELS.other;
+                    return (
+                      <div
+                        key={method}
+                        className="p-3 sm:p-4 rounded-lg bg-background-tertiary flex items-center justify-between"
+                      >
+                        <div className="min-w-0">
+                          <p className="font-medium text-foreground text-sm sm:text-base truncate flex items-center gap-2">
+                            <span className={`inline-block w-2 h-2 rounded-full ${info.bg.replace('/10', '')}`} />
+                            {info.label}
+                          </p>
+                          <p className="text-xs sm:text-sm text-foreground-muted">{data.count} transactions</p>
+                        </div>
+                        <p className="text-base sm:text-lg font-bold text-accent-primary flex-shrink-0 ml-3">
+                          KES {data.amount.toLocaleString()}
+                        </p>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* Router Breakdown (completed only) */}
+          {(() => {
+            const completed = (transactions || []).filter(tx => tx.status === 'completed');
+            const byRouter: Record<string, { count: number; amount: number }> = {};
+            completed.forEach(tx => {
+              const name = tx.router?.name || 'Unknown';
+              if (!byRouter[name]) byRouter[name] = { count: 0, amount: 0 };
+              byRouter[name].count += 1;
+              byRouter[name].amount += tx.amount ?? 0;
+            });
+            const entries = Object.entries(byRouter);
+            if (entries.length === 0) return null;
+            return (
+              <div className="card p-4 sm:p-6 mt-4 sm:mt-6 animate-fade-in delay-3">
+                <h3 className="text-base sm:text-lg font-semibold text-foreground mb-3 sm:mb-4 flex items-center gap-2">
+                  <svg className="w-5 h-5 text-accent-primary flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2" />
+                  </svg>
+                  Revenue by Router
+                </h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+                  {entries.map(([name, data]) => (
                     <div
-                      key={method}
+                      key={name}
                       className="p-3 sm:p-4 rounded-lg bg-background-tertiary flex items-center justify-between"
                     >
                       <div className="min-w-0">
-                        <p className="font-medium text-foreground text-sm sm:text-base truncate flex items-center gap-2">
-                          <span className={`inline-block w-2 h-2 rounded-full ${info.bg.replace('/10', '')}`} />
-                          {info.label}
-                        </p>
+                        <p className="font-medium text-foreground text-sm sm:text-base truncate">{name}</p>
                         <p className="text-xs sm:text-sm text-foreground-muted">{data.count} transactions</p>
                       </div>
                       <p className="text-base sm:text-lg font-bold text-accent-primary flex-shrink-0 ml-3">
                         KES {data.amount.toLocaleString()}
                       </p>
                     </div>
-                  );
-                })}
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
-
-          {/* Router Breakdown */}
-          {summary && Object.keys(summary.router_breakdown).length > 0 && (
-            <div className="card p-4 sm:p-6 mt-4 sm:mt-6 animate-fade-in delay-3">
-              <h3 className="text-base sm:text-lg font-semibold text-foreground mb-3 sm:mb-4 flex items-center gap-2">
-                <svg className="w-5 h-5 text-accent-primary flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2" />
-                </svg>
-                Revenue by Router
-              </h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
-                {Object.entries(summary.router_breakdown).map(([name, data]) => (
-                  <div
-                    key={data.router_id}
-                    className="p-3 sm:p-4 rounded-lg bg-background-tertiary flex items-center justify-between"
-                  >
-                    <div className="min-w-0">
-                      <p className="font-medium text-foreground text-sm sm:text-base truncate">{name}</p>
-                      <p className="text-xs sm:text-sm text-foreground-muted">{data.count} transactions</p>
-                    </div>
-                    <p className="text-base sm:text-lg font-bold text-accent-primary flex-shrink-0 ml-3">
-                      KES {data.amount.toLocaleString()}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+            );
+          })()}
         </>
       )}
     </div>
