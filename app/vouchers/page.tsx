@@ -630,6 +630,11 @@ function GenerateVouchersModal({
   });
 
   useEffect(() => {
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = ''; };
+  }, []);
+
+  useEffect(() => {
     const loadOptions = async () => {
       try {
         const [plansData, routersData] = await Promise.all([api.getPlans(), api.getRouters()]);
@@ -670,9 +675,10 @@ function GenerateVouchersModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4">
+    <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center sm:p-4">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full sm:max-w-lg card rounded-b-none sm:rounded-b-2xl p-5 sm:p-6 animate-slide-up sm:animate-fade-in max-h-[92vh] overflow-y-auto"
+      <div
+        className="relative w-full sm:max-w-lg bg-[var(--background-secondary)] border border-[var(--border)] rounded-t-2xl sm:rounded-2xl p-5 sm:p-6 animate-slide-up sm:animate-fade-in max-h-[92vh] overflow-y-auto"
         style={{ paddingBottom: 'max(1.25rem, env(safe-area-inset-bottom, 0px))' }}
       >
         {/* Drag handle on mobile */}
@@ -711,7 +717,7 @@ function GenerateVouchersModal({
             </select>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-sm font-medium text-foreground mb-1.5">
                 Quantity
