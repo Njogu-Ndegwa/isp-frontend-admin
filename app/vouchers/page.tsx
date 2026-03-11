@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { api } from '../lib/api';
 import {
   Voucher,
@@ -14,7 +14,6 @@ import Header from '../components/Header';
 import DataTable, { DataTableColumn } from '../components/DataTable';
 import { PageLoader } from '../components/LoadingSpinner';
 import StatCard from '../components/StatCard';
-import MobileDataCard from '../components/MobileDataCard';
 import SearchInput from '../components/SearchInput';
 import PullToRefresh from '../components/PullToRefresh';
 import { formatDateGMT3 } from '../lib/dateUtils';
@@ -69,6 +68,52 @@ const statusVariant = (status: Voucher['status']): 'success' | 'info' | 'danger'
   };
   return map[status] ?? 'neutral';
 };
+
+function VoucherCopyButton({ code }: { code: string }) {
+  const [copied, setCopied] = useState(false);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout>>(null);
+
+  const handleCopy = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      await navigator.clipboard.writeText(code);
+    } catch {
+      const textarea = document.createElement('textarea');
+      textarea.value = code;
+      textarea.style.position = 'fixed';
+      textarea.style.opacity = '0';
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textarea);
+    }
+    setCopied(true);
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    timeoutRef.current = setTimeout(() => setCopied(false), 1800);
+  };
+
+  return (
+    <button
+      onClick={handleCopy}
+      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all active:scale-95 touch-manipulation ${
+        copied
+          ? 'bg-success/15 text-success'
+          : 'bg-accent-primary/10 text-accent-primary hover:bg-accent-primary/20'
+      }`}
+    >
+      {copied ? (
+        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+        </svg>
+      ) : (
+        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+        </svg>
+      )}
+      {copied ? 'Copied!' : 'Copy'}
+    </button>
+  );
+}
 
 export default function VouchersPage() {
   const [stats, setStats] = useState<VoucherStats | null>(null);
@@ -332,13 +377,11 @@ export default function VouchersPage() {
               switch (key) {
                 case 'code':
                   return (
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-accent-primary/10 flex items-center justify-center text-accent-primary font-medium text-sm">
-                        {v.code.charAt(0).toUpperCase()}
-                      </div>
+                    <div className="flex items-center gap-2">
                       <span className="font-mono text-sm font-semibold text-foreground tracking-wider">
                         {v.code}
                       </span>
+                      <VoucherCopyButton code={v.code} />
                     </div>
                   );
                 case 'plan':
@@ -419,7 +462,7 @@ export default function VouchersPage() {
           />
 
           {/* Mobile Cards */}
-          <div className="md:hidden space-y-3">
+          <div className="md:hidden space-y-2">
             {filteredVouchers.length === 0 ? (
               <div className="card p-8 text-center text-foreground-muted">
                 <svg className="w-12 h-12 mx-auto mb-4 text-foreground-muted/50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -429,47 +472,11 @@ export default function VouchersPage() {
               </div>
             ) : (
               filteredVouchers.map((v) => (
-                <MobileDataCard
+                <VoucherMobileCard
                   key={v.id}
-                  id={v.id}
-                  layout="compact"
-                  title={v.code}
-                  subtitle={v.plan?.name ?? `Plan #${v.plan_id}`}
-                  avatar={{ text: v.code.charAt(0).toUpperCase(), color: 'primary' }}
-                  status={{ label: v.status, variant: statusVariant(v.status) }}
-                  value={v.plan?.price !== undefined ? { text: `KES ${v.plan.price}` } : undefined}
-                  secondary={{
-                    left: v.router?.name ?? (v.router_id ? `Router #${v.router_id}` : 'No router'),
-                    right: formatSafeDate(v.created_at),
-                  }}
-                  footer={
-                    v.status === 'available' ? (
-                      <div className="flex items-center justify-between w-full">
-                        <span className="text-xs text-foreground-muted">
-                          {v.expires_at ? `Exp: ${formatSafeDate(v.expires_at)}` : 'No expiry'}
-                        </span>
-                        <button
-                          onClick={() => handleDisable(v.id)}
-                          disabled={actionLoading === v.id}
-                          className="flex items-center gap-1 text-xs text-danger hover:text-danger/70 transition-colors"
-                        >
-                          {actionLoading === v.id ? (
-                            <div className="w-3 h-3 border border-danger/30 border-t-danger rounded-full animate-spin" />
-                          ) : (
-                            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
-                            </svg>
-                          )}
-                          Disable
-                        </button>
-                      </div>
-                    ) : (
-                      <span className="text-xs text-foreground-muted">
-                        {v.expires_at ? `Expires: ${formatSafeDate(v.expires_at)}` : 'No expiry'}
-                      </span>
-                    )
-                  }
-                  className="animate-fade-in"
+                  voucher={v}
+                  onDisable={handleDisable}
+                  disabling={actionLoading === v.id}
                 />
               ))
             )}
@@ -517,6 +524,89 @@ export default function VouchersPage() {
           }}
         />
       )}
+    </div>
+  );
+}
+
+function VoucherMobileCard({
+  voucher: v,
+  onDisable,
+  disabling,
+}: {
+  voucher: Voucher;
+  onDisable: (id: number) => void;
+  disabling: boolean;
+}) {
+  const variant = statusVariant(v.status);
+  const badgeCls: Record<string, string> = {
+    success: 'badge-success',
+    info: 'badge-info',
+    danger: 'badge-danger',
+    warning: 'badge-warning',
+    neutral: 'badge-neutral',
+  };
+
+  return (
+    <div className="card p-0 overflow-hidden animate-fade-in">
+      {/* Top row: Code + Copy + Status */}
+      <div className="flex items-center justify-between px-4 pt-3.5 pb-2">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className="w-8 h-8 rounded-lg bg-accent-primary/10 flex items-center justify-center flex-shrink-0">
+            <svg className="w-4 h-4 text-accent-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z" />
+            </svg>
+          </div>
+          <span className="font-mono text-base font-bold text-foreground tracking-wider truncate select-all">
+            {v.code}
+          </span>
+        </div>
+        <span className={`badge ${badgeCls[variant]} capitalize text-[11px] flex-shrink-0 ml-2`}>
+          {v.status}
+        </span>
+      </div>
+
+      {/* Info row: plan + price + router */}
+      <div className="flex items-center gap-2 px-4 pb-2 text-sm">
+        <span className="text-foreground-muted truncate">{v.plan?.name ?? `Plan #${v.plan_id}`}</span>
+        {v.plan?.price !== undefined && (
+          <>
+            <span className="text-foreground-muted/40">&middot;</span>
+            <span className="font-medium text-foreground">KES {v.plan.price}</span>
+          </>
+        )}
+        {v.router?.name && (
+          <>
+            <span className="text-foreground-muted/40">&middot;</span>
+            <span className="text-foreground-muted truncate">{v.router.name}</span>
+          </>
+        )}
+      </div>
+
+      {/* Action bar: Copy button prominent + meta */}
+      <div className="flex items-center justify-between px-4 py-2.5 bg-background-secondary/50 border-t border-border/50">
+        <div className="flex items-center gap-3">
+          <VoucherCopyButton code={v.code} />
+          {v.status === 'available' && (
+            <button
+              onClick={() => onDisable(v.id)}
+              disabled={disabling}
+              className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium text-foreground-muted hover:text-danger hover:bg-danger/10 transition-all active:scale-95 touch-manipulation"
+            >
+              {disabling ? (
+                <div className="w-3 h-3 border-2 border-danger/30 border-t-danger rounded-full animate-spin" />
+              ) : (
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                </svg>
+              )}
+              Disable
+            </button>
+          )}
+        </div>
+        <span className="text-[11px] text-foreground-muted flex-shrink-0">
+          {v.expires_at ? `Exp ${formatSafeDate(v.expires_at)}` : formatSafeDate(v.created_at)}
+        </span>
+      </div>
     </div>
   );
 }
@@ -580,12 +670,17 @@ function GenerateVouchersModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full max-w-lg card p-6 animate-fade-in max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-bold text-foreground">Generate Vouchers</h2>
-          <button onClick={onClose} className="p-2 rounded-lg hover:bg-background-tertiary transition-colors">
+      <div className="relative w-full sm:max-w-lg card rounded-b-none sm:rounded-b-2xl p-5 sm:p-6 animate-slide-up sm:animate-fade-in max-h-[92vh] overflow-y-auto"
+        style={{ paddingBottom: 'max(1.25rem, env(safe-area-inset-bottom, 0px))' }}
+      >
+        {/* Drag handle on mobile */}
+        <div className="sm:hidden w-10 h-1 rounded-full bg-foreground-muted/30 mx-auto mb-4" />
+
+        <div className="flex items-center justify-between mb-5">
+          <h2 className="text-lg sm:text-xl font-bold text-foreground">Generate Vouchers</h2>
+          <button onClick={onClose} className="p-2 -mr-1 rounded-lg hover:bg-background-tertiary transition-colors touch-manipulation">
             <svg className="w-5 h-5 text-foreground-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
@@ -598,13 +693,13 @@ function GenerateVouchersModal({
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-4" autoComplete="off">
+        <form onSubmit={handleSubmit} className="space-y-5" autoComplete="off">
           <div>
-            <label className="block text-sm font-medium text-foreground mb-2">Plan *</label>
+            <label className="block text-sm font-medium text-foreground mb-1.5">Plan *</label>
             <select
               value={formData.plan_id}
               onChange={(e) => setFormData({ ...formData, plan_id: parseInt(e.target.value) })}
-              className="select"
+              className="select text-base"
               required
             >
               <option value={0} disabled>Select a plan</option>
@@ -616,57 +711,61 @@ function GenerateVouchersModal({
             </select>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-foreground mb-2">
-              Quantity <span className="text-foreground-muted font-normal">(1–100)</span>
-            </label>
-            <input
-              type="number"
-              value={formData.quantity}
-              onChange={(e) => setFormData({ ...formData, quantity: Math.min(100, Math.max(1, parseInt(e.target.value) || 1)) })}
-              className="input"
-              min={1}
-              max={100}
-              required
-            />
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-1.5">
+                Quantity
+              </label>
+              <input
+                type="number"
+                value={formData.quantity}
+                onChange={(e) => setFormData({ ...formData, quantity: Math.min(100, Math.max(1, parseInt(e.target.value) || 1)) })}
+                className="input text-base"
+                min={1}
+                max={100}
+                required
+              />
+              <p className="text-[11px] text-foreground-muted mt-1">1–100 vouchers</p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-1.5">
+                Router
+              </label>
+              <select
+                value={formData.router_id ?? ''}
+                onChange={(e) => setFormData({ ...formData, router_id: e.target.value ? parseInt(e.target.value) : null })}
+                className="select text-base"
+              >
+                <option value="">Any Router</option>
+                {routers.map((r) => (
+                  <option key={r.id} value={r.id}>{r.name}</option>
+                ))}
+              </select>
+              <p className="text-[11px] text-foreground-muted mt-1">Optional</p>
+            </div>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-foreground mb-2">
-              Router <span className="text-foreground-muted font-normal">(optional)</span>
-            </label>
-            <select
-              value={formData.router_id ?? ''}
-              onChange={(e) => setFormData({ ...formData, router_id: e.target.value ? parseInt(e.target.value) : null })}
-              className="select"
-            >
-              <option value="">Any Router</option>
-              {routers.map((r) => (
-                <option key={r.id} value={r.id}>{r.name}</option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-foreground mb-2">
+            <label className="block text-sm font-medium text-foreground mb-1.5">
               Expires At <span className="text-foreground-muted font-normal">(optional)</span>
             </label>
             <input
               type="datetime-local"
               value={formData.expires_at ?? ''}
               onChange={(e) => setFormData({ ...formData, expires_at: e.target.value || null })}
-              className="input"
+              className="input text-base"
             />
           </div>
 
-          <div className="flex gap-3 pt-2">
-            <button type="button" onClick={onClose} className="btn-secondary flex-1">
+          <div className="flex gap-3 pt-1">
+            <button type="button" onClick={onClose} className="btn-secondary flex-1 py-3 touch-manipulation">
               Cancel
             </button>
             <button
               type="submit"
               disabled={loading || !formData.plan_id}
-              className="btn-primary flex-1 flex items-center justify-center gap-2 disabled:opacity-60"
+              className="btn-primary flex-1 py-3 flex items-center justify-center gap-2 disabled:opacity-60 touch-manipulation"
             >
               {loading ? (
                 <>
