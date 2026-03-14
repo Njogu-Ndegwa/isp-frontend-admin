@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '../context/AuthContext';
 import CollapsibleSidebar from './CollapsibleSidebar';
@@ -7,10 +8,35 @@ import MobileBottomNav from './MobileBottomNav';
 
 const PUBLIC_PATHS = ['/', '/login', '/landing', '/signup'];
 
+function DemoBanner() {
+  const { logout } = useAuth();
+  return (
+    <div className="bg-gradient-to-r from-amber-500/15 via-orange-500/10 to-amber-500/15 border-b border-amber-500/20">
+      <div className="max-w-7xl mx-auto px-3 py-2 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="flex-shrink-0 w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+          <p className="text-xs sm:text-sm text-amber-200/90 truncate">
+            <span className="font-medium text-amber-400">Demo Mode</span>
+            <span className="hidden sm:inline"> &mdash; You&apos;re viewing sample data</span>
+          </p>
+        </div>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <Link href="/signup" className="text-xs font-semibold px-3 py-1 rounded-lg bg-amber-500 text-[#09090b] hover:bg-amber-400 transition-colors">
+            Sign Up
+          </Link>
+          <button onClick={logout} className="text-xs font-medium px-3 py-1 rounded-lg border border-amber-500/30 text-amber-400 hover:bg-amber-500/10 transition-colors">
+            Exit
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, isDemo } = useAuth();
 
   const isPublicPage = PUBLIC_PATHS.includes(pathname);
 
@@ -36,6 +62,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
 
   return (
     <>
+      {isDemo && <DemoBanner />}
       <CollapsibleSidebar />
       <MobileBottomNav />
       <main className="min-h-screen p-4 md:p-8 md:ml-16 lg:ml-64 pb-24 md:pb-8">

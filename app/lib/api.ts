@@ -57,10 +57,20 @@ import {
   AddWalledGardenDomainRequest,
   AddWalledGardenIpRequest,
 } from './types';
+import * as demo from './demoData';
 
 const BASE_URL = 'https://isp.bitwavetechnologies.net/api';
 
 class ApiClient {
+  isDemoMode(): boolean {
+    if (typeof window === 'undefined') return false;
+    return localStorage.getItem('demo_mode') === 'true';
+  }
+
+  private demoBlock(): never {
+    throw new Error(demo.DEMO_WRITE_ERROR);
+  }
+
   private getToken(): string | null {
     if (typeof window === 'undefined') return null;
     return localStorage.getItem('auth_token');
@@ -106,6 +116,7 @@ class ApiClient {
       routerId?: number;
     } = { days: 7 }
   ): Promise<DashboardAnalytics> {
+    if (this.isDemoMode()) return demo.demoDashboardAnalytics;
     const params = new URLSearchParams();
     params.append('user_id', userId.toString());
     
@@ -131,6 +142,7 @@ class ApiClient {
 
   // MikroTik Metrics
   async getMikroTikMetrics(routerId?: number): Promise<MikroTikMetrics> {
+    if (this.isDemoMode()) return demo.demoMikroTikMetrics;
     const params = new URLSearchParams();
     if (routerId) {
       params.append('router_id', routerId.toString());
@@ -197,6 +209,7 @@ class ApiClient {
 
   // Bandwidth History
   async getBandwidthHistory(hours = 24, routerId?: number): Promise<BandwidthHistory> {
+    if (this.isDemoMode()) return demo.demoBandwidthHistory;
     const params = new URLSearchParams();
     params.append('hours', hours.toString());
     if (routerId) {
@@ -211,6 +224,7 @@ class ApiClient {
 
   // Top Users by Bandwidth
   async getTopUsers(limit = 10, routerId?: number): Promise<TopUsersResponse> {
+    if (this.isDemoMode()) return demo.demoTopUsers;
     const params = new URLSearchParams();
     params.append('limit', limit.toString());
     if (routerId) {
@@ -225,6 +239,7 @@ class ApiClient {
 
   // Dashboard Overview (legacy)
   async getDashboardOverview(userId = 1): Promise<DashboardOverview> {
+    if (this.isDemoMode()) return demo.demoDashboardOverview;
     const response = await fetch(
       `${BASE_URL}/dashboard/overview?user_id=${userId}`,
       { headers: this.getHeaders() }
@@ -234,6 +249,7 @@ class ApiClient {
 
   // Customers
   async getCustomers(userId = 1): Promise<Customer[]> {
+    if (this.isDemoMode()) return demo.demoCustomers;
     const response = await fetch(
       `${BASE_URL}/customers?user_id=${userId}`,
       { headers: this.getHeaders() }
@@ -242,6 +258,7 @@ class ApiClient {
   }
 
   async getActiveCustomers(userId = 1): Promise<Customer[]> {
+    if (this.isDemoMode()) return demo.demoCustomers.filter(c => c.status === 'active');
     const response = await fetch(
       `${BASE_URL}/customers/active?user_id=${userId}`,
       { headers: this.getHeaders() }
@@ -251,6 +268,7 @@ class ApiClient {
 
   // Plans
   async getPlans(userId?: number, connectionType?: string): Promise<Plan[]> {
+    if (this.isDemoMode()) return connectionType ? demo.demoPlans.filter(p => p.connection_type === connectionType) : demo.demoPlans;
     const params = new URLSearchParams();
     if (userId) params.append('user_id', userId.toString());
     if (connectionType) params.append('connection_type', connectionType);
@@ -263,6 +281,7 @@ class ApiClient {
   }
 
   async createPlan(plan: CreatePlanRequest): Promise<Plan> {
+    if (this.isDemoMode()) this.demoBlock();
     const response = await fetch(`${BASE_URL}/plans/create`, {
       method: 'POST',
       headers: this.getHeaders(),
@@ -272,6 +291,7 @@ class ApiClient {
   }
 
   async updatePlan(planId: number, updates: UpdatePlanRequest): Promise<Plan> {
+    if (this.isDemoMode()) this.demoBlock();
     const response = await fetch(`${BASE_URL}/plans/${planId}`, {
       method: 'PUT',
       headers: this.getHeaders(),
@@ -281,6 +301,7 @@ class ApiClient {
   }
 
   async deletePlan(planId: number, userId = 1): Promise<{ success: boolean; message: string }> {
+    if (this.isDemoMode()) this.demoBlock();
     const response = await fetch(
       `${BASE_URL}/plans/${planId}?user_id=${userId}`,
       { method: 'DELETE', headers: this.getHeaders() }
@@ -289,6 +310,7 @@ class ApiClient {
   }
 
   async activateEmergencyMode(): Promise<{ message: string }> {
+    if (this.isDemoMode()) this.demoBlock();
     const response = await fetch(`${BASE_URL}/plans/activate-emergency`, {
       method: 'POST',
       headers: this.getHeaders(),
@@ -297,6 +319,7 @@ class ApiClient {
   }
 
   async deactivateEmergencyMode(): Promise<{ message: string }> {
+    if (this.isDemoMode()) this.demoBlock();
     const response = await fetch(`${BASE_URL}/plans/deactivate-emergency`, {
       method: 'POST',
       headers: this.getHeaders(),
@@ -309,6 +332,7 @@ class ApiClient {
     startDate?: string,
     endDate?: string
   ): Promise<PlanPerformanceResponse> {
+    if (this.isDemoMode()) return demo.demoPlanPerformance;
     const params = new URLSearchParams();
     if (userId) params.append('user_id', userId.toString());
     if (startDate) params.append('start_date', startDate);
@@ -332,6 +356,7 @@ class ApiClient {
     paymentMethod?: string,
     date?: string
   ): Promise<MpesaTransaction[]> {
+    if (this.isDemoMode()) return demo.demoTransactions;
     const params = new URLSearchParams();
     if (userId) params.append('user_id', userId.toString());
     if (routerId) params.append('router_id', routerId.toString());
@@ -357,6 +382,7 @@ class ApiClient {
     paymentMethod?: string,
     date?: string
   ): Promise<TransactionSummary> {
+    if (this.isDemoMode()) return demo.demoTransactionSummary;
     const params = new URLSearchParams();
     if (userId) params.append('user_id', userId.toString());
     if (routerId) params.append('router_id', routerId.toString());
@@ -376,6 +402,7 @@ class ApiClient {
     paymentMethod: string,
     transactionId: number
   ): Promise<ManualProvisionResponse> {
+    if (this.isDemoMode()) this.demoBlock();
     const response = await fetch(
       `${BASE_URL}/transactions/${paymentMethod}/${transactionId}/manual-provision`,
       { method: 'POST', headers: this.getHeaders() }
@@ -385,6 +412,7 @@ class ApiClient {
 
   // Routers
   async getRouters(): Promise<Router[]> {
+    if (this.isDemoMode()) return demo.demoRouters;
     const response = await fetch(`${BASE_URL}/routers`, {
       headers: this.getHeaders(true),
     });
@@ -392,6 +420,7 @@ class ApiClient {
   }
 
   async createRouter(router: CreateRouterRequest): Promise<Router> {
+    if (this.isDemoMode()) this.demoBlock();
     const response = await fetch(`${BASE_URL}/routers/create`, {
       method: 'POST',
       headers: this.getHeaders(),
@@ -401,6 +430,7 @@ class ApiClient {
   }
 
   async updateRouter(routerId: number, updates: UpdateRouterRequest): Promise<Router> {
+    if (this.isDemoMode()) this.demoBlock();
     const response = await fetch(`${BASE_URL}/routers/${routerId}`, {
       method: 'PUT',
       headers: this.getHeaders(),
@@ -410,6 +440,7 @@ class ApiClient {
   }
 
   async deleteRouter(routerId: number): Promise<{ message: string }> {
+    if (this.isDemoMode()) this.demoBlock();
     const response = await fetch(`${BASE_URL}/routers/${routerId}?force=true`, {
       method: 'DELETE',
       headers: this.getHeaders(),
@@ -418,6 +449,7 @@ class ApiClient {
   }
 
   async getRoutersByUserId(userId: number): Promise<Router[]> {
+    if (this.isDemoMode()) return demo.demoRouters;
     const response = await fetch(`${BASE_URL}/routers?user_id=${userId}`, {
       headers: this.getHeaders(),
     });
@@ -425,6 +457,7 @@ class ApiClient {
   }
 
   async getRouterUptime(routerId: number, hours = 24, recentChecks = 50): Promise<RouterUptimeResponse> {
+    if (this.isDemoMode()) return demo.demoRouterUptime(routerId);
     const response = await fetch(`${BASE_URL}/routers/${routerId}/uptime?hours=${hours}&recent_checks=${recentChecks}`, {
       headers: this.getHeaders(true),
     });
@@ -432,6 +465,7 @@ class ApiClient {
   }
 
   async getRouterUsers(routerId: number): Promise<RouterUsersResponse> {
+    if (this.isDemoMode()) return demo.demoRouterUsers(routerId);
     const response = await fetch(`${BASE_URL}/routers/${routerId}/users`, {
       headers: this.getHeaders(true),
     });
@@ -440,6 +474,7 @@ class ApiClient {
 
   // Provisioning
   async createProvisionToken(): Promise<ProvisionTokenResponse> {
+    if (this.isDemoMode()) this.demoBlock();
     const response = await fetch(`${BASE_URL}/provision/create`, {
       method: 'POST',
       headers: this.getHeaders(),
@@ -449,6 +484,7 @@ class ApiClient {
   }
 
   async getProvisionTokens(): Promise<ProvisionToken[]> {
+    if (this.isDemoMode()) return demo.demoProvisionTokens;
     const response = await fetch(`${BASE_URL}/provision/tokens`, {
       headers: this.getHeaders(),
     });
@@ -476,6 +512,7 @@ class ApiClient {
 
   // Advertisers
   async getAdvertisers(): Promise<Advertiser[]> {
+    if (this.isDemoMode()) return demo.demoAdvertisers;
     const response = await fetch(`${BASE_URL}/advertisers`, {
       headers: this.getHeaders(true),
     });
@@ -483,6 +520,7 @@ class ApiClient {
   }
 
   async createAdvertiser(advertiser: CreateAdvertiserRequest): Promise<Advertiser> {
+    if (this.isDemoMode()) this.demoBlock();
     const response = await fetch(`${BASE_URL}/advertisers`, {
       method: 'POST',
       headers: this.getHeaders(true),
@@ -497,6 +535,7 @@ class ApiClient {
     perPage = 20,
     category?: string
   ): Promise<AdsResponse> {
+    if (this.isDemoMode()) return demo.demoAdsResponse;
     const params = new URLSearchParams();
     params.append('page', page.toString());
     params.append('per_page', perPage.toString());
@@ -510,6 +549,7 @@ class ApiClient {
   }
 
   async createAd(ad: CreateAdRequest): Promise<Ad> {
+    if (this.isDemoMode()) this.demoBlock();
     const response = await fetch(`${BASE_URL}/ads`, {
       method: 'POST',
       headers: this.getHeaders(true),
@@ -519,6 +559,7 @@ class ApiClient {
   }
 
   async deleteAd(adId: number): Promise<{ message: string }> {
+    if (this.isDemoMode()) this.demoBlock();
     const response = await fetch(`${BASE_URL}/ads/${adId}`, {
       method: 'DELETE',
       headers: this.getHeaders(true),
@@ -527,6 +568,7 @@ class ApiClient {
   }
 
   async updateAd(adId: number, updates: Partial<Ad>): Promise<Ad> {
+    if (this.isDemoMode()) this.demoBlock();
     const response = await fetch(`${BASE_URL}/ads/${adId}`, {
       method: 'PUT',
       headers: this.getHeaders(true),
@@ -541,6 +583,7 @@ class ApiClient {
     perPage = 50,
     clickType?: 'view_details' | 'call' | 'whatsapp'
   ): Promise<AdClicksResponse> {
+    if (this.isDemoMode()) return demo.demoAdClicksResponse;
     const params = new URLSearchParams();
     params.append('page', page.toString());
     params.append('per_page', perPage.toString());
@@ -558,6 +601,7 @@ class ApiClient {
     page = 1,
     perPage = 50
   ): Promise<AdImpressionsResponse> {
+    if (this.isDemoMode()) return demo.demoAdImpressionsResponse;
     const params = new URLSearchParams();
     params.append('page', page.toString());
     params.append('per_page', perPage.toString());
@@ -570,6 +614,7 @@ class ApiClient {
   }
 
   async getAdAnalytics(days = 30): Promise<AdAnalytics> {
+    if (this.isDemoMode()) return demo.demoAdAnalytics;
     const response = await fetch(
       `${BASE_URL}/ads/analytics?days=${days}`,
       { headers: this.getHeaders(true) }
@@ -582,6 +627,7 @@ class ApiClient {
     userId?: number,
     includeLocation = true
   ): Promise<Rating[]> {
+    if (this.isDemoMode()) return demo.demoRatings;
     const params = new URLSearchParams();
     if (userId) params.append('user_id', userId.toString());
     if (includeLocation) params.append('include_location', 'true');
@@ -594,6 +640,7 @@ class ApiClient {
   }
 
   async getRatingsSummary(userId?: number): Promise<RatingSummary> {
+    if (this.isDemoMode()) return demo.demoRatingSummary;
     const params = new URLSearchParams();
     if (userId) params.append('user_id', userId.toString());
 
@@ -608,6 +655,7 @@ class ApiClient {
     userId?: number,
     withRatings = true
   ): Promise<CustomerMapData[]> {
+    if (this.isDemoMode()) return demo.demoCustomerMapData;
     const params = new URLSearchParams();
     if (userId) params.append('user_id', userId.toString());
     if (withRatings) params.append('with_ratings', 'true');
@@ -626,6 +674,7 @@ class ApiClient {
     maxLng: number,
     userId?: number
   ): Promise<Rating[]> {
+    if (this.isDemoMode()) return demo.demoRatings;
     const params = new URLSearchParams();
     params.append('min_lat', minLat.toString());
     params.append('max_lat', maxLat.toString());
@@ -642,6 +691,7 @@ class ApiClient {
 
   // Vouchers
   async generateVouchers(request: GenerateVouchersRequest): Promise<Voucher[]> {
+    if (this.isDemoMode()) this.demoBlock();
     const response = await fetch(`${BASE_URL}/vouchers/generate`, {
       method: 'POST',
       headers: this.getHeaders(),
@@ -651,6 +701,7 @@ class ApiClient {
   }
 
   async getVouchers(filters: VoucherFilters = {}): Promise<VouchersListResponse> {
+    if (this.isDemoMode()) return demo.demoVouchersListResponse;
     const params = new URLSearchParams();
     if (filters.status) params.append('status', filters.status);
     if (filters.plan_id) params.append('plan_id', filters.plan_id.toString());
@@ -667,6 +718,7 @@ class ApiClient {
   }
 
   async getVoucherStats(): Promise<VoucherStats> {
+    if (this.isDemoMode()) return demo.demoVoucherStats;
     const response = await fetch(`${BASE_URL}/vouchers/stats`, {
       headers: this.getHeaders(),
     });
@@ -674,6 +726,7 @@ class ApiClient {
   }
 
   async disableVoucher(voucherId: number): Promise<Voucher> {
+    if (this.isDemoMode()) this.demoBlock();
     const response = await fetch(`${BASE_URL}/vouchers/${voucherId}/disable`, {
       method: 'PATCH',
       headers: this.getHeaders(),
@@ -691,6 +744,7 @@ class ApiClient {
   }
 
   async downloadVouchersCSV(filters: { status?: string; batch_id?: string; plan_id?: number } = {}): Promise<void> {
+    if (this.isDemoMode()) this.demoBlock();
     const url = this.getVouchersDownloadUrl(filters);
     const response = await fetch(url, { headers: this.getHeaders() });
     if (!response.ok) {
@@ -709,6 +763,7 @@ class ApiClient {
 
   // PPPoE Customer Management
   async registerCustomer(data: RegisterCustomerRequest): Promise<Customer> {
+    if (this.isDemoMode()) this.demoBlock();
     const response = await fetch(`${BASE_URL}/customers/register`, {
       method: 'POST',
       headers: this.getHeaders(),
@@ -718,6 +773,7 @@ class ApiClient {
   }
 
   async activatePPPoE(customerId: number, data: ActivatePPPoERequest = {}): Promise<{ message: string }> {
+    if (this.isDemoMode()) this.demoBlock();
     const response = await fetch(`${BASE_URL}/customers/${customerId}/activate-pppoe`, {
       method: 'POST',
       headers: this.getHeaders(),
@@ -727,6 +783,7 @@ class ApiClient {
   }
 
   async deactivatePPPoE(customerId: number): Promise<{ message: string }> {
+    if (this.isDemoMode()) this.demoBlock();
     const response = await fetch(`${BASE_URL}/customers/${customerId}/deactivate-pppoe`, {
       method: 'POST',
       headers: this.getHeaders(),
@@ -735,6 +792,7 @@ class ApiClient {
   }
 
   async getPPPoECredentials(customerId: number): Promise<PPPoECredentials> {
+    if (this.isDemoMode()) return demo.demoPPPoECredentials(customerId);
     const response = await fetch(`${BASE_URL}/customers/${customerId}/pppoe-credentials`, {
       headers: this.getHeaders(),
     });
@@ -742,6 +800,7 @@ class ApiClient {
   }
 
   async regeneratePPPoEPassword(customerId: number): Promise<PPPoECredentials> {
+    if (this.isDemoMode()) this.demoBlock();
     const response = await fetch(`${BASE_URL}/customers/${customerId}/regenerate-pppoe-password`, {
       method: 'POST',
       headers: this.getHeaders(),
@@ -751,6 +810,7 @@ class ApiClient {
 
   // Router Interfaces & PPPoE Port Provisioning
   async getRouterInterfaces(routerId: number): Promise<RouterInterfacesResponse> {
+    if (this.isDemoMode()) return demo.demoRouterInterfaces(routerId);
     const response = await fetch(`${BASE_URL}/routers/${routerId}/interfaces`, {
       headers: this.getHeaders(),
     });
@@ -758,6 +818,7 @@ class ApiClient {
   }
 
   async updatePPPoEPorts(routerId: number, data: UpdatePPPoEPortsRequest): Promise<UpdatePPPoEPortsResponse> {
+    if (this.isDemoMode()) this.demoBlock();
     const response = await fetch(`${BASE_URL}/routers/${routerId}/pppoe-ports`, {
       method: 'PUT',
       headers: this.getHeaders(),
@@ -768,6 +829,7 @@ class ApiClient {
 
   // MikroTik PPPoE Monitoring
   async getPPPoEActiveSessions(routerId: number): Promise<PPPoEActiveResponse> {
+    if (this.isDemoMode()) return demo.demoPPPoEActiveSessions(routerId);
     const response = await fetch(`${BASE_URL}/mikrotik/${routerId}/pppoe/active`, {
       headers: this.getHeaders(),
     });
@@ -776,6 +838,7 @@ class ApiClient {
 
   // Network Diagnostics - PPPoE
   async getPPPoEOverview(routerId: number, refresh = false): Promise<PPPoEOverviewResponse> {
+    if (this.isDemoMode()) return demo.demoPPPoEOverview(routerId);
     const params = refresh ? '?refresh=true' : '';
     const response = await fetch(`${BASE_URL}/pppoe/${routerId}/overview${params}`, {
       headers: this.getHeaders(),
@@ -784,6 +847,11 @@ class ApiClient {
   }
 
   async diagnosePPPoE(routerId: number, username: string): Promise<PPPoEDiagnoseResponse> {
+    if (this.isDemoMode()) return {
+      router_id: routerId, router_name: 'Demo Router', generated_at: new Date().toISOString(),
+      customer: null, success: true, username, status: 'connected', issues_count: 0,
+      has_critical: false, issues: [], info: {},
+    };
     const response = await fetch(`${BASE_URL}/pppoe/${routerId}/diagnose/${encodeURIComponent(username)}`, {
       headers: this.getHeaders(),
     });
@@ -791,6 +859,7 @@ class ApiClient {
   }
 
   async getPPPoELogs(routerId: number, username?: string, limit = 50): Promise<PPPoELogsResponse> {
+    if (this.isDemoMode()) return demo.demoPPPoELogs(routerId);
     const params = new URLSearchParams({ limit: limit.toString() });
     if (username) params.set('username', username);
     const response = await fetch(`${BASE_URL}/pppoe/${routerId}/logs?${params.toString()}`, {
@@ -800,6 +869,7 @@ class ApiClient {
   }
 
   async getPPPoESecrets(routerId: number): Promise<PPPoESecretsResponse> {
+    if (this.isDemoMode()) return demo.demoPPPoESecrets(routerId);
     const response = await fetch(`${BASE_URL}/pppoe/${routerId}/secrets`, {
       headers: this.getHeaders(),
     });
@@ -808,6 +878,7 @@ class ApiClient {
 
   // Network Diagnostics - Hotspot
   async getHotspotOverview(routerId: number, refresh = false): Promise<HotspotOverviewResponse> {
+    if (this.isDemoMode()) return demo.demoHotspotOverview(routerId);
     const params = refresh ? '?refresh=true' : '';
     const response = await fetch(`${BASE_URL}/hotspot/${routerId}/overview${params}`, {
       headers: this.getHeaders(),
@@ -816,6 +887,7 @@ class ApiClient {
   }
 
   async getHotspotLogs(routerId: number, search?: string, limit = 50): Promise<HotspotLogsResponse> {
+    if (this.isDemoMode()) return demo.demoHotspotLogs(routerId);
     const params = new URLSearchParams({ limit: limit.toString() });
     if (search) params.set('search', search);
     const response = await fetch(`${BASE_URL}/hotspot/${routerId}/logs?${params.toString()}`, {
@@ -826,6 +898,7 @@ class ApiClient {
 
   // Network Diagnostics - Shared
   async getPortStatus(routerId: number, refresh = false): Promise<PortStatusResponse> {
+    if (this.isDemoMode()) return demo.demoPortStatus(routerId);
     const params = refresh ? '?refresh=true' : '';
     const response = await fetch(`${BASE_URL}/routers/${routerId}/ports${params}`, {
       headers: this.getHeaders(),
@@ -834,6 +907,12 @@ class ApiClient {
   }
 
   async diagnoseMac(routerId: number, macAddress: string): Promise<MacDiagnoseResponse> {
+    if (this.isDemoMode()) return {
+      mac_address: macAddress, normalized: macAddress.toUpperCase(), username_format: macAddress.replace(/:/g, ''),
+      database_info: null, infrastructure: {}, infrastructure_issues: [],
+      router_entries: {}, diagnosis: ['Demo mode - MAC diagnosis unavailable'], recommendations: [],
+      can_access_internet: true, total_router_entries: 0, total_issues: 0,
+    };
     const response = await fetch(`${BASE_URL}/routers/${routerId}/diagnose/${encodeURIComponent(macAddress)}`, {
       headers: this.getHeaders(),
     });
@@ -842,6 +921,7 @@ class ApiClient {
 
   // Walled Garden
   async getWalledGarden(routerId: number): Promise<WalledGardenResponse> {
+    if (this.isDemoMode()) return demo.demoWalledGarden;
     const response = await fetch(`${BASE_URL}/mikrotik/walled-garden?router_id=${routerId}`, {
       headers: this.getHeaders(),
     });
@@ -849,6 +929,7 @@ class ApiClient {
   }
 
   async addWalledGardenDomain(data: AddWalledGardenDomainRequest): Promise<{ message: string }> {
+    if (this.isDemoMode()) this.demoBlock();
     const response = await fetch(`${BASE_URL}/mikrotik/walled-garden/domain?router_id=${data.router_id}`, {
       method: 'POST',
       headers: this.getHeaders(),
@@ -858,6 +939,7 @@ class ApiClient {
   }
 
   async addWalledGardenIp(data: AddWalledGardenIpRequest): Promise<{ message: string }> {
+    if (this.isDemoMode()) this.demoBlock();
     const response = await fetch(`${BASE_URL}/mikrotik/walled-garden/ip?router_id=${data.router_id}`, {
       method: 'POST',
       headers: this.getHeaders(),
@@ -867,6 +949,7 @@ class ApiClient {
   }
 
   async removeWalledGardenDomain(entryId: string, routerId: number): Promise<{ message: string }> {
+    if (this.isDemoMode()) this.demoBlock();
     const response = await fetch(`${BASE_URL}/mikrotik/walled-garden/domain/${encodeURIComponent(entryId)}?router_id=${routerId}`, {
       method: 'DELETE',
       headers: this.getHeaders(),
@@ -875,6 +958,7 @@ class ApiClient {
   }
 
   async removeWalledGardenIp(entryId: string, routerId: number): Promise<{ message: string }> {
+    if (this.isDemoMode()) this.demoBlock();
     const response = await fetch(`${BASE_URL}/mikrotik/walled-garden/ip/${encodeURIComponent(entryId)}?router_id=${routerId}`, {
       method: 'DELETE',
       headers: this.getHeaders(),

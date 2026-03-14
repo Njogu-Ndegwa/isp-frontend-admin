@@ -1,8 +1,10 @@
 'use client';
 
 import { useState, useEffect, useRef, ReactNode } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
+import { useAuth } from '../context/AuthContext';
 
 /* ------------------------------------------------------------------ */
 /*  Scroll-reveal                                                      */
@@ -122,6 +124,13 @@ const FEATURES = [
 export default function LandingPage() {
   const [scrolled, setScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const router = useRouter();
+  const { loginAsDemo } = useAuth();
+
+  const handleTryDemo = () => {
+    loginAsDemo();
+    router.push('/dashboard');
+  };
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 40);
@@ -153,7 +162,7 @@ export default function LandingPage() {
           </div>
           <div className="hidden md:flex items-center gap-3">
             <Link href="/login" className={`btn-ghost text-sm ${scrolled ? 'text-foreground-muted hover:text-foreground' : 'text-white/70 hover:text-white'}`}>Sign In</Link>
-            <button onClick={() => scrollTo('contact')} className="btn-primary text-sm">Request Demo</button>
+            <button onClick={handleTryDemo} className="btn-primary text-sm">Try Demo</button>
           </div>
           <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className={`md:hidden p-2 rounded-lg transition-colors ${scrolled ? 'hover:bg-background-tertiary text-foreground' : 'hover:bg-white/10 text-white'}`} aria-label="Toggle menu">
             <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -166,7 +175,7 @@ export default function LandingPage() {
             {NAV_LINKS.map(l => (<button key={l.href} onClick={() => scrollTo(l.href.slice(1))} className="block w-full text-left text-sm font-medium text-foreground-muted hover:text-foreground py-2 transition-colors">{l.label}</button>))}
             <div className="pt-3 border-t border-border flex gap-3">
               <Link href="/login" className="btn-secondary text-sm flex-1 text-center">Sign In</Link>
-              <button onClick={() => scrollTo('contact')} className="btn-primary text-sm flex-1">Request Demo</button>
+              <button onClick={handleTryDemo} className="btn-primary text-sm flex-1">Try Demo</button>
             </div>
           </div>
         </div>
@@ -198,8 +207,11 @@ export default function LandingPage() {
           </Reveal>
           <Reveal delay={0.24}>
             <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
-              <button onClick={() => scrollTo('contact')} className="inline-flex items-center justify-center gap-2 bg-gradient-to-r from-amber-500 to-orange-500 text-[#09090b] font-semibold px-10 py-4 text-base rounded-xl hover:shadow-lg hover:shadow-amber-500/30 hover:-translate-y-0.5 transition-all w-full sm:w-auto">Request a Demo</button>
-              <button onClick={() => scrollTo('platform')} className="inline-flex items-center justify-center px-10 py-4 text-base font-medium text-white/80 hover:text-white border border-white/20 hover:border-white/40 rounded-xl hover:-translate-y-0.5 transition-all w-full sm:w-auto">See the Platform</button>
+              <button onClick={handleTryDemo} className="inline-flex items-center justify-center gap-2 bg-gradient-to-r from-amber-500 to-orange-500 text-[#09090b] font-semibold px-10 py-4 text-base rounded-xl hover:shadow-lg hover:shadow-amber-500/30 hover:-translate-y-0.5 transition-all w-full sm:w-auto">
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /><path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                Try Live Demo
+              </button>
+              <button onClick={() => scrollTo('contact')} className="inline-flex items-center justify-center px-10 py-4 text-base font-medium text-white/80 hover:text-white border border-white/20 hover:border-white/40 rounded-xl hover:-translate-y-0.5 transition-all w-full sm:w-auto">Request a Demo</button>
             </div>
           </Reveal>
         </div>
@@ -432,6 +444,16 @@ export default function LandingPage() {
                 </div>
                 <svg className="w-5 h-5 text-foreground-muted ml-auto opacity-0 group-hover:opacity-100 transition-opacity" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
               </a>
+            </div>
+          </Reveal>
+
+          <Reveal delay={0.15}>
+            <div className="text-center">
+              <div className="inline-flex items-center gap-3 px-5 py-3 rounded-xl bg-amber-500/10 border border-amber-500/20 mb-6">
+                <svg className="w-5 h-5 text-amber-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /><path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                <span className="text-sm text-foreground-muted">Want to explore first?</span>
+                <button onClick={handleTryDemo} className="text-sm font-semibold text-amber-500 hover:text-amber-400 transition-colors">Try the live demo</button>
+              </div>
             </div>
           </Reveal>
 

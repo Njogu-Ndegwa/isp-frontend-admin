@@ -4,11 +4,20 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { api } from '../lib/api';
 import { LoginRequest, AuthUser } from '../lib/types';
 
+const DEMO_USER: AuthUser = {
+  id: 0,
+  email: 'demo@bitwave.co.ke',
+  role: 'reseller',
+  organization_name: 'Demo ISP Network',
+};
+
 interface AuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
+  isDemo: boolean;
   user: AuthUser | null;
   login: (credentials: LoginRequest) => Promise<void>;
+  loginAsDemo: () => void;
   logout: () => void;
   token: string | null;
 }
@@ -18,9 +27,18 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [token, setToken] = useState<string | null>(null);
   const [user, setUser] = useState<AuthUser | null>(null);
+  const [isDemo, setIsDemo] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    const demoMode = localStorage.getItem('demo_mode') === 'true';
+    if (demoMode) {
+      setToken('demo-token');
+      setUser(DEMO_USER);
+      setIsDemo(true);
+      setIsLoading(false);
+      return;
+    }
     const storedToken = localStorage.getItem('auth_token');
     const storedUser = localStorage.getItem('auth_user');
     if (storedToken) {
@@ -38,17 +56,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = async (credentials: LoginRequest) => {
     const response = await api.login(credentials);
+    localStorage.removeItem('demo_mode');
     localStorage.setItem('auth_token', response.access_token);
     localStorage.setItem('auth_user', JSON.stringify(response.user));
+    setIsDemo(false);
     setToken(response.access_token);
     setUser(response.user);
+  };
+
+  const loginAsDemo = () => {
+    localStorage.setItem('demo_mode', 'true');
+    localStorage.setItem('auth_token', 'demo-token');
+    localStorage.setItem('auth_user', JSON.stringify(DEMO_USER));
+    setToken('demo-token');
+    setUser(DEMO_USER);
+    setIsDemo(true);
   };
 
   const logout = () => {
     localStorage.removeItem('auth_token');
     localStorage.removeItem('auth_user');
+    localStorage.removeItem('demo_mode');
     setToken(null);
     setUser(null);
+    setIsDemo(false);
   };
 
   return (
@@ -56,8 +87,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       value={{
         isAuthenticated: !!token,
         isLoading,
+        isDemo,
         user,
         login,
+        loginAsDemo,
         logout,
         token,
       }}
