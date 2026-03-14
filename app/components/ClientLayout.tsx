@@ -5,7 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import CollapsibleSidebar from './CollapsibleSidebar';
 import MobileBottomNav from './MobileBottomNav';
 
-const PUBLIC_PATHS = ['/', '/login', '/landing'];
+const PUBLIC_PATHS = ['/', '/login', '/landing', '/signup'];
 
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();

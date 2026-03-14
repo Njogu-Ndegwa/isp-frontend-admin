@@ -134,6 +134,12 @@ export default function LoginPage() {
 
         {/* Footer links */}
         <div className="mt-6 text-center space-y-3">
+          <p className="text-sm text-foreground-muted">
+            Don&apos;t have an account?{' '}
+            <Link href="/signup" className="text-amber-500 hover:text-amber-400 font-medium transition-colors">
+              Sign Up
+            </Link>
+          </p>
           <Link href="/" className="text-sm text-foreground-muted hover:text-foreground transition-colors inline-flex items-center gap-1.5">
             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />

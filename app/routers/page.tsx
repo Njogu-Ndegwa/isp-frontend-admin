@@ -11,6 +11,9 @@ import {
   PaymentMethod,
   ProvisionToken,
   ProvisionTokenResponse,
+  PPPoEActiveResponse,
+  PPPoESession,
+  RouterInterfaceInfo,
 } from '../lib/types';
 import Header from '../components/Header';
 import { PageLoader } from '../components/LoadingSpinner';
@@ -83,6 +86,14 @@ export default function RoutersPage() {
   const [newTokenResult, setNewTokenResult] = useState<ProvisionTokenResponse | null>(null);
   const [expandedToken, setExpandedToken] = useState<number | null>(null);
 
+  // PPPoE sessions state
+  const [pppoeData, setPppoeData] = useState<PPPoEActiveResponse | null>(null);
+  const [pppoeLoading, setPppoeLoading] = useState(false);
+  const [usersSubTab, setUsersSubTab] = useState<'hotspot' | 'pppoe'>('hotspot');
+
+  // PPPoE port provisioning state
+  const [portsRouter, setPortsRouter] = useState<Router | null>(null);
+
   useEffect(() => {
     if (isAuthenticated) {
       loadRouters();
@@ -137,6 +148,18 @@ export default function RoutersPage() {
       setError(err instanceof Error ? err.message : 'Failed to load router users');
     } finally {
       setUsersLoading(false);
+    }
+  };
+
+  const loadPPPoESessions = async (routerId: number) => {
+    try {
+      setPppoeLoading(true);
+      const data = await api.getPPPoEActiveSessions(routerId);
+      setPppoeData(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load PPPoE sessions');
+    } finally {
+      setPppoeLoading(false);
     }
   };
 
@@ -269,7 +292,13 @@ export default function RoutersPage() {
           setShowCreateModal={setShowCreateModal}
           setDeleteConfirm={setDeleteConfirm}
           setEditingRouter={setEditingRouter}
+          setPortsRouter={setPortsRouter}
           formatBytes={formatBytes}
+          pppoeData={pppoeData}
+          pppoeLoading={pppoeLoading}
+          loadPPPoESessions={loadPPPoESessions}
+          usersSubTab={usersSubTab}
+          setUsersSubTab={setUsersSubTab}
         />
       ) : (
         <ProvisionTab
@@ -311,6 +340,13 @@ export default function RoutersPage() {
           onClose={() => setNewTokenResult(null)}
         />
       )}
+
+      {portsRouter && (
+        <PPPoEPortsModal
+          router={portsRouter}
+          onClose={() => setPortsRouter(null)}
+        />
+      )}
     </div>
   );
 }
@@ -334,7 +370,13 @@ function RoutersTab({
   setShowCreateModal,
   setDeleteConfirm,
   setEditingRouter,
+  setPortsRouter,
   formatBytes,
+  pppoeData,
+  pppoeLoading,
+  loadPPPoESessions,
+  usersSubTab,
+  setUsersSubTab,
 }: {
   routers: Router[];
   loading: boolean;
@@ -350,7 +392,13 @@ function RoutersTab({
   setShowCreateModal: (v: boolean) => void;
   setDeleteConfirm: (v: number | null) => void;
   setEditingRouter: (r: Router | null) => void;
+  setPortsRouter: (r: Router | null) => void;
   formatBytes: (b: string) => string;
+  pppoeData: PPPoEActiveResponse | null;
+  pppoeLoading: boolean;
+  loadPPPoESessions: (routerId: number) => Promise<void>;
+  usersSubTab: 'hotspot' | 'pppoe';
+  setUsersSubTab: (tab: 'hotspot' | 'pppoe') => void;
 }) {
   if (error) {
     return (
@@ -383,6 +431,15 @@ function RoutersTab({
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
           </svg>
         )}
+      </button>
+      <button
+        onClick={(e) => { e.stopPropagation(); setPortsRouter(router); }}
+        className="p-1.5 rounded-lg hover:bg-info/10 text-foreground-muted hover:text-info transition-colors"
+        title="Configure PPPoE ports"
+      >
+        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+        </svg>
       </button>
       <button
         onClick={(e) => { e.stopPropagation(); setEditingRouter(router); }}
@@ -504,23 +561,71 @@ function RoutersTab({
                   }}
                   rightAction={renderActions(router)}
                   expandableContent={
-                    selectedRouter === router.id && routerUsers ? (
+                    selectedRouter === router.id ? (
                       <div className="border-t border-border pt-3">
-                        <div className="flex items-center justify-between mb-3">
-                          <span className="text-xs font-semibold text-foreground">Hotspot Users</span>
-                          <div className="flex gap-3 text-xs text-foreground-muted">
-                            <span>Total: <span className="font-semibold text-foreground">{routerUsers.total_users}</span></span>
-                            <span>Active: <span className="font-semibold text-success">{routerUsers.active_sessions}</span></span>
-                          </div>
+                        {/* Sub-tab toggle */}
+                        <div className="flex items-center gap-1 mb-3 p-0.5 bg-background-tertiary rounded-lg w-fit">
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setUsersSubTab('hotspot'); }}
+                            className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${usersSubTab === 'hotspot' ? 'bg-background-secondary text-foreground shadow-sm' : 'text-foreground-muted'}`}
+                          >
+                            Hotspot Users
+                          </button>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setUsersSubTab('pppoe'); if (!pppoeData || pppoeData.router_id !== router.id) loadPPPoESessions(router.id); }}
+                            className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${usersSubTab === 'pppoe' ? 'bg-background-secondary text-foreground shadow-sm' : 'text-foreground-muted'}`}
+                          >
+                            PPPoE Sessions
+                          </button>
                         </div>
-                        {routerUsers.users.length === 0 ? (
-                          <p className="text-center text-foreground-muted text-xs py-3">No hotspot users found</p>
+
+                        {usersSubTab === 'hotspot' ? (
+                          routerUsers ? (
+                            <>
+                              <div className="flex items-center justify-between mb-3">
+                                <div className="flex gap-3 text-xs text-foreground-muted">
+                                  <span>Total: <span className="font-semibold text-foreground">{routerUsers.total_users}</span></span>
+                                  <span>Active: <span className="font-semibold text-success">{routerUsers.active_sessions}</span></span>
+                                </div>
+                              </div>
+                              {routerUsers.users.length === 0 ? (
+                                <p className="text-center text-foreground-muted text-xs py-3">No hotspot users found</p>
+                              ) : (
+                                <div className="space-y-2 max-h-64 overflow-y-auto">
+                                  {routerUsers.users.map((user, i) => (
+                                    <UserCard key={i} user={user} formatBytes={formatBytes} />
+                                  ))}
+                                </div>
+                              )}
+                            </>
+                          ) : usersLoading ? (
+                            <div className="flex justify-center py-4">
+                              <div className="w-5 h-5 border-2 border-accent-primary/30 border-t-accent-primary rounded-full animate-spin" />
+                            </div>
+                          ) : null
                         ) : (
-                          <div className="space-y-2 max-h-64 overflow-y-auto">
-                            {routerUsers.users.map((user, i) => (
-                              <UserCard key={i} user={user} formatBytes={formatBytes} />
-                            ))}
-                          </div>
+                          pppoeLoading ? (
+                            <div className="flex justify-center py-4">
+                              <div className="w-5 h-5 border-2 border-accent-primary/30 border-t-accent-primary rounded-full animate-spin" />
+                            </div>
+                          ) : pppoeData && pppoeData.router_id === router.id ? (
+                            <>
+                              <div className="flex items-center justify-between mb-3">
+                                <div className="text-xs text-foreground-muted">
+                                  Active: <span className="font-semibold text-success">{pppoeData.total_sessions}</span>
+                                </div>
+                              </div>
+                              {pppoeData.sessions.length === 0 ? (
+                                <p className="text-center text-foreground-muted text-xs py-3">No active PPPoE sessions</p>
+                              ) : (
+                                <div className="space-y-2 max-h-64 overflow-y-auto">
+                                  {pppoeData.sessions.map((session, i) => (
+                                    <PPPoESessionCard key={i} session={session} />
+                                  ))}
+                                </div>
+                              )}
+                            </>
+                          ) : null
                         )}
                       </div>
                     ) : undefined
@@ -596,22 +701,48 @@ function RoutersTab({
             }}
           />
 
-          {/* Hotspot Users Detail (below table when a router is selected) */}
-          {selectedRouter && routerUsers && (
+          {/* Users/Sessions Detail (below table when a router is selected) */}
+          {selectedRouter && (routerUsers || pppoeData) && (
             <div className="hidden md:block card mt-4 p-6 animate-fade-in">
               <div className="flex items-center justify-between mb-4">
-                <h4 className="font-semibold text-foreground">
-                  Hotspot Users &mdash; {routers.find(r => r.id === selectedRouter)?.name}
-                </h4>
                 <div className="flex items-center gap-4">
-                  <div className="flex gap-4 text-sm">
-                    <span className="text-foreground-muted">
-                      Total: <span className="font-semibold text-foreground">{routerUsers.total_users}</span>
-                    </span>
-                    <span className="text-foreground-muted">
-                      Active: <span className="font-semibold text-success">{routerUsers.active_sessions}</span>
-                    </span>
+                  <h4 className="font-semibold text-foreground">
+                    {routers.find(r => r.id === selectedRouter)?.name}
+                  </h4>
+                  {/* Sub-tab toggle */}
+                  <div className="flex items-center gap-1 p-0.5 bg-background-tertiary rounded-lg">
+                    <button
+                      onClick={() => setUsersSubTab('hotspot')}
+                      className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${usersSubTab === 'hotspot' ? 'bg-background-secondary text-foreground shadow-sm' : 'text-foreground-muted hover:text-foreground'}`}
+                    >
+                      Hotspot Users
+                    </button>
+                    <button
+                      onClick={() => { setUsersSubTab('pppoe'); if (!pppoeData || pppoeData.router_id !== selectedRouter) loadPPPoESessions(selectedRouter); }}
+                      className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${usersSubTab === 'pppoe' ? 'bg-background-secondary text-foreground shadow-sm' : 'text-foreground-muted hover:text-foreground'}`}
+                    >
+                      PPPoE Sessions
+                    </button>
                   </div>
+                </div>
+                <div className="flex items-center gap-4">
+                  {usersSubTab === 'hotspot' && routerUsers && (
+                    <div className="flex gap-4 text-sm">
+                      <span className="text-foreground-muted">
+                        Total: <span className="font-semibold text-foreground">{routerUsers.total_users}</span>
+                      </span>
+                      <span className="text-foreground-muted">
+                        Active: <span className="font-semibold text-success">{routerUsers.active_sessions}</span>
+                      </span>
+                    </div>
+                  )}
+                  {usersSubTab === 'pppoe' && pppoeData && pppoeData.router_id === selectedRouter && (
+                    <div className="flex gap-4 text-sm">
+                      <span className="text-foreground-muted">
+                        Active: <span className="font-semibold text-success">{pppoeData.total_sessions}</span>
+                      </span>
+                    </div>
+                  )}
                   <button
                     onClick={() => { loadRouterUsers(selectedRouter); }}
                     className="p-1.5 rounded-lg hover:bg-background-tertiary text-foreground-muted transition-colors"
@@ -623,14 +754,39 @@ function RoutersTab({
                   </button>
                 </div>
               </div>
-              {routerUsers.users.length === 0 ? (
-                <p className="text-center text-foreground-muted py-4">No hotspot users found</p>
+
+              {usersSubTab === 'hotspot' ? (
+                routerUsers ? (
+                  routerUsers.users.length === 0 ? (
+                    <p className="text-center text-foreground-muted py-4">No hotspot users found</p>
+                  ) : (
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 max-h-96 overflow-y-auto">
+                      {routerUsers.users.map((user, i) => (
+                        <UserCard key={i} user={user} formatBytes={formatBytes} />
+                      ))}
+                    </div>
+                  )
+                ) : usersLoading ? (
+                  <div className="flex justify-center py-8">
+                    <div className="w-6 h-6 border-2 border-accent-primary/30 border-t-accent-primary rounded-full animate-spin" />
+                  </div>
+                ) : null
               ) : (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 max-h-96 overflow-y-auto">
-                  {routerUsers.users.map((user, i) => (
-                    <UserCard key={i} user={user} formatBytes={formatBytes} />
-                  ))}
-                </div>
+                pppoeLoading ? (
+                  <div className="flex justify-center py-8">
+                    <div className="w-6 h-6 border-2 border-accent-primary/30 border-t-accent-primary rounded-full animate-spin" />
+                  </div>
+                ) : pppoeData && pppoeData.router_id === selectedRouter ? (
+                  pppoeData.sessions.length === 0 ? (
+                    <p className="text-center text-foreground-muted py-4">No active PPPoE sessions</p>
+                  ) : (
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 max-h-96 overflow-y-auto">
+                      {pppoeData.sessions.map((session, i) => (
+                        <PPPoESessionCard key={i} session={session} />
+                      ))}
+                    </div>
+                  )
+                ) : null
               )}
             </div>
           )}
@@ -1411,6 +1567,351 @@ function PaymentMethodsField({
         })}
       </div>
       <p className="text-xs text-foreground-muted mt-1.5">At least one method must be selected</p>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// PPPoE Ports Modal
+// ---------------------------------------------------------------------------
+
+function PPPoEPortsModal({
+  router,
+  onClose,
+}: {
+  router: Router;
+  onClose: () => void;
+}) {
+  const [interfaces, setInterfaces] = useState<RouterInterfaceInfo[]>([]);
+  const [currentPorts, setCurrentPorts] = useState<string[]>([]);
+  const [selectedPorts, setSelectedPorts] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+  const [showTeardownConfirm, setShowTeardownConfirm] = useState(false);
+
+  useEffect(() => {
+    loadInterfaces();
+  }, [router.id]);
+
+  const loadInterfaces = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await api.getRouterInterfaces(router.id);
+      setInterfaces(data.interfaces);
+      setCurrentPorts(data.pppoe_ports);
+      setSelectedPorts([...data.pppoe_ports]);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load interfaces');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const etherPorts = interfaces.filter(
+    (iface) => iface.type === 'ether' && iface.name !== 'ether1'
+  );
+
+  const togglePort = (portName: string) => {
+    setSelectedPorts((prev) =>
+      prev.includes(portName)
+        ? prev.filter((p) => p !== portName)
+        : [...prev, portName]
+    );
+    setSuccess(null);
+  };
+
+  const hasChanges =
+    selectedPorts.length !== currentPorts.length ||
+    selectedPorts.some((p) => !currentPorts.includes(p)) ||
+    currentPorts.some((p) => !selectedPorts.includes(p));
+
+  const isTeardown = selectedPorts.length === 0 && currentPorts.length > 0;
+
+  const handleApply = async () => {
+    if (isTeardown && !showTeardownConfirm) {
+      setShowTeardownConfirm(true);
+      return;
+    }
+
+    try {
+      setSaving(true);
+      setError(null);
+      setSuccess(null);
+      setShowTeardownConfirm(false);
+      const result = await api.updatePPPoEPorts(router.id, { ports: selectedPorts });
+      setCurrentPorts(result.pppoe_ports);
+      setSelectedPorts([...result.pppoe_ports]);
+      setSuccess(result.message || 'PPPoE ports updated successfully');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update PPPoE ports');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative w-full max-w-lg card p-6 animate-fade-in max-h-[90vh] overflow-y-auto">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-5">
+          <div>
+            <h3 className="text-lg font-bold text-foreground">PPPoE Port Configuration</h3>
+            <p className="text-sm text-foreground-muted mt-0.5">{router.name} &middot; {router.ip_address}</p>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-background-tertiary text-foreground-muted">
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        {error && (
+          <div className="mb-4 p-3 rounded-lg bg-danger/10 border border-danger/20 text-sm text-danger flex items-center gap-2">
+            <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            {error}
+          </div>
+        )}
+
+        {success && (
+          <div className="mb-4 p-3 rounded-lg bg-success/10 border border-success/20 text-sm text-success flex items-center gap-2">
+            <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
+            {success}
+          </div>
+        )}
+
+        {loading ? (
+          <div className="flex flex-col items-center justify-center py-12">
+            <div className="w-8 h-8 border-2 border-accent-primary/30 border-t-accent-primary rounded-full animate-spin mb-3" />
+            <p className="text-sm text-foreground-muted">Loading interfaces...</p>
+          </div>
+        ) : etherPorts.length === 0 ? (
+          <div className="text-center py-8">
+            <div className="w-14 h-14 mx-auto mb-4 rounded-full bg-foreground-muted/10 flex items-center justify-center">
+              <svg className="w-7 h-7 text-foreground-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+            </div>
+            <p className="text-foreground-muted">No configurable ethernet ports found</p>
+            <button onClick={loadInterfaces} className="btn-secondary mt-4 text-sm">
+              Retry
+            </button>
+          </div>
+        ) : (
+          <>
+            {/* Info banner */}
+            <div className="mb-4 p-3 rounded-lg bg-info/5 border border-info/20 text-xs text-foreground-muted flex gap-2">
+              <svg className="w-4 h-4 text-info flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <span>
+                Select which ethernet ports should serve PPPoE connections.
+                Unchecked ports remain on hotspot. Deselecting all ports restores every port to hotspot mode.
+              </span>
+            </div>
+
+            {/* Port grid */}
+            <div className="space-y-2 mb-5">
+              {etherPorts.map((port) => {
+                const isSelected = selectedPorts.includes(port.name);
+                const wasPrevious = currentPorts.includes(port.name);
+                const changed = isSelected !== wasPrevious;
+
+                return (
+                  <label
+                    key={port.name}
+                    className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-all ${
+                      isSelected
+                        ? 'border-accent-primary bg-accent-primary/5'
+                        : 'border-border bg-background-secondary hover:border-foreground-muted/30'
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={() => togglePort(port.name)}
+                      className="w-4 h-4 rounded border-border text-accent-primary focus:ring-accent-primary/30 focus:ring-2"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium text-foreground text-sm">{port.name}</span>
+                        {port.running ? (
+                          <span className="flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-success" />
+                            <span className="text-[10px] text-success font-medium">UP</span>
+                          </span>
+                        ) : (
+                          <span className="flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-foreground-muted" />
+                            <span className="text-[10px] text-foreground-muted font-medium">DOWN</span>
+                          </span>
+                        )}
+                        {wasPrevious && (
+                          <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-info/10 text-info">PPPoE</span>
+                        )}
+                        {changed && (
+                          <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${
+                            isSelected ? 'bg-success/10 text-success' : 'bg-warning/10 text-warning'
+                          }`}>
+                            {isSelected ? '+ adding' : '- removing'}
+                          </span>
+                        )}
+                      </div>
+                      {(port.comment || port.mac_address) && (
+                        <p className="text-xs text-foreground-muted mt-0.5">
+                          {port.comment && <span>{port.comment}</span>}
+                          {port.comment && port.mac_address && <span> &middot; </span>}
+                          {port.mac_address && <span className="font-mono">{port.mac_address}</span>}
+                        </p>
+                      )}
+                    </div>
+                  </label>
+                );
+              })}
+            </div>
+
+            {/* Summary */}
+            <div className="flex items-center gap-3 mb-4 text-xs text-foreground-muted">
+              <span>
+                {selectedPorts.length} of {etherPorts.length} ports selected for PPPoE
+              </span>
+              {hasChanges && (
+                <span className="badge badge-warning">Unsaved changes</span>
+              )}
+            </div>
+
+            {/* Teardown confirmation */}
+            {showTeardownConfirm && (
+              <div className="mb-4 p-3 rounded-lg bg-warning/10 border border-warning/20 text-sm">
+                <div className="flex items-start gap-2">
+                  <svg className="w-5 h-5 text-warning flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                  </svg>
+                  <div>
+                    <p className="font-medium text-warning">Remove all PPPoE ports?</p>
+                    <p className="text-foreground-muted mt-1">
+                      This will tear down all PPPoE configuration and restore every port to hotspot mode.
+                      Active PPPoE sessions will be disconnected.
+                    </p>
+                    <div className="flex gap-2 mt-3">
+                      <button
+                        onClick={handleApply}
+                        disabled={saving}
+                        className="px-3 py-1.5 rounded-lg bg-warning text-white text-xs font-medium hover:bg-warning/90 transition-colors flex items-center gap-1.5"
+                      >
+                        {saving ? (
+                          <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        ) : null}
+                        Yes, restore to hotspot
+                      </button>
+                      <button
+                        onClick={() => setShowTeardownConfirm(false)}
+                        className="px-3 py-1.5 rounded-lg bg-background-tertiary text-foreground-muted text-xs font-medium hover:text-foreground transition-colors"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Actions */}
+            <div className="flex gap-3">
+              <button type="button" onClick={onClose} className="btn-secondary flex-1">
+                Close
+              </button>
+              <button
+                onClick={handleApply}
+                disabled={!hasChanges || saving || showTeardownConfirm}
+                className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${
+                  !hasChanges || saving || showTeardownConfirm
+                    ? 'bg-background-tertiary text-foreground-muted cursor-not-allowed'
+                    : isTeardown
+                      ? 'bg-warning text-white hover:bg-warning/90'
+                      : 'bg-accent-primary text-white hover:bg-accent-primary/90'
+                }`}
+              >
+                {saving ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    Applying...
+                  </>
+                ) : isTeardown ? (
+                  'Remove All PPPoE'
+                ) : (
+                  'Apply Changes'
+                )}
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function PPPoESessionCard({ session }: { session: PPPoESession }) {
+  const formatBytesNum = (bytes: number) => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+  };
+
+  return (
+    <div className="p-4 rounded-lg border border-info/30 bg-info/5">
+      <div className="flex items-start justify-between mb-2">
+        <div className="flex items-center gap-3">
+          <div className="w-2 h-2 rounded-full bg-success animate-pulse" />
+          <div>
+            <p className="font-medium text-foreground">{session.user}</p>
+            <p className="text-xs font-mono text-foreground-muted">{session.address}</p>
+          </div>
+        </div>
+        <span className="badge badge-success">Connected</span>
+      </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+        <div>
+          <p className="text-foreground-muted text-xs">Uptime</p>
+          <p className="text-foreground font-medium">{session.uptime}</p>
+        </div>
+        {session.caller_id && (
+          <div>
+            <p className="text-foreground-muted text-xs">Caller ID</p>
+            <p className="text-foreground font-mono text-xs">{session.caller_id}</p>
+          </div>
+        )}
+        {session.service && (
+          <div>
+            <p className="text-foreground-muted text-xs">Service</p>
+            <p className="text-foreground font-medium">{session.service}</p>
+          </div>
+        )}
+      </div>
+
+      <div className="mt-3 pt-3 border-t border-border flex gap-4 text-sm">
+        <div className="flex items-center gap-2">
+          <svg className="w-4 h-4 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+          </svg>
+          <span className="text-foreground-muted">&darr; {formatBytesNum(session.bytes_in)}</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <svg className="w-4 h-4 text-accent-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10l7-7m0 0l7 7m-7-7v18" />
+          </svg>
+          <span className="text-foreground-muted">&uarr; {formatBytesNum(session.bytes_out)}</span>
+        </div>
+      </div>
     </div>
   );
 }

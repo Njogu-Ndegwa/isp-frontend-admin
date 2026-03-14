@@ -1,0 +1,459 @@
+'use client';
+
+import { useEffect, useState, useCallback } from 'react';
+import { useParams, useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { api } from '../../lib/api';
+import { Customer, PPPoECredentials, ActivatePPPoERequest } from '../../lib/types';
+import { formatDateGMT3 } from '../../lib/dateUtils';
+import { useAlert } from '../../context/AlertContext';
+import Header from '../../components/Header';
+import { PageLoader } from '../../components/LoadingSpinner';
+
+export default function CustomerDetailPage() {
+  const params = useParams();
+  const router = useRouter();
+  const { showAlert } = useAlert();
+  const customerId = Number(params.id);
+
+  const [customer, setCustomer] = useState<Customer | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [credentials, setCredentials] = useState<PPPoECredentials | null>(null);
+  const [credsLoading, setCredsLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [actionLoading, setActionLoading] = useState(false);
+
+  // Activate form
+  const [showActivateForm, setShowActivateForm] = useState(false);
+  const [activateForm, setActivateForm] = useState<ActivatePPPoERequest>({
+    payment_method: 'cash',
+    payment_reference: '',
+    notes: '',
+  });
+
+  // Confirm dialogs
+  const [confirmDeactivate, setConfirmDeactivate] = useState(false);
+  const [confirmRegenerate, setConfirmRegenerate] = useState(false);
+
+  useEffect(() => {
+    loadCustomer();
+  }, [customerId]);
+
+  const loadCustomer = async () => {
+    try {
+      setLoading(true);
+      const customers = await api.getCustomers();
+      const found = customers.find((c) => c.id === customerId);
+      if (!found) {
+        setError('Customer not found');
+        return;
+      }
+      setCustomer(found);
+      const connType = found.connection_type ?? found.plan?.connection_type;
+      if (connType === 'pppoe') {
+        loadCredentials();
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load customer');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadCredentials = async () => {
+    try {
+      setCredsLoading(true);
+      const creds = await api.getPPPoECredentials(customerId);
+      setCredentials(creds);
+    } catch {
+      // Silently handle -- credentials may not exist yet
+    } finally {
+      setCredsLoading(false);
+    }
+  };
+
+  const handleActivate = useCallback(async () => {
+    try {
+      setActionLoading(true);
+      await api.activatePPPoE(customerId, activateForm);
+      showAlert('success', 'Customer activated successfully');
+      setShowActivateForm(false);
+      setActivateForm({ payment_method: 'cash', payment_reference: '', notes: '' });
+      loadCustomer();
+    } catch (err) {
+      showAlert('error', err instanceof Error ? err.message : 'Activation failed');
+    } finally {
+      setActionLoading(false);
+    }
+  }, [customerId, activateForm, showAlert]);
+
+  const handleDeactivate = useCallback(async () => {
+    try {
+      setActionLoading(true);
+      await api.deactivatePPPoE(customerId);
+      showAlert('success', 'Customer deactivated');
+      setConfirmDeactivate(false);
+      loadCustomer();
+    } catch (err) {
+      showAlert('error', err instanceof Error ? err.message : 'Deactivation failed');
+    } finally {
+      setActionLoading(false);
+    }
+  }, [customerId, showAlert]);
+
+  const handleRegenerate = useCallback(async () => {
+    try {
+      setActionLoading(true);
+      const newCreds = await api.regeneratePPPoEPassword(customerId);
+      setCredentials(newCreds);
+      showAlert('success', 'Password regenerated successfully');
+      setConfirmRegenerate(false);
+    } catch (err) {
+      showAlert('error', err instanceof Error ? err.message : 'Failed to regenerate password');
+    } finally {
+      setActionLoading(false);
+    }
+  }, [customerId, showAlert]);
+
+  const copyToClipboard = (text: string, label: string) => {
+    navigator.clipboard.writeText(text);
+    showAlert('success', `${label} copied`);
+  };
+
+  const formatSafeDate = (dateStr: string | undefined): string => {
+    try {
+      if (!dateStr) return '-';
+      const date = new Date(dateStr);
+      if (isNaN(date.getTime())) return '-';
+      return formatDateGMT3(dateStr, {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+    } catch {
+      return '-';
+    }
+  };
+
+  const getTimeRemainingColor = (hours?: number) => {
+    if (hours === undefined || hours === null) return 'text-foreground-muted';
+    if (hours < 1) return 'text-red-400';
+    if (hours < 6) return 'text-orange-400';
+    if (hours < 24) return 'text-amber-400';
+    return 'text-emerald-400';
+  };
+
+  const formatTimeRemaining = (hours?: number) => {
+    if (!hours) return '';
+    if (hours < 1) return `${Math.round(hours * 60)}m remaining`;
+    return `${hours.toFixed(1)}h remaining`;
+  };
+
+  if (loading) return <PageLoader />;
+
+  if (error || !customer) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-danger/10 flex items-center justify-center">
+            <svg className="w-8 h-8 text-danger" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+          </div>
+          <h2 className="text-xl font-semibold text-foreground mb-2">{error || 'Customer not found'}</h2>
+          <Link href="/customers" className="btn-primary mt-4 inline-block">
+            Back to Customers
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  const isPPPoE = (customer.connection_type ?? customer.plan?.connection_type) === 'pppoe';
+
+  return (
+    <div>
+      {/* Back + Header */}
+      <div className="mb-6">
+        <Link href="/customers" className="inline-flex items-center gap-1.5 text-sm text-foreground-muted hover:text-foreground transition-colors mb-3">
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+          </svg>
+          Back to Customers
+        </Link>
+        <div className="flex items-center gap-3">
+          <div className="w-12 h-12 rounded-full bg-accent-primary/10 flex items-center justify-center text-accent-primary font-bold text-lg">
+            {(customer.name || '?').charAt(0).toUpperCase()}
+          </div>
+          <div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <h1 className="text-xl font-bold text-foreground">{customer.name || 'Unknown'}</h1>
+              <span className={`badge ${customer.status === 'active' ? 'badge-success' : customer.status === 'expired' ? 'badge-danger' : 'badge-neutral'} capitalize`}>
+                {customer.status}
+              </span>
+              {isPPPoE ? (
+                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider bg-info/10 text-info">PPPoE</span>
+              ) : (
+                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider bg-accent-primary/10 text-accent-primary">Hotspot</span>
+              )}
+            </div>
+            <p className="text-sm text-foreground-muted mt-0.5">{customer.phone}</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Customer Info */}
+        <div className="card p-5 space-y-4">
+          <h2 className="text-sm font-semibold text-foreground-muted uppercase tracking-wider">Customer Info</h2>
+          <div className="grid grid-cols-2 gap-4">
+            <InfoItem label="Plan" value={customer.plan?.name || 'No Plan'} />
+            <InfoItem label="Price" value={`KES ${customer.plan?.price ?? '-'}`} />
+            <InfoItem label="Router" value={customer.router?.name || '-'} />
+            <InfoItem label="Expiry" value={formatSafeDate(customer.expiry)} />
+            {customer.hours_remaining !== undefined && customer.status === 'active' && (
+              <InfoItem
+                label="Time Left"
+                value={formatTimeRemaining(customer.hours_remaining)}
+                valueClassName={getTimeRemainingColor(customer.hours_remaining)}
+              />
+            )}
+            {customer.mac_address && (
+              <InfoItem label="MAC Address" value={customer.mac_address} mono />
+            )}
+            {customer.pppoe_username && (
+              <InfoItem label="PPPoE Username" value={customer.pppoe_username} mono />
+            )}
+          </div>
+        </div>
+
+        {/* PPPoE Credentials Card */}
+        {isPPPoE && (
+          <div className="card p-5 space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-semibold text-foreground-muted uppercase tracking-wider">PPPoE Credentials</h2>
+              {credentials && (
+                <button
+                  onClick={() => setConfirmRegenerate(true)}
+                  className="text-xs text-warning hover:text-warning/80 font-medium transition-colors flex items-center gap-1"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  Regenerate Password
+                </button>
+              )}
+            </div>
+
+            {credsLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="w-6 h-6 border-2 border-accent-primary/30 border-t-accent-primary rounded-full animate-spin" />
+              </div>
+            ) : credentials ? (
+              <div className="space-y-3">
+                <div className="bg-background-tertiary rounded-lg p-3">
+                  <label className="text-xs font-medium text-foreground-muted uppercase tracking-wider">Username</label>
+                  <div className="flex items-center justify-between mt-1">
+                    <span className="font-mono text-sm text-foreground">{credentials.pppoe_username}</span>
+                    <button onClick={() => copyToClipboard(credentials.pppoe_username, 'Username')} className="p-1.5 rounded-md hover:bg-background-secondary transition-colors text-foreground-muted hover:text-foreground">
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+                <div className="bg-background-tertiary rounded-lg p-3">
+                  <label className="text-xs font-medium text-foreground-muted uppercase tracking-wider">Password</label>
+                  <div className="flex items-center justify-between mt-1">
+                    <span className="font-mono text-sm text-foreground">
+                      {showPassword ? credentials.pppoe_password : '\u2022'.repeat(credentials.pppoe_password.length)}
+                    </span>
+                    <div className="flex items-center gap-1">
+                      <button onClick={() => setShowPassword(!showPassword)} className="p-1.5 rounded-md hover:bg-background-secondary transition-colors text-foreground-muted hover:text-foreground">
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                          {showPassword ? (
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" />
+                          ) : (
+                            <>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            </>
+                          )}
+                        </svg>
+                      </button>
+                      <button onClick={() => copyToClipboard(credentials.pppoe_password, 'Password')} className="p-1.5 rounded-md hover:bg-background-secondary transition-colors text-foreground-muted hover:text-foreground">
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                <button
+                  onClick={() => copyToClipboard(`Username: ${credentials.pppoe_username}\nPassword: ${credentials.pppoe_password}`, 'Credentials')}
+                  className="btn-secondary w-full flex items-center justify-center gap-2 mt-2"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                  </svg>
+                  Copy All Credentials
+                </button>
+              </div>
+            ) : (
+              <p className="text-sm text-foreground-muted py-4 text-center">No credentials available</p>
+            )}
+          </div>
+        )}
+
+        {/* PPPoE Actions */}
+        {isPPPoE && (
+          <div className="card p-5 space-y-4 lg:col-span-2">
+            <h2 className="text-sm font-semibold text-foreground-muted uppercase tracking-wider">PPPoE Actions</h2>
+
+            {!showActivateForm ? (
+              <div className="flex flex-wrap gap-3">
+                {(customer.status === 'inactive' || customer.status === 'expired') && (
+                  <button
+                    onClick={() => setShowActivateForm(true)}
+                    className="btn-primary flex items-center gap-2"
+                  >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5.636 18.364a9 9 0 010-12.728m12.728 0a9 9 0 010 12.728M9.172 14.828a4 4 0 010-5.656m5.656 0a4 4 0 010 5.656M12 12h.01" />
+                    </svg>
+                    Activate PPPoE
+                  </button>
+                )}
+                {customer.status === 'active' && (
+                  <button
+                    onClick={() => setConfirmDeactivate(true)}
+                    className="px-4 py-2 rounded-lg text-sm font-medium bg-danger text-white hover:bg-danger/90 transition-colors flex items-center gap-2"
+                  >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                    </svg>
+                    Deactivate PPPoE
+                  </button>
+                )}
+              </div>
+            ) : (
+              <div className="border border-border rounded-lg p-4 space-y-3">
+                <h3 className="font-medium text-foreground">Activate PPPoE</h3>
+                <p className="text-xs text-foreground-muted">Records payment, sets expiry based on plan duration, and provisions the PPPoE secret on the MikroTik router.</p>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium text-foreground-muted mb-1.5">Payment Method</label>
+                    <select
+                      value={activateForm.payment_method}
+                      onChange={(e) => setActivateForm((f) => ({ ...f, payment_method: e.target.value as ActivatePPPoERequest['payment_method'] }))}
+                      className="select"
+                    >
+                      <option value="cash">Cash</option>
+                      <option value="mpesa">M-Pesa</option>
+                      <option value="voucher">Voucher</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-foreground-muted mb-1.5">Payment Reference</label>
+                    <input
+                      type="text"
+                      value={activateForm.payment_reference || ''}
+                      onChange={(e) => setActivateForm((f) => ({ ...f, payment_reference: e.target.value }))}
+                      className="input"
+                      placeholder="Receipt # (optional)"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-foreground-muted mb-1.5">Notes</label>
+                    <input
+                      type="text"
+                      value={activateForm.notes || ''}
+                      onChange={(e) => setActivateForm((f) => ({ ...f, notes: e.target.value }))}
+                      className="input"
+                      placeholder="Optional"
+                    />
+                  </div>
+                </div>
+                <div className="flex gap-3 pt-1">
+                  <button onClick={() => setShowActivateForm(false)} className="btn-secondary">Cancel</button>
+                  <button onClick={handleActivate} disabled={actionLoading} className="btn-primary flex items-center gap-2 disabled:opacity-50">
+                    {actionLoading ? (
+                      <div className="w-4 h-4 border-2 border-background/30 border-t-background rounded-full animate-spin" />
+                    ) : (
+                      'Confirm Activation'
+                    )}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Deactivate Confirm */}
+      {confirmDeactivate && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={() => setConfirmDeactivate(false)}>
+          <div className="card p-6 w-full max-w-sm space-y-4" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-semibold text-foreground">Deactivate PPPoE</h3>
+            <p className="text-sm text-foreground-muted">
+              This will disconnect {customer.name}&apos;s active session and remove the PPPoE secret from the router. Are you sure?
+            </p>
+            <div className="flex gap-3 pt-2">
+              <button onClick={() => setConfirmDeactivate(false)} className="btn-secondary flex-1">Cancel</button>
+              <button
+                onClick={handleDeactivate}
+                disabled={actionLoading}
+                className="flex-1 px-4 py-2 rounded-lg text-sm font-medium bg-danger text-white hover:bg-danger/90 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                {actionLoading ? (
+                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  'Deactivate'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Regenerate Password Confirm */}
+      {confirmRegenerate && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={() => setConfirmRegenerate(false)}>
+          <div className="card p-6 w-full max-w-sm space-y-4" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-semibold text-foreground">Regenerate Password</h3>
+            <p className="text-sm text-foreground-muted">
+              This will generate a new PPPoE password for {customer.name}. If the customer is active, the secret will be re-provisioned on the router. The customer will need the new password.
+            </p>
+            <div className="flex gap-3 pt-2">
+              <button onClick={() => setConfirmRegenerate(false)} className="btn-secondary flex-1">Cancel</button>
+              <button
+                onClick={handleRegenerate}
+                disabled={actionLoading}
+                className="btn-primary flex-1 flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                {actionLoading ? (
+                  <div className="w-4 h-4 border-2 border-background/30 border-t-background rounded-full animate-spin" />
+                ) : (
+                  'Regenerate'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function InfoItem({ label, value, mono, valueClassName }: { label: string; value: string; mono?: boolean; valueClassName?: string }) {
+  return (
+    <div>
+      <p className="text-xs font-medium text-foreground-muted uppercase tracking-wider">{label}</p>
+      <p className={`text-sm mt-0.5 ${mono ? 'font-mono' : ''} ${valueClassName || 'text-foreground'}`}>
+        {value}
+      </p>
+    </div>
+  );
+}

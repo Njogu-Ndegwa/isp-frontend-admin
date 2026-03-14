@@ -162,6 +162,7 @@ export interface CustomerPlan {
   id: number;
   name: string;
   price: number;
+  connection_type?: 'hotspot' | 'pppoe';
 }
 
 export interface CustomerRouter {
@@ -179,6 +180,78 @@ export interface Customer {
   hours_remaining?: number;
   plan: CustomerPlan;
   router: CustomerRouter;
+  connection_type?: 'hotspot' | 'pppoe';
+  pppoe_username?: string;
+}
+
+// PPPoE Types
+export interface RegisterCustomerRequest {
+  name: string;
+  phone: string;
+  plan_id: number;
+  router_id: number;
+  pppoe_username?: string;
+  pppoe_password?: string;
+  mac_address?: string | null;
+  static_ip?: string | null;
+}
+
+export interface ActivatePPPoERequest {
+  payment_method?: 'cash' | 'mpesa' | 'voucher';
+  payment_reference?: string;
+  notes?: string;
+}
+
+export interface PPPoECredentials {
+  pppoe_username: string;
+  pppoe_password: string;
+  customer_name: string;
+  status: string;
+}
+
+export interface PPPoESession {
+  user: string;
+  address: string;
+  uptime: string;
+  bytes_in: number;
+  bytes_out: number;
+  caller_id?: string;
+  service?: string;
+}
+
+export interface PPPoEActiveResponse {
+  router_id: number;
+  router_name: string;
+  sessions: PPPoESession[];
+  total_sessions: number;
+}
+
+export interface RouterInterfaceInfo {
+  name: string;
+  type: string;
+  running: boolean;
+  disabled: boolean;
+  comment?: string;
+  mac_address?: string;
+  default_name?: string;
+}
+
+export interface RouterInterfacesResponse {
+  router_id: number;
+  router_name: string;
+  interfaces: RouterInterfaceInfo[];
+  pppoe_ports: string[];
+}
+
+export interface UpdatePPPoEPortsRequest {
+  ports: string[];
+}
+
+export interface UpdatePPPoEPortsResponse {
+  router_id: number;
+  router_name: string;
+  pppoe_ports: string[];
+  message: string;
 }
 
 // Plan Types
@@ -195,6 +268,11 @@ export interface Plan {
   router_profile?: string;
   user_id?: number;
   created_at?: string;
+  plan_type?: 'regular' | 'emergency';
+  is_hidden?: boolean;
+  badge_text?: string | null;
+  original_price?: number | null;
+  valid_until?: string | null;
 }
 
 export interface CreatePlanRequest {
@@ -206,6 +284,35 @@ export interface CreatePlanRequest {
   connection_type: 'hotspot' | 'pppoe';
   router_profile?: string;
   user_id?: number;
+  plan_type?: 'regular' | 'emergency';
+  is_hidden?: boolean;
+  badge_text?: string | null;
+  original_price?: number | null;
+  valid_until?: string | null;
+}
+
+export interface UpdatePlanRequest {
+  name?: string;
+  speed?: string;
+  price?: number;
+  duration_value?: number;
+  duration_unit?: 'HOURS' | 'DAYS' | 'MINUTES';
+  connection_type?: 'hotspot' | 'pppoe';
+  router_profile?: string;
+  plan_type?: 'regular' | 'emergency';
+  is_hidden?: boolean;
+  badge_text?: string | null;
+  original_price?: number | null;
+  valid_until?: string | null;
+}
+
+export interface EmergencyModeResponse {
+  success: boolean;
+  message: string;
+  regular_plans_hidden?: number;
+  emergency_plans_shown?: number;
+  regular_plans_shown?: number;
+  emergency_plans_hidden?: number;
 }
 
 export interface PlanPerformanceDetail {
@@ -389,6 +496,15 @@ export interface ProvisionToken {
 export interface LoginRequest {
   email: string;
   password: string;
+}
+
+export interface RegisterRequest {
+  email: string;
+  password: string;
+  role: 'reseller';
+  organization_name: string;
+  business_name: string;
+  mpesa_shortcode: string;
 }
 
 export interface AuthUser {
@@ -758,4 +874,45 @@ export interface VoucherFilters {
   batch_id?: string;
   page?: number;
   per_page?: number;
+}
+
+// Walled Garden Types
+export interface WalledGardenDomainEntry {
+  '.id': string;
+  'dst-host': string;
+  action: string;
+  comment: string;
+}
+
+export interface WalledGardenIpEntry {
+  '.id': string;
+  'dst-address': string;
+  action: string;
+  comment: string;
+}
+
+export interface WalledGardenResponse {
+  success: boolean;
+  domain_entries: WalledGardenDomainEntry[];
+  ip_entries: WalledGardenIpEntry[];
+}
+
+export interface AddWalledGardenIpRequest {
+  router_id: number;
+  dst_address: string;
+  comment: string;
+}
+
+export interface AddWalledGardenDomainRequest {
+  router_id: number;
+  dst_host: string;
+  comment: string;
+}
+
+export interface WalledGardenActionResponse {
+  success: boolean;
+  action: string;
+  dst_address?: string;
+  dst_host?: string;
+  id?: string;
 }

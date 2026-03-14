@@ -7,6 +7,8 @@ import {
   Customer,
   Plan,
   CreatePlanRequest,
+  UpdatePlanRequest,
+  EmergencyModeResponse,
   PlanPerformanceResponse,
   MpesaTransaction,
   TransactionSummary,
@@ -18,6 +20,7 @@ import {
   ProvisionToken,
   LoginRequest,
   LoginResponse,
+  RegisterRequest,
   Advertiser,
   CreateAdvertiserRequest,
   Ad,
@@ -34,9 +37,20 @@ import {
   GenerateVouchersRequest,
   VouchersListResponse,
   VoucherFilters,
+  RegisterCustomerRequest,
+  ActivatePPPoERequest,
+  PPPoECredentials,
+  PPPoEActiveResponse,
+  RouterInterfacesResponse,
+  UpdatePPPoEPortsRequest,
+  UpdatePPPoEPortsResponse,
+  WalledGardenResponse,
+  AddWalledGardenIpRequest,
+  AddWalledGardenDomainRequest,
+  WalledGardenActionResponse,
 } from './types';
 
-const BASE_URL = 'https://isp.bitwavetechnologies.com/api';
+const BASE_URL = 'https://isp.bitwavetechnologies.net/api';
 
 class ApiClient {
   private getToken(): string | null {
@@ -249,12 +263,37 @@ class ApiClient {
     return this.handleResponse<Plan>(response);
   }
 
+  async updatePlan(planId: number, data: UpdatePlanRequest): Promise<Plan> {
+    const response = await fetch(`${BASE_URL}/plans/${planId}`, {
+      method: 'PUT',
+      headers: this.getHeaders(),
+      body: JSON.stringify(data),
+    });
+    return this.handleResponse<Plan>(response);
+  }
+
   async deletePlan(planId: number, userId = 1): Promise<{ success: boolean; message: string }> {
     const response = await fetch(
       `${BASE_URL}/plans/${planId}?user_id=${userId}`,
       { method: 'DELETE', headers: this.getHeaders() }
     );
     return this.handleResponse(response);
+  }
+
+  async activateEmergencyMode(): Promise<EmergencyModeResponse> {
+    const response = await fetch(`${BASE_URL}/plans/activate-emergency`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<EmergencyModeResponse>(response);
+  }
+
+  async deactivateEmergencyMode(): Promise<EmergencyModeResponse> {
+    const response = await fetch(`${BASE_URL}/plans/deactivate-emergency`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<EmergencyModeResponse>(response);
   }
 
   async getPlanPerformance(
@@ -398,6 +437,15 @@ class ApiClient {
       body: JSON.stringify(credentials),
     });
     return this.handleResponse<LoginResponse>(response, true);
+  }
+
+  async register(data: RegisterRequest): Promise<{ message: string }> {
+    const response = await fetch(`${BASE_URL}/users/register`, {
+      method: 'POST',
+      headers: this.getHeaders(false),
+      body: JSON.stringify(data),
+    });
+    return this.handleResponse<{ message: string }>(response, true);
   }
 
   // Advertisers
@@ -631,6 +679,116 @@ class ApiClient {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(objectUrl);
+  }
+
+  // PPPoE Customer Management
+  async registerCustomer(data: RegisterCustomerRequest): Promise<Customer> {
+    const response = await fetch(`${BASE_URL}/customers/register`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify(data),
+    });
+    return this.handleResponse<Customer>(response);
+  }
+
+  async activatePPPoE(customerId: number, data: ActivatePPPoERequest = {}): Promise<{ message: string }> {
+    const response = await fetch(`${BASE_URL}/customers/${customerId}/activate-pppoe`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify(data),
+    });
+    return this.handleResponse<{ message: string }>(response);
+  }
+
+  async deactivatePPPoE(customerId: number): Promise<{ message: string }> {
+    const response = await fetch(`${BASE_URL}/customers/${customerId}/deactivate-pppoe`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<{ message: string }>(response);
+  }
+
+  async getPPPoECredentials(customerId: number): Promise<PPPoECredentials> {
+    const response = await fetch(`${BASE_URL}/customers/${customerId}/pppoe-credentials`, {
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<PPPoECredentials>(response);
+  }
+
+  async regeneratePPPoEPassword(customerId: number): Promise<PPPoECredentials> {
+    const response = await fetch(`${BASE_URL}/customers/${customerId}/regenerate-pppoe-password`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<PPPoECredentials>(response);
+  }
+
+  // Router Interfaces & PPPoE Port Provisioning
+  async getRouterInterfaces(routerId: number): Promise<RouterInterfacesResponse> {
+    const response = await fetch(`${BASE_URL}/routers/${routerId}/interfaces`, {
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<RouterInterfacesResponse>(response);
+  }
+
+  async updatePPPoEPorts(routerId: number, data: UpdatePPPoEPortsRequest): Promise<UpdatePPPoEPortsResponse> {
+    const response = await fetch(`${BASE_URL}/routers/${routerId}/pppoe-ports`, {
+      method: 'PUT',
+      headers: this.getHeaders(),
+      body: JSON.stringify(data),
+    });
+    return this.handleResponse<UpdatePPPoEPortsResponse>(response);
+  }
+
+  // MikroTik PPPoE Monitoring
+  async getPPPoEActiveSessions(routerId: number): Promise<PPPoEActiveResponse> {
+    const response = await fetch(`${BASE_URL}/mikrotik/${routerId}/pppoe/active`, {
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<PPPoEActiveResponse>(response);
+  }
+
+  // Walled Garden
+  async getWalledGarden(routerId: number): Promise<WalledGardenResponse> {
+    const response = await fetch(
+      `${BASE_URL}/mikrotik/walled-garden?router_id=${routerId}`,
+      { headers: this.getHeaders() }
+    );
+    return this.handleResponse<WalledGardenResponse>(response);
+  }
+
+  async addWalledGardenIp(data: AddWalledGardenIpRequest): Promise<WalledGardenActionResponse> {
+    const response = await fetch(`${BASE_URL}/mikrotik/walled-garden/ip`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify(data),
+    });
+    return this.handleResponse<WalledGardenActionResponse>(response);
+  }
+
+  async addWalledGardenDomain(data: AddWalledGardenDomainRequest): Promise<WalledGardenActionResponse> {
+    const response = await fetch(`${BASE_URL}/mikrotik/walled-garden/domain`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify(data),
+    });
+    return this.handleResponse<WalledGardenActionResponse>(response);
+  }
+
+  async removeWalledGardenIp(entryId: string, routerId: number): Promise<WalledGardenActionResponse> {
+    const response = await fetch(
+      `${BASE_URL}/mikrotik/walled-garden/ip/${entryId}?router_id=${routerId}`,
+      { method: 'DELETE', headers: this.getHeaders() }
+    );
+    return this.handleResponse<WalledGardenActionResponse>(response);
+  }
+
+  async removeWalledGardenDomain(entryId: string, routerId: number): Promise<WalledGardenActionResponse> {
+    const response = await fetch(
+      `${BASE_URL}/mikrotik/walled-garden/domain/${entryId}?router_id=${routerId}`,
+      { method: 'DELETE', headers: this.getHeaders() }
+    );
+    return this.handleResponse<WalledGardenActionResponse>(response);
   }
 }
 

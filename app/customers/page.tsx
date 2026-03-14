@@ -1,9 +1,12 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { api } from '../lib/api';
-import { Customer } from '../lib/types';
+import { Customer, PPPoECredentials, ActivatePPPoERequest } from '../lib/types';
 import { formatDateGMT3 } from '../lib/dateUtils';
+import { useAlert } from '../context/AlertContext';
 import Header from '../components/Header';
 import { PageLoader } from '../components/LoadingSpinner';
 import StatCard from '../components/StatCard';
@@ -12,23 +15,43 @@ import SearchInput from '../components/SearchInput';
 import DataTable, { DataTableColumn } from '../components/DataTable';
 
 type FilterStatus = 'all' | 'active' | 'inactive';
+type ConnectionFilter = 'all' | 'hotspot' | 'pppoe';
+
+function getConnectionType(customer: Customer): 'hotspot' | 'pppoe' {
+  return customer.connection_type ?? customer.plan?.connection_type ?? 'hotspot';
+}
 
 const CUSTOMER_COLUMNS: DataTableColumn[] = [
   { key: 'name', label: 'Customer' },
   { key: 'phone', label: 'Phone' },
-  { key: 'mac_address', label: 'MAC Address' },
+  { key: 'type', label: 'Type' },
   { key: 'plan', label: 'Plan' },
   { key: 'router', label: 'Router' },
   { key: 'status', label: 'Status' },
   { key: 'expiry', label: 'Expiry' },
+  { key: 'actions', label: '' },
 ];
 
 export default function CustomersPage() {
+  const routerNav = useRouter();
+  const { showAlert } = useAlert();
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<FilterStatus>('active');
+  const [connectionFilter, setConnectionFilter] = useState<ConnectionFilter>('all');
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Modal state
+  const [credentialsModal, setCredentialsModal] = useState<PPPoECredentials | null>(null);
+  const [activateModal, setActivateModal] = useState<Customer | null>(null);
+  const [deactivateConfirm, setDeactivateConfirm] = useState<Customer | null>(null);
+  const [actionLoading, setActionLoading] = useState(false);
+  const [activateForm, setActivateForm] = useState<ActivatePPPoERequest>({
+    payment_method: 'cash',
+    payment_reference: '',
+    notes: '',
+  });
 
   useEffect(() => {
     loadCustomers();
@@ -52,16 +75,15 @@ export default function CustomersPage() {
   };
 
   const filteredCustomers = customers.filter((customer) => {
-    // Apply status filter for inactive
     if (filter === 'inactive' && customer.status !== 'inactive') return false;
-    
-    // Apply search filter
+    if (connectionFilter !== 'all' && getConnectionType(customer) !== connectionFilter) return false;
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       return (
         (customer.name?.toLowerCase() || '').includes(query) ||
         (customer.phone || '').includes(query) ||
-        (customer.mac_address?.toLowerCase() || '').includes(query)
+        (customer.mac_address?.toLowerCase() || '').includes(query) ||
+        (customer.pppoe_username?.toLowerCase() || '').includes(query)
       );
     }
     return true;
@@ -87,13 +109,12 @@ export default function CustomersPage() {
 
   const getTimeRemainingColor = (hours?: number) => {
     if (hours === undefined || hours === null) return 'text-foreground-muted';
-    if (hours < 1) return 'text-red-400';       // Critical: less than 1 hour
-    if (hours < 6) return 'text-orange-400';     // Warning: less than 6 hours
-    if (hours < 24) return 'text-amber-400';     // Caution: less than 24 hours
-    return 'text-emerald-400';                   // Good: 24+ hours remaining
+    if (hours < 1) return 'text-red-400';
+    if (hours < 6) return 'text-orange-400';
+    if (hours < 24) return 'text-amber-400';
+    return 'text-emerald-400';
   };
 
-  // Safe date formatting for customer expiry
   const formatCustomerExpiry = (expiry: string | undefined): string => {
     try {
       if (!expiry) return '-';
@@ -109,6 +130,69 @@ export default function CustomersPage() {
       console.error('Date formatting error:', e);
       return '-';
     }
+  };
+
+  const handleViewCredentials = useCallback(async (customer: Customer) => {
+    try {
+      setActionLoading(true);
+      const creds = await api.getPPPoECredentials(customer.id);
+      setCredentialsModal(creds);
+    } catch (err) {
+      showAlert('error', err instanceof Error ? err.message : 'Failed to load credentials');
+    } finally {
+      setActionLoading(false);
+    }
+  }, [showAlert]);
+
+  const handleActivate = useCallback(async () => {
+    if (!activateModal) return;
+    try {
+      setActionLoading(true);
+      await api.activatePPPoE(activateModal.id, activateForm);
+      showAlert('success', `${activateModal.name} activated successfully`);
+      setActivateModal(null);
+      setActivateForm({ payment_method: 'cash', payment_reference: '', notes: '' });
+      loadCustomers();
+    } catch (err) {
+      showAlert('error', err instanceof Error ? err.message : 'Activation failed');
+    } finally {
+      setActionLoading(false);
+    }
+  }, [activateModal, activateForm, showAlert]);
+
+  const handleDeactivate = useCallback(async () => {
+    if (!deactivateConfirm) return;
+    try {
+      setActionLoading(true);
+      await api.deactivatePPPoE(deactivateConfirm.id);
+      showAlert('success', `${deactivateConfirm.name} deactivated`);
+      setDeactivateConfirm(null);
+      loadCustomers();
+    } catch (err) {
+      showAlert('error', err instanceof Error ? err.message : 'Deactivation failed');
+    } finally {
+      setActionLoading(false);
+    }
+  }, [deactivateConfirm, showAlert]);
+
+  const copyToClipboard = (text: string, label: string) => {
+    navigator.clipboard.writeText(text);
+    showAlert('success', `${label} copied`);
+  };
+
+  const ConnectionBadge = ({ type }: { type?: string }) => {
+    if (type === 'pppoe') {
+      return (
+        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider bg-info/10 text-info">
+          PPPoE
+        </span>
+      );
+    }
+    return (
+      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider bg-accent-primary/10 text-accent-primary">
+        Hotspot
+      </span>
+    );
   };
 
   if (error) {
@@ -132,10 +216,22 @@ export default function CustomersPage() {
 
   return (
     <div>
-      <Header 
-        title="Customers" 
-        subtitle={`Manage your ${customers.length} registered customers`} 
-      />
+      <div className="flex items-start justify-between gap-4 mb-6">
+        <Header
+          title="Customers"
+          subtitle={`Manage your ${customers.length} registered customers`}
+        />
+        <Link
+          href="/customers/register"
+          className="btn-primary flex items-center gap-2 whitespace-nowrap shrink-0"
+        >
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+          </svg>
+          <span className="hidden sm:inline">Register Customer</span>
+          <span className="sm:hidden">Add</span>
+        </Link>
+      </div>
 
       {/* Summary Stats */}
       {customers.length > 0 && (
@@ -184,24 +280,42 @@ export default function CustomersPage() {
         <SearchInput
           value={searchQuery}
           onChange={setSearchQuery}
-          placeholder="Search by name, phone, or MAC address..."
+          placeholder="Search by name, phone, MAC, or PPPoE username..."
         />
 
-        {/* Status Filter */}
-        <div className="flex rounded-lg border border-border overflow-x-auto flex-shrink-0 no-scrollbar">
-          {(['all', 'active', 'inactive'] as FilterStatus[]).map((status) => (
-            <button
-              key={status}
-              onClick={() => setFilter(status)}
-              className={`px-3 py-2 text-sm font-medium capitalize transition-colors whitespace-nowrap ${
-                filter === status
-                  ? 'bg-accent-primary text-background'
-                  : 'bg-background-secondary text-foreground-muted hover:text-foreground'
-              }`}
-            >
-              {status}
-            </button>
-          ))}
+        <div className="flex gap-3 flex-wrap">
+          {/* Status Filter */}
+          <div className="flex rounded-lg border border-border overflow-hidden flex-shrink-0">
+            {(['all', 'active', 'inactive'] as FilterStatus[]).map((status) => (
+              <button
+                key={status}
+                onClick={() => setFilter(status)}
+                className={`px-3 py-2 text-sm font-medium capitalize transition-colors whitespace-nowrap ${
+                  filter === status
+                    ? 'bg-accent-primary text-background'
+                    : 'bg-background-secondary text-foreground-muted hover:text-foreground'
+                }`}
+              >
+                {status}
+              </button>
+            ))}
+          </div>
+          {/* Connection Type Filter */}
+          <div className="flex rounded-lg border border-border overflow-hidden flex-shrink-0">
+            {(['all', 'hotspot', 'pppoe'] as ConnectionFilter[]).map((type) => (
+              <button
+                key={type}
+                onClick={() => setConnectionFilter(type)}
+                className={`px-3 py-2 text-sm font-medium transition-colors whitespace-nowrap ${
+                  connectionFilter === type
+                    ? 'bg-accent-primary text-background'
+                    : 'bg-background-secondary text-foreground-muted hover:text-foreground'
+                }`}
+              >
+                {type === 'all' ? 'All Types' : type === 'pppoe' ? 'PPPoE' : 'Hotspot'}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -209,12 +323,12 @@ export default function CustomersPage() {
         <PageLoader />
       ) : (
         <>
-
-          {/* Desktop Table - Hidden on Mobile */}
+          {/* Desktop Table */}
           <DataTable<Customer>
             columns={CUSTOMER_COLUMNS}
             data={filteredCustomers}
             rowKey={(c) => c.id}
+            onRowClick={(c) => routerNav.push(`/customers/${c.id}`)}
             renderCell={(customer, key) => {
               switch (key) {
                 case 'name':
@@ -223,13 +337,18 @@ export default function CustomersPage() {
                       <div className="w-8 h-8 rounded-full bg-accent-primary/10 flex items-center justify-center text-accent-primary font-medium text-sm">
                         {(customer.name || '?').charAt(0).toUpperCase()}
                       </div>
-                      <span className="font-medium text-foreground">{customer.name || 'Unknown'}</span>
+                      <div>
+                        <span className="font-medium text-foreground">{customer.name || 'Unknown'}</span>
+                        {customer.pppoe_username && (
+                          <p className="text-xs font-mono text-foreground-muted">{customer.pppoe_username}</p>
+                        )}
+                      </div>
                     </div>
                   );
                 case 'phone':
                   return <span className="font-mono text-sm text-foreground-muted">{customer.phone || '-'}</span>;
-                case 'mac_address':
-                  return <span className="font-mono text-xs text-foreground-muted">{customer.mac_address || '-'}</span>;
+                case 'type':
+                  return <ConnectionBadge type={getConnectionType(customer)} />;
                 case 'plan':
                   return (
                     <div>
@@ -265,6 +384,41 @@ export default function CustomersPage() {
                   ) : (
                     <span className="text-foreground-muted">-</span>
                   );
+                case 'actions':
+                  return getConnectionType(customer) === 'pppoe' ? (
+                    <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                      <button
+                        onClick={() => handleViewCredentials(customer)}
+                        className="p-1.5 rounded-md hover:bg-background-tertiary transition-colors text-foreground-muted hover:text-foreground"
+                        title="View Credentials"
+                      >
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                        </svg>
+                      </button>
+                      {customer.status === 'inactive' || customer.status === 'expired' ? (
+                        <button
+                          onClick={() => setActivateModal(customer)}
+                          className="p-1.5 rounded-md hover:bg-success/10 transition-colors text-success"
+                          title="Activate PPPoE"
+                        >
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M5.636 18.364a9 9 0 010-12.728m12.728 0a9 9 0 010 12.728M9.172 14.828a4 4 0 010-5.656m5.656 0a4 4 0 010 5.656M12 12h.01" />
+                          </svg>
+                        </button>
+                      ) : customer.status === 'active' ? (
+                        <button
+                          onClick={() => setDeactivateConfirm(customer)}
+                          className="p-1.5 rounded-md hover:bg-danger/10 transition-colors text-danger"
+                          title="Deactivate PPPoE"
+                        >
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                          </svg>
+                        </button>
+                      ) : null}
+                    </div>
+                  ) : null;
                 default:
                   return null;
               }
@@ -295,24 +449,41 @@ export default function CustomersPage() {
                   key={customer.id}
                   id={customer.id}
                   title={customer.name || 'Unknown'}
-                  subtitle={customer.phone || undefined}
+                  subtitle={customer.pppoe_username || customer.phone || undefined}
                   avatar={{
                     text: (customer.name || '?').charAt(0).toUpperCase(),
-                    color: 'primary'
+                    color: getConnectionType(customer) === 'pppoe' ? 'info' : 'primary',
                   }}
+                  badge={getConnectionType(customer) === 'pppoe' ? { label: 'PPPoE' } : undefined}
                   status={{
                     label: customer.status,
-                    variant: customer.status === 'active' ? 'success' : customer.status === 'expired' ? 'danger' : 'neutral'
+                    variant: customer.status === 'active' ? 'success' : customer.status === 'expired' ? 'danger' : 'neutral',
                   }}
                   value={{
-                    text: customer.plan?.name || 'No Plan'
+                    text: customer.plan?.name || 'No Plan',
                   }}
                   secondary={{
                     left: customer.router?.name || '-',
-                    right: customer.status === 'active' && customer.hours_remaining !== undefined 
+                    right: customer.status === 'active' && customer.hours_remaining !== undefined
                       ? <span className={`font-medium ${getTimeRemainingColor(customer.hours_remaining)}`}>{formatTimeRemaining(customer.hours_remaining)}</span>
-                      : formatCustomerExpiry(customer.expiry)
+                      : formatCustomerExpiry(customer.expiry),
                   }}
+                  href={`/customers/${customer.id}`}
+                  rightAction={
+                    getConnectionType(customer) === 'pppoe' ? (
+                      <div className="flex flex-col gap-1">
+                        <button
+                          onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleViewCredentials(customer); }}
+                          className="p-1.5 rounded-md hover:bg-background-tertiary transition-colors text-foreground-muted"
+                          title="Credentials"
+                        >
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                          </svg>
+                        </button>
+                      </div>
+                    ) : undefined
+                  }
                   layout="compact"
                   className="animate-fade-in"
                 />
@@ -321,12 +492,140 @@ export default function CustomersPage() {
           </div>
         </>
       )}
+
+      {/* Credentials Modal */}
+      {credentialsModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={() => setCredentialsModal(null)}>
+          <div className="card p-6 w-full max-w-sm space-y-4" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-foreground">PPPoE Credentials</h3>
+              <button onClick={() => setCredentialsModal(null)} className="p-1 rounded-md hover:bg-background-tertiary text-foreground-muted">
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <p className="text-sm text-foreground-muted">{credentialsModal.customer_name}</p>
+            <div className="space-y-3">
+              <div className="bg-background-tertiary rounded-lg p-3">
+                <label className="text-xs font-medium text-foreground-muted uppercase tracking-wider">Username</label>
+                <div className="flex items-center justify-between mt-1">
+                  <span className="font-mono text-sm text-foreground">{credentialsModal.pppoe_username}</span>
+                  <button onClick={() => copyToClipboard(credentialsModal.pppoe_username, 'Username')} className="p-1.5 rounded-md hover:bg-background-secondary transition-colors text-foreground-muted hover:text-foreground">
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+              <div className="bg-background-tertiary rounded-lg p-3">
+                <label className="text-xs font-medium text-foreground-muted uppercase tracking-wider">Password</label>
+                <div className="flex items-center justify-between mt-1">
+                  <span className="font-mono text-sm text-foreground">{credentialsModal.pppoe_password}</span>
+                  <button onClick={() => copyToClipboard(credentialsModal.pppoe_password, 'Password')} className="p-1.5 rounded-md hover:bg-background-secondary transition-colors text-foreground-muted hover:text-foreground">
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+            <button
+              onClick={() => {
+                copyToClipboard(`Username: ${credentialsModal.pppoe_username}\nPassword: ${credentialsModal.pppoe_password}`, 'Credentials');
+              }}
+              className="btn-secondary w-full flex items-center justify-center gap-2"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+              </svg>
+              Copy All
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Activate Modal */}
+      {activateModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={() => setActivateModal(null)}>
+          <div className="card p-6 w-full max-w-sm space-y-4" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-semibold text-foreground">Activate PPPoE</h3>
+            <p className="text-sm text-foreground-muted">
+              Activate <span className="font-medium text-foreground">{activateModal.name}</span> &mdash; records payment, sets expiry, and provisions the secret on the router.
+            </p>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-sm font-medium text-foreground-muted mb-1.5">Payment Method</label>
+                <select
+                  value={activateForm.payment_method}
+                  onChange={(e) => setActivateForm((f) => ({ ...f, payment_method: e.target.value as ActivatePPPoERequest['payment_method'] }))}
+                  className="select"
+                >
+                  <option value="cash">Cash</option>
+                  <option value="mpesa">M-Pesa</option>
+                  <option value="voucher">Voucher</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-foreground-muted mb-1.5">Payment Reference</label>
+                <input
+                  type="text"
+                  value={activateForm.payment_reference || ''}
+                  onChange={(e) => setActivateForm((f) => ({ ...f, payment_reference: e.target.value }))}
+                  className="input"
+                  placeholder="Receipt number (optional)"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-foreground-muted mb-1.5">Notes</label>
+                <input
+                  type="text"
+                  value={activateForm.notes || ''}
+                  onChange={(e) => setActivateForm((f) => ({ ...f, notes: e.target.value }))}
+                  className="input"
+                  placeholder="Optional notes"
+                />
+              </div>
+            </div>
+            <div className="flex gap-3 pt-2">
+              <button onClick={() => setActivateModal(null)} className="btn-secondary flex-1">Cancel</button>
+              <button onClick={handleActivate} disabled={actionLoading} className="btn-primary flex-1 flex items-center justify-center gap-2 disabled:opacity-50">
+                {actionLoading ? (
+                  <div className="w-4 h-4 border-2 border-background/30 border-t-background rounded-full animate-spin" />
+                ) : (
+                  'Activate'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Deactivate Confirm Modal */}
+      {deactivateConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={() => setDeactivateConfirm(null)}>
+          <div className="card p-6 w-full max-w-sm space-y-4" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-semibold text-foreground">Deactivate PPPoE</h3>
+            <p className="text-sm text-foreground-muted">
+              This will disconnect <span className="font-medium text-foreground">{deactivateConfirm.name}</span>&apos;s active session and remove the PPPoE secret from the router.
+            </p>
+            <div className="flex gap-3 pt-2">
+              <button onClick={() => setDeactivateConfirm(null)} className="btn-secondary flex-1">Cancel</button>
+              <button
+                onClick={handleDeactivate}
+                disabled={actionLoading}
+                className="flex-1 px-4 py-2 rounded-lg text-sm font-medium bg-danger text-white hover:bg-danger/90 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                {actionLoading ? (
+                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  'Deactivate'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
-
-
-
-
-
-
