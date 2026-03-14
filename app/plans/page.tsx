@@ -22,6 +22,7 @@ const PLAN_COLUMNS: DataTableColumn[] = [
   { key: 'duration', label: 'Duration' },
   { key: 'speed', label: 'Speed' },
   { key: 'connection', label: 'Connection' },
+  { key: 'type', label: 'Type' },
   { key: 'status', label: 'Status' },
   { key: 'actions', label: '' },
 ];
@@ -376,6 +377,14 @@ export default function PlansPage() {
                       {plan.connection_type === 'pppoe' ? 'PPPoE' : 'Hotspot'}
                     </span>
                   );
+                case 'type':
+                  return (
+                    <span className={`badge ${
+                      plan.plan_type === 'emergency' ? 'badge-warning' : 'badge-success'
+                    } capitalize`}>
+                      {plan.plan_type || 'regular'}
+                    </span>
+                  );
                 case 'status': {
                   const isExpired = plan.valid_until && new Date(plan.valid_until) < new Date();
                   if (isExpired) return <span className="badge badge-danger">Expired</span>;
@@ -478,7 +487,7 @@ export default function PlansPage() {
                     }}
                     secondary={{
                       left: `${plan.duration_value} ${plan.duration_unit.toLowerCase()}`,
-                      right: plan.connection_type === 'pppoe' ? 'PPPoE' : 'Hotspot',
+                      right: plan.plan_type === 'emergency' ? 'Emergency' : 'Regular',
                     }}
                     onClick={() => setEditingPlan(plan)}
                     rightAction={

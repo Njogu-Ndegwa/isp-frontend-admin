@@ -289,7 +289,7 @@ class ApiClient {
   }
 
   async activateEmergencyMode(): Promise<{ message: string }> {
-    const response = await fetch(`${BASE_URL}/plans/emergency/activate`, {
+    const response = await fetch(`${BASE_URL}/plans/activate-emergency`, {
       method: 'POST',
       headers: this.getHeaders(),
     });
@@ -297,7 +297,7 @@ class ApiClient {
   }
 
   async deactivateEmergencyMode(): Promise<{ message: string }> {
-    const response = await fetch(`${BASE_URL}/plans/emergency/deactivate`, {
+    const response = await fetch(`${BASE_URL}/plans/deactivate-emergency`, {
       method: 'POST',
       headers: this.getHeaders(),
     });
