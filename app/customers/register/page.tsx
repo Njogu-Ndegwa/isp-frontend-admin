@@ -176,6 +176,7 @@ export default function RegisterCustomerPage() {
       <Header
         title="Register Customer"
         subtitle="Add a new hotspot or PPPoE customer"
+        backHref="/customers"
       />
 
       <div className="max-w-lg mx-auto">

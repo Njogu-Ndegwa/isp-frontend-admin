@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { api } from '../lib/api';
 import { MpesaTransaction, TransactionSummary } from '../lib/types';
 import { formatDateGMT3 } from '../lib/dateUtils';
+import { useAlert } from '../context/AlertContext';
 import Header from '../components/Header';
 import { PageLoader } from '../components/LoadingSpinner';
 import StatCard from '../components/StatCard';
@@ -25,6 +26,7 @@ const TRANSACTION_COLUMNS: DataTableColumn[] = [
   { key: 'status', label: 'Status' },
   { key: 'receipt', label: 'Receipt / Reason' },
   { key: 'date', label: 'Date' },
+  { key: 'actions', label: 'Actions' },
 ];
 
 const formatTransactionDate = (tx: MpesaTransaction): string => {
@@ -91,8 +93,10 @@ export default function TransactionsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedTx, setExpandedTx] = useState<number | null>(null);
   const [mobileDisplayCount, setMobileDisplayCount] = useState(50);
+  const [provisioningId, setProvisioningId] = useState<number | null>(null);
 
   const abortRef = useRef<AbortController | null>(null);
+  const { showAlert } = useAlert();
 
   const loadData = useCallback(async () => {
     if (abortRef.current) {
@@ -141,6 +145,25 @@ export default function TransactionsPage() {
       }
     }
   }, [statusFilter, methodFilter, dateFilter]);
+
+  const handleManualProvision = useCallback(async (tx: MpesaTransaction) => {
+    if (provisioningId) return;
+    setProvisioningId(tx.transaction_id);
+    try {
+      const result = await api.manualProvisionTransaction(tx.payment_method, tx.transaction_id);
+      if (result.success) {
+        const msg = result.provisioning_result?.message || 'Transaction provisioned successfully';
+        showAlert('success', msg);
+        loadData();
+      } else {
+        showAlert('error', result.provisioning_error || 'Provisioning failed');
+      }
+    } catch (err) {
+      showAlert('error', err instanceof Error ? err.message : 'Failed to provision transaction');
+    } finally {
+      setProvisioningId(null);
+    }
+  }, [provisioningId, showAlert, loadData]);
 
   useEffect(() => {
     setMobileDisplayCount(50);
@@ -398,9 +421,40 @@ export default function TransactionsPage() {
                       right: formatTransactionDate(tx)
                     }}
                     footer={tx.status !== 'failed' ? (
-                      <div className="flex items-center justify-between w-full">
-                        <span className="truncate">{getReceiptDisplay(tx) !== '-' ? `Ref: ${getReceiptDisplay(tx)}` : ''}</span>
-                        <span className="font-mono">#{tx.transaction_id}</span>
+                      <div className="space-y-2 w-full">
+                        <div className="flex items-center justify-between">
+                          <span className="truncate">{getReceiptDisplay(tx) !== '-' ? `Ref: ${getReceiptDisplay(tx)}` : ''}</span>
+                          <span className="font-mono">#{tx.transaction_id}</span>
+                        </div>
+                        {tx.manual_provision_supported ? (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handleManualProvision(tx); }}
+                            disabled={provisioningId === tx.transaction_id}
+                            className="p-2 rounded-lg bg-accent-primary/10 text-accent-primary hover:bg-accent-primary/20 active:opacity-70 disabled:opacity-50 disabled:cursor-not-allowed transition-colors touch-manipulation"
+                            title="Provision Now"
+                          >
+                            {provisioningId === tx.transaction_id ? (
+                              <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                              </svg>
+                            ) : (
+                              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                              </svg>
+                            )}
+                          </button>
+                        ) : (
+                          <button
+                            disabled
+                            className="p-2 rounded-lg opacity-30 text-foreground-muted cursor-not-allowed"
+                            title={tx.manual_provision_reason || 'Provisioning not available'}
+                          >
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                            </svg>
+                          </button>
+                        )}
                       </div>
                     ) : undefined}
                     expandableContent={tx.status === 'failed' ? (
@@ -557,6 +611,40 @@ export default function TransactionsPage() {
                   );
                 case 'date':
                   return <span className="text-foreground-muted text-sm">{formatTransactionDate(tx)}</span>;
+                case 'actions':
+                  if (tx.manual_provision_supported) {
+                    const isProvisioning = provisioningId === tx.transaction_id;
+                    return (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleManualProvision(tx); }}
+                        disabled={isProvisioning}
+                        className="p-1.5 rounded-lg bg-accent-primary/10 text-accent-primary hover:bg-accent-primary/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        title="Provision"
+                      >
+                        {isProvisioning ? (
+                          <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                          </svg>
+                        ) : (
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                          </svg>
+                        )}
+                      </button>
+                    );
+                  }
+                  return (
+                    <button
+                      disabled
+                      className="p-1.5 rounded-lg opacity-30 text-foreground-muted cursor-not-allowed"
+                      title={tx.manual_provision_reason || 'Provisioning not available'}
+                    >
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                      </svg>
+                    </button>
+                  );
                 default:
                   return null;
               }

@@ -8,9 +8,9 @@ import {
   Plan,
   CreatePlanRequest,
   UpdatePlanRequest,
-  EmergencyModeResponse,
   PlanPerformanceResponse,
   MpesaTransaction,
+  ManualProvisionResponse,
   TransactionSummary,
   Router,
   CreateRouterRequest,
@@ -44,10 +44,18 @@ import {
   RouterInterfacesResponse,
   UpdatePPPoEPortsRequest,
   UpdatePPPoEPortsResponse,
+  PPPoEOverviewResponse,
+  PPPoEDiagnoseResponse,
+  PPPoELogsResponse,
+  PPPoESecretsResponse,
+  HotspotOverviewResponse,
+  HotspotLogsResponse,
+  PortStatusResponse,
+  MacDiagnoseResponse,
+  RouterUptimeResponse,
   WalledGardenResponse,
-  AddWalledGardenIpRequest,
   AddWalledGardenDomainRequest,
-  WalledGardenActionResponse,
+  AddWalledGardenIpRequest,
 } from './types';
 
 const BASE_URL = 'https://isp.bitwavetechnologies.net/api';
@@ -263,11 +271,11 @@ class ApiClient {
     return this.handleResponse<Plan>(response);
   }
 
-  async updatePlan(planId: number, data: UpdatePlanRequest): Promise<Plan> {
+  async updatePlan(planId: number, updates: UpdatePlanRequest): Promise<Plan> {
     const response = await fetch(`${BASE_URL}/plans/${planId}`, {
       method: 'PUT',
       headers: this.getHeaders(),
-      body: JSON.stringify(data),
+      body: JSON.stringify(updates),
     });
     return this.handleResponse<Plan>(response);
   }
@@ -280,20 +288,20 @@ class ApiClient {
     return this.handleResponse(response);
   }
 
-  async activateEmergencyMode(): Promise<EmergencyModeResponse> {
-    const response = await fetch(`${BASE_URL}/plans/activate-emergency`, {
+  async activateEmergencyMode(): Promise<{ message: string }> {
+    const response = await fetch(`${BASE_URL}/plans/emergency/activate`, {
       method: 'POST',
       headers: this.getHeaders(),
     });
-    return this.handleResponse<EmergencyModeResponse>(response);
+    return this.handleResponse(response);
   }
 
-  async deactivateEmergencyMode(): Promise<EmergencyModeResponse> {
-    const response = await fetch(`${BASE_URL}/plans/deactivate-emergency`, {
+  async deactivateEmergencyMode(): Promise<{ message: string }> {
+    const response = await fetch(`${BASE_URL}/plans/emergency/deactivate`, {
       method: 'POST',
       headers: this.getHeaders(),
     });
-    return this.handleResponse<EmergencyModeResponse>(response);
+    return this.handleResponse(response);
   }
 
   async getPlanPerformance(
@@ -364,6 +372,17 @@ class ApiClient {
     return this.handleResponse<TransactionSummary>(response);
   }
 
+  async manualProvisionTransaction(
+    paymentMethod: string,
+    transactionId: number
+  ): Promise<ManualProvisionResponse> {
+    const response = await fetch(
+      `${BASE_URL}/transactions/${paymentMethod}/${transactionId}/manual-provision`,
+      { method: 'POST', headers: this.getHeaders() }
+    );
+    return this.handleResponse<ManualProvisionResponse>(response);
+  }
+
   // Routers
   async getRouters(): Promise<Router[]> {
     const response = await fetch(`${BASE_URL}/routers`, {
@@ -403,6 +422,13 @@ class ApiClient {
       headers: this.getHeaders(),
     });
     return this.handleResponse<Router[]>(response);
+  }
+
+  async getRouterUptime(routerId: number, hours = 24, recentChecks = 50): Promise<RouterUptimeResponse> {
+    const response = await fetch(`${BASE_URL}/routers/${routerId}/uptime?hours=${hours}&recent_checks=${recentChecks}`, {
+      headers: this.getHeaders(true),
+    });
+    return this.handleResponse<RouterUptimeResponse>(response);
   }
 
   async getRouterUsers(routerId: number): Promise<RouterUsersResponse> {
@@ -748,47 +774,112 @@ class ApiClient {
     return this.handleResponse<PPPoEActiveResponse>(response);
   }
 
+  // Network Diagnostics - PPPoE
+  async getPPPoEOverview(routerId: number, refresh = false): Promise<PPPoEOverviewResponse> {
+    const params = refresh ? '?refresh=true' : '';
+    const response = await fetch(`${BASE_URL}/pppoe/${routerId}/overview${params}`, {
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<PPPoEOverviewResponse>(response);
+  }
+
+  async diagnosePPPoE(routerId: number, username: string): Promise<PPPoEDiagnoseResponse> {
+    const response = await fetch(`${BASE_URL}/pppoe/${routerId}/diagnose/${encodeURIComponent(username)}`, {
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<PPPoEDiagnoseResponse>(response);
+  }
+
+  async getPPPoELogs(routerId: number, username?: string, limit = 50): Promise<PPPoELogsResponse> {
+    const params = new URLSearchParams({ limit: limit.toString() });
+    if (username) params.set('username', username);
+    const response = await fetch(`${BASE_URL}/pppoe/${routerId}/logs?${params.toString()}`, {
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<PPPoELogsResponse>(response);
+  }
+
+  async getPPPoESecrets(routerId: number): Promise<PPPoESecretsResponse> {
+    const response = await fetch(`${BASE_URL}/pppoe/${routerId}/secrets`, {
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<PPPoESecretsResponse>(response);
+  }
+
+  // Network Diagnostics - Hotspot
+  async getHotspotOverview(routerId: number, refresh = false): Promise<HotspotOverviewResponse> {
+    const params = refresh ? '?refresh=true' : '';
+    const response = await fetch(`${BASE_URL}/hotspot/${routerId}/overview${params}`, {
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<HotspotOverviewResponse>(response);
+  }
+
+  async getHotspotLogs(routerId: number, search?: string, limit = 50): Promise<HotspotLogsResponse> {
+    const params = new URLSearchParams({ limit: limit.toString() });
+    if (search) params.set('search', search);
+    const response = await fetch(`${BASE_URL}/hotspot/${routerId}/logs?${params.toString()}`, {
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<HotspotLogsResponse>(response);
+  }
+
+  // Network Diagnostics - Shared
+  async getPortStatus(routerId: number, refresh = false): Promise<PortStatusResponse> {
+    const params = refresh ? '?refresh=true' : '';
+    const response = await fetch(`${BASE_URL}/routers/${routerId}/ports${params}`, {
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<PortStatusResponse>(response);
+  }
+
+  async diagnoseMac(routerId: number, macAddress: string): Promise<MacDiagnoseResponse> {
+    const response = await fetch(`${BASE_URL}/routers/${routerId}/diagnose/${encodeURIComponent(macAddress)}`, {
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<MacDiagnoseResponse>(response);
+  }
+
   // Walled Garden
   async getWalledGarden(routerId: number): Promise<WalledGardenResponse> {
-    const response = await fetch(
-      `${BASE_URL}/mikrotik/walled-garden?router_id=${routerId}`,
-      { headers: this.getHeaders() }
-    );
+    const response = await fetch(`${BASE_URL}/mikrotik/walled-garden?router_id=${routerId}`, {
+      headers: this.getHeaders(),
+    });
     return this.handleResponse<WalledGardenResponse>(response);
   }
 
-  async addWalledGardenIp(data: AddWalledGardenIpRequest): Promise<WalledGardenActionResponse> {
-    const response = await fetch(`${BASE_URL}/mikrotik/walled-garden/ip`, {
+  async addWalledGardenDomain(data: AddWalledGardenDomainRequest): Promise<{ message: string }> {
+    const response = await fetch(`${BASE_URL}/mikrotik/walled-garden/domain?router_id=${data.router_id}`, {
       method: 'POST',
       headers: this.getHeaders(),
-      body: JSON.stringify(data),
+      body: JSON.stringify({ dst_host: data.dst_host, comment: data.comment }),
     });
-    return this.handleResponse<WalledGardenActionResponse>(response);
+    return this.handleResponse<{ message: string }>(response);
   }
 
-  async addWalledGardenDomain(data: AddWalledGardenDomainRequest): Promise<WalledGardenActionResponse> {
-    const response = await fetch(`${BASE_URL}/mikrotik/walled-garden/domain`, {
+  async addWalledGardenIp(data: AddWalledGardenIpRequest): Promise<{ message: string }> {
+    const response = await fetch(`${BASE_URL}/mikrotik/walled-garden/ip?router_id=${data.router_id}`, {
       method: 'POST',
       headers: this.getHeaders(),
-      body: JSON.stringify(data),
+      body: JSON.stringify({ dst_address: data.dst_address, comment: data.comment }),
     });
-    return this.handleResponse<WalledGardenActionResponse>(response);
+    return this.handleResponse<{ message: string }>(response);
   }
 
-  async removeWalledGardenIp(entryId: string, routerId: number): Promise<WalledGardenActionResponse> {
-    const response = await fetch(
-      `${BASE_URL}/mikrotik/walled-garden/ip/${entryId}?router_id=${routerId}`,
-      { method: 'DELETE', headers: this.getHeaders() }
-    );
-    return this.handleResponse<WalledGardenActionResponse>(response);
+  async removeWalledGardenDomain(entryId: string, routerId: number): Promise<{ message: string }> {
+    const response = await fetch(`${BASE_URL}/mikrotik/walled-garden/domain/${encodeURIComponent(entryId)}?router_id=${routerId}`, {
+      method: 'DELETE',
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<{ message: string }>(response);
   }
 
-  async removeWalledGardenDomain(entryId: string, routerId: number): Promise<WalledGardenActionResponse> {
-    const response = await fetch(
-      `${BASE_URL}/mikrotik/walled-garden/domain/${entryId}?router_id=${routerId}`,
-      { method: 'DELETE', headers: this.getHeaders() }
-    );
-    return this.handleResponse<WalledGardenActionResponse>(response);
+  async removeWalledGardenIp(entryId: string, routerId: number): Promise<{ message: string }> {
+    const response = await fetch(`${BASE_URL}/mikrotik/walled-garden/ip/${encodeURIComponent(entryId)}?router_id=${routerId}`, {
+      method: 'DELETE',
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<{ message: string }>(response);
   }
 }
 

@@ -48,7 +48,7 @@ export default function MobileBottomNav() {
   const pathname = usePathname();
   const [showMoreMenu, setShowMoreMenu] = useState(false);
 
-  const isMoreActive = ['/plans', '/ratings', '/advertisers', '/ads', '/ads/analytics', '/walled-garden'].some(path => pathname?.startsWith(path));
+  const isMoreActive = ['/plans', '/ratings', '/advertisers', '/ads', '/ads/analytics', '/walled-garden', '/diagnostics'].some(path => pathname?.startsWith(path));
 
   // Close More menu when navigating to a different page
   useEffect(() => {

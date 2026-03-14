@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { api } from '../lib/api';
 import {
   Router,
@@ -14,6 +14,8 @@ import {
   PPPoEActiveResponse,
   PPPoESession,
   RouterInterfaceInfo,
+  RouterUptimeResponse,
+  UptimeCheck,
 } from '../lib/types';
 import Header from '../components/Header';
 import { PageLoader } from '../components/LoadingSpinner';
@@ -93,6 +95,12 @@ export default function RoutersPage() {
 
   // PPPoE port provisioning state
   const [portsRouter, setPortsRouter] = useState<Router | null>(null);
+
+  // Uptime state
+  const [uptimeRouter, setUptimeRouter] = useState<number | null>(null);
+  const [uptimeData, setUptimeData] = useState<RouterUptimeResponse | null>(null);
+  const [uptimeLoading, setUptimeLoading] = useState(false);
+  const [uptimeHours, setUptimeHours] = useState(168); // 7 days default
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -193,6 +201,19 @@ export default function RoutersPage() {
       setGenerating(false);
     }
   };
+
+  const loadUptime = useCallback(async (routerId: number, hours = uptimeHours) => {
+    try {
+      setUptimeLoading(true);
+      setUptimeRouter(routerId);
+      const data = await api.getRouterUptime(routerId, hours, 200);
+      setUptimeData(data);
+    } catch (err) {
+      setUptimeData(null);
+    } finally {
+      setUptimeLoading(false);
+    }
+  }, [uptimeHours]);
 
   const formatBytes = (bytes: string) => {
     const num = parseInt(bytes);
@@ -299,6 +320,13 @@ export default function RoutersPage() {
           loadPPPoESessions={loadPPPoESessions}
           usersSubTab={usersSubTab}
           setUsersSubTab={setUsersSubTab}
+          uptimeRouter={uptimeRouter}
+          uptimeData={uptimeData}
+          uptimeLoading={uptimeLoading}
+          uptimeHours={uptimeHours}
+          setUptimeHours={setUptimeHours}
+          loadUptime={loadUptime}
+          setUptimeRouter={setUptimeRouter}
         />
       ) : (
         <ProvisionTab
@@ -377,6 +405,13 @@ function RoutersTab({
   loadPPPoESessions,
   usersSubTab,
   setUsersSubTab,
+  uptimeRouter,
+  uptimeData,
+  uptimeLoading,
+  uptimeHours,
+  setUptimeHours,
+  loadUptime,
+  setUptimeRouter,
 }: {
   routers: Router[];
   loading: boolean;
@@ -399,6 +434,13 @@ function RoutersTab({
   loadPPPoESessions: (routerId: number) => Promise<void>;
   usersSubTab: 'hotspot' | 'pppoe';
   setUsersSubTab: (tab: 'hotspot' | 'pppoe') => void;
+  uptimeRouter: number | null;
+  uptimeData: RouterUptimeResponse | null;
+  uptimeLoading: boolean;
+  uptimeHours: number;
+  setUptimeHours: (h: number) => void;
+  loadUptime: (routerId: number, hours?: number) => Promise<void>;
+  setUptimeRouter: (id: number | null) => void;
 }) {
   if (error) {
     return (
@@ -439,6 +481,15 @@ function RoutersTab({
       >
         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+        </svg>
+      </button>
+      <button
+        onClick={(e) => { e.stopPropagation(); loadUptime(router.id); }}
+        className={`p-1.5 rounded-lg hover:bg-emerald-500/10 text-foreground-muted hover:text-emerald-500 transition-colors ${uptimeRouter === router.id ? 'bg-emerald-500/10 text-emerald-500' : ''}`}
+        title="View uptime"
+      >
+        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
         </svg>
       </button>
       <button
@@ -538,11 +589,11 @@ function RoutersTab({
                   subtitle={`${router.ip_address}:${router.port}`}
                   avatar={{
                     text: router.name.charAt(0).toUpperCase(),
-                    color: 'primary',
+                    color: router.status === 'online' ? 'success' : router.status === 'offline' ? 'danger' : 'primary',
                   }}
                   status={{
-                    label: 'Online',
-                    variant: 'success',
+                    label: router.status === 'online' ? 'Online' : router.status === 'offline' ? 'Offline' : 'Unknown',
+                    variant: router.status === 'online' ? 'success' : router.status === 'offline' ? 'danger' : 'neutral',
                   }}
                   value={{
                     text: router.identity || '-',
@@ -683,7 +734,20 @@ function RoutersTab({
                     </span>
                   );
                 case 'status':
-                  return <span className="badge badge-success">Online</span>;
+                  return (
+                    <div className="flex items-center gap-2">
+                      <span className={`badge ${
+                        router.status === 'online' ? 'badge-success' :
+                        router.status === 'offline' ? 'badge-danger' :
+                        'badge-neutral'
+                      }`}>
+                        {router.status === 'online' ? 'Online' : router.status === 'offline' ? 'Offline' : 'Unknown'}
+                      </span>
+                      {router.status_is_stale && (
+                        <span className="text-[10px] text-amber-400" title="Status data is stale">Stale</span>
+                      )}
+                    </div>
+                  );
                 case 'actions':
                   return renderActions(router);
                 default:
@@ -790,9 +854,194 @@ function RoutersTab({
               )}
             </div>
           )}
+          {/* Uptime Detail Panel */}
+          {uptimeRouter && (
+            <div className="card mt-4 p-4 sm:p-6 animate-fade-in">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+                    uptimeData?.current_status.status === 'online' ? 'bg-emerald-500/10' :
+                    uptimeData?.current_status.status === 'offline' ? 'bg-red-500/10' :
+                    'bg-foreground-muted/10'
+                  }`}>
+                    <svg className={`w-5 h-5 ${
+                      uptimeData?.current_status.status === 'online' ? 'text-emerald-500' :
+                      uptimeData?.current_status.status === 'offline' ? 'text-red-500' :
+                      'text-foreground-muted'
+                    }`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h4 className="font-semibold text-foreground">
+                      {routers.find(r => r.id === uptimeRouter)?.name} — Uptime
+                    </h4>
+                    {uptimeData && (
+                      <p className="text-xs text-foreground-muted">
+                        Currently {uptimeData.current_status.status} &middot; checked {Math.round(uptimeData.current_status.status_age_seconds)}s ago
+                      </p>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <select
+                    value={uptimeHours}
+                    onChange={(e) => {
+                      const h = parseInt(e.target.value);
+                      setUptimeHours(h);
+                      loadUptime(uptimeRouter, h);
+                    }}
+                    className="text-xs bg-background-tertiary border border-border rounded-lg px-2 py-1.5 text-foreground"
+                  >
+                    <option value={24}>Last 24 hours</option>
+                    <option value={72}>Last 3 days</option>
+                    <option value={168}>Last 7 days</option>
+                    <option value={720}>Last 30 days</option>
+                  </select>
+                  <button
+                    onClick={() => setUptimeRouter(null)}
+                    className="p-1.5 rounded-lg hover:bg-background-tertiary text-foreground-muted transition-colors"
+                    title="Close"
+                  >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+
+              {uptimeLoading && !uptimeData ? (
+                <div className="flex justify-center py-8">
+                  <div className="w-6 h-6 border-2 border-accent-primary/30 border-t-accent-primary rounded-full animate-spin" />
+                </div>
+              ) : uptimeData ? (
+                <UptimePanel data={uptimeData} />
+              ) : (
+                <p className="text-center text-foreground-muted py-6 text-sm">Failed to load uptime data</p>
+              )}
+            </div>
+          )}
         </PullToRefresh>
       )}
     </>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Uptime Kuma-style Bar Chart
+// ---------------------------------------------------------------------------
+
+function UptimePanel({ data }: { data: RouterUptimeResponse }) {
+  const checks = [...data.recent_checks].sort(
+    (a, b) => new Date(a.checked_at).getTime() - new Date(b.checked_at).getTime()
+  );
+
+  const uptimePct = data.window.uptime_percentage;
+  const overallPct = data.overall.uptime_percentage;
+
+  const getBarColor = (check: UptimeCheck) =>
+    check.is_online ? 'bg-emerald-500' : 'bg-red-500';
+
+  const getBarHoverColor = (check: UptimeCheck) =>
+    check.is_online ? 'hover:bg-emerald-400' : 'hover:bg-red-400';
+
+  const formatCheckTime = (dateStr: string) => {
+    try {
+      const d = new Date(dateStr);
+      return d.toLocaleString('en-GB', {
+        day: '2-digit', month: 'short',
+        hour: '2-digit', minute: '2-digit',
+      });
+    } catch { return '-'; }
+  };
+
+  const pctColor = (pct: number) =>
+    pct >= 99 ? 'text-emerald-500' :
+    pct >= 95 ? 'text-emerald-400' :
+    pct >= 90 ? 'text-amber-400' :
+    'text-red-400';
+
+  return (
+    <div className="space-y-5">
+      {/* Stats row */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="p-3 rounded-lg bg-background-tertiary">
+          <p className="text-[10px] uppercase tracking-wider text-foreground-muted mb-1">Window Uptime</p>
+          <p className={`text-xl font-bold ${pctColor(uptimePct)}`}>{uptimePct.toFixed(2)}%</p>
+        </div>
+        <div className="p-3 rounded-lg bg-background-tertiary">
+          <p className="text-[10px] uppercase tracking-wider text-foreground-muted mb-1">Overall Uptime</p>
+          <p className={`text-xl font-bold ${pctColor(overallPct)}`}>{overallPct.toFixed(2)}%</p>
+        </div>
+        <div className="p-3 rounded-lg bg-background-tertiary">
+          <p className="text-[10px] uppercase tracking-wider text-foreground-muted mb-1">Checks (Window)</p>
+          <p className="text-xl font-bold text-foreground">
+            <span className="text-emerald-500">{data.window.online_checks}</span>
+            <span className="text-foreground-muted text-sm font-normal"> / {data.window.total_checks}</span>
+          </p>
+        </div>
+        <div className="p-3 rounded-lg bg-background-tertiary">
+          <p className="text-[10px] uppercase tracking-wider text-foreground-muted mb-1">Status</p>
+          <div className="flex items-center gap-2 mt-1">
+            <span className={`w-2.5 h-2.5 rounded-full ${
+              data.current_status.status === 'online' ? 'bg-emerald-500 animate-pulse' :
+              data.current_status.status === 'offline' ? 'bg-red-500' :
+              'bg-foreground-muted'
+            }`} />
+            <span className="text-lg font-bold text-foreground capitalize">{data.current_status.status}</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Uptime bar (Uptime Kuma style) */}
+      {checks.length > 0 && (
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-xs font-medium text-foreground-muted">
+              {formatCheckTime(checks[0].checked_at)}
+            </p>
+            <p className="text-xs font-medium text-foreground-muted">
+              {formatCheckTime(checks[checks.length - 1].checked_at)}
+            </p>
+          </div>
+          <div className="flex gap-[2px] h-10 items-end">
+            {checks.map((check, i) => (
+              <div
+                key={i}
+                className={`flex-1 min-w-[3px] max-w-[8px] rounded-sm transition-all cursor-pointer ${getBarColor(check)} ${getBarHoverColor(check)} group relative`}
+                style={{ height: '100%' }}
+                title={`${formatCheckTime(check.checked_at)} — ${check.is_online ? 'Online' : 'Offline'} (${check.source})`}
+              >
+                <div className="hidden group-hover:block absolute bottom-full mb-2 left-1/2 -translate-x-1/2 z-10 whitespace-nowrap">
+                  <div className="bg-background-secondary border border-border rounded-lg shadow-lg px-3 py-2 text-xs">
+                    <p className="font-medium text-foreground">{check.is_online ? 'Online' : 'Offline'}</p>
+                    <p className="text-foreground-muted">{formatCheckTime(check.checked_at)}</p>
+                    <p className="text-foreground-muted">{check.source}</p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="flex items-center justify-between mt-2">
+            <div className="flex items-center gap-3 text-[10px] text-foreground-muted">
+              <span className="flex items-center gap-1">
+                <span className="w-2 h-2 rounded-sm bg-emerald-500" /> Online
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="w-2 h-2 rounded-sm bg-red-500" /> Offline
+              </span>
+            </div>
+            <p className="text-[10px] text-foreground-muted">{checks.length} checks</p>
+          </div>
+        </div>
+      )}
+
+      {checks.length === 0 && (
+        <div className="text-center py-6 text-foreground-muted text-sm">
+          No check data available for this time window
+        </div>
+      )}
+    </div>
   );
 }
 

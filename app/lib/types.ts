@@ -268,8 +268,8 @@ export interface Plan {
   router_profile?: string;
   user_id?: number;
   created_at?: string;
-  plan_type?: 'regular' | 'emergency';
   is_hidden?: boolean;
+  plan_type?: 'regular' | 'emergency';
   badge_text?: string | null;
   original_price?: number | null;
   valid_until?: string | null;
@@ -291,28 +291,8 @@ export interface CreatePlanRequest {
   valid_until?: string | null;
 }
 
-export interface UpdatePlanRequest {
-  name?: string;
-  speed?: string;
-  price?: number;
-  duration_value?: number;
-  duration_unit?: 'HOURS' | 'DAYS' | 'MINUTES';
-  connection_type?: 'hotspot' | 'pppoe';
-  router_profile?: string;
-  plan_type?: 'regular' | 'emergency';
+export interface UpdatePlanRequest extends Partial<CreatePlanRequest> {
   is_hidden?: boolean;
-  badge_text?: string | null;
-  original_price?: number | null;
-  valid_until?: string | null;
-}
-
-export interface EmergencyModeResponse {
-  success: boolean;
-  message: string;
-  regular_plans_hidden?: number;
-  emergency_plans_shown?: number;
-  regular_plans_shown?: number;
-  emergency_plans_hidden?: number;
 }
 
 export interface PlanPerformanceDetail {
@@ -348,6 +328,7 @@ export interface TransactionRouter {
   id: number;
   name: string;
   ip_address: string;
+  auth_method: 'DIRECT_API' | 'RADIUS' | null;
 }
 
 export interface TransactionPlan {
@@ -356,6 +337,7 @@ export interface TransactionPlan {
   price: number;
   duration_value: number;
   duration_unit: string;
+  connection_type: 'hotspot' | 'pppoe' | 'static_ip' | null;
 }
 
 export interface MpesaTransaction {
@@ -377,6 +359,32 @@ export interface MpesaTransaction {
   customer: TransactionCustomer;
   router: TransactionRouter;
   plan: TransactionPlan;
+  manual_provision_supported: boolean;
+  manual_provision_reason: string | null;
+}
+
+export interface ManualProvisionResponse {
+  success: boolean;
+  payment_method: string;
+  transaction_id: number;
+  reference: string | null;
+  customer_id: number;
+  router_id: number;
+  router_name: string;
+  provisioning_error: string | null;
+  provisioning_result: {
+    message: string;
+    user_details: {
+      username: string;
+      mac_address: string;
+      time_limit: string;
+      bandwidth_limit: string;
+      rate_limit: string;
+      profile: string;
+    };
+    success: boolean;
+    provisioning_error: string | null;
+  } | null;
 }
 
 export interface StatusBreakdown {
@@ -411,6 +419,8 @@ export interface TransactionSummary {
 // Router Types
 export type PaymentMethod = 'mpesa' | 'voucher';
 
+export type RouterStatus = 'online' | 'offline' | 'unknown';
+
 export interface Router {
   id: number;
   name: string;
@@ -419,6 +429,53 @@ export interface Router {
   port: number;
   auth_method: string;
   payment_methods?: PaymentMethod[];
+  pppoe_ports?: string[];
+  status?: RouterStatus;
+  status_is_stale?: boolean;
+  status_age_seconds?: number;
+  status_last_checked_at?: string;
+  last_online_at?: string;
+  status_source?: string;
+  availability_checks?: number;
+  availability_successes?: number;
+}
+
+export interface UptimeCheck {
+  checked_at: string;
+  is_online: boolean;
+  source: string;
+}
+
+export interface RouterUptimeResponse {
+  router_id: number;
+  router_name: string;
+  generated_at: string;
+  current_status: {
+    status: RouterStatus;
+    status_is_stale: boolean;
+    status_age_seconds: number;
+    status_last_checked_at: string;
+    last_online_at: string;
+    status_source: string;
+    availability_checks: number;
+    availability_successes: number;
+  };
+  overall: {
+    total_checks: number;
+    online_checks: number;
+    uptime_percentage: number;
+  };
+  window: {
+    hours: number;
+    from: string;
+    to: string;
+    first_check_at: string;
+    last_check_at: string;
+    total_checks: number;
+    online_checks: number;
+    uptime_percentage: number;
+  };
+  recent_checks: UptimeCheck[];
 }
 
 export interface CreateRouterRequest {
@@ -876,43 +933,220 @@ export interface VoucherFilters {
   per_page?: number;
 }
 
-// Walled Garden Types
+// Network Diagnostics Types
+
+export interface HealthCheck {
+  check: string;
+  description: string;
+  passed: boolean;
+  detail: unknown;
+  any_port_up?: boolean;
+  specific_pppoe_rule?: boolean;
+  any_masquerade?: boolean;
+}
+
+export interface DiagnosticIssue {
+  severity: 'critical' | 'warning' | 'info';
+  layer?: string;
+  check?: string;
+  message: string;
+  recommendation?: string;
+}
+
+export interface LogEntry {
+  time: string;
+  topics: string;
+  message: string;
+}
+
+export interface PPPoEOverviewResponse {
+  router_id: number;
+  router_name: string;
+  generated_at: string;
+  cached: boolean;
+  cache_age_seconds?: number;
+  stale?: boolean;
+  success: boolean;
+  healthy: boolean;
+  active_sessions: number;
+  checks: HealthCheck[];
+}
+
+export interface PPPoEDiagnoseCustomer {
+  customer_id: number;
+  name: string;
+  phone: string;
+  status: string;
+  expiry: string | null;
+  is_expired: boolean;
+  plan: string | null;
+  plan_speed: number | null;
+}
+
+export interface PPPoEDiagnoseResponse {
+  router_id: number;
+  router_name: string;
+  generated_at: string;
+  customer: PPPoEDiagnoseCustomer | null;
+  success: boolean;
+  username: string;
+  status: string;
+  issues_count: number;
+  has_critical: boolean;
+  issues: DiagnosticIssue[];
+  info: Record<string, unknown>;
+}
+
+export interface PPPoELogsResponse {
+  router_id: number;
+  router_name: string;
+  filter_username: string | null;
+  generated_at: string;
+  notable_entries_persisted: number;
+  success: boolean;
+  data: LogEntry[];
+  count: number;
+}
+
+export interface PPPoESecretEntry {
+  name: string;
+  service: string;
+  profile: string;
+  disabled: boolean;
+  comment: string;
+  last_logged_out: string;
+  last_disconnect_reason: string;
+  last_caller_id: string;
+  online: boolean;
+  session: Record<string, unknown> | null;
+  profile_detail: Record<string, unknown> | null;
+  db_customer: {
+    id: number;
+    name: string;
+    status: string;
+    expiry: string | null;
+  } | null;
+}
+
+export interface PPPoESecretsResponse {
+  router_id: number;
+  router_name: string;
+  generated_at: string;
+  success: boolean;
+  data: PPPoESecretEntry[];
+  count: number;
+}
+
+export interface HotspotOverviewResponse {
+  router_id: number;
+  router_name: string;
+  generated_at: string;
+  cached: boolean;
+  cache_age_seconds?: number;
+  stale?: boolean;
+  success: boolean;
+  healthy: boolean;
+  active_sessions: number;
+  checks: HealthCheck[];
+}
+
+export interface HotspotLogsResponse {
+  router_id: number;
+  router_name: string;
+  filter_search: string | null;
+  generated_at: string;
+  notable_entries_persisted: number;
+  success: boolean;
+  data: LogEntry[];
+  count: number;
+}
+
+export interface PortEntry {
+  port: string;
+  bridge: string;
+  service: 'hotspot' | 'pppoe' | 'unassigned';
+  link_up: boolean;
+  disabled: boolean;
+  rx_byte: number;
+  tx_byte: number;
+  rx_error: number;
+  tx_error: number;
+  rx_drop: number;
+  tx_drop: number;
+  link_downs: number;
+  last_link_up_time: string;
+  actual_mtu: number;
+}
+
+export interface BridgeEntry {
+  name: string;
+  running: boolean;
+  disabled: boolean;
+  port_count: number;
+}
+
+export interface PortStatusResponse {
+  router_id: number;
+  router_name: string;
+  pppoe_ports: string[];
+  generated_at: string;
+  cached: boolean;
+  cache_age_seconds?: number;
+  stale?: boolean;
+  ports: PortEntry[];
+  bridges: BridgeEntry[];
+}
+
+// Walled Garden
 export interface WalledGardenDomainEntry {
   '.id': string;
   'dst-host': string;
   action: string;
-  comment: string;
+  comment?: string;
 }
 
 export interface WalledGardenIpEntry {
   '.id': string;
   'dst-address': string;
   action: string;
-  comment: string;
+  comment?: string;
 }
 
 export interface WalledGardenResponse {
-  success: boolean;
   domain_entries: WalledGardenDomainEntry[];
   ip_entries: WalledGardenIpEntry[];
-}
-
-export interface AddWalledGardenIpRequest {
-  router_id: number;
-  dst_address: string;
-  comment: string;
 }
 
 export interface AddWalledGardenDomainRequest {
   router_id: number;
   dst_host: string;
-  comment: string;
+  comment?: string;
 }
 
-export interface WalledGardenActionResponse {
-  success: boolean;
-  action: string;
-  dst_address?: string;
-  dst_host?: string;
-  id?: string;
+export interface AddWalledGardenIpRequest {
+  router_id: number;
+  dst_address: string;
+  comment?: string;
+}
+
+export interface MacDiagnoseResponse {
+  mac_address: string;
+  normalized: string;
+  username_format: string;
+  database_info: {
+    customer_id: number;
+    name: string;
+    status: string;
+    router_id: number;
+    expiry: string | null;
+    is_expired: boolean;
+  } | null;
+  infrastructure: Record<string, unknown>;
+  infrastructure_issues: DiagnosticIssue[];
+  router_entries: Record<string, unknown[]>;
+  diagnosis: string[];
+  recommendations: DiagnosticIssue[];
+  can_access_internet: boolean;
+  total_router_entries: number;
+  total_issues: number;
 }
