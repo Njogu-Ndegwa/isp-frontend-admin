@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { api } from '../lib/api';
-import { Plan, UpdatePlanRequest } from '../lib/types';
+import { Plan, UpdatePlanRequest, Router } from '../lib/types';
 import Header from '../components/Header';
 import { PageLoader } from '../components/LoadingSpinner';
 import PullToRefresh from '../components/PullToRefresh';
@@ -40,9 +40,12 @@ export default function PlansPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [emergencyLoading, setEmergencyLoading] = useState(false);
   const [emergencyMessage, setEmergencyMessage] = useState<string | null>(null);
+  const [routers, setRouters] = useState<Router[]>([]);
+  const [selectedEmergencyRouter, setSelectedEmergencyRouter] = useState<number | null>(null);
 
   useEffect(() => {
     loadData();
+    loadRouters();
   }, []);
 
   const loadData = async () => {
@@ -84,15 +87,29 @@ export default function PlansPage() {
     }
   };
 
+  const loadRouters = async () => {
+    try {
+      const data = await api.getRouters();
+      setRouters(data);
+      if (data.length > 0 && !selectedEmergencyRouter) {
+        setSelectedEmergencyRouter(data[0].id);
+      }
+    } catch {
+      // Non-critical, routers are only needed for emergency
+    }
+  };
+
   const handleEmergencyMode = async (activate: boolean) => {
+    if (!selectedEmergencyRouter) return;
     try {
       setEmergencyLoading(true);
       setEmergencyMessage(null);
       const result = activate
-        ? await api.activateEmergencyMode()
-        : await api.deactivateEmergencyMode();
+        ? await api.activateEmergencyMode({ router_id: selectedEmergencyRouter })
+        : await api.deactivateEmergencyMode({ router_id: selectedEmergencyRouter });
       setEmergencyMessage(result.message);
       await loadData();
+      await loadRouters();
       setTimeout(() => setEmergencyMessage(null), 5000);
     } catch (err) {
       setDeleteError(err instanceof Error ? err.message : 'Failed to toggle emergency mode');
@@ -113,11 +130,8 @@ export default function PlansPage() {
   };
 
   const hasEmergencyPlans = plans.some((p) => p.plan_type === 'emergency');
-  const isEmergencyActive = plans.some(
-    (p) => p.plan_type === 'emergency' && !p.is_hidden
-  ) && plans.some(
-    (p) => p.plan_type === 'regular' && p.is_hidden
-  );
+  const anyRouterInEmergency = routers.some((r) => r.emergency_active);
+  const selectedRouterInEmergency = routers.find((r) => r.id === selectedEmergencyRouter)?.emergency_active ?? false;
 
   const filteredPlans = plans.filter((plan) => {
     if (activeTab === 'regular' && plan.plan_type === 'emergency') return false;
@@ -160,7 +174,27 @@ export default function PlansPage() {
     <div>
       <Header title="Plans" subtitle="Manage your internet plans and pricing" />
 
-      {/* Emergency Mode Banner */}
+      {/* Emergency Active Indicator */}
+      {anyRouterInEmergency && (
+        <div className="mb-4 p-3 rounded-lg bg-danger/10 border border-danger/30 flex items-center gap-3 animate-fade-in">
+          <svg className="w-5 h-5 text-danger flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          </svg>
+          <div className="flex-1">
+            <span className="text-danger font-semibold text-sm">Emergency Mode Active</span>
+            <span className="text-danger/80 text-sm ml-2">
+              {routers.filter(r => r.emergency_active).map(r => r.name).join(', ')}
+            </span>
+            {routers.find(r => r.emergency_active)?.emergency_message && (
+              <p className="text-danger/70 text-xs mt-0.5">
+                {routers.find(r => r.emergency_active)?.emergency_message}
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Action Success/Feedback Banner */}
       {emergencyMessage && (
         <div className="mb-4 p-4 rounded-lg bg-warning/10 border border-warning/30 flex items-center gap-3 animate-fade-in">
           <svg className="w-5 h-5 text-warning flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -184,25 +218,40 @@ export default function PlansPage() {
           <span>{filteredPlans.length} plans{activeTab !== 'all' ? ` (${activeTab})` : ''}</span>
         </div>
         <div className="flex gap-2 flex-wrap">
-          {hasEmergencyPlans && (
-            <button
-              onClick={() => handleEmergencyMode(!isEmergencyActive)}
-              disabled={emergencyLoading}
-              className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                isEmergencyActive
-                  ? 'bg-danger/10 text-danger border border-danger/30 hover:bg-danger/20'
-                  : 'bg-warning/10 text-warning border border-warning/30 hover:bg-warning/20'
-              }`}
-            >
-              {emergencyLoading ? (
-                <div className="w-4 h-4 border-2 border-current/30 border-t-current rounded-full animate-spin" />
-              ) : (
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                </svg>
+          {hasEmergencyPlans && routers.length > 0 && (
+            <div className="flex items-center gap-2">
+              {routers.length > 1 && (
+                <select
+                  value={selectedEmergencyRouter ?? ''}
+                  onChange={(e) => setSelectedEmergencyRouter(parseInt(e.target.value, 10))}
+                  className="appearance-none px-2 py-2 pr-7 text-sm bg-background-tertiary border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-amber-500 cursor-pointer"
+                >
+                  {routers.map((r) => (
+                    <option key={r.id} value={r.id}>
+                      {r.name} {r.emergency_active ? '(emergency)' : ''}
+                    </option>
+                  ))}
+                </select>
               )}
-              {isEmergencyActive ? 'Deactivate Emergency' : 'Activate Emergency'}
-            </button>
+              <button
+                onClick={() => handleEmergencyMode(!selectedRouterInEmergency)}
+                disabled={emergencyLoading || !selectedEmergencyRouter}
+                className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  selectedRouterInEmergency
+                    ? 'bg-danger/10 text-danger border border-danger/30 hover:bg-danger/20'
+                    : 'bg-warning/10 text-warning border border-warning/30 hover:bg-warning/20'
+                }`}
+              >
+                {emergencyLoading ? (
+                  <div className="w-4 h-4 border-2 border-current/30 border-t-current rounded-full animate-spin" />
+                ) : (
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                  </svg>
+                )}
+                {selectedRouterInEmergency ? 'Deactivate Emergency' : 'Activate Emergency'}
+              </button>
+            </div>
           )}
           <button onClick={loadData} className="btn-secondary flex items-center gap-2">
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">

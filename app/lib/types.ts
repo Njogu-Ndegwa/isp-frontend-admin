@@ -438,6 +438,8 @@ export interface Router {
   status_source?: string;
   availability_checks?: number;
   availability_successes?: number;
+  emergency_active?: boolean;
+  emergency_message?: string | null;
 }
 
 export interface UptimeCheck {
@@ -495,6 +497,28 @@ export interface UpdateRouterRequest {
   password?: string;
   port?: number;
   payment_methods?: PaymentMethod[];
+  emergency_active?: boolean;
+  emergency_message?: string | null;
+}
+
+export interface ActivateEmergencyRequest {
+  router_id: number;
+  message?: string;
+}
+
+export interface DeactivateEmergencyRequest {
+  router_id: number;
+}
+
+export interface EmergencyModeResponse {
+  success: boolean;
+  message: string;
+  router_id: number;
+  emergency_message?: string;
+  regular_plans_hidden?: number;
+  emergency_plans_shown?: number;
+  regular_plans_shown?: number;
+  emergency_plans_hidden?: number;
 }
 
 export interface HotspotSession {

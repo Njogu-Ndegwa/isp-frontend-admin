@@ -57,18 +57,21 @@ export const demoRouters: Router[] = [
     auth_method: 'DIRECT_API', payment_methods: ['mpesa', 'voucher'], pppoe_ports: ['ether2', 'ether3'],
     status: 'online', status_is_stale: false, status_age_seconds: 45, status_last_checked_at: iso(0, 0),
     last_online_at: iso(0, 0), status_source: 'health_check', availability_checks: 2880, availability_successes: 2874,
+    emergency_active: false, emergency_message: null,
   },
   {
     id: 2, name: 'Westlands Hub', identity: 'MikroTik-Westlands', ip_address: '41.89.12.102', port: 8728,
     auth_method: 'DIRECT_API', payment_methods: ['mpesa'], pppoe_ports: ['ether2'],
     status: 'online', status_is_stale: false, status_age_seconds: 30, status_last_checked_at: iso(0, 0),
     last_online_at: iso(0, 0), status_source: 'health_check', availability_checks: 2880, availability_successes: 2860,
+    emergency_active: false, emergency_message: null,
   },
   {
     id: 3, name: 'South-B Relay', identity: 'MikroTik-SouthB', ip_address: '41.89.12.103', port: 8728,
     auth_method: 'RADIUS', payment_methods: ['mpesa', 'voucher'], pppoe_ports: ['ether2', 'ether3', 'ether4'],
     status: 'offline', status_is_stale: false, status_age_seconds: 120, status_last_checked_at: iso(0, 0),
     last_online_at: iso(0, 2), status_source: 'health_check', availability_checks: 2880, availability_successes: 2700,
+    emergency_active: false, emergency_message: null,
   },
 ];
 

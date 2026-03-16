@@ -56,6 +56,9 @@ import {
   WalledGardenResponse,
   AddWalledGardenDomainRequest,
   AddWalledGardenIpRequest,
+  ActivateEmergencyRequest,
+  DeactivateEmergencyRequest,
+  EmergencyModeResponse,
 } from './types';
 import * as demo from './demoData';
 
@@ -309,20 +312,22 @@ class ApiClient {
     return this.handleResponse(response);
   }
 
-  async activateEmergencyMode(): Promise<{ message: string }> {
+  async activateEmergencyMode(data: ActivateEmergencyRequest): Promise<EmergencyModeResponse> {
     if (this.isDemoMode()) this.demoBlock();
     const response = await fetch(`${BASE_URL}/plans/activate-emergency`, {
       method: 'POST',
       headers: this.getHeaders(),
+      body: JSON.stringify(data),
     });
     return this.handleResponse(response);
   }
 
-  async deactivateEmergencyMode(): Promise<{ message: string }> {
+  async deactivateEmergencyMode(data: DeactivateEmergencyRequest): Promise<EmergencyModeResponse> {
     if (this.isDemoMode()) this.demoBlock();
     const response = await fetch(`${BASE_URL}/plans/deactivate-emergency`, {
       method: 'POST',
       headers: this.getHeaders(),
+      body: JSON.stringify(data),
     });
     return this.handleResponse(response);
   }

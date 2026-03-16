@@ -442,6 +442,28 @@ function RoutersTab({
   loadUptime: (routerId: number, hours?: number) => Promise<void>;
   setUptimeRouter: (id: number | null) => void;
 }) {
+  const [emergencyLoading, setEmergencyLoading] = useState<number | null>(null);
+  const [emergencyModalRouter, setEmergencyModalRouter] = useState<Router | null>(null);
+  const [emergencyMsg, setEmergencyMsg] = useState('');
+
+  const handleToggleEmergency = async (router: Router, message?: string) => {
+    try {
+      setEmergencyLoading(router.id);
+      if (router.emergency_active) {
+        await api.deactivateEmergencyMode({ router_id: router.id });
+      } else {
+        await api.activateEmergencyMode({ router_id: router.id, message });
+      }
+      await loadRouters();
+    } catch (err) {
+      console.error('Emergency toggle failed:', err);
+    } finally {
+      setEmergencyLoading(null);
+      setEmergencyModalRouter(null);
+      setEmergencyMsg('');
+    }
+  };
+
   if (error) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -491,6 +513,32 @@ function RoutersTab({
         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
         </svg>
+      </button>
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          if (router.emergency_active) {
+            handleToggleEmergency(router);
+          } else {
+            setEmergencyModalRouter(router);
+            setEmergencyMsg('');
+          }
+        }}
+        disabled={emergencyLoading === router.id}
+        className={`p-1.5 rounded-lg transition-colors ${
+          router.emergency_active
+            ? 'bg-danger/10 text-danger hover:bg-danger/20'
+            : 'text-foreground-muted hover:bg-warning/10 hover:text-warning'
+        }`}
+        title={router.emergency_active ? 'Deactivate emergency mode' : 'Activate emergency mode'}
+      >
+        {emergencyLoading === router.id ? (
+          <div className="w-4 h-4 border-2 border-current/30 border-t-current rounded-full animate-spin" />
+        ) : (
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          </svg>
+        )}
       </button>
       <button
         onClick={(e) => { e.stopPropagation(); setEditingRouter(router); }}
@@ -567,6 +615,23 @@ function RoutersTab({
         </div>
       </div>
 
+      {/* Emergency Mode Banner */}
+      {routers.some(r => r.emergency_active) && (
+        <div className="mb-4 p-3 rounded-lg bg-danger/10 border border-danger/30 animate-fade-in">
+          <div className="flex items-center gap-2 text-danger">
+            <svg className="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+            <div className="flex-1">
+              <span className="font-semibold text-sm">Emergency Mode Active</span>
+              <span className="text-sm text-danger/80 ml-2">
+                {routers.filter(r => r.emergency_active).map(r => r.name).join(', ')}
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
+
       {loading ? (
         <PageLoader />
       ) : (
@@ -589,18 +654,24 @@ function RoutersTab({
                   subtitle={`${router.ip_address}:${router.port}`}
                   avatar={{
                     text: router.name.charAt(0).toUpperCase(),
-                    color: router.status === 'online' ? 'success' : router.status === 'offline' ? 'danger' : 'primary',
+                    color: router.emergency_active ? 'danger' : router.status === 'online' ? 'success' : router.status === 'offline' ? 'danger' : 'primary',
                   }}
                   status={{
                     label: router.status === 'online' ? 'Online' : router.status === 'offline' ? 'Offline' : 'Unknown',
                     variant: router.status === 'online' ? 'success' : router.status === 'offline' ? 'danger' : 'neutral',
                   }}
+                  badge={router.emergency_active ? { label: 'EMERGENCY', color: 'bg-danger/10 text-danger border border-danger/30' } : undefined}
+                  highlight={router.emergency_active}
+                  highlightColor="danger"
                   value={{
                     text: router.identity || '-',
                   }}
                   secondary={{
                     left: (
                       <span className="flex items-center gap-1">
+                        {router.emergency_active && (
+                          <span className="text-[10px] font-medium uppercase px-1.5 py-0.5 rounded bg-danger/10 text-danger border border-danger/30">Emergency</span>
+                        )}
                         {(router.payment_methods ?? ['mpesa', 'voucher']).map((m) => (
                           <span key={m} className={`text-[10px] font-medium uppercase px-1.5 py-0.5 rounded ${
                             m === 'mpesa' ? 'bg-success/10 text-success' : 'bg-accent-primary/10 text-accent-primary'
@@ -745,6 +816,11 @@ function RoutersTab({
                       </span>
                       {router.status_is_stale && (
                         <span className="text-[10px] text-amber-400" title="Status data is stale">Stale</span>
+                      )}
+                      {router.emergency_active && (
+                        <span className="badge bg-danger/10 text-danger border border-danger/30 text-[10px]" title={router.emergency_message || 'Emergency mode active'}>
+                          EMERGENCY
+                        </span>
                       )}
                     </div>
                   );
@@ -922,6 +998,63 @@ function RoutersTab({
             </div>
           )}
         </PullToRefresh>
+      )}
+
+      {/* Emergency Activation Modal */}
+      {emergencyModalRouter && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => { setEmergencyModalRouter(null); setEmergencyMsg(''); }} />
+          <div className="relative w-full max-w-md card p-6 animate-fade-in">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-full bg-warning/10 flex items-center justify-center">
+                <svg className="w-5 h-5 text-warning" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-foreground">Activate Emergency Mode</h3>
+                <p className="text-sm text-foreground-muted">{emergencyModalRouter.name}</p>
+              </div>
+            </div>
+            <p className="text-sm text-foreground-muted mb-4">
+              This will hide regular plans and show emergency plans on the captive portal for this router.
+            </p>
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-foreground mb-2">Emergency Message (optional)</label>
+              <textarea
+                value={emergencyMsg}
+                onChange={(e) => setEmergencyMsg(e.target.value)}
+                className="input min-h-[80px] resize-y"
+                placeholder="e.g., Sorry for the disruption, enjoy free deals!"
+                rows={2}
+                autoFocus
+              />
+              <p className="text-xs text-foreground-muted mt-1">Displayed as a banner on the captive portal</p>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => { setEmergencyModalRouter(null); setEmergencyMsg(''); }}
+                className="btn-secondary flex-1"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => handleToggleEmergency(emergencyModalRouter, emergencyMsg || undefined)}
+                disabled={emergencyLoading === emergencyModalRouter.id}
+                className="flex-1 px-4 py-2 rounded-lg bg-warning text-white font-medium hover:bg-warning/90 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {emergencyLoading === emergencyModalRouter.id ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    Activating...
+                  </>
+                ) : (
+                  'Activate Emergency'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </>
   );
@@ -1607,6 +1740,8 @@ function EditRouterModal({
     password: '',
     port: router.port,
     payment_methods: router.payment_methods ?? ['mpesa', 'voucher'],
+    emergency_active: router.emergency_active ?? false,
+    emergency_message: router.emergency_message ?? '',
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -1619,6 +1754,8 @@ function EditRouterModal({
         ip_address: formData.ip_address,
         port: formData.port,
         payment_methods: formData.payment_methods,
+        emergency_active: formData.emergency_active,
+        emergency_message: formData.emergency_active ? (formData.emergency_message || null) : null,
       };
       if (formData.username) updates.username = formData.username;
       if (formData.password) updates.password = formData.password;
@@ -1699,6 +1836,36 @@ function EditRouterModal({
             value={formData.payment_methods ?? ['mpesa', 'voucher']}
             onChange={(methods) => setFormData({ ...formData, payment_methods: methods })}
           />
+
+          {/* Emergency Mode */}
+          <div className="pt-2 border-t border-border">
+            <div className="flex items-center justify-between mb-3">
+              <div>
+                <label className="block text-sm font-medium text-foreground">Emergency Mode</label>
+                <p className="text-xs text-foreground-muted mt-0.5">Activates emergency plans and shows a banner on the captive portal</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setFormData({ ...formData, emergency_active: !formData.emergency_active, emergency_message: !formData.emergency_active ? formData.emergency_message : '' })}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${formData.emergency_active ? 'bg-danger' : 'bg-background-tertiary border border-border'}`}
+              >
+                <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform ${formData.emergency_active ? 'translate-x-6' : 'translate-x-1'}`} />
+              </button>
+            </div>
+            {formData.emergency_active && (
+              <div className="animate-fade-in">
+                <label className="block text-sm font-medium text-foreground mb-2">Emergency Message</label>
+                <textarea
+                  value={formData.emergency_message ?? ''}
+                  onChange={(e) => setFormData({ ...formData, emergency_message: e.target.value })}
+                  className="input min-h-[80px] resize-y"
+                  placeholder="e.g., Sorry for the disruption, enjoy free deals!"
+                  rows={2}
+                />
+                <p className="text-xs text-foreground-muted mt-1">Displayed as a banner on the captive portal when active</p>
+              </div>
+            )}
+          </div>
 
           <div className="pt-2 border-t border-border">
             <p className="text-xs text-foreground-muted mb-3">Leave blank to keep current credentials</p>
