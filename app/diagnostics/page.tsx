@@ -228,14 +228,15 @@ export default function DiagnosticsPage() {
       <div className="p-4 sm:p-6 max-w-7xl mx-auto pb-24 md:pb-6">
         <Header
           title="Network Diagnostics"
-          subtitle="Monitor PPPoE, Hotspot infrastructure and port status"
-          action={
-            <RouterSelector
-              selectedRouterId={selectedRouterId}
-              onRouterChange={setSelectedRouterId}
-            />
-          }
+          subtitle="Monitor PPPoE, Hotspot & port status"
         />
+
+        <div className="mb-5">
+          <RouterSelector
+            selectedRouterId={selectedRouterId}
+            onRouterChange={setSelectedRouterId}
+          />
+        </div>
 
         {!selectedRouterId ? (
           <div className="card p-8 text-center">
@@ -770,8 +771,43 @@ function PortsTab({
         ))}
       </div>
 
-      {/* Port table */}
-      <div className="card overflow-hidden animate-fade-in" style={{ animationDelay: '0.1s', opacity: 0 }}>
+      {/* Mobile port cards */}
+      <div className="md:hidden space-y-2 animate-fade-in" style={{ animationDelay: '0.1s', opacity: 0 }}>
+        {data.ports.map((port) => {
+          const isPppoe = data.pppoe_ports?.includes(port.port) ?? false;
+          const hasErrors = port.rx_error > 0 || port.tx_error > 0;
+          return (
+            <div
+              key={port.port}
+              className={`card p-3 ${!port.link_up ? 'opacity-60' : hasErrors ? 'border-amber-500/30' : ''}`}
+            >
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <span className="font-mono font-medium text-foreground text-sm">{port.port}</span>
+                  {isPppoe && <span className="text-[9px] text-amber-500 font-medium">(DB)</span>}
+                  <span className={`badge text-[10px] ${
+                    port.service === 'pppoe' ? 'bg-blue-500/20 text-blue-400' :
+                    port.service === 'hotspot' ? 'bg-emerald-500/20 text-emerald-400' :
+                    'bg-foreground-muted/20 text-foreground-muted'
+                  }`}>{port.service}</span>
+                </div>
+                <span className={`badge text-[10px] ${
+                  port.link_up ? 'badge-success' : 'bg-foreground-muted/20 text-foreground-muted'
+                }`}>{port.link_up ? 'Up' : 'Down'}</span>
+              </div>
+              <div className="flex items-center gap-4 text-xs text-foreground-muted">
+                <span>Bridge: <span className="text-foreground">{port.bridge}</span></span>
+                <span className={port.rx_error > 0 ? 'text-red-400 font-medium' : ''}>RX Err: {port.rx_error}</span>
+                <span className={port.tx_error > 0 ? 'text-red-400 font-medium' : ''}>TX Err: {port.tx_error}</span>
+                <span>Downs: {port.link_downs}</span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Desktop port table */}
+      <div className="hidden md:block card overflow-hidden animate-fade-in" style={{ animationDelay: '0.1s', opacity: 0 }}>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -782,8 +818,8 @@ function PortsTab({
                 <th className="text-left p-3 text-xs font-medium text-foreground-muted">Link</th>
                 <th className="text-left p-3 text-xs font-medium text-foreground-muted">RX Err</th>
                 <th className="text-left p-3 text-xs font-medium text-foreground-muted">TX Err</th>
-                <th className="text-left p-3 text-xs font-medium text-foreground-muted hidden sm:table-cell">Link Downs</th>
-                <th className="text-left p-3 text-xs font-medium text-foreground-muted hidden md:table-cell">MTU</th>
+                <th className="text-left p-3 text-xs font-medium text-foreground-muted">Link Downs</th>
+                <th className="text-left p-3 text-xs font-medium text-foreground-muted">MTU</th>
               </tr>
             </thead>
             <tbody>
@@ -882,9 +918,9 @@ function OverviewCard({
   return (
     <div className="card p-4 sm:p-5 animate-fade-in">
       {/* Header */}
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-3">
-          <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${
             data.healthy ? 'bg-emerald-500/10' : 'bg-red-500/10'
           }`}>
             {data.healthy ? (
@@ -897,8 +933,8 @@ function OverviewCard({
               </svg>
             )}
           </div>
-          <div>
-            <div className="flex items-center gap-2">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
               <p className="font-semibold text-foreground text-sm sm:text-base">{title}</p>
               <span className={`badge ${data.healthy ? 'badge-success' : 'bg-red-500/20 text-red-400'}`}>
                 {data.healthy ? 'Healthy' : 'Issues Found'}
@@ -1004,30 +1040,47 @@ function LogsTable({ entries }: { entries: LogEntry[] }) {
   }
 
   return (
-    <div className="overflow-x-auto max-h-[400px] overflow-y-auto">
-      <table className="w-full text-sm">
-        <thead className="sticky top-0 bg-background-secondary">
-          <tr className="border-b border-border">
-            <th className="text-left p-2 text-xs font-medium text-foreground-muted whitespace-nowrap">Time</th>
-            <th className="text-left p-2 text-xs font-medium text-foreground-muted whitespace-nowrap">Topics</th>
-            <th className="text-left p-2 text-xs font-medium text-foreground-muted">Message</th>
-          </tr>
-        </thead>
-        <tbody>
-          {entries.map((entry, i) => (
-            <tr key={i} className="border-b border-border/50 hover:bg-background-tertiary/50">
-              <td className="p-2 text-foreground-muted whitespace-nowrap font-mono text-xs">{entry.time}</td>
-              <td className="p-2 whitespace-nowrap">
-                <span className="text-[10px] px-1.5 py-0.5 rounded bg-background-tertiary text-foreground-muted">
-                  {entry.topics}
-                </span>
-              </td>
-              <td className="p-2 text-foreground">{entry.message}</td>
+    <>
+      {/* Mobile cards */}
+      <div className="md:hidden space-y-2 max-h-[400px] overflow-y-auto">
+        {entries.map((entry, i) => (
+          <div key={i} className="p-3 rounded-lg bg-background-tertiary/50 border border-border/50">
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="font-mono text-[11px] text-foreground-muted">{entry.time}</span>
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-background-secondary text-foreground-muted">
+                {entry.topics}
+              </span>
+            </div>
+            <p className="text-sm text-foreground break-words">{entry.message}</p>
+          </div>
+        ))}
+      </div>
+      {/* Desktop table */}
+      <div className="hidden md:block overflow-x-auto max-h-[400px] overflow-y-auto">
+        <table className="w-full text-sm">
+          <thead className="sticky top-0 bg-background-secondary">
+            <tr className="border-b border-border">
+              <th className="text-left p-2 text-xs font-medium text-foreground-muted whitespace-nowrap">Time</th>
+              <th className="text-left p-2 text-xs font-medium text-foreground-muted whitespace-nowrap">Topics</th>
+              <th className="text-left p-2 text-xs font-medium text-foreground-muted">Message</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+          </thead>
+          <tbody>
+            {entries.map((entry, i) => (
+              <tr key={i} className="border-b border-border/50 hover:bg-background-tertiary/50">
+                <td className="p-2 text-foreground-muted whitespace-nowrap font-mono text-xs">{entry.time}</td>
+                <td className="p-2 whitespace-nowrap">
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-background-tertiary text-foreground-muted">
+                    {entry.topics}
+                  </span>
+                </td>
+                <td className="p-2 text-foreground">{entry.message}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </>
   );
 }
 
@@ -1041,50 +1094,78 @@ function SecretsTable({ secrets }: { secrets: PPPoESecretEntry[] }) {
   }
 
   return (
-    <div className="overflow-x-auto max-h-[500px] overflow-y-auto">
-      <table className="w-full text-sm">
-        <thead className="sticky top-0 bg-background-secondary">
-          <tr className="border-b border-border">
-            <th className="text-left p-2 text-xs font-medium text-foreground-muted">Username</th>
-            <th className="text-left p-2 text-xs font-medium text-foreground-muted">Status</th>
-            <th className="text-left p-2 text-xs font-medium text-foreground-muted">Profile</th>
-            <th className="text-left p-2 text-xs font-medium text-foreground-muted hidden sm:table-cell">Customer</th>
-            <th className="text-left p-2 text-xs font-medium text-foreground-muted hidden md:table-cell">Last Disconnect</th>
-          </tr>
-        </thead>
-        <tbody>
-          {secrets.map((secret) => (
-            <tr key={secret.name} className="border-b border-border/50 hover:bg-background-tertiary/50">
-              <td className="p-2 font-medium text-foreground font-mono text-xs">{secret.name}</td>
-              <td className="p-2">
-                <span className={`badge text-[10px] ${
-                  secret.disabled ? 'bg-red-500/20 text-red-400' :
-                  secret.online ? 'badge-success' : 'bg-foreground-muted/20 text-foreground-muted'
-                }`}>
-                  {secret.disabled ? 'Disabled' : secret.online ? 'Online' : 'Offline'}
-                </span>
-              </td>
-              <td className="p-2 text-foreground-muted">{secret.profile}</td>
-              <td className="p-2 hidden sm:table-cell">
-                {secret.db_customer ? (
-                  <div>
-                    <span className="text-foreground">{secret.db_customer.name}</span>
-                    <span className={`ml-1 badge text-[10px] ${
-                      secret.db_customer.status === 'active' ? 'badge-success' : 'bg-foreground-muted/20 text-foreground-muted'
-                    }`}>
-                      {secret.db_customer.status}
-                    </span>
-                  </div>
-                ) : (
-                  <span className="text-foreground-muted text-xs">Not in DB</span>
-                )}
-              </td>
-              <td className="p-2 hidden md:table-cell text-foreground-muted text-xs">{secret.last_disconnect_reason || '-'}</td>
+    <>
+      {/* Mobile cards */}
+      <div className="md:hidden space-y-2 max-h-[500px] overflow-y-auto">
+        {secrets.map((secret) => (
+          <div key={secret.name} className="p-3 rounded-lg bg-background-tertiary/50 border border-border/50">
+            <div className="flex items-center justify-between mb-2">
+              <span className="font-medium text-foreground font-mono text-sm">{secret.name}</span>
+              <span className={`badge text-[10px] ${
+                secret.disabled ? 'bg-red-500/20 text-red-400' :
+                secret.online ? 'badge-success' : 'bg-foreground-muted/20 text-foreground-muted'
+              }`}>
+                {secret.disabled ? 'Disabled' : secret.online ? 'Online' : 'Offline'}
+              </span>
+            </div>
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-foreground-muted">Profile: <span className="text-foreground">{secret.profile}</span></span>
+              {secret.db_customer && (
+                <span className="text-foreground">{secret.db_customer.name}</span>
+              )}
+            </div>
+            {secret.last_disconnect_reason && (
+              <p className="text-[11px] text-foreground-muted mt-1.5 truncate">{secret.last_disconnect_reason}</p>
+            )}
+          </div>
+        ))}
+      </div>
+      {/* Desktop table */}
+      <div className="hidden md:block overflow-x-auto max-h-[500px] overflow-y-auto">
+        <table className="w-full text-sm">
+          <thead className="sticky top-0 bg-background-secondary">
+            <tr className="border-b border-border">
+              <th className="text-left p-2 text-xs font-medium text-foreground-muted">Username</th>
+              <th className="text-left p-2 text-xs font-medium text-foreground-muted">Status</th>
+              <th className="text-left p-2 text-xs font-medium text-foreground-muted">Profile</th>
+              <th className="text-left p-2 text-xs font-medium text-foreground-muted">Customer</th>
+              <th className="text-left p-2 text-xs font-medium text-foreground-muted">Last Disconnect</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+          </thead>
+          <tbody>
+            {secrets.map((secret) => (
+              <tr key={secret.name} className="border-b border-border/50 hover:bg-background-tertiary/50">
+                <td className="p-2 font-medium text-foreground font-mono text-xs">{secret.name}</td>
+                <td className="p-2">
+                  <span className={`badge text-[10px] ${
+                    secret.disabled ? 'bg-red-500/20 text-red-400' :
+                    secret.online ? 'badge-success' : 'bg-foreground-muted/20 text-foreground-muted'
+                  }`}>
+                    {secret.disabled ? 'Disabled' : secret.online ? 'Online' : 'Offline'}
+                  </span>
+                </td>
+                <td className="p-2 text-foreground-muted">{secret.profile}</td>
+                <td className="p-2">
+                  {secret.db_customer ? (
+                    <div>
+                      <span className="text-foreground">{secret.db_customer.name}</span>
+                      <span className={`ml-1 badge text-[10px] ${
+                        secret.db_customer.status === 'active' ? 'badge-success' : 'bg-foreground-muted/20 text-foreground-muted'
+                      }`}>
+                        {secret.db_customer.status}
+                      </span>
+                    </div>
+                  ) : (
+                    <span className="text-foreground-muted text-xs">Not in DB</span>
+                  )}
+                </td>
+                <td className="p-2 text-foreground-muted text-xs">{secret.last_disconnect_reason || '-'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </>
   );
 }
 

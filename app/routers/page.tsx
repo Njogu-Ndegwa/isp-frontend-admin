@@ -254,7 +254,7 @@ export default function RoutersPage() {
       <Header title="Routers" subtitle="Manage your MikroTik routers and hotspot users" />
 
       {/* Tabs */}
-      <div className="flex items-center gap-1 mb-6 p-1 bg-background-secondary rounded-xl w-fit animate-fade-in">
+      <div className="flex items-center gap-1 mb-6 p-1 bg-background-secondary rounded-xl w-full sm:w-fit animate-fade-in overflow-x-auto">
         <button
           onClick={() => setActiveTab('routers')}
           className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
@@ -482,11 +482,11 @@ function RoutersTab({
   }
 
   const renderActions = (router: Router) => (
-    <div className="flex items-center gap-1 justify-end">
+    <div className="flex items-center gap-1 flex-wrap justify-end">
       <button
         onClick={(e) => { e.stopPropagation(); loadRouterUsers(router.id); }}
-        className="p-1.5 rounded-lg hover:bg-accent-primary/10 text-foreground-muted hover:text-accent-primary transition-colors"
-        title="View hotspot users"
+        className="p-1.5 rounded-lg hover:bg-accent-primary/10 text-foreground-muted hover:text-accent-primary transition-colors active:opacity-70"
+        title="View users"
       >
         {usersLoading && selectedRouter === router.id ? (
           <div className="w-4 h-4 border-2 border-foreground-muted/30 border-t-foreground-muted rounded-full animate-spin" />
@@ -498,8 +498,8 @@ function RoutersTab({
       </button>
       <button
         onClick={(e) => { e.stopPropagation(); setPortsRouter(router); }}
-        className="p-1.5 rounded-lg hover:bg-info/10 text-foreground-muted hover:text-info transition-colors"
-        title="Configure PPPoE ports"
+        className="p-1.5 rounded-lg hover:bg-info/10 text-foreground-muted hover:text-info transition-colors active:opacity-70"
+        title="PPPoE ports"
       >
         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -507,8 +507,8 @@ function RoutersTab({
       </button>
       <button
         onClick={(e) => { e.stopPropagation(); loadUptime(router.id); }}
-        className={`p-1.5 rounded-lg hover:bg-emerald-500/10 text-foreground-muted hover:text-emerald-500 transition-colors ${uptimeRouter === router.id ? 'bg-emerald-500/10 text-emerald-500' : ''}`}
-        title="View uptime"
+        className={`p-1.5 rounded-lg hover:bg-emerald-500/10 text-foreground-muted hover:text-emerald-500 transition-colors active:opacity-70 ${uptimeRouter === router.id ? 'bg-emerald-500/10 text-emerald-500' : ''}`}
+        title="Uptime"
       >
         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
@@ -525,12 +525,12 @@ function RoutersTab({
           }
         }}
         disabled={emergencyLoading === router.id}
-        className={`p-1.5 rounded-lg transition-colors ${
+        className={`p-1.5 rounded-lg transition-colors active:opacity-70 ${
           router.emergency_active
             ? 'bg-danger/10 text-danger hover:bg-danger/20'
             : 'text-foreground-muted hover:bg-warning/10 hover:text-warning'
         }`}
-        title={router.emergency_active ? 'Deactivate emergency mode' : 'Activate emergency mode'}
+        title={router.emergency_active ? 'Deactivate emergency' : 'Emergency mode'}
       >
         {emergencyLoading === router.id ? (
           <div className="w-4 h-4 border-2 border-current/30 border-t-current rounded-full animate-spin" />
@@ -542,8 +542,8 @@ function RoutersTab({
       </button>
       <button
         onClick={(e) => { e.stopPropagation(); setEditingRouter(router); }}
-        className="p-1.5 rounded-lg hover:bg-accent-primary/10 text-foreground-muted hover:text-accent-primary transition-colors"
-        title="Edit router"
+        className="p-1.5 rounded-lg hover:bg-accent-primary/10 text-foreground-muted hover:text-accent-primary transition-colors active:opacity-70"
+        title="Edit"
       >
         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -554,7 +554,7 @@ function RoutersTab({
           <button
             onClick={(e) => { e.stopPropagation(); handleDeleteRouter(router.id); }}
             disabled={deletingRouter === router.id}
-            className="p-1.5 rounded-lg bg-danger/10 hover:bg-danger/20 text-danger transition-colors"
+            className="p-1.5 rounded-lg bg-danger/10 hover:bg-danger/20 text-danger transition-colors active:opacity-70"
             title="Confirm delete"
           >
             {deletingRouter === router.id ? (
@@ -567,7 +567,7 @@ function RoutersTab({
           </button>
           <button
             onClick={(e) => { e.stopPropagation(); setDeleteConfirm(null); }}
-            className="p-1.5 rounded-lg hover:bg-background-tertiary text-foreground-muted transition-colors"
+            className="p-1.5 rounded-lg hover:bg-background-tertiary text-foreground-muted transition-colors active:opacity-70"
             title="Cancel"
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -578,8 +578,8 @@ function RoutersTab({
       ) : (
         <button
           onClick={(e) => { e.stopPropagation(); setDeleteConfirm(router.id); }}
-          className="p-1.5 rounded-lg hover:bg-danger/10 text-foreground-muted hover:text-danger transition-colors"
-          title="Delete router"
+          className="p-1.5 rounded-lg hover:bg-danger/10 text-foreground-muted hover:text-danger transition-colors active:opacity-70"
+          title="Delete"
         >
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -592,21 +592,21 @@ function RoutersTab({
   return (
     <>
       {/* Actions */}
-      <div className="flex items-center justify-between mb-6 animate-fade-in">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6 animate-fade-in">
         <div className="flex items-center gap-2 text-foreground-muted">
-          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <svg className="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2" />
           </svg>
-          <span>{routers.length} routers connected</span>
+          <span className="text-sm">{routers.length} routers connected</span>
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={loadRouters} className="btn-secondary flex items-center gap-2">
+          <button onClick={loadRouters} className="btn-secondary flex items-center gap-2 text-sm">
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
             </svg>
-            Refresh
+            <span className="hidden sm:inline">Refresh</span>
           </button>
-          <button onClick={() => setShowCreateModal(true)} className="btn-primary flex items-center gap-2">
+          <button onClick={() => setShowCreateModal(true)} className="btn-primary flex items-center gap-2 text-sm flex-1 sm:flex-none justify-center">
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
             </svg>
@@ -933,9 +933,9 @@ function RoutersTab({
           {/* Uptime Detail Panel */}
           {uptimeRouter && (
             <div className="card mt-4 p-4 sm:p-6 animate-fade-in">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-3">
-                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${
                     uptimeData?.current_status.status === 'online' ? 'bg-emerald-500/10' :
                     uptimeData?.current_status.status === 'offline' ? 'bg-red-500/10' :
                     'bg-foreground-muted/10'
@@ -948,8 +948,8 @@ function RoutersTab({
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                     </svg>
                   </div>
-                  <div>
-                    <h4 className="font-semibold text-foreground">
+                  <div className="min-w-0">
+                    <h4 className="font-semibold text-foreground truncate">
                       {routers.find(r => r.id === uptimeRouter)?.name} — Uptime
                     </h4>
                     {uptimeData && (
@@ -959,7 +959,7 @@ function RoutersTab({
                     )}
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-shrink-0">
                   <select
                     value={uptimeHours}
                     onChange={(e) => {
@@ -969,10 +969,10 @@ function RoutersTab({
                     }}
                     className="text-xs bg-background-tertiary border border-border rounded-lg px-2 py-1.5 text-foreground"
                   >
-                    <option value={24}>Last 24 hours</option>
-                    <option value={72}>Last 3 days</option>
-                    <option value={168}>Last 7 days</option>
-                    <option value={720}>Last 30 days</option>
+                    <option value={24}>24h</option>
+                    <option value={72}>3 days</option>
+                    <option value={168}>7 days</option>
+                    <option value={720}>30 days</option>
                   </select>
                   <button
                     onClick={() => setUptimeRouter(null)}
@@ -1286,23 +1286,23 @@ function ProvisionTab({
   return (
     <>
       {/* Actions */}
-      <div className="flex items-center justify-between mb-6 animate-fade-in">
-        <div className="flex items-center gap-3 text-sm text-foreground-muted">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6 animate-fade-in">
+        <div className="flex items-center gap-2 flex-wrap text-sm text-foreground-muted">
           <span>{tokens.length} tokens</span>
           {pendingCount > 0 && <span className="badge badge-warning">{pendingCount} pending</span>}
           {provisionedCount > 0 && <span className="badge badge-success">{provisionedCount} provisioned</span>}
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={loadTokens} className="btn-secondary flex items-center gap-2">
+          <button onClick={loadTokens} className="btn-secondary flex items-center gap-2 text-sm">
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
             </svg>
-            Refresh
+            <span className="hidden sm:inline">Refresh</span>
           </button>
           <button
             onClick={handleGenerate}
             disabled={generating}
-            className="btn-primary flex items-center gap-2"
+            className="btn-primary flex items-center gap-2 text-sm flex-1 sm:flex-none justify-center"
           >
             {generating ? (
               <>

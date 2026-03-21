@@ -155,8 +155,15 @@ export default function MobileDataCard({
               </span>
             </div>
           )}
+
+          {/* Row 3: Actions */}
+          {rightAction && (
+            <div className="flex items-center justify-end gap-1 pt-2 border-t border-border/50">
+              {rightAction}
+            </div>
+          )}
           
-          {/* Row 3: Footer or Expandable Content */}
+          {/* Row 4: Footer or Expandable Content */}
           {footer && (
             <div className="flex items-center justify-between text-xs text-foreground-muted mt-3 pt-3 border-t border-border/50">
               {footer}
