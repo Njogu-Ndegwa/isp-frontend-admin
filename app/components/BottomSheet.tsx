@@ -92,18 +92,18 @@ export default function BottomSheet({ isOpen, onClose, children, title }: Bottom
       
       {/* Sheet */}
       <div
-        className={`absolute bottom-0 left-0 right-0 bg-background-secondary rounded-t-2xl border-t border-x border-border transition-transform duration-300 ease-out ${
+        className={`absolute bottom-0 left-0 right-0 bg-background-secondary rounded-t-2xl border-t border-x border-border transition-transform duration-300 ease-out flex flex-col ${
           isClosing ? 'translate-y-full' : 'translate-y-0'
         }`}
         style={{
           transform: `translateY(${isClosing ? '100%' : `${currentY}px`})`,
-          maxHeight: '85vh',
+          maxHeight: '80vh',
         }}
         onClick={handleContentClick}
       >
         {/* Drag Handle - only this area handles swipe to close */}
         <div 
-          className="flex justify-center pt-3 pb-2 cursor-grab active:cursor-grabbing touch-none"
+          className="flex justify-center pt-3 pb-2 cursor-grab active:cursor-grabbing touch-none shrink-0"
           onTouchStart={handleDragHandleTouchStart}
           onTouchMove={handleDragHandleTouchMove}
           onTouchEnd={handleDragHandleTouchEnd}
@@ -113,15 +113,15 @@ export default function BottomSheet({ isOpen, onClose, children, title }: Bottom
 
         {/* Title (optional) */}
         {title && (
-          <div className="px-4 pb-3 border-b border-border">
+          <div className="px-4 pb-3 border-b border-border shrink-0">
             <h3 className="text-lg font-semibold text-foreground">{title}</h3>
           </div>
         )}
 
-        {/* Content - clicks work normally here */}
+        {/* Content - flex container so children can manage their own scroll */}
         <div 
           ref={contentRef}
-          className="overflow-y-auto max-h-[calc(85vh-60px)]"
+          className="flex flex-col min-h-0 flex-1"
           onClick={handleContentClick}
         >
           {children}
