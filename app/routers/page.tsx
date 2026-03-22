@@ -2187,11 +2187,11 @@ function PortConfigModal({
   const plainCount = plainPorts.length;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full sm:max-w-lg card !rounded-b-none sm:!rounded-b-2xl p-0 animate-slide-up sm:animate-fade-in max-h-[92vh] sm:max-h-[90vh] overflow-hidden flex flex-col">
+      <div className="relative w-full max-w-lg card p-0 animate-fade-in max-h-[90vh] overflow-hidden flex flex-col">
         {/* Header */}
-        <div className="px-4 sm:px-5 pt-5 pb-4 border-b border-border">
+        <div className="px-5 pt-5 pb-4 border-b border-border">
           <div className="flex items-center justify-between">
             <div>
               <h3 className="text-base font-bold text-foreground">Port Configuration</h3>
@@ -2224,7 +2224,7 @@ function PortConfigModal({
         </div>
 
         {/* Alerts */}
-        <div className="px-4 sm:px-5">
+        <div className="px-5">
           {error && (
             <div className="mt-4 p-3 rounded-lg bg-danger/10 border border-danger/20 text-sm text-danger flex items-center gap-2">
               <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -2249,7 +2249,7 @@ function PortConfigModal({
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto px-4 sm:px-5 py-4">
+        <div className="flex-1 overflow-y-auto px-5 py-4">
           {loading ? (
             <div className="flex flex-col items-center justify-center py-12">
               <div className="w-8 h-8 border-2 border-accent-primary/30 border-t-accent-primary rounded-full animate-spin mb-3" />
@@ -2261,15 +2261,13 @@ function PortConfigModal({
               <button onClick={loadInterfaces} className="btn-secondary mt-4 text-sm">Retry</button>
             </div>
           ) : (
-            <>
-            {/* Desktop table */}
-            <div className="hidden sm:block table-container">
+            <div className="table-container">
               <table>
                 <thead>
                   <tr>
                     <th className="!py-2.5 !px-3 !text-[10px]">Port</th>
                     <th className="!py-2.5 !px-3 !text-[10px]">Link</th>
-                    <th className="!py-2.5 !px-3 !text-[10px]">Current</th>
+                    <th className="!py-2.5 !px-3 !text-[10px] hidden sm:table-cell">Current</th>
                     <th className="!py-2.5 !px-3 !text-[10px]">Set Mode</th>
                   </tr>
                 </thead>
@@ -2286,7 +2284,7 @@ function PortConfigModal({
                         <td className="!py-2.5 !px-3">
                           <PortLinkIndicator running={port.running} />
                         </td>
-                        <td className="!py-2.5 !px-3">
+                        <td className="!py-2.5 !px-3 hidden sm:table-cell">
                           <PortModeBadge mode={saved} />
                         </td>
                         <td className="!py-2.5 !px-3">
@@ -2303,45 +2301,12 @@ function PortConfigModal({
                 </tbody>
               </table>
             </div>
-
-            {/* Mobile card list */}
-            <div className="sm:hidden space-y-2">
-              {etherPorts.map((port) => {
-                const mode = portModes[port.name] ?? 'hotspot';
-                const saved = savedModes[port.name] ?? 'hotspot';
-                const changed = mode !== saved;
-                return (
-                  <div
-                    key={port.name}
-                    className={`p-3 rounded-xl border transition-colors ${changed ? 'border-warning/30 bg-warning/[0.03]' : 'border-border bg-background-secondary'}`}
-                  >
-                    <div className="flex items-center justify-between mb-2.5">
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium text-foreground text-sm">{port.name}</span>
-                        <PortLinkIndicator running={port.running} />
-                      </div>
-                      <PortModeBadge mode={saved} />
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-[11px] text-foreground-muted">Set mode</span>
-                      <div className="flex items-center gap-2">
-                        <PortModeDropdown value={mode} onChange={(m) => setMode(port.name, m)} />
-                        {changed && (
-                          <span className="w-1.5 h-1.5 rounded-full bg-warning flex-shrink-0" />
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-            </>
           )}
         </div>
 
         {/* Footer */}
         {!loading && etherPorts.length > 0 && (
-          <div className="px-4 sm:px-5 py-4 border-t border-border flex items-center gap-3">
+          <div className="px-5 py-4 border-t border-border flex items-center gap-3">
             {hasChanges && (
               <span className="text-xs text-warning font-medium">
                 {changedPorts.length} change{changedPorts.length > 1 ? 's' : ''}
