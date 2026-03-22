@@ -593,6 +593,7 @@ export function demoRouterInterfaces(routerId: number): RouterInterfacesResponse
       { name: 'wlan1', type: 'wlan', running: true, disabled: false, mac_address: 'AA:BB:CC:00:02:01' },
     ],
     pppoe_ports: router.pppoe_ports ?? [],
+    plain_ports: router.plain_ports ?? [],
   };
 }
 

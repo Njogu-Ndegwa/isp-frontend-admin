@@ -44,6 +44,8 @@ import {
   RouterInterfacesResponse,
   UpdatePPPoEPortsRequest,
   UpdatePPPoEPortsResponse,
+  UpdatePlainPortsRequest,
+  UpdatePlainPortsResponse,
   PPPoEOverviewResponse,
   PPPoEDiagnoseResponse,
   PPPoELogsResponse,
@@ -830,6 +832,16 @@ class ApiClient {
       body: JSON.stringify(data),
     });
     return this.handleResponse<UpdatePPPoEPortsResponse>(response);
+  }
+
+  async updatePlainPorts(routerId: number, data: UpdatePlainPortsRequest): Promise<UpdatePlainPortsResponse> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(`${BASE_URL}/routers/${routerId}/plain-ports`, {
+      method: 'PUT',
+      headers: this.getHeaders(),
+      body: JSON.stringify(data),
+    });
+    return this.handleResponse<UpdatePlainPortsResponse>(response);
   }
 
   // MikroTik PPPoE Monitoring

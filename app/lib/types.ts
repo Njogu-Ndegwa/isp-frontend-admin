@@ -241,6 +241,7 @@ export interface RouterInterfacesResponse {
   router_name: string;
   interfaces: RouterInterfaceInfo[];
   pppoe_ports: string[];
+  plain_ports?: string[];
 }
 
 export interface UpdatePPPoEPortsRequest {
@@ -251,6 +252,18 @@ export interface UpdatePPPoEPortsResponse {
   router_id: number;
   router_name: string;
   pppoe_ports: string[];
+  message: string;
+}
+
+export interface UpdatePlainPortsRequest {
+  ports: string[];
+}
+
+export interface UpdatePlainPortsResponse {
+  success: boolean;
+  router_id: number;
+  plain_ports: string[];
+  warnings: string[];
   message: string;
 }
 
@@ -430,6 +443,7 @@ export interface Router {
   auth_method: string;
   payment_methods?: PaymentMethod[];
   pppoe_ports?: string[];
+  plain_ports?: string[];
   status?: RouterStatus;
   status_is_stale?: boolean;
   status_age_seconds?: number;
@@ -1088,7 +1102,7 @@ export interface HotspotLogsResponse {
 export interface PortEntry {
   port: string;
   bridge: string;
-  service: 'hotspot' | 'pppoe' | 'unassigned';
+  service: 'hotspot' | 'pppoe' | 'plain' | 'unassigned';
   link_up: boolean;
   disabled: boolean;
   rx_byte: number;
