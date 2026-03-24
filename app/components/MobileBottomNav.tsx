@@ -3,9 +3,18 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState, useEffect } from 'react';
+import { useAuth } from '../context/AuthContext';
 import MoreMenu from './MoreMenu';
 
-const mainNavItems = [
+type NavIconFn = (active: boolean) => React.ReactNode;
+interface BottomNavItem {
+  name: string;
+  href: string;
+  icon: NavIconFn;
+  activeMatch?: (pathname: string) => boolean;
+}
+
+const resellerNavItems: BottomNavItem[] = [
   {
     name: 'Dashboard',
     href: '/dashboard',
@@ -44,11 +53,38 @@ const mainNavItems = [
   },
 ];
 
+const adminNavItems: BottomNavItem[] = [
+  {
+    name: 'Dashboard',
+    href: '/admin',
+    icon: (active: boolean) => (
+      <svg className={`w-6 h-6 ${active ? 'text-accent-primary' : 'text-foreground-muted'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={active ? 2 : 1.5} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+      </svg>
+    ),
+  },
+  {
+    name: 'Resellers',
+    href: '/admin/resellers',
+    icon: (active: boolean) => (
+      <svg className={`w-6 h-6 ${active ? 'text-accent-primary' : 'text-foreground-muted'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={active ? 2 : 1.5} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+      </svg>
+    ),
+    activeMatch: (p) => p === '/admin/resellers' || p.startsWith('/admin/resellers/'),
+  },
+];
+
+const resellerMorePaths = ['/plans', '/ratings', '/advertisers', '/ads', '/ads/analytics', '/walled-garden', '/diagnostics'];
+
 export default function MobileBottomNav() {
   const pathname = usePathname();
+  const { user } = useAuth();
   const [showMoreMenu, setShowMoreMenu] = useState(false);
 
-  const isMoreActive = ['/plans', '/ratings', '/advertisers', '/ads', '/ads/analytics', '/walled-garden', '/diagnostics'].some(path => pathname?.startsWith(path));
+  const isAdmin = user?.role === 'admin';
+  const mainNavItems = isAdmin ? adminNavItems : resellerNavItems;
+  const isMoreActive = isAdmin ? false : resellerMorePaths.some(path => pathname?.startsWith(path));
 
   // Close More menu when navigating to a different page
   useEffect(() => {
@@ -76,7 +112,7 @@ export default function MobileBottomNav() {
           */}
           <div className="flex items-center justify-around h-16">
             {mainNavItems.map((item) => {
-              const isActive = pathname === item.href;
+              const isActive = item.activeMatch ? item.activeMatch(pathname) : pathname === item.href;
               return (
                 <Link
                   key={item.href}

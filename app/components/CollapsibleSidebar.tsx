@@ -168,6 +168,12 @@ function isItemActive(pathname: string, href: string): boolean {
   if (href === '/customers') {
     return pathname === '/customers' || pathname.startsWith('/customers/');
   }
+  if (href === '/admin/resellers') {
+    return pathname === '/admin/resellers' || pathname.startsWith('/admin/resellers/');
+  }
+  if (href === '/admin') {
+    return pathname === '/admin';
+  }
   return pathname === href;
 }
 
@@ -175,9 +181,43 @@ function groupHasActiveItem(pathname: string, group: NavGroup): boolean {
   return group.items.some((item) => isItemActive(pathname, item.href));
 }
 
+const adminNavGroups: NavGroup[] = [
+  {
+    id: 'admin-standalone',
+    items: [
+      {
+        name: 'Dashboard',
+        href: '/admin',
+        icon: (
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+          </svg>
+        ),
+      },
+    ],
+  },
+  {
+    id: 'admin-management',
+    label: 'Management',
+    items: [
+      {
+        name: 'Resellers',
+        href: '/admin/resellers',
+        icon: (
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+          </svg>
+        ),
+      },
+    ],
+  },
+];
+
 export default function CollapsibleSidebar() {
   const pathname = usePathname();
-  const { isAuthenticated, logout } = useAuth();
+  const { isAuthenticated, logout, user } = useAuth();
+  const isAdmin = user?.role === 'admin';
+  const allNavGroups = isAdmin ? adminNavGroups : navGroups;
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [hoveredItem, setHoveredItem] = useState<string | null>(null);
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>(() => {
@@ -207,12 +247,12 @@ export default function CollapsibleSidebar() {
   }, [expandedGroups]);
 
   useEffect(() => {
-    navGroups.forEach((group) => {
+    allNavGroups.forEach((group) => {
       if (group.label && groupHasActiveItem(pathname, group) && !expandedGroups[group.id]) {
         setExpandedGroups((prev) => ({ ...prev, [group.id]: true }));
       }
     });
-  }, [pathname]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [pathname, allNavGroups]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const toggleGroup = useCallback((groupId: string) => {
     setExpandedGroups((prev) => ({ ...prev, [groupId]: !prev[groupId] }));
@@ -324,7 +364,7 @@ export default function CollapsibleSidebar() {
       {/* Logo & Toggle */}
       <div className={`p-5 border-b border-border flex items-center ${isCollapsed ? 'justify-center' : 'justify-between'}`}>
         {!isCollapsed && (
-          <Link href="/dashboard" className="flex items-center gap-3">
+          <Link href={isAdmin ? '/admin' : '/dashboard'} className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center shadow-lg shadow-amber-500/20">
               <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0" />
@@ -332,7 +372,7 @@ export default function CollapsibleSidebar() {
             </div>
             <div>
               <h1 className="font-bold text-lg text-foreground">ISP Billing</h1>
-              <p className="text-xs text-foreground-muted">Admin Portal</p>
+              <p className="text-xs text-foreground-muted">{isAdmin ? 'Admin Console' : 'Admin Portal'}</p>
             </div>
           </Link>
         )}
@@ -354,7 +394,7 @@ export default function CollapsibleSidebar() {
       </div>
 
       <nav className="flex-1 p-3 space-y-1 overflow-y-auto overflow-x-hidden">
-        {navGroups.map((group, index) => renderGroup(group, index))}
+        {allNavGroups.map((group, index) => renderGroup(group, index))}
       </nav>
 
       {/* Theme toggle & User section */}

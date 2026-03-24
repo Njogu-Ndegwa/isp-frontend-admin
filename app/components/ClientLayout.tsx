@@ -36,7 +36,7 @@ function DemoBanner() {
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { isAuthenticated, isLoading, isDemo } = useAuth();
+  const { isAuthenticated, isLoading, isDemo, user } = useAuth();
 
   const isPublicPage = PUBLIC_PATHS.includes(pathname);
 
@@ -57,6 +57,20 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
 
   if (!isAuthenticated) {
     router.replace('/login');
+    return null;
+  }
+
+  const isAdmin = user?.role === 'admin';
+  const isOnAdminPage = pathname.startsWith('/admin');
+  const isOnResellerPage = !isOnAdminPage;
+
+  if (isAdmin && isOnResellerPage) {
+    router.replace('/admin');
+    return null;
+  }
+
+  if (!isAdmin && isOnAdminPage) {
+    router.replace('/dashboard');
     return null;
   }
 

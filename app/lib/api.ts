@@ -61,6 +61,15 @@ import {
   ActivateEmergencyRequest,
   DeactivateEmergencyRequest,
   EmergencyModeResponse,
+  AdminDashboard,
+  AdminResellersParams,
+  AdminResellersResponse,
+  AdminResellerDetail,
+  AdminPaymentsResponse,
+  AdminRoutersResponse,
+  AdminCreatePayoutRequest,
+  AdminPayoutResponse,
+  AdminPayoutsResponse,
 } from './types';
 import * as demo from './demoData';
 
@@ -981,6 +990,99 @@ class ApiClient {
       headers: this.getHeaders(),
     });
     return this.handleResponse<{ message: string }>(response);
+  }
+
+  // Admin Reseller Management
+
+  async getAdminDashboard(): Promise<AdminDashboard> {
+    if (this.isDemoMode()) return demo.demoAdminDashboard;
+    const response = await fetch(`${BASE_URL}/admin/dashboard`, {
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<AdminDashboard>(response);
+  }
+
+  async getAdminResellers(params?: AdminResellersParams): Promise<AdminResellersResponse> {
+    if (this.isDemoMode()) return demo.demoAdminResellers(params);
+    const qs = new URLSearchParams();
+    if (params?.search) qs.set('search', params.search);
+    if (params?.filter) qs.set('filter', params.filter);
+    if (params?.sort_by) qs.set('sort_by', params.sort_by);
+    if (params?.sort_order) qs.set('sort_order', params.sort_order);
+    if (params?.date) qs.set('date', params.date);
+    if (params?.start_date) qs.set('start_date', params.start_date);
+    if (params?.end_date) qs.set('end_date', params.end_date);
+    const query = qs.toString() ? `?${qs.toString()}` : '';
+    const response = await fetch(`${BASE_URL}/admin/resellers${query}`, {
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<AdminResellersResponse>(response);
+  }
+
+  async getAdminResellerDetail(resellerId: number, params?: { date?: string; start_date?: string; end_date?: string }): Promise<AdminResellerDetail> {
+    if (this.isDemoMode()) return demo.demoAdminResellerDetail(resellerId);
+    const qs = new URLSearchParams();
+    if (params?.date) qs.set('date', params.date);
+    if (params?.start_date) qs.set('start_date', params.start_date);
+    if (params?.end_date) qs.set('end_date', params.end_date);
+    const query = qs.toString() ? `?${qs.toString()}` : '';
+    const response = await fetch(`${BASE_URL}/admin/resellers/${resellerId}${query}`, {
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<AdminResellerDetail>(response);
+  }
+
+  async getAdminResellerPayments(
+    resellerId: number,
+    params?: { page?: number; per_page?: number; date?: string; start_date?: string; end_date?: string }
+  ): Promise<AdminPaymentsResponse> {
+    if (this.isDemoMode()) return demo.demoAdminResellerPayments(resellerId, params?.page, params?.per_page);
+    const qs = new URLSearchParams();
+    if (params?.page) qs.set('page', params.page.toString());
+    if (params?.per_page) qs.set('per_page', params.per_page.toString());
+    if (params?.date) qs.set('date', params.date);
+    if (params?.start_date) qs.set('start_date', params.start_date);
+    if (params?.end_date) qs.set('end_date', params.end_date);
+    const query = qs.toString() ? `?${qs.toString()}` : '';
+    const response = await fetch(`${BASE_URL}/admin/resellers/${resellerId}/payments${query}`, {
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<AdminPaymentsResponse>(response);
+  }
+
+  async getAdminResellerRouters(resellerId: number): Promise<AdminRoutersResponse> {
+    if (this.isDemoMode()) return demo.demoAdminResellerRouters(resellerId);
+    const response = await fetch(`${BASE_URL}/admin/resellers/${resellerId}/routers`, {
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<AdminRoutersResponse>(response);
+  }
+
+  async createAdminPayout(resellerId: number, data: AdminCreatePayoutRequest): Promise<AdminPayoutResponse> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(`${BASE_URL}/admin/resellers/${resellerId}/payouts`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify(data),
+    });
+    return this.handleResponse<AdminPayoutResponse>(response);
+  }
+
+  async getAdminPayouts(
+    resellerId: number,
+    params?: { page?: number; per_page?: number; start_date?: string; end_date?: string }
+  ): Promise<AdminPayoutsResponse> {
+    if (this.isDemoMode()) return demo.demoAdminPayouts(resellerId, params?.page, params?.per_page);
+    const qs = new URLSearchParams();
+    if (params?.page) qs.set('page', params.page.toString());
+    if (params?.per_page) qs.set('per_page', params.per_page.toString());
+    if (params?.start_date) qs.set('start_date', params.start_date);
+    if (params?.end_date) qs.set('end_date', params.end_date);
+    const query = qs.toString() ? `?${qs.toString()}` : '';
+    const response = await fetch(`${BASE_URL}/admin/resellers/${resellerId}/payouts${query}`, {
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<AdminPayoutsResponse>(response);
   }
 }
 

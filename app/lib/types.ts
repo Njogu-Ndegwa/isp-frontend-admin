@@ -599,7 +599,7 @@ export interface RegisterRequest {
   role: 'reseller';
   organization_name: string;
   business_name: string;
-  mpesa_shortcode: string;
+  mpesa_shortcode?: string;
 }
 
 export interface AuthUser {
@@ -1187,4 +1187,237 @@ export interface MacDiagnoseResponse {
   can_access_internet: boolean;
   total_router_entries: number;
   total_issues: number;
+}
+
+// Admin Reseller Management Types
+
+export interface AdminReseller {
+  id: number;
+  email: string;
+  organization_name: string;
+  business_name: string;
+  support_phone: string;
+  mpesa_shortcode: string;
+  created_at: string;
+  last_login_at: string | null;
+  total_revenue: number;
+  mpesa_revenue: number;
+  total_customers: number;
+  active_customers: number;
+  last_payment_date: string | null;
+  router_count: number;
+  unpaid_balance: number;
+}
+
+export type AdminResellerFilter =
+  | 'unpaid' | 'paid_up'
+  | 'active' | 'inactive'
+  | 'has_routers' | 'no_routers'
+  | 'has_revenue' | 'no_revenue';
+
+export type AdminResellerSortBy =
+  | 'unpaid_balance' | 'revenue' | 'mpesa_revenue'
+  | 'customers' | 'router_count' | 'created_at' | 'last_login';
+
+export type AdminSortOrder = 'asc' | 'desc';
+
+export interface AdminResellersParams {
+  search?: string;
+  filter?: AdminResellerFilter;
+  sort_by?: AdminResellerSortBy;
+  sort_order?: AdminSortOrder;
+  date?: string;
+  start_date?: string;
+  end_date?: string;
+}
+
+export interface AdminResellersResponse {
+  total: number;
+  filters_applied?: {
+    sort_by: string | null;
+    sort_order: string | null;
+    filter: string | null;
+    search: string | null;
+  };
+  resellers: AdminReseller[];
+}
+
+export interface AdminResellerRevenue {
+  today?: number;
+  today_mpesa?: number;
+  this_week?: number;
+  this_week_mpesa?: number;
+  this_month?: number;
+  this_month_mpesa?: number;
+  all_time?: number;
+  all_time_mpesa?: number;
+  period?: number;
+  period_mpesa?: number;
+}
+
+export interface AdminResellerCustomers {
+  active: number;
+  inactive: number;
+  pending: number;
+  total: number;
+}
+
+export interface AdminResellerRouter {
+  id: number;
+  name: string;
+  identity: string;
+  ip_address: string;
+  is_online: boolean;
+  last_checked_at: string | null;
+}
+
+export interface AdminResellerPayment {
+  id: number;
+  amount: number;
+  payment_method: string;
+  payment_reference?: string;
+  customer_name: string;
+  customer_phone: string;
+  plan_name: string;
+  created_at: string;
+}
+
+export interface AdminResellerPayoutsInfo {
+  total_paid: number;
+  last_payout_date: string | null;
+  unpaid_balance: number;
+}
+
+export interface AdminResellerDetail {
+  id: number;
+  email: string;
+  organization_name: string;
+  business_name: string;
+  support_phone: string;
+  mpesa_shortcode: string;
+  created_at: string;
+  last_login_at: string | null;
+  revenue: AdminResellerRevenue;
+  customers: AdminResellerCustomers;
+  routers: AdminResellerRouter[];
+  recent_payments: AdminResellerPayment[];
+  payouts: AdminResellerPayoutsInfo;
+}
+
+export interface AdminPaymentsResponse {
+  reseller_id: number;
+  page: number;
+  per_page: number;
+  total_count: number;
+  total_pages: number;
+  summary: {
+    total_transactions: number;
+    total_amount: number;
+    mpesa_amount: number;
+  };
+  payments: AdminResellerPayment[];
+}
+
+export interface AdminRouterDetail {
+  id: number;
+  name: string;
+  identity: string;
+  ip_address: string;
+  auth_method: string;
+  is_online: boolean;
+  last_checked_at: string | null;
+  customer_count: number;
+  total_revenue: number;
+}
+
+export interface AdminRoutersResponse {
+  reseller_id: number;
+  total: number;
+  routers: AdminRouterDetail[];
+}
+
+export interface AdminDashboardRevenue {
+  today: number;
+  today_mpesa: number;
+  this_week: number;
+  this_week_mpesa: number;
+  this_month: number;
+  this_month_mpesa: number;
+  all_time: number;
+  all_time_mpesa: number;
+}
+
+export interface AdminDashboard {
+  resellers: {
+    total: number;
+    active_last_30_days: number;
+  };
+  revenue: AdminDashboardRevenue;
+  customers: {
+    total: number;
+    active: number;
+    inactive: number;
+  };
+  routers: {
+    total: number;
+    online: number;
+    offline: number;
+  };
+  top_resellers_this_month: {
+    id: number;
+    email: string;
+    organization_name: string;
+    month_revenue: number;
+  }[];
+  payouts: {
+    total_paid: number;
+    total_unpaid: number;
+  };
+  recent_signups: {
+    id: number;
+    email: string;
+    organization_name: string;
+    created_at: string;
+    last_login_at: string | null;
+  }[];
+  generated_at: string;
+}
+
+export interface AdminCreatePayoutRequest {
+  amount: number;
+  payment_method: string;
+  reference?: string;
+  notes?: string;
+  period_start?: string;
+  period_end?: string;
+}
+
+export interface AdminPayout {
+  id: number;
+  reseller_id: number;
+  amount: number;
+  payment_method: string;
+  reference: string | null;
+  notes: string | null;
+  period_start: string | null;
+  period_end: string | null;
+  created_at: string;
+}
+
+export interface AdminPayoutResponse {
+  payout: AdminPayout;
+  unpaid_balance: number;
+}
+
+export interface AdminPayoutsResponse {
+  reseller_id: number;
+  page: number;
+  per_page: number;
+  total_count: number;
+  total_pages: number;
+  summary: {
+    total_payouts: number;
+    total_amount: number;
+  };
+  payouts: AdminPayout[];
 }

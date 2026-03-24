@@ -21,7 +21,6 @@ export default function SignupPage() {
     password: '',
     organization_name: '',
     business_name: '',
-    mpesa_shortcode: '',
   });
 
   if (isAuthenticated) {
@@ -184,21 +183,6 @@ export default function SignupPage() {
                 className="input"
                 placeholder="e.g. Acme Internet Services"
                 required
-              />
-            </div>
-
-            <div>
-              <label htmlFor="mpesa_shortcode" className="block text-sm font-medium text-foreground-muted mb-1.5">M-Pesa Shortcode</label>
-              <input
-                id="mpesa_shortcode"
-                type="text"
-                value={formData.mpesa_shortcode}
-                onChange={(e) => update('mpesa_shortcode', e.target.value)}
-                className="input"
-                placeholder="e.g. 4159825"
-                required
-                inputMode="numeric"
-                pattern="[0-9]*"
               />
             </div>
 

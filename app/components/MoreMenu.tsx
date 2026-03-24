@@ -89,9 +89,31 @@ const advertisingItems = [
   },
 ];
 
+const adminItems = [
+  {
+    name: 'Admin Dashboard',
+    href: '/admin',
+    icon: (
+      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+      </svg>
+    ),
+  },
+  {
+    name: 'Resellers',
+    href: '/admin/resellers',
+    icon: (
+      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+      </svg>
+    ),
+  },
+];
+
 export default function MoreMenu({ isOpen, onClose }: MoreMenuProps) {
   const pathname = usePathname();
-  const { logout } = useAuth();
+  const { logout, user } = useAuth();
+  const isAdmin = user?.role === 'admin';
 
   const handleLogout = () => {
     logout();
@@ -99,7 +121,7 @@ export default function MoreMenu({ isOpen, onClose }: MoreMenuProps) {
   };
 
   const NavItem = ({ item }: { item: { name: string; href: string; icon: React.ReactNode } }) => {
-    const isActive = pathname === item.href;
+    const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
     return (
       <Link
         href={item.href}
@@ -124,29 +146,44 @@ export default function MoreMenu({ isOpen, onClose }: MoreMenuProps) {
     <BottomSheet isOpen={isOpen} onClose={onClose}>
       {/* Scrollable nav items */}
       <div className="flex-1 overflow-y-auto min-h-0 px-4 pt-2 pb-3">
-        {/* Management Section */}
-        <div className="mb-4">
-          <h4 className="text-[10px] font-semibold uppercase tracking-wider text-foreground-muted/60 mb-2 px-1">
-            Management
-          </h4>
-          <div className="grid grid-cols-4 gap-2">
-            {managementItems.map((item) => (
-              <NavItem key={item.href} item={item} />
-            ))}
+        {isAdmin ? (
+          /* Admin sees only admin navigation */
+          <div className="mb-4">
+            <h4 className="text-[10px] font-semibold uppercase tracking-wider text-foreground-muted/60 mb-2 px-1">
+              Admin
+            </h4>
+            <div className="grid grid-cols-4 gap-2">
+              {adminItems.map((item) => (
+                <NavItem key={item.href} item={item} />
+              ))}
+            </div>
           </div>
-        </div>
+        ) : (
+          /* Reseller sees management + advertising */
+          <>
+            <div className="mb-4">
+              <h4 className="text-[10px] font-semibold uppercase tracking-wider text-foreground-muted/60 mb-2 px-1">
+                Management
+              </h4>
+              <div className="grid grid-cols-4 gap-2">
+                {managementItems.map((item) => (
+                  <NavItem key={item.href} item={item} />
+                ))}
+              </div>
+            </div>
 
-        {/* Advertising Section */}
-        <div>
-          <h4 className="text-[10px] font-semibold uppercase tracking-wider text-foreground-muted/60 mb-2 px-1">
-            Advertising
-          </h4>
-          <div className="grid grid-cols-4 gap-2">
-            {advertisingItems.map((item) => (
-              <NavItem key={item.href} item={item} />
-            ))}
-          </div>
-        </div>
+            <div>
+              <h4 className="text-[10px] font-semibold uppercase tracking-wider text-foreground-muted/60 mb-2 px-1">
+                Advertising
+              </h4>
+              <div className="grid grid-cols-4 gap-2">
+                {advertisingItems.map((item) => (
+                  <NavItem key={item.href} item={item} />
+                ))}
+              </div>
+            </div>
+          </>
+        )}
       </div>
 
       {/* Pinned footer - always visible */}

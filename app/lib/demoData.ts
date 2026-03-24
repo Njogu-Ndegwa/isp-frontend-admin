@@ -35,6 +35,13 @@ import type {
   RouterInterfacesResponse,
   PPPoECredentials,
   ProvisionToken,
+  AdminDashboard,
+  AdminResellersParams,
+  AdminResellersResponse,
+  AdminResellerDetail,
+  AdminPaymentsResponse,
+  AdminRoutersResponse,
+  AdminPayoutsResponse,
 } from './types';
 
 const now = new Date();
@@ -612,6 +619,214 @@ export function demoPPPoECredentials(customerId: number): PPPoECredentials {
 export const demoProvisionTokens: ProvisionToken[] = [
   { id: 1, token: 'demo-prov-abc123', router_name: 'New Router', identity: 'MikroTik-New', wireguard_ip: '10.99.0.5', status: 'pending', expired: false, command: '/system/script/run provision', created_at: iso(1), provisioned_at: null, router_id: null },
 ];
+
+// ─── Admin Reseller Management ───────────────────────────────────────
+
+const demoAdminResellersList = [
+  {
+    id: 1, email: 'acme@wifi.co.ke', organization_name: 'Acme WiFi', business_name: 'Acme Networks Ltd',
+    support_phone: '+254700111222', mpesa_shortcode: '174379', created_at: iso(90),
+    last_login_at: iso(0, 2), total_revenue: 245000, mpesa_revenue: 196000, total_customers: 420, active_customers: 280,
+    last_payment_date: iso(0, 1), router_count: 4, unpaid_balance: 65000,
+  },
+  {
+    id: 2, email: 'speednet@isp.co.ke', organization_name: 'SpeedNet Kenya', business_name: 'SpeedNet Solutions',
+    support_phone: '+254711333444', mpesa_shortcode: '600987', created_at: iso(60),
+    last_login_at: iso(1, 5), total_revenue: 182000, mpesa_revenue: 145600, total_customers: 310, active_customers: 195,
+    last_payment_date: iso(0, 3), router_count: 3, unpaid_balance: 42000,
+  },
+  {
+    id: 3, email: 'connect@fibre.ke', organization_name: 'FibreConnect', business_name: 'FibreConnect ISP Ltd',
+    support_phone: '+254722555666', mpesa_shortcode: '123456', created_at: iso(45),
+    last_login_at: iso(0, 8), total_revenue: 98000, mpesa_revenue: 78400, total_customers: 175, active_customers: 110,
+    last_payment_date: iso(0, 6), router_count: 2, unpaid_balance: 28000,
+  },
+  {
+    id: 4, email: 'admin@cloudwifi.ke', organization_name: 'CloudWifi', business_name: 'CloudWifi Technologies',
+    support_phone: '+254733777888', mpesa_shortcode: '654321', created_at: iso(15),
+    last_login_at: iso(35), total_revenue: 12000, mpesa_revenue: 9600, total_customers: 45, active_customers: 20,
+    last_payment_date: iso(5), router_count: 1, unpaid_balance: 8000,
+  },
+];
+
+export const demoAdminDashboard: AdminDashboard = {
+  resellers: { total: 4, active_last_30_days: 3 },
+  revenue: { today: 18500, today_mpesa: 14800, this_week: 95000, this_week_mpesa: 76000, this_month: 385000, this_month_mpesa: 308000, all_time: 537000, all_time_mpesa: 429600 },
+  customers: { total: 950, active: 605, inactive: 345 },
+  routers: { total: 10, online: 8, offline: 2 },
+  top_resellers_this_month: [
+    { id: 1, email: 'acme@wifi.co.ke', organization_name: 'Acme WiFi', month_revenue: 68000 },
+    { id: 2, email: 'speednet@isp.co.ke', organization_name: 'SpeedNet Kenya', month_revenue: 52000 },
+    { id: 3, email: 'connect@fibre.ke', organization_name: 'FibreConnect', month_revenue: 31000 },
+  ],
+  payouts: { total_paid: 394000, total_unpaid: 143000 },
+  recent_signups: [
+    { id: 4, email: 'admin@cloudwifi.ke', organization_name: 'CloudWifi', created_at: iso(15), last_login_at: iso(35) },
+    { id: 3, email: 'connect@fibre.ke', organization_name: 'FibreConnect', created_at: iso(45), last_login_at: iso(0, 8) },
+  ],
+  generated_at: iso(0),
+};
+
+export function demoAdminResellers(params?: AdminResellersParams): AdminResellersResponse {
+  let list = [...demoAdminResellersList];
+  const search = params?.search;
+  const filter = params?.filter;
+  const sortBy = params?.sort_by;
+  const sortOrder = params?.sort_order || 'desc';
+
+  if (search) {
+    const q = search.toLowerCase();
+    list = list.filter(r => r.email.toLowerCase().includes(q) || r.organization_name.toLowerCase().includes(q));
+  }
+
+  if (filter) {
+    const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
+    switch (filter) {
+      case 'unpaid': list = list.filter(r => r.unpaid_balance > 0); break;
+      case 'paid_up': list = list.filter(r => r.unpaid_balance <= 0); break;
+      case 'active': list = list.filter(r => r.last_login_at && new Date(r.last_login_at).getTime() > thirtyDaysAgo); break;
+      case 'inactive': list = list.filter(r => !r.last_login_at || new Date(r.last_login_at).getTime() <= thirtyDaysAgo); break;
+      case 'has_routers': list = list.filter(r => r.router_count > 0); break;
+      case 'no_routers': list = list.filter(r => r.router_count === 0); break;
+      case 'has_revenue': list = list.filter(r => r.total_revenue > 0); break;
+      case 'no_revenue': list = list.filter(r => r.total_revenue === 0); break;
+    }
+  }
+
+  const dir = sortOrder === 'asc' ? 1 : -1;
+  switch (sortBy) {
+    case 'unpaid_balance': list.sort((a, b) => dir * (a.unpaid_balance - b.unpaid_balance)); break;
+    case 'revenue': list.sort((a, b) => dir * (a.total_revenue - b.total_revenue)); break;
+    case 'mpesa_revenue': list.sort((a, b) => dir * (a.mpesa_revenue - b.mpesa_revenue)); break;
+    case 'customers': list.sort((a, b) => dir * (a.active_customers - b.active_customers)); break;
+    case 'router_count': list.sort((a, b) => dir * (a.router_count - b.router_count)); break;
+    case 'last_login': list.sort((a, b) => dir * ((a.last_login_at ?? '').localeCompare(b.last_login_at ?? ''))); break;
+    case 'created_at':
+    default:
+      list.sort((a, b) => dir * (a.created_at.localeCompare(b.created_at))); break;
+  }
+
+  return {
+    total: list.length,
+    filters_applied: {
+      sort_by: sortBy || null,
+      sort_order: sortOrder,
+      filter: filter || null,
+      search: search || null,
+    },
+    resellers: list,
+  };
+}
+
+export function demoAdminResellerDetail(resellerId: number): AdminResellerDetail {
+  const r = demoAdminResellersList.find(x => x.id === resellerId) ?? demoAdminResellersList[0];
+  return {
+    id: r.id, email: r.email, organization_name: r.organization_name, business_name: r.business_name,
+    support_phone: r.support_phone, mpesa_shortcode: r.mpesa_shortcode,
+    created_at: r.created_at, last_login_at: r.last_login_at,
+    revenue: {
+      today: Math.round(r.total_revenue * 0.02),
+      today_mpesa: Math.round(r.mpesa_revenue * 0.02),
+      this_week: Math.round(r.total_revenue * 0.12),
+      this_week_mpesa: Math.round(r.mpesa_revenue * 0.12),
+      this_month: Math.round(r.total_revenue * 0.35),
+      this_month_mpesa: Math.round(r.mpesa_revenue * 0.35),
+      all_time: r.total_revenue,
+      all_time_mpesa: r.mpesa_revenue,
+    },
+    customers: {
+      active: r.active_customers,
+      inactive: r.total_customers - r.active_customers - 10,
+      pending: 10,
+      total: r.total_customers,
+    },
+    routers: Array.from({ length: r.router_count }, (_, i) => ({
+      id: r.id * 100 + i + 1,
+      name: `Router ${i + 1}`,
+      identity: `${r.organization_name.toLowerCase().replace(/\s+/g, '-')}-r${i + 1}`,
+      ip_address: `10.${r.id}.0.${i + 1}`,
+      is_online: i < r.router_count - (r.id === 4 ? 1 : 0),
+      last_checked_at: iso(0, i),
+    })),
+    recent_payments: Array.from({ length: 5 }, (_, i) => ({
+      id: r.id * 1000 + i + 1,
+      amount: [100, 200, 500, 50, 300][i],
+      payment_method: 'mobile_money',
+      customer_name: ['John Doe', 'Jane Smith', 'Peter Ouma', 'Mary Wanjiku', 'Ali Hassan'][i],
+      customer_phone: `25471${String(r.id)}${String(i).padStart(6, '0')}`,
+      plan_name: ['Daily 50MB', 'Weekly 1GB', 'Monthly 5GB', 'Daily 100MB', 'Weekly 3GB'][i],
+      created_at: iso(0, i + 1),
+    })),
+    payouts: {
+      total_paid: r.total_revenue - r.unpaid_balance,
+      last_payout_date: iso(7),
+      unpaid_balance: r.unpaid_balance,
+    },
+  };
+}
+
+export function demoAdminResellerPayments(resellerId: number, page = 1, perPage = 50): AdminPaymentsResponse {
+  const r = demoAdminResellersList.find(x => x.id === resellerId) ?? demoAdminResellersList[0];
+  const totalCount = 127;
+  const names = ['John Doe', 'Jane Smith', 'Peter Ouma', 'Mary Wanjiku', 'Ali Hassan', 'Grace Muthoni', 'David Kamau', 'Sarah Njeri'];
+  const plans = ['Daily 50MB', 'Weekly 1GB', 'Monthly 5GB', 'Daily 100MB', 'Weekly 3GB', 'Monthly 10GB'];
+  const payments = Array.from({ length: Math.min(perPage, totalCount - (page - 1) * perPage) }, (_, i) => ({
+    id: r.id * 10000 + (page - 1) * perPage + i + 1,
+    amount: [100, 200, 500, 50, 300, 1000, 150, 250][i % 8],
+    payment_method: 'mobile_money',
+    payment_reference: `SH${String(r.id)}K${String((page - 1) * perPage + i).padStart(4, '0')}`,
+    customer_name: names[i % names.length],
+    customer_phone: `25471${String(r.id)}${String(i).padStart(6, '0')}`,
+    plan_name: plans[i % plans.length],
+    created_at: iso(Math.floor(i / 5), (i % 5) + 1),
+  }));
+  return {
+    reseller_id: r.id, page, per_page: perPage,
+    total_count: totalCount, total_pages: Math.ceil(totalCount / perPage),
+    summary: { total_transactions: totalCount, total_amount: 18500, mpesa_amount: 15200 },
+    payments,
+  };
+}
+
+export function demoAdminResellerRouters(resellerId: number): AdminRoutersResponse {
+  const r = demoAdminResellersList.find(x => x.id === resellerId) ?? demoAdminResellersList[0];
+  return {
+    reseller_id: r.id, total: r.router_count,
+    routers: Array.from({ length: r.router_count }, (_, i) => ({
+      id: r.id * 100 + i + 1,
+      name: `Router ${i + 1}`,
+      identity: `${r.organization_name.toLowerCase().replace(/\s+/g, '-')}-r${i + 1}`,
+      ip_address: `10.${r.id}.0.${i + 1}`,
+      auth_method: 'DIRECT_API',
+      is_online: i < r.router_count - (r.id === 4 ? 1 : 0),
+      last_checked_at: iso(0, i),
+      customer_count: Math.round(r.active_customers / r.router_count),
+      total_revenue: Math.round(r.total_revenue / r.router_count),
+    })),
+  };
+}
+
+export function demoAdminPayouts(resellerId: number, page = 1, perPage = 50): AdminPayoutsResponse {
+  const r = demoAdminResellersList.find(x => x.id === resellerId) ?? demoAdminResellersList[0];
+  const totalPaid = r.total_revenue - r.unpaid_balance;
+  const payouts = Array.from({ length: 6 }, (_, i) => ({
+    id: r.id * 100 + i + 1,
+    reseller_id: r.id,
+    amount: Math.round(totalPaid / 6),
+    payment_method: i % 2 === 0 ? 'mpesa' : 'bank',
+    reference: i % 2 === 0 ? `SH${String(r.id)}PAY${String(i).padStart(3, '0')}` : `BNK-${r.id}-${i}`,
+    notes: `Week ${i + 1} payout`,
+    period_start: iso(42 - i * 7),
+    period_end: iso(35 - i * 7),
+    created_at: iso(35 - i * 7, 2),
+  }));
+  return {
+    reseller_id: r.id, page, per_page: perPage,
+    total_count: 6, total_pages: 1,
+    summary: { total_payouts: 6, total_amount: totalPaid },
+    payouts,
+  };
+}
 
 // ─── Error message for write operations ─────────────────────────────
 export const DEMO_WRITE_ERROR = 'This action is not available in demo mode. Sign up for a free account to get started!';
