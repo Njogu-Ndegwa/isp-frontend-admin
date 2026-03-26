@@ -39,11 +39,16 @@ export default function DateTimePicker({ value, label, onChange }: DateTimePicke
   const [viewMonth, setViewMonth] = useState(isValid ? parsed.getMonth() : new Date().getMonth());
   const [hour, setHour] = useState(isValid ? parsed.getHours() : 23);
   const [minute, setMinute] = useState(isValid ? parsed.getMinutes() : 59);
+  const [hourInput, setHourInput] = useState(pad(hour));
+  const [minuteInput, setMinuteInput] = useState(pad(minute));
   const containerRef = useRef<HTMLDivElement>(null);
 
   const selectedDay = isValid ? parsed.getDate() : null;
   const selectedMonth = isValid ? parsed.getMonth() : null;
   const selectedYear = isValid ? parsed.getFullYear() : null;
+
+  useEffect(() => { setHourInput(pad(hour)); }, [hour]);
+  useEffect(() => { setMinuteInput(pad(minute)); }, [minute]);
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
@@ -170,8 +175,14 @@ export default function DateTimePicker({ value, label, onChange }: DateTimePicke
                   type="number"
                   min={0}
                   max={23}
-                  value={pad(hour)}
-                  onChange={(e) => updateTime(Math.min(23, Math.max(0, parseInt(e.target.value) || 0)), minute)}
+                  value={hourInput}
+                  onChange={(e) => setHourInput(e.target.value)}
+                  onBlur={() => {
+                    const parsed = parseInt(hourInput);
+                    const clamped = isNaN(parsed) ? 0 : Math.min(23, Math.max(0, parsed));
+                    setHourInput(pad(clamped));
+                    updateTime(clamped, minute);
+                  }}
                   className="input w-14 text-center font-mono px-1"
                 />
                 <span className="text-foreground font-bold">:</span>
@@ -179,8 +190,14 @@ export default function DateTimePicker({ value, label, onChange }: DateTimePicke
                   type="number"
                   min={0}
                   max={59}
-                  value={pad(minute)}
-                  onChange={(e) => updateTime(hour, Math.min(59, Math.max(0, parseInt(e.target.value) || 0)))}
+                  value={minuteInput}
+                  onChange={(e) => setMinuteInput(e.target.value)}
+                  onBlur={() => {
+                    const parsed = parseInt(minuteInput);
+                    const clamped = isNaN(parsed) ? 0 : Math.min(59, Math.max(0, parsed));
+                    setMinuteInput(pad(clamped));
+                    updateTime(hour, clamped);
+                  }}
                   className="input w-14 text-center font-mono px-1"
                 />
               </div>

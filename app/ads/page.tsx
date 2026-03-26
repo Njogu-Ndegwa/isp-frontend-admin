@@ -591,7 +591,7 @@ function CreateAdModal({
               <label className="block text-sm font-medium text-foreground mb-2">Price Value</label>
               <input
                 type="number"
-                value={formData.price_value}
+                value={formData.price_value || ''}
                 onChange={(e) => setFormData({ ...formData, price_value: parseInt(e.target.value) || 0 })}
                 className="input"
                 placeholder="45000"

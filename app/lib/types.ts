@@ -457,6 +457,65 @@ export interface TransactionSummary {
   };
 }
 
+// Payment Method Configuration Types (Settings CRUD)
+export type PaymentMethodType = 'bank_account' | 'mpesa_paybill' | 'mpesa_paybill_with_keys' | 'zenopay';
+
+export interface PaymentMethodConfig {
+  id: number;
+  user_id: number;
+  method_type: PaymentMethodType;
+  label: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+  // bank_account fields
+  bank_paybill_number?: string;
+  bank_account_number?: string;
+  // mpesa_paybill fields
+  mpesa_paybill_number?: string;
+  // mpesa_paybill_with_keys fields
+  mpesa_shortcode?: string;
+  mpesa_passkey?: string;
+  mpesa_consumer_key?: string;
+  mpesa_consumer_secret?: string;
+  // zenopay fields
+  zenopay_api_key?: string;
+  zenopay_account_id?: string;
+}
+
+export interface CreatePaymentMethodRequest {
+  method_type: PaymentMethodType;
+  label: string;
+  bank_paybill_number?: string;
+  bank_account_number?: string;
+  mpesa_paybill_number?: string;
+  mpesa_shortcode?: string;
+  mpesa_passkey?: string;
+  mpesa_consumer_key?: string;
+  mpesa_consumer_secret?: string;
+  zenopay_api_key?: string;
+  zenopay_account_id?: string;
+}
+
+export interface UpdatePaymentMethodRequest {
+  label?: string;
+  is_active?: boolean;
+  bank_paybill_number?: string;
+  bank_account_number?: string;
+  mpesa_paybill_number?: string;
+  mpesa_shortcode?: string;
+  mpesa_passkey?: string;
+  mpesa_consumer_key?: string;
+  mpesa_consumer_secret?: string;
+  zenopay_api_key?: string;
+  zenopay_account_id?: string;
+}
+
+export interface PaymentMethodTestResult {
+  status: 'success' | 'failed';
+  message: string;
+}
+
 // Router Types
 export type PaymentMethod = 'mpesa' | 'voucher';
 
@@ -470,6 +529,7 @@ export interface Router {
   port: number;
   auth_method: string;
   payment_methods?: PaymentMethod[];
+  payment_method_id?: number | null;
   pppoe_ports?: string[];
   plain_ports?: string[];
   status?: RouterStatus;
@@ -631,7 +691,6 @@ export interface RegisterRequest {
   role: 'reseller';
   organization_name: string;
   business_name: string;
-  mpesa_shortcode?: string;
 }
 
 export interface AuthUser {

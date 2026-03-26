@@ -1717,8 +1717,9 @@ function CreateRouterModal({
               <label className="block text-sm font-medium text-foreground mb-2">API Port</label>
               <input
                 type="number"
-                value={formData.port}
-                onChange={(e) => setFormData({ ...formData, port: parseInt(e.target.value) || 8728 })}
+                value={formData.port || ''}
+                onChange={(e) => setFormData({ ...formData, port: parseInt(e.target.value) || 0 })}
+                onBlur={() => { if (!formData.port) setFormData(prev => ({ ...prev, port: 8728 })); }}
                 className="input"
                 min={1}
                 max={65535}
@@ -1898,8 +1899,9 @@ function EditRouterModal({
               <label className="block text-sm font-medium text-foreground mb-2">API Port</label>
               <input
                 type="number"
-                value={formData.port}
-                onChange={(e) => setFormData({ ...formData, port: parseInt(e.target.value) || 8728 })}
+                value={formData.port || ''}
+                onChange={(e) => setFormData({ ...formData, port: parseInt(e.target.value) || 0 })}
+                onBlur={() => { if (!formData.port) setFormData(prev => ({ ...prev, port: 8728 })); }}
                 className="input"
                 min={1}
                 max={65535}

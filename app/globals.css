@@ -233,6 +233,7 @@ body {
   background: var(--background-secondary);
   border: 1px solid var(--border);
   border-radius: 16px;
+  overflow: hidden;
   transition: all 0.3s cubic-bezier(0.22, 1, 0.36, 1);
 }
 

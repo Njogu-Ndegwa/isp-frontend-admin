@@ -12,6 +12,7 @@ import { PageLoader } from '../components/LoadingSpinner';
 import StatCard from '../components/StatCard';
 import MobileDataCard from '../components/MobileDataCard';
 import SearchInput from '../components/SearchInput';
+import FilterSelect from '../components/FilterSelect';
 import DataTable, { DataTableColumn } from '../components/DataTable';
 
 type FilterStatus = 'all' | 'active' | 'inactive';
@@ -296,47 +297,67 @@ export default function CustomersPage() {
       )}
 
       {/* Filters */}
-      <div className="space-y-3 mb-6 animate-fade-in">
-        <SearchInput
-          value={searchQuery}
-          onChange={setSearchQuery}
-          placeholder="Search by name, phone, MAC, or PPPoE username..."
-        />
-
-        <div className="flex gap-3 flex-wrap">
-          {/* Status Filter */}
-          <div className="flex rounded-lg border border-border overflow-hidden flex-shrink-0">
-            {(['all', 'active', 'inactive'] as FilterStatus[]).map((status) => (
-              <button
-                key={status}
-                onClick={() => setFilter(status)}
-                className={`px-3 py-2 text-sm font-medium capitalize transition-colors whitespace-nowrap ${
-                  filter === status
-                    ? 'bg-accent-primary text-background'
-                    : 'bg-background-secondary text-foreground-muted hover:text-foreground'
-                }`}
-              >
-                {status}
-              </button>
-            ))}
+      <div className="mb-6 animate-fade-in">
+        <div className="flex flex-col sm:flex-row gap-3">
+          <div className="flex-1">
+            <SearchInput
+              value={searchQuery}
+              onChange={setSearchQuery}
+              placeholder="Search by name, phone, MAC, or PPPoE username..."
+            />
           </div>
-          {/* Connection Type Filter */}
-          <div className="flex rounded-lg border border-border overflow-hidden flex-shrink-0">
-            {(['all', 'hotspot', 'pppoe'] as ConnectionFilter[]).map((type) => (
-              <button
-                key={type}
-                onClick={() => setConnectionFilter(type)}
-                className={`px-3 py-2 text-sm font-medium transition-colors whitespace-nowrap ${
-                  connectionFilter === type
-                    ? 'bg-accent-primary text-background'
-                    : 'bg-background-secondary text-foreground-muted hover:text-foreground'
-                }`}
-              >
-                {type === 'all' ? 'All Types' : type === 'pppoe' ? 'PPPoE' : 'Hotspot'}
-              </button>
-            ))}
+          <div className="grid grid-cols-2 gap-2 sm:flex">
+            <FilterSelect
+              value={filter}
+              onChange={(v) => setFilter(v as FilterStatus)}
+              options={[
+                { value: 'all', label: 'All Status' },
+                { value: 'active', label: 'Active' },
+                { value: 'inactive', label: 'Inactive' },
+              ]}
+            />
+            <FilterSelect
+              value={connectionFilter}
+              onChange={(v) => setConnectionFilter(v as ConnectionFilter)}
+              options={[
+                { value: 'all', label: 'All Types' },
+                { value: 'hotspot', label: 'Hotspot' },
+                { value: 'pppoe', label: 'PPPoE' },
+              ]}
+            />
           </div>
         </div>
+
+        {/* Active Filters */}
+        {(filter !== 'all' || connectionFilter !== 'all') && (
+          <div className="flex items-center gap-2 mt-3 flex-wrap">
+            <span className="text-xs text-foreground-muted">Filters:</span>
+            {filter !== 'all' && (
+              <button
+                onClick={() => setFilter('all')}
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-accent-primary/10 text-accent-primary hover:bg-accent-primary/20 transition-colors capitalize"
+              >
+                {filter}
+                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            )}
+            {connectionFilter !== 'all' && (
+              <button
+                onClick={() => setConnectionFilter('all')}
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-accent-primary/10 text-accent-primary hover:bg-accent-primary/20 transition-colors"
+              >
+                {connectionFilter === 'pppoe' ? 'PPPoE' : 'Hotspot'}
+                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            )}
+            <button
+              onClick={() => { setFilter('all'); setConnectionFilter('all'); }}
+              className="text-xs text-foreground-muted hover:text-foreground transition-colors underline underline-offset-2"
+            >
+              Clear all
+            </button>
+          </div>
+        )}
       </div>
 
       {loading ? (

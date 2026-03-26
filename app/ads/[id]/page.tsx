@@ -787,7 +787,7 @@ function EditAdModal({
               <label className="block text-sm font-medium text-foreground mb-2">Price Value</label>
               <input
                 type="number"
-                value={formData.price_value}
+                value={formData.price_value || ''}
                 onChange={(e) => setFormData({ ...formData, price_value: parseInt(e.target.value) || 0 })}
                 className="input"
                 required
@@ -867,7 +867,7 @@ function EditAdModal({
               <label className="block text-sm font-medium text-foreground mb-2">Priority</label>
               <input
                 type="number"
-                value={formData.priority}
+                value={formData.priority || ''}
                 onChange={(e) => setFormData({ ...formData, priority: parseInt(e.target.value) || 0 })}
                 className="input"
                 min={0}

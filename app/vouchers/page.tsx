@@ -15,6 +15,7 @@ import DataTable, { DataTableColumn } from '../components/DataTable';
 import { PageLoader } from '../components/LoadingSpinner';
 import StatCard from '../components/StatCard';
 import SearchInput from '../components/SearchInput';
+import FilterSelect from '../components/FilterSelect';
 import PullToRefresh from '../components/PullToRefresh';
 import { formatDateGMT3 } from '../lib/dateUtils';
 
@@ -325,28 +326,43 @@ export default function VouchersPage() {
       )}
 
       {/* Filters */}
-      <div className="space-y-3 mb-6 animate-fade-in">
-        <SearchInput
-          value={searchQuery}
-          onChange={setSearchQuery}
-          placeholder="Search by code, plan, or router..."
-        />
-
-        <div className="flex rounded-lg border border-border overflow-x-auto flex-shrink-0 no-scrollbar">
-          {STATUS_FILTERS.map((opt) => (
-            <button
-              key={opt.value}
-              onClick={() => handleStatusChange(opt.value)}
-              className={`px-3 py-2 text-sm font-medium capitalize transition-colors whitespace-nowrap ${
-                statusFilter === opt.value
-                  ? 'bg-accent-primary text-background'
-                  : 'bg-background-secondary text-foreground-muted hover:text-foreground'
-              }`}
-            >
-              {opt.label}
-            </button>
-          ))}
+      <div className="mb-6 animate-fade-in">
+        <div className="flex flex-col sm:flex-row gap-3">
+          <div className="flex-1">
+            <SearchInput
+              value={searchQuery}
+              onChange={setSearchQuery}
+              placeholder="Search by code, plan, or router..."
+            />
+          </div>
+          <div className="sm:flex">
+            <FilterSelect
+              value={statusFilter}
+              onChange={(v) => handleStatusChange(v as StatusFilter)}
+              options={STATUS_FILTERS.map((opt) => ({ value: opt.value, label: opt.label }))}
+            />
+          </div>
         </div>
+
+        {/* Active Filters */}
+        {statusFilter !== '' && (
+          <div className="flex items-center gap-2 mt-3 flex-wrap">
+            <span className="text-xs text-foreground-muted">Filters:</span>
+            <button
+              onClick={() => handleStatusChange('')}
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-accent-primary/10 text-accent-primary hover:bg-accent-primary/20 transition-colors capitalize"
+            >
+              {statusFilter}
+              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+            </button>
+            <button
+              onClick={() => handleStatusChange('')}
+              className="text-xs text-foreground-muted hover:text-foreground transition-colors underline underline-offset-2"
+            >
+              Clear all
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Error Banner */}
@@ -724,8 +740,9 @@ function GenerateVouchersModal({
               </label>
               <input
                 type="number"
-                value={formData.quantity}
-                onChange={(e) => setFormData({ ...formData, quantity: Math.min(100, Math.max(1, parseInt(e.target.value) || 1)) })}
+                value={formData.quantity || ''}
+                onChange={(e) => setFormData({ ...formData, quantity: e.target.value === '' ? 0 : Math.min(100, Math.max(1, parseInt(e.target.value) || 1)) })}
+                onBlur={() => { if (!formData.quantity) setFormData(prev => ({ ...prev, quantity: 1 })); }}
                 className="input text-base"
                 min={1}
                 max={100}

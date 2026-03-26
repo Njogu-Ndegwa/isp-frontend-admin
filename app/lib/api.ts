@@ -74,6 +74,10 @@ import {
   AdminCreatePayoutRequest,
   AdminPayoutResponse,
   AdminPayoutsResponse,
+  PaymentMethodConfig,
+  CreatePaymentMethodRequest,
+  UpdatePaymentMethodRequest,
+  PaymentMethodTestResult,
 } from './types';
 import * as demo from './demoData';
 
@@ -1106,6 +1110,78 @@ class ApiClient {
       headers: this.getHeaders(),
     });
     return this.handleResponse<AdminPayoutsResponse>(response);
+  }
+
+  // Payment Methods CRUD
+
+  async getPaymentMethods(includeInactive = false): Promise<PaymentMethodConfig[]> {
+    if (this.isDemoMode()) return [];
+    const params = includeInactive ? '?include_inactive=true' : '';
+    const response = await fetch(`${BASE_URL}/payment-methods${params}`, {
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<PaymentMethodConfig[]>(response);
+  }
+
+  async getPaymentMethod(id: number): Promise<PaymentMethodConfig> {
+    if (this.isDemoMode()) throw new Error('Not available in demo mode');
+    const response = await fetch(`${BASE_URL}/payment-methods/${id}`, {
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<PaymentMethodConfig>(response);
+  }
+
+  async createPaymentMethod(data: CreatePaymentMethodRequest): Promise<PaymentMethodConfig> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(`${BASE_URL}/payment-methods`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify(data),
+    });
+    return this.handleResponse<PaymentMethodConfig>(response);
+  }
+
+  async updatePaymentMethod(id: number, data: UpdatePaymentMethodRequest): Promise<PaymentMethodConfig> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(`${BASE_URL}/payment-methods/${id}`, {
+      method: 'PUT',
+      headers: this.getHeaders(),
+      body: JSON.stringify(data),
+    });
+    return this.handleResponse<PaymentMethodConfig>(response);
+  }
+
+  async deletePaymentMethod(id: number): Promise<{ message: string }> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(`${BASE_URL}/payment-methods/${id}`, {
+      method: 'DELETE',
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<{ message: string }>(response);
+  }
+
+  async testPaymentMethod(id: number): Promise<PaymentMethodTestResult> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(`${BASE_URL}/payment-methods/${id}/test`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<PaymentMethodTestResult>(response);
+  }
+
+  // Router Payment Method Assignment
+
+  async assignRouterPaymentMethod(
+    routerId: number,
+    paymentMethodId: number | null
+  ): Promise<{ message: string; router_id: number; payment_method_id: number | null }> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(`${BASE_URL}/routers/${routerId}/payment-method`, {
+      method: 'PUT',
+      headers: this.getHeaders(),
+      body: JSON.stringify({ payment_method_id: paymentMethodId }),
+    });
+    return this.handleResponse<{ message: string; router_id: number; payment_method_id: number | null }>(response);
   }
 }
 

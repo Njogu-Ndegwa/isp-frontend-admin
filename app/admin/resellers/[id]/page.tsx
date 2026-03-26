@@ -43,8 +43,8 @@ const formatShortDate = (dateStr: string | null | undefined): string => {
   }
 };
 
-const formatKES = (amount: number): string => {
-  return `KES ${amount.toLocaleString('en-KE', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+const formatKES = (amount: number | undefined | null): string => {
+  return `KES ${(amount ?? 0).toLocaleString('en-KE', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 };
 
 type Tab = 'payments' | 'routers' | 'payouts';

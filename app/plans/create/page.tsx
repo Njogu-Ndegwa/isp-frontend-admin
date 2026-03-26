@@ -79,7 +79,7 @@ export default function CreatePlanPage() {
                 <input
                   id="price"
                   type="number"
-                  value={formData.price}
+                  value={formData.price || ''}
                   onChange={(e) => setFormData({ ...formData, price: parseInt(e.target.value) || 0 })}
                   className="input"
                   min={1}
@@ -110,8 +110,9 @@ export default function CreatePlanPage() {
                 <input
                   id="duration_value"
                   type="number"
-                  value={formData.duration_value}
-                  onChange={(e) => setFormData({ ...formData, duration_value: parseInt(e.target.value) || 1 })}
+                  value={formData.duration_value || ''}
+                  onChange={(e) => setFormData({ ...formData, duration_value: e.target.value === '' ? 0 : (parseInt(e.target.value) || 1) })}
+                  onBlur={() => { if (!formData.duration_value) setFormData(prev => ({ ...prev, duration_value: 1 })); }}
                   className="input"
                   min={1}
                   required
