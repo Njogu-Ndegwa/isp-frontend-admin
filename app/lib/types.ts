@@ -179,9 +179,37 @@ export interface Customer {
   expiry: string;
   hours_remaining?: number;
   plan: CustomerPlan;
+  plan_id?: number;
   router: CustomerRouter;
+  router_id?: number;
   connection_type?: 'hotspot' | 'pppoe';
   pppoe_username?: string;
+  static_ip?: string;
+}
+
+export interface UpdateCustomerRequest {
+  name?: string;
+  phone?: string;
+  plan_id?: number;
+  router_id?: number;
+  mac_address?: string;
+  pppoe_username?: string;
+  pppoe_password?: string;
+  static_ip?: string;
+  expiry?: string;
+}
+
+export interface UpdateCustomerResponse {
+  success: boolean;
+  customer: Customer;
+  pppoe_reprovisioned: 'ok' | 'failed' | null;
+}
+
+export interface DeleteCustomerResponse {
+  success: boolean;
+  message: string;
+  customer_id: number;
+  pppoe_deprovisioned: 'ok' | 'failed' | null;
 }
 
 // PPPoE Types

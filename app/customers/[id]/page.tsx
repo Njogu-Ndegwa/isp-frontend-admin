@@ -4,11 +4,12 @@ import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { api } from '../../lib/api';
-import { Customer, PPPoECredentials, ActivatePPPoERequest } from '../../lib/types';
+import { Customer, Plan, Router as RouterType, PPPoECredentials, ActivatePPPoERequest, UpdateCustomerRequest } from '../../lib/types';
 import { formatDateGMT3 } from '../../lib/dateUtils';
 import { useAlert } from '../../context/AlertContext';
 import Header from '../../components/Header';
 import { PageLoader } from '../../components/LoadingSpinner';
+import DateTimePicker from '../../components/DateTimePicker';
 
 export default function CustomerDetailPage() {
   const params = useParams();
@@ -35,6 +36,11 @@ export default function CustomerDetailPage() {
   // Confirm dialogs
   const [confirmDeactivate, setConfirmDeactivate] = useState(false);
   const [confirmRegenerate, setConfirmRegenerate] = useState(false);
+
+  // Edit & Delete
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   useEffect(() => {
     loadCustomer();
@@ -116,6 +122,23 @@ export default function CustomerDetailPage() {
     }
   }, [customerId, showAlert]);
 
+  const handleDelete = useCallback(async () => {
+    try {
+      setDeleteLoading(true);
+      const result = await api.deleteCustomer(customerId);
+      showAlert('success', result.message);
+      if (result.pppoe_deprovisioned === 'failed') {
+        showAlert('warning', 'PPPoE de-provisioning failed — manual cleanup may be needed');
+      }
+      router.push('/customers');
+    } catch (err) {
+      showAlert('error', err instanceof Error ? err.message : 'Failed to delete customer');
+    } finally {
+      setDeleteLoading(false);
+      setConfirmDelete(false);
+    }
+  }, [customerId, showAlert, router]);
+
   const copyToClipboard = (text: string, label: string) => {
     navigator.clipboard.writeText(text);
     showAlert('success', `${label} copied`);
@@ -184,23 +207,45 @@ export default function CustomerDetailPage() {
           </svg>
           Back to Customers
         </Link>
-        <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-full bg-accent-primary/10 flex items-center justify-center text-accent-primary font-bold text-lg">
-            {(customer.name || '?').charAt(0).toUpperCase()}
-          </div>
-          <div>
-            <div className="flex items-center gap-2 flex-wrap">
-              <h1 className="text-xl font-bold text-foreground">{customer.name || 'Unknown'}</h1>
-              <span className={`badge ${customer.status === 'active' ? 'badge-success' : customer.status === 'expired' ? 'badge-danger' : 'badge-neutral'} capitalize`}>
-                {customer.status}
-              </span>
-              {isPPPoE ? (
-                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider bg-info/10 text-info">PPPoE</span>
-              ) : (
-                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider bg-accent-primary/10 text-accent-primary">Hotspot</span>
-              )}
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-full bg-accent-primary/10 flex items-center justify-center text-accent-primary font-bold text-lg">
+              {(customer.name || '?').charAt(0).toUpperCase()}
             </div>
-            <p className="text-sm text-foreground-muted mt-0.5">{customer.phone}</p>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h1 className="text-xl font-bold text-foreground">{customer.name || 'Unknown'}</h1>
+                <span className={`badge ${customer.status === 'active' ? 'badge-success' : customer.status === 'expired' ? 'badge-danger' : 'badge-neutral'} capitalize`}>
+                  {customer.status}
+                </span>
+                {isPPPoE ? (
+                  <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider bg-info/10 text-info">PPPoE</span>
+                ) : (
+                  <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider bg-accent-primary/10 text-accent-primary">Hotspot</span>
+                )}
+              </div>
+              <p className="text-sm text-foreground-muted mt-0.5">{customer.phone}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={() => setShowEditModal(true)}
+              className="p-2 rounded-lg hover:bg-accent-primary/10 transition-colors text-foreground-muted hover:text-accent-primary"
+              title="Edit customer"
+            >
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+              </svg>
+            </button>
+            <button
+              onClick={() => setConfirmDelete(true)}
+              className="p-2 rounded-lg hover:bg-danger/10 transition-colors text-foreground-muted hover:text-danger"
+              title="Delete customer"
+            >
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+            </button>
           </div>
         </div>
       </div>
@@ -226,6 +271,9 @@ export default function CustomerDetailPage() {
             )}
             {customer.pppoe_username && (
               <InfoItem label="PPPoE Username" value={customer.pppoe_username} mono />
+            )}
+            {customer.static_ip && (
+              <InfoItem label="Static IP" value={customer.static_ip} mono />
             )}
           </div>
         </div>
@@ -443,6 +491,300 @@ export default function CustomerDetailPage() {
           </div>
         </div>
       )}
+
+      {/* Edit Customer Modal */}
+      {showEditModal && (
+        <EditCustomerModal
+          customer={customer}
+          onClose={() => setShowEditModal(false)}
+          onSuccess={() => {
+            setShowEditModal(false);
+            loadCustomer();
+          }}
+        />
+      )}
+
+      {/* Delete Customer Confirm */}
+      {confirmDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={() => setConfirmDelete(false)}>
+          <div className="card p-6 w-full max-w-sm space-y-4" onClick={(e) => e.stopPropagation()}>
+            <div className="w-12 h-12 mx-auto rounded-full bg-danger/10 flex items-center justify-center">
+              <svg className="w-6 h-6 text-danger" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+            </div>
+            <h3 className="text-lg font-semibold text-foreground text-center">Delete Customer</h3>
+            <p className="text-sm text-foreground-muted text-center">
+              Are you sure you want to delete <span className="font-medium text-foreground">{customer.name}</span>? This action cannot be undone.
+              {isPPPoE && ' Any active PPPoE session will be de-provisioned from the router.'}
+            </p>
+            <div className="flex gap-3 pt-2">
+              <button onClick={() => setConfirmDelete(false)} className="btn-secondary flex-1">Cancel</button>
+              <button
+                onClick={handleDelete}
+                disabled={deleteLoading}
+                className="flex-1 px-4 py-2 rounded-lg text-sm font-medium bg-danger text-white hover:bg-danger/90 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                {deleteLoading ? (
+                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  'Delete'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function EditCustomerModal({
+  customer,
+  onClose,
+  onSuccess,
+}: {
+  customer: Customer;
+  onClose: () => void;
+  onSuccess: () => void;
+}) {
+  const { showAlert } = useAlert();
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [plans, setPlans] = useState<Plan[]>([]);
+  const [routers, setRouters] = useState<RouterType[]>([]);
+  const [formLoading, setFormLoading] = useState(true);
+
+  const isPPPoE = (customer.connection_type ?? customer.plan?.connection_type) === 'pppoe';
+
+  const toLocalDatetime = (iso: string | undefined): string => {
+    if (!iso) return '';
+    try {
+      const d = new Date(iso);
+      if (isNaN(d.getTime())) return '';
+      const pad = (n: number) => String(n).padStart(2, '0');
+      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    } catch { return ''; }
+  };
+
+  const [formData, setFormData] = useState<UpdateCustomerRequest>({
+    name: customer.name || '',
+    phone: customer.phone || '',
+    plan_id: customer.plan_id ?? customer.plan?.id,
+    router_id: customer.router_id ?? customer.router?.id,
+    mac_address: customer.mac_address || '',
+    pppoe_username: customer.pppoe_username || '',
+    pppoe_password: '',
+    static_ip: customer.static_ip || '',
+    expiry: toLocalDatetime(customer.expiry),
+  });
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const [p, r] = await Promise.all([api.getPlans(), api.getRouters()]);
+        setPlans(p);
+        setRouters(r);
+      } catch {
+        setError('Failed to load plans/routers');
+      } finally {
+        setFormLoading(false);
+      }
+    })();
+  }, []);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      setLoading(true);
+      setError(null);
+      const payload: UpdateCustomerRequest = {};
+      if (formData.name && formData.name !== customer.name) payload.name = formData.name;
+      if (formData.phone && formData.phone !== customer.phone) payload.phone = formData.phone;
+      if (formData.plan_id && formData.plan_id !== (customer.plan_id ?? customer.plan?.id)) payload.plan_id = formData.plan_id;
+      if (formData.router_id && formData.router_id !== (customer.router_id ?? customer.router?.id)) payload.router_id = formData.router_id;
+      if (formData.mac_address !== (customer.mac_address || '')) payload.mac_address = formData.mac_address;
+      if (formData.pppoe_username !== (customer.pppoe_username || '')) payload.pppoe_username = formData.pppoe_username;
+      if (formData.pppoe_password) payload.pppoe_password = formData.pppoe_password;
+      if (formData.static_ip !== (customer.static_ip || '')) payload.static_ip = formData.static_ip;
+      if (formData.expiry && formData.expiry !== toLocalDatetime(customer.expiry)) {
+        payload.expiry = new Date(formData.expiry).toISOString();
+      }
+
+      if (Object.keys(payload).length === 0) {
+        onClose();
+        return;
+      }
+
+      const result = await api.updateCustomer(customer.id, payload);
+      showAlert('success', `${result.customer.name} updated successfully`);
+      if (result.pppoe_reprovisioned === 'failed') {
+        showAlert('warning', 'PPPoE re-provisioning failed — check router manually');
+      }
+      onSuccess();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update customer');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+
+      <div className="relative w-full max-w-lg card p-6 animate-fade-in max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-xl font-bold text-foreground">Edit Customer</h2>
+          <button onClick={onClose} className="p-2 rounded-lg hover:bg-background-tertiary transition-colors">
+            <svg className="w-5 h-5 text-foreground-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        {error && (
+          <div className="mb-4 p-3 rounded-lg bg-danger/10 border border-danger/30 text-danger text-sm">
+            {error}
+          </div>
+        )}
+
+        {formLoading ? (
+          <div className="flex items-center justify-center py-12">
+            <div className="w-8 h-8 border-2 border-accent-primary/30 border-t-accent-primary rounded-full animate-spin" />
+          </div>
+        ) : (
+          <form onSubmit={handleSubmit} className="space-y-4" autoComplete="off">
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-2">Name</label>
+              <input
+                type="text"
+                value={formData.name || ''}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                className="input"
+                placeholder="Customer name"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-2">Phone</label>
+              <input
+                type="tel"
+                value={formData.phone || ''}
+                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                className="input"
+                placeholder="+254712345678"
+                inputMode="numeric"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-2">Plan</label>
+                <select
+                  value={formData.plan_id || ''}
+                  onChange={(e) => setFormData({ ...formData, plan_id: Number(e.target.value) })}
+                  className="select"
+                >
+                  <option value="" disabled>Select plan</option>
+                  {plans.map((plan) => (
+                    <option key={plan.id} value={plan.id}>
+                      {plan.name} — KES {plan.price}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-2">Router</label>
+                <select
+                  value={formData.router_id || ''}
+                  onChange={(e) => setFormData({ ...formData, router_id: Number(e.target.value) })}
+                  className="select"
+                >
+                  <option value="" disabled>Select router</option>
+                  {routers.map((r) => (
+                    <option key={r.id} value={r.id}>
+                      {r.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-2">MAC Address</label>
+              <input
+                type="text"
+                value={formData.mac_address || ''}
+                onChange={(e) => setFormData({ ...formData, mac_address: e.target.value })}
+                className="input font-mono"
+                placeholder="AA:BB:CC:DD:EE:FF"
+              />
+            </div>
+
+            <DateTimePicker
+              label="Expiry Date"
+              value={formData.expiry || ''}
+              onChange={(v) => setFormData({ ...formData, expiry: v })}
+            />
+
+            {isPPPoE && (
+              <div className="pt-4 border-t border-border">
+                <h3 className="text-sm font-semibold text-foreground-muted uppercase tracking-wider mb-4">PPPoE Settings</h3>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-foreground mb-2">PPPoE Username</label>
+                    <input
+                      type="text"
+                      value={formData.pppoe_username || ''}
+                      onChange={(e) => setFormData({ ...formData, pppoe_username: e.target.value })}
+                      className="input font-mono"
+                      placeholder="pppoe_username"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-foreground mb-2">PPPoE Password</label>
+                    <input
+                      type="text"
+                      value={formData.pppoe_password || ''}
+                      onChange={(e) => setFormData({ ...formData, pppoe_password: e.target.value })}
+                      className="input font-mono"
+                      placeholder="Leave empty to keep current"
+                    />
+                    <p className="mt-1 text-xs text-foreground-muted">Only fill in to change the current password</p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-foreground mb-2">Static IP</label>
+                    <input
+                      type="text"
+                      value={formData.static_ip || ''}
+                      onChange={(e) => setFormData({ ...formData, static_ip: e.target.value })}
+                      className="input font-mono"
+                      placeholder="Leave empty for dynamic"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="flex gap-3 pt-4">
+              <button type="button" onClick={onClose} className="btn-secondary flex-1">
+                Cancel
+              </button>
+              <button type="submit" disabled={loading} className="btn-primary flex-1 flex items-center justify-center gap-2">
+                {loading ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-background/30 border-t-background rounded-full animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  'Save Changes'
+                )}
+              </button>
+            </div>
+          </form>
+        )}
+      </div>
     </div>
   );
 }

@@ -38,6 +38,9 @@ import {
   VouchersListResponse,
   VoucherFilters,
   RegisterCustomerRequest,
+  UpdateCustomerRequest,
+  UpdateCustomerResponse,
+  DeleteCustomerResponse,
   ActivatePPPoERequest,
   PPPoECredentials,
   PPPoEActiveResponse,
@@ -775,6 +778,25 @@ class ApiClient {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(objectUrl);
+  }
+
+  async updateCustomer(customerId: number, data: UpdateCustomerRequest): Promise<UpdateCustomerResponse> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(`${BASE_URL}/customers/${customerId}`, {
+      method: 'PUT',
+      headers: this.getHeaders(),
+      body: JSON.stringify(data),
+    });
+    return this.handleResponse<UpdateCustomerResponse>(response);
+  }
+
+  async deleteCustomer(customerId: number): Promise<DeleteCustomerResponse> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(`${BASE_URL}/customers/${customerId}`, {
+      method: 'DELETE',
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<DeleteCustomerResponse>(response);
   }
 
   // PPPoE Customer Management
