@@ -46,6 +46,8 @@ export default function CustomersPage() {
   const [credentialsModal, setCredentialsModal] = useState<PPPoECredentials | null>(null);
   const [activateModal, setActivateModal] = useState<Customer | null>(null);
   const [deactivateConfirm, setDeactivateConfirm] = useState<Customer | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<Customer | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [activateForm, setActivateForm] = useState<ActivatePPPoERequest>({
     payment_method: 'cash',
@@ -174,6 +176,24 @@ export default function CustomersPage() {
       setActionLoading(false);
     }
   }, [deactivateConfirm, showAlert]);
+
+  const handleDeleteCustomer = useCallback(async () => {
+    if (!deleteConfirm) return;
+    try {
+      setDeleteLoading(true);
+      const result = await api.deleteCustomer(deleteConfirm.id);
+      showAlert('success', result.message);
+      if (result.pppoe_deprovisioned === 'failed') {
+        showAlert('warning', 'PPPoE de-provisioning failed — manual cleanup may be needed');
+      }
+      setDeleteConfirm(null);
+      loadCustomers();
+    } catch (err) {
+      showAlert('error', err instanceof Error ? err.message : 'Failed to delete customer');
+    } finally {
+      setDeleteLoading(false);
+    }
+  }, [deleteConfirm, showAlert]);
 
   const copyToClipboard = (text: string, label: string) => {
     navigator.clipboard.writeText(text);
@@ -385,40 +405,63 @@ export default function CustomersPage() {
                     <span className="text-foreground-muted">-</span>
                   );
                 case 'actions':
-                  return getConnectionType(customer) === 'pppoe' ? (
+                  return (
                     <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
                       <button
-                        onClick={() => handleViewCredentials(customer)}
-                        className="p-1.5 rounded-md hover:bg-background-tertiary transition-colors text-foreground-muted hover:text-foreground"
-                        title="View Credentials"
+                        onClick={() => routerNav.push(`/customers/${customer.id}`)}
+                        className="p-1.5 rounded-md hover:bg-accent-primary/10 transition-colors text-foreground-muted hover:text-accent-primary"
+                        title="Edit customer"
                       >
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                         </svg>
                       </button>
-                      {customer.status === 'inactive' || customer.status === 'expired' ? (
-                        <button
-                          onClick={() => setActivateModal(customer)}
-                          className="p-1.5 rounded-md hover:bg-success/10 transition-colors text-success"
-                          title="Activate PPPoE"
-                        >
-                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M5.636 18.364a9 9 0 010-12.728m12.728 0a9 9 0 010 12.728M9.172 14.828a4 4 0 010-5.656m5.656 0a4 4 0 010 5.656M12 12h.01" />
-                          </svg>
-                        </button>
-                      ) : customer.status === 'active' ? (
-                        <button
-                          onClick={() => setDeactivateConfirm(customer)}
-                          className="p-1.5 rounded-md hover:bg-danger/10 transition-colors text-danger"
-                          title="Deactivate PPPoE"
-                        >
-                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
-                          </svg>
-                        </button>
-                      ) : null}
+                      <button
+                        onClick={() => setDeleteConfirm(customer)}
+                        className="p-1.5 rounded-md hover:bg-danger/10 transition-colors text-foreground-muted hover:text-danger"
+                        title="Delete customer"
+                      >
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </button>
+                      {getConnectionType(customer) === 'pppoe' && (
+                        <>
+                          <button
+                            onClick={() => handleViewCredentials(customer)}
+                            className="p-1.5 rounded-md hover:bg-background-tertiary transition-colors text-foreground-muted hover:text-foreground"
+                            title="View Credentials"
+                          >
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                            </svg>
+                          </button>
+                          {(customer.status === 'inactive' || customer.status === 'expired') && (
+                            <button
+                              onClick={() => setActivateModal(customer)}
+                              className="p-1.5 rounded-md hover:bg-success/10 transition-colors text-success"
+                              title="Activate PPPoE"
+                            >
+                              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M5.636 18.364a9 9 0 010-12.728m12.728 0a9 9 0 010 12.728M9.172 14.828a4 4 0 010-5.656m5.656 0a4 4 0 010 5.656M12 12h.01" />
+                              </svg>
+                            </button>
+                          )}
+                          {customer.status === 'active' && (
+                            <button
+                              onClick={() => setDeactivateConfirm(customer)}
+                              className="p-1.5 rounded-md hover:bg-danger/10 transition-colors text-danger"
+                              title="Deactivate PPPoE"
+                            >
+                              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                              </svg>
+                            </button>
+                          )}
+                        </>
+                      )}
                     </div>
-                  ) : null;
+                  );
                 default:
                   return null;
               }
@@ -470,8 +513,26 @@ export default function CustomersPage() {
                   }}
                   href={`/customers/${customer.id}`}
                   rightAction={
-                    getConnectionType(customer) === 'pppoe' ? (
-                      <div className="flex flex-col gap-1">
+                    <div className="flex flex-col gap-1">
+                      <button
+                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); routerNav.push(`/customers/${customer.id}`); }}
+                        className="p-1.5 rounded-md hover:bg-accent-primary/10 transition-colors text-foreground-muted hover:text-accent-primary"
+                        title="Edit"
+                      >
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                        </svg>
+                      </button>
+                      <button
+                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); setDeleteConfirm(customer); }}
+                        className="p-1.5 rounded-md hover:bg-danger/10 transition-colors text-foreground-muted hover:text-danger"
+                        title="Delete"
+                      >
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </button>
+                      {getConnectionType(customer) === 'pppoe' && (
                         <button
                           onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleViewCredentials(customer); }}
                           className="p-1.5 rounded-md hover:bg-background-tertiary transition-colors text-foreground-muted"
@@ -481,8 +542,8 @@ export default function CustomersPage() {
                             <path strokeLinecap="round" strokeLinejoin="round" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
                           </svg>
                         </button>
-                      </div>
-                    ) : undefined
+                      )}
+                    </div>
                   }
                   layout="compact"
                   className="animate-fade-in"
@@ -620,6 +681,38 @@ export default function CustomersPage() {
                   <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                 ) : (
                   'Deactivate'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Customer Confirm Modal */}
+      {deleteConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={() => setDeleteConfirm(null)}>
+          <div className="card p-6 w-full max-w-sm space-y-4" onClick={(e) => e.stopPropagation()}>
+            <div className="w-12 h-12 mx-auto rounded-full bg-danger/10 flex items-center justify-center">
+              <svg className="w-6 h-6 text-danger" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+            </div>
+            <h3 className="text-lg font-semibold text-foreground text-center">Delete Customer</h3>
+            <p className="text-sm text-foreground-muted text-center">
+              Are you sure you want to delete <span className="font-medium text-foreground">{deleteConfirm.name}</span>? This action cannot be undone.
+              {getConnectionType(deleteConfirm) === 'pppoe' && ' Any active PPPoE session will be de-provisioned from the router.'}
+            </p>
+            <div className="flex gap-3 pt-2">
+              <button onClick={() => setDeleteConfirm(null)} className="btn-secondary flex-1">Cancel</button>
+              <button
+                onClick={handleDeleteCustomer}
+                disabled={deleteLoading}
+                className="flex-1 px-4 py-2 rounded-lg text-sm font-medium bg-danger text-white hover:bg-danger/90 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                {deleteLoading ? (
+                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  'Delete'
                 )}
               </button>
             </div>
