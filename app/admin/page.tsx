@@ -141,11 +141,17 @@ export default function AdminDashboardPage() {
           {/* Payouts Overview */}
           <div className="card p-4 sm:p-5">
             <h3 className="text-sm font-semibold text-foreground mb-3">Payouts Overview</h3>
-            <div className="grid grid-cols-2 gap-4">
+            <div className={`grid gap-4 ${data.payouts.total_transaction_charges ? 'grid-cols-3' : 'grid-cols-2'}`}>
               <div>
                 <p className="text-xs text-foreground-muted mb-1">Total Paid Out</p>
                 <p className="text-lg font-bold text-emerald-500">{formatKES(data.payouts.total_paid)}</p>
               </div>
+              {(data.payouts.total_transaction_charges != null && data.payouts.total_transaction_charges > 0) && (
+                <div>
+                  <p className="text-xs text-foreground-muted mb-1">Transaction Charges</p>
+                  <p className="text-lg font-bold text-orange-500">{formatKES(data.payouts.total_transaction_charges)}</p>
+                </div>
+              )}
               <div>
                 <p className="text-xs text-foreground-muted mb-1">Unpaid Balance</p>
                 <p className="text-lg font-bold text-amber-500">{formatKES(data.payouts.total_unpaid)}</p>

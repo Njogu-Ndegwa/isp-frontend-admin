@@ -1298,6 +1298,7 @@ export interface AdminReseller {
   last_payment_date: string | null;
   router_count: number;
   unpaid_balance: number;
+  total_transaction_charges?: number;
 }
 
 export type AdminResellerFilter =
@@ -1377,6 +1378,7 @@ export interface AdminResellerPayoutsInfo {
   total_paid: number;
   last_payout_date: string | null;
   unpaid_balance: number;
+  total_transaction_charges?: number;
 }
 
 export interface AdminResellerDetail {
@@ -1393,6 +1395,7 @@ export interface AdminResellerDetail {
   routers: AdminResellerRouter[];
   recent_payments: AdminResellerPayment[];
   payouts: AdminResellerPayoutsInfo;
+  recent_transaction_charges?: AdminTransactionCharge[];
 }
 
 export interface AdminPaymentsResponse {
@@ -1462,6 +1465,7 @@ export interface AdminDashboard {
   }[];
   payouts: {
     total_paid: number;
+    total_transaction_charges?: number;
     total_unpaid: number;
   };
   recent_signups: {
@@ -1511,4 +1515,75 @@ export interface AdminPayoutsResponse {
     total_amount: number;
   };
   payouts: AdminPayout[];
+}
+
+// Transaction Charges
+
+export interface AdminCreateTransactionChargeRequest {
+  amount: number;
+  description: string;
+  reference?: string;
+}
+
+export interface AdminTransactionCharge {
+  id: number;
+  reseller_id: number;
+  amount: number;
+  description: string;
+  reference: string | null;
+  created_by: number;
+  created_at: string;
+}
+
+export interface AdminTransactionChargeResponse {
+  charge: AdminTransactionCharge;
+  unpaid_balance: number;
+}
+
+export interface AdminTransactionChargesResponse {
+  reseller_id: number;
+  page: number;
+  per_page: number;
+  total_count: number;
+  total_pages: number;
+  summary: {
+    total_charges: number;
+    total_amount: number;
+  };
+  charges: AdminTransactionCharge[];
+}
+
+// Reseller Account Statement
+
+export interface AccountStatementBalance {
+  total_system_collected: number;
+  total_paid_to_you: number;
+  total_transaction_charges: number;
+  unpaid_balance: number;
+}
+
+export interface AccountStatementPeriodSummary {
+  total_payouts: number;
+  total_charges: number;
+  net: number;
+}
+
+export interface AccountStatementEntry {
+  type: 'payout' | 'charge';
+  id: number;
+  amount: number;
+  description: string;
+  reference: string | null;
+  notes: string | null;
+  date: string;
+}
+
+export interface ResellerAccountStatement {
+  balance: AccountStatementBalance;
+  period_summary: AccountStatementPeriodSummary;
+  page: number;
+  per_page: number;
+  total_entries: number;
+  total_pages: number;
+  entries: AccountStatementEntry[];
 }

@@ -78,6 +78,10 @@ import {
   CreatePaymentMethodRequest,
   UpdatePaymentMethodRequest,
   PaymentMethodTestResult,
+  AdminCreateTransactionChargeRequest,
+  AdminTransactionChargeResponse,
+  AdminTransactionChargesResponse,
+  ResellerAccountStatement,
 } from './types';
 import * as demo from './demoData';
 
@@ -1110,6 +1114,70 @@ class ApiClient {
       headers: this.getHeaders(),
     });
     return this.handleResponse<AdminPayoutsResponse>(response);
+  }
+
+  // Admin Transaction Charges
+
+  async createAdminTransactionCharge(
+    resellerId: number,
+    data: AdminCreateTransactionChargeRequest
+  ): Promise<AdminTransactionChargeResponse> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(`${BASE_URL}/admin/resellers/${resellerId}/transaction-charges`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify(data),
+    });
+    return this.handleResponse<AdminTransactionChargeResponse>(response);
+  }
+
+  async getAdminTransactionCharges(
+    resellerId: number,
+    params?: { page?: number; per_page?: number; start_date?: string; end_date?: string }
+  ): Promise<AdminTransactionChargesResponse> {
+    if (this.isDemoMode()) {
+      return {
+        reseller_id: resellerId, page: 1, per_page: 50,
+        total_count: 0, total_pages: 1,
+        summary: { total_charges: 0, total_amount: 0 },
+        charges: [],
+      };
+    }
+    const qs = new URLSearchParams();
+    if (params?.page) qs.set('page', params.page.toString());
+    if (params?.per_page) qs.set('per_page', params.per_page.toString());
+    if (params?.start_date) qs.set('start_date', params.start_date);
+    if (params?.end_date) qs.set('end_date', params.end_date);
+    const query = qs.toString() ? `?${qs.toString()}` : '';
+    const response = await fetch(`${BASE_URL}/admin/resellers/${resellerId}/transaction-charges${query}`, {
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<AdminTransactionChargesResponse>(response);
+  }
+
+  // Reseller Account Statement
+
+  async getResellerAccountStatement(
+    params?: { page?: number; per_page?: number; start_date?: string; end_date?: string }
+  ): Promise<ResellerAccountStatement> {
+    if (this.isDemoMode()) {
+      return {
+        balance: { total_system_collected: 0, total_paid_to_you: 0, total_transaction_charges: 0, unpaid_balance: 0 },
+        period_summary: { total_payouts: 0, total_charges: 0, net: 0 },
+        page: 1, per_page: 50, total_entries: 0, total_pages: 1,
+        entries: [],
+      };
+    }
+    const qs = new URLSearchParams();
+    if (params?.page) qs.set('page', params.page.toString());
+    if (params?.per_page) qs.set('per_page', params.per_page.toString());
+    if (params?.start_date) qs.set('start_date', params.start_date);
+    if (params?.end_date) qs.set('end_date', params.end_date);
+    const query = qs.toString() ? `?${qs.toString()}` : '';
+    const response = await fetch(`${BASE_URL}/reseller/account-statement${query}`, {
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<ResellerAccountStatement>(response);
   }
 
   // Payment Methods CRUD

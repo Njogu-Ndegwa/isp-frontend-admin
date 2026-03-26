@@ -370,7 +370,10 @@ export default function ResellersListPage() {
                           <span>Unpaid: <span className="text-amber-500 font-medium">{formatKES(r.unpaid_balance)}</span></span>
                           <span>Joined: {formatSafeDate(r.created_at)}</span>
                         </div>
-                        <div className="flex items-center justify-end">
+                        <div className="flex items-center justify-between">
+                          {(r.total_transaction_charges != null && r.total_transaction_charges > 0) ? (
+                            <span className="text-orange-500 text-[10px]">Charges: {formatKES(r.total_transaction_charges)}</span>
+                          ) : <span />}
                           <span>
                             <span className={`inline-block w-1.5 h-1.5 rounded-full mr-1 ${isRecentlyActive(r.last_login_at) ? 'bg-emerald-500' : 'bg-foreground-muted/30'}`} />
                             Login: {formatSafeDate(r.last_login_at)}
@@ -443,7 +446,14 @@ export default function ResellersListPage() {
                 case 'routers':
                   return <span className="text-sm text-foreground-muted">{item.router_count}</span>;
                 case 'unpaid':
-                  return <span className="text-sm font-medium text-amber-500">{formatKES(item.unpaid_balance)}</span>;
+                  return (
+                    <div className="text-right">
+                      <span className="text-sm font-medium text-amber-500">{formatKES(item.unpaid_balance)}</span>
+                      {(item.total_transaction_charges != null && item.total_transaction_charges > 0) && (
+                        <p className="text-[10px] text-orange-500">Charges: {formatKES(item.total_transaction_charges)}</p>
+                      )}
+                    </div>
+                  );
                 case 'joined':
                   return <span className="text-sm text-foreground-muted">{formatSafeDate(item.created_at)}</span>;
                 case 'last_login':

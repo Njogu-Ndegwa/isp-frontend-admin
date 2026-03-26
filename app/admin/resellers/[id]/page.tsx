@@ -9,6 +9,8 @@ import {
   AdminRouterDetail,
   AdminPayout,
   AdminCreatePayoutRequest,
+  AdminTransactionCharge,
+  AdminCreateTransactionChargeRequest,
 } from '../../../lib/types';
 import { formatDateGMT3 } from '../../../lib/dateUtils';
 import { useAuth } from '../../../context/AuthContext';
@@ -47,7 +49,7 @@ const formatKES = (amount: number | undefined | null): string => {
   return `KES ${(amount ?? 0).toLocaleString('en-KE', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 };
 
-type Tab = 'payments' | 'routers' | 'payouts';
+type Tab = 'payments' | 'routers' | 'payouts' | 'charges';
 
 export default function ResellerDetailPage() {
   const { user } = useAuth();
@@ -100,6 +102,26 @@ export default function ResellerDetailPage() {
   });
   const [payoutSubmitting, setPayoutSubmitting] = useState(false);
   const [payoutError, setPayoutError] = useState('');
+
+  // Transaction charges state
+  const [charges, setCharges] = useState<AdminTransactionCharge[]>([]);
+  const [chargesPage, setChargesPage] = useState(1);
+  const [chargesTotalPages, setChargesTotalPages] = useState(1);
+  const [chargesLoading, setChargesLoading] = useState(false);
+  const [chargesLoaded, setChargesLoaded] = useState(false);
+  const [chargeStartDate, setChargeStartDate] = useState('');
+  const [chargeEndDate, setChargeEndDate] = useState('');
+  const [chargesSummary, setChargesSummary] = useState<{ total_charges: number; total_amount: number } | null>(null);
+
+  // Charge modal state
+  const [showChargeModal, setShowChargeModal] = useState(false);
+  const [chargeForm, setChargeForm] = useState<AdminCreateTransactionChargeRequest>({
+    amount: 0,
+    description: '',
+    reference: '',
+  });
+  const [chargeSubmitting, setChargeSubmitting] = useState(false);
+  const [chargeError, setChargeError] = useState('');
 
   const fetchDetail = useCallback(async (dateParams?: { start_date?: string; end_date?: string }) => {
     try {
@@ -174,6 +196,27 @@ export default function ResellerDetailPage() {
     }
   }, [resellerId, payoutStartDate, payoutEndDate]);
 
+  const fetchCharges = useCallback(async (page = 1) => {
+    try {
+      setChargesLoading(true);
+      const result = await api.getAdminTransactionCharges(resellerId, {
+        page,
+        per_page: 50,
+        start_date: chargeStartDate || undefined,
+        end_date: chargeEndDate || undefined,
+      });
+      setCharges(result.charges);
+      setChargesPage(result.page);
+      setChargesTotalPages(result.total_pages);
+      setChargesSummary(result.summary);
+      setChargesLoaded(true);
+    } catch {
+      // silently fail
+    } finally {
+      setChargesLoading(false);
+    }
+  }, [resellerId, chargeStartDate, chargeEndDate]);
+
   useEffect(() => { fetchDetail(); }, [fetchDetail]);
 
   useEffect(() => {
@@ -185,8 +228,40 @@ export default function ResellerDetailPage() {
   }, [activeTab, payoutsLoaded, fetchPayouts]);
 
   useEffect(() => {
+    if (activeTab === 'charges' && !chargesLoaded) fetchCharges();
+  }, [activeTab, chargesLoaded, fetchCharges]);
+
+  useEffect(() => {
     if (showAllPayments) fetchPayments(1);
   }, [showAllPayments, fetchPayments]);
+
+  const handleSubmitCharge = async () => {
+    if (chargeForm.amount <= 0) {
+      setChargeError('Amount must be greater than 0');
+      return;
+    }
+    if (!chargeForm.description.trim()) {
+      setChargeError('Description is required');
+      return;
+    }
+    try {
+      setChargeSubmitting(true);
+      setChargeError('');
+      await api.createAdminTransactionCharge(resellerId, {
+        ...chargeForm,
+        reference: chargeForm.reference || undefined,
+      });
+      showAlert('success', 'Transaction charge recorded successfully');
+      setShowChargeModal(false);
+      setChargeForm({ amount: 0, description: '', reference: '' });
+      setChargesLoaded(false);
+      fetchDetail(revenueStartDate || revenueEndDate ? { start_date: revenueStartDate, end_date: revenueEndDate } : undefined);
+    } catch (err) {
+      setChargeError(err instanceof Error ? err.message : 'Failed to record charge');
+    } finally {
+      setChargeSubmitting(false);
+    }
+  };
 
   const handleSubmitPayout = async () => {
     if (payoutForm.amount <= 0) {
@@ -252,6 +327,7 @@ export default function ResellerDetailPage() {
     { key: 'payments', label: 'Payments' },
     { key: 'routers', label: `Routers (${detail.routers.length})` },
     { key: 'payouts', label: 'Payouts' },
+    { key: 'charges', label: 'Charges' },
   ];
 
   return (
@@ -384,11 +460,17 @@ export default function ResellerDetailPage() {
 
         <div className="card p-4 sm:p-5">
           <h3 className="text-sm font-semibold text-foreground mb-3">Payout Status</h3>
-          <div className="grid grid-cols-3 gap-2">
+          <div className={`grid gap-2 ${detail.payouts.total_transaction_charges ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-3'}`}>
             <div className="text-center">
               <p className="text-lg font-bold text-emerald-500 stat-value">{formatKES(detail.payouts.total_paid)}</p>
               <p className="text-xs text-foreground-muted mt-0.5">Paid</p>
             </div>
+            {(detail.payouts.total_transaction_charges != null && detail.payouts.total_transaction_charges > 0) && (
+              <div className="text-center">
+                <p className="text-lg font-bold text-orange-500 stat-value">{formatKES(detail.payouts.total_transaction_charges)}</p>
+                <p className="text-xs text-foreground-muted mt-0.5">Charges</p>
+              </div>
+            )}
             <div className="text-center">
               <p className="text-lg font-bold text-amber-500 stat-value">{formatKES(detail.payouts.unpaid_balance)}</p>
               <p className="text-xs text-foreground-muted mt-0.5">Unpaid</p>
@@ -455,6 +537,99 @@ export default function ResellerDetailPage() {
           onEndDateChange={(d) => { setPayoutEndDate(d); setPayoutsLoaded(false); }}
           onRecordPayout={() => setShowPayoutModal(true)}
         />
+      )}
+
+      {activeTab === 'charges' && (
+        <ChargesTab
+          recentCharges={detail.recent_transaction_charges || []}
+          allCharges={charges}
+          showAll={chargesLoaded}
+          onShowAll={() => fetchCharges(1)}
+          loading={chargesLoading}
+          page={chargesPage}
+          totalPages={chargesTotalPages}
+          onPageChange={(p) => fetchCharges(p)}
+          startDate={chargeStartDate}
+          endDate={chargeEndDate}
+          onStartDateChange={(d) => { setChargeStartDate(d); setChargesLoaded(false); }}
+          onEndDateChange={(d) => { setChargeEndDate(d); setChargesLoaded(false); }}
+          onAddCharge={() => setShowChargeModal(true)}
+          summary={chargesSummary}
+        />
+      )}
+
+      {/* Record Transaction Charge Modal */}
+      {showChargeModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/50" onClick={() => !chargeSubmitting && setShowChargeModal(false)} />
+          <div className="relative bg-background-secondary border border-border rounded-2xl w-full max-w-md p-5 max-h-[90vh] overflow-y-auto">
+            <h3 className="text-lg font-semibold mb-4">Record Transaction Charge</h3>
+
+            <div className="mb-4 p-3 rounded-xl border border-amber-500/30 bg-amber-500/5">
+              <p className="text-xs text-foreground-muted">Deduction against</p>
+              <p className="text-sm font-semibold">{detail.organization_name}</p>
+              <p className="text-xs text-foreground-muted mt-1">This charge will reduce the reseller&apos;s unpaid balance (bank fees, M-Pesa charges, etc.)</p>
+            </div>
+
+            {chargeError && (
+              <div className="mb-4 p-3 rounded-xl bg-danger/10 text-danger text-sm">{chargeError}</div>
+            )}
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">Amount (KES) *</label>
+                <input
+                  type="number"
+                  className="input w-full"
+                  value={chargeForm.amount || ''}
+                  onChange={(e) => setChargeForm({ ...chargeForm, amount: parseFloat(e.target.value) || 0 })}
+                  placeholder="0.00"
+                  min="0"
+                  step="0.01"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1">Description *</label>
+                <input
+                  type="text"
+                  className="input w-full"
+                  value={chargeForm.description}
+                  onChange={(e) => setChargeForm({ ...chargeForm, description: e.target.value })}
+                  placeholder="e.g. Bank transfer fee, M-Pesa charges"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1">Reference</label>
+                <input
+                  type="text"
+                  className="input w-full"
+                  value={chargeForm.reference}
+                  onChange={(e) => setChargeForm({ ...chargeForm, reference: e.target.value })}
+                  placeholder="Optional reference number"
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => setShowChargeModal(false)}
+                className="btn-secondary flex-1 py-2.5"
+                disabled={chargeSubmitting}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSubmitCharge}
+                className="btn-primary flex-1 py-2.5"
+                disabled={chargeSubmitting || chargeForm.amount <= 0 || !chargeForm.description.trim()}
+              >
+                {chargeSubmitting ? 'Recording...' : 'Record Charge'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Record Payout Modal */}
@@ -897,6 +1072,152 @@ function PayoutsTab({
                 Next
               </button>
             </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+// ─── Charges Tab ─────────────────────────────────────────────────────
+
+function ChargesTab({
+  recentCharges,
+  allCharges,
+  showAll,
+  onShowAll,
+  loading,
+  page,
+  totalPages,
+  onPageChange,
+  startDate,
+  endDate,
+  onStartDateChange,
+  onEndDateChange,
+  onAddCharge,
+  summary,
+}: {
+  recentCharges: AdminTransactionCharge[];
+  allCharges: AdminTransactionCharge[];
+  showAll: boolean;
+  onShowAll: () => void;
+  loading: boolean;
+  page: number;
+  totalPages: number;
+  onPageChange: (p: number) => void;
+  startDate: string;
+  endDate: string;
+  onStartDateChange: (d: string) => void;
+  onEndDateChange: (d: string) => void;
+  onAddCharge: () => void;
+  summary: { total_charges: number; total_amount: number } | null;
+}) {
+  const charges = showAll ? allCharges : recentCharges;
+
+  return (
+    <div className="space-y-3">
+      {showAll && (
+        <div className="flex flex-wrap items-center gap-3">
+          <FilterDatePicker value={startDate} onChange={onStartDateChange} />
+          <span className="text-foreground-muted text-sm">to</span>
+          <FilterDatePicker value={endDate} onChange={onEndDateChange} />
+          {summary && (
+            <div className="flex items-center gap-4 text-sm">
+              <span className="text-foreground-muted">{summary.total_charges} charges</span>
+              <span className="font-medium text-amber-500">{formatKES(summary.total_amount)}</span>
+            </div>
+          )}
+        </div>
+      )}
+
+      <div className="flex justify-end">
+        <button onClick={onAddCharge} className="btn-primary text-sm px-3 py-1.5">
+          Add Charge
+        </button>
+      </div>
+
+      {loading ? (
+        <div className="space-y-2">{Array.from({ length: 3 }).map((_, i) => <SkeletonCard key={i} />)}</div>
+      ) : charges.length === 0 ? (
+        <div className="card p-8 text-center">
+          <p className="text-foreground-muted">No transaction charges found</p>
+        </div>
+      ) : (
+        <>
+          {/* Desktop Table */}
+          <div className="hidden md:block">
+            <DataTable
+              columns={[
+                { key: 'id', label: 'ID', className: 'w-[60px]' },
+                { key: 'amount', label: 'Amount', className: 'text-right' },
+                { key: 'description', label: 'Description' },
+                { key: 'reference', label: 'Reference' },
+                { key: 'date', label: 'Date' },
+              ]}
+              data={charges}
+              rowKey={(item) => item.id}
+              renderCell={(item, col) => {
+                switch (col) {
+                  case 'id': return <span className="text-foreground-muted text-xs">#{item.id}</span>;
+                  case 'amount': return <span className="font-semibold text-amber-500">{formatKES(item.amount)}</span>;
+                  case 'description': return <span className="text-sm">{item.description}</span>;
+                  case 'reference': return <span className="text-sm font-mono text-foreground-muted">{item.reference || '-'}</span>;
+                  case 'date': return <span className="text-sm text-foreground-muted">{formatSafeDate(item.created_at)}</span>;
+                  default: return null;
+                }
+              }}
+              emptyState={{ message: 'No transaction charges' }}
+            />
+          </div>
+
+          {/* Mobile Cards */}
+          <div className="md:hidden space-y-2">
+            {charges.map((c) => (
+              <MobileDataCard
+                key={c.id}
+                id={c.id}
+                title={formatKES(c.amount)}
+                subtitle={c.description}
+                avatar={{ text: 'TC', color: 'warning' }}
+                status={{
+                  label: 'charge',
+                  variant: 'warning',
+                }}
+                fields={[
+                  ...(c.reference ? [{ label: 'Ref', value: c.reference }] : []),
+                ]}
+                footer={
+                  <span className="text-xs text-foreground-muted">{formatSafeDate(c.created_at)}</span>
+                }
+              />
+            ))}
+          </div>
+
+          {/* Pagination / View All */}
+          {showAll && totalPages > 1 && (
+            <div className="flex items-center justify-between pt-2">
+              <button
+                onClick={() => onPageChange(page - 1)}
+                disabled={page <= 1}
+                className="btn-secondary text-sm px-3 py-1.5 disabled:opacity-40"
+              >
+                Previous
+              </button>
+              <span className="text-sm text-foreground-muted">Page {page} of {totalPages}</span>
+              <button
+                onClick={() => onPageChange(page + 1)}
+                disabled={page >= totalPages}
+                className="btn-secondary text-sm px-3 py-1.5 disabled:opacity-40"
+              >
+                Next
+              </button>
+            </div>
+          )}
+
+          {!showAll && (
+            <button onClick={onShowAll} className="btn-secondary w-full py-2 text-sm">
+              View All Charges
+            </button>
           )}
         </>
       )}
