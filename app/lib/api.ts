@@ -18,6 +18,7 @@ import {
   RouterUsersResponse,
   ProvisionTokenResponse,
   ProvisionToken,
+  VpnType,
   LoginRequest,
   LoginResponse,
   RegisterRequest,
@@ -492,12 +493,12 @@ class ApiClient {
   }
 
   // Provisioning
-  async createProvisionToken(): Promise<ProvisionTokenResponse> {
+  async createProvisionToken(vpnType: VpnType = 'wireguard'): Promise<ProvisionTokenResponse> {
     if (this.isDemoMode()) this.demoBlock();
     const response = await fetch(`${BASE_URL}/provision/create`, {
       method: 'POST',
       headers: this.getHeaders(),
-      body: JSON.stringify({}),
+      body: JSON.stringify({ vpn_type: vpnType }),
     });
     return this.handleResponse<ProvisionTokenResponse>(response);
   }

@@ -590,11 +590,14 @@ export interface RouterUsersResponse {
 }
 
 // Provisioning Types
+export type VpnType = 'wireguard' | 'l2tp';
+
 export interface ProvisionTokenResponse {
   token: string;
   router_name: string;
   identity: string;
-  wireguard_ip: string;
+  vpn_type: VpnType;
+  vpn_ip: string;
   command: string;
   note: string;
   created_at: string;
@@ -606,7 +609,8 @@ export interface ProvisionToken {
   token: string;
   router_name: string;
   identity: string;
-  wireguard_ip: string;
+  vpn_type: VpnType;
+  vpn_ip: string;
   status: 'pending' | 'provisioned' | 'expired';
   expired: boolean;
   command: string | null;

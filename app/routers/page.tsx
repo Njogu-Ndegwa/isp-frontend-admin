@@ -11,6 +11,7 @@ import {
   PaymentMethod,
   ProvisionToken,
   ProvisionTokenResponse,
+  VpnType,
   PPPoEActiveResponse,
   PPPoESession,
   RouterInterfaceInfo,
@@ -57,7 +58,8 @@ const ROUTER_COLUMNS: DataTableColumn[] = [
 const PROVISION_COLUMNS: DataTableColumn[] = [
   { key: 'router_name', label: 'Router' },
   { key: 'identity', label: 'Identity' },
-  { key: 'wireguard_ip', label: 'WireGuard IP' },
+  { key: 'vpn_type', label: 'VPN' },
+  { key: 'vpn_ip', label: 'VPN IP' },
   { key: 'status', label: 'Status' },
   { key: 'created_at', label: 'Created' },
   { key: 'provisioned_at', label: 'Provisioned' },
@@ -188,11 +190,11 @@ export default function RoutersPage() {
     }
   };
 
-  const handleGenerate = async () => {
+  const handleGenerate = async (vpnType: VpnType = 'wireguard') => {
     try {
       setGenerating(true);
       setTokensError(null);
-      const result = await api.createProvisionToken();
+      const result = await api.createProvisionToken(vpnType);
       setNewTokenResult(result);
       await loadTokens();
     } catch (err) {
@@ -1244,6 +1246,26 @@ function CopyButton({ text, label }: { text: string; label?: boolean }) {
   );
 }
 
+function VpnTypeBadge({ vpnType }: { vpnType: VpnType }) {
+  const isWg = vpnType === 'wireguard';
+  return (
+    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
+      isWg ? 'bg-accent-primary/10 text-accent-primary' : 'bg-purple-500/10 text-purple-500'
+    }`}>
+      {isWg ? (
+        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+        </svg>
+      ) : (
+        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 14v3m4-3v3m4-3v3M3 21h18M3 10h18M3 7l9-4 9 4" />
+        </svg>
+      )}
+      {isWg ? 'WireGuard' : 'L2TP'}
+    </span>
+  );
+}
+
 function ProvisionTab({
   tokens,
   loading,
@@ -1261,8 +1283,9 @@ function ProvisionTab({
   expandedToken: number | null;
   setExpandedToken: (id: number | null) => void;
   loadTokens: () => Promise<void>;
-  handleGenerate: () => Promise<void>;
+  handleGenerate: (vpnType: VpnType) => Promise<void>;
 }) {
+  const [selectedVpnType, setSelectedVpnType] = useState<VpnType>('wireguard');
   const pendingCount = tokens.filter(t => t.status === 'pending' && !t.expired).length;
   const provisionedCount = tokens.filter(t => t.status === 'provisioned').length;
 
@@ -1299,8 +1322,33 @@ function ProvisionTab({
             </svg>
             <span className="hidden sm:inline">Refresh</span>
           </button>
+
+          {/* RouterOS version toggle */}
+          <div className="flex items-center bg-background-secondary rounded-lg p-0.5">
+            <button
+              onClick={() => setSelectedVpnType('wireguard')}
+              className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+                selectedVpnType === 'wireguard'
+                  ? 'bg-accent-primary text-white shadow-sm'
+                  : 'text-foreground-muted hover:text-foreground'
+              }`}
+            >
+              v7 WireGuard
+            </button>
+            <button
+              onClick={() => setSelectedVpnType('l2tp')}
+              className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+                selectedVpnType === 'l2tp'
+                  ? 'bg-purple-500 text-white shadow-sm'
+                  : 'text-foreground-muted hover:text-foreground'
+              }`}
+            >
+              v6 L2TP
+            </button>
+          </div>
+
           <button
-            onClick={handleGenerate}
+            onClick={() => handleGenerate(selectedVpnType)}
             disabled={generating}
             className="btn-primary flex items-center gap-2 text-sm flex-1 sm:flex-none justify-center"
           >
@@ -1344,10 +1392,34 @@ function ProvisionTab({
           </div>
           <h2 className="text-xl font-bold text-foreground mb-2">No Provisioning Tokens</h2>
           <p className="text-foreground-muted mb-6 max-w-md mx-auto">
-            Generate your first token to auto-provision a MikroTik router with one click.
+            Generate your first token to auto-provision a MikroTik router with one click. Select your RouterOS version below.
           </p>
+          <div className="flex items-center justify-center gap-2 mb-4">
+            <div className="flex items-center bg-background-secondary rounded-lg p-0.5">
+              <button
+                onClick={() => setSelectedVpnType('wireguard')}
+                className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
+                  selectedVpnType === 'wireguard'
+                    ? 'bg-accent-primary text-white shadow-sm'
+                    : 'text-foreground-muted hover:text-foreground'
+                }`}
+              >
+                RouterOS v7
+              </button>
+              <button
+                onClick={() => setSelectedVpnType('l2tp')}
+                className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
+                  selectedVpnType === 'l2tp'
+                    ? 'bg-purple-500 text-white shadow-sm'
+                    : 'text-foreground-muted hover:text-foreground'
+                }`}
+              >
+                RouterOS v6
+              </button>
+            </div>
+          </div>
           <button
-            onClick={handleGenerate}
+            onClick={() => handleGenerate(selectedVpnType)}
             disabled={generating}
             className="btn-primary inline-flex items-center gap-2"
           >
@@ -1366,9 +1438,9 @@ function ProvisionTab({
                 key={token.id}
                 id={token.id}
                 title={token.router_name}
-                subtitle={token.identity}
+                subtitle={`${token.identity} · ${token.vpn_type === 'wireguard' ? 'v7 WireGuard' : 'v6 L2TP'}`}
                 avatar={{
-                  text: token.router_name.charAt(0),
+                  text: token.vpn_type === 'wireguard' ? 'v7' : 'v6',
                   color: token.status === 'provisioned' ? 'success' : token.expired ? 'danger' : 'warning',
                 }}
                 status={{
@@ -1376,7 +1448,7 @@ function ProvisionTab({
                   variant: token.status === 'provisioned' ? 'success' : token.expired ? 'danger' : 'warning',
                 }}
                 value={{
-                  text: token.wireguard_ip,
+                  text: token.vpn_ip,
                   highlight: false,
                 }}
                 secondary={{
@@ -1417,8 +1489,10 @@ function ProvisionTab({
                   return <span className="font-medium text-foreground">{token.router_name}</span>;
                 case 'identity':
                   return <span className="font-mono text-sm text-foreground-muted">{token.identity}</span>;
-                case 'wireguard_ip':
-                  return <span className="font-mono text-sm text-foreground-muted">{token.wireguard_ip}</span>;
+                case 'vpn_type':
+                  return <VpnTypeBadge vpnType={token.vpn_type} />;
+                case 'vpn_ip':
+                  return <span className="font-mono text-sm text-foreground-muted">{token.vpn_ip}</span>;
                 case 'status':
                   return <StatusBadge status={token.status} expired={token.expired} />;
                 case 'created_at':
@@ -1493,10 +1567,13 @@ function NewTokenModal({
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
             </div>
-            <div>
-              <p className="font-semibold text-foreground">{result.router_name}</p>
+            <div className="flex-1">
+              <div className="flex items-center gap-2">
+                <p className="font-semibold text-foreground">{result.router_name}</p>
+                <VpnTypeBadge vpnType={result.vpn_type} />
+              </div>
               <p className="text-sm text-foreground-muted">
-                {result.identity} &middot; {result.wireguard_ip}
+                {result.identity} &middot; {result.vpn_ip}
               </p>
             </div>
           </div>
