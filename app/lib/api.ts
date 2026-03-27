@@ -85,6 +85,9 @@ import {
   AdminTransactionChargesResponse,
   ResellerAccountStatement,
   PaginatedResponse,
+  UserProfile,
+  UpdateProfileRequest,
+  ChangePasswordRequest,
 } from './types';
 import * as demo from './demoData';
 
@@ -1325,6 +1328,58 @@ class ApiClient {
       body: JSON.stringify({ payment_method_id: paymentMethodId }),
     });
     return this.handleResponse<{ message: string; router_id: number; payment_method_id: number | null }>(response);
+  }
+
+  // Profile
+
+  async getProfile(): Promise<UserProfile> {
+    if (this.isDemoMode()) {
+      return {
+        id: 0,
+        user_code: 100000,
+        email: 'demo@bitwave.co.ke',
+        role: 'reseller',
+        organization_name: 'Demo ISP Network',
+        business_name: 'Demo Business',
+        support_phone: '+254700000000',
+        mpesa_shortcode: '600000',
+        created_at: '2025-01-01T00:00:00',
+        last_login_at: new Date().toISOString(),
+      };
+    }
+    const response = await fetch(`${BASE_URL}/profile`, {
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<UserProfile>(response);
+  }
+
+  async updateProfile(data: UpdateProfileRequest): Promise<UserProfile> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(`${BASE_URL}/profile`, {
+      method: 'PATCH',
+      headers: this.getHeaders(),
+      body: JSON.stringify(data),
+    });
+    return this.handleResponse<UserProfile>(response);
+  }
+
+  async changePassword(data: ChangePasswordRequest): Promise<{ message: string }> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(`${BASE_URL}/profile/password`, {
+      method: 'PUT',
+      headers: this.getHeaders(),
+      body: JSON.stringify(data),
+    });
+    return this.handleResponse<{ message: string }>(response);
+  }
+
+  async deleteAccount(): Promise<{ message: string }> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(`${BASE_URL}/profile`, {
+      method: 'DELETE',
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<{ message: string }>(response);
   }
 }
 

@@ -9,7 +9,6 @@ import {
   UpdatePaymentMethodRequest,
   Router,
 } from '../../lib/types';
-import Header from '../../components/Header';
 import { PageLoader } from '../../components/LoadingSpinner';
 import { useAlert } from '../../context/AlertContext';
 import FilterSelect from '../../components/FilterSelect';
@@ -311,23 +310,23 @@ export default function PaymentMethodsPage() {
   }
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto">
-      <Header
-        title="Payment Methods"
-        subtitle="Configure payment methods and assign them to routers"
-        action={
-          <button
-            onClick={openCreateForm}
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-accent-primary text-white font-medium text-sm hover:bg-accent-primary/90 transition-colors active:opacity-70"
-          >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-            </svg>
-            <span className="hidden sm:inline">Add Method</span>
-            <span className="sm:hidden">Add</span>
-          </button>
-        }
-      />
+    <div>
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h2 className="text-lg font-semibold text-foreground">Payment Methods</h2>
+          <p className="text-xs text-foreground-muted mt-0.5">Configure payment methods and assign them to routers</p>
+        </div>
+        <button
+          onClick={openCreateForm}
+          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-accent-primary text-white font-medium text-sm hover:bg-accent-primary/90 transition-colors active:opacity-70"
+        >
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+          </svg>
+          <span className="hidden sm:inline">Add Method</span>
+          <span className="sm:hidden">Add</span>
+        </button>
+      </div>
 
       {/* Inactive toggle */}
       <div className="flex items-center gap-3 mb-6">

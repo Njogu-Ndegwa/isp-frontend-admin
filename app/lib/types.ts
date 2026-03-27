@@ -739,6 +739,33 @@ export interface AuthState {
   isAuthenticated: boolean;
 }
 
+// Profile Types
+export interface UserProfile {
+  id: number;
+  user_code: number;
+  email: string;
+  role: string;
+  organization_name: string;
+  business_name: string;
+  support_phone: string;
+  mpesa_shortcode: string;
+  created_at: string;
+  last_login_at: string;
+}
+
+export interface UpdateProfileRequest {
+  support_phone?: string;
+  business_name?: string;
+  organization_name?: string;
+  mpesa_shortcode?: string;
+  email?: string;
+}
+
+export interface ChangePasswordRequest {
+  current_password: string;
+  new_password: string;
+}
+
 // MikroTik Types
 export interface MikroTikSystem {
   uptime: string;

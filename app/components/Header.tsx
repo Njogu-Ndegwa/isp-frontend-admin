@@ -59,7 +59,7 @@ export default function Header({
         <div className="flex items-center gap-3 flex-shrink-0">
           {action}
           <Link
-            href="/settings/payment-methods"
+            href="/settings"
             className="p-2 rounded-lg text-foreground-muted hover:text-foreground hover:bg-background-tertiary transition-all"
             title="Settings"
           >

@@ -19,6 +19,7 @@ interface AuthContextType {
   login: (credentials: LoginRequest) => Promise<void>;
   loginAsDemo: () => void;
   logout: () => void;
+  updateUser: (updates: Partial<AuthUser>) => void;
   token: string | null;
 }
 
@@ -82,6 +83,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsDemo(false);
   };
 
+  const updateUser = (updates: Partial<AuthUser>) => {
+    setUser((prev) => {
+      if (!prev) return prev;
+      const updated = { ...prev, ...updates };
+      localStorage.setItem('auth_user', JSON.stringify(updated));
+      return updated;
+    });
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -92,6 +102,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         login,
         loginAsDemo,
         logout,
+        updateUser,
         token,
       }}
     >

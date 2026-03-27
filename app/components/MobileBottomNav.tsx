@@ -75,7 +75,7 @@ const adminNavItems: BottomNavItem[] = [
   },
 ];
 
-const resellerMorePaths = ['/plans', '/ratings', '/advertisers', '/ads', '/ads/analytics', '/walled-garden', '/diagnostics', '/account-statement'];
+const resellerMorePaths = ['/plans', '/walled-garden', '/diagnostics', '/account-statement', '/settings'];
 
 export default function MobileBottomNav() {
   const pathname = usePathname();
