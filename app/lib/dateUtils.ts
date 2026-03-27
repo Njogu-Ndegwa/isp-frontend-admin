@@ -26,9 +26,7 @@ export function parseUTCToGMT3(timestamp: string): Date {
  */
 export function getCurrentTimeGMT3(): Date {
   const now = new Date();
-  // Get UTC time, then add 3 hours
-  const utcTime = now.getTime() + (now.getTimezoneOffset() * 60 * 1000);
-  return new Date(utcTime + GMT_PLUS_3_OFFSET_MS);
+  return new Date(now.getTime() + GMT_PLUS_3_OFFSET_MS);
 }
 
 /**
