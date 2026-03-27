@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { getCurrentGMT3Input, getCurrentTimeGMT3 } from '../lib/dateUtils';
 
 const DAYS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
@@ -48,6 +49,7 @@ export default function DateTimePicker({ value, label, onChange }: DateTimePicke
   const isValid = parsed && !isNaN(parsed.getTime());
 
   const [open, setOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const initGmt3 = getCurrentTimeGMT3();
   const [viewYear, setViewYear] = useState(isValid ? parsed.getFullYear() : initGmt3.getUTCFullYear());
   const [viewMonth, setViewMonth] = useState(isValid ? parsed.getMonth() : initGmt3.getUTCMonth());
@@ -57,11 +59,13 @@ export default function DateTimePicker({ value, label, onChange }: DateTimePicke
   const { display: displayHour } = to12Hour(hour);
   const [hourInput, setHourInput] = useState(String(displayHour));
   const [minuteInput, setMinuteInput] = useState(pad(minute));
-  const containerRef = useRef<HTMLDivElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
 
   const selectedDay = isValid ? parsed.getDate() : null;
   const selectedMonth = isValid ? parsed.getMonth() : null;
   const selectedYear = isValid ? parsed.getFullYear() : null;
+
+  useEffect(() => { setMounted(true); }, []);
 
   useEffect(() => {
     const { display, period: p } = to12Hour(hour);
@@ -70,14 +74,26 @@ export default function DateTimePicker({ value, label, onChange }: DateTimePicke
   }, [hour]);
   useEffect(() => { setMinuteInput(pad(minute)); }, [minute]);
 
+  // Lock body scroll when calendar is open
   useEffect(() => {
-    function handleClick(e: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
-    }
-    if (open) document.addEventListener('mousedown', handleClick);
-    return () => document.removeEventListener('mousedown', handleClick);
+    if (!open) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = prev; };
+  }, [open]);
+
+  // Prevent touch-scroll on the backdrop from leaking to the body
+  useEffect(() => {
+    if (!open) return;
+    const el = scrollRef.current;
+    if (!el) return;
+    const preventBodyScroll = (e: TouchEvent) => {
+      const target = e.target as HTMLElement;
+      if (el.contains(target)) return;
+      e.preventDefault();
+    };
+    document.addEventListener('touchmove', preventBodyScroll, { passive: false });
+    return () => document.removeEventListener('touchmove', preventBodyScroll);
   }, [open]);
 
   const daysInMonth = getDaysInMonth(viewYear, viewMonth);
@@ -139,8 +155,186 @@ export default function DateTimePicker({ value, label, onChange }: DateTimePicke
     return isNaN(n) ? 0 : Math.min(59, Math.max(0, n));
   };
 
+  const calendarContent = (
+    <>
+      {/* Month/Year nav */}
+      <div className="flex items-center justify-between mb-2">
+        <button
+          type="button"
+          onClick={prevMonth}
+          className="dtp-nav-btn"
+        >
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+          </svg>
+        </button>
+        <span className="text-sm font-semibold text-foreground select-none">
+          {MONTHS[viewMonth]} {viewYear}
+        </span>
+        <button
+          type="button"
+          onClick={nextMonth}
+          className="dtp-nav-btn"
+        >
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+          </svg>
+        </button>
+      </div>
+
+      {/* Day headers */}
+      <div className="grid grid-cols-7">
+        {DAYS.map((d) => (
+          <div key={d} className="text-center text-[11px] font-semibold text-foreground-muted uppercase tracking-wide py-1.5 select-none">
+            {d}
+          </div>
+        ))}
+      </div>
+
+      {/* Day grid */}
+      <div className="grid grid-cols-7">
+        {Array.from({ length: firstDay }).map((_, i) => (
+          <div key={`empty-${i}`} />
+        ))}
+        {Array.from({ length: daysInMonth }).map((_, i) => {
+          const day = i + 1;
+          const selected = isSelected(day);
+          const todayDay = isToday(day);
+          return (
+            <div key={day} className="flex justify-center py-[2px]">
+              <button
+                type="button"
+                onClick={() => selectDay(day)}
+                className={`dtp-day ${
+                  selected
+                    ? 'dtp-day-selected'
+                    : todayDay
+                      ? 'dtp-day-today'
+                      : 'dtp-day-default'
+                }`}
+              >
+                {day}
+              </button>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Time picker */}
+      <div className="mt-2.5 pt-2.5 border-t border-border">
+        <div className="flex items-center justify-center gap-3">
+          <span className="text-xs font-medium text-foreground-muted uppercase tracking-wider">Time</span>
+          <div className="flex items-center gap-1.5">
+            <input
+              type="number"
+              inputMode="numeric"
+              min={1}
+              max={12}
+              value={hourInput}
+              onChange={(e) => setHourInput(e.target.value)}
+              onBlur={() => {
+                const clamped = clampHour12(hourInput);
+                setHourInput(String(clamped));
+                updateTime12(clamped, minute, period);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  const clamped = clampHour12(hourInput);
+                  setHourInput(String(clamped));
+                  updateTime12(clamped, minute, period);
+                }
+              }}
+              className="dtp-time-input"
+            />
+            <span className="text-foreground font-bold text-lg select-none leading-none">:</span>
+            <input
+              type="number"
+              inputMode="numeric"
+              min={0}
+              max={59}
+              value={minuteInput}
+              onChange={(e) => setMinuteInput(e.target.value)}
+              onBlur={() => {
+                const clamped = clampMinute(minuteInput);
+                setMinuteInput(pad(clamped));
+                updateTime12(displayHour, clamped, period);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  const clamped = clampMinute(minuteInput);
+                  setMinuteInput(pad(clamped));
+                  updateTime12(displayHour, clamped, period);
+                }
+              }}
+              className="dtp-time-input"
+            />
+            <div className="flex flex-col gap-0.5 ml-1">
+              <button
+                type="button"
+                onClick={() => updateTime12(displayHour, minute, 'AM')}
+                className={`text-[10px] font-bold px-1.5 py-0.5 rounded transition-colors ${
+                  period === 'AM'
+                    ? 'bg-accent-primary text-white'
+                    : 'text-foreground-muted hover:text-foreground hover:bg-background-tertiary'
+                }`}
+              >
+                AM
+              </button>
+              <button
+                type="button"
+                onClick={() => updateTime12(displayHour, minute, 'PM')}
+                className={`text-[10px] font-bold px-1.5 py-0.5 rounded transition-colors ${
+                  period === 'PM'
+                    ? 'bg-accent-primary text-white'
+                    : 'text-foreground-muted hover:text-foreground hover:bg-background-tertiary'
+                }`}
+              >
+                PM
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Action buttons */}
+      <div className="flex gap-2 mt-2.5">
+        <button
+          type="button"
+          onClick={() => {
+            const nowStr = getCurrentGMT3Input();
+            const nowGmt3 = getCurrentTimeGMT3();
+            setViewYear(nowGmt3.getUTCFullYear());
+            setViewMonth(nowGmt3.getUTCMonth());
+            setHour(nowGmt3.getUTCHours());
+            setMinute(nowGmt3.getUTCMinutes());
+            onChange(nowStr);
+          }}
+          className="dtp-action-btn dtp-action-secondary"
+        >
+          Now
+        </button>
+        {isValid && (
+          <button
+            type="button"
+            onClick={() => { onChange(''); setOpen(false); }}
+            className="dtp-action-btn dtp-action-danger"
+          >
+            Clear
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={() => setOpen(false)}
+          className="dtp-action-btn dtp-action-primary"
+        >
+          Done
+        </button>
+      </div>
+    </>
+  );
+
   return (
-    <div className="relative" ref={containerRef}>
+    <div className="relative">
       {label && <label className="block text-sm font-medium text-foreground mb-2">{label}</label>}
       <button
         type="button"
@@ -153,180 +347,28 @@ export default function DateTimePicker({ value, label, onChange }: DateTimePicke
         </svg>
       </button>
 
-      {open && (
-        <div className="absolute z-[60] mt-1 left-0 right-0 shadow-lg animate-fade-in dtp-popover">
-          {/* Month/Year nav */}
-          <div className="flex items-center justify-between mb-2">
-            <button
-              type="button"
-              onClick={prevMonth}
-              className="dtp-nav-btn"
-            >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-              </svg>
-            </button>
-            <span className="text-sm font-semibold text-foreground select-none">
-              {MONTHS[viewMonth]} {viewYear}
-            </span>
-            <button
-              type="button"
-              onClick={nextMonth}
-              className="dtp-nav-btn"
-            >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-              </svg>
-            </button>
+      {open && mounted && createPortal(
+        <div
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 animate-fade-in"
+          onClick={() => setOpen(false)}
+          style={{ touchAction: 'none' }}
+        >
+          <div
+            ref={scrollRef}
+            className="dtp-popover w-[calc(100%-2rem)] max-w-sm shadow-2xl animate-slide-up"
+            style={{
+              maxHeight: 'calc(90vh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px))',
+              overflowY: 'auto',
+              WebkitOverflowScrolling: 'touch',
+              overscrollBehavior: 'contain',
+              touchAction: 'pan-y',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {calendarContent}
           </div>
-
-          {/* Day headers */}
-          <div className="grid grid-cols-7">
-            {DAYS.map((d) => (
-              <div key={d} className="text-center text-[11px] font-semibold text-foreground-muted uppercase tracking-wide py-1.5 select-none">
-                {d}
-              </div>
-            ))}
-          </div>
-
-          {/* Day grid */}
-          <div className="grid grid-cols-7">
-            {Array.from({ length: firstDay }).map((_, i) => (
-              <div key={`empty-${i}`} />
-            ))}
-            {Array.from({ length: daysInMonth }).map((_, i) => {
-              const day = i + 1;
-              const selected = isSelected(day);
-              const todayDay = isToday(day);
-              return (
-                <div key={day} className="flex justify-center py-[2px]">
-                  <button
-                    type="button"
-                    onClick={() => selectDay(day)}
-                    className={`dtp-day ${
-                      selected
-                        ? 'dtp-day-selected'
-                        : todayDay
-                          ? 'dtp-day-today'
-                          : 'dtp-day-default'
-                    }`}
-                  >
-                    {day}
-                  </button>
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Time picker */}
-          <div className="mt-2.5 pt-2.5 border-t border-border">
-            <div className="flex items-center justify-center gap-3">
-              <span className="text-xs font-medium text-foreground-muted uppercase tracking-wider">Time</span>
-              <div className="flex items-center gap-1.5">
-                <input
-                  type="number"
-                  min={1}
-                  max={12}
-                  value={hourInput}
-                  onChange={(e) => setHourInput(e.target.value)}
-                  onBlur={() => {
-                    const clamped = clampHour12(hourInput);
-                    setHourInput(String(clamped));
-                    updateTime12(clamped, minute, period);
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      const clamped = clampHour12(hourInput);
-                      setHourInput(String(clamped));
-                      updateTime12(clamped, minute, period);
-                    }
-                  }}
-                  className="dtp-time-input"
-                />
-                <span className="text-foreground font-bold text-lg select-none leading-none">:</span>
-                <input
-                  type="number"
-                  min={0}
-                  max={59}
-                  value={minuteInput}
-                  onChange={(e) => setMinuteInput(e.target.value)}
-                  onBlur={() => {
-                    const clamped = clampMinute(minuteInput);
-                    setMinuteInput(pad(clamped));
-                    updateTime12(displayHour, clamped, period);
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      const clamped = clampMinute(minuteInput);
-                      setMinuteInput(pad(clamped));
-                      updateTime12(displayHour, clamped, period);
-                    }
-                  }}
-                  className="dtp-time-input"
-                />
-                <div className="flex flex-col gap-0.5 ml-1">
-                  <button
-                    type="button"
-                    onClick={() => updateTime12(displayHour, minute, 'AM')}
-                    className={`text-[10px] font-bold px-1.5 py-0.5 rounded transition-colors ${
-                      period === 'AM'
-                        ? 'bg-accent-primary text-white'
-                        : 'text-foreground-muted hover:text-foreground hover:bg-background-tertiary'
-                    }`}
-                  >
-                    AM
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => updateTime12(displayHour, minute, 'PM')}
-                    className={`text-[10px] font-bold px-1.5 py-0.5 rounded transition-colors ${
-                      period === 'PM'
-                        ? 'bg-accent-primary text-white'
-                        : 'text-foreground-muted hover:text-foreground hover:bg-background-tertiary'
-                    }`}
-                  >
-                    PM
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Action buttons */}
-          <div className="flex gap-2 mt-2.5">
-            <button
-              type="button"
-              onClick={() => {
-                const nowStr = getCurrentGMT3Input();
-                const nowGmt3 = getCurrentTimeGMT3();
-                setViewYear(nowGmt3.getUTCFullYear());
-                setViewMonth(nowGmt3.getUTCMonth());
-                setHour(nowGmt3.getUTCHours());
-                setMinute(nowGmt3.getUTCMinutes());
-                onChange(nowStr);
-              }}
-              className="dtp-action-btn dtp-action-secondary"
-            >
-              Now
-            </button>
-            {isValid && (
-              <button
-                type="button"
-                onClick={() => { onChange(''); setOpen(false); }}
-                className="dtp-action-btn dtp-action-danger"
-              >
-                Clear
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={() => setOpen(false)}
-              className="dtp-action-btn dtp-action-primary"
-            >
-              Done
-            </button>
-          </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
