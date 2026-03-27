@@ -93,6 +93,7 @@
 
 html {
   scroll-behavior: smooth;
+  overflow-x: hidden;
 }
 
 body {
@@ -100,6 +101,8 @@ body {
   color: var(--foreground);
   font-family: var(--font-geist-sans), system-ui, sans-serif;
   min-height: 100vh;
+  overflow-x: hidden;
+  -webkit-text-size-adjust: 100%;
 }
 
 /* Custom scrollbar - minimal */
@@ -344,7 +347,7 @@ body {
   color: var(--foreground);
   width: 100%;
   transition: all 0.2s ease;
-  font-size: 0.9375rem;
+  font-size: 16px;
 }
 
 .input:focus {
@@ -370,6 +373,7 @@ body {
   width: 100%;
   cursor: pointer;
   transition: all 0.2s ease;
+  font-size: 16px;
   appearance: none;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23a1a1aa'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
   background-repeat: no-repeat;
