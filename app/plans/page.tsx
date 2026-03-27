@@ -542,7 +542,7 @@ export default function PlansPage() {
                     }}
                     onClick={() => setEditingPlan(plan)}
                     rightAction={
-                      <div className="flex flex-col gap-1">
+                      <div className="flex items-center gap-1">
                         <button
                           onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleToggleHidden(plan); }}
                           className="p-1.5 rounded-md hover:bg-warning/10 transition-colors text-foreground-muted hover:text-warning"
