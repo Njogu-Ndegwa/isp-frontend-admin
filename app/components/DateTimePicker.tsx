@@ -1,12 +1,14 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { getCurrentGMT3Input, getCurrentTimeGMT3 } from '../lib/dateUtils';
 
 const DAYS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
 const MONTHS = [
   'January', 'February', 'March', 'April', 'May', 'June',
   'July', 'August', 'September', 'October', 'November', 'December',
 ];
+const SHORT_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 function getDaysInMonth(year: number, month: number) {
   return new Date(year, month + 1, 0).getDate();
@@ -30,16 +32,30 @@ interface DateTimePickerProps {
   label?: string;
 }
 
+function to12Hour(h: number) {
+  const period = h >= 12 ? 'PM' : 'AM';
+  const display = h % 12 || 12;
+  return { display, period };
+}
+
+function to24Hour(display12: number, period: 'AM' | 'PM') {
+  if (period === 'AM') return display12 === 12 ? 0 : display12;
+  return display12 === 12 ? 12 : display12 + 12;
+}
+
 export default function DateTimePicker({ value, label, onChange }: DateTimePickerProps) {
   const parsed = value ? new Date(value) : null;
   const isValid = parsed && !isNaN(parsed.getTime());
 
   const [open, setOpen] = useState(false);
-  const [viewYear, setViewYear] = useState(isValid ? parsed.getFullYear() : new Date().getFullYear());
-  const [viewMonth, setViewMonth] = useState(isValid ? parsed.getMonth() : new Date().getMonth());
+  const initGmt3 = getCurrentTimeGMT3();
+  const [viewYear, setViewYear] = useState(isValid ? parsed.getFullYear() : initGmt3.getUTCFullYear());
+  const [viewMonth, setViewMonth] = useState(isValid ? parsed.getMonth() : initGmt3.getUTCMonth());
   const [hour, setHour] = useState(isValid ? parsed.getHours() : 23);
   const [minute, setMinute] = useState(isValid ? parsed.getMinutes() : 59);
-  const [hourInput, setHourInput] = useState(pad(hour));
+  const [period, setPeriod] = useState<'AM' | 'PM'>(hour >= 12 ? 'PM' : 'AM');
+  const { display: displayHour } = to12Hour(hour);
+  const [hourInput, setHourInput] = useState(String(displayHour));
   const [minuteInput, setMinuteInput] = useState(pad(minute));
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -47,7 +63,11 @@ export default function DateTimePicker({ value, label, onChange }: DateTimePicke
   const selectedMonth = isValid ? parsed.getMonth() : null;
   const selectedYear = isValid ? parsed.getFullYear() : null;
 
-  useEffect(() => { setHourInput(pad(hour)); }, [hour]);
+  useEffect(() => {
+    const { display, period: p } = to12Hour(hour);
+    setHourInput(String(display));
+    setPeriod(p as 'AM' | 'PM');
+  }, [hour]);
   useEffect(() => { setMinuteInput(pad(minute)); }, [minute]);
 
   useEffect(() => {
@@ -78,29 +98,40 @@ export default function DateTimePicker({ value, label, onChange }: DateTimePicke
     onChange(toLocalDatetime(d));
   };
 
-  const updateTime = useCallback((h: number, m: number) => {
-    setHour(h);
+  const updateTime = useCallback((h24: number, m: number) => {
+    setHour(h24);
     setMinute(m);
     if (isValid && parsed) {
       const d = new Date(parsed);
-      d.setHours(h, m);
+      d.setHours(h24, m);
       onChange(toLocalDatetime(d));
     }
   }, [isValid, parsed, onChange]);
 
-  const today = new Date();
+  const updateTime12 = useCallback((h12: number, m: number, p: 'AM' | 'PM') => {
+    const h24 = to24Hour(h12, p);
+    setPeriod(p);
+    updateTime(h24, m);
+  }, [updateTime]);
+
+  const gmt3Now = getCurrentTimeGMT3();
+  const todayYear = gmt3Now.getUTCFullYear();
+  const todayMonth = gmt3Now.getUTCMonth();
+  const todayDate = gmt3Now.getUTCDate();
   const isToday = (day: number) =>
-    viewYear === today.getFullYear() && viewMonth === today.getMonth() && day === today.getDate();
+    viewYear === todayYear && viewMonth === todayMonth && day === todayDate;
   const isSelected = (day: number) =>
     viewYear === selectedYear && viewMonth === selectedMonth && day === selectedDay;
 
-  const displayText = isValid
-    ? `${parsed.toLocaleDateString('en-KE', { month: 'short', day: 'numeric', year: 'numeric' })} ${pad(parsed.getHours())}:${pad(parsed.getMinutes())}`
-    : 'Select date & time';
+  const displayText = (() => {
+    if (!isValid) return 'Select date & time';
+    const { display: dh, period: dp } = to12Hour(parsed.getHours());
+    return `${SHORT_MONTHS[parsed.getMonth()]} ${parsed.getDate()}, ${parsed.getFullYear()} ${dh}:${pad(parsed.getMinutes())} ${dp}`;
+  })();
 
-  const clampHour = (val: string) => {
+  const clampHour12 = (val: string) => {
     const n = parseInt(val);
-    return isNaN(n) ? 0 : Math.min(23, Math.max(0, n));
+    return isNaN(n) ? 12 : Math.min(12, Math.max(1, n));
   };
 
   const clampMinute = (val: string) => {
@@ -194,20 +225,20 @@ export default function DateTimePicker({ value, label, onChange }: DateTimePicke
               <div className="flex items-center gap-1.5">
                 <input
                   type="number"
-                  min={0}
-                  max={23}
+                  min={1}
+                  max={12}
                   value={hourInput}
                   onChange={(e) => setHourInput(e.target.value)}
                   onBlur={() => {
-                    const clamped = clampHour(hourInput);
-                    setHourInput(pad(clamped));
-                    updateTime(clamped, minute);
+                    const clamped = clampHour12(hourInput);
+                    setHourInput(String(clamped));
+                    updateTime12(clamped, minute, period);
                   }}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') {
-                      const clamped = clampHour(hourInput);
-                      setHourInput(pad(clamped));
-                      updateTime(clamped, minute);
+                      const clamped = clampHour12(hourInput);
+                      setHourInput(String(clamped));
+                      updateTime12(clamped, minute, period);
                     }
                   }}
                   className="dtp-time-input"
@@ -222,17 +253,41 @@ export default function DateTimePicker({ value, label, onChange }: DateTimePicke
                   onBlur={() => {
                     const clamped = clampMinute(minuteInput);
                     setMinuteInput(pad(clamped));
-                    updateTime(hour, clamped);
+                    updateTime12(displayHour, clamped, period);
                   }}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') {
                       const clamped = clampMinute(minuteInput);
                       setMinuteInput(pad(clamped));
-                      updateTime(hour, clamped);
+                      updateTime12(displayHour, clamped, period);
                     }
                   }}
                   className="dtp-time-input"
                 />
+                <div className="flex flex-col gap-0.5 ml-1">
+                  <button
+                    type="button"
+                    onClick={() => updateTime12(displayHour, minute, 'AM')}
+                    className={`text-[10px] font-bold px-1.5 py-0.5 rounded transition-colors ${
+                      period === 'AM'
+                        ? 'bg-accent-primary text-white'
+                        : 'text-foreground-muted hover:text-foreground hover:bg-background-tertiary'
+                    }`}
+                  >
+                    AM
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => updateTime12(displayHour, minute, 'PM')}
+                    className={`text-[10px] font-bold px-1.5 py-0.5 rounded transition-colors ${
+                      period === 'PM'
+                        ? 'bg-accent-primary text-white'
+                        : 'text-foreground-muted hover:text-foreground hover:bg-background-tertiary'
+                    }`}
+                  >
+                    PM
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -242,12 +297,13 @@ export default function DateTimePicker({ value, label, onChange }: DateTimePicke
             <button
               type="button"
               onClick={() => {
-                const now = new Date();
-                setViewYear(now.getFullYear());
-                setViewMonth(now.getMonth());
-                setHour(now.getHours());
-                setMinute(now.getMinutes());
-                onChange(toLocalDatetime(now));
+                const nowStr = getCurrentGMT3Input();
+                const nowGmt3 = getCurrentTimeGMT3();
+                setViewYear(nowGmt3.getUTCFullYear());
+                setViewMonth(nowGmt3.getUTCMonth());
+                setHour(nowGmt3.getUTCHours());
+                setMinute(nowGmt3.getUTCMinutes());
+                onChange(nowStr);
               }}
               className="dtp-action-btn dtp-action-secondary"
             >

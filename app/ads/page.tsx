@@ -9,6 +9,7 @@ import { PageLoader } from '../components/LoadingSpinner';
 import PullToRefresh from '../components/PullToRefresh';
 import SearchInput from '../components/SearchInput';
 import Pagination from '../components/Pagination';
+import { utcToGMT3DateOnly, gmt3DateOnlyToISO } from '../lib/dateUtils';
 
 const CATEGORIES = [
   'electronics',
@@ -417,7 +418,7 @@ function CreateAdModal({
     price: '',
     price_value: 0,
     category: 'electronics',
-    expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    expires_at: utcToGMT3DateOnly(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()),
   });
 
   // Auto-fill seller details when advertiser changes
@@ -440,7 +441,7 @@ function CreateAdModal({
       setError(null);
       await api.createAd({
         ...formData,
-        expires_at: new Date(formData.expires_at).toISOString(),
+        expires_at: gmt3DateOnlyToISO(formData.expires_at),
       });
       onSuccess();
     } catch (err) {

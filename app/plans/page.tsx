@@ -11,7 +11,8 @@ import DataTable, { DataTableColumn } from '../components/DataTable';
 import MobileDataCard from '../components/MobileDataCard';
 import SearchInput from '../components/SearchInput';
 import FilterSelect from '../components/FilterSelect';
-import { formatDateGMT3 } from '../lib/dateUtils';
+import DateTimePicker from '../components/DateTimePicker';
+import { formatDateGMT3, utcToGMT3Input, gmt3InputToISO } from '../lib/dateUtils';
 
 type FilterTab = 'all' | 'regular' | 'emergency';
 type ConnectionFilter = 'all' | 'hotspot' | 'pppoe';
@@ -629,7 +630,7 @@ function EditPlanModal({
     is_hidden: plan.is_hidden || false,
     badge_text: plan.badge_text || null,
     original_price: plan.original_price ?? null,
-    valid_until: plan.valid_until || null,
+    valid_until: utcToGMT3Input(plan.valid_until) || null,
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -640,7 +641,7 @@ function EditPlanModal({
       const payload = { ...formData };
       if (!payload.badge_text) payload.badge_text = null;
       if (!payload.original_price) payload.original_price = null;
-      if (!payload.valid_until) payload.valid_until = null;
+      payload.valid_until = payload.valid_until ? gmt3InputToISO(payload.valid_until) : null;
       await api.updatePlan(plan.id, payload);
       onSuccess();
     } catch (err) {
@@ -800,12 +801,10 @@ function EditPlanModal({
               </div>
 
               <div className="mb-4">
-                <label className="block text-sm font-medium text-foreground mb-2">Valid Until</label>
-                <input
-                  type="datetime-local"
-                  value={formData.valid_until ? formData.valid_until.slice(0, 16) : ''}
-                  onChange={(e) => setFormData({ ...formData, valid_until: e.target.value ? new Date(e.target.value).toISOString() : null })}
-                  className="input"
+                <DateTimePicker
+                  label="Valid Until"
+                  value={formData.valid_until || ''}
+                  onChange={(v) => setFormData({ ...formData, valid_until: v || null })}
                 />
               </div>
 

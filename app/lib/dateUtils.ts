@@ -204,3 +204,58 @@ export function formatCurrentDateTimeGMT3(): string {
   
   return `${dateStr} · ${timeStr} EAT`;
 }
+
+// ── Form helpers (GMT+3 wall-clock ↔ UTC ISO) ──────────────────────────
+
+const pad2 = (n: number) => String(n).padStart(2, '0');
+
+/**
+ * Convert a UTC ISO timestamp to a "YYYY-MM-DDTHH:MM" string in GMT+3 wall clock.
+ * Used for populating datetime-local inputs and DateTimePicker values.
+ */
+export function utcToGMT3Input(iso: string | undefined | null): string {
+  if (!iso) return '';
+  try {
+    const d = parseUTCToGMT3(iso);
+    if (isNaN(d.getTime())) return '';
+    return `${d.getUTCFullYear()}-${pad2(d.getUTCMonth() + 1)}-${pad2(d.getUTCDate())}T${pad2(d.getUTCHours())}:${pad2(d.getUTCMinutes())}`;
+  } catch { return ''; }
+}
+
+/**
+ * Convert a "YYYY-MM-DDTHH:MM" string (representing GMT+3 wall clock) to a UTC ISO string.
+ * Used when saving form values back to the API.
+ */
+export function gmt3InputToISO(datetime: string): string {
+  const asUtc = new Date(datetime + 'Z');
+  return new Date(asUtc.getTime() - GMT_PLUS_3_OFFSET_MS).toISOString();
+}
+
+/**
+ * Get the current datetime in GMT+3 as "YYYY-MM-DDTHH:MM" (for "Now" buttons).
+ */
+export function getCurrentGMT3Input(): string {
+  const d = getCurrentTimeGMT3();
+  return `${d.getUTCFullYear()}-${pad2(d.getUTCMonth() + 1)}-${pad2(d.getUTCDate())}T${pad2(d.getUTCHours())}:${pad2(d.getUTCMinutes())}`;
+}
+
+/**
+ * Extract the date portion (YYYY-MM-DD) of a UTC ISO timestamp in GMT+3.
+ * Accounts for the +3h offset that can shift the date.
+ */
+export function utcToGMT3DateOnly(iso: string | undefined | null): string {
+  if (!iso) return '';
+  try {
+    const d = parseUTCToGMT3(iso);
+    if (isNaN(d.getTime())) return '';
+    return `${d.getUTCFullYear()}-${pad2(d.getUTCMonth() + 1)}-${pad2(d.getUTCDate())}`;
+  } catch { return ''; }
+}
+
+/**
+ * Convert a date-only string (YYYY-MM-DD understood as GMT+3 midnight) to UTC ISO.
+ */
+export function gmt3DateOnlyToISO(dateStr: string): string {
+  const asUtc = new Date(dateStr + 'T00:00:00Z');
+  return new Date(asUtc.getTime() - GMT_PLUS_3_OFFSET_MS).toISOString();
+}

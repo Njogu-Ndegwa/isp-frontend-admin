@@ -9,16 +9,7 @@ import { useAlert } from '../../context/AlertContext';
 import Header from '../../components/Header';
 import { PageLoader } from '../../components/LoadingSpinner';
 import DateTimePicker from '../../components/DateTimePicker';
-
-function toLocalDatetime(iso: string | undefined): string {
-  if (!iso) return '';
-  try {
-    const d = new Date(iso);
-    if (isNaN(d.getTime())) return '';
-    const pad = (n: number) => String(n).padStart(2, '0');
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-  } catch { return ''; }
-}
+import { utcToGMT3Input, gmt3InputToISO } from '../../lib/dateUtils';
 
 export default function EditCustomerPage() {
   const params = useParams();
@@ -68,7 +59,7 @@ export default function EditCustomerPage() {
         pppoe_username: found.pppoe_username || '',
         pppoe_password: '',
         static_ip: found.static_ip || '',
-        expiry: toLocalDatetime(found.expiry),
+        expiry: utcToGMT3Input(found.expiry),
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load customer');
@@ -96,8 +87,8 @@ export default function EditCustomerPage() {
       if (formData.pppoe_username !== (customer.pppoe_username || '')) payload.pppoe_username = formData.pppoe_username;
       if (formData.pppoe_password) payload.pppoe_password = formData.pppoe_password;
       if (formData.static_ip !== (customer.static_ip || '')) payload.static_ip = formData.static_ip;
-      if (formData.expiry && formData.expiry !== toLocalDatetime(customer.expiry)) {
-        payload.expiry = new Date(formData.expiry).toISOString();
+      if (formData.expiry && formData.expiry !== utcToGMT3Input(customer.expiry)) {
+        payload.expiry = gmt3InputToISO(formData.expiry);
       }
 
       if (Object.keys(payload).length === 0) {

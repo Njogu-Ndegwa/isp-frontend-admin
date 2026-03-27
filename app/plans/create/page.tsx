@@ -7,6 +7,8 @@ import { api } from '../../lib/api';
 import { CreatePlanRequest } from '../../lib/types';
 import { useAlert } from '../../context/AlertContext';
 import Header from '../../components/Header';
+import DateTimePicker from '../../components/DateTimePicker';
+import { gmt3InputToISO } from '../../lib/dateUtils';
 
 export default function CreatePlanPage() {
   const router = useRouter();
@@ -34,7 +36,7 @@ export default function CreatePlanPage() {
       const payload = { ...formData };
       if (!payload.badge_text) payload.badge_text = null;
       if (!payload.original_price) payload.original_price = null;
-      if (!payload.valid_until) payload.valid_until = null;
+      payload.valid_until = payload.valid_until ? gmt3InputToISO(payload.valid_until) : null;
       await api.createPlan(payload);
       showAlert('success', `Plan "${formData.name}" created successfully!`);
       router.push('/plans');
@@ -214,15 +216,10 @@ export default function CreatePlanPage() {
               </div>
 
               <div className="mb-4">
-                <label htmlFor="valid_until" className="block text-sm font-medium text-foreground-muted mb-1.5">
-                  Valid Until
-                </label>
-                <input
-                  id="valid_until"
-                  type="datetime-local"
-                  value={formData.valid_until ? formData.valid_until.slice(0, 16) : ''}
-                  onChange={(e) => setFormData({ ...formData, valid_until: e.target.value ? new Date(e.target.value).toISOString() : null })}
-                  className="input"
+                <DateTimePicker
+                  label="Valid Until"
+                  value={formData.valid_until || ''}
+                  onChange={(v) => setFormData({ ...formData, valid_until: v || null })}
                 />
               </div>
 

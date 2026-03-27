@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { api } from '../../lib/api';
 import { Ad, AdClick, AdImpression, AdsResponse, AdClicksResponse, AdImpressionsResponse } from '../../lib/types';
-import { formatDateGMT3 } from '../../lib/dateUtils';
+import { formatDateGMT3, utcToGMT3DateOnly, gmt3DateOnlyToISO } from '../../lib/dateUtils';
 import Header from '../../components/Header';
 import { PageLoader } from '../../components/LoadingSpinner';
 import DataTable, { DataTableColumn } from '../../components/DataTable';
@@ -601,7 +601,7 @@ function EditAdModal({
     badge_text: ad.badge_text || '',
     is_active: ad.is_active,
     priority: ad.priority,
-    expires_at: ad.expires_at.split('T')[0],
+    expires_at: utcToGMT3DateOnly(ad.expires_at),
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -634,8 +634,8 @@ function EditAdModal({
       }
       
       // Handle expiry date
-      const newExpiresAt = new Date(formData.expires_at).toISOString();
-      if (!ad.expires_at.startsWith(formData.expires_at)) {
+      const newExpiresAt = gmt3DateOnlyToISO(formData.expires_at);
+      if (utcToGMT3DateOnly(ad.expires_at) !== formData.expires_at) {
         updates.expires_at = newExpiresAt;
       }
 
