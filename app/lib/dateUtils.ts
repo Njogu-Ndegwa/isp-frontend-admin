@@ -202,5 +202,5 @@ export function formatCurrentDateTimeGMT3(): string {
     hour12: true,
   });
   
-  return `${dateStr} · ${timeStr}`;
+  return `${dateStr} · ${timeStr} EAT`;
 }

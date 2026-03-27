@@ -24,6 +24,7 @@ import RouterSelector from '../components/RouterSelector';
 import PullToRefresh from '../components/PullToRefresh';
 import { useAuth } from '../context/AuthContext';
 import { useAlert } from '../context/AlertContext';
+import { formatDateGMT3 } from '../lib/dateUtils';
 
 type Tab = 'pppoe' | 'hotspot' | 'ports';
 
@@ -457,7 +458,7 @@ function PPPoETab({
                         <span className="text-foreground-muted text-xs">Expiry</span>
                         <p className="font-medium text-foreground">
                           {diagnoseResult.customer.expiry
-                            ? new Date(diagnoseResult.customer.expiry).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+                            ? formatDateGMT3(diagnoseResult.customer.expiry, { day: '2-digit', month: 'short', year: 'numeric' })
                             : '-'}
                         </p>
                       </div>
@@ -641,7 +642,7 @@ function HotspotTab({
                         <span className="text-foreground-muted text-xs">Expiry</span>
                         <p className="font-medium text-foreground">
                           {diagnoseResult.database_info.expiry
-                            ? new Date(diagnoseResult.database_info.expiry).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+                            ? formatDateGMT3(diagnoseResult.database_info.expiry, { day: '2-digit', month: 'short', year: 'numeric' })
                             : '-'}
                         </p>
                       </div>

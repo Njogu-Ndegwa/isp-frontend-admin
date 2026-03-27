@@ -25,15 +25,14 @@ import Link from 'next/link';
 import PullToRefresh from '../components/PullToRefresh';
 import DataTable, { DataTableColumn } from '../components/DataTable';
 import MobileDataCard from '../components/MobileDataCard';
+import { formatDateGMT3 } from '../lib/dateUtils';
 
 type Tab = 'routers' | 'provision';
 
 const formatSafeDate = (dateStr: string | null | undefined): string => {
   try {
     if (!dateStr) return '-';
-    const date = new Date(dateStr);
-    if (isNaN(date.getTime())) return '-';
-    return date.toLocaleDateString('en-GB', {
+    return formatDateGMT3(dateStr, {
       day: '2-digit',
       month: 'short',
       year: 'numeric',
@@ -1082,8 +1081,7 @@ function UptimePanel({ data }: { data: RouterUptimeResponse }) {
 
   const formatCheckTime = (dateStr: string) => {
     try {
-      const d = new Date(dateStr);
-      return d.toLocaleString('en-GB', {
+      return formatDateGMT3(dateStr, {
         day: '2-digit', month: 'short',
         hour: '2-digit', minute: '2-digit',
       });

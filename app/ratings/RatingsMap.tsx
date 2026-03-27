@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from 'react';
 import { Rating, CustomerMapData } from '../lib/types';
+import { formatDateGMT3 } from '../lib/dateUtils';
 
 interface RatingsMapProps {
   ratings: Rating[];
@@ -107,7 +108,7 @@ export default function RatingsMap({ ratings, mapData, onSelectRating, selectedR
           </div>
           ${rating.comment ? `<p style="margin: 0; color: #666; font-size: 13px; line-height: 1.4;">"${rating.comment}"</p>` : ''}
           <p style="margin: 8px 0 0; font-size: 11px; color: #999;">
-            ${new Date(rating.created_at).toLocaleDateString('en-KE', { day: 'numeric', month: 'short', year: 'numeric' })}
+            ${formatDateGMT3(rating.created_at, { day: 'numeric', month: 'short', year: 'numeric' })}
           </p>
         </div>
       `;

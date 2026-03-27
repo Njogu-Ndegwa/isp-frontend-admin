@@ -11,6 +11,7 @@ import DataTable, { DataTableColumn } from '../components/DataTable';
 import MobileDataCard from '../components/MobileDataCard';
 import SearchInput from '../components/SearchInput';
 import FilterSelect from '../components/FilterSelect';
+import { formatDateGMT3 } from '../lib/dateUtils';
 
 type FilterTab = 'all' | 'regular' | 'emergency';
 type ConnectionFilter = 'all' | 'hotspot' | 'pppoe';
@@ -593,9 +594,7 @@ export default function PlansPage() {
 
 function formatValidUntil(dateStr: string): string {
   try {
-    const date = new Date(dateStr);
-    if (isNaN(date.getTime())) return '-';
-    return date.toLocaleDateString('en-KE', {
+    return formatDateGMT3(dateStr, {
       year: 'numeric',
       month: 'short',
       day: 'numeric',

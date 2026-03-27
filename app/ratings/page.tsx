@@ -7,6 +7,7 @@ import { Rating, RatingSummary, CustomerMapData } from '../lib/types';
 import Header from '../components/Header';
 import { PageLoader } from '../components/LoadingSpinner';
 import PullToRefresh from '../components/PullToRefresh';
+import { formatDateGMT3 } from '../lib/dateUtils';
 
 // Dynamically import the map component to avoid SSR issues with Leaflet
 const RatingsMap = dynamic(() => import('./RatingsMap'), {
@@ -77,13 +78,17 @@ export default function RatingsPage() {
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-KE', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
+    try {
+      return formatDateGMT3(dateString, {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+    } catch {
+      return '-';
+    }
   };
 
   const renderStars = (rating: number, size = 'w-4 h-4') => {
