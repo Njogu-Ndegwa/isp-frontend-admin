@@ -209,11 +209,7 @@ export default function CollapsibleSidebar() {
   const allNavGroups = isAdmin ? adminNavGroups : navGroups;
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [hoveredItem, setHoveredItem] = useState<string | null>(null);
-  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>(() => {
-    const defaults: Record<string, boolean> = {};
-    navGroups.forEach((g) => { if (g.label) defaults[g.id] = true; });
-    return defaults;
-  });
+  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     const saved = localStorage.getItem(STORAGE_KEY_COLLAPSED);
@@ -236,15 +232,30 @@ export default function CollapsibleSidebar() {
   }, [expandedGroups]);
 
   useEffect(() => {
-    allNavGroups.forEach((group) => {
-      if (group.label && groupHasActiveItem(pathname, group) && !expandedGroups[group.id]) {
-        setExpandedGroups((prev) => ({ ...prev, [group.id]: true }));
-      }
-    });
+    const activeGroup = allNavGroups.find(
+      (g) => g.label && groupHasActiveItem(pathname, g)
+    );
+    if (activeGroup && !expandedGroups[activeGroup.id]) {
+      setExpandedGroups((prev) => {
+        const next: Record<string, boolean> = {};
+        for (const key of Object.keys(prev)) next[key] = false;
+        next[activeGroup.id] = true;
+        return next;
+      });
+    }
   }, [pathname, allNavGroups]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const toggleGroup = useCallback((groupId: string) => {
-    setExpandedGroups((prev) => ({ ...prev, [groupId]: !prev[groupId] }));
+    setExpandedGroups((prev) => {
+      const isCurrentlyExpanded = prev[groupId] ?? false;
+      if (isCurrentlyExpanded) {
+        return { ...prev, [groupId]: false };
+      }
+      const next: Record<string, boolean> = {};
+      for (const key of Object.keys(prev)) next[key] = false;
+      next[groupId] = true;
+      return next;
+    });
   }, []);
 
   if (pathname === '/login') return null;
@@ -293,7 +304,7 @@ export default function CollapsibleSidebar() {
 
   const renderGroup = (group: NavGroup, index: number) => {
     const isStandalone = !group.label;
-    const isExpanded = expandedGroups[group.id] ?? true;
+    const isExpanded = expandedGroups[group.id] ?? false;
     const hasActive = groupHasActiveItem(pathname, group);
     const showDivider = index > 0;
 
