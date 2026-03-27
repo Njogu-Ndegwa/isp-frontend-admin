@@ -50,6 +50,8 @@ import {
   UpdatePPPoEPortsResponse,
   UpdatePlainPortsRequest,
   UpdatePlainPortsResponse,
+  UpdateDualPortsRequest,
+  UpdateDualPortsResponse,
   PPPoEOverviewResponse,
   PPPoEDiagnoseResponse,
   PPPoELogsResponse,
@@ -82,6 +84,7 @@ import {
   AdminTransactionChargeResponse,
   AdminTransactionChargesResponse,
   ResellerAccountStatement,
+  PaginatedResponse,
 } from './types';
 import * as demo from './demoData';
 
@@ -274,22 +277,58 @@ class ApiClient {
   }
 
   // Customers
-  async getCustomers(userId = 1): Promise<Customer[]> {
-    if (this.isDemoMode()) return demo.demoCustomers;
+  async getCustomers(userId?: number): Promise<Customer[]>;
+  async getCustomers(userId: number, page: number, perPage: number): Promise<PaginatedResponse<Customer>>;
+  async getCustomers(userId = 1, page?: number, perPage?: number): Promise<Customer[] | PaginatedResponse<Customer>> {
+    if (this.isDemoMode()) {
+      const all = demo.demoCustomers;
+      if (page && perPage) {
+        const start = (page - 1) * perPage;
+        return { data: all.slice(start, start + perPage), page, per_page: perPage, total: all.length, total_pages: Math.ceil(all.length / perPage) };
+      }
+      return all;
+    }
+    const params = new URLSearchParams({ user_id: userId.toString() });
+    if (page) params.append('page', page.toString());
+    if (perPage) params.append('per_page', perPage.toString());
     const response = await fetch(
-      `${BASE_URL}/customers?user_id=${userId}`,
+      `${BASE_URL}/customers?${params.toString()}`,
       { headers: this.getHeaders() }
     );
-    return this.handleResponse<Customer[]>(response);
+    const result = await this.handleResponse<Customer[] | PaginatedResponse<Customer>>(response);
+    if (page && perPage && Array.isArray(result)) {
+      const total = result.length;
+      const start = (page - 1) * perPage;
+      return { data: result.slice(start, start + perPage), page, per_page: perPage, total, total_pages: Math.ceil(total / perPage) || 1 };
+    }
+    return result;
   }
 
-  async getActiveCustomers(userId = 1): Promise<Customer[]> {
-    if (this.isDemoMode()) return demo.demoCustomers.filter(c => c.status === 'active');
+  async getActiveCustomers(userId?: number): Promise<Customer[]>;
+  async getActiveCustomers(userId: number, page: number, perPage: number): Promise<PaginatedResponse<Customer>>;
+  async getActiveCustomers(userId = 1, page?: number, perPage?: number): Promise<Customer[] | PaginatedResponse<Customer>> {
+    if (this.isDemoMode()) {
+      const all = demo.demoCustomers.filter(c => c.status === 'active');
+      if (page && perPage) {
+        const start = (page - 1) * perPage;
+        return { data: all.slice(start, start + perPage), page, per_page: perPage, total: all.length, total_pages: Math.ceil(all.length / perPage) };
+      }
+      return all;
+    }
+    const params = new URLSearchParams({ user_id: userId.toString() });
+    if (page) params.append('page', page.toString());
+    if (perPage) params.append('per_page', perPage.toString());
     const response = await fetch(
-      `${BASE_URL}/customers/active?user_id=${userId}`,
+      `${BASE_URL}/customers/active?${params.toString()}`,
       { headers: this.getHeaders() }
     );
-    return this.handleResponse<Customer[]>(response);
+    const result = await this.handleResponse<Customer[] | PaginatedResponse<Customer>>(response);
+    if (page && perPage && Array.isArray(result)) {
+      const total = result.length;
+      const start = (page - 1) * perPage;
+      return { data: result.slice(start, start + perPage), page, per_page: perPage, total, total_pages: Math.ceil(total / perPage) || 1 };
+    }
+    return result;
   }
 
   // Plans
@@ -382,9 +421,21 @@ class ApiClient {
     status?: string,
     signal?: AbortSignal,
     paymentMethod?: string,
-    date?: string
-  ): Promise<MpesaTransaction[]> {
-    if (this.isDemoMode()) return demo.demoTransactions;
+    date?: string,
+    page = 1,
+    perPage = 20
+  ): Promise<PaginatedResponse<MpesaTransaction>> {
+    if (this.isDemoMode()) {
+      const all = demo.demoTransactions;
+      const start = (page - 1) * perPage;
+      return {
+        data: all.slice(start, start + perPage),
+        page,
+        per_page: perPage,
+        total: all.length,
+        total_pages: Math.ceil(all.length / perPage),
+      };
+    }
     const params = new URLSearchParams();
     if (userId) params.append('user_id', userId.toString());
     if (routerId) params.append('router_id', routerId.toString());
@@ -393,12 +444,26 @@ class ApiClient {
     if (status) params.append('status', status);
     if (paymentMethod) params.append('payment_method', paymentMethod);
     if (date) params.append('date', date);
+    params.append('page', page.toString());
+    params.append('per_page', perPage.toString());
 
     const response = await fetch(
       `${BASE_URL}/mpesa/transactions?${params.toString()}`,
       { headers: this.getHeaders(), signal }
     );
-    return this.handleResponse<MpesaTransaction[]>(response);
+    const result = await this.handleResponse<MpesaTransaction[] | PaginatedResponse<MpesaTransaction>>(response);
+    if (Array.isArray(result)) {
+      const total = result.length;
+      const start = (page - 1) * perPage;
+      return {
+        data: result.slice(start, start + perPage),
+        page,
+        per_page: perPage,
+        total,
+        total_pages: Math.ceil(total / perPage) || 1,
+      };
+    }
+    return result;
   }
 
   async getTransactionSummary(
@@ -882,6 +947,16 @@ class ApiClient {
       body: JSON.stringify(data),
     });
     return this.handleResponse<UpdatePlainPortsResponse>(response);
+  }
+
+  async updateDualPorts(routerId: number, data: UpdateDualPortsRequest): Promise<UpdateDualPortsResponse> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(`${BASE_URL}/routers/${routerId}/dual-ports`, {
+      method: 'PUT',
+      headers: this.getHeaders(),
+      body: JSON.stringify(data),
+    });
+    return this.handleResponse<UpdateDualPortsResponse>(response);
   }
 
   // MikroTik PPPoE Monitoring

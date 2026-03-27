@@ -788,9 +788,10 @@ function PortsTab({
                   <span className={`badge text-[10px] ${
                     port.service === 'pppoe' ? 'bg-blue-500/20 text-blue-400' :
                     port.service === 'hotspot' ? 'bg-emerald-500/20 text-emerald-400' :
+                    port.service === 'dual' ? 'bg-cyan-500/20 text-cyan-400' :
                     port.service === 'plain' ? 'bg-purple-500/20 text-purple-400' :
                     'bg-foreground-muted/20 text-foreground-muted'
-                  }`}>{port.service}</span>
+                  }`}>{port.service === 'dual' ? 'PPPoE+Hotspot' : port.service}</span>
                 </div>
                 <span className={`badge text-[10px] ${
                   port.link_up ? 'badge-success' : 'bg-foreground-muted/20 text-foreground-muted'
@@ -1189,10 +1190,11 @@ function PortRow({ port, isPppoePort }: { port: PortEntry; isPppoePort: boolean 
         <span className={`badge text-[10px] ${
           port.service === 'pppoe' ? 'bg-blue-500/20 text-blue-400' :
           port.service === 'hotspot' ? 'bg-emerald-500/20 text-emerald-400' :
+          port.service === 'dual' ? 'bg-cyan-500/20 text-cyan-400' :
           port.service === 'plain' ? 'bg-purple-500/20 text-purple-400' :
           'bg-foreground-muted/20 text-foreground-muted'
         }`}>
-          {port.service}
+          {port.service === 'dual' ? 'PPPoE+Hotspot' : port.service}
         </span>
       </td>
       <td className="p-3">

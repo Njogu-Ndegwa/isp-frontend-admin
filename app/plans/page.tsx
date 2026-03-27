@@ -652,11 +652,15 @@ function EditPlanModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
 
-      <div className="relative w-full max-w-lg card p-6 animate-fade-in max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between mb-6">
+      <div
+        className="relative w-full max-w-lg card animate-fade-in max-h-[90vh] flex flex-col"
+        style={{ overscrollBehavior: 'contain', WebkitOverflowScrolling: 'touch' }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between p-6 pb-4 shrink-0">
           <h2 className="text-xl font-bold text-foreground">Edit Plan</h2>
           <button onClick={onClose} className="p-2 rounded-lg hover:bg-background-tertiary transition-colors">
             <svg className="w-5 h-5 text-foreground-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -666,173 +670,174 @@ function EditPlanModal({
         </div>
 
         {error && (
-          <div className="mb-4 p-3 rounded-lg bg-danger/10 border border-danger/30 text-danger text-sm">
+          <div className="mx-6 mb-2 p-3 rounded-lg bg-danger/10 border border-danger/30 text-danger text-sm shrink-0">
             {error}
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-4" autoComplete="off">
-          <div>
-            <label className="block text-sm font-medium text-foreground mb-2">Plan Name</label>
-            <input
-              type="text"
-              value={formData.name || ''}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              className="input"
-              placeholder="e.g., 1 Hour Plan"
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
+        <div className="overflow-y-auto flex-1 min-h-0 px-6" style={{ overscrollBehavior: 'contain', WebkitOverflowScrolling: 'touch' }}>
+          <form id="edit-plan-form" onSubmit={handleSubmit} className="space-y-4 pb-2" autoComplete="off">
             <div>
-              <label className="block text-sm font-medium text-foreground mb-2">Price (KES)</label>
-              <input
-                type="number"
-                value={formData.price || ''}
-                onChange={(e) => setFormData({ ...formData, price: parseInt(e.target.value) || 0 })}
-                className="input"
-                min={1}
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-2">Speed (Down/Up)</label>
+              <label className="block text-sm font-medium text-foreground mb-2">Plan Name</label>
               <input
                 type="text"
-                value={formData.speed || ''}
-                onChange={(e) => setFormData({ ...formData, speed: e.target.value })}
+                value={formData.name || ''}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 className="input"
-                placeholder="e.g., 5M/2M"
+                placeholder="e.g., 1 Hour Plan"
               />
             </div>
-          </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-2">Duration Value</label>
-              <input
-                type="number"
-                value={formData.duration_value || ''}
-                onChange={(e) => setFormData({ ...formData, duration_value: e.target.value === '' ? 0 : (parseInt(e.target.value) || 1) })}
-                onBlur={() => { if (!formData.duration_value) setFormData(prev => ({ ...prev, duration_value: 1 })); }}
-                className="input"
-                min={1}
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-2">Duration Unit</label>
-              <select
-                value={formData.duration_unit || 'HOURS'}
-                onChange={(e) => setFormData({ ...formData, duration_unit: e.target.value as 'HOURS' | 'DAYS' | 'MINUTES' })}
-                className="select"
-              >
-                <option value="MINUTES">Minutes</option>
-                <option value="HOURS">Hours</option>
-                <option value="DAYS">Days</option>
-              </select>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-2">Connection Type</label>
-              <select
-                value={formData.connection_type || 'hotspot'}
-                onChange={(e) => setFormData({ ...formData, connection_type: e.target.value as 'hotspot' | 'pppoe' })}
-                className="select"
-              >
-                <option value="hotspot">Hotspot</option>
-                <option value="pppoe">PPPoE</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-2">Router Profile</label>
-              <input
-                type="text"
-                value={formData.router_profile || ''}
-                onChange={(e) => setFormData({ ...formData, router_profile: e.target.value })}
-                className="input"
-                placeholder="default"
-              />
-            </div>
-          </div>
-
-          {/* Enhanced fields */}
-          <div className="pt-4 border-t border-border">
-            <h3 className="text-sm font-semibold text-foreground-muted uppercase tracking-wider mb-4">Advanced Options</h3>
-
-            <div className="grid grid-cols-2 gap-4 mb-4">
+            <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-foreground mb-2">Plan Type</label>
-                <select
-                  value={formData.plan_type || 'regular'}
-                  onChange={(e) => setFormData({ ...formData, plan_type: e.target.value as 'regular' | 'emergency' })}
-                  className="select"
-                >
-                  <option value="regular">Regular</option>
-                  <option value="emergency">Emergency</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-foreground mb-2">Original Price</label>
+                <label className="block text-sm font-medium text-foreground mb-2">Price (KES)</label>
                 <input
                   type="number"
-                  value={formData.original_price ?? ''}
-                  onChange={(e) => setFormData({ ...formData, original_price: e.target.value ? parseInt(e.target.value) : null })}
+                  value={formData.price || ''}
+                  onChange={(e) => setFormData({ ...formData, price: parseInt(e.target.value) || 0 })}
                   className="input"
-                  placeholder="For strikethrough"
-                  min={0}
+                  min={1}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-2">Speed (Down/Up)</label>
+                <input
+                  type="text"
+                  value={formData.speed || ''}
+                  onChange={(e) => setFormData({ ...formData, speed: e.target.value })}
+                  className="input"
+                  placeholder="e.g., 5M/2M"
                 />
               </div>
             </div>
 
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-foreground mb-2">Badge Text</label>
-              <input
-                type="text"
-                value={formData.badge_text || ''}
-                onChange={(e) => setFormData({ ...formData, badge_text: e.target.value || null })}
-                className="input"
-                placeholder='e.g., "Hot Deal", "New"'
-              />
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-2">Duration Value</label>
+                <input
+                  type="number"
+                  value={formData.duration_value || ''}
+                  onChange={(e) => setFormData({ ...formData, duration_value: e.target.value === '' ? 0 : (parseInt(e.target.value) || 1) })}
+                  onBlur={() => { if (!formData.duration_value) setFormData(prev => ({ ...prev, duration_value: 1 })); }}
+                  className="input"
+                  min={1}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-2">Duration Unit</label>
+                <select
+                  value={formData.duration_unit || 'HOURS'}
+                  onChange={(e) => setFormData({ ...formData, duration_unit: e.target.value as 'HOURS' | 'DAYS' | 'MINUTES' })}
+                  className="select"
+                >
+                  <option value="MINUTES">Minutes</option>
+                  <option value="HOURS">Hours</option>
+                  <option value="DAYS">Days</option>
+                </select>
+              </div>
             </div>
 
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-foreground mb-2">Valid Until</label>
-              <input
-                type="datetime-local"
-                value={formData.valid_until ? formData.valid_until.slice(0, 16) : ''}
-                onChange={(e) => setFormData({ ...formData, valid_until: e.target.value ? new Date(e.target.value).toISOString() : null })}
-                className="input"
-              />
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-2">Connection Type</label>
+                <select
+                  value={formData.connection_type || 'hotspot'}
+                  onChange={(e) => setFormData({ ...formData, connection_type: e.target.value as 'hotspot' | 'pppoe' })}
+                  className="select"
+                >
+                  <option value="hotspot">Hotspot</option>
+                  <option value="pppoe">PPPoE</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-2">Router Profile</label>
+                <input
+                  type="text"
+                  value={formData.router_profile || ''}
+                  onChange={(e) => setFormData({ ...formData, router_profile: e.target.value })}
+                  className="input"
+                  placeholder="default"
+                />
+              </div>
             </div>
 
-            <label className="flex items-center gap-3 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={formData.is_hidden || false}
-                onChange={(e) => setFormData({ ...formData, is_hidden: e.target.checked })}
-                className="w-4 h-4 rounded border-border text-accent-primary focus:ring-accent-primary"
-              />
-              <span className="text-sm text-foreground">Hidden from public portal</span>
-            </label>
-          </div>
+            <div className="pt-4 border-t border-border">
+              <h3 className="text-sm font-semibold text-foreground-muted uppercase tracking-wider mb-4">Advanced Options</h3>
 
-          <div className="flex gap-3 pt-4">
-            <button type="button" onClick={onClose} className="btn-secondary flex-1">
-              Cancel
-            </button>
-            <button type="submit" disabled={loading} className="btn-primary flex-1 flex items-center justify-center gap-2">
-              {loading ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-background/30 border-t-background rounded-full animate-spin" />
-                  Saving...
-                </>
-              ) : (
-                'Save Changes'
-              )}
-            </button>
-          </div>
-        </form>
+              <div className="grid grid-cols-2 gap-4 mb-4">
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-2">Plan Type</label>
+                  <select
+                    value={formData.plan_type || 'regular'}
+                    onChange={(e) => setFormData({ ...formData, plan_type: e.target.value as 'regular' | 'emergency' })}
+                    className="select"
+                  >
+                    <option value="regular">Regular</option>
+                    <option value="emergency">Emergency</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-2">Original Price</label>
+                  <input
+                    type="number"
+                    value={formData.original_price ?? ''}
+                    onChange={(e) => setFormData({ ...formData, original_price: e.target.value ? parseInt(e.target.value) : null })}
+                    className="input"
+                    placeholder="For strikethrough"
+                    min={0}
+                  />
+                </div>
+              </div>
+
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-foreground mb-2">Badge Text</label>
+                <input
+                  type="text"
+                  value={formData.badge_text || ''}
+                  onChange={(e) => setFormData({ ...formData, badge_text: e.target.value || null })}
+                  className="input"
+                  placeholder='e.g., "Hot Deal", "New"'
+                />
+              </div>
+
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-foreground mb-2">Valid Until</label>
+                <input
+                  type="datetime-local"
+                  value={formData.valid_until ? formData.valid_until.slice(0, 16) : ''}
+                  onChange={(e) => setFormData({ ...formData, valid_until: e.target.value ? new Date(e.target.value).toISOString() : null })}
+                  className="input"
+                />
+              </div>
+
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={formData.is_hidden || false}
+                  onChange={(e) => setFormData({ ...formData, is_hidden: e.target.checked })}
+                  className="w-4 h-4 rounded border-border text-accent-primary focus:ring-accent-primary"
+                />
+                <span className="text-sm text-foreground">Hidden from public portal</span>
+              </label>
+            </div>
+          </form>
+        </div>
+
+        <div className="flex gap-3 p-6 pt-4 shrink-0 border-t border-border">
+          <button type="button" onClick={onClose} className="btn-secondary flex-1">
+            Cancel
+          </button>
+          <button type="submit" form="edit-plan-form" disabled={loading} className="btn-primary flex-1 flex items-center justify-center gap-2">
+            {loading ? (
+              <>
+                <div className="w-4 h-4 border-2 border-background/30 border-t-background rounded-full animate-spin" />
+                Saving...
+              </>
+            ) : (
+              'Save Changes'
+            )}
+          </button>
+        </div>
       </div>
     </div>
   );

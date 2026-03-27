@@ -270,6 +270,7 @@ export interface RouterInterfacesResponse {
   interfaces: RouterInterfaceInfo[];
   pppoe_ports: string[];
   plain_ports?: string[];
+  dual_ports?: string[];
 }
 
 export interface UpdatePPPoEPortsRequest {
@@ -293,6 +294,22 @@ export interface UpdatePlainPortsResponse {
   plain_ports: string[];
   warnings: string[];
   message: string;
+}
+
+export interface UpdateDualPortsRequest {
+  ports: string[];
+}
+
+export interface UpdateDualPortsResponse {
+  success: boolean;
+  router_id: number;
+  dual_ports: string[];
+  warnings: string[];
+  message: string;
+  migrated_from_pppoe?: string[];
+  pppoe_ports?: string[];
+  migrated_from_plain?: string[];
+  plain_ports?: string[] | null;
 }
 
 // Plan Types
@@ -354,6 +371,15 @@ export interface PlanPerformanceResponse {
     start_date: string;
     end_date: string;
   };
+}
+
+// Generic pagination wrapper
+export interface PaginatedResponse<T> {
+  data: T[];
+  page: number;
+  per_page: number;
+  total: number;
+  total_pages: number;
 }
 
 // Transaction Types
@@ -532,6 +558,7 @@ export interface Router {
   payment_method_id?: number | null;
   pppoe_ports?: string[];
   plain_ports?: string[];
+  dual_ports?: string[] | null;
   status?: RouterStatus;
   status_is_stale?: boolean;
   status_age_seconds?: number;
@@ -1193,7 +1220,7 @@ export interface HotspotLogsResponse {
 export interface PortEntry {
   port: string;
   bridge: string;
-  service: 'hotspot' | 'pppoe' | 'plain' | 'unassigned';
+  service: 'hotspot' | 'pppoe' | 'plain' | 'dual' | 'unassigned';
   link_up: boolean;
   disabled: boolean;
   rx_byte: number;
@@ -1218,6 +1245,8 @@ export interface PortStatusResponse {
   router_id: number;
   router_name: string;
   pppoe_ports: string[];
+  plain_ports?: string[];
+  dual_ports?: string[];
   generated_at: string;
   cached: boolean;
   cache_age_seconds?: number;

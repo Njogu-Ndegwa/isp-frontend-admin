@@ -14,6 +14,7 @@ import MobileDataCard from '../components/MobileDataCard';
 import SearchInput from '../components/SearchInput';
 import FilterSelect from '../components/FilterSelect';
 import DataTable, { DataTableColumn } from '../components/DataTable';
+import Pagination from '../components/Pagination';
 
 type FilterStatus = 'all' | 'active' | 'inactive';
 type ConnectionFilter = 'all' | 'hotspot' | 'pppoe';
@@ -37,11 +38,14 @@ export default function CustomersPage() {
   const routerNav = useRouter();
   const { showAlert } = useAlert();
   const [customers, setCustomers] = useState<Customer[]>([]);
+  const [totalItems, setTotalItems] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<FilterStatus>('active');
   const [connectionFilter, setConnectionFilter] = useState<ConnectionFilter>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [page, setPage] = useState(1);
+  const [perPage, setPerPage] = useState(20);
 
   // Modal state
   const [credentialsModal, setCredentialsModal] = useState<PPPoECredentials | null>(null);
@@ -56,26 +60,34 @@ export default function CustomersPage() {
     notes: '',
   });
 
-  useEffect(() => {
-    loadCustomers();
-  }, [filter]);
-
-  const loadCustomers = async () => {
+  const loadCustomers = useCallback(async (pageNum = page) => {
     try {
       setLoading(true);
-      let data: Customer[];
-      if (filter === 'active') {
-        data = await api.getActiveCustomers();
-      } else {
-        data = await api.getCustomers();
-      }
-      setCustomers(data);
+      const result = filter === 'active'
+        ? await api.getActiveCustomers(1, pageNum, perPage)
+        : await api.getCustomers(1, pageNum, perPage);
+      setCustomers(result.data);
+      setTotalItems(result.total);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load customers');
     } finally {
       setLoading(false);
     }
-  };
+  }, [filter, page, perPage]);
+
+  useEffect(() => {
+    loadCustomers(page);
+  }, [loadCustomers, page]);
+
+  const handlePageChange = useCallback((newPage: number) => {
+    setPage(newPage);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, []);
+
+  const handlePerPageChange = useCallback((newPerPage: number) => {
+    setPerPage(newPerPage);
+    setPage(1);
+  }, []);
 
   const filteredCustomers = customers.filter((customer) => {
     if (filter === 'inactive' && customer.status !== 'inactive') return false;
@@ -227,7 +239,7 @@ export default function CustomersPage() {
           </div>
           <h2 className="text-xl font-semibold text-foreground mb-2">Failed to Load Customers</h2>
           <p className="text-foreground-muted mb-4">{error}</p>
-          <button onClick={loadCustomers} className="btn-primary">
+          <button onClick={() => loadCustomers(page)} className="btn-primary">
             Try Again
           </button>
         </div>
@@ -237,22 +249,22 @@ export default function CustomersPage() {
 
   return (
     <div>
-      <div className="flex items-start justify-between gap-4 mb-6">
-        <Header
-          title="Customers"
-          subtitle={`Manage your ${customers.length} registered customers`}
-        />
-        <Link
-          href="/customers/register"
-          className="btn-primary flex items-center gap-2 whitespace-nowrap shrink-0"
-        >
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-          </svg>
-          <span className="hidden sm:inline">Register Customer</span>
-          <span className="sm:hidden">Add</span>
-        </Link>
-      </div>
+      <Header
+        title="Customers"
+        subtitle={`Manage your ${totalItems || customers.length} registered customers`}
+        action={
+          <Link
+            href="/customers/register"
+            className="btn-primary flex items-center gap-2 whitespace-nowrap shrink-0"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+            </svg>
+            <span className="hidden sm:inline">Register Customer</span>
+            <span className="sm:hidden">Add</span>
+          </Link>
+        }
+      />
 
       {/* Summary Stats */}
       {customers.length > 0 && (
@@ -309,7 +321,7 @@ export default function CustomersPage() {
           <div className="grid grid-cols-2 gap-2 sm:flex">
             <FilterSelect
               value={filter}
-              onChange={(v) => setFilter(v as FilterStatus)}
+              onChange={(v) => { setFilter(v as FilterStatus); setPage(1); }}
               options={[
                 { value: 'all', label: 'All Status' },
                 { value: 'active', label: 'Active' },
@@ -496,6 +508,9 @@ export default function CustomersPage() {
               ),
               message: searchQuery ? 'No customers match your search' : 'No customers found',
             }}
+            footer={
+              <Pagination page={page} perPage={perPage} total={totalItems} onPageChange={handlePageChange} onPerPageChange={handlePerPageChange} loading={loading} noun="customers" />
+            }
           />
 
           {/* Mobile Cards */}
@@ -571,6 +586,8 @@ export default function CustomersPage() {
                 />
               ))
             )}
+
+            <Pagination page={page} perPage={perPage} total={totalItems} onPageChange={handlePageChange} onPerPageChange={handlePerPageChange} loading={loading} noun="customers" />
           </div>
         </>
       )}

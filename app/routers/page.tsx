@@ -2070,11 +2070,12 @@ function PaymentMethodsField({
 // Port Configuration Modal (Hotspot / PPPoE / Plain)
 // ---------------------------------------------------------------------------
 
-type PortMode = 'hotspot' | 'pppoe' | 'plain';
+type PortMode = 'hotspot' | 'pppoe' | 'plain' | 'dual';
 
 const PORT_MODE_OPTIONS: { value: PortMode; label: string; dot: string; badge: string }[] = [
   { value: 'hotspot', label: 'Hotspot', dot: 'bg-emerald-500', badge: 'bg-emerald-500/12 text-emerald-500' },
   { value: 'pppoe',   label: 'PPPoE',   dot: 'bg-blue-500',    badge: 'bg-blue-500/12 text-blue-500' },
+  { value: 'dual',    label: 'PPPoE + Hotspot', dot: 'bg-cyan-500', badge: 'bg-cyan-500/12 text-cyan-500' },
   { value: 'plain',   label: 'Plain',   dot: 'bg-purple-500',  badge: 'bg-purple-500/12 text-purple-500' },
 ];
 
@@ -2192,9 +2193,11 @@ function PortConfigModal({
       const modes: Record<string, PortMode> = {};
       const pppoe = data.pppoe_ports ?? [];
       const plain = data.plain_ports ?? router.plain_ports ?? [];
+      const dual = data.dual_ports ?? (router.dual_ports ?? []);
       for (const iface of data.interfaces) {
         if (iface.type !== 'ether' || iface.name === 'ether1') continue;
-        if (pppoe.includes(iface.name)) modes[iface.name] = 'pppoe';
+        if (dual.includes(iface.name)) modes[iface.name] = 'dual';
+        else if (pppoe.includes(iface.name)) modes[iface.name] = 'pppoe';
         else if (plain.includes(iface.name)) modes[iface.name] = 'plain';
         else modes[iface.name] = 'hotspot';
       }
@@ -2222,13 +2225,17 @@ function PortConfigModal({
 
   const pppoePorts = etherPorts.filter((p) => portModes[p.name] === 'pppoe').map((p) => p.name);
   const plainPorts = etherPorts.filter((p) => portModes[p.name] === 'plain').map((p) => p.name);
+  const dualPorts = etherPorts.filter((p) => portModes[p.name] === 'dual').map((p) => p.name);
   const savedPppoePorts = etherPorts.filter((p) => savedModes[p.name] === 'pppoe').map((p) => p.name);
   const savedPlainPorts = etherPorts.filter((p) => savedModes[p.name] === 'plain').map((p) => p.name);
+  const savedDualPorts = etherPorts.filter((p) => savedModes[p.name] === 'dual').map((p) => p.name);
 
-  const pppoeChanged = pppoePorts.length !== savedPppoePorts.length ||
-    pppoePorts.some((p) => !savedPppoePorts.includes(p));
-  const plainChanged = plainPorts.length !== savedPlainPorts.length ||
-    plainPorts.some((p) => !savedPlainPorts.includes(p));
+  const arraysEqual = (a: string[], b: string[]) =>
+    a.length === b.length && a.every((p) => b.includes(p));
+
+  const pppoeChanged = !arraysEqual(pppoePorts, savedPppoePorts);
+  const plainChanged = !arraysEqual(plainPorts, savedPlainPorts);
+  const dualChanged = !arraysEqual(dualPorts, savedDualPorts);
 
   const handleApply = async () => {
     try {
@@ -2239,6 +2246,19 @@ function PortConfigModal({
 
       const results: string[] = [];
       const allWarnings: string[] = [];
+      const migrationInfo: string[] = [];
+
+      if (dualChanged) {
+        const res = await api.updateDualPorts(router.id, { ports: dualPorts });
+        results.push(res.message || 'Dual-mode ports updated');
+        if (res.warnings?.length) allWarnings.push(...res.warnings);
+        if (res.migrated_from_pppoe?.length) {
+          migrationInfo.push(`Migrated from PPPoE: ${res.migrated_from_pppoe.join(', ')}`);
+        }
+        if (res.migrated_from_plain?.length) {
+          migrationInfo.push(`Migrated from Plain: ${res.migrated_from_plain.join(', ')}`);
+        }
+      }
 
       if (pppoeChanged) {
         const res = await api.updatePPPoEPorts(router.id, { ports: pppoePorts });
@@ -2250,6 +2270,8 @@ function PortConfigModal({
         results.push(res.message || 'Plain ports updated');
         if (res.warnings?.length) allWarnings.push(...res.warnings);
       }
+
+      if (migrationInfo.length) allWarnings.push(...migrationInfo);
 
       setSavedModes({ ...portModes });
       setWarnings(allWarnings);
@@ -2263,6 +2285,7 @@ function PortConfigModal({
 
   const hotspotCount = etherPorts.filter((p) => portModes[p.name] === 'hotspot').length;
   const pppoeCount = pppoePorts.length;
+  const dualCount = dualPorts.length;
   const plainCount = plainPorts.length;
 
   return (
@@ -2285,7 +2308,7 @@ function PortConfigModal({
 
           {/* Mode legend */}
           {!loading && etherPorts.length > 0 && (
-            <div className="flex gap-4 mt-3 text-[11px]">
+            <div className="flex flex-wrap gap-x-4 gap-y-1.5 mt-3 text-[11px]">
               <span className="flex items-center gap-1.5">
                 <span className="w-2 h-2 rounded-full bg-emerald-500" />
                 <span className="text-foreground-muted">Hotspot{hotspotCount > 0 && ` (${hotspotCount})`}</span>
@@ -2293,6 +2316,10 @@ function PortConfigModal({
               <span className="flex items-center gap-1.5">
                 <span className="w-2 h-2 rounded-full bg-blue-500" />
                 <span className="text-foreground-muted">PPPoE{pppoeCount > 0 && ` (${pppoeCount})`}</span>
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-cyan-500" />
+                <span className="text-foreground-muted">Dual{dualCount > 0 && ` (${dualCount})`}</span>
               </span>
               <span className="flex items-center gap-1.5">
                 <span className="w-2 h-2 rounded-full bg-purple-500" />

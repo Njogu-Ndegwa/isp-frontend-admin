@@ -8,6 +8,7 @@ import Header from '../components/Header';
 import { PageLoader } from '../components/LoadingSpinner';
 import PullToRefresh from '../components/PullToRefresh';
 import SearchInput from '../components/SearchInput';
+import Pagination from '../components/Pagination';
 
 const CATEGORIES = [
   'electronics',
@@ -39,23 +40,24 @@ export default function AdsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('');
   const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
+  const [perPage, setPerPage] = useState(20);
+  const [totalAds, setTotalAds] = useState(0);
   const [deletingAdId, setDeletingAdId] = useState<number | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
   useEffect(() => {
     loadData();
-  }, [page, categoryFilter]);
+  }, [page, perPage, categoryFilter]);
 
   const loadData = async () => {
     try {
       setLoading(true);
       const [adsData, advertisersData] = await Promise.all([
-        api.getAds(page, 20, categoryFilter || undefined),
+        api.getAds(page, perPage, categoryFilter || undefined),
         api.getAdvertisers(),
       ]);
       setAds(adsData.ads);
-      setTotalPages(adsData.pagination.total_pages);
+      setTotalAds(adsData.pagination.total);
       setAdvertisers(advertisersData);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load ads');
@@ -365,28 +367,15 @@ export default function AdsPage() {
             </div>
           )}
 
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="flex items-center justify-center gap-2 mt-6">
-              <button
-                onClick={() => setPage(Math.max(1, page - 1))}
-                disabled={page === 1}
-                className="btn-secondary disabled:opacity-50"
-              >
-                Previous
-              </button>
-              <span className="px-4 py-2 text-foreground-muted">
-                Page {page} of {totalPages}
-              </span>
-              <button
-                onClick={() => setPage(Math.min(totalPages, page + 1))}
-                disabled={page === totalPages}
-                className="btn-secondary disabled:opacity-50"
-              >
-                Next
-              </button>
-            </div>
-          )}
+          <Pagination
+            page={page}
+            perPage={perPage}
+            total={totalAds}
+            onPageChange={setPage}
+            onPerPageChange={(pp) => { setPerPage(pp); setPage(1); }}
+            loading={loading}
+            noun="ads"
+          />
         </PullToRefresh>
       )}
 

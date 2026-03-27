@@ -557,7 +557,7 @@ export default function PaymentMethodsPage() {
                   autoComplete="off"
                   data-lpignore="true"
                   data-form-type="other"
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-background-tertiary border border-border text-foreground text-sm placeholder:text-foreground-muted/50 focus:outline-none focus:ring-2 focus:ring-accent-primary/30 focus:border-accent-primary transition-all"
+                  className="w-full h-[42px] px-3.5 rounded-xl bg-background-tertiary border border-border text-foreground text-sm placeholder:text-foreground-muted/50 focus:outline-none focus:ring-2 focus:ring-accent-primary/30 focus:border-accent-primary transition-all"
                 />
               </div>
 
@@ -607,7 +607,7 @@ export default function PaymentMethodsPage() {
                               autoComplete={isPassword ? 'new-password' : 'off'}
                               data-lpignore="true"
                               data-form-type="other"
-                              className="w-full px-3 py-2 rounded-lg bg-background-tertiary border border-border text-foreground text-sm font-mono placeholder:text-foreground-muted/50 focus:outline-none focus:ring-2 focus:ring-accent-primary/30 focus:border-accent-primary transition-all pr-10"
+                              className="w-full h-[42px] px-3.5 rounded-xl bg-background-tertiary border border-border text-foreground text-sm font-mono placeholder:text-foreground-muted/50 focus:outline-none focus:ring-2 focus:ring-accent-primary/30 focus:border-accent-primary transition-all pr-10"
                             />
                             {isPassword && (
                               <button

@@ -13,6 +13,7 @@ import SearchInput from '../components/SearchInput';
 import FilterSelect from '../components/FilterSelect';
 import FilterDatePicker from '../components/FilterDatePicker';
 import DataTable, { DataTableColumn } from '../components/DataTable';
+import Pagination from '../components/Pagination';
 
 type StatusFilter = 'all' | 'completed' | 'pending' | 'failed' | 'expired';
 type PaymentMethodFilter = 'all' | 'mobile_money' | 'cash';
@@ -84,6 +85,7 @@ const PAYMENT_METHOD_LABELS: Record<string, { label: string; color: string; bg: 
 
 export default function TransactionsPage() {
   const [transactions, setTransactions] = useState<MpesaTransaction[]>([]);
+  const [totalItems, setTotalItems] = useState(0);
   const [summary, setSummary] = useState<TransactionSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -92,13 +94,14 @@ export default function TransactionsPage() {
   const [dateFilter, setDateFilter] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedTx, setExpandedTx] = useState<number | null>(null);
-  const [mobileDisplayCount, setMobileDisplayCount] = useState(50);
+  const [page, setPage] = useState(1);
+  const [perPage, setPerPage] = useState(20);
   const [provisioningId, setProvisioningId] = useState<number | null>(null);
 
   const abortRef = useRef<AbortController | null>(null);
   const { showAlert } = useAlert();
 
-  const loadData = useCallback(async () => {
+  const loadData = useCallback(async (pageNum = page) => {
     if (abortRef.current) {
       abortRef.current.abort();
     }
@@ -111,7 +114,7 @@ export default function TransactionsPage() {
       const status = statusFilter === 'all' ? undefined : statusFilter;
       const method = methodFilter === 'all' ? undefined : methodFilter;
       const exactDate = dateFilter || undefined;
-      const [txData, summaryData] = await Promise.all([
+      const [txResult, summaryData] = await Promise.all([
         api.getTransactions(
           1,
           undefined,
@@ -120,7 +123,9 @@ export default function TransactionsPage() {
           status,
           controller.signal,
           method,
-          exactDate
+          exactDate,
+          pageNum,
+          perPage
         ),
         api.getTransactionSummary(
           1,
@@ -133,7 +138,8 @@ export default function TransactionsPage() {
         ),
       ]);
       if (!controller.signal.aborted) {
-        setTransactions(txData || []);
+        setTransactions(txResult.data || []);
+        setTotalItems(txResult.total);
         setSummary(summaryData);
       }
     } catch (err) {
@@ -144,7 +150,7 @@ export default function TransactionsPage() {
         setLoading(false);
       }
     }
-  }, [statusFilter, methodFilter, dateFilter]);
+  }, [statusFilter, methodFilter, dateFilter, page, perPage]);
 
   const handleManualProvision = useCallback(async (tx: MpesaTransaction) => {
     if (provisioningId) return;
@@ -166,14 +172,23 @@ export default function TransactionsPage() {
   }, [provisioningId, showAlert, loadData]);
 
   useEffect(() => {
-    setMobileDisplayCount(50);
-    loadData();
+    loadData(page);
     return () => {
       if (abortRef.current) {
         abortRef.current.abort();
       }
     };
-  }, [loadData]);
+  }, [loadData, page]);
+
+  const handlePageChange = useCallback((newPage: number) => {
+    setPage(newPage);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, []);
+
+  const handlePerPageChange = useCallback((newPerPage: number) => {
+    setPerPage(newPerPage);
+    setPage(1);
+  }, []);
 
   const filteredTransactions = (transactions || []).filter((tx) => {
     if (searchQuery) {
@@ -226,7 +241,7 @@ export default function TransactionsPage() {
           </div>
           <h2 className="text-xl font-semibold text-foreground mb-2">Failed to Load Transactions</h2>
           <p className="text-foreground-muted mb-4">{error}</p>
-          <button onClick={loadData} className="btn-primary">
+          <button onClick={() => loadData(page)} className="btn-primary">
             Try Again
           </button>
         </div>
@@ -307,7 +322,7 @@ export default function TransactionsPage() {
           <div className="grid grid-cols-3 gap-2 sm:flex">
             <FilterSelect
               value={methodFilter}
-              onChange={(v) => setMethodFilter(v as PaymentMethodFilter)}
+              onChange={(v) => { setMethodFilter(v as PaymentMethodFilter); setPage(1); }}
               options={[
                 { value: 'all', label: 'All Types' },
                 { value: 'mobile_money', label: 'Mobile Money' },
@@ -316,7 +331,7 @@ export default function TransactionsPage() {
             />
             <FilterSelect
               value={statusFilter}
-              onChange={(v) => setStatusFilter(v as StatusFilter)}
+              onChange={(v) => { setStatusFilter(v as StatusFilter); setPage(1); }}
               options={[
                 { value: 'all', label: 'All Status' },
                 { value: 'completed', label: 'Completed' },
@@ -327,7 +342,7 @@ export default function TransactionsPage() {
             />
             <FilterDatePicker
               value={dateFilter}
-              onChange={setDateFilter}
+              onChange={(v) => { setDateFilter(v); setPage(1); }}
             />
           </div>
         </div>
@@ -370,7 +385,7 @@ export default function TransactionsPage() {
               );
             })()}
             <button
-              onClick={() => { setMethodFilter('all'); setStatusFilter('all'); setDateFilter(''); }}
+              onClick={() => { setMethodFilter('all'); setStatusFilter('all'); setDateFilter(''); setPage(1); }}
               className="text-xs text-foreground-muted hover:text-foreground transition-colors underline underline-offset-2"
             >
               Clear all
@@ -394,7 +409,7 @@ export default function TransactionsPage() {
               </div>
             ) : (
               <>
-                {filteredTransactions.slice(0, mobileDisplayCount).map((tx) => (
+                {filteredTransactions.map((tx) => (
                   <MobileDataCard
                     key={`${tx.payment_method}-${tx.transaction_id}`}
                     id={tx.transaction_id}
@@ -516,18 +531,15 @@ export default function TransactionsPage() {
                   />
                 ))}
 
-                {filteredTransactions.length > mobileDisplayCount && (
-                  <button
-                    onClick={() => setMobileDisplayCount((prev) => prev + 50)}
-                    className="w-full py-3 text-sm font-medium text-accent-primary bg-accent-primary/5 border border-accent-primary/20 rounded-xl active:opacity-70 transition-colors"
-                  >
-                    Show More ({filteredTransactions.length - mobileDisplayCount} remaining)
-                  </button>
-                )}
-
-                <p className="text-center text-xs text-foreground-muted pb-2">
-                  Showing {Math.min(mobileDisplayCount, filteredTransactions.length)} of {filteredTransactions.length} transactions
-                </p>
+                <Pagination
+                  page={page}
+                  perPage={perPage}
+                  total={totalItems}
+                  onPageChange={handlePageChange}
+                  onPerPageChange={handlePerPageChange}
+                  loading={loading}
+                  noun="transactions"
+                />
               </>
             )}
           </div>
@@ -664,6 +676,17 @@ export default function TransactionsPage() {
               ),
               message: searchQuery ? 'No transactions match your search' : 'No transactions found',
             }}
+            footer={
+              <Pagination
+                page={page}
+                perPage={perPage}
+                total={totalItems}
+                onPageChange={handlePageChange}
+                onPerPageChange={handlePerPageChange}
+                loading={loading}
+                noun="transactions"
+              />
+            }
           />
 
           {/* Method Breakdown (completed only) */}

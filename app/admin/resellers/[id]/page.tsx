@@ -22,6 +22,7 @@ import DataTable from '../../../components/DataTable';
 import MobileDataCard from '../../../components/MobileDataCard';
 import FilterDatePicker from '../../../components/FilterDatePicker';
 import { SkeletonCard } from '../../../components/LoadingSpinner';
+import Pagination from '../../../components/Pagination';
 
 const formatSafeDate = (dateStr: string | null | undefined): string => {
   try {
@@ -70,7 +71,9 @@ export default function ResellerDetailPage() {
   // Payments tab state
   const [allPayments, setAllPayments] = useState<AdminResellerPayment[]>([]);
   const [paymentsPage, setPaymentsPage] = useState(1);
+  const [paymentsPerPage, setPaymentsPerPage] = useState(20);
   const [paymentsTotalPages, setPaymentsTotalPages] = useState(1);
+  const [paymentsTotalCount, setPaymentsTotalCount] = useState(0);
   const [paymentsLoading, setPaymentsLoading] = useState(false);
   const [paymentDate, setPaymentDate] = useState('');
   const [showAllPayments, setShowAllPayments] = useState(false);
@@ -84,7 +87,9 @@ export default function ResellerDetailPage() {
   // Payouts tab state
   const [payouts, setPayouts] = useState<AdminPayout[]>([]);
   const [payoutsPage, setPayoutsPage] = useState(1);
+  const [payoutsPerPage, setPayoutsPerPage] = useState(20);
   const [payoutsTotalPages, setPayoutsTotalPages] = useState(1);
+  const [payoutsTotalCount, setPayoutsTotalCount] = useState(0);
   const [payoutsLoading, setPayoutsLoading] = useState(false);
   const [payoutsLoaded, setPayoutsLoaded] = useState(false);
   const [payoutStartDate, setPayoutStartDate] = useState('');
@@ -106,7 +111,9 @@ export default function ResellerDetailPage() {
   // Transaction charges state
   const [charges, setCharges] = useState<AdminTransactionCharge[]>([]);
   const [chargesPage, setChargesPage] = useState(1);
+  const [chargesPerPage, setChargesPerPage] = useState(20);
   const [chargesTotalPages, setChargesTotalPages] = useState(1);
+  const [chargesTotalCount, setChargesTotalCount] = useState(0);
   const [chargesLoading, setChargesLoading] = useState(false);
   const [chargesLoaded, setChargesLoaded] = useState(false);
   const [chargeStartDate, setChargeStartDate] = useState('');
@@ -144,24 +151,25 @@ export default function ResellerDetailPage() {
     }
   }, [resellerId]);
 
-  const fetchPayments = useCallback(async (page = 1) => {
+  const fetchPayments = useCallback(async (page = 1, pp = paymentsPerPage) => {
     try {
       setPaymentsLoading(true);
       const result = await api.getAdminResellerPayments(resellerId, {
         page,
-        per_page: 50,
+        per_page: pp,
         date: paymentDate || undefined,
       });
       setAllPayments(result.payments);
       setPaymentsPage(result.page);
       setPaymentsTotalPages(result.total_pages);
+      setPaymentsTotalCount(result.total_count);
       setPaymentsSummary(result.summary);
     } catch {
       // silently fail, user can retry
     } finally {
       setPaymentsLoading(false);
     }
-  }, [resellerId, paymentDate]);
+  }, [resellerId, paymentDate, paymentsPerPage]);
 
   const fetchRouters = useCallback(async () => {
     try {
@@ -176,38 +184,40 @@ export default function ResellerDetailPage() {
     }
   }, [resellerId]);
 
-  const fetchPayouts = useCallback(async (page = 1) => {
+  const fetchPayouts = useCallback(async (page = 1, pp = payoutsPerPage) => {
     try {
       setPayoutsLoading(true);
       const result = await api.getAdminPayouts(resellerId, {
         page,
-        per_page: 50,
+        per_page: pp,
         start_date: payoutStartDate || undefined,
         end_date: payoutEndDate || undefined,
       });
       setPayouts(result.payouts);
       setPayoutsPage(result.page);
       setPayoutsTotalPages(result.total_pages);
+      setPayoutsTotalCount(result.total_count);
       setPayoutsLoaded(true);
     } catch {
       // silently fail
     } finally {
       setPayoutsLoading(false);
     }
-  }, [resellerId, payoutStartDate, payoutEndDate]);
+  }, [resellerId, payoutStartDate, payoutEndDate, payoutsPerPage]);
 
-  const fetchCharges = useCallback(async (page = 1) => {
+  const fetchCharges = useCallback(async (page = 1, pp = chargesPerPage) => {
     try {
       setChargesLoading(true);
       const result = await api.getAdminTransactionCharges(resellerId, {
         page,
-        per_page: 50,
+        per_page: pp,
         start_date: chargeStartDate || undefined,
         end_date: chargeEndDate || undefined,
       });
       setCharges(result.charges);
       setChargesPage(result.page);
       setChargesTotalPages(result.total_pages);
+      setChargesTotalCount(result.total_count);
       setChargesSummary(result.summary);
       setChargesLoaded(true);
     } catch {
@@ -215,7 +225,7 @@ export default function ResellerDetailPage() {
     } finally {
       setChargesLoading(false);
     }
-  }, [resellerId, chargeStartDate, chargeEndDate]);
+  }, [resellerId, chargeStartDate, chargeEndDate, chargesPerPage]);
 
   useEffect(() => { fetchDetail(); }, [fetchDetail]);
 
@@ -512,8 +522,10 @@ export default function ResellerDetailPage() {
           onShowAll={() => setShowAllPayments(true)}
           loading={paymentsLoading}
           page={paymentsPage}
-          totalPages={paymentsTotalPages}
+          perPage={paymentsPerPage}
+          total={paymentsTotalCount}
           onPageChange={(p) => fetchPayments(p)}
+          onPerPageChange={(pp) => { setPaymentsPerPage(pp); setPaymentsPage(1); fetchPayments(1, pp); }}
           dateFilter={paymentDate}
           onDateChange={(d) => { setPaymentDate(d); if (showAllPayments) fetchPayments(1); }}
           summary={paymentsSummary}
@@ -529,8 +541,10 @@ export default function ResellerDetailPage() {
           payouts={payouts}
           loading={payoutsLoading}
           page={payoutsPage}
-          totalPages={payoutsTotalPages}
+          perPage={payoutsPerPage}
+          total={payoutsTotalCount}
           onPageChange={(p) => fetchPayouts(p)}
+          onPerPageChange={(pp) => { setPayoutsPerPage(pp); setPayoutsPage(1); fetchPayouts(1, pp); }}
           startDate={payoutStartDate}
           endDate={payoutEndDate}
           onStartDateChange={(d) => { setPayoutStartDate(d); setPayoutsLoaded(false); }}
@@ -547,8 +561,10 @@ export default function ResellerDetailPage() {
           onShowAll={() => fetchCharges(1)}
           loading={chargesLoading}
           page={chargesPage}
-          totalPages={chargesTotalPages}
+          perPage={chargesPerPage}
+          total={chargesTotalCount}
           onPageChange={(p) => fetchCharges(p)}
+          onPerPageChange={(pp) => { setChargesPerPage(pp); setChargesPage(1); fetchCharges(1, pp); }}
           startDate={chargeStartDate}
           endDate={chargeEndDate}
           onStartDateChange={(d) => { setChargeStartDate(d); setChargesLoaded(false); }}
@@ -761,8 +777,10 @@ function PaymentsTab({
   onShowAll,
   loading,
   page,
-  totalPages,
+  perPage,
+  total,
   onPageChange,
+  onPerPageChange,
   dateFilter,
   onDateChange,
   summary,
@@ -773,8 +791,10 @@ function PaymentsTab({
   onShowAll: () => void;
   loading: boolean;
   page: number;
-  totalPages: number;
+  perPage: number;
+  total: number;
   onPageChange: (p: number) => void;
+  onPerPageChange: (pp: number) => void;
   dateFilter: string;
   onDateChange: (d: string) => void;
   summary: { total_transactions: number; total_amount: number; mpesa_amount: number } | null;
@@ -860,25 +880,16 @@ function PaymentsTab({
             ))}
           </div>
 
-          {/* Pagination / View All */}
-          {showAll && totalPages > 1 && (
-            <div className="flex items-center justify-between pt-2">
-              <button
-                onClick={() => onPageChange(page - 1)}
-                disabled={page <= 1}
-                className="btn-secondary text-sm px-3 py-1.5 disabled:opacity-40"
-              >
-                Previous
-              </button>
-              <span className="text-sm text-foreground-muted">Page {page} of {totalPages}</span>
-              <button
-                onClick={() => onPageChange(page + 1)}
-                disabled={page >= totalPages}
-                className="btn-secondary text-sm px-3 py-1.5 disabled:opacity-40"
-              >
-                Next
-              </button>
-            </div>
+          {showAll && (
+            <Pagination
+              page={page}
+              perPage={perPage}
+              total={total}
+              onPageChange={onPageChange}
+              onPerPageChange={onPerPageChange}
+              loading={loading}
+              noun="payments"
+            />
           )}
 
           {!showAll && (
@@ -956,8 +967,10 @@ function PayoutsTab({
   payouts,
   loading,
   page,
-  totalPages,
+  perPage,
+  total,
   onPageChange,
+  onPerPageChange,
   startDate,
   endDate,
   onStartDateChange,
@@ -967,8 +980,10 @@ function PayoutsTab({
   payouts: AdminPayout[];
   loading: boolean;
   page: number;
-  totalPages: number;
+  perPage: number;
+  total: number;
   onPageChange: (p: number) => void;
+  onPerPageChange: (pp: number) => void;
   startDate: string;
   endDate: string;
   onStartDateChange: (d: string) => void;
@@ -1054,25 +1069,15 @@ function PayoutsTab({
             ))}
           </div>
 
-          {totalPages > 1 && (
-            <div className="flex items-center justify-between pt-2">
-              <button
-                onClick={() => onPageChange(page - 1)}
-                disabled={page <= 1}
-                className="btn-secondary text-sm px-3 py-1.5 disabled:opacity-40"
-              >
-                Previous
-              </button>
-              <span className="text-sm text-foreground-muted">Page {page} of {totalPages}</span>
-              <button
-                onClick={() => onPageChange(page + 1)}
-                disabled={page >= totalPages}
-                className="btn-secondary text-sm px-3 py-1.5 disabled:opacity-40"
-              >
-                Next
-              </button>
-            </div>
-          )}
+          <Pagination
+            page={page}
+            perPage={perPage}
+            total={total}
+            onPageChange={onPageChange}
+            onPerPageChange={onPerPageChange}
+            loading={loading}
+            noun="payouts"
+          />
         </>
       )}
     </div>
@@ -1088,8 +1093,10 @@ function ChargesTab({
   onShowAll,
   loading,
   page,
-  totalPages,
+  perPage,
+  total,
   onPageChange,
+  onPerPageChange,
   startDate,
   endDate,
   onStartDateChange,
@@ -1103,8 +1110,10 @@ function ChargesTab({
   onShowAll: () => void;
   loading: boolean;
   page: number;
-  totalPages: number;
+  perPage: number;
+  total: number;
   onPageChange: (p: number) => void;
+  onPerPageChange: (pp: number) => void;
   startDate: string;
   endDate: string;
   onStartDateChange: (d: string) => void;
@@ -1193,25 +1202,16 @@ function ChargesTab({
             ))}
           </div>
 
-          {/* Pagination / View All */}
-          {showAll && totalPages > 1 && (
-            <div className="flex items-center justify-between pt-2">
-              <button
-                onClick={() => onPageChange(page - 1)}
-                disabled={page <= 1}
-                className="btn-secondary text-sm px-3 py-1.5 disabled:opacity-40"
-              >
-                Previous
-              </button>
-              <span className="text-sm text-foreground-muted">Page {page} of {totalPages}</span>
-              <button
-                onClick={() => onPageChange(page + 1)}
-                disabled={page >= totalPages}
-                className="btn-secondary text-sm px-3 py-1.5 disabled:opacity-40"
-              >
-                Next
-              </button>
-            </div>
+          {showAll && (
+            <Pagination
+              page={page}
+              perPage={perPage}
+              total={total}
+              onPageChange={onPageChange}
+              onPerPageChange={onPerPageChange}
+              loading={loading}
+              noun="charges"
+            />
           )}
 
           {!showAll && (

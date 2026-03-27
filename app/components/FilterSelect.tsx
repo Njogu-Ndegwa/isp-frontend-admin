@@ -82,7 +82,7 @@ export default function FilterSelect({
         className={`
           flex items-center justify-between gap-1.5 w-full
           bg-[var(--background-tertiary)] border border-[var(--border)]
-          rounded-[10px] px-2.5 sm:px-3 h-[42px]
+          rounded-xl px-2.5 sm:px-3 h-[42px]
           text-xs sm:text-sm text-[var(--foreground)] whitespace-nowrap
           transition-all duration-200 cursor-pointer
           hover:border-[var(--border-hover)] active:opacity-70
@@ -103,7 +103,7 @@ export default function FilterSelect({
       {open && pos && createPortal(
         <div
           ref={dropdownRef}
-          className="fixed rounded-[10px] border border-[var(--border)] bg-[var(--background-secondary)] shadow-[var(--shadow-lg)] overflow-hidden animate-fade-in"
+          className="fixed rounded-xl border border-[var(--border)] bg-[var(--background-secondary)] shadow-[var(--shadow-lg)] overflow-hidden animate-fade-in"
           style={{
             top: pos.top,
             left: pos.left,

@@ -17,6 +17,7 @@ import StatCard from '../components/StatCard';
 import SearchInput from '../components/SearchInput';
 import FilterSelect from '../components/FilterSelect';
 import PullToRefresh from '../components/PullToRefresh';
+import Pagination from '../components/Pagination';
 import { formatDateGMT3 } from '../lib/dateUtils';
 
 const formatSafeDate = (dateStr: string | null | undefined): string => {
@@ -124,6 +125,7 @@ export default function VouchersPage() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('');
   const [searchQuery, setSearchQuery] = useState('');
   const [page, setPage] = useState(1);
+  const [perPage, setPerPage] = useState(20);
   const [actionLoading, setActionLoading] = useState<number | null>(null);
   const [showGenerateModal, setShowGenerateModal] = useState(false);
   const [downloadLoading, setDownloadLoading] = useState(false);
@@ -138,14 +140,14 @@ export default function VouchersPage() {
     }
   }, []);
 
-  const loadVouchers = useCallback(async (pageNum = 1, status: StatusFilter = statusFilter) => {
+  const loadVouchers = useCallback(async (pageNum = 1, status: StatusFilter = statusFilter, pp = perPage) => {
     try {
       setLoading(true);
       setError(null);
       const data = await api.getVouchers({
         status: status || undefined,
         page: pageNum,
-        per_page: 50,
+        per_page: pp,
       });
       setVouchersData(data);
     } catch (err) {
@@ -153,7 +155,7 @@ export default function VouchersPage() {
     } finally {
       setLoading(false);
     }
-  }, [statusFilter]);
+  }, [statusFilter, perPage]);
 
   useEffect(() => {
     loadStats();
@@ -169,6 +171,12 @@ export default function VouchersPage() {
   const handlePageChange = (newPage: number) => {
     setPage(newPage);
     loadVouchers(newPage);
+  };
+
+  const handlePerPageChange = (newPerPage: number) => {
+    setPerPage(newPerPage);
+    setPage(1);
+    loadVouchers(1, statusFilter, newPerPage);
   };
 
   const handleRefresh = async () => {
@@ -451,29 +459,15 @@ export default function VouchersPage() {
               message: searchQuery ? 'No vouchers match your search' : 'No vouchers found',
             }}
             footer={
-              pagination && pagination.total_pages > 1 ? (
-                <div className="p-4 flex items-center justify-between">
-                  <p className="text-sm text-foreground-muted">
-                    Page {pagination.page} of {pagination.total_pages} &middot; {pagination.total} total
-                  </p>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => handlePageChange(page - 1)}
-                      disabled={page <= 1}
-                      className="btn-secondary text-sm px-3 py-1.5 disabled:opacity-40"
-                    >
-                      Previous
-                    </button>
-                    <button
-                      onClick={() => handlePageChange(page + 1)}
-                      disabled={page >= pagination.total_pages}
-                      className="btn-secondary text-sm px-3 py-1.5 disabled:opacity-40"
-                    >
-                      Next
-                    </button>
-                  </div>
-                </div>
-              ) : undefined
+              <Pagination
+                page={page}
+                perPage={perPage}
+                total={pagination?.total ?? 0}
+                onPageChange={handlePageChange}
+                onPerPageChange={handlePerPageChange}
+                loading={loading}
+                noun="vouchers"
+              />
             }
           />
 
@@ -497,34 +491,15 @@ export default function VouchersPage() {
               ))
             )}
 
-            {/* Mobile Pagination */}
-            {pagination && pagination.total_pages > 1 && (
-              <div className="flex items-center justify-between pt-2 pb-2">
-                <p className="text-xs text-foreground-muted">
-                  Page {pagination.page} of {pagination.total_pages} &middot; {pagination.total} total
-                </p>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => handlePageChange(page - 1)}
-                    disabled={page <= 1}
-                    className="btn-secondary text-sm px-3 py-1.5 disabled:opacity-40"
-                  >
-                    Prev
-                  </button>
-                  <button
-                    onClick={() => handlePageChange(page + 1)}
-                    disabled={page >= pagination.total_pages}
-                    className="btn-secondary text-sm px-3 py-1.5 disabled:opacity-40"
-                  >
-                    Next
-                  </button>
-                </div>
-              </div>
-            )}
-
-            <p className="text-center text-xs text-foreground-muted pb-2">
-              Showing {filteredVouchers.length} of {pagination?.total ?? vouchers.length} vouchers
-            </p>
+            <Pagination
+              page={page}
+              perPage={perPage}
+              total={pagination?.total ?? 0}
+              onPageChange={handlePageChange}
+              onPerPageChange={handlePerPageChange}
+              loading={loading}
+              noun="vouchers"
+            />
           </div>
         </PullToRefresh>
       )}

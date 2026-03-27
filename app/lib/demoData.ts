@@ -559,7 +559,7 @@ export function demoPortStatus(routerId: number): PortStatusResponse {
     generated_at: iso(), cached: false,
     ports: ['ether1', 'ether2', 'ether3', 'ether4', 'ether5'].map((port, i) => ({
       port, bridge: i === 0 ? '' : i <= 2 ? 'bridge-hotspot' : 'bridge-pppoe',
-      service: (i === 0 ? 'unassigned' : i <= 2 ? 'hotspot' : 'pppoe') as 'hotspot' | 'pppoe' | 'unassigned',
+      service: (i === 0 ? 'unassigned' : i <= 2 ? 'hotspot' : 'pppoe') as 'hotspot' | 'pppoe' | 'dual' | 'unassigned',
       link_up: i < 4, disabled: false,
       rx_byte: Math.floor(Math.random() * 50000000000), tx_byte: Math.floor(Math.random() * 80000000000),
       rx_error: Math.floor(Math.random() * 5), tx_error: 0,
@@ -601,6 +601,7 @@ export function demoRouterInterfaces(routerId: number): RouterInterfacesResponse
     ],
     pppoe_ports: router.pppoe_ports ?? [],
     plain_ports: router.plain_ports ?? [],
+    dual_ports: router.dual_ports ?? [],
   };
 }
 

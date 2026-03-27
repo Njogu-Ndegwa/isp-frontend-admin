@@ -10,6 +10,7 @@ import StatCard from '../components/StatCard';
 import DataTable from '../components/DataTable';
 import MobileDataCard from '../components/MobileDataCard';
 import FilterDatePicker from '../components/FilterDatePicker';
+import Pagination from '../components/Pagination';
 import { SkeletonCard } from '../components/LoadingSpinner';
 
 const formatSafeDate = (dateStr: string | null | undefined): string => {
@@ -35,9 +36,10 @@ export default function AccountStatementPage() {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [page, setPage] = useState(1);
+  const [perPage, setPerPage] = useState(20);
   const [filterLoading, setFilterLoading] = useState(false);
 
-  const fetchStatement = useCallback(async (p = 1, dateParams?: { start_date?: string; end_date?: string }) => {
+  const fetchStatement = useCallback(async (p = 1, dateParams?: { start_date?: string; end_date?: string }, pp = perPage) => {
     try {
       if (dateParams || p !== 1) {
         setFilterLoading(true);
@@ -47,7 +49,7 @@ export default function AccountStatementPage() {
       setError(null);
       const result = await api.getResellerAccountStatement({
         page: p,
-        per_page: 50,
+        per_page: pp,
         start_date: dateParams?.start_date || startDate || undefined,
         end_date: dateParams?.end_date || endDate || undefined,
       });
@@ -59,7 +61,7 @@ export default function AccountStatementPage() {
       setLoading(false);
       setFilterLoading(false);
     }
-  }, [startDate, endDate]);
+  }, [startDate, endDate, perPage]);
 
   useEffect(() => {
     fetchStatement();
@@ -279,28 +281,15 @@ export default function AccountStatementPage() {
                   ))}
                 </div>
 
-                {/* Pagination */}
-                {data.total_pages > 1 && (
-                  <div className="flex items-center justify-between pt-3">
-                    <button
-                      onClick={() => fetchStatement(page - 1)}
-                      disabled={page <= 1 || filterLoading}
-                      className="btn-secondary text-sm px-3 py-1.5 disabled:opacity-40"
-                    >
-                      Previous
-                    </button>
-                    <span className="text-sm text-foreground-muted">
-                      Page {data.page} of {data.total_pages}
-                    </span>
-                    <button
-                      onClick={() => fetchStatement(page + 1)}
-                      disabled={page >= data.total_pages || filterLoading}
-                      className="btn-secondary text-sm px-3 py-1.5 disabled:opacity-40"
-                    >
-                      Next
-                    </button>
-                  </div>
-                )}
+                <Pagination
+                  page={data.page}
+                  perPage={perPage}
+                  total={data.total_entries}
+                  onPageChange={(p) => { setPage(p); fetchStatement(p); }}
+                  onPerPageChange={(pp) => { setPerPage(pp); setPage(1); fetchStatement(1, undefined, pp); }}
+                  loading={filterLoading}
+                  noun="entries"
+                />
               </>
             )}
           </div>
