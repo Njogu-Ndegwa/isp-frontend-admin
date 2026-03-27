@@ -67,7 +67,6 @@ export default function ProfilePage() {
       organization_name: profile.organization_name,
       business_name: profile.business_name,
       support_phone: profile.support_phone,
-      mpesa_shortcode: profile.mpesa_shortcode,
     });
     setEditing(true);
   };
@@ -85,7 +84,6 @@ export default function ProfilePage() {
     if (form.organization_name !== profile.organization_name) changed.organization_name = form.organization_name;
     if (form.business_name !== profile.business_name) changed.business_name = form.business_name;
     if (form.support_phone !== profile.support_phone) changed.support_phone = form.support_phone;
-    if (form.mpesa_shortcode !== profile.mpesa_shortcode) changed.mpesa_shortcode = form.mpesa_shortcode;
 
     if (Object.keys(changed).length === 0) {
       setEditing(false);
@@ -259,15 +257,6 @@ export default function ProfilePage() {
                   placeholder="+254712345678"
                 />
               </div>
-              <div>
-                <label className="block text-xs font-medium text-foreground-muted mb-1.5">M-Pesa Shortcode</label>
-                <input
-                  type="text"
-                  className="input"
-                  value={form.mpesa_shortcode || ''}
-                  onChange={(e) => setForm((p) => ({ ...p, mpesa_shortcode: e.target.value }))}
-                />
-              </div>
               <div className="flex gap-3 pt-2">
                 <button onClick={cancelEditing} className="btn-secondary flex-1" disabled={saving}>
                   Cancel
@@ -284,7 +273,6 @@ export default function ProfilePage() {
                 { label: 'Organization Name', value: profile.organization_name },
                 { label: 'Business Name', value: profile.business_name },
                 { label: 'Support Phone', value: profile.support_phone },
-                { label: 'M-Pesa Shortcode', value: profile.mpesa_shortcode },
               ].map((f) => (
                 <div key={f.label} className="flex items-center justify-between py-2 border-b border-border/50 last:border-0">
                   <span className="text-xs font-medium text-foreground-muted">{f.label}</span>
