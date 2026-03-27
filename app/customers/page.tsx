@@ -39,6 +39,8 @@ export default function CustomersPage() {
   const { showAlert } = useAlert();
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [totalItems, setTotalItems] = useState(0);
+  const [totalAll, setTotalAll] = useState(0);
+  const [totalActive, setTotalActive] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<FilterStatus>('active');
@@ -63,11 +65,18 @@ export default function CustomersPage() {
   const loadCustomers = useCallback(async (pageNum = page) => {
     try {
       setLoading(true);
-      const result = filter === 'active'
-        ? await api.getActiveCustomers(1, pageNum, perPage)
-        : await api.getCustomers(1, pageNum, perPage);
+      const mainRequest = filter === 'active'
+        ? api.getActiveCustomers(1, pageNum, perPage)
+        : api.getCustomers(1, pageNum, perPage);
+      const [result, allResult, activeResult] = await Promise.all([
+        mainRequest,
+        api.getCustomers(1, 1, 1) as Promise<{ data: Customer[]; total: number }>,
+        api.getActiveCustomers(1, 1, 1) as Promise<{ data: Customer[]; total: number }>,
+      ]);
       setCustomers(result.data);
       setTotalItems(result.total);
+      setTotalAll(allResult.total);
+      setTotalActive(activeResult.total);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load customers');
     } finally {
@@ -267,12 +276,12 @@ export default function CustomersPage() {
       />
 
       {/* Summary Stats */}
-      {customers.length > 0 && (
+      {totalAll > 0 && (
         <div className="grid grid-cols-3 gap-3 sm:gap-6 mb-6">
           <div className="animate-fade-in delay-1" style={{ opacity: 0 }}>
             <StatCard
               title="Total"
-              value={customers.length}
+              value={totalAll}
               icon={
                 <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -284,7 +293,7 @@ export default function CustomersPage() {
           <div className="animate-fade-in delay-2" style={{ opacity: 0 }}>
             <StatCard
               title="Active"
-              value={customers.filter((c) => c.status === 'active').length}
+              value={totalActive}
               icon={
                 <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -296,7 +305,7 @@ export default function CustomersPage() {
           <div className="animate-fade-in delay-3" style={{ opacity: 0 }}>
             <StatCard
               title="Inactive"
-              value={customers.filter((c) => c.status === 'inactive').length}
+              value={Math.max(0, totalAll - totalActive)}
               icon={
                 <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />

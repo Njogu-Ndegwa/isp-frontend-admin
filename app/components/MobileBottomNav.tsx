@@ -2,9 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import MoreMenu from './MoreMenu';
 
 type NavIconFn = (active: boolean) => React.ReactNode;
 interface BottomNavItem {
@@ -75,96 +73,49 @@ const adminNavItems: BottomNavItem[] = [
   },
 ];
 
-const resellerMorePaths = ['/plans', '/walled-garden', '/diagnostics', '/account-statement', '/settings'];
-
 export default function MobileBottomNav() {
   const pathname = usePathname();
   const { user } = useAuth();
-  const [showMoreMenu, setShowMoreMenu] = useState(false);
 
   const isAdmin = user?.role === 'admin';
   const mainNavItems = isAdmin ? adminNavItems : resellerNavItems;
-  const isMoreActive = isAdmin ? false : resellerMorePaths.some(path => pathname?.startsWith(path));
-
-  // Close More menu when navigating to a different page
-  useEffect(() => {
-    setShowMoreMenu(false);
-  }, [pathname]);
 
   return (
-    <>
-      {/* Bottom Navigation Bar */}
-      <nav className="fixed bottom-0 left-0 right-0 z-[9999] md:hidden">
-        {/* 
-          Container uses min-height to allow expansion for safe area
-          The inner flex container has fixed height for consistent icon positioning
-        */}
-        <div 
-          className="bg-background-secondary/95 backdrop-blur-xl border-t border-border"
-          style={{ 
-            minHeight: 'calc(4rem + env(safe-area-inset-bottom, 0px))',
-            paddingBottom: 'env(safe-area-inset-bottom, 0px)'
-          }}
-        >
-          {/* 
-            Inner container has fixed height and centers content
-            This ensures icons stay in the same position regardless of safe area
-          */}
-          <div className="flex items-center justify-around h-16">
-            {mainNavItems.map((item) => {
-              const isActive = item.activeMatch ? item.activeMatch(pathname) : pathname === item.href;
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className="flex flex-col items-center justify-center flex-1 h-full relative active:opacity-70"
-                >
-                  {/* Active indicator dot */}
-                  {isActive && (
-                    <span className="absolute top-1 w-1 h-1 rounded-full bg-accent-primary" />
-                  )}
-                  
-                  <div className={`transition-transform duration-200 ${isActive ? 'scale-110' : 'scale-100'}`}>
-                    {item.icon(isActive)}
-                  </div>
-                  
-                  <span className={`text-[10px] mt-1 font-medium transition-colors ${
-                    isActive ? 'text-accent-primary' : 'text-foreground-muted'
-                  }`}>
-                    {item.name}
-                  </span>
-                </Link>
-              );
-            })}
-            
-            {/* More Button */}
-            <button
-              onClick={() => setShowMoreMenu(true)}
-              className="flex flex-col items-center justify-center flex-1 h-full relative active:opacity-70"
-            >
-              {/* Active indicator dot */}
-              {isMoreActive && (
-                <span className="absolute top-1 w-1 h-1 rounded-full bg-accent-primary" />
-              )}
-              
-              <div className={`transition-transform duration-200 ${isMoreActive ? 'scale-110' : 'scale-100'}`}>
-                <svg className={`w-6 h-6 ${isMoreActive ? 'text-accent-primary' : 'text-foreground-muted'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={isMoreActive ? 2 : 1.5} d="M5 12h.01M12 12h.01M19 12h.01M6 12a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0z" />
-                </svg>
-              </div>
-              
-              <span className={`text-[10px] mt-1 font-medium transition-colors ${
-                isMoreActive ? 'text-accent-primary' : 'text-foreground-muted'
-              }`}>
-                More
-              </span>
-            </button>
-          </div>
+    <nav className="fixed bottom-0 left-0 right-0 z-[9999] md:hidden">
+      <div 
+        className="bg-background-secondary/95 backdrop-blur-xl border-t border-border"
+        style={{ 
+          minHeight: 'calc(4rem + env(safe-area-inset-bottom, 0px))',
+          paddingBottom: 'env(safe-area-inset-bottom, 0px)'
+        }}
+      >
+        <div className="flex items-center justify-around h-16">
+          {mainNavItems.map((item) => {
+            const isActive = item.activeMatch ? item.activeMatch(pathname) : pathname === item.href;
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className="flex flex-col items-center justify-center flex-1 h-full relative active:opacity-70"
+              >
+                {isActive && (
+                  <span className="absolute top-1 w-1 h-1 rounded-full bg-accent-primary" />
+                )}
+                
+                <div className={`transition-transform duration-200 ${isActive ? 'scale-110' : 'scale-100'}`}>
+                  {item.icon(isActive)}
+                </div>
+                
+                <span className={`text-[10px] mt-1 font-medium transition-colors ${
+                  isActive ? 'text-accent-primary' : 'text-foreground-muted'
+                }`}>
+                  {item.name}
+                </span>
+              </Link>
+            );
+          })}
         </div>
-      </nav>
-
-      {/* More Menu Sheet */}
-      <MoreMenu isOpen={showMoreMenu} onClose={() => setShowMoreMenu(false)} />
-    </>
+      </div>
+    </nav>
   );
 }

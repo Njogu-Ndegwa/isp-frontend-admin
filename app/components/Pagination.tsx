@@ -30,58 +30,86 @@ export default function Pagination({
   const to = Math.min(page * perPage, total);
 
   return (
-    <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3">
-      {/* Page size selector */}
-      <div className="flex items-center gap-2 text-sm text-foreground-muted">
-        <span className="hidden sm:inline">Rows per page:</span>
-        <span className="sm:hidden">Per page:</span>
-        <select
-          value={perPage}
-          onChange={(e) => onPerPageChange(Number(e.target.value))}
-          disabled={loading}
-          className="bg-background-secondary border border-border rounded-lg px-2 py-1 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-accent-primary disabled:opacity-50"
-        >
-          {PAGE_SIZE_OPTIONS.map((size) => (
-            <option key={size} value={size}>
-              {size}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      {/* Info text */}
-      <p className="text-xs sm:text-sm text-foreground-muted">
-        {from}&ndash;{to} of {total.toLocaleString()} {noun}
-      </p>
-
-      {/* Previous / Next */}
-      <div className="flex items-center gap-2">
+    <>
+      {/* Mobile pagination */}
+      <div className="flex md:hidden items-center justify-between px-2 py-3">
         <button
           onClick={() => onPageChange(page - 1)}
           disabled={page <= 1 || loading}
-          className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors disabled:opacity-30 disabled:cursor-not-allowed hover:bg-background-tertiary text-foreground-muted"
+          className="w-11 h-11 flex items-center justify-center rounded-xl transition-colors disabled:opacity-25 disabled:cursor-not-allowed hover:bg-background-tertiary active:bg-background-tertiary text-foreground-muted touch-manipulation"
         >
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
           </svg>
-          <span className="hidden sm:inline">Previous</span>
         </button>
 
-        <span className="text-sm text-foreground-muted tabular-nums">
-          {page} / {totalPages}
-        </span>
+        <p className="text-xs text-foreground-muted tabular-nums text-center">
+          <span className="text-foreground font-medium">{page}</span> of {totalPages}
+          <span className="mx-1.5 text-border">&middot;</span>
+          {total.toLocaleString()} {noun}
+        </p>
 
         <button
           onClick={() => onPageChange(page + 1)}
           disabled={page >= totalPages || loading}
-          className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors disabled:opacity-30 disabled:cursor-not-allowed hover:bg-background-tertiary text-foreground-muted"
+          className="w-11 h-11 flex items-center justify-center rounded-xl transition-colors disabled:opacity-25 disabled:cursor-not-allowed hover:bg-background-tertiary active:bg-background-tertiary text-foreground-muted touch-manipulation"
         >
-          <span className="hidden sm:inline">Next</span>
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
           </svg>
         </button>
       </div>
-    </div>
+
+      {/* Desktop pagination */}
+      <div className="hidden md:flex items-center justify-between gap-3 px-4 py-3">
+        <div className="flex items-center gap-2 text-sm text-foreground-muted">
+          <span>Rows per page:</span>
+          <select
+            value={perPage}
+            onChange={(e) => onPerPageChange(Number(e.target.value))}
+            disabled={loading}
+            className="bg-background-secondary border border-border rounded-lg px-2 py-1 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-accent-primary disabled:opacity-50"
+          >
+            {PAGE_SIZE_OPTIONS.map((size) => (
+              <option key={size} value={size}>
+                {size}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <p className="text-sm text-foreground-muted">
+          {from}&ndash;{to} of {total.toLocaleString()} {noun}
+        </p>
+
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => onPageChange(page - 1)}
+            disabled={page <= 1 || loading}
+            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors disabled:opacity-30 disabled:cursor-not-allowed hover:bg-background-tertiary text-foreground-muted"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+            Previous
+          </button>
+
+          <span className="text-sm text-foreground-muted tabular-nums">
+            {page} / {totalPages}
+          </span>
+
+          <button
+            onClick={() => onPageChange(page + 1)}
+            disabled={page >= totalPages || loading}
+            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors disabled:opacity-30 disabled:cursor-not-allowed hover:bg-background-tertiary text-foreground-muted"
+          >
+            Next
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
+        </div>
+      </div>
+    </>
   );
 }
