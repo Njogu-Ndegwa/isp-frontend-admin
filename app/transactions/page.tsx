@@ -435,17 +435,17 @@ export default function TransactionsPage() {
                       ),
                       right: formatTransactionDate(tx)
                     }}
-                    footer={tx.status !== 'failed' ? (
-                      <div className="space-y-2 w-full">
-                        <div className="flex items-center justify-between">
-                          <span className="truncate">{getReceiptDisplay(tx) !== '-' ? `Ref: ${getReceiptDisplay(tx)}` : ''}</span>
-                          <span className="font-mono">#{tx.transaction_id}</span>
-                        </div>
+                    rightAction={tx.status !== 'failed' ? (
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-foreground-muted truncate">
+                          {getReceiptDisplay(tx) !== '-' ? `Ref: ${getReceiptDisplay(tx)}` : ''}
+                        </span>
+                        <span className="text-xs font-mono text-foreground-muted flex-shrink-0">#{tx.transaction_id}</span>
                         {tx.manual_provision_supported ? (
                           <button
                             onClick={(e) => { e.stopPropagation(); handleManualProvision(tx); }}
                             disabled={provisioningId === tx.transaction_id}
-                            className="p-2 rounded-lg bg-accent-primary/10 text-accent-primary hover:bg-accent-primary/20 active:opacity-70 disabled:opacity-50 disabled:cursor-not-allowed transition-colors touch-manipulation"
+                            className="p-1.5 rounded-md bg-accent-primary/10 text-accent-primary hover:bg-accent-primary/20 active:opacity-70 disabled:opacity-50 disabled:cursor-not-allowed transition-colors touch-manipulation flex-shrink-0"
                             title="Provision Now"
                           >
                             {provisioningId === tx.transaction_id ? (
@@ -462,7 +462,7 @@ export default function TransactionsPage() {
                         ) : (
                           <button
                             disabled
-                            className="p-2 rounded-lg opacity-30 text-foreground-muted cursor-not-allowed"
+                            className="p-1.5 rounded-md opacity-30 text-foreground-muted cursor-not-allowed flex-shrink-0"
                             title={tx.manual_provision_reason || 'Provisioning not available'}
                           >
                             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">

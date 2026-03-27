@@ -549,29 +549,20 @@ export default function CustomersPage() {
                   }}
                   href={`/customers/${customer.id}`}
                   rightAction={
-                    <div className="flex flex-col gap-1">
+                    <div className="flex items-center gap-1">
                       <button
                         onClick={(e) => { e.preventDefault(); e.stopPropagation(); routerNav.push(`/customers/${customer.id}`); }}
-                        className="p-1.5 rounded-md hover:bg-accent-primary/10 transition-colors text-foreground-muted hover:text-accent-primary"
+                        className="p-1.5 rounded-md hover:bg-accent-primary/10 transition-colors text-foreground-muted hover:text-accent-primary active:opacity-70"
                         title="Edit"
                       >
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                         </svg>
                       </button>
-                      <button
-                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); setDeleteConfirm(customer); }}
-                        className="p-1.5 rounded-md hover:bg-danger/10 transition-colors text-foreground-muted hover:text-danger"
-                        title="Delete"
-                      >
-                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                        </svg>
-                      </button>
                       {getConnectionType(customer) === 'pppoe' && (
                         <button
                           onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleViewCredentials(customer); }}
-                          className="p-1.5 rounded-md hover:bg-background-tertiary transition-colors text-foreground-muted"
+                          className="p-1.5 rounded-md hover:bg-background-tertiary transition-colors text-foreground-muted hover:text-foreground active:opacity-70"
                           title="Credentials"
                         >
                           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -579,6 +570,15 @@ export default function CustomersPage() {
                           </svg>
                         </button>
                       )}
+                      <button
+                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); setDeleteConfirm(customer); }}
+                        className="p-1.5 rounded-md hover:bg-danger/10 transition-colors text-foreground-muted hover:text-danger active:opacity-70"
+                        title="Delete"
+                      >
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </button>
                     </div>
                   }
                   layout="compact"
@@ -725,6 +725,17 @@ export default function CustomersPage() {
           </div>
         </div>
       )}
+
+      {/* Mobile FAB - Register Customer */}
+      <Link
+        href="/customers/register"
+        className="md:hidden fixed right-4 bottom-24 z-[9998] w-14 h-14 rounded-full bg-accent-primary text-white flex items-center justify-center shadow-lg shadow-accent-primary/25 active:scale-95 transition-transform touch-manipulation"
+        title="Register Customer"
+      >
+        <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+        </svg>
+      </Link>
 
       {/* Delete Customer Confirm Modal */}
       {deleteConfirm && (

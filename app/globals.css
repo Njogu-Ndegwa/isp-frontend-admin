@@ -355,6 +355,9 @@ body {
 
 .input::placeholder {
   color: var(--foreground-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* Select styles */
