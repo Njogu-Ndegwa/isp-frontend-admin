@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 
 const DAYS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
 const MONTHS = [
@@ -78,15 +78,15 @@ export default function DateTimePicker({ value, label, onChange }: DateTimePicke
     onChange(toLocalDatetime(d));
   };
 
-  const updateTime = (h: number, m: number) => {
+  const updateTime = useCallback((h: number, m: number) => {
     setHour(h);
     setMinute(m);
-    if (isValid) {
+    if (isValid && parsed) {
       const d = new Date(parsed);
       d.setHours(h, m);
       onChange(toLocalDatetime(d));
     }
-  };
+  }, [isValid, parsed, onChange]);
 
   const today = new Date();
   const isToday = (day: number) =>
@@ -97,6 +97,16 @@ export default function DateTimePicker({ value, label, onChange }: DateTimePicke
   const displayText = isValid
     ? `${parsed.toLocaleDateString('en-KE', { month: 'short', day: 'numeric', year: 'numeric' })} ${pad(parsed.getHours())}:${pad(parsed.getMinutes())}`
     : 'Select date & time';
+
+  const clampHour = (val: string) => {
+    const n = parseInt(val);
+    return isNaN(n) ? 0 : Math.min(23, Math.max(0, n));
+  };
+
+  const clampMinute = (val: string) => {
+    const n = parseInt(val);
+    return isNaN(n) ? 0 : Math.min(59, Math.max(0, n));
+  };
 
   return (
     <div className="relative" ref={containerRef}>
@@ -113,28 +123,36 @@ export default function DateTimePicker({ value, label, onChange }: DateTimePicke
       </button>
 
       {open && (
-        <div className="absolute z-[60] mt-1 left-0 right-0 card p-4 shadow-lg animate-fade-in min-w-[280px]">
+        <div className="absolute z-[60] mt-1 left-0 right-0 shadow-lg animate-fade-in dtp-popover">
           {/* Month/Year nav */}
-          <div className="flex items-center justify-between mb-3">
-            <button type="button" onClick={prevMonth} className="p-1 rounded-md hover:bg-background-tertiary transition-colors text-foreground-muted hover:text-foreground">
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <div className="flex items-center justify-between mb-2">
+            <button
+              type="button"
+              onClick={prevMonth}
+              className="dtp-nav-btn"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
               </svg>
             </button>
-            <span className="text-sm font-semibold text-foreground">
+            <span className="text-sm font-semibold text-foreground select-none">
               {MONTHS[viewMonth]} {viewYear}
             </span>
-            <button type="button" onClick={nextMonth} className="p-1 rounded-md hover:bg-background-tertiary transition-colors text-foreground-muted hover:text-foreground">
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <button
+              type="button"
+              onClick={nextMonth}
+              className="dtp-nav-btn"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
               </svg>
             </button>
           </div>
 
           {/* Day headers */}
-          <div className="grid grid-cols-7 mb-1">
+          <div className="grid grid-cols-7">
             {DAYS.map((d) => (
-              <div key={d} className="text-center text-[10px] font-semibold text-foreground-muted uppercase tracking-wider py-1">
+              <div key={d} className="text-center text-[11px] font-semibold text-foreground-muted uppercase tracking-wide py-1.5 select-none">
                 {d}
               </div>
             ))}
@@ -147,30 +165,33 @@ export default function DateTimePicker({ value, label, onChange }: DateTimePicke
             ))}
             {Array.from({ length: daysInMonth }).map((_, i) => {
               const day = i + 1;
+              const selected = isSelected(day);
+              const todayDay = isToday(day);
               return (
-                <button
-                  key={day}
-                  type="button"
-                  onClick={() => selectDay(day)}
-                  className={`h-8 w-full rounded-md text-sm font-medium transition-colors ${
-                    isSelected(day)
-                      ? 'bg-accent-primary text-background'
-                      : isToday(day)
-                        ? 'bg-accent-primary/10 text-accent-primary hover:bg-accent-primary/20'
-                        : 'text-foreground hover:bg-background-tertiary'
-                  }`}
-                >
-                  {day}
-                </button>
+                <div key={day} className="flex justify-center py-[2px]">
+                  <button
+                    type="button"
+                    onClick={() => selectDay(day)}
+                    className={`dtp-day ${
+                      selected
+                        ? 'dtp-day-selected'
+                        : todayDay
+                          ? 'dtp-day-today'
+                          : 'dtp-day-default'
+                    }`}
+                  >
+                    {day}
+                  </button>
+                </div>
               );
             })}
           </div>
 
           {/* Time picker */}
-          <div className="mt-3 pt-3 border-t border-border">
-            <div className="flex items-center justify-center gap-2">
-              <label className="text-xs font-medium text-foreground-muted uppercase tracking-wider">Time</label>
-              <div className="flex items-center gap-1">
+          <div className="mt-2.5 pt-2.5 border-t border-border">
+            <div className="flex items-center justify-center gap-3">
+              <span className="text-xs font-medium text-foreground-muted uppercase tracking-wider">Time</span>
+              <div className="flex items-center gap-1.5">
                 <input
                   type="number"
                   min={0}
@@ -178,14 +199,20 @@ export default function DateTimePicker({ value, label, onChange }: DateTimePicke
                   value={hourInput}
                   onChange={(e) => setHourInput(e.target.value)}
                   onBlur={() => {
-                    const parsed = parseInt(hourInput);
-                    const clamped = isNaN(parsed) ? 0 : Math.min(23, Math.max(0, parsed));
+                    const clamped = clampHour(hourInput);
                     setHourInput(pad(clamped));
                     updateTime(clamped, minute);
                   }}
-                  className="input w-14 text-center font-mono px-1"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      const clamped = clampHour(hourInput);
+                      setHourInput(pad(clamped));
+                      updateTime(clamped, minute);
+                    }
+                  }}
+                  className="dtp-time-input"
                 />
-                <span className="text-foreground font-bold">:</span>
+                <span className="text-foreground font-bold text-lg select-none leading-none">:</span>
                 <input
                   type="number"
                   min={0}
@@ -193,19 +220,25 @@ export default function DateTimePicker({ value, label, onChange }: DateTimePicke
                   value={minuteInput}
                   onChange={(e) => setMinuteInput(e.target.value)}
                   onBlur={() => {
-                    const parsed = parseInt(minuteInput);
-                    const clamped = isNaN(parsed) ? 0 : Math.min(59, Math.max(0, parsed));
+                    const clamped = clampMinute(minuteInput);
                     setMinuteInput(pad(clamped));
                     updateTime(hour, clamped);
                   }}
-                  className="input w-14 text-center font-mono px-1"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      const clamped = clampMinute(minuteInput);
+                      setMinuteInput(pad(clamped));
+                      updateTime(hour, clamped);
+                    }
+                  }}
+                  className="dtp-time-input"
                 />
               </div>
             </div>
           </div>
 
-          {/* Quick actions */}
-          <div className="mt-3 flex gap-2">
+          {/* Action buttons */}
+          <div className="flex gap-2 mt-2.5">
             <button
               type="button"
               onClick={() => {
@@ -216,7 +249,7 @@ export default function DateTimePicker({ value, label, onChange }: DateTimePicke
                 setMinute(now.getMinutes());
                 onChange(toLocalDatetime(now));
               }}
-              className="flex-1 text-xs py-1.5 rounded-md border border-border text-foreground-muted hover:text-foreground hover:bg-background-tertiary transition-colors"
+              className="dtp-action-btn dtp-action-secondary"
             >
               Now
             </button>
@@ -224,7 +257,7 @@ export default function DateTimePicker({ value, label, onChange }: DateTimePicke
               <button
                 type="button"
                 onClick={() => { onChange(''); setOpen(false); }}
-                className="flex-1 text-xs py-1.5 rounded-md border border-border text-foreground-muted hover:text-danger hover:border-danger/30 transition-colors"
+                className="dtp-action-btn dtp-action-danger"
               >
                 Clear
               </button>
@@ -232,7 +265,7 @@ export default function DateTimePicker({ value, label, onChange }: DateTimePicke
             <button
               type="button"
               onClick={() => setOpen(false)}
-              className="flex-1 text-xs py-1.5 rounded-md bg-accent-primary text-background font-medium hover:bg-accent-primary/90 transition-colors"
+              className="dtp-action-btn dtp-action-primary"
             >
               Done
             </button>

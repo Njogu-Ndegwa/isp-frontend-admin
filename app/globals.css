@@ -832,3 +832,126 @@ nav[class*="fixed bottom-0"] {
     opacity: 0.8;
   }
 }
+
+/* ── DateTimePicker ── */
+.dtp-popover {
+  background: var(--background-secondary);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 16px;
+}
+
+.dtp-nav-btn {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  color: var(--foreground-muted);
+  transition: all 0.15s ease;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+}
+.dtp-nav-btn:hover {
+  background: var(--background-tertiary);
+  color: var(--foreground);
+}
+
+.dtp-day {
+  width: 38px;
+  height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  font-size: 13.5px;
+  font-weight: 500;
+  border: none;
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+.dtp-day-selected {
+  background: var(--accent-primary);
+  color: var(--background);
+  font-weight: 600;
+}
+.dtp-day-today {
+  background: rgba(245, 158, 11, 0.1);
+  color: var(--accent-primary);
+  font-weight: 600;
+}
+.dtp-day-today:hover {
+  background: rgba(245, 158, 11, 0.18);
+}
+.dtp-day-default {
+  background: transparent;
+  color: var(--foreground);
+}
+.dtp-day-default:hover {
+  background: var(--background-tertiary);
+}
+
+.dtp-time-input {
+  width: 52px;
+  padding: 7px 4px;
+  font-size: 16px;
+  text-align: center;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-weight: 600;
+  background: var(--background-tertiary);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--foreground);
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  -moz-appearance: textfield;
+}
+.dtp-time-input::-webkit-outer-spin-button,
+.dtp-time-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.dtp-time-input:focus {
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 2px var(--accent-glow);
+}
+
+.dtp-action-btn {
+  flex: 1;
+  padding: 9px 0;
+  font-size: 13.5px;
+  font-weight: 500;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-align: center;
+}
+.dtp-action-secondary {
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--foreground-muted);
+}
+.dtp-action-secondary:hover {
+  background: var(--background-tertiary);
+  color: var(--foreground);
+}
+.dtp-action-danger {
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--foreground-muted);
+}
+.dtp-action-danger:hover {
+  border-color: rgba(239, 68, 68, 0.3);
+  color: var(--danger);
+}
+.dtp-action-primary {
+  border: none;
+  background: var(--accent-primary);
+  color: #1c1917;
+  font-weight: 600;
+}
+.dtp-action-primary:hover {
+  background: var(--accent-primary-hover);
+}
