@@ -578,7 +578,7 @@ export const demoWalledGarden: WalledGardenResponse = {
   domain_entries: [
     { '.id': '*1', 'dst-host': '*.safaricom.co.ke', action: 'allow', comment: 'M-Pesa payment' },
     { '.id': '*2', 'dst-host': '*.google.com', action: 'allow', comment: 'Captive portal redirect' },
-    { '.id': '*3', 'dst-host': '*.bitwavetechnologies.net', action: 'allow', comment: 'Billing portal' },
+    { '.id': '*3', 'dst-host': '*.bitwavetechnologies.com', action: 'allow', comment: 'Billing portal' },
   ],
   ip_entries: [
     { '.id': '*1', 'dst-address': '196.201.214.0/24', action: 'accept', comment: 'Safaricom M-Pesa API' },
@@ -618,7 +618,7 @@ export function demoPPPoECredentials(customerId: number): PPPoECredentials {
 
 // ─── Provision Tokens ───────────────────────────────────────────────
 export const demoProvisionTokens: ProvisionToken[] = [
-  { id: 1, token: 'demo-prov-abc123', router_name: 'New Router', identity: 'MikroTik-New', vpn_type: 'wireguard', vpn_ip: '10.99.0.5', status: 'pending', expired: false, command: '/tool fetch url="https://isp.bitwavetechnologies.net/api/provision/demo-prov-abc123" dst-path=provision.rsc;:delay 2s;/import provision.rsc;', created_at: iso(1), provisioned_at: null, router_id: null },
+  { id: 1, token: 'demo-prov-abc123', router_name: 'New Router', identity: 'MikroTik-New', vpn_type: 'wireguard', vpn_ip: '10.99.0.5', status: 'pending', expired: false, command: '/tool fetch url="https://isp.bitwavetechnologies.com/api/provision/demo-prov-abc123" dst-path=provision.rsc;:delay 2s;/import provision.rsc;', created_at: iso(1), provisioned_at: null, router_id: null },
   { id: 2, token: 'demo-prov-def456', router_name: 'V6 Router', identity: 'MikroTik-V6', vpn_type: 'l2tp', vpn_ip: '10.0.0.100', status: 'provisioned', expired: false, command: null, created_at: iso(3), provisioned_at: iso(2), router_id: 2 },
 ];
 

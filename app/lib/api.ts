@@ -91,7 +91,7 @@ import {
 } from './types';
 import * as demo from './demoData';
 
-const BASE_URL = 'https://isp.bitwavetechnologies.net/api';
+const BASE_URL = 'https://isp.bitwavetechnologies.com/api';
 
 class ApiClient {
   isDemoMode(): boolean {
