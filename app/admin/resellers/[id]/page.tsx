@@ -11,6 +11,7 @@ import {
   AdminCreatePayoutRequest,
   AdminTransactionCharge,
   AdminCreateTransactionChargeRequest,
+  AdminPaymentMethod,
 } from '../../../lib/types';
 import { formatDateGMT3 } from '../../../lib/dateUtils';
 import { useAuth } from '../../../context/AuthContext';
@@ -353,27 +354,12 @@ export default function ResellerDetailPage() {
         }
       />
 
-      {/* Paybill Highlight */}
-      <div className="card p-4 sm:p-5 border-2 border-emerald-500/30 bg-emerald-500/5">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-emerald-500/15 flex items-center justify-center">
-              <svg className="w-5 h-5 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
-            </div>
-            <div>
-              <p className="text-xs text-foreground-muted">M-Pesa Paybill / Till Number</p>
-              <p className="text-2xl font-bold text-emerald-500 font-mono tracking-wider">{detail.mpesa_shortcode}</p>
-            </div>
-          </div>
-          <button
-            onClick={() => setShowPayoutModal(true)}
-            className="btn-primary text-sm px-4 py-2 flex items-center gap-1.5"
-          >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
-            Record Payment
-          </button>
-        </div>
-      </div>
+      {/* Payment Methods */}
+      <PaymentMethodsSection
+        methods={detail.payment_methods || []}
+        fallbackShortcode={detail.mpesa_shortcode}
+        onRecordPayout={() => setShowPayoutModal(true)}
+      />
 
       {/* Profile Info */}
       <div className="card p-4 sm:p-5">
@@ -1221,6 +1207,164 @@ function ChargesTab({
           )}
         </>
       )}
+    </div>
+  );
+}
+
+// ─── Payment Methods Section ────────────────────────────────────────
+
+const METHOD_META: Record<string, { icon: React.ReactNode; color: string; bgColor: string; borderColor: string }> = {
+  bank_account: {
+    icon: <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 21h18M3 10h18M5 6l7-3 7 3M4 10v11m16-11v11M8 14v4m4-4v4m4-4v4" /></svg>,
+    color: 'text-blue-500',
+    bgColor: 'bg-blue-500/10',
+    borderColor: 'border-blue-500/30',
+  },
+  mpesa_paybill: {
+    icon: <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>,
+    color: 'text-emerald-500',
+    bgColor: 'bg-emerald-500/10',
+    borderColor: 'border-emerald-500/30',
+  },
+  mpesa_paybill_with_keys: {
+    icon: <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" /></svg>,
+    color: 'text-emerald-600',
+    bgColor: 'bg-emerald-600/10',
+    borderColor: 'border-emerald-600/30',
+  },
+  zenopay: {
+    icon: <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>,
+    color: 'text-purple-500',
+    bgColor: 'bg-purple-500/10',
+    borderColor: 'border-purple-500/30',
+  },
+};
+
+const METHOD_TYPE_LABELS: Record<string, string> = {
+  bank_account: 'Bank Account',
+  mpesa_paybill: 'M-Pesa Paybill',
+  mpesa_paybill_with_keys: 'M-Pesa Till',
+  zenopay: 'ZenoPay',
+};
+
+function getMethodDetails(m: AdminPaymentMethod): { label: string; value: string }[] {
+  const details: { label: string; value: string }[] = [];
+  if (m.bank_paybill_number) details.push({ label: 'Paybill', value: m.bank_paybill_number });
+  if (m.bank_account_number) details.push({ label: 'Account', value: m.bank_account_number });
+  if (m.mpesa_paybill_number) details.push({ label: 'Paybill No.', value: m.mpesa_paybill_number });
+  if (m.mpesa_shortcode) details.push({ label: 'Shortcode', value: m.mpesa_shortcode });
+  if (m.zenopay_account_id) details.push({ label: 'Account ID', value: m.zenopay_account_id });
+  return details;
+}
+
+function PaymentMethodsSection({
+  methods,
+  fallbackShortcode,
+  onRecordPayout,
+}: {
+  methods: AdminPaymentMethod[];
+  fallbackShortcode: string;
+  onRecordPayout: () => void;
+}) {
+  if (methods.length === 0) {
+    return (
+      <div className="card p-4 sm:p-5 border-2 border-emerald-500/30 bg-emerald-500/5">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-emerald-500/15 flex items-center justify-center">
+              <svg className="w-5 h-5 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
+            </div>
+            <div>
+              <p className="text-xs text-foreground-muted">M-Pesa Paybill / Till Number</p>
+              <p className="text-2xl font-bold text-emerald-500 font-mono tracking-wider">{fallbackShortcode}</p>
+            </div>
+          </div>
+          <button
+            onClick={onRecordPayout}
+            className="btn-primary text-sm px-4 py-2 flex items-center gap-1.5"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
+            Record Payout
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const active = methods.filter(m => m.is_active);
+  const inactive = methods.filter(m => !m.is_active);
+
+  return (
+    <div className="card p-4 sm:p-5 space-y-3">
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+          <svg className="w-4 h-4 text-foreground-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>
+          Payment Methods
+          <span className="text-xs font-normal text-foreground-muted">
+            ({active.length} active{inactive.length > 0 ? `, ${inactive.length} inactive` : ''})
+          </span>
+        </h3>
+        <button
+          onClick={onRecordPayout}
+          className="btn-primary text-sm px-3 py-1.5 flex items-center gap-1.5"
+        >
+          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
+          Record Payout
+        </button>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {methods.map((m) => {
+          const meta = METHOD_META[m.method_type] || METHOD_META.mpesa_paybill;
+          const details = getMethodDetails(m);
+          return (
+            <div
+              key={m.id}
+              className={`relative rounded-xl border p-3.5 transition-colors ${
+                m.is_active
+                  ? `${meta.borderColor} ${meta.bgColor.replace('/10', '/5')}`
+                  : 'border-border bg-background-tertiary/30 opacity-60'
+              }`}
+            >
+              <div className="flex items-start gap-3">
+                <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${
+                  m.is_active ? meta.bgColor : 'bg-foreground-muted/10'
+                }`}>
+                  <span className={m.is_active ? meta.color : 'text-foreground-muted'}>
+                    {meta.icon}
+                  </span>
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-medium truncate">{m.label}</p>
+                    <span className={`shrink-0 inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full ${
+                      m.is_active
+                        ? 'bg-emerald-500/10 text-emerald-500'
+                        : 'bg-foreground-muted/10 text-foreground-muted'
+                    }`}>
+                      <span className={`w-1 h-1 rounded-full ${m.is_active ? 'bg-emerald-500' : 'bg-foreground-muted'}`} />
+                      {m.is_active ? 'Active' : 'Inactive'}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-foreground-muted mt-0.5">
+                    {METHOD_TYPE_LABELS[m.method_type] || m.method_type}
+                  </p>
+                  {details.length > 0 && (
+                    <div className="mt-2 space-y-1">
+                      {details.map((d) => (
+                        <div key={d.label} className="flex items-center gap-2 text-xs">
+                          <span className="text-foreground-muted">{d.label}:</span>
+                          <span className="font-mono font-medium">{d.value}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

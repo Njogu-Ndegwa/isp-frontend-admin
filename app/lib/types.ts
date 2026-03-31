@@ -1437,6 +1437,20 @@ export interface AdminResellerPayoutsInfo {
   total_transaction_charges?: number;
 }
 
+export type AdminPaymentMethodType = 'bank_account' | 'mpesa_paybill' | 'mpesa_paybill_with_keys' | 'zenopay';
+
+export interface AdminPaymentMethod {
+  id: number;
+  method_type: AdminPaymentMethodType;
+  label: string;
+  is_active: boolean;
+  bank_paybill_number?: string;
+  bank_account_number?: string;
+  mpesa_paybill_number?: string;
+  mpesa_shortcode?: string;
+  zenopay_account_id?: string;
+}
+
 export interface AdminResellerDetail {
   id: number;
   email: string;
@@ -1452,6 +1466,7 @@ export interface AdminResellerDetail {
   recent_payments: AdminResellerPayment[];
   payouts: AdminResellerPayoutsInfo;
   recent_transaction_charges?: AdminTransactionCharge[];
+  payment_methods?: AdminPaymentMethod[];
 }
 
 export interface AdminPaymentsResponse {

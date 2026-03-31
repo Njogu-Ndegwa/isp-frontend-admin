@@ -764,6 +764,37 @@ export function demoAdminResellerDetail(resellerId: number): AdminResellerDetail
       last_payout_date: iso(7),
       unpaid_balance: r.unpaid_balance,
     },
+    payment_methods: [
+      {
+        id: r.id * 10 + 1,
+        method_type: 'bank_account' as const,
+        label: 'KCB Business Account',
+        is_active: true,
+        bank_paybill_number: '522522',
+        bank_account_number: `${r.id}2345678`,
+      },
+      {
+        id: r.id * 10 + 2,
+        method_type: 'mpesa_paybill' as const,
+        label: 'Safaricom Paybill',
+        is_active: true,
+        mpesa_paybill_number: r.mpesa_shortcode,
+      },
+      {
+        id: r.id * 10 + 3,
+        method_type: 'mpesa_paybill_with_keys' as const,
+        label: 'Till Number',
+        is_active: r.id !== 4,
+        mpesa_shortcode: `${987654 + r.id}`,
+      },
+      {
+        id: r.id * 10 + 4,
+        method_type: 'zenopay' as const,
+        label: 'ZenoPay Gateway',
+        is_active: false,
+        zenopay_account_id: `zen_${r.organization_name.toLowerCase().replace(/\s+/g, '_')}_${r.id}`,
+      },
+    ],
   };
 }
 
