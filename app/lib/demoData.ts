@@ -42,6 +42,10 @@ import type {
   AdminPaymentsResponse,
   AdminRoutersResponse,
   AdminPayoutsResponse,
+  AdminResellerStats,
+  AdminResellerStatsPeriod,
+  ResellerRevenueDataPoint,
+  ResellerSignupDataPoint,
 } from './types';
 
 const now = new Date();
@@ -858,6 +862,85 @@ export function demoAdminPayouts(resellerId: number, page = 1, perPage = 50): Ad
     total_count: 6, total_pages: 1,
     summary: { total_payouts: 6, total_amount: totalPaid },
     payouts,
+  };
+}
+
+// ─── Admin Reseller Stats (Charts) ──────────────────────────────────
+
+function generateResellerStatsData(period: AdminResellerStatsPeriod): {
+  days: number;
+  revenueData: ResellerRevenueDataPoint[];
+  signupData: ResellerSignupDataPoint[];
+} {
+  const periodDays: Record<AdminResellerStatsPeriod, number> = {
+    '7d': 7, '30d': 30, '90d': 90, '1y': 365, 'all': 365,
+  };
+  const days = periodDays[period];
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+  const revenueData: ResellerRevenueDataPoint[] = [];
+  const signupData: ResellerSignupDataPoint[] = [];
+
+  const useMonthly = days > 90;
+  const step = useMonthly ? 30 : (days > 30 ? 7 : 1);
+  const pointCount = Math.ceil(days / step);
+
+  for (let i = pointCount - 1; i >= 0; i--) {
+    const daysAgo = i * step;
+    const d = new Date(now);
+    d.setDate(d.getDate() - daysAgo);
+    const dateKey = d.toISOString().split('T')[0];
+
+    let label: string;
+    if (useMonthly) {
+      label = `${months[d.getMonth()]} ${d.getFullYear()}`;
+    } else if (step === 7) {
+      label = `${d.getDate()} ${months[d.getMonth()]}`;
+    } else {
+      label = `${d.getDate()} ${months[d.getMonth()]}`;
+    }
+
+    const baseRevenue = 8000 + Math.random() * 15000;
+    const growthFactor = 1 + ((pointCount - i) / pointCount) * 0.5;
+    const revenue = Math.round(baseRevenue * growthFactor * (step === 7 ? 7 : 1) * (useMonthly ? 30 : 1));
+    const mpesaRatio = 0.7 + Math.random() * 0.15;
+
+    revenueData.push({
+      date: dateKey,
+      label,
+      revenue,
+      mpesa_revenue: Math.round(revenue * mpesaRatio),
+    });
+
+    const signupBase = useMonthly ? 1 + Math.floor(Math.random() * 3) :
+      step === 7 ? (Math.random() > 0.5 ? 1 : 0) :
+      (Math.random() > 0.85 ? 1 : 0);
+    signupData.push({
+      date: dateKey,
+      label,
+      count: signupBase,
+    });
+  }
+
+  return { days, revenueData, signupData };
+}
+
+export function demoAdminResellerStats(period: AdminResellerStatsPeriod = '30d'): AdminResellerStats {
+  const { revenueData, signupData } = generateResellerStatsData(period);
+
+  const totalRevenue = revenueData.reduce((sum, d) => sum + d.revenue, 0);
+  const totalMpesa = revenueData.reduce((sum, d) => sum + d.mpesa_revenue, 0);
+  const totalSignups = signupData.reduce((sum, d) => sum + d.count, 0);
+
+  return {
+    period,
+    revenue_over_time: revenueData,
+    signups_over_time: signupData,
+    totals: {
+      revenue: totalRevenue,
+      mpesa_revenue: totalMpesa,
+      new_resellers: totalSignups,
+    },
   };
 }
 

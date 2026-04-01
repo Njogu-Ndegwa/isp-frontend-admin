@@ -1658,3 +1658,31 @@ export interface ResellerAccountStatement {
   total_pages: number;
   entries: AccountStatementEntry[];
 }
+
+// Admin Reseller Stats (Charts)
+
+export type AdminResellerStatsPeriod = '7d' | '30d' | '90d' | '1y' | 'all';
+
+export interface ResellerRevenueDataPoint {
+  date: string;
+  label: string;
+  revenue: number;
+  mpesa_revenue: number;
+}
+
+export interface ResellerSignupDataPoint {
+  date: string;
+  label: string;
+  count: number;
+}
+
+export interface AdminResellerStats {
+  period: AdminResellerStatsPeriod;
+  revenue_over_time: ResellerRevenueDataPoint[];
+  signups_over_time: ResellerSignupDataPoint[];
+  totals: {
+    revenue: number;
+    mpesa_revenue: number;
+    new_resellers: number;
+  };
+}

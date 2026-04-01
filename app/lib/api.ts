@@ -84,6 +84,8 @@ import {
   AdminTransactionChargeResponse,
   AdminTransactionChargesResponse,
   ResellerAccountStatement,
+  AdminResellerStats,
+  AdminResellerStatsPeriod,
   PaginatedResponse,
   UserProfile,
   UpdateProfileRequest,
@@ -1126,6 +1128,14 @@ class ApiClient {
       headers: this.getHeaders(),
     });
     return this.handleResponse<AdminResellersResponse>(response);
+  }
+
+  async getAdminResellerStats(period: AdminResellerStatsPeriod = '30d'): Promise<AdminResellerStats> {
+    if (this.isDemoMode()) return demo.demoAdminResellerStats(period);
+    const response = await fetch(`${BASE_URL}/admin/resellers/stats?period=${period}`, {
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<AdminResellerStats>(response);
   }
 
   async getAdminResellerDetail(resellerId: number, params?: { date?: string; start_date?: string; end_date?: string }): Promise<AdminResellerDetail> {

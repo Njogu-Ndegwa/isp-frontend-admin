@@ -14,6 +14,7 @@ import DataTable, { DataTableColumn } from '../../components/DataTable';
 import MobileDataCard from '../../components/MobileDataCard';
 import StatCard from '../../components/StatCard';
 import { PageLoader } from '../../components/LoadingSpinner';
+import ResellerCharts from '../../components/ResellerCharts';
 
 const formatSafeDate = (dateStr: string | null | undefined): string => {
   try {
@@ -200,6 +201,9 @@ export default function ResellersListPage() {
           </div>
         </div>
       )}
+
+      {/* Charts */}
+      <ResellerCharts />
 
       {/* Filters */}
       <div className="space-y-3 mb-6 animate-fade-in">
