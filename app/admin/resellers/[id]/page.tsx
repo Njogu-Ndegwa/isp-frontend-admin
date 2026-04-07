@@ -12,8 +12,6 @@ import {
   AdminTransactionCharge,
   AdminCreateTransactionChargeRequest,
   AdminPaymentMethod,
-  B2BFeePreview,
-  B2BPayoutResponse,
 } from '../../../lib/types';
 import { formatDateGMT3 } from '../../../lib/dateUtils';
 import { useAuth } from '../../../context/AuthContext';
@@ -135,12 +133,11 @@ export default function ResellerDetailPage() {
 
   // B2B Payout modal state
   const [showB2BPayoutModal, setShowB2BPayoutModal] = useState(false);
-  const [b2bStep, setB2bStep] = useState<'preview' | 'confirming' | 'result'>('preview');
-  const [b2bPreview, setB2bPreview] = useState<B2BFeePreview | null>(null);
+  const [b2bStep, setB2bStep] = useState<'confirm' | 'sending' | 'result'>('confirm');
+  const [b2bPreview, setB2bPreview] = useState<Record<string, unknown> | null>(null);
   const [b2bPreviewLoading, setB2bPreviewLoading] = useState(false);
-  const [b2bPreviewError, setB2bPreviewError] = useState('');
   const [b2bSelectedMethodId, setB2bSelectedMethodId] = useState<number | undefined>(undefined);
-  const [b2bResult, setB2bResult] = useState<B2BPayoutResponse | null>(null);
+  const [b2bResult, setB2bResult] = useState<Record<string, unknown> | null>(null);
   const [b2bSubmitting, setB2bSubmitting] = useState(false);
   const [b2bError, setB2bError] = useState('');
 
@@ -316,21 +313,17 @@ export default function ResellerDetailPage() {
 
   const handleOpenB2BPayout = async () => {
     setShowB2BPayoutModal(true);
-    setB2bStep('preview');
+    setB2bStep('confirm');
     setB2bPreview(null);
     setB2bResult(null);
     setB2bError('');
-    setB2bPreviewError('');
     setB2bSelectedMethodId(undefined);
     try {
       setB2bPreviewLoading(true);
       const preview = await api.getB2BFeePreview(resellerId);
       setB2bPreview(preview);
-      if (preview.payment_method_id) {
-        setB2bSelectedMethodId(preview.payment_method_id);
-      }
-    } catch (err) {
-      setB2bPreviewError(err instanceof Error ? err.message : 'Failed to load payout preview');
+    } catch {
+      // Preview is optional — we still show the confirmation with known balance
     } finally {
       setB2bPreviewLoading(false);
     }
@@ -340,19 +333,19 @@ export default function ResellerDetailPage() {
     try {
       setB2bSubmitting(true);
       setB2bError('');
-      setB2bStep('confirming');
+      setB2bStep('sending');
       const result = await api.triggerB2BPayout(
         resellerId,
         b2bSelectedMethodId ? { payment_method_id: b2bSelectedMethodId } : undefined
       );
       setB2bResult(result);
       setB2bStep('result');
-      showAlert('success', 'Payout triggered successfully. It will be processed in the background.');
+      showAlert('success', 'Payout triggered — Safaricom is processing it in the background.');
       setPayoutsLoaded(false);
       fetchDetail(revenueStartDate || revenueEndDate ? { start_date: revenueStartDate, end_date: revenueEndDate } : undefined);
     } catch (err) {
       setB2bError(err instanceof Error ? err.message : 'Failed to trigger payout');
-      setB2bStep('preview');
+      setB2bStep('confirm');
     } finally {
       setB2bSubmitting(false);
     }
@@ -705,8 +698,8 @@ export default function ResellerDetailPage() {
           <div className="absolute inset-0 bg-black/50" onClick={() => !b2bSubmitting && setShowB2BPayoutModal(false)} />
           <div className="relative bg-background-secondary border border-border rounded-2xl w-full max-w-md p-5 max-h-[90vh] overflow-y-auto">
 
-            {/* Preview step */}
-            {b2bStep === 'preview' && (
+            {/* Confirm step */}
+            {b2bStep === 'confirm' && (
               <>
                 <div className="flex items-center gap-3 mb-4">
                   <div className="w-10 h-10 rounded-xl bg-accent-primary/15 flex items-center justify-center">
@@ -718,90 +711,94 @@ export default function ResellerDetailPage() {
                   </div>
                 </div>
 
-                {b2bPreviewLoading ? (
-                  <div className="space-y-3 py-6">
-                    <div className="flex justify-center">
-                      <div className="w-8 h-8 border-2 border-accent-primary border-t-transparent rounded-full animate-spin" />
+                {/* Reseller info from already-loaded detail */}
+                <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-4 mb-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-xs text-foreground-muted">Reseller</p>
+                      <p className="text-sm font-semibold">{detail.organization_name}</p>
+                      <p className="text-xs text-foreground-muted">{detail.business_name}</p>
                     </div>
-                    <p className="text-center text-sm text-foreground-muted">Loading payout preview...</p>
-                  </div>
-                ) : b2bPreviewError ? (
-                  <div className="py-4">
-                    <div className="p-3 rounded-xl bg-danger/10 text-danger text-sm mb-4">{b2bPreviewError}</div>
-                    <div className="flex gap-3">
-                      <button onClick={() => setShowB2BPayoutModal(false)} className="btn-secondary flex-1 py-2.5">Close</button>
-                      <button onClick={handleOpenB2BPayout} className="btn-primary flex-1 py-2.5">Retry</button>
+                    <div className="text-right">
+                      <p className="text-xs text-foreground-muted">Unpaid Balance</p>
+                      <p className="text-xl font-bold text-emerald-500">{formatKES(detail.payouts.unpaid_balance)}</p>
                     </div>
                   </div>
-                ) : b2bPreview ? (
-                  <>
-                    <div className="space-y-3 mb-4">
-                      <div className="rounded-xl border border-border bg-background-tertiary/50 p-4 space-y-3">
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm text-foreground-muted">Balance</span>
-                          <span className="text-lg font-bold">{formatKES(b2bPreview.balance)}</span>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm text-foreground-muted">Fee</span>
-                          <span className="text-sm font-medium text-amber-500">- {formatKES(b2bPreview.fee)}</span>
-                        </div>
-                        <div className="border-t border-border pt-3 flex items-center justify-between">
-                          <span className="text-sm font-medium">Net Payout</span>
-                          <span className="text-xl font-bold text-emerald-500">{formatKES(b2bPreview.net_amount)}</span>
-                        </div>
-                      </div>
 
-                      {b2bPreview.payment_method_label && (
-                        <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-3">
-                          <p className="text-xs text-foreground-muted mb-0.5">Default Payment Method</p>
-                          <p className="text-sm font-medium">{b2bPreview.payment_method_label}</p>
-                        </div>
-                      )}
-
-                      {detail.payment_methods && detail.payment_methods.length > 1 && (
-                        <div>
-                          <label className="block text-sm font-medium mb-1.5">Payment Method</label>
-                          <select
-                            className="select w-full"
-                            value={b2bSelectedMethodId ?? ''}
-                            onChange={(e) => setB2bSelectedMethodId(e.target.value ? Number(e.target.value) : undefined)}
-                          >
-                            <option value="">Default (reseller&apos;s preferred)</option>
-                            {detail.payment_methods.filter(m => m.is_active).map((m) => (
-                              <option key={m.id} value={m.id}>{m.label}</option>
-                            ))}
-                          </select>
-                        </div>
-                      )}
+                  {/* Show preview data from the backend if available */}
+                  {b2bPreviewLoading ? (
+                    <div className="flex items-center gap-2 pt-2 border-t border-emerald-500/20">
+                      <div className="w-4 h-4 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+                      <span className="text-xs text-foreground-muted">Loading fee details...</span>
                     </div>
-
-                    {b2bError && (
-                      <div className="mb-4 p-3 rounded-xl bg-danger/10 text-danger text-sm">{b2bError}</div>
-                    )}
-
-                    <div className="flex gap-3">
-                      <button
-                        onClick={() => setShowB2BPayoutModal(false)}
-                        className="btn-secondary flex-1 py-2.5"
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        onClick={handleConfirmB2BPayout}
-                        className="btn-primary flex-1 py-2.5 flex items-center justify-center gap-2"
-                        disabled={b2bPreview.net_amount <= 0}
-                      >
-                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" /></svg>
-                        Send {formatKES(b2bPreview.net_amount)}
-                      </button>
+                  ) : b2bPreview && Object.keys(b2bPreview).length > 0 ? (
+                    <div className="pt-2 border-t border-emerald-500/20 space-y-1.5">
+                      {Object.entries(b2bPreview)
+                        .filter(([key]) => !['reseller_id', 'payment_method_id'].includes(key))
+                        .map(([key, value]) => (
+                          <div key={key} className="flex items-center justify-between text-sm">
+                            <span className="text-foreground-muted capitalize">{key.replace(/_/g, ' ')}</span>
+                            <span className="font-medium">
+                              {typeof value === 'number' ? formatKES(value) : String(value ?? '-')}
+                            </span>
+                          </div>
+                        ))}
                     </div>
-                  </>
-                ) : null}
+                  ) : (
+                    <p className="text-xs text-foreground-muted pt-2 border-t border-emerald-500/20">
+                      Transaction fees are calculated by the backend during processing.
+                    </p>
+                  )}
+                </div>
+
+                {/* Payment method selector if reseller has multiple */}
+                {detail.payment_methods && detail.payment_methods.filter(m => m.is_active).length > 1 && (
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium mb-1.5">Payment Method</label>
+                    <select
+                      className="select w-full"
+                      value={b2bSelectedMethodId ?? ''}
+                      onChange={(e) => setB2bSelectedMethodId(e.target.value ? Number(e.target.value) : undefined)}
+                    >
+                      <option value="">Default (reseller&apos;s preferred)</option>
+                      {detail.payment_methods.filter(m => m.is_active).map((m) => (
+                        <option key={m.id} value={m.id}>{m.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {b2bError && (
+                  <div className="mb-4 p-3 rounded-xl bg-danger/10 text-danger text-sm">{b2bError}</div>
+                )}
+
+                {detail.payouts.unpaid_balance <= 0 && (
+                  <div className="mb-4 p-3 rounded-xl bg-amber-500/10 text-amber-600 text-sm">
+                    This reseller has no unpaid balance to pay out.
+                  </div>
+                )}
+
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setShowB2BPayoutModal(false)}
+                    className="btn-secondary flex-1 py-2.5"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleConfirmB2BPayout}
+                    className="btn-primary flex-1 py-2.5 flex items-center justify-center gap-2"
+                    disabled={detail.payouts.unpaid_balance <= 0 || b2bSubmitting}
+                  >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" /></svg>
+                    Send Payout
+                  </button>
+                </div>
               </>
             )}
 
-            {/* Confirming step */}
-            {b2bStep === 'confirming' && (
+            {/* Sending step */}
+            {b2bStep === 'sending' && (
               <div className="py-8 text-center space-y-4">
                 <div className="flex justify-center">
                   <div className="w-12 h-12 border-3 border-accent-primary border-t-transparent rounded-full animate-spin" />
@@ -817,53 +814,60 @@ export default function ResellerDetailPage() {
             {b2bStep === 'result' && b2bResult && (
               <div className="space-y-4">
                 <div className="text-center py-2">
-                  <div className="w-14 h-14 rounded-full bg-emerald-500/15 flex items-center justify-center mx-auto mb-3">
-                    <svg className="w-7 h-7 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                  <div className={`w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-3 ${
+                    b2bResult.status === 'failed' ? 'bg-danger/15' : 'bg-emerald-500/15'
+                  }`}>
+                    {b2bResult.status === 'failed' ? (
+                      <svg className="w-7 h-7 text-danger" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                    ) : (
+                      <svg className="w-7 h-7 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                    )}
                   </div>
-                  <h3 className="text-lg font-semibold">Payout Triggered</h3>
-                  <p className="text-sm text-foreground-muted mt-1">The transaction is being processed by Safaricom.</p>
+                  <h3 className="text-lg font-semibold">
+                    {b2bResult.status === 'failed' ? 'Payout Failed' : 'Payout Triggered'}
+                  </h3>
+                  <p className="text-sm text-foreground-muted mt-1">
+                    {b2bResult.status === 'failed'
+                      ? 'The payout could not be processed.'
+                      : b2bResult.status === 'pending'
+                        ? 'The transaction is being processed by Safaricom.'
+                        : 'The payout has been completed.'}
+                  </p>
                 </div>
 
+                {/* Dynamically render whatever the backend returned */}
                 <div className="rounded-xl border border-border bg-background-tertiary/50 p-4 space-y-2.5">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-foreground-muted">Amount</span>
-                    <span className="font-semibold">{formatKES(b2bResult.amount)}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-foreground-muted">Fee</span>
-                    <span className="text-amber-500">{formatKES(b2bResult.fee)}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-foreground-muted">Net</span>
-                    <span className="font-semibold text-emerald-500">{formatKES(b2bResult.net_amount)}</span>
-                  </div>
-                  <div className="border-t border-border pt-2.5 flex justify-between text-sm">
-                    <span className="text-foreground-muted">Status</span>
-                    <span className={`inline-flex items-center gap-1.5 font-medium ${
-                      b2bResult.status === 'completed' ? 'text-emerald-500' :
-                      b2bResult.status === 'failed' ? 'text-danger' :
-                      'text-amber-500'
-                    }`}>
-                      <span className={`w-1.5 h-1.5 rounded-full ${
-                        b2bResult.status === 'completed' ? 'bg-emerald-500' :
-                        b2bResult.status === 'failed' ? 'bg-danger' :
-                        'bg-amber-500 animate-pulse'
-                      }`} />
-                      {b2bResult.status.charAt(0).toUpperCase() + b2bResult.status.slice(1)}
-                    </span>
-                  </div>
-                  {b2bResult.reference && (
-                    <div className="flex justify-between text-sm">
-                      <span className="text-foreground-muted">Reference</span>
-                      <span className="font-mono text-xs">{b2bResult.reference}</span>
-                    </div>
-                  )}
-                  {b2bResult.payment_method_label && (
-                    <div className="flex justify-between text-sm">
-                      <span className="text-foreground-muted">Method</span>
-                      <span>{b2bResult.payment_method_label}</span>
-                    </div>
-                  )}
+                  {Object.entries(b2bResult)
+                    .filter(([key]) => !['reseller_id'].includes(key))
+                    .map(([key, value]) => {
+                      if (value === null || value === undefined) return null;
+                      const label = key.replace(/_/g, ' ');
+                      const isStatus = key === 'status';
+                      const statusStr = String(value);
+                      return (
+                        <div key={key} className={`flex justify-between text-sm ${isStatus ? 'border-t border-border pt-2.5' : ''}`}>
+                          <span className="text-foreground-muted capitalize">{label}</span>
+                          {isStatus ? (
+                            <span className={`inline-flex items-center gap-1.5 font-medium ${
+                              statusStr === 'completed' ? 'text-emerald-500' :
+                              statusStr === 'failed' ? 'text-danger' :
+                              'text-amber-500'
+                            }`}>
+                              <span className={`w-1.5 h-1.5 rounded-full ${
+                                statusStr === 'completed' ? 'bg-emerald-500' :
+                                statusStr === 'failed' ? 'bg-danger' :
+                                'bg-amber-500 animate-pulse'
+                              }`} />
+                              {statusStr.charAt(0).toUpperCase() + statusStr.slice(1)}
+                            </span>
+                          ) : (
+                            <span className="font-medium">
+                              {typeof value === 'number' ? formatKES(value) : String(value)}
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })}
                 </div>
 
                 {b2bResult.status === 'pending' && (

@@ -1438,12 +1438,7 @@ export interface AdminResellerPayoutsInfo {
 }
 
 export interface B2BFeePreview {
-  reseller_id: number;
-  balance: number;
-  fee: number;
-  net_amount: number;
-  payment_method_id?: number;
-  payment_method_label?: string;
+  [key: string]: unknown;
 }
 
 export interface B2BPayoutRequest {
@@ -1451,16 +1446,7 @@ export interface B2BPayoutRequest {
 }
 
 export interface B2BPayoutResponse {
-  id: number;
-  reseller_id: number;
-  amount: number;
-  fee: number;
-  net_amount: number;
-  status: 'pending' | 'completed' | 'failed';
-  payment_method_id?: number;
-  payment_method_label?: string;
-  reference?: string;
-  created_at: string;
+  [key: string]: unknown;
 }
 
 export type AdminPaymentMethodType = 'bank_account' | 'mpesa_paybill' | 'mpesa_paybill_with_keys' | 'zenopay';
