@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { api } from '../lib/api';
@@ -48,6 +48,10 @@ export default function CustomersPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(20);
+  const [allCustomersCache, setAllCustomersCache] = useState<Customer[]>([]);
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  const hasClientFilters = searchQuery.trim() !== '' || connectionFilter !== 'all';
 
   // Modal state
   const [credentialsModal, setCredentialsModal] = useState<PPPoECredentials | null>(null);
@@ -62,31 +66,76 @@ export default function CustomersPage() {
     notes: '',
   });
 
-  const loadCustomers = useCallback(async (pageNum = page) => {
-    try {
-      setLoading(true);
-      const mainRequest = filter === 'active'
-        ? api.getActiveCustomers(1, pageNum, perPage)
-        : api.getCustomers(1, pageNum, perPage);
-      const [result, allResult, activeResult] = await Promise.all([
-        mainRequest,
-        api.getCustomers(1, 1, 1) as Promise<{ data: Customer[]; total: number }>,
-        api.getActiveCustomers(1, 1, 1) as Promise<{ data: Customer[]; total: number }>,
-      ]);
-      setCustomers(result.data);
-      setTotalItems(result.total);
-      setTotalAll(allResult.total);
-      setTotalActive(activeResult.total);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load customers');
-    } finally {
-      setLoading(false);
+  const refreshData = useCallback(() => setRefreshKey(k => k + 1), []);
+
+  const prevSearchRef = useRef(searchQuery);
+  const prevConnFilterRef = useRef(connectionFilter);
+  useEffect(() => {
+    if (prevSearchRef.current !== searchQuery || prevConnFilterRef.current !== connectionFilter) {
+      setPage(1);
+      prevSearchRef.current = searchQuery;
+      prevConnFilterRef.current = connectionFilter;
     }
-  }, [filter, page, perPage]);
+  }, [searchQuery, connectionFilter]);
 
   useEffect(() => {
-    loadCustomers(page);
-  }, [loadCustomers, page]);
+    if (hasClientFilters) return;
+    let cancelled = false;
+    const load = async () => {
+      try {
+        setLoading(true);
+        const mainRequest = filter === 'active'
+          ? api.getActiveCustomers(1, page, perPage)
+          : api.getCustomers(1, page, perPage);
+        const [result, allResult, activeResult] = await Promise.all([
+          mainRequest,
+          api.getCustomers(1, 1, 1) as Promise<{ data: Customer[]; total: number }>,
+          api.getActiveCustomers(1, 1, 1) as Promise<{ data: Customer[]; total: number }>,
+        ]);
+        if (cancelled) return;
+        const paged = result as { data: Customer[]; total: number };
+        setCustomers(paged.data);
+        setTotalItems(paged.total);
+        setAllCustomersCache([]);
+        setTotalAll(allResult.total);
+        setTotalActive(activeResult.total);
+      } catch (err) {
+        if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to load customers');
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    load();
+    return () => { cancelled = true; };
+  }, [filter, page, perPage, hasClientFilters, refreshKey]);
+
+  useEffect(() => {
+    if (!hasClientFilters) return;
+    let cancelled = false;
+    const load = async () => {
+      try {
+        setLoading(true);
+        const mainRequest = filter === 'active'
+          ? api.getActiveCustomers(1)
+          : api.getCustomers(1);
+        const [result, allResult, activeResult] = await Promise.all([
+          mainRequest as Promise<Customer[]>,
+          api.getCustomers(1, 1, 1) as Promise<{ data: Customer[]; total: number }>,
+          api.getActiveCustomers(1, 1, 1) as Promise<{ data: Customer[]; total: number }>,
+        ]);
+        if (cancelled) return;
+        setAllCustomersCache(result as Customer[]);
+        setTotalAll(allResult.total);
+        setTotalActive(activeResult.total);
+      } catch (err) {
+        if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to load customers');
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    load();
+    return () => { cancelled = true; };
+  }, [filter, hasClientFilters, refreshKey]);
 
   const handlePageChange = useCallback((newPage: number) => {
     setPage(newPage);
@@ -98,20 +147,29 @@ export default function CustomersPage() {
     setPage(1);
   }, []);
 
-  const filteredCustomers = customers.filter((customer) => {
-    if (filter === 'inactive' && customer.status !== 'inactive') return false;
-    if (connectionFilter !== 'all' && getConnectionType(customer) !== connectionFilter) return false;
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      return (
-        (customer.name?.toLowerCase() || '').includes(query) ||
-        (customer.phone || '').includes(query) ||
-        (customer.mac_address?.toLowerCase() || '').includes(query) ||
-        (customer.pppoe_username?.toLowerCase() || '').includes(query)
-      );
-    }
-    return true;
-  });
+  const filteredCustomers = useMemo(() => {
+    const source = hasClientFilters ? allCustomersCache : customers;
+    return source.filter((customer) => {
+      if (filter === 'inactive' && customer.status !== 'inactive') return false;
+      if (connectionFilter !== 'all' && getConnectionType(customer) !== connectionFilter) return false;
+      if (searchQuery) {
+        const query = searchQuery.toLowerCase();
+        return (
+          (customer.name?.toLowerCase() || '').includes(query) ||
+          (customer.phone || '').includes(query) ||
+          (customer.mac_address?.toLowerCase() || '').includes(query) ||
+          (customer.pppoe_username?.toLowerCase() || '').includes(query)
+        );
+      }
+      return true;
+    });
+  }, [hasClientFilters, allCustomersCache, customers, filter, connectionFilter, searchQuery]);
+
+  const displayedCustomers = hasClientFilters
+    ? filteredCustomers.slice((page - 1) * perPage, page * perPage)
+    : filteredCustomers;
+
+  const effectiveTotal = hasClientFilters ? filteredCustomers.length : totalItems;
 
   const getStatusBadge = (status: Customer['status']) => {
     const badges = {
@@ -176,7 +234,7 @@ export default function CustomersPage() {
       showAlert('success', `${activateModal.name} activated successfully`);
       setActivateModal(null);
       setActivateForm({ payment_method: 'cash', payment_reference: '', notes: '' });
-      loadCustomers();
+      refreshData();
     } catch (err) {
       showAlert('error', err instanceof Error ? err.message : 'Activation failed');
     } finally {
@@ -191,7 +249,7 @@ export default function CustomersPage() {
       await api.deactivatePPPoE(deactivateConfirm.id);
       showAlert('success', `${deactivateConfirm.name} deactivated`);
       setDeactivateConfirm(null);
-      loadCustomers();
+      refreshData();
     } catch (err) {
       showAlert('error', err instanceof Error ? err.message : 'Deactivation failed');
     } finally {
@@ -209,7 +267,7 @@ export default function CustomersPage() {
         showAlert('warning', 'PPPoE de-provisioning failed — manual cleanup may be needed');
       }
       setDeleteConfirm(null);
-      loadCustomers();
+      refreshData();
     } catch (err) {
       showAlert('error', err instanceof Error ? err.message : 'Failed to delete customer');
     } finally {
@@ -248,7 +306,7 @@ export default function CustomersPage() {
           </div>
           <h2 className="text-xl font-semibold text-foreground mb-2">Failed to Load Customers</h2>
           <p className="text-foreground-muted mb-4">{error}</p>
-          <button onClick={() => loadCustomers(page)} className="btn-primary">
+          <button onClick={() => refreshData()} className="btn-primary">
             Try Again
           </button>
         </div>
@@ -372,7 +430,7 @@ export default function CustomersPage() {
               </button>
             )}
             <button
-              onClick={() => { setFilter('all'); setConnectionFilter('all'); }}
+              onClick={() => { setFilter('all'); setConnectionFilter('all'); setPage(1); }}
               className="text-xs text-foreground-muted hover:text-foreground transition-colors underline underline-offset-2"
             >
               Clear all
@@ -388,7 +446,7 @@ export default function CustomersPage() {
           {/* Desktop Table */}
           <DataTable<Customer>
             columns={CUSTOMER_COLUMNS}
-            data={filteredCustomers}
+            data={displayedCustomers}
             rowKey={(c) => c.id}
             onRowClick={(c) => routerNav.push(`/customers/${c.id}`)}
             renderCell={(customer, key) => {
@@ -518,13 +576,13 @@ export default function CustomersPage() {
               message: searchQuery ? 'No customers match your search' : 'No customers found',
             }}
             footer={
-              <Pagination page={page} perPage={perPage} total={totalItems} onPageChange={handlePageChange} onPerPageChange={handlePerPageChange} loading={loading} noun="customers" />
+              <Pagination page={page} perPage={perPage} total={effectiveTotal} onPageChange={handlePageChange} onPerPageChange={handlePerPageChange} loading={loading} noun="customers" />
             }
           />
 
           {/* Mobile Cards */}
           <div className="md:hidden space-y-3">
-            {filteredCustomers.length === 0 ? (
+            {displayedCustomers.length === 0 ? (
               <div className="card p-8 text-center text-foreground-muted">
                 <svg className="w-12 h-12 mx-auto mb-4 text-foreground-muted/50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -532,7 +590,7 @@ export default function CustomersPage() {
                 {searchQuery ? 'No customers match your search' : 'No customers found'}
               </div>
             ) : (
-              filteredCustomers.map((customer) => (
+              displayedCustomers.map((customer) => (
                 <MobileDataCard
                   key={customer.id}
                   id={customer.id}
@@ -579,6 +637,28 @@ export default function CustomersPage() {
                           </svg>
                         </button>
                       )}
+                      {getConnectionType(customer) === 'pppoe' && (customer.status === 'inactive' || customer.status === 'expired') && (
+                        <button
+                          onClick={(e) => { e.preventDefault(); e.stopPropagation(); setActivateModal(customer); }}
+                          className="p-1.5 rounded-md hover:bg-success/10 transition-colors text-success active:opacity-70"
+                          title="Activate"
+                        >
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M5.636 18.364a9 9 0 010-12.728m12.728 0a9 9 0 010 12.728M9.172 14.828a4 4 0 010-5.656m5.656 0a4 4 0 010 5.656M12 12h.01" />
+                          </svg>
+                        </button>
+                      )}
+                      {getConnectionType(customer) === 'pppoe' && customer.status === 'active' && (
+                        <button
+                          onClick={(e) => { e.preventDefault(); e.stopPropagation(); setDeactivateConfirm(customer); }}
+                          className="p-1.5 rounded-md hover:bg-danger/10 transition-colors text-danger active:opacity-70"
+                          title="Deactivate"
+                        >
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                          </svg>
+                        </button>
+                      )}
                       <button
                         onClick={(e) => { e.preventDefault(); e.stopPropagation(); setDeleteConfirm(customer); }}
                         className="p-1.5 rounded-md hover:bg-danger/10 transition-colors text-foreground-muted hover:text-danger active:opacity-70"
@@ -596,7 +676,7 @@ export default function CustomersPage() {
               ))
             )}
 
-            <Pagination page={page} perPage={perPage} total={totalItems} onPageChange={handlePageChange} onPerPageChange={handlePerPageChange} loading={loading} noun="customers" />
+            <Pagination page={page} perPage={perPage} total={effectiveTotal} onPageChange={handlePageChange} onPerPageChange={handlePerPageChange} loading={loading} noun="customers" />
           </div>
         </>
       )}

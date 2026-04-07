@@ -12,6 +12,8 @@ import {
   AdminTransactionCharge,
   AdminCreateTransactionChargeRequest,
   AdminPaymentMethod,
+  B2BFeePreview,
+  B2BPayoutResponse,
 } from '../../../lib/types';
 import { formatDateGMT3 } from '../../../lib/dateUtils';
 import { useAuth } from '../../../context/AuthContext';
@@ -130,6 +132,17 @@ export default function ResellerDetailPage() {
   });
   const [chargeSubmitting, setChargeSubmitting] = useState(false);
   const [chargeError, setChargeError] = useState('');
+
+  // B2B Payout modal state
+  const [showB2BPayoutModal, setShowB2BPayoutModal] = useState(false);
+  const [b2bStep, setB2bStep] = useState<'preview' | 'confirming' | 'result'>('preview');
+  const [b2bPreview, setB2bPreview] = useState<B2BFeePreview | null>(null);
+  const [b2bPreviewLoading, setB2bPreviewLoading] = useState(false);
+  const [b2bPreviewError, setB2bPreviewError] = useState('');
+  const [b2bSelectedMethodId, setB2bSelectedMethodId] = useState<number | undefined>(undefined);
+  const [b2bResult, setB2bResult] = useState<B2BPayoutResponse | null>(null);
+  const [b2bSubmitting, setB2bSubmitting] = useState(false);
+  const [b2bError, setB2bError] = useState('');
 
   const fetchDetail = useCallback(async (dateParams?: { start_date?: string; end_date?: string }) => {
     try {
@@ -301,6 +314,50 @@ export default function ResellerDetailPage() {
     }
   };
 
+  const handleOpenB2BPayout = async () => {
+    setShowB2BPayoutModal(true);
+    setB2bStep('preview');
+    setB2bPreview(null);
+    setB2bResult(null);
+    setB2bError('');
+    setB2bPreviewError('');
+    setB2bSelectedMethodId(undefined);
+    try {
+      setB2bPreviewLoading(true);
+      const preview = await api.getB2BFeePreview(resellerId);
+      setB2bPreview(preview);
+      if (preview.payment_method_id) {
+        setB2bSelectedMethodId(preview.payment_method_id);
+      }
+    } catch (err) {
+      setB2bPreviewError(err instanceof Error ? err.message : 'Failed to load payout preview');
+    } finally {
+      setB2bPreviewLoading(false);
+    }
+  };
+
+  const handleConfirmB2BPayout = async () => {
+    try {
+      setB2bSubmitting(true);
+      setB2bError('');
+      setB2bStep('confirming');
+      const result = await api.triggerB2BPayout(
+        resellerId,
+        b2bSelectedMethodId ? { payment_method_id: b2bSelectedMethodId } : undefined
+      );
+      setB2bResult(result);
+      setB2bStep('result');
+      showAlert('success', 'Payout triggered successfully. It will be processed in the background.');
+      setPayoutsLoaded(false);
+      fetchDetail(revenueStartDate || revenueEndDate ? { start_date: revenueStartDate, end_date: revenueEndDate } : undefined);
+    } catch (err) {
+      setB2bError(err instanceof Error ? err.message : 'Failed to trigger payout');
+      setB2bStep('preview');
+    } finally {
+      setB2bSubmitting(false);
+    }
+  };
+
   if (user?.role !== 'admin') {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
@@ -348,9 +405,15 @@ export default function ResellerDetailPage() {
         subtitle={detail.email}
         backHref="/admin/resellers"
         action={
-          <button onClick={() => setShowPayoutModal(true)} className="btn-primary text-sm px-4 py-2">
-            Record Payout
-          </button>
+          <div className="flex items-center gap-2">
+            <button onClick={handleOpenB2BPayout} className="btn-primary text-sm px-4 py-2 flex items-center gap-1.5">
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" /></svg>
+              Send Payout
+            </button>
+            <button onClick={() => setShowPayoutModal(true)} className="btn-secondary text-sm px-4 py-2">
+              Record Payout
+            </button>
+          </div>
         }
       />
 
@@ -359,6 +422,7 @@ export default function ResellerDetailPage() {
         methods={detail.payment_methods || []}
         fallbackShortcode={detail.mpesa_shortcode}
         onRecordPayout={() => setShowPayoutModal(true)}
+        onSendPayout={handleOpenB2BPayout}
       />
 
       {/* Profile Info */}
@@ -536,6 +600,7 @@ export default function ResellerDetailPage() {
           onStartDateChange={(d) => { setPayoutStartDate(d); setPayoutsLoaded(false); }}
           onEndDateChange={(d) => { setPayoutEndDate(d); setPayoutsLoaded(false); }}
           onRecordPayout={() => setShowPayoutModal(true)}
+          onSendPayout={handleOpenB2BPayout}
         />
       )}
 
@@ -630,6 +695,193 @@ export default function ResellerDetailPage() {
                 {chargeSubmitting ? 'Recording...' : 'Record Charge'}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* B2B Send Payout Modal */}
+      {showB2BPayoutModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/50" onClick={() => !b2bSubmitting && setShowB2BPayoutModal(false)} />
+          <div className="relative bg-background-secondary border border-border rounded-2xl w-full max-w-md p-5 max-h-[90vh] overflow-y-auto">
+
+            {/* Preview step */}
+            {b2bStep === 'preview' && (
+              <>
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-10 h-10 rounded-xl bg-accent-primary/15 flex items-center justify-center">
+                    <svg className="w-5 h-5 text-accent-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 7l5 5m0 0l-5 5m5-5H6" /></svg>
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-semibold">Send Payout</h3>
+                    <p className="text-xs text-foreground-muted">Trigger M-Pesa B2B payment to {detail.organization_name}</p>
+                  </div>
+                </div>
+
+                {b2bPreviewLoading ? (
+                  <div className="space-y-3 py-6">
+                    <div className="flex justify-center">
+                      <div className="w-8 h-8 border-2 border-accent-primary border-t-transparent rounded-full animate-spin" />
+                    </div>
+                    <p className="text-center text-sm text-foreground-muted">Loading payout preview...</p>
+                  </div>
+                ) : b2bPreviewError ? (
+                  <div className="py-4">
+                    <div className="p-3 rounded-xl bg-danger/10 text-danger text-sm mb-4">{b2bPreviewError}</div>
+                    <div className="flex gap-3">
+                      <button onClick={() => setShowB2BPayoutModal(false)} className="btn-secondary flex-1 py-2.5">Close</button>
+                      <button onClick={handleOpenB2BPayout} className="btn-primary flex-1 py-2.5">Retry</button>
+                    </div>
+                  </div>
+                ) : b2bPreview ? (
+                  <>
+                    <div className="space-y-3 mb-4">
+                      <div className="rounded-xl border border-border bg-background-tertiary/50 p-4 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-foreground-muted">Balance</span>
+                          <span className="text-lg font-bold">{formatKES(b2bPreview.balance)}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-foreground-muted">Fee</span>
+                          <span className="text-sm font-medium text-amber-500">- {formatKES(b2bPreview.fee)}</span>
+                        </div>
+                        <div className="border-t border-border pt-3 flex items-center justify-between">
+                          <span className="text-sm font-medium">Net Payout</span>
+                          <span className="text-xl font-bold text-emerald-500">{formatKES(b2bPreview.net_amount)}</span>
+                        </div>
+                      </div>
+
+                      {b2bPreview.payment_method_label && (
+                        <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-3">
+                          <p className="text-xs text-foreground-muted mb-0.5">Default Payment Method</p>
+                          <p className="text-sm font-medium">{b2bPreview.payment_method_label}</p>
+                        </div>
+                      )}
+
+                      {detail.payment_methods && detail.payment_methods.length > 1 && (
+                        <div>
+                          <label className="block text-sm font-medium mb-1.5">Payment Method</label>
+                          <select
+                            className="select w-full"
+                            value={b2bSelectedMethodId ?? ''}
+                            onChange={(e) => setB2bSelectedMethodId(e.target.value ? Number(e.target.value) : undefined)}
+                          >
+                            <option value="">Default (reseller&apos;s preferred)</option>
+                            {detail.payment_methods.filter(m => m.is_active).map((m) => (
+                              <option key={m.id} value={m.id}>{m.label}</option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
+                    </div>
+
+                    {b2bError && (
+                      <div className="mb-4 p-3 rounded-xl bg-danger/10 text-danger text-sm">{b2bError}</div>
+                    )}
+
+                    <div className="flex gap-3">
+                      <button
+                        onClick={() => setShowB2BPayoutModal(false)}
+                        className="btn-secondary flex-1 py-2.5"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={handleConfirmB2BPayout}
+                        className="btn-primary flex-1 py-2.5 flex items-center justify-center gap-2"
+                        disabled={b2bPreview.net_amount <= 0}
+                      >
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" /></svg>
+                        Send {formatKES(b2bPreview.net_amount)}
+                      </button>
+                    </div>
+                  </>
+                ) : null}
+              </>
+            )}
+
+            {/* Confirming step */}
+            {b2bStep === 'confirming' && (
+              <div className="py-8 text-center space-y-4">
+                <div className="flex justify-center">
+                  <div className="w-12 h-12 border-3 border-accent-primary border-t-transparent rounded-full animate-spin" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold mb-1">Sending Payout...</h3>
+                  <p className="text-sm text-foreground-muted">Triggering M-Pesa B2B payment. Please wait.</p>
+                </div>
+              </div>
+            )}
+
+            {/* Result step */}
+            {b2bStep === 'result' && b2bResult && (
+              <div className="space-y-4">
+                <div className="text-center py-2">
+                  <div className="w-14 h-14 rounded-full bg-emerald-500/15 flex items-center justify-center mx-auto mb-3">
+                    <svg className="w-7 h-7 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                  </div>
+                  <h3 className="text-lg font-semibold">Payout Triggered</h3>
+                  <p className="text-sm text-foreground-muted mt-1">The transaction is being processed by Safaricom.</p>
+                </div>
+
+                <div className="rounded-xl border border-border bg-background-tertiary/50 p-4 space-y-2.5">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-foreground-muted">Amount</span>
+                    <span className="font-semibold">{formatKES(b2bResult.amount)}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-foreground-muted">Fee</span>
+                    <span className="text-amber-500">{formatKES(b2bResult.fee)}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-foreground-muted">Net</span>
+                    <span className="font-semibold text-emerald-500">{formatKES(b2bResult.net_amount)}</span>
+                  </div>
+                  <div className="border-t border-border pt-2.5 flex justify-between text-sm">
+                    <span className="text-foreground-muted">Status</span>
+                    <span className={`inline-flex items-center gap-1.5 font-medium ${
+                      b2bResult.status === 'completed' ? 'text-emerald-500' :
+                      b2bResult.status === 'failed' ? 'text-danger' :
+                      'text-amber-500'
+                    }`}>
+                      <span className={`w-1.5 h-1.5 rounded-full ${
+                        b2bResult.status === 'completed' ? 'bg-emerald-500' :
+                        b2bResult.status === 'failed' ? 'bg-danger' :
+                        'bg-amber-500 animate-pulse'
+                      }`} />
+                      {b2bResult.status.charAt(0).toUpperCase() + b2bResult.status.slice(1)}
+                    </span>
+                  </div>
+                  {b2bResult.reference && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-foreground-muted">Reference</span>
+                      <span className="font-mono text-xs">{b2bResult.reference}</span>
+                    </div>
+                  )}
+                  {b2bResult.payment_method_label && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-foreground-muted">Method</span>
+                      <span>{b2bResult.payment_method_label}</span>
+                    </div>
+                  )}
+                </div>
+
+                {b2bResult.status === 'pending' && (
+                  <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-3">
+                    <p className="text-xs text-foreground-muted">
+                      Safaricom will process this in the background. The status will update automatically once the callback is received.
+                    </p>
+                  </div>
+                )}
+
+                <button
+                  onClick={() => setShowB2BPayoutModal(false)}
+                  className="btn-primary w-full py-2.5"
+                >
+                  Done
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -962,6 +1214,7 @@ function PayoutsTab({
   onStartDateChange,
   onEndDateChange,
   onRecordPayout,
+  onSendPayout,
 }: {
   payouts: AdminPayout[];
   loading: boolean;
@@ -975,6 +1228,7 @@ function PayoutsTab({
   onStartDateChange: (d: string) => void;
   onEndDateChange: (d: string) => void;
   onRecordPayout: () => void;
+  onSendPayout: () => void;
 }) {
   return (
     <div className="space-y-3">
@@ -982,9 +1236,15 @@ function PayoutsTab({
         <FilterDatePicker value={startDate} onChange={onStartDateChange} />
         <span className="text-foreground-muted text-sm">to</span>
         <FilterDatePicker value={endDate} onChange={onEndDateChange} />
-        <button onClick={onRecordPayout} className="btn-primary text-sm px-3 py-1.5 ml-auto">
-          Record Payout
-        </button>
+        <div className="flex items-center gap-2 ml-auto">
+          <button onClick={onSendPayout} className="btn-primary text-sm px-3 py-1.5 flex items-center gap-1.5">
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" /></svg>
+            Send Payout
+          </button>
+          <button onClick={onRecordPayout} className="btn-secondary text-sm px-3 py-1.5">
+            Record Payout
+          </button>
+        </div>
       </div>
 
       {loading ? (
@@ -1261,15 +1521,17 @@ function PaymentMethodsSection({
   methods,
   fallbackShortcode,
   onRecordPayout,
+  onSendPayout,
 }: {
   methods: AdminPaymentMethod[];
   fallbackShortcode: string;
   onRecordPayout: () => void;
+  onSendPayout: () => void;
 }) {
   if (methods.length === 0) {
     return (
       <div className="card p-4 sm:p-5 border-2 border-emerald-500/30 bg-emerald-500/5">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-emerald-500/15 flex items-center justify-center">
               <svg className="w-5 h-5 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
@@ -1279,13 +1541,22 @@ function PaymentMethodsSection({
               <p className="text-2xl font-bold text-emerald-500 font-mono tracking-wider">{fallbackShortcode}</p>
             </div>
           </div>
-          <button
-            onClick={onRecordPayout}
-            className="btn-primary text-sm px-4 py-2 flex items-center gap-1.5"
-          >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
-            Record Payout
-          </button>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={onSendPayout}
+              className="btn-primary text-sm px-4 py-2 flex items-center gap-1.5"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" /></svg>
+              Send Payout
+            </button>
+            <button
+              onClick={onRecordPayout}
+              className="btn-secondary text-sm px-4 py-2 flex items-center gap-1.5"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
+              Record
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -1304,13 +1575,22 @@ function PaymentMethodsSection({
             ({active.length} active{inactive.length > 0 ? `, ${inactive.length} inactive` : ''})
           </span>
         </h3>
-        <button
-          onClick={onRecordPayout}
-          className="btn-primary text-sm px-3 py-1.5 flex items-center gap-1.5"
-        >
-          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
-          Record Payout
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={onSendPayout}
+            className="btn-primary text-sm px-3 py-1.5 flex items-center gap-1.5"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" /></svg>
+            Send Payout
+          </button>
+          <button
+            onClick={onRecordPayout}
+            className="btn-secondary text-sm px-3 py-1.5 flex items-center gap-1.5"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
+            Record
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

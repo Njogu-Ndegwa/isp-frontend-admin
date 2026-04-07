@@ -86,6 +86,9 @@ import {
   ResellerAccountStatement,
   AdminResellerStats,
   AdminResellerStatsPeriod,
+  B2BFeePreview,
+  B2BPayoutRequest,
+  B2BPayoutResponse,
   PaginatedResponse,
   UserProfile,
   UpdateProfileRequest,
@@ -1202,6 +1205,26 @@ class ApiClient {
       headers: this.getHeaders(),
     });
     return this.handleResponse<AdminPayoutsResponse>(response);
+  }
+
+  // B2B Payout (backend-triggered M-Pesa payout)
+
+  async getB2BFeePreview(resellerId: number): Promise<B2BFeePreview> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(`${BASE_URL}/admin/resellers/${resellerId}/b2b-fee-preview`, {
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<B2BFeePreview>(response);
+  }
+
+  async triggerB2BPayout(resellerId: number, data?: B2BPayoutRequest): Promise<B2BPayoutResponse> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(`${BASE_URL}/admin/resellers/${resellerId}/b2b-payout`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify(data || {}),
+    });
+    return this.handleResponse<B2BPayoutResponse>(response);
   }
 
   // Admin Transaction Charges
