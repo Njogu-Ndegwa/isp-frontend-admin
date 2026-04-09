@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { api } from '../lib/api';
-import { AdminDashboard } from '../lib/types';
+import { AdminDashboard, AdminExpiringSoon } from '../lib/types';
 import { formatDateGMT3 } from '../lib/dateUtils';
 import { useAuth } from '../context/AuthContext';
 import Header from '../components/Header';
@@ -32,13 +32,18 @@ export default function AdminDashboardPage() {
   const [data, setData] = useState<AdminDashboard | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [expiring, setExpiring] = useState<AdminExpiringSoon | null>(null);
 
   const fetchDashboard = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-      const result = await api.getAdminDashboard();
+      const [result, expiringResult] = await Promise.all([
+        api.getAdminDashboard(),
+        api.getAdminExpiringSoon(7).catch(() => null),
+      ]);
       setData(result);
+      setExpiring(expiringResult);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load dashboard');
     } finally {
@@ -137,6 +142,63 @@ export default function AdminDashboardPage() {
               </div>
             ))}
           </div>
+
+          {/* Subscription Stats */}
+          {(data.resellers.subscription_active != null || data.resellers.subscription_trial != null) && (
+            <div className="card p-4 sm:p-5">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-semibold text-foreground">Subscription Status</h3>
+                <Link href="/admin/subscriptions" className="text-xs text-accent-primary hover:underline">View all</Link>
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div className="p-3 rounded-xl bg-emerald-500/5 border border-emerald-500/10">
+                  <p className="text-xs text-foreground-muted mb-0.5">Active</p>
+                  <p className="text-lg font-bold text-emerald-500">{data.resellers.subscription_active ?? 0}</p>
+                </div>
+                <div className="p-3 rounded-xl bg-blue-500/5 border border-blue-500/10">
+                  <p className="text-xs text-foreground-muted mb-0.5">Trial</p>
+                  <p className="text-lg font-bold text-blue-500">{data.resellers.subscription_trial ?? 0}</p>
+                </div>
+                <div className="p-3 rounded-xl bg-red-500/5 border border-red-500/10">
+                  <p className="text-xs text-foreground-muted mb-0.5">Suspended</p>
+                  <p className="text-lg font-bold text-red-500">{data.resellers.subscription_suspended ?? 0}</p>
+                </div>
+                <div className="p-3 rounded-xl bg-gray-500/5 border border-gray-500/10">
+                  <p className="text-xs text-foreground-muted mb-0.5">Inactive</p>
+                  <p className="text-lg font-bold text-gray-400">{data.resellers.subscription_inactive ?? 0}</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Expiring Soon */}
+          {expiring && expiring.total > 0 && (
+            <div className="card p-4 sm:p-5 border-amber-500/20">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-semibold text-amber-500">
+                  {expiring.total} subscription{expiring.total !== 1 ? 's' : ''} expiring in {expiring.days_threshold} days
+                </h3>
+                <Link href="/admin/subscriptions" className="text-xs text-amber-500 hover:underline">View all</Link>
+              </div>
+              <div className="space-y-2">
+                {expiring.resellers.slice(0, 5).map((r) => (
+                  <Link
+                    key={r.id}
+                    href={`/admin/subscriptions/${r.id}`}
+                    className="flex items-center justify-between p-3 rounded-xl bg-background-tertiary/50 hover:bg-background-tertiary transition-colors"
+                  >
+                    <div>
+                      <p className="text-sm font-medium text-foreground">{r.organization_name}</p>
+                      <p className="text-xs text-foreground-muted">{r.email}</p>
+                    </div>
+                    <span className="text-xs font-semibold text-amber-500">
+                      {r.days_until_expiry} day{r.days_until_expiry !== 1 ? 's' : ''} left
+                    </span>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Payouts Overview */}
           <div className="card p-4 sm:p-5">

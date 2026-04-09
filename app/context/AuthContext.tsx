@@ -2,13 +2,14 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { api } from '../lib/api';
-import { LoginRequest, AuthUser } from '../lib/types';
+import { LoginRequest, AuthUser, SubscriptionAlert } from '../lib/types';
 
 const DEMO_USER: AuthUser = {
   id: 0,
   email: 'demo@bitwave.co.ke',
   role: 'reseller',
   organization_name: 'Demo ISP Network',
+  subscription_status: 'trial',
 };
 
 interface AuthContextType {
@@ -16,10 +17,12 @@ interface AuthContextType {
   isLoading: boolean;
   isDemo: boolean;
   user: AuthUser | null;
-  login: (credentials: LoginRequest) => Promise<void>;
+  subscriptionAlert: SubscriptionAlert | null;
+  login: (credentials: LoginRequest) => Promise<SubscriptionAlert | undefined>;
   loginAsDemo: () => void;
   logout: () => void;
   updateUser: (updates: Partial<AuthUser>) => void;
+  setSubscriptionAlert: (alert: SubscriptionAlert | null) => void;
   token: string | null;
 }
 
@@ -30,6 +33,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isDemo, setIsDemo] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [subscriptionAlert, setSubscriptionAlert] = useState<SubscriptionAlert | null>(null);
 
   useEffect(() => {
     const demoMode = localStorage.getItem('demo_mode') === 'true';
@@ -55,7 +59,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsLoading(false);
   }, []);
 
-  const login = async (credentials: LoginRequest) => {
+  const login = async (credentials: LoginRequest): Promise<SubscriptionAlert | undefined> => {
     const response = await api.login(credentials);
     localStorage.removeItem('demo_mode');
     localStorage.setItem('auth_token', response.access_token);
@@ -63,6 +67,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsDemo(false);
     setToken(response.access_token);
     setUser(response.user);
+
+    if (response.subscription_alert) {
+      setSubscriptionAlert(response.subscription_alert);
+    }
+
+    return response.subscription_alert;
   };
 
   const loginAsDemo = () => {
@@ -81,6 +91,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setToken(null);
     setUser(null);
     setIsDemo(false);
+    setSubscriptionAlert(null);
   };
 
   const updateUser = (updates: Partial<AuthUser>) => {
@@ -99,10 +110,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isLoading,
         isDemo,
         user,
+        subscriptionAlert,
         login,
         loginAsDemo,
         logout,
         updateUser,
+        setSubscriptionAlert,
         token,
       }}
     >
@@ -118,10 +131,3 @@ export function useAuth() {
   }
   return context;
 }
-
-
-
-
-
-
-

@@ -5,6 +5,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '../context/AuthContext';
 import CollapsibleSidebar from './CollapsibleSidebar';
 import MobileBottomNav from './MobileBottomNav';
+import SubscriptionBlockedModal from './SubscriptionBlockedModal';
 
 const PUBLIC_PATHS = ['/', '/login', '/landing', '/signup'];
 
@@ -79,6 +80,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
       {isDemo && <DemoBanner />}
       <CollapsibleSidebar />
       <MobileBottomNav />
+      <SubscriptionBlockedModal />
       <main className="min-h-screen p-4 md:p-8 md:ml-16 lg:ml-64 pb-24 md:pb-8">
         {children}
       </main>

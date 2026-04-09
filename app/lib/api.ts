@@ -93,6 +93,22 @@ import {
   UserProfile,
   UpdateProfileRequest,
   ChangePasswordRequest,
+  SubscriptionOverview,
+  SubscriptionInvoice,
+  SubscriptionInvoicesResponse,
+  SubscriptionPaymentsResponse,
+  SubscriptionPayRequest,
+  SubscriptionPayResponse,
+  AdminSubscriptionsResponse,
+  AdminSubscriptionRevenue,
+  AdminExpiringSoon,
+  AdminSubscriptionDetail,
+  EditSubscriptionRequest,
+  EditSubscriptionResponse,
+  ActivateSubscriptionResponse,
+  DeactivateSubscriptionResponse,
+  WaiveInvoiceResponse,
+  GenerateInvoicesResponse,
 } from './types';
 import * as demo from './demoData';
 
@@ -137,7 +153,11 @@ class ApiClient {
         throw new Error('Session expired. Please log in again.');
       }
       const error = await response.json().catch(() => ({ detail: 'An error occurred' }));
-      throw new Error(error.detail || `HTTP error! status: ${response.status}`);
+      const errorMessage = typeof error.detail === 'string' ? error.detail : JSON.stringify(error.detail) || `HTTP error! status: ${response.status}`;
+      if (response.status === 403 && typeof errorMessage === 'string' && errorMessage.includes('subscription') && typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('subscription-blocked', { detail: errorMessage }));
+      }
+      throw new Error(errorMessage);
     }
     return response.json();
   }
@@ -1413,6 +1433,135 @@ class ApiClient {
       headers: this.getHeaders(),
     });
     return this.handleResponse<{ message: string }>(response);
+  }
+
+  // Reseller Subscription
+  async getSubscription(): Promise<SubscriptionOverview> {
+    const response = await fetch(`${BASE_URL}/subscription`, {
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<SubscriptionOverview>(response);
+  }
+
+  async getCurrentInvoice(): Promise<{ current_invoice: SubscriptionInvoice | null }> {
+    const response = await fetch(`${BASE_URL}/subscription/current-invoice`, {
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<{ current_invoice: SubscriptionInvoice | null }>(response);
+  }
+
+  async getSubscriptionInvoices(page = 1, perPage = 20, status?: string): Promise<SubscriptionInvoicesResponse> {
+    const params = new URLSearchParams({ page: page.toString(), per_page: perPage.toString() });
+    if (status) params.set('status', status);
+    const response = await fetch(`${BASE_URL}/subscription/invoices?${params.toString()}`, {
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<SubscriptionInvoicesResponse>(response);
+  }
+
+  async getSubscriptionInvoice(invoiceId: number): Promise<SubscriptionInvoice> {
+    const response = await fetch(`${BASE_URL}/subscription/invoices/${invoiceId}`, {
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<SubscriptionInvoice>(response);
+  }
+
+  async paySubscriptionInvoice(data: SubscriptionPayRequest): Promise<SubscriptionPayResponse> {
+    const response = await fetch(`${BASE_URL}/subscription/pay`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify(data),
+    });
+    return this.handleResponse<SubscriptionPayResponse>(response);
+  }
+
+  async getSubscriptionPayments(page = 1, perPage = 20): Promise<SubscriptionPaymentsResponse> {
+    const params = new URLSearchParams({ page: page.toString(), per_page: perPage.toString() });
+    const response = await fetch(`${BASE_URL}/subscription/payments?${params.toString()}`, {
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<SubscriptionPaymentsResponse>(response);
+  }
+
+  // Admin Subscription Management
+  async getAdminSubscriptions(params?: {
+    status?: string;
+    sort_by?: string;
+    sort_order?: string;
+    search?: string;
+  }): Promise<AdminSubscriptionsResponse> {
+    const qs = new URLSearchParams();
+    if (params?.status) qs.set('status', params.status);
+    if (params?.sort_by) qs.set('sort_by', params.sort_by);
+    if (params?.sort_order) qs.set('sort_order', params.sort_order);
+    if (params?.search) qs.set('search', params.search);
+    const query = qs.toString() ? `?${qs.toString()}` : '';
+    const response = await fetch(`${BASE_URL}/admin/subscriptions${query}`, {
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<AdminSubscriptionsResponse>(response);
+  }
+
+  async getAdminSubscriptionRevenue(): Promise<AdminSubscriptionRevenue> {
+    const response = await fetch(`${BASE_URL}/admin/subscriptions/revenue`, {
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<AdminSubscriptionRevenue>(response);
+  }
+
+  async getAdminExpiringSoon(days = 7): Promise<AdminExpiringSoon> {
+    const response = await fetch(`${BASE_URL}/admin/subscriptions/expiring-soon?days=${days}`, {
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<AdminExpiringSoon>(response);
+  }
+
+  async getAdminSubscriptionDetail(resellerId: number): Promise<AdminSubscriptionDetail> {
+    const response = await fetch(`${BASE_URL}/admin/subscriptions/${resellerId}`, {
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<AdminSubscriptionDetail>(response);
+  }
+
+  async editAdminSubscription(resellerId: number, data: EditSubscriptionRequest): Promise<EditSubscriptionResponse> {
+    const response = await fetch(`${BASE_URL}/admin/subscriptions/${resellerId}`, {
+      method: 'PATCH',
+      headers: this.getHeaders(),
+      body: JSON.stringify(data),
+    });
+    return this.handleResponse<EditSubscriptionResponse>(response);
+  }
+
+  async activateSubscription(resellerId: number, months = 1): Promise<ActivateSubscriptionResponse> {
+    const response = await fetch(`${BASE_URL}/admin/subscriptions/${resellerId}/activate?months=${months}`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<ActivateSubscriptionResponse>(response);
+  }
+
+  async deactivateSubscription(resellerId: number): Promise<DeactivateSubscriptionResponse> {
+    const response = await fetch(`${BASE_URL}/admin/subscriptions/${resellerId}/deactivate`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<DeactivateSubscriptionResponse>(response);
+  }
+
+  async waiveInvoice(resellerId: number, invoiceId: number): Promise<WaiveInvoiceResponse> {
+    const response = await fetch(`${BASE_URL}/admin/subscriptions/${resellerId}/waive/${invoiceId}`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<WaiveInvoiceResponse>(response);
+  }
+
+  async generateInvoices(): Promise<GenerateInvoicesResponse> {
+    const response = await fetch(`${BASE_URL}/admin/subscriptions/generate-invoices`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<GenerateInvoicesResponse>(response);
   }
 }
 

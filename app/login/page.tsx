@@ -30,8 +30,21 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      await login(credentials);
+      const subscriptionAlert = await login(credentials);
       showAlert('success', 'Signed in successfully!');
+
+      if (subscriptionAlert) {
+        const status = subscriptionAlert.status;
+        if (status === 'suspended' || status === 'inactive') {
+          showAlert('warning', subscriptionAlert.message);
+          router.push('/settings/subscription');
+          return;
+        }
+        if (subscriptionAlert.message) {
+          showAlert('info', subscriptionAlert.message);
+        }
+      }
+
       router.push('/dashboard');
     } catch (err) {
       const message =

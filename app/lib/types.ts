@@ -725,12 +725,24 @@ export interface AuthUser {
   email: string;
   role: string;
   organization_name: string;
+  business_name?: string;
+  support_phone?: string;
+  mpesa_shortcode?: string;
+  subscription_status?: string;
+  subscription_expires_at?: string | null;
+}
+
+export interface SubscriptionAlert {
+  status: string;
+  message: string;
+  current_invoice: SubscriptionInvoice | null;
 }
 
 export interface LoginResponse {
   access_token: string;
   token_type: string;
   user: AuthUser;
+  subscription_alert?: SubscriptionAlert;
 }
 
 export interface AuthState {
@@ -1355,6 +1367,8 @@ export interface AdminReseller {
   router_count: number;
   unpaid_balance: number;
   total_transaction_charges?: number;
+  subscription_status?: string;
+  subscription_expires_at?: string | null;
 }
 
 export type AdminResellerFilter =
@@ -1528,6 +1542,10 @@ export interface AdminDashboard {
   resellers: {
     total: number;
     active_last_30_days: number;
+    subscription_active?: number;
+    subscription_trial?: number;
+    subscription_suspended?: number;
+    subscription_inactive?: number;
   };
   revenue: AdminDashboardRevenue;
   customers: {
@@ -1697,4 +1715,177 @@ export interface AdminResellerStats {
     mpesa_revenue: number;
     new_resellers: number;
   };
+}
+
+// Subscription Types
+
+export interface SubscriptionInvoice {
+  id: number;
+  user_id?: number;
+  period_start?: string;
+  period_end?: string;
+  period_label: string;
+  hotspot_revenue?: number;
+  hotspot_charge?: number;
+  pppoe_user_count?: number;
+  pppoe_charge?: number;
+  gross_charge?: number;
+  final_charge: number;
+  status: string;
+  due_date: string;
+  paid_at?: string | null;
+  days_until_due?: number;
+  is_overdue?: boolean;
+  is_due_soon?: boolean;
+  human_message?: string;
+  created_at?: string;
+  payments?: SubscriptionPayment[];
+}
+
+export interface SubscriptionPayment {
+  id: number;
+  invoice_id?: number;
+  amount: number;
+  payment_method: string;
+  payment_reference: string;
+  phone_number?: string;
+  status: string;
+  created_at: string;
+}
+
+export interface SubscriptionOverview {
+  status: string;
+  expires_at: string | null;
+  trial_ends_at: string | null;
+  current_period_start: string | null;
+  current_period_end: string | null;
+  total_paid: number;
+  invoice_count: number;
+  pending_invoice: SubscriptionInvoice | null;
+}
+
+export interface SubscriptionInvoicesResponse {
+  page: number;
+  per_page: number;
+  total: number;
+  total_pages: number;
+  invoices: SubscriptionInvoice[];
+}
+
+export interface SubscriptionPaymentsResponse {
+  page: number;
+  per_page: number;
+  total: number;
+  total_pages: number;
+  payments: SubscriptionPayment[];
+}
+
+export interface SubscriptionPayRequest {
+  invoice_id: number;
+  phone_number: string;
+}
+
+export interface SubscriptionPayResponse {
+  message: string;
+  payment_id: number;
+  checkout_request_id: string;
+  amount: number;
+  phone_number: string;
+}
+
+export interface AdminSubscription {
+  id: number;
+  email: string;
+  organization_name: string;
+  business_name?: string;
+  subscription_status: string;
+  subscription_expires_at: string | null;
+  total_paid: number;
+  outstanding: number;
+  pending_invoice?: SubscriptionInvoice | null;
+  created_at: string;
+  last_login_at: string | null;
+}
+
+export interface AdminSubscriptionsResponse {
+  total: number;
+  subscriptions: AdminSubscription[];
+}
+
+export interface AdminSubscriptionRevenue {
+  total_collected: number;
+  this_month_collected: number;
+  total_outstanding: number;
+  total_invoices: number;
+  overdue_invoices: number;
+  resellers: {
+    active: number;
+    trial: number;
+    suspended: number;
+  };
+}
+
+export interface AdminExpiringSoon {
+  days_threshold: number;
+  total: number;
+  resellers: {
+    id: number;
+    email: string;
+    organization_name: string;
+    subscription_status: string;
+    subscription_expires_at: string;
+    days_until_expiry: number;
+  }[];
+}
+
+export interface AdminSubscriptionDetail {
+  reseller: {
+    id: number;
+    email: string;
+    organization_name: string;
+    business_name?: string;
+  };
+  subscription: SubscriptionOverview;
+  invoices: SubscriptionInvoice[];
+  payments: SubscriptionPayment[];
+}
+
+export interface EditSubscriptionRequest {
+  subscription_status?: string;
+  subscription_expires_at?: string;
+  adjust_days?: number;
+}
+
+export interface EditSubscriptionResponse {
+  message: string;
+  reseller_id: number;
+  subscription_status: string;
+  subscription_expires_at: string;
+  days_remaining: number;
+}
+
+export interface ActivateSubscriptionResponse {
+  message: string;
+  reseller_id: number;
+  subscription_status: string;
+  subscription_expires_at: string;
+}
+
+export interface DeactivateSubscriptionResponse {
+  message: string;
+  reseller_id: number;
+  subscription_status: string;
+}
+
+export interface WaiveInvoiceResponse {
+  message: string;
+  invoice_id: number;
+  reseller_id: number;
+}
+
+export interface GenerateInvoicesResponse {
+  message: string;
+  generated: number;
+  skipped: number;
+  errors: string[];
 }

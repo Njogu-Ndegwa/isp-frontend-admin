@@ -2,7 +2,8 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { api } from '../lib/api';
-import { DashboardAnalytics, DayDetail, MikroTikMetrics, MikroTikInterface, BandwidthHistory, BandwidthDataPoint, TopUsersResponse } from '../lib/types';
+import { DashboardAnalytics, DayDetail, MikroTikMetrics, MikroTikInterface, BandwidthHistory, BandwidthDataPoint, TopUsersResponse, SubscriptionAlert } from '../lib/types';
+import { useAuth } from '../context/AuthContext';
 import { parseUTCToGMT3, formatGMT3Date, formatTimeGMT3, formatDateOnlyGMT3 } from '../lib/dateUtils';
 import {
   AreaChart,
@@ -18,6 +19,7 @@ import Header from '../components/Header';
 import StatCard from '../components/StatCard';
 import { SkeletonCard } from '../components/LoadingSpinner';
 import RouterSelector from '../components/RouterSelector';
+import SubscriptionAlertBanner from '../components/SubscriptionAlertBanner';
 
 // Date filter types
 type DateFilterPreset = 'today' | 'this_month';
@@ -37,6 +39,8 @@ const DATE_FILTER_OPTIONS: { filter: DateFilter; label: string }[] = [
 ];
 
 export default function DashboardPage() {
+  const { subscriptionAlert: authAlert } = useAuth();
+
   // Analytics state
   const [data, setData] = useState<DashboardAnalytics | null>(null);
   const [analyticsLoading, setAnalyticsLoading] = useState(true);
@@ -69,6 +73,9 @@ export default function DashboardPage() {
   const [showCustomRange, setShowCustomRange] = useState(false);
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
+
+  // Subscription alert
+  const [subscriptionAlert, setSubscriptionAlert] = useState<SubscriptionAlert | null>(null);
 
   // Helper to check if two date filters are equal
   const isFilterEqual = (a: DateFilter, b: DateFilter): boolean => {
@@ -158,6 +165,16 @@ export default function DashboardPage() {
     }
   }, [selectedRouterId]);
 
+  // Load subscription alert on mount
+  useEffect(() => {
+    api.getDashboardOverview().then((overview) => {
+      const data = overview as unknown as { subscription_alert?: SubscriptionAlert };
+      if (data?.subscription_alert) {
+        setSubscriptionAlert(data.subscription_alert);
+      }
+    }).catch(() => {});
+  }, []);
+
   // Load both in parallel on mount and when selectedDays changes
   useEffect(() => {
     loadAnalytics();
@@ -218,6 +235,11 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
+      {/* Subscription Alert Banner */}
+      {(subscriptionAlert || authAlert) && (
+        <SubscriptionAlertBanner alert={(subscriptionAlert || authAlert)!} />
+      )}
+
       <Header 
         title="Dashboard" 
         subtitle={`Analytics overview for ${getPeriodLabel(dateFilter)}`}
