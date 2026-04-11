@@ -56,6 +56,7 @@ import {
   PPPoEDiagnoseResponse,
   PPPoELogsResponse,
   PPPoESecretsResponse,
+  PPPoEMonitorResponse,
   HotspotOverviewResponse,
   HotspotLogsResponse,
   PortStatusResponse,
@@ -985,6 +986,15 @@ class ApiClient {
       body: JSON.stringify(data),
     });
     return this.handleResponse<UpdateDualPortsResponse>(response);
+  }
+
+  // PPPoE User Monitoring (bandwidth & online status)
+  async getPPPoEUsers(routerId: number, refresh = false): Promise<PPPoEMonitorResponse> {
+    const params = refresh ? '?refresh=true' : '';
+    const response = await fetch(`${BASE_URL}/pppoe/${routerId}/users${params}`, {
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<PPPoEMonitorResponse>(response);
   }
 
   // MikroTik PPPoE Monitoring

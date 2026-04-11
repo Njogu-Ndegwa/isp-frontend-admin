@@ -1232,6 +1232,59 @@ export interface PPPoESecretsResponse {
   count: number;
 }
 
+// PPPoE User Monitoring
+export interface PPPoEMonitorCustomer {
+  id: number;
+  name: string;
+  phone: string;
+  status: string;
+  plan: string | null;
+  plan_speed: string | null;
+  expiry: string | null;
+}
+
+export interface PPPoEMonitorUser {
+  username: string;
+  service: string;
+  profile: string;
+  disabled: boolean;
+  comment: string;
+  online: boolean;
+  address: string | null;
+  uptime: string | null;
+  caller_id: string | null;
+  upload_bytes: number;
+  download_bytes: number;
+  upload_rate: string;
+  download_rate: string;
+  max_limit: string;
+  last_logged_out: string;
+  last_disconnect_reason: string;
+  last_caller_id: string;
+  customer: PPPoEMonitorCustomer | null;
+}
+
+export interface PPPoEMonitorSummary {
+  total: number;
+  online: number;
+  offline: number;
+  disabled: number;
+  total_upload_rate_bps: number;
+  total_download_rate_bps: number;
+}
+
+export interface PPPoEMonitorResponse {
+  router_id: number;
+  router_name: string;
+  generated_at: string;
+  cached: boolean;
+  stale?: boolean;
+  cache_age_seconds: number | null;
+  success: boolean;
+  summary: PPPoEMonitorSummary;
+  users: PPPoEMonitorUser[];
+}
+
 export interface HotspotOverviewResponse {
   router_id: number;
   router_name: string;
