@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { api } from '../lib/api';
 import { MpesaTransaction, TransactionSummary } from '../lib/types';
 import { formatDateGMT3 } from '../lib/dateUtils';
@@ -98,59 +98,79 @@ export default function TransactionsPage() {
   const [perPage, setPerPage] = useState(20);
   const [provisioningId, setProvisioningId] = useState<number | null>(null);
 
-  const abortRef = useRef<AbortController | null>(null);
   const { showAlert } = useAlert();
+  const [allTransactionsCache, setAllTransactionsCache] = useState<MpesaTransaction[]>([]);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const hasSearchFilter = searchQuery.trim() !== '';
 
-  const loadData = useCallback(async (pageNum = page) => {
-    if (abortRef.current) {
-      abortRef.current.abort();
+  const refreshData = useCallback(() => setRefreshKey(k => k + 1), []);
+
+  const prevSearchRef = useRef(searchQuery);
+  useEffect(() => {
+    if (prevSearchRef.current !== searchQuery) {
+      setPage(1);
+      prevSearchRef.current = searchQuery;
     }
+  }, [searchQuery]);
+
+  useEffect(() => {
+    if (hasSearchFilter) return;
     const controller = new AbortController();
-    abortRef.current = controller;
+    const load = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const status = statusFilter === 'all' ? undefined : statusFilter;
+        const method = methodFilter === 'all' ? undefined : methodFilter;
+        const exactDate = dateFilter || undefined;
+        const [txResult, summaryData] = await Promise.all([
+          api.getTransactions(1, undefined, undefined, undefined, status, controller.signal, method, exactDate, page, perPage),
+          api.getTransactionSummary(1, undefined, undefined, undefined, controller.signal, method, exactDate),
+        ]);
+        if (!controller.signal.aborted) {
+          setTransactions(txResult.data || []);
+          setTotalItems(txResult.total);
+          setAllTransactionsCache([]);
+          setSummary(summaryData);
+        }
+      } catch (err) {
+        if (!controller.signal.aborted) setError(err instanceof Error ? err.message : 'Failed to load transactions');
+      } finally {
+        if (!controller.signal.aborted) setLoading(false);
+      }
+    };
+    load();
+    return () => controller.abort();
+  }, [statusFilter, methodFilter, dateFilter, page, perPage, hasSearchFilter, refreshKey]);
 
-    try {
-      setLoading(true);
-      setError(null);
-      const status = statusFilter === 'all' ? undefined : statusFilter;
-      const method = methodFilter === 'all' ? undefined : methodFilter;
-      const exactDate = dateFilter || undefined;
-      const [txResult, summaryData] = await Promise.all([
-        api.getTransactions(
-          1,
-          undefined,
-          undefined,
-          undefined,
-          status,
-          controller.signal,
-          method,
-          exactDate,
-          pageNum,
-          perPage
-        ),
-        api.getTransactionSummary(
-          1,
-          undefined,
-          undefined,
-          undefined,
-          controller.signal,
-          method,
-          exactDate
-        ),
-      ]);
-      if (!controller.signal.aborted) {
-        setTransactions(txResult.data || []);
-        setTotalItems(txResult.total);
-        setSummary(summaryData);
+  useEffect(() => {
+    if (!hasSearchFilter) return;
+    const controller = new AbortController();
+    const load = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const status = statusFilter === 'all' ? undefined : statusFilter;
+        const method = methodFilter === 'all' ? undefined : methodFilter;
+        const exactDate = dateFilter || undefined;
+        const [txResult, summaryData] = await Promise.all([
+          api.getTransactions(1, undefined, undefined, undefined, status, controller.signal, method, exactDate, 1, 10000),
+          api.getTransactionSummary(1, undefined, undefined, undefined, controller.signal, method, exactDate),
+        ]);
+        if (!controller.signal.aborted) {
+          setAllTransactionsCache(txResult.data || []);
+          setTotalItems(txResult.total);
+          setSummary(summaryData);
+        }
+      } catch (err) {
+        if (!controller.signal.aborted) setError(err instanceof Error ? err.message : 'Failed to load transactions');
+      } finally {
+        if (!controller.signal.aborted) setLoading(false);
       }
-    } catch (err) {
-      if (controller.signal.aborted) return;
-      setError(err instanceof Error ? err.message : 'Failed to load transactions');
-    } finally {
-      if (!controller.signal.aborted) {
-        setLoading(false);
-      }
-    }
-  }, [statusFilter, methodFilter, dateFilter, page, perPage]);
+    };
+    load();
+    return () => controller.abort();
+  }, [statusFilter, methodFilter, dateFilter, hasSearchFilter, refreshKey]);
 
   const handleManualProvision = useCallback(async (tx: MpesaTransaction) => {
     if (provisioningId) return;
@@ -160,7 +180,7 @@ export default function TransactionsPage() {
       if (result.success) {
         const msg = result.provisioning_result?.message || 'Transaction provisioned successfully';
         showAlert('success', msg);
-        loadData();
+        refreshData();
       } else {
         showAlert('error', result.provisioning_error || 'Provisioning failed');
       }
@@ -169,16 +189,7 @@ export default function TransactionsPage() {
     } finally {
       setProvisioningId(null);
     }
-  }, [provisioningId, showAlert, loadData]);
-
-  useEffect(() => {
-    loadData(page);
-    return () => {
-      if (abortRef.current) {
-        abortRef.current.abort();
-      }
-    };
-  }, [loadData, page]);
+  }, [provisioningId, showAlert, refreshData]);
 
   const handlePageChange = useCallback((newPage: number) => {
     setPage(newPage);
@@ -190,20 +201,25 @@ export default function TransactionsPage() {
     setPage(1);
   }, []);
 
-  const filteredTransactions = (transactions || []).filter((tx) => {
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      return (
-        (tx.phone_number || '').includes(query) ||
-        tx.mpesa_receipt_number?.toLowerCase().includes(query) ||
-        tx.reference?.toLowerCase().includes(query) ||
-        tx.payment_reference?.toLowerCase().includes(query) ||
-        tx.result_desc?.toLowerCase().includes(query) ||
-        tx.result_code?.includes(query)
-      );
-    }
-    return true;
-  });
+  const filteredTransactions = useMemo(() => {
+    const source = hasSearchFilter ? allTransactionsCache : transactions;
+    if (!searchQuery) return source || [];
+    const query = searchQuery.toLowerCase();
+    return (source || []).filter((tx) => (
+      (tx.phone_number || '').includes(query) ||
+      tx.mpesa_receipt_number?.toLowerCase().includes(query) ||
+      tx.reference?.toLowerCase().includes(query) ||
+      tx.payment_reference?.toLowerCase().includes(query) ||
+      tx.result_desc?.toLowerCase().includes(query) ||
+      tx.result_code?.includes(query)
+    ));
+  }, [hasSearchFilter, allTransactionsCache, transactions, searchQuery]);
+
+  const displayedTransactions = hasSearchFilter
+    ? filteredTransactions.slice((page - 1) * perPage, page * perPage)
+    : filteredTransactions;
+
+  const effectiveTotal = hasSearchFilter ? filteredTransactions.length : totalItems;
 
   const failedTransactions = (transactions || []).filter((tx) => tx.status === 'failed');
 
@@ -241,7 +257,7 @@ export default function TransactionsPage() {
           </div>
           <h2 className="text-xl font-semibold text-foreground mb-2">Failed to Load Transactions</h2>
           <p className="text-foreground-muted mb-4">{error}</p>
-          <button onClick={() => loadData(page)} className="btn-primary">
+          <button onClick={refreshData} className="btn-primary">
             Try Again
           </button>
         </div>
@@ -400,7 +416,7 @@ export default function TransactionsPage() {
         <>
           {/* Mobile Transaction Cards */}
           <div className="md:hidden space-y-3 animate-fade-in">
-            {filteredTransactions.length === 0 ? (
+            {displayedTransactions.length === 0 ? (
               <div className="card p-8 text-center text-foreground-muted">
                 <svg className="w-12 h-12 mx-auto mb-4 text-foreground-muted/50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
@@ -409,7 +425,7 @@ export default function TransactionsPage() {
               </div>
             ) : (
               <>
-                {filteredTransactions.map((tx) => (
+                {displayedTransactions.map((tx) => (
                   <MobileDataCard
                     key={`${tx.payment_method}-${tx.transaction_id}`}
                     id={tx.transaction_id}
@@ -534,7 +550,7 @@ export default function TransactionsPage() {
                 <Pagination
                   page={page}
                   perPage={perPage}
-                  total={totalItems}
+                  total={effectiveTotal}
                   onPageChange={handlePageChange}
                   onPerPageChange={handlePerPageChange}
                   loading={loading}
@@ -547,7 +563,7 @@ export default function TransactionsPage() {
           {/* Desktop Transactions Table */}
           <DataTable<MpesaTransaction>
             columns={TRANSACTION_COLUMNS}
-            data={filteredTransactions}
+            data={displayedTransactions}
             rowKey={(tx) => `${tx.payment_method}-${tx.transaction_id}`}
             renderCell={(tx, key) => {
               switch (key) {
@@ -680,7 +696,7 @@ export default function TransactionsPage() {
               <Pagination
                 page={page}
                 perPage={perPage}
-                total={totalItems}
+                total={effectiveTotal}
                 onPageChange={handlePageChange}
                 onPerPageChange={handlePerPageChange}
                 loading={loading}

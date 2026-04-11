@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import Link from 'next/link';
 import { api } from '../lib/api';
 import { Ad, Advertiser, CreateAdRequest } from '../lib/types';
@@ -45,27 +45,67 @@ export default function AdsPage() {
   const [totalAds, setTotalAds] = useState(0);
   const [deletingAdId, setDeletingAdId] = useState<number | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [allAdsCache, setAllAdsCache] = useState<Ad[]>([]);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const hasSearchFilter = searchQuery.trim() !== '';
+  const loadData = useCallback(async () => { setRefreshKey(k => k + 1); }, []);
+
+  const prevSearchRef = useRef(searchQuery);
+  useEffect(() => {
+    if (prevSearchRef.current !== searchQuery) {
+      setPage(1);
+      prevSearchRef.current = searchQuery;
+    }
+  }, [searchQuery]);
 
   useEffect(() => {
-    loadData();
-  }, [page, perPage, categoryFilter]);
+    if (hasSearchFilter) return;
+    let cancelled = false;
+    const load = async () => {
+      try {
+        setLoading(true);
+        const [adsData, advertisersData] = await Promise.all([
+          api.getAds(page, perPage, categoryFilter || undefined),
+          api.getAdvertisers(),
+        ]);
+        if (cancelled) return;
+        setAds(adsData.ads);
+        setTotalAds(adsData.pagination.total);
+        setAllAdsCache([]);
+        setAdvertisers(advertisersData);
+      } catch (err) {
+        if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to load ads');
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    load();
+    return () => { cancelled = true; };
+  }, [page, perPage, categoryFilter, hasSearchFilter, refreshKey]);
 
-  const loadData = async () => {
-    try {
-      setLoading(true);
-      const [adsData, advertisersData] = await Promise.all([
-        api.getAds(page, perPage, categoryFilter || undefined),
-        api.getAdvertisers(),
-      ]);
-      setAds(adsData.ads);
-      setTotalAds(adsData.pagination.total);
-      setAdvertisers(advertisersData);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load ads');
-    } finally {
-      setLoading(false);
-    }
-  };
+  useEffect(() => {
+    if (!hasSearchFilter) return;
+    let cancelled = false;
+    const load = async () => {
+      try {
+        setLoading(true);
+        const [adsData, advertisersData] = await Promise.all([
+          api.getAds(1, 10000, categoryFilter || undefined),
+          api.getAdvertisers(),
+        ]);
+        if (cancelled) return;
+        setAllAdsCache(adsData.ads);
+        setTotalAds(adsData.pagination.total);
+        setAdvertisers(advertisersData);
+      } catch (err) {
+        if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to load ads');
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    load();
+    return () => { cancelled = true; };
+  }, [categoryFilter, hasSearchFilter, refreshKey]);
 
   const handleDeleteAd = async (adId: number, e: React.MouseEvent) => {
     e.preventDefault();
@@ -87,15 +127,22 @@ export default function AdsPage() {
     }
   };
 
-  const filteredAds = ads.filter((ad) => {
-    if (!searchQuery) return true;
+  const filteredAds = useMemo(() => {
+    const source = hasSearchFilter ? allAdsCache : ads;
+    if (!searchQuery) return source;
     const query = searchQuery.toLowerCase();
-    return (
+    return source.filter((ad) =>
       ad.title.toLowerCase().includes(query) ||
       ad.seller_name.toLowerCase().includes(query) ||
       ad.description.toLowerCase().includes(query)
     );
-  });
+  }, [hasSearchFilter, allAdsCache, ads, searchQuery]);
+
+  const displayedAds = hasSearchFilter
+    ? filteredAds.slice((page - 1) * perPage, page * perPage)
+    : filteredAds;
+
+  const effectiveTotal = hasSearchFilter ? filteredAds.length : totalAds;
 
   const activeCount = ads.filter((a) => a.is_active).length;
   const totalClicks = ads.reduce((sum, ad) => sum + ad.clicks_count, 0);
@@ -253,7 +300,7 @@ export default function AdsPage() {
 
           {/* Ads Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredAds.map((ad, index) => (
+            {displayedAds.map((ad, index) => (
               <Link
                 key={ad.id}
                 href={`/ads/${ad.id}`}
@@ -351,7 +398,7 @@ export default function AdsPage() {
             ))}
           </div>
 
-          {filteredAds.length === 0 && !loading && (
+          {displayedAds.length === 0 && !loading && (
             <div className="card p-12 text-center">
               <svg className="w-16 h-16 mx-auto mb-4 text-foreground-muted/50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
@@ -371,7 +418,7 @@ export default function AdsPage() {
           <Pagination
             page={page}
             perPage={perPage}
-            total={totalAds}
+            total={effectiveTotal}
             onPageChange={setPage}
             onPerPageChange={(pp) => { setPerPage(pp); setPage(1); }}
             loading={loading}

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { api } from '../lib/api';
 import {
   Voucher,
@@ -130,6 +130,9 @@ export default function VouchersPage() {
   const [showGenerateModal, setShowGenerateModal] = useState(false);
   const [downloadLoading, setDownloadLoading] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [allVouchersCache, setAllVouchersCache] = useState<Voucher[]>([]);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const hasSearchFilter = searchQuery.trim() !== '';
 
   const loadStats = useCallback(async () => {
     try {
@@ -140,47 +143,84 @@ export default function VouchersPage() {
     }
   }, []);
 
-  const loadVouchers = useCallback(async (pageNum = 1, status: StatusFilter = statusFilter, pp = perPage) => {
-    try {
-      setLoading(true);
-      setError(null);
-      const data = await api.getVouchers({
-        status: status || undefined,
-        page: pageNum,
-        per_page: pp,
-      });
-      setVouchersData(data);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load vouchers');
-    } finally {
-      setLoading(false);
+  const prevSearchRef = useRef(searchQuery);
+  useEffect(() => {
+    if (prevSearchRef.current !== searchQuery) {
+      setPage(1);
+      prevSearchRef.current = searchQuery;
     }
-  }, [statusFilter, perPage]);
+  }, [searchQuery]);
 
   useEffect(() => {
     loadStats();
-    loadVouchers(1, '');
-  }, []);
+  }, [loadStats, refreshKey]);
+
+  useEffect(() => {
+    if (hasSearchFilter) return;
+    let cancelled = false;
+    const load = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const data = await api.getVouchers({
+          status: statusFilter || undefined,
+          page,
+          per_page: perPage,
+        });
+        if (cancelled) return;
+        setVouchersData(data);
+        setAllVouchersCache([]);
+      } catch (err) {
+        if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to load vouchers');
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    load();
+    return () => { cancelled = true; };
+  }, [statusFilter, page, perPage, hasSearchFilter, refreshKey]);
+
+  useEffect(() => {
+    if (!hasSearchFilter) return;
+    let cancelled = false;
+    const load = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const data = await api.getVouchers({
+          status: statusFilter || undefined,
+          page: 1,
+          per_page: 10000,
+        });
+        if (cancelled) return;
+        setVouchersData(data);
+        setAllVouchersCache(data.vouchers ?? []);
+      } catch (err) {
+        if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to load vouchers');
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    load();
+    return () => { cancelled = true; };
+  }, [statusFilter, hasSearchFilter, refreshKey]);
 
   const handleStatusChange = (newStatus: StatusFilter) => {
     setStatusFilter(newStatus);
     setPage(1);
-    loadVouchers(1, newStatus);
   };
 
   const handlePageChange = (newPage: number) => {
     setPage(newPage);
-    loadVouchers(newPage);
   };
 
   const handlePerPageChange = (newPerPage: number) => {
     setPerPage(newPerPage);
     setPage(1);
-    loadVouchers(1, statusFilter, newPerPage);
   };
 
   const handleRefresh = async () => {
-    await Promise.all([loadStats(), loadVouchers(page)]);
+    setRefreshKey(k => k + 1);
   };
 
   const handleDisable = async (voucherId: number) => {
@@ -189,7 +229,7 @@ export default function VouchersPage() {
       setActionLoading(voucherId);
       setActionError(null);
       await api.disableVoucher(voucherId);
-      await Promise.all([loadStats(), loadVouchers(page)]);
+      setRefreshKey(k => k + 1);
     } catch (err) {
       setActionError(err instanceof Error ? err.message : 'Failed to disable voucher');
     } finally {
@@ -214,17 +254,22 @@ export default function VouchersPage() {
     ? { page: vouchersData.page, total_pages: vouchersData.pages, total: vouchersData.total }
     : null;
 
-  const filteredVouchers = vouchers.filter((v) => {
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      return (
-        v.code.toLowerCase().includes(query) ||
-        (v.plan?.name?.toLowerCase() || '').includes(query) ||
-        (v.router?.name?.toLowerCase() || '').includes(query)
-      );
-    }
-    return true;
-  });
+  const filteredVouchers = useMemo(() => {
+    const source = hasSearchFilter ? allVouchersCache : vouchers;
+    if (!searchQuery) return source;
+    const query = searchQuery.toLowerCase();
+    return source.filter((v) =>
+      v.code.toLowerCase().includes(query) ||
+      (v.plan?.name?.toLowerCase() || '').includes(query) ||
+      (v.router?.name?.toLowerCase() || '').includes(query)
+    );
+  }, [hasSearchFilter, allVouchersCache, vouchers, searchQuery]);
+
+  const displayedVouchers = hasSearchFilter
+    ? filteredVouchers.slice((page - 1) * perPage, page * perPage)
+    : filteredVouchers;
+
+  const effectiveTotal = hasSearchFilter ? filteredVouchers.length : (pagination?.total ?? 0);
 
   if (error) {
     return (
@@ -237,7 +282,7 @@ export default function VouchersPage() {
           </div>
           <h2 className="text-xl font-semibold text-foreground mb-2">Failed to Load Vouchers</h2>
           <p className="text-foreground-muted mb-4">{error}</p>
-          <button onClick={() => loadVouchers(page)} className="btn-primary">
+          <button onClick={handleRefresh} className="btn-primary">
             Try Again
           </button>
         </div>
@@ -395,7 +440,7 @@ export default function VouchersPage() {
           {/* Desktop Table */}
           <DataTable<Voucher>
             columns={VOUCHER_COLUMNS}
-            data={filteredVouchers}
+            data={displayedVouchers}
             rowKey={(v) => v.id}
             renderCell={(v, key) => {
               switch (key) {
@@ -462,7 +507,7 @@ export default function VouchersPage() {
               <Pagination
                 page={page}
                 perPage={perPage}
-                total={pagination?.total ?? 0}
+                total={effectiveTotal}
                 onPageChange={handlePageChange}
                 onPerPageChange={handlePerPageChange}
                 loading={loading}
@@ -473,7 +518,7 @@ export default function VouchersPage() {
 
           {/* Mobile Cards */}
           <div className="md:hidden space-y-2">
-            {filteredVouchers.length === 0 ? (
+            {displayedVouchers.length === 0 ? (
               <div className="card p-8 text-center text-foreground-muted">
                 <svg className="w-12 h-12 mx-auto mb-4 text-foreground-muted/50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z" />
@@ -481,7 +526,7 @@ export default function VouchersPage() {
                 {searchQuery ? 'No vouchers match your search' : 'No vouchers found'}
               </div>
             ) : (
-              filteredVouchers.map((v) => (
+              displayedVouchers.map((v) => (
                 <VoucherMobileCard
                   key={v.id}
                   voucher={v}
@@ -494,7 +539,7 @@ export default function VouchersPage() {
             <Pagination
               page={page}
               perPage={perPage}
-              total={pagination?.total ?? 0}
+              total={effectiveTotal}
               onPageChange={handlePageChange}
               onPerPageChange={handlePerPageChange}
               loading={loading}
@@ -508,10 +553,10 @@ export default function VouchersPage() {
       {showGenerateModal && (
         <GenerateVouchersModal
           onClose={() => setShowGenerateModal(false)}
-          onSuccess={async () => {
+          onSuccess={() => {
             setShowGenerateModal(false);
             setPage(1);
-            await Promise.all([loadStats(), loadVouchers(1, statusFilter)]);
+            setRefreshKey(k => k + 1);
           }}
         />
       )}
