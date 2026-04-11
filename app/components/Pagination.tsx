@@ -32,32 +32,36 @@ export default function Pagination({
   return (
     <>
       {/* Mobile pagination */}
-      <div className="flex md:hidden items-center justify-between px-2 py-3">
-        <button
-          onClick={() => onPageChange(page - 1)}
-          disabled={page <= 1 || loading}
-          className="w-11 h-11 flex items-center justify-center rounded-xl transition-colors disabled:opacity-25 disabled:cursor-not-allowed hover:bg-background-tertiary active:bg-background-tertiary text-foreground-muted touch-manipulation"
-        >
-          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-          </svg>
-        </button>
+      <div className="md:hidden">
+        <div className="flex items-center justify-between px-2 py-3">
+          <button
+            onClick={() => onPageChange(page - 1)}
+            disabled={page <= 1 || loading}
+            className="w-11 h-11 flex items-center justify-center rounded-xl transition-colors disabled:opacity-25 disabled:cursor-not-allowed hover:bg-background-tertiary active:bg-background-tertiary text-foreground-muted touch-manipulation"
+          >
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
 
-        <p className="text-xs text-foreground-muted tabular-nums text-center">
-          <span className="text-foreground font-medium">{page}</span> of {totalPages}
-          <span className="mx-1.5 text-border">&middot;</span>
-          {total.toLocaleString()} {noun}
-        </p>
+          <p className="text-xs text-foreground-muted tabular-nums text-center">
+            <span className="text-foreground font-medium">{page}</span> of {totalPages}
+            <span className="mx-1.5 text-border">&middot;</span>
+            {total.toLocaleString()} {noun}
+          </p>
 
-        <button
-          onClick={() => onPageChange(page + 1)}
-          disabled={page >= totalPages || loading}
-          className="w-11 h-11 flex items-center justify-center rounded-xl transition-colors disabled:opacity-25 disabled:cursor-not-allowed hover:bg-background-tertiary active:bg-background-tertiary text-foreground-muted touch-manipulation"
-        >
-          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-          </svg>
-        </button>
+          <button
+            onClick={() => onPageChange(page + 1)}
+            disabled={page >= totalPages || loading}
+            className="w-11 h-11 flex items-center justify-center rounded-xl transition-colors disabled:opacity-25 disabled:cursor-not-allowed hover:bg-background-tertiary active:bg-background-tertiary text-foreground-muted touch-manipulation"
+          >
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
+        </div>
+        {/* Spacer to clear bottom nav and floating action buttons */}
+        <div className="h-20" aria-hidden="true" />
       </div>
 
       {/* Desktop pagination */}
