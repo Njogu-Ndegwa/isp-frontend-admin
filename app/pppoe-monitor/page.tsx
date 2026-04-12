@@ -260,8 +260,12 @@ export default function PPPoEMonitorPage() {
 
   const fetchData = useCallback(async (routerId: number, refresh = false) => {
     try {
-      if (refresh) setRefreshing(true);
-      else setLoading(true);
+      if (refresh) {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
+        setData(null);
+      }
       setError(null);
       const result = await api.getPPPoEUsers(routerId, refresh);
       setData(result);
