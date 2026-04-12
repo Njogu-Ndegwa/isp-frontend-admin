@@ -430,15 +430,13 @@ export default function PPPoEMonitorPage() {
   if (error && !data) {
     return (
       <div>
-        <Header
-          title="PPPoE Monitor"
-          action={
-            <RouterSelector
-              selectedRouterId={selectedRouterId}
-              onRouterChange={setSelectedRouterId}
-            />
-          }
-        />
+        <Header title="PPPoE Monitor" />
+        <div className="mb-5">
+          <RouterSelector
+            selectedRouterId={selectedRouterId}
+            onRouterChange={setSelectedRouterId}
+          />
+        </div>
         <div className="flex items-center justify-center min-h-[400px]">
           <div className="text-center">
             <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-danger/10 flex items-center justify-center">
@@ -462,13 +460,14 @@ export default function PPPoEMonitorPage() {
       <Header
         title="PPPoE Monitor"
         subtitle={data ? `${data.router_name} — ${data.summary.online} online, ${data.summary.offline} offline` : undefined}
-        action={
-          <RouterSelector
-            selectedRouterId={selectedRouterId}
-            onRouterChange={setSelectedRouterId}
-          />
-        }
       />
+
+      <div className="mb-5">
+        <RouterSelector
+          selectedRouterId={selectedRouterId}
+          onRouterChange={setSelectedRouterId}
+        />
+      </div>
 
       {/* Stale cache warning */}
       {data?.stale && (
@@ -713,13 +712,18 @@ export default function PPPoEMonitorPage() {
                       variant: user.disabled ? 'warning' : user.online ? 'success' : 'neutral',
                     }}
                     value={{
-                      text: user.online ? formatRate(user.download_rate) : user.customer?.plan ?? '—',
+                      text: user.customer?.plan ?? user.profile ?? '—',
                       highlight: user.online,
                     }}
                     secondary={{
                       left: (
                         <span className="flex items-center gap-1.5">
-                          {user.online && <span className="text-teal-500">↑{formatRate(user.upload_rate)}</span>}
+                          {user.online && (
+                            <>
+                              <span className="text-accent-primary">↓{formatRate(user.download_rate)}</span>
+                              <span className="text-teal-500">↑{formatRate(user.upload_rate)}</span>
+                            </>
+                          )}
                           {!user.online && user.last_disconnect_reason && (
                             <span className="text-warning text-xs">{user.last_disconnect_reason}</span>
                           )}
