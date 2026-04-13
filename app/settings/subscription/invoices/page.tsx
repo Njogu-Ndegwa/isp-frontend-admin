@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { api } from '../../../lib/api';
 import { SubscriptionInvoice } from '../../../lib/types';
 import InvoiceStatusBadge from '../../../components/InvoiceStatusBadge';
+import PayInvoiceModal from '../../../components/PayInvoiceModal';
 import DataTable from '../../../components/DataTable';
 import MobileDataCard from '../../../components/MobileDataCard';
 import { SkeletonCard } from '../../../components/LoadingSpinner';
@@ -38,6 +39,9 @@ export default function InvoiceListPage() {
   const [statusFilter, setStatusFilter] = useState('');
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [requestingInvoice, setRequestingInvoice] = useState(false);
+  const [requestMsg, setRequestMsg] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+  const [payInvoice, setPayInvoice] = useState<SubscriptionInvoice | null>(null);
 
   const fetchInvoices = useCallback(async () => {
     try {
@@ -52,6 +56,26 @@ export default function InvoiceListPage() {
       setLoading(false);
     }
   }, [page, statusFilter]);
+
+  const handleRequestInvoice = async () => {
+    setRequestingInvoice(true);
+    setRequestMsg(null);
+    try {
+      const result = await api.requestInvoice();
+      setRequestMsg({
+        text: result.generated ? 'Invoice generated successfully' : 'You already have a pending invoice',
+        type: 'success',
+      });
+      fetchInvoices();
+    } catch (err) {
+      setRequestMsg({
+        text: err instanceof Error ? err.message : 'Failed to request invoice',
+        type: 'error',
+      });
+    } finally {
+      setRequestingInvoice(false);
+    }
+  };
 
   useEffect(() => {
     fetchInvoices();
@@ -75,9 +99,45 @@ export default function InvoiceListPage() {
           </svg>
           Subscription
         </Link>
-        <h2 className="text-lg font-semibold text-foreground">Invoices</h2>
-        <p className="text-xs text-foreground-muted mt-0.5">Your subscription billing history</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-lg font-semibold text-foreground">Invoices</h2>
+            <p className="text-xs text-foreground-muted mt-0.5">Your subscription billing history</p>
+          </div>
+          <button
+            onClick={handleRequestInvoice}
+            disabled={requestingInvoice}
+            className="text-sm px-4 py-2 rounded-xl bg-accent-primary text-white hover:bg-accent-primary/90 transition-colors disabled:opacity-50 flex items-center gap-2 font-medium"
+          >
+            {requestingInvoice ? (
+              <>
+                <span className="w-3.5 h-3.5 border-2 border-current/30 border-t-current rounded-full animate-spin" />
+                Requesting...
+              </>
+            ) : (
+              <>
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                </svg>
+                Request Invoice
+              </>
+            )}
+          </button>
+        </div>
       </div>
+
+      {requestMsg && (
+        <div className={`p-3 rounded-xl text-sm flex items-center justify-between ${
+          requestMsg.type === 'success'
+            ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-400'
+            : 'bg-red-500/10 border border-red-500/20 text-red-400'
+        }`}>
+          <span>{requestMsg.text}</span>
+          <button onClick={() => setRequestMsg(null)} className="opacity-60 hover:opacity-100">
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+          </button>
+        </div>
+      )}
 
       {/* Filters */}
       <div className="flex gap-2 overflow-x-auto pb-1 -mx-4 px-4 md:mx-0 md:px-0">
@@ -121,6 +181,7 @@ export default function InvoiceListPage() {
                 { key: 'status', label: 'Status' },
                 { key: 'due_date', label: 'Due Date' },
                 { key: 'message', label: 'Message' },
+                { key: 'actions', label: '', className: 'text-right' },
               ]}
               data={invoices}
               rowKey={(inv) => inv.id}
@@ -131,6 +192,14 @@ export default function InvoiceListPage() {
                   case 'status': return <InvoiceStatusBadge status={inv.status} />;
                   case 'due_date': return <span className="text-foreground-muted text-sm">{formatSafeDate(inv.due_date)}</span>;
                   case 'message': return <span className={`text-sm ${inv.is_overdue ? 'text-red-500' : inv.is_due_soon ? 'text-amber-500' : 'text-foreground-muted'}`}>{inv.human_message || '-'}</span>;
+                  case 'actions': return (inv.status === 'pending' || inv.status === 'overdue') ? (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setPayInvoice(inv); }}
+                      className="text-xs px-3 py-1.5 rounded-lg bg-accent-primary text-white hover:bg-accent-primary/90 transition-colors font-medium"
+                    >
+                      Pay
+                    </button>
+                  ) : null;
                   default: return null;
                 }
               }}
@@ -141,19 +210,32 @@ export default function InvoiceListPage() {
 
           {/* Mobile Cards */}
           <div className="md:hidden space-y-2">
-            {invoices.map((inv) => (
-              <Link key={inv.id} href={`/settings/subscription/invoices/${inv.id}`}>
-                <MobileDataCard
-                  id={inv.id}
-                  title={inv.period_label}
-                  subtitle={inv.human_message || formatSafeDate(inv.due_date)}
-                  avatar={{ text: inv.status.charAt(0).toUpperCase(), color: inv.status === 'paid' ? 'success' : inv.status === 'overdue' ? 'danger' : 'warning' }}
-                  status={{ label: inv.status, variant: inv.status === 'paid' ? 'success' : inv.status === 'overdue' ? 'danger' : inv.status === 'waived' ? 'neutral' : 'warning' }}
-                  value={{ text: formatKES(inv.final_charge) }}
-                  layout="compact"
-                />
-              </Link>
-            ))}
+            {invoices.map((inv) => {
+              const canPay = inv.status === 'pending' || inv.status === 'overdue';
+              return (
+                <div key={inv.id} className="relative">
+                  <Link href={`/settings/subscription/invoices/${inv.id}`}>
+                    <MobileDataCard
+                      id={inv.id}
+                      title={inv.period_label}
+                      subtitle={inv.human_message || formatSafeDate(inv.due_date)}
+                      avatar={{ text: inv.status.charAt(0).toUpperCase(), color: inv.status === 'paid' ? 'success' : inv.status === 'overdue' ? 'danger' : 'warning' }}
+                      status={{ label: inv.status, variant: inv.status === 'paid' ? 'success' : inv.status === 'overdue' ? 'danger' : inv.status === 'waived' ? 'neutral' : 'warning' }}
+                      value={{ text: formatKES(inv.final_charge) }}
+                      layout="compact"
+                    />
+                  </Link>
+                  {canPay && (
+                    <button
+                      onClick={() => setPayInvoice(inv)}
+                      className="absolute top-3 right-3 text-[10px] px-2.5 py-1 rounded-lg bg-accent-primary text-white hover:bg-accent-primary/90 transition-colors font-semibold z-10"
+                    >
+                      Pay
+                    </button>
+                  )}
+                </div>
+              );
+            })}
           </div>
 
           {/* Pagination */}
@@ -177,6 +259,15 @@ export default function InvoiceListPage() {
             </div>
           )}
         </>
+      )}
+
+      {payInvoice && (
+        <PayInvoiceModal
+          isOpen={!!payInvoice}
+          onClose={() => setPayInvoice(null)}
+          invoice={payInvoice}
+          onPaymentComplete={() => { setPayInvoice(null); fetchInvoices(); }}
+        />
       )}
     </div>
   );
