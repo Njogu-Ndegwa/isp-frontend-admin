@@ -8,6 +8,7 @@ import MobileBottomNav from './MobileBottomNav';
 import SubscriptionBlockedModal from './SubscriptionBlockedModal';
 
 const PUBLIC_PATHS = ['/', '/login', '/landing', '/signup'];
+const FULLSCREEN_AUTH_PATHS = ['/setup'];
 
 function DemoBanner() {
   const { logout } = useAuth();
@@ -73,6 +74,11 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   if (!isAdmin && isOnAdminPage) {
     router.replace('/dashboard');
     return null;
+  }
+
+  const isFullscreenAuth = FULLSCREEN_AUTH_PATHS.includes(pathname);
+  if (isFullscreenAuth) {
+    return <main className="min-h-screen">{children}</main>;
   }
 
   return (

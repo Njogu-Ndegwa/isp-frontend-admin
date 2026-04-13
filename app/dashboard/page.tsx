@@ -20,6 +20,7 @@ import StatCard from '../components/StatCard';
 import { SkeletonCard } from '../components/LoadingSpinner';
 import RouterSelector from '../components/RouterSelector';
 import SubscriptionAlertBanner from '../components/SubscriptionAlertBanner';
+import OnboardingChecklist from '../components/OnboardingChecklist';
 
 // Date filter types
 type DateFilterPreset = 'today' | 'this_month';
@@ -324,24 +325,8 @@ export default function DashboardPage() {
         )}
       </div>
 
-      {/* No routers state */}
-      {hasRouters === false && (
-        <div className="card p-12 text-center animate-fade-in">
-          <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-foreground-muted/10 flex items-center justify-center">
-            <RouterIcon className="w-8 h-8 text-foreground-muted" />
-          </div>
-          <h3 className="text-xl font-semibold text-foreground mb-2">No Routers Configured</h3>
-          <p className="text-foreground-muted mb-4 max-w-md mx-auto">
-            Add a router to start seeing dashboard analytics, bandwidth data, and active users.
-          </p>
-          <a href="/routers" className="btn-primary inline-flex items-center gap-2">
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-            Add Router
-          </a>
-        </div>
-      )}
+      {/* Onboarding checklist (replaces bare "No Routers" card) */}
+      {hasRouters === false && <OnboardingChecklist />}
 
       {/* Analytics Section - Key Metrics FIRST */}
       {hasRouters !== false && analyticsError ? (

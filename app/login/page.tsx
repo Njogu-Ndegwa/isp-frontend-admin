@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../context/AuthContext';
 import { useAlert } from '../context/AlertContext';
+import { quickOnboardingCheck } from '../hooks/useOnboardingStatus';
 import Link from 'next/link';
 
 export default function LoginPage() {
@@ -43,6 +44,16 @@ export default function LoginPage() {
         if (subscriptionAlert.message) {
           showAlert('info', subscriptionAlert.message);
         }
+      }
+
+      const alreadyDismissed = localStorage.getItem('onboarding_dismissed') === 'true';
+      if (!alreadyDismissed) {
+        const hasRouters = await quickOnboardingCheck();
+        if (!hasRouters) {
+          router.push('/setup');
+          return;
+        }
+        localStorage.setItem('onboarding_dismissed', 'true');
       }
 
       router.push('/dashboard');
