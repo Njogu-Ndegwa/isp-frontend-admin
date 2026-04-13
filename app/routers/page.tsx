@@ -6,7 +6,6 @@ import {
   Router,
   RouterUsersResponse,
   HotspotUser,
-  CreateRouterRequest,
   UpdateRouterRequest,
   PaymentMethod,
   ProvisionToken,
@@ -76,7 +75,6 @@ export default function RoutersPage() {
   const [selectedRouter, setSelectedRouter] = useState<number | null>(null);
   const [routerUsers, setRouterUsers] = useState<RouterUsersResponse | null>(null);
   const [usersLoading, setUsersLoading] = useState(false);
-  const [showCreateModal, setShowCreateModal] = useState(false);
   const [deletingRouter, setDeletingRouter] = useState<number | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null);
   const [editingRouter, setEditingRouter] = useState<Router | null>(null);
@@ -311,7 +309,6 @@ export default function RoutersPage() {
           loadRouters={loadRouters}
           loadRouterUsers={loadRouterUsers}
           handleDeleteRouter={handleDeleteRouter}
-          setShowCreateModal={setShowCreateModal}
           setDeleteConfirm={setDeleteConfirm}
           setEditingRouter={setEditingRouter}
           setPortConfigRouter={setPortConfigRouter}
@@ -339,16 +336,6 @@ export default function RoutersPage() {
           setExpandedToken={setExpandedToken}
           loadTokens={loadTokens}
           handleGenerate={handleGenerate}
-        />
-      )}
-
-      {showCreateModal && (
-        <CreateRouterModal
-          onClose={() => setShowCreateModal(false)}
-          onSuccess={() => {
-            setShowCreateModal(false);
-            loadRouters();
-          }}
         />
       )}
 
@@ -396,7 +383,6 @@ function RoutersTab({
   loadRouters,
   loadRouterUsers,
   handleDeleteRouter,
-  setShowCreateModal,
   setDeleteConfirm,
   setEditingRouter,
   setPortConfigRouter,
@@ -425,7 +411,6 @@ function RoutersTab({
   loadRouters: () => Promise<void>;
   loadRouterUsers: (id: number) => Promise<void>;
   handleDeleteRouter: (id: number) => Promise<void>;
-  setShowCreateModal: (v: boolean) => void;
   setDeleteConfirm: (v: number | null) => void;
   setEditingRouter: (r: Router | null) => void;
   setPortConfigRouter: (r: Router | null) => void;
@@ -600,20 +585,12 @@ function RoutersTab({
           </svg>
           <span className="text-sm">{routers.length} routers connected</span>
         </div>
-        <div className="flex items-center gap-2">
-          <button onClick={loadRouters} className="btn-secondary flex items-center gap-2 text-sm">
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-            </svg>
-            <span className="hidden sm:inline">Refresh</span>
-          </button>
-          <button onClick={() => setShowCreateModal(true)} className="btn-primary flex items-center gap-2 text-sm flex-1 sm:flex-none justify-center">
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-            Add Router
-          </button>
-        </div>
+        <button onClick={loadRouters} className="btn-secondary flex items-center gap-2 text-sm">
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+          </svg>
+          <span className="hidden sm:inline">Refresh</span>
+        </button>
       </div>
 
       {/* Emergency Mode Banner */}
@@ -1612,190 +1589,8 @@ function NewTokenModal({
 }
 
 // ---------------------------------------------------------------------------
-// Create / Edit Router Modals + helpers (unchanged)
+// Edit Router Modal + helpers
 // ---------------------------------------------------------------------------
-
-function CreateRouterModal({
-  onClose,
-  onSuccess,
-}: {
-  onClose: () => void;
-  onSuccess: () => void;
-}) {
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [showPassword, setShowPassword] = useState(false);
-  const [formData, setFormData] = useState<CreateRouterRequest>({
-    name: '',
-    identity: '',
-    ip_address: '',
-    username: 'admin',
-    password: '',
-    port: 8728,
-    payment_methods: ['mpesa', 'voucher'],
-  });
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      setLoading(true);
-      setError(null);
-      await api.createRouter(formData);
-      onSuccess();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create router');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-
-      <div className="relative w-full max-w-lg card p-6 animate-fade-in max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-bold text-foreground">Add New Router</h2>
-          <button onClick={onClose} className="p-2 rounded-lg hover:bg-background-tertiary transition-colors">
-            <svg className="w-5 h-5 text-foreground-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-
-        {error && (
-          <div className="mb-4 p-3 rounded-lg bg-danger/10 border border-danger/30 text-danger text-sm">
-            {error}
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit} className="space-y-4" autoComplete="off">
-          <div>
-            <label className="block text-sm font-medium text-foreground mb-2">Router Name</label>
-            <input
-              type="text"
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              className="input"
-              placeholder="e.g., My Router"
-              required
-              autoComplete="off"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-foreground mb-2">MikroTik Identity</label>
-            <input
-              type="text"
-              value={formData.identity}
-              onChange={(e) => setFormData({ ...formData, identity: e.target.value })}
-              className="input"
-              placeholder="e.g., MikroTik-Office"
-              required
-              autoComplete="off"
-            />
-          </div>
-
-          <div className="grid grid-cols-3 gap-4">
-            <div className="col-span-2">
-              <label className="block text-sm font-medium text-foreground mb-2">IP Address</label>
-              <input
-                type="text"
-                value={formData.ip_address}
-                onChange={(e) => setFormData({ ...formData, ip_address: e.target.value })}
-                className="input"
-                placeholder="e.g., 192.168.1.1"
-                pattern="^(\d{1,3}\.){3}\d{1,3}$"
-                title="Enter a valid IP address (e.g., 192.168.1.1)"
-                required
-                autoComplete="off"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-2">API Port</label>
-              <input
-                type="number"
-                value={formData.port || ''}
-                onChange={(e) => setFormData({ ...formData, port: parseInt(e.target.value) || 0 })}
-                onBlur={() => { if (!formData.port) setFormData(prev => ({ ...prev, port: 8728 })); }}
-                className="input"
-                min={1}
-                max={65535}
-                required
-                autoComplete="off"
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-foreground mb-2">Username</label>
-            <input
-              type="text"
-              value={formData.username}
-              onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-              className="input"
-              placeholder="e.g., admin"
-              required
-              autoComplete="off"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-foreground mb-2">Password</label>
-            <div className="relative">
-              <input
-                type={showPassword ? 'text' : 'password'}
-                value={formData.password}
-                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                className="input pr-10"
-                placeholder="Router API password"
-                required
-                autoComplete="new-password"
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-foreground-muted hover:text-foreground transition-colors"
-              >
-                {showPassword ? (
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
-                  </svg>
-                ) : (
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                  </svg>
-                )}
-              </button>
-            </div>
-          </div>
-
-          <PaymentMethodsField
-            value={formData.payment_methods ?? ['mpesa', 'voucher']}
-            onChange={(methods) => setFormData({ ...formData, payment_methods: methods })}
-          />
-
-          <div className="flex gap-3 pt-2">
-            <button type="button" onClick={onClose} className="btn-secondary flex-1">
-              Cancel
-            </button>
-            <button type="submit" disabled={loading} className="btn-primary flex-1 flex items-center justify-center gap-2">
-              {loading ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  Creating...
-                </>
-              ) : (
-                'Add Router'
-              )}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-}
 
 function EditRouterModal({
   router,

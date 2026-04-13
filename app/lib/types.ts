@@ -1784,6 +1784,8 @@ export interface SubscriptionInvoice {
   pppoe_charge?: number;
   gross_charge?: number;
   final_charge: number;
+  amount_paid?: number;
+  balance_remaining?: number;
   status: string;
   due_date: string;
   paid_at?: string | null;
@@ -1836,6 +1838,7 @@ export interface SubscriptionPaymentsResponse {
 export interface SubscriptionPayRequest {
   invoice_id: number;
   phone_number: string;
+  amount?: number;
 }
 
 export interface SubscriptionPayResponse {
@@ -1843,6 +1846,9 @@ export interface SubscriptionPayResponse {
   payment_id: number;
   checkout_request_id: string;
   amount: number;
+  invoice_total: number;
+  already_paid: number;
+  balance_after_this: number;
   phone_number: string;
 }
 
@@ -1938,7 +1944,19 @@ export interface WaiveInvoiceResponse {
 
 export interface GenerateInvoicesResponse {
   message: string;
-  generated: number;
+  created: number;
+  skipped: number;
+  errors: string[];
+}
+
+export interface RequestInvoiceResponse {
+  current_invoice: SubscriptionInvoice | null;
+  generated: boolean;
+}
+
+export interface GeneratePreExpiryInvoicesResponse {
+  message: string;
+  created: number;
   skipped: number;
   errors: string[];
 }

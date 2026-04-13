@@ -110,6 +110,8 @@ import {
   DeactivateSubscriptionResponse,
   WaiveInvoiceResponse,
   GenerateInvoicesResponse,
+  RequestInvoiceResponse,
+  GeneratePreExpiryInvoicesResponse,
 } from './types';
 import * as demo from './demoData';
 
@@ -1485,6 +1487,14 @@ class ApiClient {
     return this.handleResponse<SubscriptionPayResponse>(response);
   }
 
+  async requestInvoice(): Promise<RequestInvoiceResponse> {
+    const response = await fetch(`${BASE_URL}/subscription/request-invoice`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<RequestInvoiceResponse>(response);
+  }
+
   async getSubscriptionPayments(page = 1, perPage = 20): Promise<SubscriptionPaymentsResponse> {
     const params = new URLSearchParams({ page: page.toString(), per_page: perPage.toString() });
     const response = await fetch(`${BASE_URL}/subscription/payments?${params.toString()}`, {
@@ -1572,6 +1582,14 @@ class ApiClient {
       headers: this.getHeaders(),
     });
     return this.handleResponse<GenerateInvoicesResponse>(response);
+  }
+
+  async generatePreExpiryInvoices(): Promise<GeneratePreExpiryInvoicesResponse> {
+    const response = await fetch(`${BASE_URL}/admin/subscriptions/generate-pre-expiry-invoices`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<GeneratePreExpiryInvoicesResponse>(response);
   }
 }
 

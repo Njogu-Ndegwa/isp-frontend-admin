@@ -68,6 +68,21 @@ export default function InvoiceChargeBreakdown({ invoice }: InvoiceChargeBreakdo
             <span className="text-foreground">Total Due</span>
             <span className="text-amber-500 text-base">{formatKES(invoice.final_charge)}</span>
           </div>
+
+          {(invoice.amount_paid != null && invoice.amount_paid > 0) && (
+            <>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-foreground-muted">Amount Paid</span>
+                <span className="text-emerald-500 font-medium">{formatKES(invoice.amount_paid)}</span>
+              </div>
+              <div className="flex items-center justify-between text-sm font-semibold">
+                <span className="text-foreground">Balance Remaining</span>
+                <span className={`text-base ${(invoice.balance_remaining ?? 0) > 0 ? 'text-amber-500' : 'text-emerald-500'}`}>
+                  {formatKES(invoice.balance_remaining ?? 0)}
+                </span>
+              </div>
+            </>
+          )}
         </div>
       </div>
     </div>

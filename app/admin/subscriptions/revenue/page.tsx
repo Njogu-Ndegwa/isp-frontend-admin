@@ -24,6 +24,8 @@ export default function SubscriptionRevenuePage() {
   const [showGenerateDialog, setShowGenerateDialog] = useState(false);
   const [generateLoading, setGenerateLoading] = useState(false);
   const [generateResult, setGenerateResult] = useState<string | null>(null);
+  const [showPreExpiryDialog, setShowPreExpiryDialog] = useState(false);
+  const [preExpiryLoading, setPreExpiryLoading] = useState(false);
 
   const fetchData = useCallback(async () => {
     try {
@@ -46,13 +48,27 @@ export default function SubscriptionRevenuePage() {
     setGenerateLoading(true);
     try {
       const result = await api.generateInvoices();
-      setGenerateResult(`${result.generated} invoices generated, ${result.skipped} skipped`);
+      setGenerateResult(`${result.created} invoices generated, ${result.skipped} skipped`);
       setShowGenerateDialog(false);
       fetchData();
     } catch (err) {
       setGenerateResult(err instanceof Error ? err.message : 'Failed to generate invoices');
     } finally {
       setGenerateLoading(false);
+    }
+  };
+
+  const handleGeneratePreExpiry = async () => {
+    setPreExpiryLoading(true);
+    try {
+      const result = await api.generatePreExpiryInvoices();
+      setGenerateResult(`${result.created} pre-expiry invoices generated, ${result.skipped} skipped`);
+      setShowPreExpiryDialog(false);
+      fetchData();
+    } catch (err) {
+      setGenerateResult(err instanceof Error ? err.message : 'Failed to generate pre-expiry invoices');
+    } finally {
+      setPreExpiryLoading(false);
     }
   };
 
@@ -79,12 +95,20 @@ export default function SubscriptionRevenuePage() {
         subtitle="Revenue from reseller subscriptions"
         backHref="/admin/subscriptions"
         action={
-          <button
-            onClick={() => setShowGenerateDialog(true)}
-            className="text-sm px-4 py-2 rounded-xl border border-border text-foreground-muted hover:bg-background-tertiary transition-colors"
-          >
-            Generate Invoices
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowPreExpiryDialog(true)}
+              className="text-sm px-4 py-2 rounded-xl border border-border text-foreground-muted hover:bg-background-tertiary transition-colors"
+            >
+              Pre-Expiry Invoices
+            </button>
+            <button
+              onClick={() => setShowGenerateDialog(true)}
+              className="text-sm px-4 py-2 rounded-xl border border-border text-foreground-muted hover:bg-background-tertiary transition-colors"
+            >
+              Generate Invoices
+            </button>
+          </div>
         }
       />
 
@@ -201,6 +225,18 @@ export default function SubscriptionRevenuePage() {
         confirmLabel="Generate"
         variant="warning"
         loading={generateLoading}
+      />
+
+      {/* Generate Pre-Expiry Invoices Dialog */}
+      <ConfirmDialog
+        isOpen={showPreExpiryDialog}
+        onClose={() => setShowPreExpiryDialog(false)}
+        onConfirm={handleGeneratePreExpiry}
+        title="Generate Pre-Expiry Invoices"
+        message="This will generate invoices for resellers whose subscriptions expire within 5 days. This runs automatically every day at 08:00."
+        confirmLabel="Generate"
+        variant="warning"
+        loading={preExpiryLoading}
       />
     </div>
   );

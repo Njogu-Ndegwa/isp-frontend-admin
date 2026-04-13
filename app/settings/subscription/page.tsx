@@ -38,6 +38,26 @@ export default function SubscriptionSettingsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showPayModal, setShowPayModal] = useState(false);
+  const [requestingInvoice, setRequestingInvoice] = useState(false);
+  const [requestInvoiceMsg, setRequestInvoiceMsg] = useState<string | null>(null);
+
+  const handleRequestInvoice = async () => {
+    setRequestingInvoice(true);
+    setRequestInvoiceMsg(null);
+    try {
+      const result = await api.requestInvoice();
+      if (result.generated) {
+        setRequestInvoiceMsg('Invoice generated successfully');
+      } else {
+        setRequestInvoiceMsg('You already have a pending invoice');
+      }
+      fetchData();
+    } catch (err) {
+      setRequestInvoiceMsg(err instanceof Error ? err.message : 'Failed to request invoice');
+    } finally {
+      setRequestingInvoice(false);
+    }
+  };
 
   const fetchData = useCallback(async () => {
     try {
@@ -167,6 +187,31 @@ export default function SubscriptionSettingsPage() {
               <p className="text-[10px] text-foreground-muted uppercase tracking-wider">Invoices</p>
               <p className="text-sm font-medium text-foreground mt-1">{data.invoice_count} total</p>
             </div>
+          </div>
+          {/* Request Invoice */}
+          <div className="flex items-center gap-3">
+            <button
+              onClick={handleRequestInvoice}
+              disabled={requestingInvoice}
+              className="text-sm px-4 py-2 rounded-xl border border-border text-foreground-muted hover:bg-background-tertiary transition-colors disabled:opacity-50 flex items-center gap-2"
+            >
+              {requestingInvoice ? (
+                <>
+                  <span className="w-3.5 h-3.5 border-2 border-current/30 border-t-current rounded-full animate-spin" />
+                  Requesting...
+                </>
+              ) : (
+                <>
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m3.75 9v6m3-3H9m1.5-12H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+                  </svg>
+                  Request Invoice
+                </>
+              )}
+            </button>
+            {requestInvoiceMsg && (
+              <span className="text-xs text-foreground-muted">{requestInvoiceMsg}</span>
+            )}
           </div>
         </div>
       </section>

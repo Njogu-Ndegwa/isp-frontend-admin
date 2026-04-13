@@ -104,6 +104,11 @@ export default function InvoiceDetailPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-2xl font-bold text-foreground">{formatKES(invoice.final_charge)}</p>
+              {(invoice.amount_paid != null && invoice.amount_paid > 0) && (
+                <p className="text-xs text-emerald-500 mt-1">
+                  {formatKES(invoice.amount_paid)} paid &mdash; {formatKES(invoice.balance_remaining ?? 0)} remaining
+                </p>
+              )}
               <p className="text-xs text-foreground-muted mt-1">Due: {formatSafeDate(invoice.due_date)}</p>
               {invoice.paid_at && (
                 <p className="text-xs text-emerald-500 mt-0.5">Paid: {formatSafeDate(invoice.paid_at)}</p>

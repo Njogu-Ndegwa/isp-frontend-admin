@@ -20,7 +20,9 @@ const formatKES = (amount: number): string => {
 
 export default function PayInvoiceModal({ isOpen, onClose, invoice, onPaymentComplete }: PayInvoiceModalProps) {
   const { user } = useAuth();
+  const remainingBalance = invoice.balance_remaining ?? invoice.final_charge;
   const [phone, setPhone] = useState('');
+  const [amount, setAmount] = useState(remainingBalance.toString());
   const [step, setStep] = useState<PayStep>('form');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -31,6 +33,7 @@ export default function PayInvoiceModal({ isOpen, onClose, invoice, onPaymentCom
       setStep('form');
       setError(null);
       setPhone(user?.support_phone || '');
+      setAmount(remainingBalance.toString());
       document.body.style.overflow = 'hidden';
     } else {
       document.body.style.overflow = '';
@@ -39,7 +42,7 @@ export default function PayInvoiceModal({ isOpen, onClose, invoice, onPaymentCom
       document.body.style.overflow = '';
       if (pollRef.current) clearInterval(pollRef.current);
     };
-  }, [isOpen, user]);
+  }, [isOpen, user, remainingBalance]);
 
   const stopPolling = useCallback(() => {
     if (pollRef.current) {
@@ -74,12 +77,22 @@ export default function PayInvoiceModal({ isOpen, onClose, invoice, onPaymentCom
       setError('Please enter a phone number');
       return;
     }
+    const parsedAmount = parseFloat(amount);
+    if (isNaN(parsedAmount) || parsedAmount <= 0) {
+      setError('Please enter a valid amount');
+      return;
+    }
+    if (parsedAmount > remainingBalance) {
+      setError(`Amount cannot exceed the remaining balance of ${formatKES(remainingBalance)}`);
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
       await api.paySubscriptionInvoice({
         invoice_id: invoice.id,
         phone_number: phone.trim(),
+        amount: parsedAmount,
       });
       setStep('waiting');
       startPolling();
@@ -109,9 +122,26 @@ export default function PayInvoiceModal({ isOpen, onClose, invoice, onPaymentCom
         {step === 'form' && (
           <>
             <h3 className="text-lg font-semibold text-foreground mb-1">Pay Invoice</h3>
-            <p className="text-sm text-foreground-muted mb-5">
+            <p className="text-sm text-foreground-muted mb-4">
               {invoice.period_label} &mdash; {formatKES(invoice.final_charge)}
             </p>
+
+            {(invoice.amount_paid != null && invoice.amount_paid > 0) && (
+              <div className="mb-4 p-3 rounded-xl bg-background-tertiary/50 space-y-1.5">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-foreground-muted">Invoice Total</span>
+                  <span className="text-foreground font-medium">{formatKES(invoice.final_charge)}</span>
+                </div>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-foreground-muted">Already Paid</span>
+                  <span className="text-emerald-500 font-medium">{formatKES(invoice.amount_paid)}</span>
+                </div>
+                <div className="flex items-center justify-between text-xs border-t border-border pt-1.5">
+                  <span className="text-foreground-muted font-medium">Balance Remaining</span>
+                  <span className="text-amber-500 font-semibold">{formatKES(remainingBalance)}</span>
+                </div>
+              </div>
+            )}
 
             {error && (
               <div className="mb-4 p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-sm text-red-400">
@@ -119,7 +149,7 @@ export default function PayInvoiceModal({ isOpen, onClose, invoice, onPaymentCom
               </div>
             )}
 
-            <div className="mb-5">
+            <div className="mb-4">
               <label className="block text-sm font-medium text-foreground-muted mb-1.5">
                 M-Pesa Phone Number
               </label>
@@ -135,6 +165,25 @@ export default function PayInvoiceModal({ isOpen, onClose, invoice, onPaymentCom
               </p>
             </div>
 
+            <div className="mb-5">
+              <label className="block text-sm font-medium text-foreground-muted mb-1.5">
+                Amount (KES)
+              </label>
+              <input
+                type="number"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                className="input"
+                placeholder={remainingBalance.toString()}
+                min="1"
+                max={remainingBalance}
+                step="1"
+              />
+              <p className="text-xs text-foreground-muted/60 mt-1">
+                Pay the full balance or enter a partial amount
+              </p>
+            </div>
+
             <button
               onClick={handlePay}
               disabled={loading}
@@ -146,7 +195,7 @@ export default function PayInvoiceModal({ isOpen, onClose, invoice, onPaymentCom
                   Sending...
                 </>
               ) : (
-                `Pay ${formatKES(invoice.final_charge)}`
+                `Pay ${formatKES(parseFloat(amount) || 0)}`
               )}
             </button>
           </>
