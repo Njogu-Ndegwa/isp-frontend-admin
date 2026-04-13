@@ -106,9 +106,12 @@ export default function PayInvoiceModal({ isOpen, onClose, invoice, onPaymentCom
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center p-0 sm:p-4">
+    <div className="fixed inset-0 z-[10000] flex items-end sm:items-center justify-center p-0 sm:p-4">
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative bg-background-secondary border border-border rounded-t-2xl sm:rounded-2xl p-6 w-full sm:max-w-md shadow-xl">
+      <div
+        className="relative bg-background-secondary border border-border rounded-t-2xl sm:rounded-2xl p-6 w-full sm:max-w-md shadow-xl max-h-[85vh] overflow-y-auto overscroll-contain"
+        style={{ paddingBottom: 'max(1.5rem, calc(1.5rem + env(safe-area-inset-bottom, 0px)))' }}
+      >
         {/* Close button */}
         <button
           onClick={onClose}

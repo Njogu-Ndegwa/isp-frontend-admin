@@ -26,8 +26,6 @@ import DataTable, { DataTableColumn } from '../components/DataTable';
 import MobileDataCard from '../components/MobileDataCard';
 import { formatDateGMT3 } from '../lib/dateUtils';
 
-type Tab = 'routers' | 'provision';
-
 const formatSafeDate = (dateStr: string | null | undefined): string => {
   try {
     if (!dateStr) return '-';
@@ -53,20 +51,9 @@ const ROUTER_COLUMNS: DataTableColumn[] = [
   { key: 'actions', label: '' },
 ];
 
-const PROVISION_COLUMNS: DataTableColumn[] = [
-  { key: 'router_name', label: 'Router' },
-  { key: 'identity', label: 'Identity' },
-  { key: 'vpn_type', label: 'VPN' },
-  { key: 'vpn_ip', label: 'VPN IP' },
-  { key: 'status', label: 'Status' },
-  { key: 'created_at', label: 'Created' },
-  { key: 'provisioned_at', label: 'Provisioned' },
-  { key: 'command', label: 'Command' },
-];
-
 export default function RoutersPage() {
   const { isAuthenticated } = useAuth();
-  const [activeTab, setActiveTab] = useState<Tab>('routers');
+  const [showAddRouter, setShowAddRouter] = useState(false);
 
   // Router state
   const [routers, setRouters] = useState<Router[]>([]);
@@ -85,7 +72,6 @@ export default function RoutersPage() {
   const [tokensError, setTokensError] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
   const [newTokenResult, setNewTokenResult] = useState<ProvisionTokenResponse | null>(null);
-  const [expandedToken, setExpandedToken] = useState<number | null>(null);
 
   // PPPoE sessions state
   const [pppoeData, setPppoeData] = useState<PPPoEActiveResponse | null>(null);
@@ -109,11 +95,6 @@ export default function RoutersPage() {
     }
   }, [isAuthenticated]);
 
-  useEffect(() => {
-    if (isAuthenticated && activeTab === 'provision' && tokens.length === 0 && !tokensLoading) {
-      loadTokens();
-    }
-  }, [activeTab, isAuthenticated]);
 
   const loadRouters = async () => {
     try {
@@ -252,92 +233,36 @@ export default function RoutersPage() {
     <div>
       <Header title="Routers" subtitle="Manage your MikroTik routers and hotspot users" />
 
-      {/* Tabs */}
-      <div className="flex items-center gap-1 mb-6 p-1 bg-background-secondary rounded-xl w-full sm:w-fit animate-fade-in overflow-x-auto">
-        <button
-          onClick={() => setActiveTab('routers')}
-          className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-            activeTab === 'routers'
-              ? 'bg-accent-primary text-white shadow-sm'
-              : 'text-foreground-muted hover:text-foreground'
-          }`}
-        >
-          <span className="flex items-center gap-2">
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2" />
-            </svg>
-            Routers
-            {routers.length > 0 && (
-              <span className={`text-xs px-1.5 py-0.5 rounded-full ${
-                activeTab === 'routers' ? 'bg-white/20' : 'bg-foreground-muted/20'
-              }`}>{routers.length}</span>
-            )}
-          </span>
-        </button>
-        <button
-          onClick={() => setActiveTab('provision')}
-          className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-            activeTab === 'provision'
-              ? 'bg-accent-primary text-white shadow-sm'
-              : 'text-foreground-muted hover:text-foreground'
-          }`}
-        >
-          <span className="flex items-center gap-2">
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-            </svg>
-            Auto-Provision
-            {tokens.length > 0 && (
-              <span className={`text-xs px-1.5 py-0.5 rounded-full ${
-                activeTab === 'provision' ? 'bg-white/20' : 'bg-foreground-muted/20'
-              }`}>{tokens.length}</span>
-            )}
-          </span>
-        </button>
-      </div>
-
-      {activeTab === 'routers' ? (
-        <RoutersTab
-          routers={routers}
-          loading={loading}
-          error={error}
-          selectedRouter={selectedRouter}
-          routerUsers={routerUsers}
-          usersLoading={usersLoading}
-          deleteConfirm={deleteConfirm}
-          deletingRouter={deletingRouter}
-          loadRouters={loadRouters}
-          loadRouterUsers={loadRouterUsers}
-          handleDeleteRouter={handleDeleteRouter}
-          setDeleteConfirm={setDeleteConfirm}
-          setEditingRouter={setEditingRouter}
-          setPortConfigRouter={setPortConfigRouter}
-          formatBytes={formatBytes}
-          pppoeData={pppoeData}
-          pppoeLoading={pppoeLoading}
-          loadPPPoESessions={loadPPPoESessions}
-          usersSubTab={usersSubTab}
-          setUsersSubTab={setUsersSubTab}
-          uptimeRouter={uptimeRouter}
-          uptimeData={uptimeData}
-          uptimeLoading={uptimeLoading}
-          uptimeHours={uptimeHours}
-          setUptimeHours={setUptimeHours}
-          loadUptime={loadUptime}
-          setUptimeRouter={setUptimeRouter}
-        />
-      ) : (
-        <ProvisionTab
-          tokens={tokens}
-          loading={tokensLoading}
-          error={tokensError}
-          generating={generating}
-          expandedToken={expandedToken}
-          setExpandedToken={setExpandedToken}
-          loadTokens={loadTokens}
-          handleGenerate={handleGenerate}
-        />
-      )}
+      <RoutersTab
+        routers={routers}
+        loading={loading}
+        error={error}
+        selectedRouter={selectedRouter}
+        routerUsers={routerUsers}
+        usersLoading={usersLoading}
+        deleteConfirm={deleteConfirm}
+        deletingRouter={deletingRouter}
+        loadRouters={loadRouters}
+        loadRouterUsers={loadRouterUsers}
+        handleDeleteRouter={handleDeleteRouter}
+        setDeleteConfirm={setDeleteConfirm}
+        setEditingRouter={setEditingRouter}
+        setPortConfigRouter={setPortConfigRouter}
+        formatBytes={formatBytes}
+        pppoeData={pppoeData}
+        pppoeLoading={pppoeLoading}
+        loadPPPoESessions={loadPPPoESessions}
+        usersSubTab={usersSubTab}
+        setUsersSubTab={setUsersSubTab}
+        uptimeRouter={uptimeRouter}
+        uptimeData={uptimeData}
+        uptimeLoading={uptimeLoading}
+        uptimeHours={uptimeHours}
+        setUptimeHours={setUptimeHours}
+        loadUptime={loadUptime}
+        setUptimeRouter={setUptimeRouter}
+        onAddRouter={() => setShowAddRouter(true)}
+      />
 
       {editingRouter && (
         <EditRouterModal
@@ -350,10 +275,26 @@ export default function RoutersPage() {
         />
       )}
 
+      {showAddRouter && (
+        <AddRouterModal
+          generating={generating}
+          tokensError={tokensError}
+          handleGenerate={handleGenerate}
+          tokens={tokens}
+          tokensLoading={tokensLoading}
+          loadTokens={loadTokens}
+          onClose={() => setShowAddRouter(false)}
+        />
+      )}
+
       {newTokenResult && (
         <NewTokenModal
           result={newTokenResult}
-          onClose={() => setNewTokenResult(null)}
+          onClose={() => {
+            setNewTokenResult(null);
+            setShowAddRouter(false);
+            loadRouters();
+          }}
         />
       )}
 
@@ -399,6 +340,7 @@ function RoutersTab({
   setUptimeHours,
   loadUptime,
   setUptimeRouter,
+  onAddRouter,
 }: {
   routers: Router[];
   loading: boolean;
@@ -427,6 +369,7 @@ function RoutersTab({
   setUptimeHours: (h: number) => void;
   loadUptime: (routerId: number, hours?: number) => Promise<void>;
   setUptimeRouter: (id: number | null) => void;
+  onAddRouter: () => void;
 }) {
   const [emergencyLoading, setEmergencyLoading] = useState<number | null>(null);
   const [emergencyModalRouter, setEmergencyModalRouter] = useState<Router | null>(null);
@@ -585,12 +528,20 @@ function RoutersTab({
           </svg>
           <span className="text-sm">{routers.length} routers connected</span>
         </div>
-        <button onClick={loadRouters} className="btn-secondary flex items-center gap-2 text-sm">
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-          </svg>
-          <span className="hidden sm:inline">Refresh</span>
-        </button>
+        <div className="flex items-center gap-2">
+          <button onClick={loadRouters} className="btn-secondary flex items-center gap-2 text-sm">
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            <span className="hidden sm:inline">Refresh</span>
+          </button>
+          <button onClick={onAddRouter} className="btn-primary flex items-center gap-2 text-sm">
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            Add Router
+          </button>
+        </div>
       </div>
 
       {/* Emergency Mode Banner */}
@@ -1156,22 +1107,8 @@ function UptimePanel({ data }: { data: RouterUptimeResponse }) {
 }
 
 // ---------------------------------------------------------------------------
-// Provision Tab
+// Shared helpers
 // ---------------------------------------------------------------------------
-
-function StatusBadge({ status, expired }: { status: string; expired: boolean }) {
-  if (expired && status === 'pending') {
-    return <span className="badge badge-danger">Expired</span>;
-  }
-  switch (status) {
-    case 'provisioned':
-      return <span className="badge badge-success">Provisioned</span>;
-    case 'pending':
-      return <span className="badge badge-warning">Pending</span>;
-    default:
-      return <span className="badge badge-neutral">{status}</span>;
-  }
-}
 
 function CopyButton({ text, label }: { text: string; label?: boolean }) {
   const [copied, setCopied] = useState(false);
@@ -1238,276 +1175,6 @@ function VpnTypeBadge({ vpnType }: { vpnType: VpnType }) {
       )}
       {isWg ? 'WireGuard' : 'L2TP'}
     </span>
-  );
-}
-
-function ProvisionTab({
-  tokens,
-  loading,
-  error,
-  generating,
-  expandedToken,
-  setExpandedToken,
-  loadTokens,
-  handleGenerate,
-}: {
-  tokens: ProvisionToken[];
-  loading: boolean;
-  error: string | null;
-  generating: boolean;
-  expandedToken: number | null;
-  setExpandedToken: (id: number | null) => void;
-  loadTokens: () => Promise<void>;
-  handleGenerate: (vpnType: VpnType) => Promise<void>;
-}) {
-  const [selectedVpnType, setSelectedVpnType] = useState<VpnType>('wireguard');
-  const pendingCount = tokens.filter(t => t.status === 'pending' && !t.expired).length;
-  const provisionedCount = tokens.filter(t => t.status === 'provisioned').length;
-
-  if (error && !tokens.length) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-center">
-          <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-danger/10 flex items-center justify-center">
-            <svg className="w-8 h-8 text-danger" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-            </svg>
-          </div>
-          <h2 className="text-xl font-semibold text-foreground mb-2">Failed to Load Tokens</h2>
-          <p className="text-foreground-muted mb-4">{error}</p>
-          <button onClick={loadTokens} className="btn-primary">Try Again</button>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <>
-      {/* Actions */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6 animate-fade-in">
-        <div className="flex items-center gap-2 flex-wrap text-sm text-foreground-muted">
-          <span>{tokens.length} tokens</span>
-          {pendingCount > 0 && <span className="badge badge-warning">{pendingCount} pending</span>}
-          {provisionedCount > 0 && <span className="badge badge-success">{provisionedCount} provisioned</span>}
-        </div>
-        <div className="flex items-center gap-2">
-          <button onClick={loadTokens} className="btn-secondary flex items-center gap-2 text-sm">
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-            </svg>
-            <span className="hidden sm:inline">Refresh</span>
-          </button>
-
-          {/* RouterOS version toggle */}
-          <div className="flex items-center bg-background-secondary rounded-lg p-0.5">
-            <button
-              onClick={() => setSelectedVpnType('wireguard')}
-              className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
-                selectedVpnType === 'wireguard'
-                  ? 'bg-accent-primary text-white shadow-sm'
-                  : 'text-foreground-muted hover:text-foreground'
-              }`}
-            >
-              v7 WireGuard
-            </button>
-            <button
-              onClick={() => setSelectedVpnType('l2tp')}
-              className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
-                selectedVpnType === 'l2tp'
-                  ? 'bg-purple-500 text-white shadow-sm'
-                  : 'text-foreground-muted hover:text-foreground'
-              }`}
-            >
-              v6 L2TP
-            </button>
-          </div>
-
-          <button
-            onClick={() => handleGenerate(selectedVpnType)}
-            disabled={generating}
-            className="btn-primary flex items-center gap-2 text-sm flex-1 sm:flex-none justify-center"
-          >
-            {generating ? (
-              <>
-                <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                </svg>
-                Generating...
-              </>
-            ) : (
-              <>
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                </svg>
-                Generate Token
-              </>
-            )}
-          </button>
-        </div>
-      </div>
-
-      {error && (
-        <div className="mb-4 p-3 rounded-lg bg-danger/10 border border-danger/20 text-sm text-danger flex items-center gap-2">
-          <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-          {error}
-        </div>
-      )}
-
-      {loading ? (
-        <PageLoader />
-      ) : tokens.length === 0 ? (
-        <div className="card p-12 text-center animate-fade-in">
-          <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-accent-primary/10 flex items-center justify-center">
-            <svg className="w-10 h-10 text-accent-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
-            </svg>
-          </div>
-          <h2 className="text-xl font-bold text-foreground mb-2">No Provisioning Tokens</h2>
-          <p className="text-foreground-muted mb-6 max-w-md mx-auto">
-            Generate your first token to auto-provision a MikroTik router with one click. Select your RouterOS version below.
-          </p>
-          <div className="flex items-center justify-center gap-2 mb-4">
-            <div className="flex items-center bg-background-secondary rounded-lg p-0.5">
-              <button
-                onClick={() => setSelectedVpnType('wireguard')}
-                className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
-                  selectedVpnType === 'wireguard'
-                    ? 'bg-accent-primary text-white shadow-sm'
-                    : 'text-foreground-muted hover:text-foreground'
-                }`}
-              >
-                RouterOS v7
-              </button>
-              <button
-                onClick={() => setSelectedVpnType('l2tp')}
-                className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
-                  selectedVpnType === 'l2tp'
-                    ? 'bg-purple-500 text-white shadow-sm'
-                    : 'text-foreground-muted hover:text-foreground'
-                }`}
-              >
-                RouterOS v6
-              </button>
-            </div>
-          </div>
-          <button
-            onClick={() => handleGenerate(selectedVpnType)}
-            disabled={generating}
-            className="btn-primary inline-flex items-center gap-2"
-          >
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-            </svg>
-            Generate First Token
-          </button>
-        </div>
-      ) : (
-        <PullToRefresh onRefresh={loadTokens}>
-          {/* Mobile cards */}
-          <div className="md:hidden space-y-3 animate-fade-in">
-            {tokens.map((token) => (
-              <MobileDataCard
-                key={token.id}
-                id={token.id}
-                title={token.router_name}
-                subtitle={`${token.identity} · ${token.vpn_type === 'wireguard' ? 'v7 WireGuard' : 'v6 L2TP'}`}
-                avatar={{
-                  text: token.vpn_type === 'wireguard' ? 'v7' : 'v6',
-                  color: token.status === 'provisioned' ? 'success' : token.expired ? 'danger' : 'warning',
-                }}
-                status={{
-                  label: token.expired && token.status === 'pending' ? 'Expired' : token.status,
-                  variant: token.status === 'provisioned' ? 'success' : token.expired ? 'danger' : 'warning',
-                }}
-                value={{
-                  text: token.vpn_ip,
-                  highlight: false,
-                }}
-                secondary={{
-                  left: formatSafeDate(token.created_at),
-                  right: token.provisioned_at ? formatSafeDate(token.provisioned_at) : '',
-                }}
-                expandableContent={
-                  token.status === 'pending' && !token.expired && token.command ? (
-                    <div className="border-t border-border pt-3 space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-medium text-foreground-muted">MikroTik Command</span>
-                        <CopyButton text={token.command} />
-                      </div>
-                      <div className="bg-background-tertiary rounded-lg p-3 overflow-x-auto">
-                        <code className="text-xs font-mono text-foreground break-all whitespace-pre-wrap">{token.command}</code>
-                      </div>
-                    </div>
-                  ) : undefined
-                }
-                onClick={
-                  token.status === 'pending' && !token.expired && token.command
-                    ? () => setExpandedToken(expandedToken === token.id ? null : token.id)
-                    : undefined
-                }
-                layout="compact"
-              />
-            ))}
-          </div>
-
-          {/* Desktop table */}
-          <DataTable<ProvisionToken>
-            columns={PROVISION_COLUMNS}
-            data={tokens}
-            rowKey={(t) => t.id}
-            renderCell={(token, key) => {
-              switch (key) {
-                case 'router_name':
-                  return <span className="font-medium text-foreground">{token.router_name}</span>;
-                case 'identity':
-                  return <span className="font-mono text-sm text-foreground-muted">{token.identity}</span>;
-                case 'vpn_type':
-                  return <VpnTypeBadge vpnType={token.vpn_type} />;
-                case 'vpn_ip':
-                  return <span className="font-mono text-sm text-foreground-muted">{token.vpn_ip}</span>;
-                case 'status':
-                  return <StatusBadge status={token.status} expired={token.expired} />;
-                case 'created_at':
-                  return <span className="text-sm text-foreground-muted">{formatSafeDate(token.created_at)}</span>;
-                case 'provisioned_at':
-                  return token.provisioned_at
-                    ? <span className="text-sm text-success">{formatSafeDate(token.provisioned_at)}</span>
-                    : <span className="text-sm text-foreground-muted">-</span>;
-                case 'command':
-                  if (token.status === 'pending' && !token.expired && token.command) {
-                    return <CopyButton text={token.command} />;
-                  }
-                  if (token.status === 'provisioned' && token.router_id) {
-                    return (
-                      <span className="inline-flex items-center gap-1 text-xs font-medium text-success">
-                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                        </svg>
-                        Router #{token.router_id}
-                      </span>
-                    );
-                  }
-                  return <span className="text-sm text-foreground-muted">-</span>;
-                default:
-                  return null;
-              }
-            }}
-            emptyState={{
-              icon: (
-                <svg className="w-12 h-12 text-foreground-muted/50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                </svg>
-              ),
-              message: 'No provisioning tokens yet',
-            }}
-            rowStyle={(_, index) => ({ animationDelay: `${index * 0.05}s`, opacity: 0 })}
-          />
-        </PullToRefresh>
-      )}
-    </>
   );
 }
 
@@ -1583,6 +1250,216 @@ function NewTokenModal({
         <button onClick={onClose} className="btn-primary w-full mt-5">
           Done
         </button>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Add Router Modal (Auto-Provision)
+// ---------------------------------------------------------------------------
+
+function AddRouterModal({
+  generating,
+  tokensError,
+  handleGenerate,
+  tokens,
+  tokensLoading,
+  loadTokens,
+  onClose,
+}: {
+  generating: boolean;
+  tokensError: string | null;
+  handleGenerate: (vpnType: VpnType) => Promise<void>;
+  tokens: ProvisionToken[];
+  tokensLoading: boolean;
+  loadTokens: () => Promise<void>;
+  onClose: () => void;
+}) {
+  const [selectedVpnType, setSelectedVpnType] = useState<VpnType>('wireguard');
+  const [expandedToken, setExpandedToken] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (tokens.length === 0 && !tokensLoading) {
+      loadTokens();
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const pendingTokens = tokens.filter(t => t.status === 'pending' && !t.expired);
+  const otherTokens = tokens.filter(t => t.status === 'provisioned' || (t.status === 'pending' && t.expired));
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative w-full max-w-lg card p-0 animate-fade-in max-h-[90vh] flex flex-col">
+        <div className="flex items-center justify-between px-6 pt-6 pb-4">
+          <h3 className="text-lg font-bold text-foreground">Add Router</h3>
+          <button onClick={onClose} className="p-1 rounded-lg hover:bg-background-tertiary text-foreground-muted">
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-6 pb-6 space-y-5">
+          <div className="flex items-start gap-3 p-3 rounded-lg bg-accent-primary/5 border border-accent-primary/20">
+            <svg className="w-5 h-5 text-accent-primary flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
+            <p className="text-sm text-foreground-muted leading-relaxed">
+              Generate a provisioning token, then paste the command into your MikroTik terminal to auto-configure the router.
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-2">RouterOS Version</label>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={() => setSelectedVpnType('wireguard')}
+                className={`px-4 py-3 rounded-xl text-sm font-medium transition-all border ${
+                  selectedVpnType === 'wireguard'
+                    ? 'border-blue-500 bg-blue-500/10 text-blue-500 ring-1 ring-blue-500/30'
+                    : 'border-border bg-background-secondary text-foreground-muted hover:text-foreground hover:border-foreground-muted/30'
+                }`}
+              >
+                <span className="block font-semibold">RouterOS v7</span>
+                <span className="block text-xs mt-0.5 opacity-70">WireGuard VPN</span>
+              </button>
+              <button
+                onClick={() => setSelectedVpnType('l2tp')}
+                className={`px-4 py-3 rounded-xl text-sm font-medium transition-all border ${
+                  selectedVpnType === 'l2tp'
+                    ? 'border-purple-500 bg-purple-500/10 text-purple-500 ring-1 ring-purple-500/30'
+                    : 'border-border bg-background-secondary text-foreground-muted hover:text-foreground hover:border-foreground-muted/30'
+                }`}
+              >
+                <span className="block font-semibold">RouterOS v6</span>
+                <span className="block text-xs mt-0.5 opacity-70">L2TP VPN</span>
+              </button>
+            </div>
+          </div>
+
+          {tokensError && (
+            <div className="p-3 rounded-lg bg-danger/10 border border-danger/20 text-sm text-danger flex items-center gap-2">
+              <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              {tokensError}
+            </div>
+          )}
+
+          <button
+            onClick={() => handleGenerate(selectedVpnType)}
+            disabled={generating}
+            className="btn-primary w-full flex items-center justify-center gap-2"
+          >
+            {generating ? (
+              <>
+                <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+                Generating...
+              </>
+            ) : (
+              <>
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+                Generate Provisioning Token
+              </>
+            )}
+          </button>
+
+          {/* Pending tokens */}
+          {tokensLoading && tokens.length === 0 ? (
+            <div className="flex items-center justify-center py-6">
+              <div className="w-5 h-5 border-2 border-foreground-muted/30 border-t-foreground-muted rounded-full animate-spin" />
+            </div>
+          ) : pendingTokens.length > 0 && (
+            <div className="border-t border-border pt-4">
+              <div className="flex items-center justify-between mb-3">
+                <h4 className="text-sm font-semibold text-foreground">
+                  Pending Tokens
+                  <span className="ml-1.5 text-xs font-normal text-foreground-muted">({pendingTokens.length})</span>
+                </h4>
+                <button onClick={loadTokens} className="text-xs text-foreground-muted hover:text-foreground transition-colors flex items-center gap-1">
+                  <svg className={`w-3.5 h-3.5 ${tokensLoading ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  Refresh
+                </button>
+              </div>
+              <div className="space-y-2">
+                {pendingTokens.map((token) => (
+                  <div key={token.id} className="rounded-lg border border-warning/20 bg-warning/5 overflow-hidden">
+                    <button
+                      onClick={() => setExpandedToken(expandedToken === token.id ? null : token.id)}
+                      className="w-full flex items-center gap-3 p-3 text-left"
+                    >
+                      <VpnTypeBadge vpnType={token.vpn_type} />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-foreground truncate">{token.router_name}</p>
+                        <p className="text-xs text-foreground-muted">{token.identity} &middot; {token.vpn_ip}</p>
+                      </div>
+                      <span className="badge badge-warning text-[10px]">Pending</span>
+                      <svg className={`w-4 h-4 text-foreground-muted transition-transform ${expandedToken === token.id ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </button>
+                    {expandedToken === token.id && token.command && (
+                      <div className="px-3 pb-3 space-y-2 border-t border-warning/10">
+                        <div className="flex items-center justify-between pt-2">
+                          <span className="text-xs font-medium text-foreground-muted">MikroTik Command</span>
+                          <CopyButton text={token.command} />
+                        </div>
+                        <div className="bg-background-tertiary rounded-lg p-3 overflow-x-auto">
+                          <code className="text-xs font-mono text-foreground break-all whitespace-pre-wrap">{token.command}</code>
+                        </div>
+                        <p className="text-[11px] text-foreground-muted flex items-center gap-1">
+                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                          Created {formatSafeDate(token.created_at)}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Provisioned / expired tokens */}
+          {otherTokens.length > 0 && (
+            <div className={pendingTokens.length === 0 ? 'border-t border-border pt-4' : ''}>
+              <h4 className="text-sm font-semibold text-foreground mb-3">
+                History
+                <span className="ml-1.5 text-xs font-normal text-foreground-muted">({otherTokens.length})</span>
+              </h4>
+              <div className="space-y-2">
+                {otherTokens.map((token) => (
+                  <div key={token.id} className={`rounded-lg border p-3 flex items-center gap-3 ${
+                    token.status === 'provisioned'
+                      ? 'border-success/20 bg-success/5'
+                      : 'border-border bg-background-secondary'
+                  }`}>
+                    <VpnTypeBadge vpnType={token.vpn_type} />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-foreground truncate">{token.router_name}</p>
+                      <p className="text-xs text-foreground-muted">{token.identity} &middot; {token.vpn_ip}</p>
+                    </div>
+                    {token.status === 'provisioned' ? (
+                      <span className="badge badge-success text-[10px]">Provisioned</span>
+                    ) : (
+                      <span className="badge badge-danger text-[10px]">Expired</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
