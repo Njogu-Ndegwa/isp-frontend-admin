@@ -7,6 +7,7 @@ import ClientLayout from "./components/ClientLayout";
 import AlertContainer from "./components/AlertContainer";
 import ErrorBoundary from "./components/ErrorBoundary";
 import ThemeProvider from "./components/ThemeProvider";
+import { Analytics } from "@vercel/analytics/next";
 
 const outfit = Outfit({
   variable: "--font-geist-sans",
@@ -54,6 +55,7 @@ export default function RootLayout({
             </AlertProvider>
           </ThemeProvider>
         </ErrorBoundary>
+        <Analytics />
       </body>
     </html>
   );
