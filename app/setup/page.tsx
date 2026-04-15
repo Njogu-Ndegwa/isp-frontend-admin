@@ -333,6 +333,7 @@ function RouterStep({ onComplete }: { onComplete: () => void }) {
                 webkit-playsinline="true"
                 x5-playsinline="true"
                 preload="none"
+                poster="https://res.cloudinary.com/dhffnvn2d/video/upload/so_2,w_800,q_auto,f_jpg/v1776246895/video-project-2_WnpsbicQ_diwxkx.jpg"
                 src="https://res.cloudinary.com/dhffnvn2d/video/upload/v1776246895/video-project-2_WnpsbicQ_diwxkx.mp4"
               >
                 Your browser does not support video playback.
