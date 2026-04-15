@@ -555,11 +555,22 @@ function PlanStep({ onComplete }: { onComplete: () => void }) {
     }
   };
 
+  const durationUnits = [
+    { value: 'MINUTES', label: 'Minutes', shortLabel: 'min' },
+    { value: 'HOURS', label: 'Hours', shortLabel: 'hr' },
+    { value: 'DAYS', label: 'Days', shortLabel: 'day' },
+  ] as const;
+
+  const planSummary = form.name || form.price || form.speed
+    ? `${form.name || 'Unnamed'} — KES ${form.price || '0'} for ${form.duration_value} ${durationUnits.find(u => u.value === form.duration_unit)?.label.toLowerCase() || 'days'}`
+    : '';
+
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
+      {/* Plan Name & Connection Type */}
       <div className="card p-4 space-y-4">
         <div>
-          <label className="block text-sm font-medium text-foreground-muted mb-1.5">Plan Name</label>
+          <label className="block text-sm font-medium text-foreground mb-1.5">Plan Name</label>
           <input
             type="text"
             value={form.name}
@@ -571,60 +582,7 @@ function PlanStep({ onComplete }: { onComplete: () => void }) {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-foreground-muted mb-1.5">Speed</label>
-          <input
-            type="text"
-            value={form.speed}
-            onChange={e => update('speed', e.target.value)}
-            className="input"
-            placeholder="e.g. 10M/5M"
-            required
-          />
-          <p className="text-[11px] text-foreground-muted/60 mt-1">Format: download/upload (e.g. 10M/5M)</p>
-        </div>
-
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="block text-sm font-medium text-foreground-muted mb-1.5">Price (KES)</label>
-            <input
-              type="number"
-              inputMode="decimal"
-              value={form.price}
-              onChange={e => update('price', e.target.value)}
-              className="input"
-              placeholder="100"
-              min="0"
-              step="1"
-              required
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-foreground-muted mb-1.5">Duration</label>
-            <div className="flex gap-1.5">
-              <input
-                type="number"
-                inputMode="numeric"
-                value={form.duration_value}
-                onChange={e => update('duration_value', e.target.value)}
-                className="input w-16 text-center"
-                min="1"
-                required
-              />
-              <select
-                value={form.duration_unit}
-                onChange={e => update('duration_unit', e.target.value)}
-                className="input flex-1"
-              >
-                <option value="MINUTES">Minutes</option>
-                <option value="HOURS">Hours</option>
-                <option value="DAYS">Days</option>
-              </select>
-            </div>
-          </div>
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-foreground-muted mb-2">Connection Type</label>
+          <label className="block text-sm font-medium text-foreground mb-2">Connection Type</label>
           <div className="grid grid-cols-2 gap-2">
             <button
               type="button"
@@ -655,6 +613,91 @@ function PlanStep({ onComplete }: { onComplete: () => void }) {
           </div>
         </div>
       </div>
+
+      {/* Speed & Price */}
+      <div className="card p-4 space-y-4">
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-1.5">Speed</label>
+            <input
+              type="text"
+              value={form.speed}
+              onChange={e => update('speed', e.target.value)}
+              className="input"
+              placeholder="e.g. 10M/5M"
+              required
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-1.5">Price (KES)</label>
+            <input
+              type="number"
+              inputMode="decimal"
+              value={form.price}
+              onChange={e => update('price', e.target.value)}
+              className="input"
+              placeholder="100"
+              min="0"
+              step="1"
+              required
+            />
+          </div>
+        </div>
+        <p className="text-[11px] text-foreground-muted/60 -mt-1">Speed format: download/upload (e.g. 10M/5M)</p>
+      </div>
+
+      {/* Duration — segmented buttons instead of hidden select */}
+      <div className="card p-4 space-y-3">
+        <label className="block text-sm font-medium text-foreground">Plan Duration</label>
+
+        <div className="flex items-center gap-3">
+          <div className="flex-shrink-0" style={{ width: '5rem' }}>
+            <input
+              type="number"
+              inputMode="numeric"
+              value={form.duration_value}
+              onChange={e => update('duration_value', e.target.value)}
+              className="input text-center"
+              min="1"
+              required
+            />
+          </div>
+          <div className="flex-1 grid grid-cols-3 gap-1.5">
+            {durationUnits.map(unit => (
+              <button
+                key={unit.value}
+                type="button"
+                onClick={() => update('duration_unit', unit.value)}
+                className={`py-2.5 rounded-xl text-sm font-medium transition-all border text-center ${
+                  form.duration_unit === unit.value
+                    ? 'border-amber-500 bg-amber-500/10 text-amber-500 ring-1 ring-amber-500/30'
+                    : 'border-border bg-background-secondary text-foreground-muted hover:text-foreground'
+                }`}
+                style={{ touchAction: 'manipulation' }}
+              >
+                <span className="hidden sm:inline">{unit.label}</span>
+                <span className="sm:hidden">{unit.shortLabel}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <p className="text-[11px] text-foreground-muted/60">
+          How long the plan stays active after purchase
+        </p>
+      </div>
+
+      {/* Plan Preview */}
+      {planSummary && (
+        <div className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl bg-amber-500/[0.06] border border-amber-500/15">
+          <svg className="w-4 h-4 text-amber-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <p className="text-xs text-foreground-muted">
+            <span className="font-medium text-foreground">{planSummary}</span>
+          </p>
+        </div>
+      )}
 
       <button
         type="submit"
@@ -733,7 +776,7 @@ function PaymentStep({ onComplete }: { onComplete: () => void }) {
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="card p-4 space-y-4">
         <div>
-          <label className="block text-sm font-medium text-foreground-muted mb-2">Payment Type</label>
+          <label className="block text-sm font-medium text-foreground mb-2">Payment Type</label>
           <div className="grid grid-cols-2 gap-2">
             <button
               type="button"
@@ -765,7 +808,7 @@ function PaymentStep({ onComplete }: { onComplete: () => void }) {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-foreground-muted mb-1.5">Label</label>
+          <label className="block text-sm font-medium text-foreground mb-1.5">Label</label>
           <input
             type="text"
             value={form.label}
@@ -778,7 +821,7 @@ function PaymentStep({ onComplete }: { onComplete: () => void }) {
 
         {methodType === 'mpesa_paybill' ? (
           <div>
-            <label className="block text-sm font-medium text-foreground-muted mb-1.5">Paybill Number</label>
+            <label className="block text-sm font-medium text-foreground mb-1.5">Paybill Number</label>
             <input
               type="text"
               inputMode="numeric"
@@ -792,7 +835,7 @@ function PaymentStep({ onComplete }: { onComplete: () => void }) {
         ) : (
           <>
             <div>
-              <label className="block text-sm font-medium text-foreground-muted mb-1.5">Bank Paybill Number</label>
+              <label className="block text-sm font-medium text-foreground mb-1.5">Bank Paybill Number</label>
               <input
                 type="text"
                 inputMode="numeric"
@@ -804,7 +847,7 @@ function PaymentStep({ onComplete }: { onComplete: () => void }) {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-foreground-muted mb-1.5">Account Number</label>
+              <label className="block text-sm font-medium text-foreground mb-1.5">Account Number</label>
               <input
                 type="text"
                 value={form.bank_account_number}
@@ -883,7 +926,7 @@ function ProfileStep({ userName, onComplete }: { userName: string; onComplete: (
         )}
 
         <div>
-          <label className="block text-sm font-medium text-foreground-muted mb-1.5">Support Phone Number</label>
+          <label className="block text-sm font-medium text-foreground mb-1.5">Support Phone Number</label>
           <input
             type="tel"
             inputMode="tel"
