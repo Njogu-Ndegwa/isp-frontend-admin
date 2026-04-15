@@ -85,6 +85,8 @@ import {
   AdminTransactionChargeResponse,
   AdminTransactionChargesResponse,
   ResellerAccountStatement,
+  DeleteResellerPreview,
+  DeleteResellerResponse,
   AdminResellerStats,
   AdminResellerStatsPeriod,
   B2BFeePreview,
@@ -112,6 +114,19 @@ import {
   GenerateInvoicesResponse,
   RequestInvoiceResponse,
   GeneratePreExpiryInvoicesResponse,
+  AdminMRRMetrics,
+  AdminChurnMetrics,
+  AdminSignupsSummary,
+  AdminCustomerSignupsTimeSeries,
+  AdminSubscriptionRevenueHistory,
+  AdminARPUMetrics,
+  AdminTrialConversion,
+  AdminActivationFunnel,
+  AdminRevenueConcentration,
+  AdminSmartAlertsResponse,
+  AdminRevenueForecast,
+  AdminGrowthTargetsResponse,
+  GrowthTargetUpdatePayload,
 } from './types';
 import * as demo from './demoData';
 
@@ -1323,6 +1338,24 @@ class ApiClient {
     return this.handleResponse<ResellerAccountStatement>(response);
   }
 
+  async previewDeleteAdminReseller(resellerId: number): Promise<DeleteResellerPreview> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(`${BASE_URL}/admin/resellers/${resellerId}`, {
+      method: 'DELETE',
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<DeleteResellerPreview>(response);
+  }
+
+  async confirmDeleteAdminReseller(resellerId: number): Promise<DeleteResellerResponse> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(`${BASE_URL}/admin/resellers/${resellerId}?confirm=true`, {
+      method: 'DELETE',
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<DeleteResellerResponse>(response);
+  }
+
   // Payment Methods CRUD
 
   async getPaymentMethods(includeInactive = false): Promise<PaymentMethodConfig[]> {
@@ -1590,6 +1623,103 @@ class ApiClient {
       headers: this.getHeaders(),
     });
     return this.handleResponse<GeneratePreExpiryInvoicesResponse>(response);
+  }
+
+  // Admin Dashboard Metrics (new endpoints — gracefully return null until backend implements)
+
+  async getAdminMRR(): Promise<AdminMRRMetrics | null> {
+    try {
+      const response = await fetch(`${BASE_URL}/admin/metrics/mrr`, { headers: this.getHeaders() });
+      return await this.handleResponse<AdminMRRMetrics>(response);
+    } catch { return null; }
+  }
+
+  async getAdminChurn(period: string = 'month'): Promise<AdminChurnMetrics | null> {
+    try {
+      const response = await fetch(`${BASE_URL}/admin/metrics/churn?period=${period}`, { headers: this.getHeaders() });
+      return await this.handleResponse<AdminChurnMetrics>(response);
+    } catch { return null; }
+  }
+
+  async getAdminSignupsSummary(period: string = '30d'): Promise<AdminSignupsSummary | null> {
+    try {
+      const response = await fetch(`${BASE_URL}/admin/metrics/signups-summary?period=${period}`, { headers: this.getHeaders() });
+      return await this.handleResponse<AdminSignupsSummary>(response);
+    } catch { return null; }
+  }
+
+  async getAdminCustomerSignups(period: string = '30d'): Promise<AdminCustomerSignupsTimeSeries | null> {
+    try {
+      const response = await fetch(`${BASE_URL}/admin/metrics/customer-signups?period=${period}`, { headers: this.getHeaders() });
+      return await this.handleResponse<AdminCustomerSignupsTimeSeries>(response);
+    } catch { return null; }
+  }
+
+  async getAdminSubscriptionRevenueHistory(period: string = '30d'): Promise<AdminSubscriptionRevenueHistory | null> {
+    try {
+      const response = await fetch(`${BASE_URL}/admin/metrics/subscription-revenue-history?period=${period}`, { headers: this.getHeaders() });
+      return await this.handleResponse<AdminSubscriptionRevenueHistory>(response);
+    } catch { return null; }
+  }
+
+  async getAdminARPU(): Promise<AdminARPUMetrics | null> {
+    try {
+      const response = await fetch(`${BASE_URL}/admin/metrics/arpu`, { headers: this.getHeaders() });
+      return await this.handleResponse<AdminARPUMetrics>(response);
+    } catch { return null; }
+  }
+
+  async getAdminTrialConversion(): Promise<AdminTrialConversion | null> {
+    try {
+      const response = await fetch(`${BASE_URL}/admin/metrics/trial-conversion`, { headers: this.getHeaders() });
+      return await this.handleResponse<AdminTrialConversion>(response);
+    } catch { return null; }
+  }
+
+  async getAdminActivationFunnel(): Promise<AdminActivationFunnel | null> {
+    try {
+      const response = await fetch(`${BASE_URL}/admin/metrics/activation-funnel`, { headers: this.getHeaders() });
+      return await this.handleResponse<AdminActivationFunnel>(response);
+    } catch { return null; }
+  }
+
+  async getAdminRevenueConcentration(): Promise<AdminRevenueConcentration | null> {
+    try {
+      const response = await fetch(`${BASE_URL}/admin/metrics/revenue-concentration`, { headers: this.getHeaders() });
+      return await this.handleResponse<AdminRevenueConcentration>(response);
+    } catch { return null; }
+  }
+
+  async getAdminSmartAlerts(): Promise<AdminSmartAlertsResponse | null> {
+    try {
+      const response = await fetch(`${BASE_URL}/admin/metrics/smart-alerts`, { headers: this.getHeaders() });
+      return await this.handleResponse<AdminSmartAlertsResponse>(response);
+    } catch { return null; }
+  }
+
+  async getAdminRevenueForecast(period: string = '30d', forecastDays: number = 30): Promise<AdminRevenueForecast | null> {
+    try {
+      const response = await fetch(`${BASE_URL}/admin/metrics/revenue-forecast?period=${period}&forecast_days=${forecastDays}`, { headers: this.getHeaders() });
+      return await this.handleResponse<AdminRevenueForecast>(response);
+    } catch { return null; }
+  }
+
+  async getAdminGrowthTargets(): Promise<AdminGrowthTargetsResponse | null> {
+    try {
+      const response = await fetch(`${BASE_URL}/admin/metrics/growth-targets`, { headers: this.getHeaders() });
+      return await this.handleResponse<AdminGrowthTargetsResponse>(response);
+    } catch { return null; }
+  }
+
+  async updateAdminGrowthTargets(targets: GrowthTargetUpdatePayload[]): Promise<AdminGrowthTargetsResponse | null> {
+    try {
+      const response = await fetch(`${BASE_URL}/admin/metrics/growth-targets`, {
+        method: 'PUT',
+        headers: this.getHeaders(),
+        body: JSON.stringify({ targets }),
+      });
+      return await this.handleResponse<AdminGrowthTargetsResponse>(response);
+    } catch { return null; }
   }
 }
 

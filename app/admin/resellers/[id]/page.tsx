@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { api } from '../../../lib/api';
 import {
   AdminResellerDetail,
@@ -12,6 +12,7 @@ import {
   AdminTransactionCharge,
   AdminCreateTransactionChargeRequest,
   AdminPaymentMethod,
+  DeleteResellerPreview,
 } from '../../../lib/types';
 import { formatDateGMT3 } from '../../../lib/dateUtils';
 import { useAuth } from '../../../context/AuthContext';
@@ -56,6 +57,7 @@ type Tab = 'payments' | 'routers' | 'payouts' | 'charges';
 export default function ResellerDetailPage() {
   const { user } = useAuth();
   const { showAlert } = useAlert();
+  const router = useRouter();
   const params = useParams();
   const resellerId = Number(params.id);
 
@@ -63,6 +65,13 @@ export default function ResellerDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<Tab>('payments');
+
+  // Delete reseller state
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deletePreview, setDeletePreview] = useState<DeleteResellerPreview | null>(null);
+  const [deletePreviewLoading, setDeletePreviewLoading] = useState(false);
+  const [deletePreviewError, setDeletePreviewError] = useState('');
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   // Revenue date filter
   const [revenueStartDate, setRevenueStartDate] = useState('');
@@ -348,6 +357,35 @@ export default function ResellerDetailPage() {
       setB2bStep('confirm');
     } finally {
       setB2bSubmitting(false);
+    }
+  };
+
+  const handleDeletePreview = async () => {
+    setShowDeleteModal(true);
+    setDeletePreview(null);
+    setDeletePreviewError('');
+    try {
+      setDeletePreviewLoading(true);
+      const preview = await api.previewDeleteAdminReseller(resellerId);
+      setDeletePreview(preview);
+    } catch (err) {
+      setDeletePreviewError(err instanceof Error ? err.message : 'Failed to load deletion preview');
+    } finally {
+      setDeletePreviewLoading(false);
+    }
+  };
+
+  const handleConfirmDelete = async () => {
+    try {
+      setDeleteLoading(true);
+      const result = await api.confirmDeleteAdminReseller(resellerId);
+      showAlert('success', result.message || 'Reseller deleted successfully');
+      router.push('/admin/resellers');
+    } catch (err) {
+      showAlert('error', err instanceof Error ? err.message : 'Failed to delete reseller');
+    } finally {
+      setDeleteLoading(false);
+      setShowDeleteModal(false);
     }
   };
 
@@ -1002,6 +1040,97 @@ export default function ResellerDetailPage() {
               >
                 {payoutSubmitting ? 'Recording...' : 'Record Payout'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Danger Zone */}
+      <div className="card p-4 sm:p-5 border border-danger/20">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div>
+            <h3 className="text-sm font-semibold text-danger">Danger Zone</h3>
+            <p className="text-xs text-foreground-muted mt-0.5">Permanently delete this reseller and all associated data. This cannot be undone.</p>
+          </div>
+          <button
+            onClick={handleDeletePreview}
+            className="shrink-0 px-4 py-2 rounded-lg text-sm font-medium border border-danger/30 text-danger hover:bg-danger/10 transition-colors flex items-center justify-center gap-2"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            </svg>
+            Delete Reseller
+          </button>
+        </div>
+      </div>
+
+      {/* Delete Preview & Confirmation Modal */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={() => !deleteLoading && setShowDeleteModal(false)}>
+          <div className="card p-6 w-full max-w-md space-y-4" onClick={(e) => e.stopPropagation()}>
+            <div className="w-12 h-12 mx-auto rounded-full bg-danger/10 flex items-center justify-center">
+              <svg className="w-6 h-6 text-danger" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+            </div>
+            <h3 className="text-lg font-semibold text-foreground text-center">Delete Reseller</h3>
+
+            {deletePreviewLoading && (
+              <div className="flex flex-col items-center gap-2 py-4">
+                <div className="w-6 h-6 border-2 border-danger/30 border-t-danger rounded-full animate-spin" />
+                <p className="text-sm text-foreground-muted">Loading deletion preview...</p>
+              </div>
+            )}
+
+            {deletePreviewError && (
+              <div className="rounded-lg bg-danger/10 border border-danger/20 p-3">
+                <p className="text-sm text-danger text-center">{deletePreviewError}</p>
+              </div>
+            )}
+
+            {deletePreview && (
+              <>
+                <p className="text-sm text-foreground-muted text-center">
+                  Deleting <span className="font-medium text-foreground">{deletePreview.organization_name || detail.organization_name}</span> will permanently remove:
+                </p>
+                <div className="rounded-lg bg-danger/5 border border-danger/15 p-3 space-y-1.5">
+                  {Object.entries(deletePreview.will_delete)
+                    .filter(([, count]) => count > 0)
+                    .map(([key, count]) => (
+                      <div key={key} className="flex items-center justify-between text-sm">
+                        <span className="text-foreground-muted capitalize">{key.replace(/_/g, ' ')}</span>
+                        <span className="font-semibold text-danger tabular-nums">{count.toLocaleString()}</span>
+                      </div>
+                    ))}
+                  {Object.values(deletePreview.will_delete).every((c) => c === 0) && (
+                    <p className="text-xs text-foreground-muted text-center py-1">No associated records found.</p>
+                  )}
+                </div>
+                <p className="text-xs text-danger/80 text-center font-medium">This action is irreversible.</p>
+              </>
+            )}
+
+            <div className="flex gap-3 pt-2">
+              <button
+                onClick={() => setShowDeleteModal(false)}
+                className="btn-secondary flex-1"
+                disabled={deleteLoading}
+              >
+                Cancel
+              </button>
+              {deletePreview && (
+                <button
+                  onClick={handleConfirmDelete}
+                  disabled={deleteLoading}
+                  className="flex-1 px-4 py-2 rounded-lg text-sm font-medium bg-danger text-white hover:bg-danger/90 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  {deleteLoading ? (
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    'Confirm Delete'
+                  )}
+                </button>
+              )}
             </div>
           </div>
         </div>

@@ -1629,6 +1629,15 @@ export interface AdminDashboard {
     created_at: string;
     last_login_at: string | null;
   }[];
+  growth_deltas?: {
+    revenue_change_percent: number;
+    resellers_change_percent: number;
+    customers_change_percent: number;
+    comparison_period: string;
+  };
+  signups_today?: number;
+  signups_this_week?: number;
+  signups_this_month?: number;
   generated_at: string;
 }
 
@@ -1768,6 +1777,22 @@ export interface AdminResellerStats {
     mpesa_revenue: number;
     new_resellers: number;
   };
+}
+
+export interface DeleteResellerPreview {
+  reseller_id: number;
+  reseller_email: string;
+  organization_name: string;
+  dry_run: true;
+  will_delete: Record<string, number>;
+  message: string;
+}
+
+export interface DeleteResellerResponse {
+  success: boolean;
+  message: string;
+  reseller_id: number;
+  deleted: Record<string, number>;
 }
 
 // Subscription Types
@@ -1959,4 +1984,183 @@ export interface GeneratePreExpiryInvoicesResponse {
   created: number;
   skipped: number;
   errors: string[];
+}
+
+// Admin Dashboard Metrics (new endpoints)
+
+export interface AdminMRRMetrics {
+  current_mrr: number;
+  previous_period_mrr: number;
+  change_percent: number;
+  currency: string;
+  breakdown: {
+    new_mrr: number;
+    churned_mrr: number;
+    expansion_mrr: number;
+    contraction_mrr: number;
+  };
+  by_plan: { plan_name: string; reseller_count: number; mrr: number }[];
+  period: string;
+  calculated_at: string;
+}
+
+export interface AdminChurnMetrics {
+  churn_rate: number;
+  churned_count: number;
+  total_at_period_start: number;
+  previous_period_churn_rate: number;
+  change_percent: number;
+  net_reseller_growth: number;
+  churned_resellers: {
+    id: number;
+    organization_name: string;
+    churned_at: string | null;
+    reason: string;
+  }[];
+  period: string;
+  calculated_at: string;
+}
+
+export interface AdminSignupsSummary {
+  reseller_signups: {
+    today: number;
+    this_week: number;
+    this_month: number;
+    period_total: number;
+    previous_period_total: number;
+    change_percent: number;
+  };
+  customer_signups: {
+    today: number;
+    this_week: number;
+    this_month: number;
+    period_total: number;
+    previous_period_total: number;
+    change_percent: number;
+  };
+  period: string;
+  calculated_at: string;
+}
+
+export interface AdminCustomerSignupsTimeSeries {
+  period: string;
+  customer_signups_over_time: { date: string; label: string; count: number }[];
+  previous_period: { date: string; label: string; count: number }[];
+}
+
+export interface AdminSubscriptionRevenueHistory {
+  period: string;
+  subscription_revenue_over_time: { date: string; label: string; revenue: number }[];
+  previous_period: { date: string; label: string; revenue: number }[];
+}
+
+export interface AdminARPUMetrics {
+  current_arpu: number;
+  previous_period_arpu: number;
+  change_percent: number;
+  currency: string;
+  active_resellers: number;
+  total_revenue: number;
+  period: string;
+  calculated_at: string;
+}
+
+export interface AdminTrialConversion {
+  conversion_rate: number;
+  converted_count: number;
+  total_trials_at_start: number;
+  current_trials: number;
+  previous_period_rate: number;
+  change_percent: number;
+  avg_days_to_convert: number;
+  period: string;
+  calculated_at: string;
+}
+
+export interface AdminActivationFunnel {
+  funnel: {
+    stage: string;
+    label: string;
+    count: number;
+    percent: number;
+  }[];
+  conversion_rates: {
+    signup_to_router: number;
+    router_to_customer: number;
+    customer_to_revenue: number;
+    signup_to_revenue: number;
+  };
+  period: string;
+  calculated_at: string;
+}
+
+export interface AdminRevenueConcentration {
+  top_5_share_percent: number;
+  top_10_share_percent: number;
+  total_revenue: number;
+  total_resellers_with_revenue: number;
+  top_contributors: {
+    id: number;
+    organization_name: string;
+    revenue: number;
+    share_percent: number;
+  }[];
+  period: string;
+  calculated_at: string;
+}
+
+export interface AdminSmartAlert {
+  id: string;
+  type: 'milestone' | 'warning' | 'record' | 'info';
+  severity: 'success' | 'warning' | 'danger' | 'info';
+  title: string;
+  message: string;
+  timestamp: string;
+  dismissed: boolean;
+  action_url?: string;
+}
+
+export interface AdminSmartAlertsResponse {
+  alerts: AdminSmartAlert[];
+  generated_at: string;
+}
+
+export interface AdminRevenueForecast {
+  forecast: {
+    date: string;
+    label: string;
+    projected_revenue: number;
+    lower_bound: number;
+    upper_bound: number;
+  }[];
+  projected_period_end_total: number;
+  growth_rate_percent: number;
+  confidence: 'high' | 'medium' | 'low';
+  based_on_days: number;
+  calculated_at: string;
+}
+
+export interface AdminGrowthTarget {
+  id: string;
+  label: string;
+  current_value: number;
+  target_value: number;
+  progress_percent: number;
+  unit: string;
+  period: string;
+  inverse?: boolean;
+}
+
+export interface AdminGrowthTargetsResponse {
+  targets: AdminGrowthTarget[];
+  updated_at: string;
+}
+
+export interface GrowthTargetUpdatePayload {
+  id: string;
+  target_value: number;
+  period?: string;
+  label?: string;
+  unit?: string;
+  inverse?: boolean;
 }
