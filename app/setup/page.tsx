@@ -330,7 +330,6 @@ function RouterStep({ onComplete }: { onComplete: () => void }) {
                 controls
                 controlsList="nodownload"
                 playsInline
-                // @ts-expect-error webkit attribute for iOS Safari inline playback
                 webkit-playsinline="true"
                 x5-playsinline="true"
                 preload="none"
