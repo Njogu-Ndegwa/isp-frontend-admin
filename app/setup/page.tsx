@@ -755,19 +755,19 @@ function PaymentStep({ onComplete }: { onComplete: () => void }) {
 
       const created = await api.createPaymentMethod(payload);
 
-      // Auto-assign to the first router if available
-      try {
-        const routers = await api.getRouters();
-        if (routers.length > 0) {
-          await api.assignRouterPaymentMethod(routers[0].id, created.id);
-        }
-      } catch { /* non-critical */ }
+      // Auto-assign to first router in background — non-critical, don't block the wizard
+      api.getRouters()
+        .then(routers => {
+          if (routers.length > 0) {
+            return api.assignRouterPaymentMethod(routers[0].id, created.id);
+          }
+        })
+        .catch(() => {});
 
       showAlert('success', 'Payment method added!');
       onComplete();
     } catch (err) {
       showAlert('error', err instanceof Error ? err.message : 'Failed to add payment method');
-    } finally {
       setLoading(false);
     }
   };
