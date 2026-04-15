@@ -319,21 +319,23 @@ function RouterStep({ onComplete }: { onComplete: () => void }) {
 
         <div
           className={`transition-all duration-300 ease-in-out overflow-hidden ${
-            showVideo ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'
+            showVideo ? 'max-h-[80vh] opacity-100' : 'max-h-0 opacity-0'
           }`}
         >
-          <div className="px-4 pb-4">
-            <div className="relative w-full rounded-xl overflow-hidden bg-black/90" style={{ aspectRatio: '16 / 9' }}>
+          <div className="px-3 sm:px-4 pb-3 sm:pb-4">
+            <div className="relative w-full rounded-xl overflow-hidden bg-black" style={{ aspectRatio: '16 / 9' }}>
               <video
                 ref={videoRef}
-                className="w-full h-full object-contain"
+                className="absolute inset-0 w-full h-full object-contain"
                 controls
+                controlsList="nodownload"
                 playsInline
-                preload="metadata"
-                poster="/videos/router-setup-poster.jpg"
+                // @ts-expect-error webkit attribute for iOS Safari inline playback
+                webkit-playsinline="true"
+                x5-playsinline="true"
+                preload="none"
+                src="https://res.cloudinary.com/dhffnvn2d/video/upload/v1776246895/video-project-2_WnpsbicQ_diwxkx.mp4"
               >
-                <source src="/videos/router-setup.mp4" type="video/mp4" />
-                <source src="/videos/router-setup.webm" type="video/webm" />
                 Your browser does not support video playback.
               </video>
             </div>
