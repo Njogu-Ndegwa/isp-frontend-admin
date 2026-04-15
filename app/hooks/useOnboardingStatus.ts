@@ -87,3 +87,56 @@ export async function quickOnboardingCheck(): Promise<boolean> {
     return false;
   }
 }
+
+export interface OnboardingCheckResult {
+  hasRouters: boolean;
+  hasPlans: boolean;
+  hasPaymentMethods: boolean;
+  hasProfile: boolean;
+  isComplete: boolean;
+  completedCount: number;
+  firstIncompleteStep: number;
+}
+
+export async function fullOnboardingCheck(): Promise<OnboardingCheckResult> {
+  try {
+    const [routers, plans, paymentMethods, profile] = await Promise.allSettled([
+      api.getRouters(),
+      api.getPlans(),
+      api.getPaymentMethods(),
+      api.getProfile(),
+    ]);
+
+    const hasRouters = routers.status === 'fulfilled' && routers.value.length > 0;
+    const hasPlans = plans.status === 'fulfilled' && plans.value.length > 0;
+    const hasPaymentMethods = paymentMethods.status === 'fulfilled' && paymentMethods.value.length > 0;
+    const hasProfile =
+      profile.status === 'fulfilled' &&
+      !!profile.value.support_phone &&
+      profile.value.support_phone.trim().length > 0;
+
+    const steps = [hasRouters, hasPlans, hasPaymentMethods, hasProfile];
+    const completedCount = steps.filter(Boolean).length;
+    const firstIncompleteStep = steps.findIndex(done => !done);
+
+    return {
+      hasRouters,
+      hasPlans,
+      hasPaymentMethods,
+      hasProfile,
+      isComplete: completedCount === TOTAL_STEPS,
+      completedCount,
+      firstIncompleteStep: firstIncompleteStep === -1 ? 0 : firstIncompleteStep,
+    };
+  } catch {
+    return {
+      hasRouters: false,
+      hasPlans: false,
+      hasPaymentMethods: false,
+      hasProfile: false,
+      isComplete: false,
+      completedCount: 0,
+      firstIncompleteStep: 0,
+    };
+  }
+}

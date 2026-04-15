@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '../context/AuthContext';
 import { useAlert } from '../context/AlertContext';
 import { api } from '../lib/api';
+import { fullOnboardingCheck } from '../hooks/useOnboardingStatus';
 import type {
   VpnType,
   ProvisionTokenResponse,
@@ -27,11 +28,37 @@ export default function SetupPage() {
   const [currentStep, setCurrentStep] = useState(0);
   const [completed, setCompleted] = useState<Record<string, boolean>>({});
   const [showCelebration, setShowCelebration] = useState(false);
+  const [resuming, setResuming] = useState(true);
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
       router.replace('/login');
     }
+  }, [isAuthenticated, isLoading, router]);
+
+  useEffect(() => {
+    if (!isAuthenticated || isLoading) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const result = await fullOnboardingCheck();
+        if (cancelled) return;
+        if (result.isComplete) {
+          localStorage.setItem('onboarding_dismissed', 'true');
+          router.replace('/dashboard');
+          return;
+        }
+        const stepMap: Record<string, boolean> = {};
+        if (result.hasRouters) stepMap['router'] = true;
+        if (result.hasPlans) stepMap['plan'] = true;
+        if (result.hasPaymentMethods) stepMap['payment'] = true;
+        if (result.hasProfile) stepMap['profile'] = true;
+        setCompleted(stepMap);
+        setCurrentStep(result.firstIncompleteStep);
+      } catch { /* proceed with defaults */ }
+      if (!cancelled) setResuming(false);
+    })();
+    return () => { cancelled = true; };
   }, [isAuthenticated, isLoading, router]);
 
   const markComplete = (stepId: string) => {
@@ -64,7 +91,7 @@ export default function SetupPage() {
     router.push('/dashboard');
   };
 
-  if (isLoading || !isAuthenticated) {
+  if (isLoading || !isAuthenticated || resuming) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="w-10 h-10 border-3 border-amber-500/30 border-t-amber-500 rounded-full animate-spin" />
@@ -201,6 +228,8 @@ function RouterStep({ onComplete }: { onComplete: () => void }) {
   const [tokens, setTokens] = useState<ProvisionToken[]>([]);
   const [checking, setChecking] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [showVideo, setShowVideo] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const loadTokens = useCallback(async () => {
@@ -252,6 +281,66 @@ function RouterStep({ onComplete }: { onComplete: () => void }) {
 
   return (
     <div className="space-y-4">
+      {/* Video Tutorial */}
+      <div className="card overflow-hidden border-amber-500/20">
+        <button
+          onClick={() => {
+            setShowVideo(v => {
+              if (!v && videoRef.current) videoRef.current.currentTime = 0;
+              return !v;
+            });
+          }}
+          className="w-full flex items-center gap-3 p-4 text-left transition-colors hover:bg-amber-500/[0.04] active:opacity-70"
+          style={{ touchAction: 'manipulation' }}
+        >
+          <div className="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center flex-shrink-0 ring-1 ring-amber-500/20">
+            <svg className="w-5 h-5 text-amber-500" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M8 5v14l11-7z" />
+            </svg>
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2">
+              <p className="text-sm font-semibold text-foreground">Watch: How to set up your router</p>
+              {!showVideo && (
+                <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-amber-500/10 text-amber-500 whitespace-nowrap">
+                  Recommended
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-foreground-muted mt-0.5">Quick walkthrough — takes under 2 minutes</p>
+          </div>
+          <svg
+            className={`w-5 h-5 text-foreground-muted flex-shrink-0 transition-transform duration-200 ${showVideo ? 'rotate-180' : ''}`}
+            fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
+
+        <div
+          className={`transition-all duration-300 ease-in-out overflow-hidden ${
+            showVideo ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'
+          }`}
+        >
+          <div className="px-4 pb-4">
+            <div className="relative w-full rounded-xl overflow-hidden bg-black/90" style={{ aspectRatio: '16 / 9' }}>
+              <video
+                ref={videoRef}
+                className="w-full h-full object-contain"
+                controls
+                playsInline
+                preload="metadata"
+                poster="/videos/router-setup-poster.jpg"
+              >
+                <source src="/videos/router-setup.mp4" type="video/mp4" />
+                <source src="/videos/router-setup.webm" type="video/webm" />
+                Your browser does not support video playback.
+              </video>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {!tokenResult ? (
         <>
           <div className="card p-4">

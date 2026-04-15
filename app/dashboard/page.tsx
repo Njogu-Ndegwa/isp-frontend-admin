@@ -21,6 +21,7 @@ import { SkeletonCard } from '../components/LoadingSpinner';
 import RouterSelector from '../components/RouterSelector';
 import SubscriptionAlertBanner from '../components/SubscriptionAlertBanner';
 import OnboardingChecklist from '../components/OnboardingChecklist';
+import { useOnboardingStatus } from '../hooks/useOnboardingStatus';
 
 // Date filter types
 type DateFilterPreset = 'today' | 'this_month';
@@ -77,6 +78,9 @@ export default function DashboardPage() {
 
   // Subscription alert
   const [subscriptionAlert, setSubscriptionAlert] = useState<SubscriptionAlert | null>(null);
+
+  // Onboarding status — used to show setup progress
+  const onboarding = useOnboardingStatus();
 
   // Helper to check if two date filters are equal
   const isFilterEqual = (a: DateFilter, b: DateFilter): boolean => {
@@ -325,8 +329,8 @@ export default function DashboardPage() {
         )}
       </div>
 
-      {/* Onboarding checklist (replaces bare "No Routers" card) */}
-      {hasRouters === false && <OnboardingChecklist />}
+      {/* Onboarding progress — shows whenever setup is incomplete */}
+      {!onboarding.loading && !onboarding.isComplete && <OnboardingChecklist />}
 
       {/* Analytics Section - Key Metrics FIRST */}
       {hasRouters !== false && analyticsError ? (

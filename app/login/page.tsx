@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../context/AuthContext';
 import { useAlert } from '../context/AlertContext';
-import { quickOnboardingCheck } from '../hooks/useOnboardingStatus';
+import { fullOnboardingCheck } from '../hooks/useOnboardingStatus';
 import Link from 'next/link';
 
 export default function LoginPage() {
@@ -46,13 +46,14 @@ export default function LoginPage() {
         }
       }
 
-      const alreadyDismissed = localStorage.getItem('onboarding_dismissed') === 'true';
-      if (!alreadyDismissed) {
-        const hasRouters = await quickOnboardingCheck();
-        if (!hasRouters) {
+      const onboardingResult = await fullOnboardingCheck();
+      if (!onboardingResult.isComplete) {
+        const wasSkipped = localStorage.getItem('onboarding_dismissed') === 'true';
+        if (!wasSkipped) {
           router.push('/setup');
           return;
         }
+      } else {
         localStorage.setItem('onboarding_dismissed', 'true');
       }
 
