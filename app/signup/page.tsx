@@ -10,7 +10,7 @@ import type { RegisterRequest } from '../lib/types';
 
 export default function SignupPage() {
   const router = useRouter();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, isDemo, logout } = useAuth();
   const { showAlert } = useAlert();
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -23,7 +23,9 @@ export default function SignupPage() {
     business_name: '',
   });
 
-  if (isAuthenticated) {
+  if (isAuthenticated && isDemo) {
+    logout();
+  } else if (isAuthenticated) {
     router.push('/dashboard');
     return null;
   }

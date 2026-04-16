@@ -382,8 +382,9 @@ export default function LandingPage() {
             {NAV_LINKS.map(l => (<button key={l.href} onClick={() => scrollTo(l.href.slice(1))} className={`text-sm font-medium transition-colors ${scrolled ? 'text-foreground-muted hover:text-foreground' : 'text-white/70 hover:text-white'}`}>{l.label}</button>))}
           </div>
           <div className="hidden md:flex items-center gap-3">
-            <Link href="/login" className={`btn-ghost text-sm ${scrolled ? 'text-foreground-muted hover:text-foreground' : 'text-white/70 hover:text-white'}`}>Sign In</Link>
-            <button onClick={handleTryDemo} className="btn-primary text-sm">Try Demo</button>
+            <button onClick={handleTryDemo} className={`text-sm font-medium transition-colors ${scrolled ? 'text-foreground-muted hover:text-foreground' : 'text-white/70 hover:text-white'}`}>Demo</button>
+            <Link href="/login" className={`btn-ghost text-sm ${scrolled ? 'text-foreground-muted hover:text-foreground' : 'text-white/70 hover:text-white'}`}>Log In</Link>
+            <Link href="/signup" className="btn-primary text-sm">Sign Up</Link>
           </div>
           <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className={`md:hidden p-2 rounded-lg transition-colors ${scrolled ? 'hover:bg-background-tertiary text-foreground' : 'hover:bg-white/10 text-white'}`} aria-label="Toggle menu">
             <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -394,9 +395,14 @@ export default function LandingPage() {
         <div className={`md:hidden overflow-hidden transition-all duration-300 bg-background/95 backdrop-blur-xl ${mobileMenuOpen ? 'max-h-80 border-b border-border' : 'max-h-0'}`}>
           <div className="px-4 py-4 space-y-3">
             {NAV_LINKS.map(l => (<button key={l.href} onClick={() => scrollTo(l.href.slice(1))} className="block w-full text-left text-sm font-medium text-foreground-muted hover:text-foreground py-2 transition-colors">{l.label}</button>))}
-            <div className="pt-3 border-t border-border flex gap-3">
-              <Link href="/login" className="btn-secondary text-sm flex-1 text-center">Sign In</Link>
-              <button onClick={handleTryDemo} className="btn-primary text-sm flex-1">Try Demo</button>
+            <div className="pt-3 border-t border-border space-y-2">
+              <div className="flex gap-3">
+                <Link href="/signup" className="btn-primary text-sm flex-1 text-center">Sign Up</Link>
+                <Link href="/login" className="btn-secondary text-sm flex-1 text-center">Log In</Link>
+              </div>
+              <button onClick={() => { setMobileMenuOpen(false); handleTryDemo(); }} className="w-full text-sm text-foreground-muted hover:text-foreground py-2 transition-colors text-center">
+                Explore Live Demo
+              </button>
             </div>
           </div>
         </div>
@@ -428,11 +434,19 @@ export default function LandingPage() {
           </Reveal>
           <Reveal delay={0.24}>
             <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
-              <button onClick={handleTryDemo} className="inline-flex items-center justify-center gap-2 bg-gradient-to-r from-amber-500 to-orange-500 text-[#09090b] font-semibold px-10 py-4 text-base rounded-xl hover:shadow-lg hover:shadow-amber-500/30 hover:-translate-y-0.5 transition-all w-full sm:w-auto">
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /><path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                Try Live Demo
+              <Link href="/signup" className="inline-flex items-center justify-center gap-2 bg-gradient-to-r from-amber-500 to-orange-500 text-[#09090b] font-semibold px-10 py-4 text-base rounded-xl hover:shadow-lg hover:shadow-amber-500/30 hover:-translate-y-0.5 transition-all w-full sm:w-auto">
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" /></svg>
+                Sign Up Free
+              </Link>
+              <Link href="/login" className="inline-flex items-center justify-center gap-2 px-10 py-4 text-base font-medium text-white/80 hover:text-white border border-white/20 hover:border-white/40 rounded-xl hover:-translate-y-0.5 transition-all w-full sm:w-auto">
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" /></svg>
+                Log In
+              </Link>
+            </div>
+            <div className="mt-4 flex items-center justify-center">
+              <button onClick={handleTryDemo} className="text-sm text-white/50 hover:text-white/80 transition-colors underline underline-offset-4 decoration-white/20 hover:decoration-white/50">
+                or explore the live demo
               </button>
-              <button onClick={() => scrollTo('contact')} className="inline-flex items-center justify-center px-10 py-4 text-base font-medium text-white/80 hover:text-white border border-white/20 hover:border-white/40 rounded-xl hover:-translate-y-0.5 transition-all w-full sm:w-auto">Request a Demo</button>
             </div>
           </Reveal>
         </div>
@@ -674,19 +688,26 @@ export default function LandingPage() {
           </Reveal>
 
           <Reveal delay={0.15}>
-            <div className="text-center">
-              <div className="inline-flex items-center gap-3 px-5 py-3 rounded-xl bg-amber-500/10 border border-amber-500/20 mb-6">
-                <svg className="w-5 h-5 text-amber-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /><path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                <span className="text-sm text-foreground-muted">Want to explore first?</span>
-                <button onClick={handleTryDemo} className="text-sm font-semibold text-amber-500 hover:text-amber-400 transition-colors">Try the live demo</button>
+            <div className="mt-2">
+              <div className="card-glass rounded-2xl p-6 md:p-8 text-center">
+                <h3 className="text-lg font-semibold mb-2">Ready to get started?</h3>
+                <p className="text-sm text-foreground-muted mb-6">Create your account in minutes and start managing your ISP today.</p>
+                <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+                  <Link href="/signup" className="inline-flex items-center justify-center gap-2 bg-gradient-to-r from-amber-500 to-orange-500 text-[#09090b] font-semibold px-8 py-3 text-sm rounded-xl hover:shadow-lg hover:shadow-amber-500/30 hover:-translate-y-0.5 transition-all w-full sm:w-auto">
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" /></svg>
+                    Sign Up Free
+                  </Link>
+                  <Link href="/login" className="inline-flex items-center justify-center gap-2 px-8 py-3 text-sm font-medium border border-border hover:border-foreground-muted rounded-xl hover:-translate-y-0.5 transition-all w-full sm:w-auto">
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" /></svg>
+                    Log In
+                  </Link>
+                </div>
+                <div className="mt-4">
+                  <button onClick={handleTryDemo} className="text-sm text-foreground-muted hover:text-accent-primary transition-colors">
+                    or explore the live demo first
+                  </button>
+                </div>
               </div>
-            </div>
-          </Reveal>
-
-          <Reveal delay={0.2}>
-            <div className="text-center">
-              <p className="text-sm text-foreground-muted mb-4">Already have an account?</p>
-              <Link href="/login" className="btn-ghost text-sm">Sign In to your dashboard</Link>
             </div>
           </Reveal>
         </div>

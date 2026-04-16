@@ -9,7 +9,7 @@ import Link from 'next/link';
 
 export default function LoginPage() {
   const router = useRouter();
-  const { login, loginAsDemo, isAuthenticated } = useAuth();
+  const { login, loginAsDemo, isAuthenticated, isDemo, logout } = useAuth();
   const { showAlert } = useAlert();
   const [credentials, setCredentials] = useState({ email: '', password: '' });
   const [loading, setLoading] = useState(false);
@@ -21,7 +21,9 @@ export default function LoginPage() {
     router.push('/dashboard');
   };
 
-  if (isAuthenticated) {
+  if (isAuthenticated && isDemo) {
+    logout();
+  } else if (isAuthenticated) {
     router.push('/dashboard');
     return null;
   }
