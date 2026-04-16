@@ -4,7 +4,6 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../context/AuthContext';
 import { useAlert } from '../context/AlertContext';
-import { fullOnboardingCheck } from '../hooks/useOnboardingStatus';
 import Link from 'next/link';
 import { api } from '../lib/api';
 import type { RegisterRequest } from '../lib/types';
@@ -74,18 +73,7 @@ export default function SignupPage() {
         }
       }
 
-      const onboardingResult = await fullOnboardingCheck();
-      if (!onboardingResult.isComplete) {
-        const wasSkipped = localStorage.getItem('onboarding_dismissed') === 'true';
-        if (!wasSkipped) {
-          router.push('/setup');
-          return;
-        }
-      } else {
-        localStorage.setItem('onboarding_dismissed', 'true');
-      }
-
-      router.push('/dashboard');
+      router.push('/setup');
     } catch (err) {
       if (registered) {
         showAlert('warning', 'Account created! Please sign in to continue.');

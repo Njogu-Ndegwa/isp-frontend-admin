@@ -62,6 +62,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = async (credentials: LoginRequest): Promise<SubscriptionAlert | undefined> => {
     const response = await api.login(credentials);
     localStorage.removeItem('demo_mode');
+    localStorage.removeItem('onboarding_dismissed');
+    localStorage.removeItem('onboarding_completed');
+    localStorage.removeItem('onboarding_checklist_dismissed');
     localStorage.setItem('auth_token', response.access_token);
     localStorage.setItem('auth_user', JSON.stringify(response.user));
     setIsDemo(false);
@@ -88,6 +91,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem('auth_token');
     localStorage.removeItem('auth_user');
     localStorage.removeItem('demo_mode');
+    localStorage.removeItem('onboarding_dismissed');
+    localStorage.removeItem('onboarding_completed');
+    localStorage.removeItem('onboarding_checklist_dismissed');
     setToken(null);
     setUser(null);
     setIsDemo(false);
