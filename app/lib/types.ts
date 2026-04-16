@@ -1987,6 +1987,13 @@ export interface GeneratePreExpiryInvoicesResponse {
   errors: string[];
 }
 
+export interface VerifyPaymentsResponse {
+  message: string;
+  reseller_id: number;
+  verified_count: number;
+  payments: SubscriptionPayment[];
+}
+
 // Admin Dashboard Metrics (new endpoints)
 
 export interface AdminMRRMetrics {

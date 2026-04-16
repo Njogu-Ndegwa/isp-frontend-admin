@@ -42,8 +42,11 @@ export default function AdminSubscriptionDetailPage() {
   const [showSuspendDialog, setShowSuspendDialog] = useState(false);
   const [showWaiveDialog, setShowWaiveDialog] = useState(false);
   const [waiveTarget, setWaiveTarget] = useState<SubscriptionInvoice | null>(null);
+  const [showVerifyDialog, setShowVerifyDialog] = useState(false);
   const [activateMonths, setActivateMonths] = useState(1);
   const [actionLoading, setActionLoading] = useState(false);
+  const [verifyLoading, setVerifyLoading] = useState(false);
+  const [verifyResult, setVerifyResult] = useState<{ message: string; count: number } | null>(null);
 
   const fetchData = useCallback(async () => {
     try {
@@ -102,6 +105,23 @@ export default function AdminSubscriptionDetailPage() {
       setActionLoading(false);
     }
   };
+
+  const handleVerifyPayments = async () => {
+    setVerifyLoading(true);
+    try {
+      const result = await api.verifySubscriptionPayments(resellerId);
+      setVerifyResult({ message: result.message, count: result.verified_count });
+      setShowVerifyDialog(false);
+      fetchData();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to verify payments');
+      setShowVerifyDialog(false);
+    } finally {
+      setVerifyLoading(false);
+    }
+  };
+
+  const pendingPaymentsCount = data?.payments.filter(p => p.status === 'pending').length ?? 0;
 
   if (user?.role !== 'admin') {
     return (
@@ -256,6 +276,34 @@ export default function AdminSubscriptionDetailPage() {
           {/* Payments Tab */}
           {activeTab === 'payments' && (
             <div className="space-y-2">
+              {verifyResult && (
+                <div className="card p-3 bg-emerald-500/10 border-emerald-500/20 flex items-center justify-between">
+                  <p className="text-sm text-emerald-500">
+                    {verifyResult.message} ({verifyResult.count} payment{verifyResult.count !== 1 ? 's' : ''} verified)
+                  </p>
+                  <button onClick={() => setVerifyResult(null)} className="text-emerald-500 hover:text-emerald-400 text-xs">
+                    Dismiss
+                  </button>
+                </div>
+              )}
+
+              {pendingPaymentsCount > 0 && (
+                <div className="card p-4 bg-yellow-500/5 border-yellow-500/20 flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-foreground">
+                      {pendingPaymentsCount} unverified payment{pendingPaymentsCount !== 1 ? 's' : ''}
+                    </p>
+                    <p className="text-xs text-foreground-muted">Manually verify payments that were made but not confirmed</p>
+                  </div>
+                  <button
+                    onClick={() => setShowVerifyDialog(true)}
+                    className="text-sm px-3 py-2 rounded-xl bg-amber-500/10 text-amber-500 border border-amber-500/20 hover:bg-amber-500/20 transition-colors font-medium whitespace-nowrap"
+                  >
+                    Verify Payments
+                  </button>
+                </div>
+              )}
+
               {data.payments.length === 0 ? (
                 <div className="card p-6 text-center">
                   <p className="text-sm text-foreground-muted">No payments yet</p>
@@ -317,6 +365,17 @@ export default function AdminSubscriptionDetailPage() {
         confirmLabel="Waive"
         variant="warning"
         loading={actionLoading}
+      />
+
+      <ConfirmDialog
+        isOpen={showVerifyDialog}
+        onClose={() => setShowVerifyDialog(false)}
+        onConfirm={handleVerifyPayments}
+        title="Verify Payments"
+        message={`Manually verify ${pendingPaymentsCount} pending payment${pendingPaymentsCount !== 1 ? 's' : ''} for this reseller? This will mark them as completed and update the associated invoices.`}
+        confirmLabel="Verify Payments"
+        variant="primary"
+        loading={verifyLoading}
       />
 
       {/* Edit Modal */}

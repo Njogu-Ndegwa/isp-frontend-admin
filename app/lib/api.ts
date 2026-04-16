@@ -114,6 +114,7 @@ import {
   GenerateInvoicesResponse,
   RequestInvoiceResponse,
   GeneratePreExpiryInvoicesResponse,
+  VerifyPaymentsResponse,
   AdminMRRMetrics,
   AdminChurnMetrics,
   AdminSignupsSummary,
@@ -1623,6 +1624,15 @@ class ApiClient {
       headers: this.getHeaders(),
     });
     return this.handleResponse<GeneratePreExpiryInvoicesResponse>(response);
+  }
+
+  async verifySubscriptionPayments(resellerId: number): Promise<VerifyPaymentsResponse> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(`${BASE_URL}/admin/subscriptions/${resellerId}/verify-payments`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<VerifyPaymentsResponse>(response);
   }
 
   // Admin Dashboard Metrics (new endpoints — gracefully return null until backend implements)
