@@ -718,6 +718,7 @@ export interface RegisterRequest {
   role: 'reseller';
   organization_name: string;
   business_name: string;
+  support_phone?: string;
 }
 
 export interface AuthUser {

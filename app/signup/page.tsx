@@ -22,6 +22,7 @@ export default function SignupPage() {
     password: '',
     organization_name: '',
     business_name: '',
+    support_phone: '',
   });
 
   if (isAuthenticated && isDemo) {
@@ -49,6 +50,7 @@ export default function SignupPage() {
         const payload: RegisterRequest = {
           ...formData,
           role: 'reseller',
+          support_phone: formData.support_phone || undefined,
         };
         await api.register(payload);
         setRegistered(true);
@@ -211,6 +213,18 @@ export default function SignupPage() {
                 className="input"
                 placeholder="e.g. Acme Internet Services"
                 required
+              />
+            </div>
+
+            <div>
+              <label htmlFor="support_phone" className="block text-sm font-medium text-foreground-muted mb-1.5">Phone Number <span className="text-foreground-muted/50 font-normal">(optional)</span></label>
+              <input
+                id="support_phone"
+                type="tel"
+                value={formData.support_phone}
+                onChange={(e) => update('support_phone', e.target.value)}
+                className="input"
+                placeholder="e.g. 0712345678"
               />
             </div>
 
