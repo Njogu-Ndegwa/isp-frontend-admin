@@ -14,6 +14,7 @@ export default function SignupPage() {
   const { showAlert } = useAlert();
   const [loading, setLoading] = useState(false);
   const [registered, setRegistered] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -25,11 +26,13 @@ export default function SignupPage() {
     support_phone: '',
   });
 
-  if (isAuthenticated && isDemo) {
-    logout();
-  } else if (isAuthenticated) {
-    router.push('/dashboard');
-    return null;
+  if (!submitting) {
+    if (isAuthenticated && isDemo) {
+      logout();
+    } else if (isAuthenticated) {
+      router.push('/dashboard');
+      return null;
+    }
   }
 
   const update = (field: string, value: string) =>
@@ -57,6 +60,7 @@ export default function SignupPage() {
       }
 
       showAlert('success', 'Account created! Signing you in...');
+      setSubmitting(true);
 
       const subscriptionAlert = await login({
         email: formData.email,
