@@ -8,6 +8,7 @@ import AlertContainer from "./components/AlertContainer";
 import ErrorBoundary from "./components/ErrorBoundary";
 import ThemeProvider from "./components/ThemeProvider";
 import { Analytics } from "@vercel/analytics/next";
+import Script from "next/script";
 
 const outfit = Outfit({
   variable: "--font-geist-sans",
@@ -45,6 +46,18 @@ export default function RootLayout({
         className={`${outfit.variable} ${jetbrainsMono.variable} antialiased grid-pattern`}
         suppressHydrationWarning
       >
+        <Script
+          src="https://www.googletagmanager.com/gtag/js?id=G-XQQZTHB95N"
+          strategy="afterInteractive"
+        />
+        <Script id="google-analytics" strategy="afterInteractive">
+          {`
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+            gtag('config', 'G-XQQZTHB95N');
+          `}
+        </Script>
         <ErrorBoundary>
           <ThemeProvider>
             <AlertProvider>
