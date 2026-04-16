@@ -1,19 +1,36 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useRef, useEffect, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '../context/AuthContext';
 import { useAlert } from '../context/AlertContext';
 import { fullOnboardingCheck } from '../hooks/useOnboardingStatus';
 import Link from 'next/link';
 
 export default function LoginPage() {
+  return (
+    <Suspense>
+      <LoginContent />
+    </Suspense>
+  );
+}
+
+function LoginContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { login, loginAsDemo, isAuthenticated, isDemo, logout } = useAuth();
   const { showAlert } = useAlert();
-  const [credentials, setCredentials] = useState({ email: '', password: '' });
+  const prefillEmail = searchParams.get('email') || '';
+  const [credentials, setCredentials] = useState({ email: prefillEmail, password: '' });
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const passwordRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (prefillEmail) {
+      passwordRef.current?.focus();
+    }
+  }, [prefillEmail]);
 
   const handleTryDemo = () => {
     loginAsDemo();
@@ -116,6 +133,7 @@ export default function LoginPage() {
               <label htmlFor="password" className="block text-sm font-medium text-foreground-muted mb-1.5">Password</label>
               <div className="relative">
                 <input
+                  ref={passwordRef}
                   id="password"
                   type={showPassword ? 'text' : 'password'}
                   value={credentials.password}

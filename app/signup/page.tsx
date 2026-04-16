@@ -4,15 +4,17 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../context/AuthContext';
 import { useAlert } from '../context/AlertContext';
+import { fullOnboardingCheck } from '../hooks/useOnboardingStatus';
 import Link from 'next/link';
 import { api } from '../lib/api';
 import type { RegisterRequest } from '../lib/types';
 
 export default function SignupPage() {
   const router = useRouter();
-  const { isAuthenticated, isDemo, logout } = useAuth();
+  const { isAuthenticated, isDemo, logout, login } = useAuth();
   const { showAlert } = useAlert();
   const [loading, setLoading] = useState(false);
+  const [registered, setRegistered] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -36,7 +38,7 @@ export default function SignupPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (formData.password !== confirmPassword) {
+    if (!registered && formData.password !== confirmPassword) {
       showAlert('error', 'Passwords do not match.');
       return;
     }
@@ -44,19 +46,55 @@ export default function SignupPage() {
     setLoading(true);
 
     try {
-      const payload: RegisterRequest = {
-        ...formData,
-        role: 'reseller',
-      };
-      await api.register(payload);
-      showAlert('success', 'Account created successfully! Please sign in.');
-      router.push('/login');
+      if (!registered) {
+        const payload: RegisterRequest = {
+          ...formData,
+          role: 'reseller',
+        };
+        await api.register(payload);
+        setRegistered(true);
+      }
+
+      showAlert('success', 'Account created! Signing you in...');
+
+      const subscriptionAlert = await login({
+        email: formData.email,
+        password: formData.password,
+      });
+
+      if (subscriptionAlert) {
+        const status = subscriptionAlert.status;
+        if (status === 'suspended' || status === 'inactive') {
+          showAlert('warning', subscriptionAlert.message);
+          router.push('/settings/subscription');
+          return;
+        }
+        if (subscriptionAlert.message) {
+          showAlert('info', subscriptionAlert.message);
+        }
+      }
+
+      const onboardingResult = await fullOnboardingCheck();
+      if (!onboardingResult.isComplete) {
+        const wasSkipped = localStorage.getItem('onboarding_dismissed') === 'true';
+        if (!wasSkipped) {
+          router.push('/setup');
+          return;
+        }
+      } else {
+        localStorage.setItem('onboarding_dismissed', 'true');
+      }
+
+      router.push('/dashboard');
     } catch (err) {
-      const message =
-        err instanceof Error
-          ? err.message
-          : 'Registration failed. Please try again.';
-      showAlert('error', message);
+      if (registered) {
+        showAlert('warning', 'Account created! Please sign in to continue.');
+        router.push(`/login?email=${encodeURIComponent(formData.email)}`);
+      } else {
+        const message =
+          err instanceof Error ? err.message : 'Registration failed. Please try again.';
+        showAlert('error', message);
+      }
     } finally {
       setLoading(false);
     }
@@ -196,7 +234,7 @@ export default function SignupPage() {
               {loading ? (
                 <>
                   <div className="w-4 h-4 border-2 border-foreground/30 border-t-foreground rounded-full animate-spin" />
-                  Creating account...
+                  Setting up your account...
                 </>
               ) : (
                 'Create Account'
