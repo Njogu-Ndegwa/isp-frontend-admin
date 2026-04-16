@@ -42,6 +42,12 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        <Script
+          src="https://t.contentsquare.net/uxa/b7ccccb30429d.js"
+          strategy="beforeInteractive"
+        />
+      </head>
       <body
         className={`${outfit.variable} ${jetbrainsMono.variable} antialiased grid-pattern`}
         suppressHydrationWarning
