@@ -128,6 +128,26 @@ import {
   AdminRevenueForecast,
   AdminGrowthTargetsResponse,
   GrowthTargetUpdatePayload,
+  LeadSource,
+  Lead,
+  LeadDetail,
+  LeadActivity,
+  LeadFollowUp,
+  LeadsListResponse,
+  ActivitiesResponse,
+  FollowUpsResponse,
+  LeadPipelineSummary,
+  LeadPipelineStats,
+  CreateLeadRequest,
+  UpdateLeadRequest,
+  ChangeStageRequest,
+  CreateSourceRequest,
+  UpdateSourceRequest,
+  CreateActivityRequest,
+  CreateFollowUpRequest,
+  ConvertLeadRequest,
+  ConvertLeadResponse,
+  LeadStage,
 } from './types';
 import * as demo from './demoData';
 
@@ -1730,6 +1750,155 @@ class ApiClient {
       });
       return await this.handleResponse<AdminGrowthTargetsResponse>(response);
     } catch { return null; }
+  }
+
+  // ─── Lead Pipeline / CRM ─────────────────────────────────────────
+
+  async getLeadSources(activeOnly = true): Promise<LeadSource[]> {
+    if (this.isDemoMode()) return demo.demoLeadSources.filter(s => !activeOnly || s.is_active);
+    const params = new URLSearchParams({ active_only: String(activeOnly) });
+    const response = await fetch(`${BASE_URL}/leads/sources?${params}`, { headers: this.getHeaders() });
+    return this.handleResponse<LeadSource[]>(response);
+  }
+
+  async createLeadSource(data: CreateSourceRequest): Promise<LeadSource> {
+    this.demoBlock();
+    const response = await fetch(`${BASE_URL}/leads/sources`, {
+      method: 'POST', headers: this.getHeaders(), body: JSON.stringify(data),
+    });
+    return this.handleResponse<LeadSource>(response);
+  }
+
+  async updateLeadSource(id: number, data: UpdateSourceRequest): Promise<LeadSource> {
+    this.demoBlock();
+    const response = await fetch(`${BASE_URL}/leads/sources/${id}`, {
+      method: 'PUT', headers: this.getHeaders(), body: JSON.stringify(data),
+    });
+    return this.handleResponse<LeadSource>(response);
+  }
+
+  async deleteLeadSource(id: number): Promise<{ detail: string; id: number }> {
+    this.demoBlock();
+    const response = await fetch(`${BASE_URL}/leads/sources/${id}`, {
+      method: 'DELETE', headers: this.getHeaders(),
+    });
+    return this.handleResponse<{ detail: string; id: number }>(response);
+  }
+
+  async getLeads(params?: {
+    stage?: LeadStage; source_id?: number; search?: string; page?: number; per_page?: number;
+  }): Promise<LeadsListResponse> {
+    if (this.isDemoMode()) return demo.demoLeadsListResponse(params);
+    const q = new URLSearchParams();
+    if (params?.stage) q.append('stage', params.stage);
+    if (params?.source_id) q.append('source_id', String(params.source_id));
+    if (params?.search) q.append('search', params.search);
+    if (params?.page) q.append('page', String(params.page));
+    if (params?.per_page) q.append('per_page', String(params.per_page));
+    const response = await fetch(`${BASE_URL}/leads?${q}`, { headers: this.getHeaders() });
+    return this.handleResponse<LeadsListResponse>(response);
+  }
+
+  async getLead(id: number): Promise<LeadDetail> {
+    if (this.isDemoMode()) {
+      const d = demo.demoLeadDetail(id);
+      if (!d) throw new Error('Lead not found');
+      return d;
+    }
+    const response = await fetch(`${BASE_URL}/leads/${id}`, { headers: this.getHeaders() });
+    return this.handleResponse<LeadDetail>(response);
+  }
+
+  async createLead(data: CreateLeadRequest): Promise<Lead> {
+    this.demoBlock();
+    const response = await fetch(`${BASE_URL}/leads`, {
+      method: 'POST', headers: this.getHeaders(), body: JSON.stringify(data),
+    });
+    return this.handleResponse<Lead>(response);
+  }
+
+  async updateLead(id: number, data: UpdateLeadRequest): Promise<Lead> {
+    this.demoBlock();
+    const response = await fetch(`${BASE_URL}/leads/${id}`, {
+      method: 'PUT', headers: this.getHeaders(), body: JSON.stringify(data),
+    });
+    return this.handleResponse<Lead>(response);
+  }
+
+  async changeLeadStage(id: number, data: ChangeStageRequest): Promise<Lead> {
+    this.demoBlock();
+    const response = await fetch(`${BASE_URL}/leads/${id}/stage`, {
+      method: 'PATCH', headers: this.getHeaders(), body: JSON.stringify(data),
+    });
+    return this.handleResponse<Lead>(response);
+  }
+
+  async deleteLead(id: number): Promise<{ detail: string; id: number }> {
+    this.demoBlock();
+    const response = await fetch(`${BASE_URL}/leads/${id}`, {
+      method: 'DELETE', headers: this.getHeaders(),
+    });
+    return this.handleResponse<{ detail: string; id: number }>(response);
+  }
+
+  async getLeadPipelineSummary(): Promise<LeadPipelineSummary> {
+    if (this.isDemoMode()) return demo.demoLeadPipelineSummary;
+    const response = await fetch(`${BASE_URL}/leads/pipeline/summary`, { headers: this.getHeaders() });
+    return this.handleResponse<LeadPipelineSummary>(response);
+  }
+
+  async getLeadPipelineStats(): Promise<LeadPipelineStats> {
+    if (this.isDemoMode()) return demo.demoLeadPipelineStats;
+    const response = await fetch(`${BASE_URL}/leads/pipeline/stats`, { headers: this.getHeaders() });
+    return this.handleResponse<LeadPipelineStats>(response);
+  }
+
+  async logLeadActivity(leadId: number, data: CreateActivityRequest): Promise<LeadActivity> {
+    this.demoBlock();
+    const response = await fetch(`${BASE_URL}/leads/${leadId}/activities`, {
+      method: 'POST', headers: this.getHeaders(), body: JSON.stringify(data),
+    });
+    return this.handleResponse<LeadActivity>(response);
+  }
+
+  async getLeadActivities(leadId: number): Promise<ActivitiesResponse> {
+    if (this.isDemoMode()) {
+      const d = demo.demoLeadDetail(leadId);
+      return { activities: d?.activities || [] };
+    }
+    const response = await fetch(`${BASE_URL}/leads/${leadId}/activities`, { headers: this.getHeaders() });
+    return this.handleResponse<ActivitiesResponse>(response);
+  }
+
+  async createLeadFollowUp(leadId: number, data: CreateFollowUpRequest): Promise<LeadFollowUp> {
+    this.demoBlock();
+    const response = await fetch(`${BASE_URL}/leads/${leadId}/followups`, {
+      method: 'POST', headers: this.getHeaders(), body: JSON.stringify(data),
+    });
+    return this.handleResponse<LeadFollowUp>(response);
+  }
+
+  async getUpcomingFollowUps(days = 7): Promise<FollowUpsResponse> {
+    if (this.isDemoMode()) return demo.demoUpcomingFollowUps(days);
+    const params = new URLSearchParams({ days: String(days) });
+    const response = await fetch(`${BASE_URL}/leads/followups/upcoming?${params}`, { headers: this.getHeaders() });
+    return this.handleResponse<FollowUpsResponse>(response);
+  }
+
+  async completeFollowUp(followUpId: number): Promise<{ detail: string; id: number }> {
+    this.demoBlock();
+    const response = await fetch(`${BASE_URL}/leads/followups/${followUpId}/complete`, {
+      method: 'PATCH', headers: this.getHeaders(),
+    });
+    return this.handleResponse<{ detail: string; id: number }>(response);
+  }
+
+  async convertLead(leadId: number, data: ConvertLeadRequest): Promise<ConvertLeadResponse> {
+    this.demoBlock();
+    const response = await fetch(`${BASE_URL}/leads/${leadId}/convert`, {
+      method: 'POST', headers: this.getHeaders(), body: JSON.stringify(data),
+    });
+    return this.handleResponse<ConvertLeadResponse>(response);
   }
 }
 

@@ -46,6 +46,18 @@ import type {
   AdminResellerStatsPeriod,
   ResellerRevenueDataPoint,
   ResellerSignupDataPoint,
+  LeadSource,
+  Lead,
+  LeadActivity,
+  LeadFollowUp,
+  LeadDetail,
+  LeadPipelineSummary,
+  LeadPipelineStats,
+  LeadsListResponse,
+  ActivitiesResponse,
+  FollowUpsResponse,
+  UpcomingFollowUp,
+  LeadStage,
 } from './types';
 
 const now = new Date();
@@ -942,6 +954,283 @@ export function demoAdminResellerStats(period: AdminResellerStatsPeriod = '30d')
       new_resellers: totalSignups,
     },
   };
+}
+
+// ─── Lead Pipeline / CRM ─────────────────────────────────────────────
+
+export const demoLeadSources: LeadSource[] = [
+  { id: 1, name: 'Instagram', description: 'Leads from Instagram DMs and comments', is_active: true, created_at: iso(60) },
+  { id: 2, name: 'TikTok', description: 'Leads from TikTok videos and comments', is_active: true, created_at: iso(60) },
+  { id: 3, name: 'WhatsApp', description: 'Leads from WhatsApp messages', is_active: true, created_at: iso(60) },
+  { id: 4, name: 'Referral', description: 'Referred by existing resellers', is_active: true, created_at: iso(60) },
+  { id: 5, name: 'Phone Call', description: 'Called in after seeing an ad', is_active: true, created_at: iso(60) },
+  { id: 6, name: 'Walk-in', description: 'Visited office in person', is_active: true, created_at: iso(60) },
+  { id: 7, name: 'Website', description: 'Registered or enquired via website', is_active: true, created_at: iso(60) },
+  { id: 8, name: 'Facebook', description: 'Leads from Facebook posts and groups', is_active: true, created_at: iso(60) },
+  { id: 9, name: 'Other', description: 'Uncategorized sources', is_active: true, created_at: iso(60) },
+];
+
+const demoLeadsList: Lead[] = [
+  {
+    id: 1, name: 'John Doe', phone: '+254712345678', email: 'john@example.com',
+    social_platform: 'tiktok', social_handle: '@johndoe_isp', source: 'TikTok', source_id: 2,
+    source_detail: 'Commented on router setup video', stage: 'talking',
+    stage_changed_at: iso(2), next_followup_at: iso(-2), notes: 'Interested in becoming a reseller in Nairobi',
+    converted_user_id: null, lost_reason: null, created_at: iso(10), updated_at: iso(2),
+  },
+  {
+    id: 2, name: 'Mary Wanjiku', phone: '+254700111222', email: 'mary@gmail.com',
+    social_platform: 'instagram', social_handle: '@mary_net', source: 'Instagram', source_id: 1,
+    source_detail: 'DMed asking about pricing', stage: 'new_lead',
+    stage_changed_at: iso(1), next_followup_at: iso(-1), notes: 'Runs a cyber café in Thika',
+    converted_user_id: null, lost_reason: null, created_at: iso(1), updated_at: iso(1),
+  },
+  {
+    id: 3, name: 'Peter Ochieng', phone: '+254733444555', email: null,
+    social_platform: 'whatsapp', social_handle: null, source: 'WhatsApp', source_id: 3,
+    source_detail: null, stage: 'contacted',
+    stage_changed_at: iso(3), next_followup_at: iso(-1), notes: null,
+    converted_user_id: null, lost_reason: null, created_at: iso(5), updated_at: iso(3),
+  },
+  {
+    id: 4, name: 'Alice Muthoni', phone: '+254711222333', email: 'alice@ispke.co.ke',
+    social_platform: null, social_handle: null, source: 'Referral', source_id: 4,
+    source_detail: 'Referred by Reseller #12 (James)', stage: 'installation_help',
+    stage_changed_at: iso(1), next_followup_at: iso(0), notes: 'Needs help configuring MikroTik',
+    converted_user_id: null, lost_reason: null, created_at: iso(14), updated_at: iso(1),
+  },
+  {
+    id: 5, name: 'Mike Reseller', phone: '+254700555666', email: 'mike@example.com',
+    social_platform: 'tiktok', social_handle: '@mike_wifi', source: 'TikTok', source_id: 2,
+    source_detail: 'Saw video on earning with WiFi', stage: 'talking',
+    stage_changed_at: iso(8), next_followup_at: null, notes: 'Has 3 apartments, wants to offer WiFi',
+    converted_user_id: null, lost_reason: null, created_at: iso(14), updated_at: iso(8),
+  },
+  {
+    id: 6, name: 'Sarah Kimani', phone: '+254722333444', email: 'sarah.k@gmail.com',
+    social_platform: 'facebook', social_handle: null, source: 'Facebook', source_id: 8,
+    source_detail: 'Commented on ISP reseller group', stage: 'signed_up',
+    stage_changed_at: iso(3), next_followup_at: null, notes: 'Converted after 2 calls',
+    converted_user_id: 15, lost_reason: null, created_at: iso(20), updated_at: iso(3),
+  },
+  {
+    id: 7, name: 'David Njoroge', phone: '+254711666777', email: 'david.n@hotmail.com',
+    social_platform: null, social_handle: null, source: 'Phone Call', source_id: 5,
+    source_detail: 'Called after seeing a flyer', stage: 'paying',
+    stage_changed_at: iso(5), next_followup_at: null, notes: 'Happy customer, paying monthly',
+    converted_user_id: 8, lost_reason: null, created_at: iso(45), updated_at: iso(5),
+  },
+  {
+    id: 8, name: 'Grace Achieng', phone: '+254733888999', email: 'grace@achieng.co.ke',
+    social_platform: 'instagram', social_handle: '@grace_connects', source: 'Instagram', source_id: 1,
+    source_detail: 'Responded to story ad', stage: 'paying',
+    stage_changed_at: iso(10), next_followup_at: null, notes: 'Running in Kisumu',
+    converted_user_id: 10, lost_reason: null, created_at: iso(60), updated_at: iso(10),
+  },
+  {
+    id: 9, name: 'Kevin Omondi', phone: '+254700123456', email: null,
+    social_platform: 'tiktok', social_handle: '@kevin_tech', source: 'TikTok', source_id: 2,
+    source_detail: null, stage: 'lost',
+    stage_changed_at: iso(7), next_followup_at: null, notes: null,
+    converted_user_id: null, lost_reason: 'Went with a competitor', created_at: iso(30), updated_at: iso(7),
+  },
+  {
+    id: 10, name: 'Faith Nyambura', phone: '+254722111222', email: 'faith@example.com',
+    social_platform: 'whatsapp', social_handle: null, source: 'Referral', source_id: 4,
+    source_detail: 'Friend of Grace Achieng', stage: 'new_lead',
+    stage_changed_at: iso(0), next_followup_at: iso(-1), notes: 'Just reached out today',
+    converted_user_id: null, lost_reason: null, created_at: iso(0), updated_at: iso(0),
+  },
+  {
+    id: 11, name: 'Brian Kipchoge', phone: '+254733222111', email: 'brian@kipchoge.net',
+    social_platform: null, social_handle: null, source: 'Walk-in', source_id: 6,
+    source_detail: 'Walked into Nairobi office', stage: 'contacted',
+    stage_changed_at: iso(2), next_followup_at: iso(0, 4), notes: 'Interested but unsure about costs',
+    converted_user_id: null, lost_reason: null, created_at: iso(4), updated_at: iso(2),
+  },
+  {
+    id: 12, name: 'Jane Wambui', phone: '+254712345999', email: null,
+    social_platform: 'instagram', social_handle: '@jane_wambui', source: 'Instagram', source_id: 1,
+    source_detail: 'Reel about ISP business', stage: 'talking',
+    stage_changed_at: iso(14), next_followup_at: null, notes: 'Was very keen but went quiet',
+    converted_user_id: null, lost_reason: null, created_at: iso(21), updated_at: iso(14),
+  },
+  {
+    id: 13, name: 'Tom Mwangi', phone: '+254700987654', email: 'tom.m@gmail.com',
+    social_platform: null, social_handle: null, source: 'Referral', source_id: 4,
+    source_detail: 'Referred by David Njoroge', stage: 'paying',
+    stage_changed_at: iso(15), next_followup_at: null, notes: 'Solid reseller in Nakuru',
+    converted_user_id: 22, lost_reason: null, created_at: iso(90), updated_at: iso(15),
+  },
+  {
+    id: 14, name: 'Lucy Chebet', phone: '+254711999888', email: 'lucy@example.com',
+    social_platform: 'facebook', social_handle: null, source: 'Facebook', source_id: 8,
+    source_detail: null, stage: 'churned',
+    stage_changed_at: iso(5), next_followup_at: null, notes: 'Stopped paying after 2 months',
+    converted_user_id: 18, lost_reason: 'Too expensive', created_at: iso(75), updated_at: iso(5),
+  },
+  {
+    id: 15, name: 'Hassan Ali', phone: '+254733555444', email: 'hassan@ali.co.ke',
+    social_platform: 'whatsapp', social_handle: null, source: 'WhatsApp', source_id: 3,
+    source_detail: 'Found us on WhatsApp status', stage: 'new_lead',
+    stage_changed_at: iso(0), next_followup_at: null, notes: 'Mombasa-based, wants to start ISP',
+    converted_user_id: null, lost_reason: null, created_at: iso(0), updated_at: iso(0),
+  },
+];
+
+const demoLeadActivitiesMap: Record<number, LeadActivity[]> = {
+  1: [
+    { id: 5, activity_type: 'call', description: 'Called to discuss pricing, agreed on Silver plan', old_stage: null, new_stage: null, created_at: iso(2, 1) },
+    { id: 4, activity_type: 'stage_change', description: 'Had first call, very interested', old_stage: 'contacted', new_stage: 'talking', created_at: iso(2) },
+    { id: 3, activity_type: 'dm', description: 'Sent intro DM on TikTok', old_stage: null, new_stage: null, created_at: iso(8) },
+    { id: 2, activity_type: 'stage_change', description: 'Reached out via TikTok DM', old_stage: 'new_lead', new_stage: 'contacted', created_at: iso(8) },
+    { id: 1, activity_type: 'stage_change', description: 'Lead created', old_stage: null, new_stage: 'new_lead', created_at: iso(10) },
+  ],
+  4: [
+    { id: 12, activity_type: 'stage_change', description: 'Helping with router config', old_stage: 'talking', new_stage: 'installation_help', created_at: iso(1) },
+    { id: 11, activity_type: 'meeting', description: 'Virtual meeting to demo setup', old_stage: null, new_stage: null, created_at: iso(3) },
+    { id: 10, activity_type: 'stage_change', description: 'Started talking about plans', old_stage: 'contacted', new_stage: 'talking', created_at: iso(5) },
+    { id: 9, activity_type: 'call', description: 'Intro call from referral', old_stage: null, new_stage: null, created_at: iso(12) },
+    { id: 8, activity_type: 'stage_change', description: 'Lead created via referral', old_stage: null, new_stage: 'new_lead', created_at: iso(14) },
+  ],
+};
+
+const demoLeadFollowUpsMap: Record<number, LeadFollowUp[]> = {
+  1: [
+    { id: 1, title: 'Call back about router installation', due_at: iso(-2), is_completed: false, completed_at: null, created_at: iso(2) },
+  ],
+  2: [
+    { id: 2, title: 'Send pricing info via DM', due_at: iso(-1), is_completed: false, completed_at: null, created_at: iso(1) },
+  ],
+  3: [
+    { id: 3, title: 'Follow up on WhatsApp message', due_at: iso(-1), is_completed: false, completed_at: null, created_at: iso(3) },
+  ],
+  4: [
+    { id: 4, title: 'Check if MikroTik is configured', due_at: iso(0), is_completed: false, completed_at: null, created_at: iso(1) },
+    { id: 5, title: 'Initial call completed', due_at: iso(12), is_completed: true, completed_at: iso(12), created_at: iso(14) },
+  ],
+  11: [
+    { id: 6, title: 'Send cost breakdown email', due_at: iso(0, 4), is_completed: false, completed_at: null, created_at: iso(2) },
+  ],
+};
+
+export function demoLeadDetail(id: number): LeadDetail | null {
+  const lead = demoLeadsList.find(l => l.id === id);
+  if (!lead) return null;
+  return {
+    ...lead,
+    activities: demoLeadActivitiesMap[id] || [
+      { id: 100 + id, activity_type: 'stage_change', description: 'Lead created', old_stage: null, new_stage: lead.stage, created_at: lead.created_at },
+    ],
+    follow_ups: demoLeadFollowUpsMap[id] || [],
+  };
+}
+
+export function demoLeadsListResponse(params?: {
+  stage?: LeadStage;
+  source_id?: number;
+  search?: string;
+  page?: number;
+  per_page?: number;
+}): LeadsListResponse {
+  let filtered = [...demoLeadsList];
+
+  if (params?.stage) filtered = filtered.filter(l => l.stage === params.stage);
+  if (params?.source_id) filtered = filtered.filter(l => l.source_id === params.source_id);
+  if (params?.search) {
+    const q = params.search.toLowerCase();
+    filtered = filtered.filter(l =>
+      l.name.toLowerCase().includes(q) ||
+      (l.phone && l.phone.includes(q)) ||
+      (l.email && l.email.toLowerCase().includes(q)) ||
+      (l.social_handle && l.social_handle.toLowerCase().includes(q))
+    );
+  }
+
+  const page = params?.page || 1;
+  const perPage = params?.per_page || 50;
+  const start = (page - 1) * perPage;
+  const paged = filtered.slice(start, start + perPage);
+
+  return { total: filtered.length, page, per_page: perPage, leads: paged };
+}
+
+export const demoLeadPipelineSummary: LeadPipelineSummary = {
+  stages: {
+    new_lead: demoLeadsList.filter(l => l.stage === 'new_lead').length,
+    contacted: demoLeadsList.filter(l => l.stage === 'contacted').length,
+    talking: demoLeadsList.filter(l => l.stage === 'talking').length,
+    installation_help: demoLeadsList.filter(l => l.stage === 'installation_help').length,
+    signed_up: demoLeadsList.filter(l => l.stage === 'signed_up').length,
+    paying: demoLeadsList.filter(l => l.stage === 'paying').length,
+    churned: demoLeadsList.filter(l => l.stage === 'churned').length,
+    lost: demoLeadsList.filter(l => l.stage === 'lost').length,
+  },
+  total: demoLeadsList.length,
+};
+
+export const demoLeadPipelineStats: LeadPipelineStats = {
+  total_leads: 41,
+  active_pipeline: 18,
+  conversion_rate: 39.0,
+  loss_rate: 17.1,
+  by_stage: { new_lead: 5, contacted: 3, talking: 8, installation_help: 2, signed_up: 4, paying: 12, churned: 1, lost: 6 },
+  by_source: {
+    'TikTok': { total: 12, converted: 5, conversion_rate: 41.7 },
+    'Instagram': { total: 15, converted: 4, conversion_rate: 26.7 },
+    'Referral': { total: 8, converted: 6, conversion_rate: 75.0 },
+    'WhatsApp': { total: 6, converted: 1, conversion_rate: 16.7 },
+  },
+  funnel: [
+    { stage: 'new_lead', reached: 35, percent_of_total: 85.4, dropped_off: 0, drop_off_percent: 0 },
+    { stage: 'contacted', reached: 30, percent_of_total: 73.2, dropped_off: 5, drop_off_percent: 14.3 },
+    { stage: 'talking', reached: 27, percent_of_total: 65.9, dropped_off: 3, drop_off_percent: 10.0 },
+    { stage: 'installation_help', reached: 19, percent_of_total: 46.3, dropped_off: 8, drop_off_percent: 29.6 },
+    { stage: 'signed_up', reached: 17, percent_of_total: 41.5, dropped_off: 2, drop_off_percent: 10.5 },
+    { stage: 'paying', reached: 13, percent_of_total: 31.7, dropped_off: 4, drop_off_percent: 23.5 },
+  ],
+  avg_days_in_stage: { new_lead: 2.3, contacted: 4.1, talking: 8.5, installation_help: 3.2, signed_up: 6.0 },
+  health: {
+    stale_leads: 4,
+    no_followup_scheduled: 7,
+    overdue_followups: 2,
+    stale_lead_previews: [
+      { id: 12, name: 'Jane Wambui', stage: 'talking', days_since_update: 14, phone: '+254712345999' },
+      { id: 5, name: 'Mike Reseller', stage: 'talking', days_since_update: 8, phone: '+254700555666' },
+    ],
+  },
+  advice: [
+    { priority: 'high', category: 'follow_up', title: '4 lead(s) have gone cold', detail: 'You have 4 leads in active stages with no update for 7+ days. These are at high risk of being lost. Reach out today.' },
+    { priority: 'high', category: 'funnel', title: 'Biggest drop-off: 29.6% lost before "Installation Help"', detail: '29.6% of leads in conversation don\'t move to installation. They may be unsure about the technical side. Create a simple guide or short video showing how easy setup is.' },
+    { priority: 'medium', category: 'follow_up', title: '7 active lead(s) with no follow-up scheduled', detail: 'Every active lead should have a next step. Schedule follow-ups so nothing slips through the cracks.' },
+    { priority: 'low', category: 'source', title: 'Best source: Referral (75.0% conversion)', detail: '"Referral" converts at 75.0% (6 of 8 leads). Consider doubling down on this channel.' },
+  ],
+};
+
+export function demoUpcomingFollowUps(days = 7): FollowUpsResponse {
+  const cutoff = new Date(now);
+  cutoff.setDate(cutoff.getDate() + days);
+  const allFollowups: UpcomingFollowUp[] = [];
+
+  for (const lead of demoLeadsList) {
+    const fups = demoLeadFollowUpsMap[lead.id];
+    if (!fups) continue;
+    for (const f of fups) {
+      if (f.is_completed) continue;
+      const dueDate = new Date(f.due_at);
+      if (dueDate <= cutoff) {
+        allFollowups.push({
+          id: f.id, title: f.title, due_at: f.due_at,
+          is_overdue: dueDate < now,
+          lead_id: lead.id, lead_name: lead.name, lead_stage: lead.stage,
+          created_at: f.created_at,
+        });
+      }
+    }
+  }
+
+  allFollowups.sort((a, b) => new Date(a.due_at).getTime() - new Date(b.due_at).getTime());
+  return { followups: allFollowups, total: allFollowups.length };
 }
 
 // ─── Error message for write operations ─────────────────────────────

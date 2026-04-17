@@ -2172,3 +2172,225 @@ export interface GrowthTargetUpdatePayload {
   unit?: string;
   inverse?: boolean;
 }
+
+// ─── Lead Pipeline / CRM ─────────────────────────────────────────────
+
+export type LeadStage =
+  | 'new_lead'
+  | 'contacted'
+  | 'talking'
+  | 'installation_help'
+  | 'signed_up'
+  | 'paying'
+  | 'churned'
+  | 'lost';
+
+export type LeadActivityType =
+  | 'note'
+  | 'call'
+  | 'dm'
+  | 'email'
+  | 'meeting'
+  | 'stage_change'
+  | 'followup_completed'
+  | 'other';
+
+export interface LeadSource {
+  id: number;
+  name: string;
+  description: string | null;
+  is_active: boolean;
+  created_at: string;
+}
+
+export interface Lead {
+  id: number;
+  name: string;
+  phone: string | null;
+  email: string | null;
+  social_platform: string | null;
+  social_handle: string | null;
+  source: string | null;
+  source_id: number | null;
+  source_detail: string | null;
+  stage: LeadStage;
+  stage_changed_at: string;
+  next_followup_at: string | null;
+  notes: string | null;
+  converted_user_id: number | null;
+  lost_reason: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface LeadActivity {
+  id: number;
+  lead_id?: number;
+  activity_type: LeadActivityType;
+  description: string | null;
+  old_stage: LeadStage | null;
+  new_stage: LeadStage | null;
+  created_at: string;
+}
+
+export interface LeadFollowUp {
+  id: number;
+  lead_id?: number;
+  title: string;
+  due_at: string;
+  is_completed: boolean;
+  completed_at: string | null;
+  created_at: string;
+}
+
+export interface LeadDetail extends Lead {
+  activities: LeadActivity[];
+  follow_ups: LeadFollowUp[];
+}
+
+export interface UpcomingFollowUp {
+  id: number;
+  title: string;
+  due_at: string;
+  is_overdue: boolean;
+  lead_id: number;
+  lead_name: string;
+  lead_stage: LeadStage;
+  created_at: string;
+}
+
+export interface LeadsListResponse {
+  total: number;
+  page: number;
+  per_page: number;
+  leads: Lead[];
+}
+
+export interface ActivitiesResponse {
+  activities: LeadActivity[];
+}
+
+export interface FollowUpsResponse {
+  followups: UpcomingFollowUp[];
+  total: number;
+}
+
+export interface LeadPipelineSummary {
+  stages: Record<LeadStage, number>;
+  total: number;
+}
+
+export interface LeadSourceStats {
+  total: number;
+  converted: number;
+  conversion_rate: number;
+}
+
+export interface LeadFunnelStep {
+  stage: string;
+  reached: number;
+  percent_of_total: number;
+  dropped_off: number;
+  drop_off_percent: number;
+}
+
+export interface LeadHealthAdvice {
+  priority: 'high' | 'medium' | 'low';
+  category: string;
+  title: string;
+  detail: string;
+}
+
+export interface StaleLeadPreview {
+  id: number;
+  name: string;
+  stage: LeadStage;
+  days_since_update: number;
+  phone: string | null;
+}
+
+export interface LeadPipelineStats {
+  total_leads: number;
+  active_pipeline: number;
+  conversion_rate: number;
+  loss_rate: number;
+  by_stage: Record<LeadStage, number>;
+  by_source: Record<string, LeadSourceStats>;
+  funnel: LeadFunnelStep[];
+  avg_days_in_stage: Record<string, number>;
+  health: {
+    stale_leads: number;
+    no_followup_scheduled: number;
+    overdue_followups: number;
+    stale_lead_previews: StaleLeadPreview[];
+  };
+  advice: LeadHealthAdvice[];
+}
+
+export interface CreateLeadRequest {
+  name: string;
+  phone?: string | null;
+  email?: string | null;
+  social_platform?: string | null;
+  social_handle?: string | null;
+  source_id?: number | null;
+  source_detail?: string | null;
+  stage?: LeadStage;
+  notes?: string | null;
+  next_followup_at?: string | null;
+}
+
+export interface UpdateLeadRequest {
+  name?: string;
+  phone?: string | null;
+  email?: string | null;
+  social_platform?: string | null;
+  social_handle?: string | null;
+  source_id?: number | null;
+  source_detail?: string | null;
+  notes?: string | null;
+  next_followup_at?: string | null;
+}
+
+export interface ChangeStageRequest {
+  stage: LeadStage;
+  note?: string;
+  lost_reason?: string | null;
+}
+
+export interface CreateSourceRequest {
+  name: string;
+  description?: string;
+}
+
+export interface UpdateSourceRequest {
+  name?: string;
+  description?: string;
+  is_active?: boolean;
+}
+
+export interface CreateActivityRequest {
+  activity_type: 'note' | 'call' | 'dm' | 'email' | 'meeting' | 'other';
+  description?: string;
+}
+
+export interface CreateFollowUpRequest {
+  title: string;
+  due_at: string;
+}
+
+export interface ConvertLeadRequest {
+  email: string;
+  organization_name: string;
+  password: string;
+  business_name?: string;
+  support_phone?: string;
+}
+
+export interface ConvertLeadResponse {
+  detail: string;
+  lead_id: number;
+  new_user_id: number;
+  new_user_email: string;
+  new_stage: LeadStage;
+}

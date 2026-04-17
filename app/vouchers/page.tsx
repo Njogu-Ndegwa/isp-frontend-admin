@@ -549,6 +549,35 @@ export default function VouchersPage() {
         </PullToRefresh>
       )}
 
+      {/* Mobile FAB - Generate Voucher (primary) */}
+      <button
+        onClick={() => setShowGenerateModal(true)}
+        className="md:hidden fixed right-4 bottom-24 z-[9998] w-14 h-14 rounded-full bg-accent-primary text-white flex items-center justify-center shadow-lg shadow-accent-primary/25 active:scale-95 transition-transform touch-manipulation"
+        title="Generate Vouchers"
+        aria-label="Generate Vouchers"
+      >
+        <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+        </svg>
+      </button>
+
+      {/* Mobile FAB - Download CSV (secondary, stacked above) */}
+      <button
+        onClick={handleDownload}
+        disabled={downloadLoading}
+        className="md:hidden fixed right-5 bottom-[10.5rem] z-[9998] w-12 h-12 rounded-full bg-background-secondary border border-border text-foreground flex items-center justify-center shadow-md active:scale-95 transition-transform touch-manipulation disabled:opacity-60"
+        title="Download CSV"
+        aria-label="Download CSV"
+      >
+        {downloadLoading ? (
+          <div className="w-4 h-4 border-2 border-foreground-muted/30 border-t-foreground-muted rounded-full animate-spin" />
+        ) : (
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+          </svg>
+        )}
+      </button>
+
       {/* Generate Vouchers Modal */}
       {showGenerateModal && (
         <GenerateVouchersModal
@@ -695,11 +724,23 @@ function GenerateVouchersModal({
     try {
       setLoading(true);
       setError(null);
+
+      let expiresAtIso: string | undefined;
+      if (formData.expires_at) {
+        const parsed = new Date(formData.expires_at);
+        if (isNaN(parsed.getTime())) {
+          setError('Invalid expiration date');
+          setLoading(false);
+          return;
+        }
+        expiresAtIso = parsed.toISOString();
+      }
+
       const payload: GenerateVouchersRequest = {
         plan_id: formData.plan_id,
         quantity: formData.quantity,
         ...(formData.router_id ? { router_id: formData.router_id } : {}),
-        ...(formData.expires_at ? { expires_at: formData.expires_at } : {}),
+        ...(expiresAtIso ? { expires_at: expiresAtIso } : {}),
       };
       await api.generateVouchers(payload);
       onSuccess();

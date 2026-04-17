@@ -62,6 +62,16 @@ const adminNavItems: BottomNavItem[] = [
     ),
   },
   {
+    name: 'Leads',
+    href: '/admin/leads',
+    icon: (active: boolean) => (
+      <svg className={`w-6 h-6 ${active ? 'text-accent-primary' : 'text-foreground-muted'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={active ? 2 : 1.5} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+      </svg>
+    ),
+    activeMatch: (p: string) => p === '/admin/leads' || p.startsWith('/admin/leads/'),
+  },
+  {
     name: 'Resellers',
     href: '/admin/resellers',
     icon: (active: boolean) => (
@@ -69,7 +79,7 @@ const adminNavItems: BottomNavItem[] = [
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={active ? 2 : 1.5} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
       </svg>
     ),
-    activeMatch: (p) => p === '/admin/resellers' || p.startsWith('/admin/resellers/'),
+    activeMatch: (p: string) => p === '/admin/resellers' || p.startsWith('/admin/resellers/'),
   },
   {
     name: 'Subs',
