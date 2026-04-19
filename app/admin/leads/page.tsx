@@ -74,6 +74,15 @@ function formatRelative(dateStr: string | null): string {
   return `${d}d ago`;
 }
 
+function formatSignedUpLabel(dateStr: string | null | undefined): string {
+  if (!dateStr) return 'Signed up';
+  const rel = formatRelative(dateStr);
+  if (rel === 'Today') return 'Signed up today';
+  if (rel === 'Yesterday') return 'Signed up yesterday';
+  if (rel === '-') return 'Signed up';
+  return `Signed up ${rel}`;
+}
+
 function urgencyOf(lead: Lead): 'overdue' | 'due_soon' | 'stale' | 'fresh' | 'unscheduled' {
   if (lead.next_followup_at) {
     const diffDays = (new Date(lead.next_followup_at).getTime() - Date.now()) / 86400000;
@@ -356,6 +365,16 @@ export default function LeadsPage() {
       case 'source':   return <span className="text-sm">{item.source || '-'}</span>;
       case 'phone':    return <span className="text-sm">{item.phone || '-'}</span>;
       case 'followup':
+        if (item.stage === 'signed_up') {
+          return (
+            <span
+              className="text-sm text-emerald-400 font-medium"
+              title={`Signed up on ${new Date(item.stage_changed_at).toLocaleString()}`}
+            >
+              {formatSignedUpLabel(item.stage_changed_at)}
+            </span>
+          );
+        }
         return (
           <span className={`text-sm ${item.next_followup_at && new Date(item.next_followup_at) < new Date() ? 'text-red-400' : 'text-foreground-muted'}`}>
             {formatRelative(item.next_followup_at)}
@@ -687,7 +706,14 @@ export default function LeadsPage() {
                   value={{ text: lead.phone || lead.email || '-' }}
                   secondary={{
                     left: <span className="text-xs text-foreground-muted">{lead.social_handle || ''}</span>,
-                    right: lead.next_followup_at ? (
+                    right: lead.stage === 'signed_up' ? (
+                      <span
+                        className="text-xs text-emerald-400 font-medium"
+                        title={`Signed up on ${new Date(lead.stage_changed_at).toLocaleString()}`}
+                      >
+                        {formatSignedUpLabel(lead.stage_changed_at)}
+                      </span>
+                    ) : lead.next_followup_at ? (
                       <span className={`text-xs ${new Date(lead.next_followup_at) < new Date() ? 'text-red-400' : 'text-foreground-muted'}`}>
                         Follow-up: {formatRelative(lead.next_followup_at)}
                       </span>
@@ -863,6 +889,7 @@ function KanbanCard({
 }) {
   const isCompact = density === 'compact';
   const overdue = !!lead.next_followup_at && new Date(lead.next_followup_at) < new Date();
+  const isSignedUp = lead.stage === 'signed_up';
 
   return (
     <div
@@ -897,11 +924,18 @@ function KanbanCard({
 
       <div className={`flex items-center justify-between text-[10px] text-foreground-muted ${isCompact ? '' : 'mt-1'}`}>
         <span className="truncate">{lead.phone || lead.email || '-'}</span>
-        {lead.next_followup_at && (
+        {isSignedUp ? (
+          <span
+            className="text-emerald-400 font-medium flex-shrink-0"
+            title={`Signed up on ${new Date(lead.stage_changed_at).toLocaleString()}`}
+          >
+            {formatSignedUpLabel(lead.stage_changed_at)}
+          </span>
+        ) : lead.next_followup_at ? (
           <span className={overdue ? 'text-red-400 font-medium' : ''}>
             {formatRelative(lead.next_followup_at)}
           </span>
-        )}
+        ) : null}
       </div>
     </div>
   );
