@@ -99,7 +99,10 @@ function formatExactDateTime(dateStr: string | null | undefined): string {
 }
 
 function leadSignedUpAt(lead: Lead): string | null {
-  return lead.stage === 'signed_up' ? lead.stage_changed_at : null;
+  // Use created_at: leads originate from website signup events, so
+  // created_at is the real signup timestamp. stage_changed_at may have
+  // been set by a bulk backfill long after the user actually signed up.
+  return lead.stage === 'signed_up' ? lead.created_at : null;
 }
 
 function urgencyOf(lead: Lead): 'overdue' | 'due_soon' | 'stale' | 'fresh' | 'unscheduled' {
@@ -758,9 +761,9 @@ export default function LeadsPage() {
                     right: lead.stage === 'signed_up' ? (
                       <span
                         className="text-xs text-emerald-400 font-medium"
-                        title={`Signed up on ${new Date(lead.stage_changed_at).toLocaleString()}`}
+                        title={`Signed up on ${new Date(lead.created_at).toLocaleString()}`}
                       >
-                        {formatSignedUpLabel(lead.stage_changed_at)}
+                        {formatSignedUpLabel(lead.created_at)}
                       </span>
                     ) : lead.next_followup_at ? (
                       <span className={`text-xs ${new Date(lead.next_followup_at) < new Date() ? 'text-red-400' : 'text-foreground-muted'}`}>
@@ -987,9 +990,9 @@ function KanbanCard({
         {isSignedUp ? (
           <span
             className="text-emerald-400 font-medium flex-shrink-0"
-            title={`Signed up on ${new Date(lead.stage_changed_at).toLocaleString()}`}
+            title={`Signed up on ${new Date(lead.created_at).toLocaleString()}`}
           >
-            {formatSignedUpLabel(lead.stage_changed_at)}
+            {formatSignedUpLabel(lead.created_at)}
           </span>
         ) : lead.next_followup_at ? (
           <span className={overdue ? 'text-red-400 font-medium' : ''}>
