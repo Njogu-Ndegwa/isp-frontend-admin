@@ -2416,3 +2416,32 @@ export interface ConvertLeadResponse {
   new_user_email: string;
   new_stage: LeadStage;
 }
+
+export interface LeadBackfillRequest {
+  since?: string | null;
+  dry_run?: boolean;
+}
+
+export interface LeadBackfillItem {
+  user_id: number;
+  email: string | null;
+  name: string;
+  stage: LeadStage;
+  reason: string;
+  signup_date: string | null;
+  lead_id: number | null;
+}
+
+export interface LeadBackfillResponse {
+  since: string | null;
+  dry_run: boolean;
+  admin_owner_id: number | null;
+  admin_owner_email: string | null;
+  source_id: number | null;
+  source_name: string | null;
+  candidates: number;
+  leads_created: number;
+  stage_counts: Partial<Record<LeadStage, number>>;
+  items: LeadBackfillItem[];
+  message: string;
+}

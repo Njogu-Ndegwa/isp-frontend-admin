@@ -147,6 +147,8 @@ import {
   CreateFollowUpRequest,
   ConvertLeadRequest,
   ConvertLeadResponse,
+  LeadBackfillRequest,
+  LeadBackfillResponse,
   LeadStage,
 } from './types';
 import * as demo from './demoData';
@@ -1899,6 +1901,14 @@ class ApiClient {
       method: 'POST', headers: this.getHeaders(), body: JSON.stringify(data),
     });
     return this.handleResponse<ConvertLeadResponse>(response);
+  }
+
+  async backfillLeads(data: LeadBackfillRequest = {}): Promise<LeadBackfillResponse> {
+    this.demoBlock();
+    const response = await fetch(`${BASE_URL}/leads/backfill`, {
+      method: 'POST', headers: this.getHeaders(), body: JSON.stringify(data),
+    });
+    return this.handleResponse<LeadBackfillResponse>(response);
   }
 }
 

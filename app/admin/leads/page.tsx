@@ -10,6 +10,7 @@ import SearchInput from '../../components/SearchInput';
 import FilterSelect from '../../components/FilterSelect';
 import LeadsSubNav from '../../components/LeadsSubNav';
 import LeadStageBadge, { STAGE_ORDER, ACTIVE_STAGES, getStageMeta } from '../../components/LeadStageBadge';
+import LeadBackfillDialog from '../../components/LeadBackfillDialog';
 import { api } from '../../lib/api';
 import type { Lead, LeadSource, LeadPipelineSummary, LeadStage, CreateLeadRequest } from '../../lib/types';
 
@@ -141,6 +142,9 @@ export default function LeadsPage() {
   const [addForm, setAddForm] = useState<CreateLeadRequest>({ name: '' });
   const [addSubmitting, setAddSubmitting] = useState(false);
   const [addError, setAddError] = useState<string | null>(null);
+
+  // Backfill (import from signups) modal
+  const [showBackfillModal, setShowBackfillModal] = useState(false);
 
   // Drag state
   const [draggedLead, setDraggedLead] = useState<Lead | null>(null);
@@ -382,9 +386,18 @@ export default function LeadsPage() {
         title="Lead Pipeline"
         subtitle={summary ? `${summary.total} total · ${filteredLeads.length} visible` : 'Manage your sales pipeline'}
         action={
-          <button onClick={() => setShowAddModal(true)} className="btn-primary text-sm">
-            + Add Lead
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowBackfillModal(true)}
+              className="btn-secondary text-sm"
+              title="Classify existing resellers as leads in the pipeline"
+            >
+              Import Signups
+            </button>
+            <button onClick={() => setShowAddModal(true)} className="btn-primary text-sm">
+              + Add Lead
+            </button>
+          </div>
         }
       />
 
@@ -712,6 +725,13 @@ export default function LeadsPage() {
           </div>
         </div>
       )}
+
+      {/* ─── Import / Backfill Signups dialog ─── */}
+      <LeadBackfillDialog
+        open={showBackfillModal}
+        onClose={() => setShowBackfillModal(false)}
+        onSuccess={() => fetchData()}
+      />
 
       {/* ─── Add Lead Modal ─── */}
       {showAddModal && (
