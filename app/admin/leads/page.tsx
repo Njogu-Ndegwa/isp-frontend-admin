@@ -36,6 +36,7 @@ const LIST_COLUMNS: DataTableColumn[] = [
   { key: 'stage', label: 'Stage' },
   { key: 'source', label: 'Source' },
   { key: 'phone', label: 'Phone' },
+  { key: 'signed_up', label: 'Signed Up' },
   { key: 'followup', label: 'Follow-up' },
   { key: 'updated', label: 'Updated' },
 ];
@@ -81,6 +82,24 @@ function formatSignedUpLabel(dateStr: string | null | undefined): string {
   if (rel === 'Yesterday') return 'Signed up yesterday';
   if (rel === '-') return 'Signed up';
   return `Signed up ${rel}`;
+}
+
+function formatExactDateTime(dateStr: string | null | undefined): string {
+  if (!dateStr) return '-';
+  try {
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return '-';
+    return d.toLocaleString('en-GB', {
+      day: '2-digit', month: 'short', year: 'numeric',
+      hour: '2-digit', minute: '2-digit', hour12: false,
+    });
+  } catch {
+    return '-';
+  }
+}
+
+function leadSignedUpAt(lead: Lead): string | null {
+  return lead.stage === 'signed_up' ? lead.stage_changed_at : null;
 }
 
 function urgencyOf(lead: Lead): 'overdue' | 'due_soon' | 'stale' | 'fresh' | 'unscheduled' {
@@ -364,17 +383,21 @@ export default function LeadsPage() {
       case 'stage':    return <LeadStageBadge stage={item.stage} size="sm" />;
       case 'source':   return <span className="text-sm">{item.source || '-'}</span>;
       case 'phone':    return <span className="text-sm">{item.phone || '-'}</span>;
-      case 'followup':
-        if (item.stage === 'signed_up') {
-          return (
-            <span
-              className="text-sm text-emerald-400 font-medium"
-              title={`Signed up on ${new Date(item.stage_changed_at).toLocaleString()}`}
-            >
-              {formatSignedUpLabel(item.stage_changed_at)}
-            </span>
-          );
+      case 'signed_up': {
+        const signedUpAt = leadSignedUpAt(item);
+        if (!signedUpAt) {
+          return <span className="text-sm text-foreground-muted">-</span>;
         }
+        return (
+          <span
+            className="text-sm text-emerald-400 font-medium whitespace-nowrap"
+            title={new Date(signedUpAt).toLocaleString()}
+          >
+            {formatExactDateTime(signedUpAt)}
+          </span>
+        );
+      }
+      case 'followup':
         return (
           <span className={`text-sm ${item.next_followup_at && new Date(item.next_followup_at) < new Date() ? 'text-red-400' : 'text-foreground-muted'}`}>
             {formatRelative(item.next_followup_at)}
