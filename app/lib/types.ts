@@ -484,7 +484,7 @@ export interface TransactionSummary {
 }
 
 // Payment Method Configuration Types (Settings CRUD)
-export type PaymentMethodType = 'bank_account' | 'mpesa_paybill' | 'mpesa_paybill_with_keys' | 'zenopay';
+export type PaymentMethodType = 'bank_account' | 'mpesa_paybill' | 'mpesa_paybill_with_keys' | 'zenopay' | 'mtn_momo';
 
 export interface PaymentMethodConfig {
   id: number;
@@ -507,6 +507,13 @@ export interface PaymentMethodConfig {
   // zenopay fields
   zenopay_api_key?: string;
   zenopay_account_id?: string;
+  // mtn_momo fields
+  mtn_api_user?: string;
+  mtn_api_key?: string;
+  mtn_subscription_key?: string;
+  mtn_target_environment?: string;
+  mtn_base_url?: string;
+  mtn_currency?: string;
 }
 
 export interface CreatePaymentMethodRequest {
@@ -521,6 +528,12 @@ export interface CreatePaymentMethodRequest {
   mpesa_consumer_secret?: string;
   zenopay_api_key?: string;
   zenopay_account_id?: string;
+  mtn_api_user?: string;
+  mtn_api_key?: string;
+  mtn_subscription_key?: string;
+  mtn_target_environment?: string;
+  mtn_base_url?: string;
+  mtn_currency?: string;
 }
 
 export interface UpdatePaymentMethodRequest {
@@ -535,6 +548,12 @@ export interface UpdatePaymentMethodRequest {
   mpesa_consumer_secret?: string;
   zenopay_api_key?: string;
   zenopay_account_id?: string;
+  mtn_api_user?: string;
+  mtn_api_key?: string;
+  mtn_subscription_key?: string;
+  mtn_target_environment?: string;
+  mtn_base_url?: string;
+  mtn_currency?: string;
 }
 
 export interface PaymentMethodTestResult {
@@ -1517,7 +1536,7 @@ export interface B2BPayoutResponse {
   [key: string]: unknown;
 }
 
-export type AdminPaymentMethodType = 'bank_account' | 'mpesa_paybill' | 'mpesa_paybill_with_keys' | 'zenopay';
+export type AdminPaymentMethodType = 'bank_account' | 'mpesa_paybill' | 'mpesa_paybill_with_keys' | 'zenopay' | 'mtn_momo';
 
 export interface AdminPaymentMethod {
   id: number;
@@ -1529,6 +1548,9 @@ export interface AdminPaymentMethod {
   mpesa_paybill_number?: string;
   mpesa_shortcode?: string;
   zenopay_account_id?: string;
+  mtn_api_user?: string;
+  mtn_target_environment?: string;
+  mtn_currency?: string;
 }
 
 export interface AdminResellerDetail {

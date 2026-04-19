@@ -810,6 +810,15 @@ export function demoAdminResellerDetail(resellerId: number): AdminResellerDetail
         is_active: false,
         zenopay_account_id: `zen_${r.organization_name.toLowerCase().replace(/\s+/g, '_')}_${r.id}`,
       },
+      {
+        id: r.id * 10 + 5,
+        method_type: 'mtn_momo' as const,
+        label: 'MTN Uganda (Sandbox)',
+        is_active: false,
+        mtn_api_user: `64f8c775-6dff-45c0-93e0-39a9cd78df8${r.id}`,
+        mtn_target_environment: 'sandbox',
+        mtn_currency: 'EUR',
+      },
     ],
   };
 }

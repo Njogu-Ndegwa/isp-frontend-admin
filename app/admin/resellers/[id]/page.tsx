@@ -1631,6 +1631,12 @@ const METHOD_META: Record<string, { icon: React.ReactNode; color: string; bgColo
     bgColor: 'bg-purple-500/10',
     borderColor: 'border-purple-500/30',
   },
+  mtn_momo: {
+    icon: <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 4V2h10v2m-5 0v4m-4.5 12.5L4 17h4l-1 4h10l-1-4h4l-3.5 3.5M5 8h14a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2z" /></svg>,
+    color: 'text-yellow-500',
+    bgColor: 'bg-yellow-500/10',
+    borderColor: 'border-yellow-500/30',
+  },
 };
 
 const METHOD_TYPE_LABELS: Record<string, string> = {
@@ -1638,6 +1644,7 @@ const METHOD_TYPE_LABELS: Record<string, string> = {
   mpesa_paybill: 'M-Pesa Paybill',
   mpesa_paybill_with_keys: 'M-Pesa Till',
   zenopay: 'ZenoPay',
+  mtn_momo: 'MTN MoMo',
 };
 
 function getMethodDetails(m: AdminPaymentMethod): { label: string; value: string }[] {
@@ -1647,6 +1654,9 @@ function getMethodDetails(m: AdminPaymentMethod): { label: string; value: string
   if (m.mpesa_paybill_number) details.push({ label: 'Paybill No.', value: m.mpesa_paybill_number });
   if (m.mpesa_shortcode) details.push({ label: 'Shortcode', value: m.mpesa_shortcode });
   if (m.zenopay_account_id) details.push({ label: 'Account ID', value: m.zenopay_account_id });
+  if (m.mtn_api_user) details.push({ label: 'API User', value: m.mtn_api_user });
+  if (m.mtn_target_environment) details.push({ label: 'Environment', value: m.mtn_target_environment });
+  if (m.mtn_currency) details.push({ label: 'Currency', value: m.mtn_currency });
   return details;
 }
 

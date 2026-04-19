@@ -33,13 +33,16 @@ const PAYMENT_METHOD_TYPES: { value: PaymentMethodType; label: string; descripti
   { value: 'mpesa_paybill', label: 'M-Pesa Paybill', description: 'System collects via paybill — admin pays you later' },
   { value: 'mpesa_paybill_with_keys', label: 'M-Pesa Direct', description: 'Direct STK Push using your own M-Pesa API keys' },
   { value: 'zenopay', label: 'ZenoPay (Tanzania)', description: 'Tanzanian mobile money via ZenoPay' },
+  { value: 'mtn_momo', label: 'MTN Mobile Money', description: 'MTN MoMo RequestToPay using your own API User credentials' },
 ];
 
 interface FieldDef {
   key: string;
   label: string;
-  type: 'text' | 'password';
+  type: 'text' | 'password' | 'select';
   required: boolean;
+  placeholder?: string;
+  options?: { value: string; label: string }[];
 }
 
 const FIELDS_BY_TYPE: Record<PaymentMethodType, FieldDef[]> = {
@@ -59,6 +62,45 @@ const FIELDS_BY_TYPE: Record<PaymentMethodType, FieldDef[]> = {
   zenopay: [
     { key: 'zenopay_api_key', label: 'API Key', type: 'password', required: true },
     { key: 'zenopay_account_id', label: 'Account ID', type: 'text', required: false },
+  ],
+  mtn_momo: [
+    {
+      key: 'mtn_api_user',
+      label: 'API User (UUID)',
+      type: 'text',
+      required: true,
+      placeholder: 'e.g. 64f8c775-6dff-45c0-93e0-39a9cd78df8b',
+    },
+    { key: 'mtn_api_key', label: 'API Key', type: 'password', required: true },
+    { key: 'mtn_subscription_key', label: 'Primary Subscription Key', type: 'password', required: true },
+    {
+      key: 'mtn_target_environment',
+      label: 'Target Environment',
+      type: 'select',
+      required: true,
+      options: [
+        { value: 'sandbox', label: 'Sandbox' },
+        { value: 'mtnuganda', label: 'MTN Uganda' },
+        { value: 'mtnghana', label: 'MTN Ghana' },
+        { value: 'mtncongo', label: 'MTN Congo' },
+        { value: 'mtnivorycoast', label: 'MTN Ivory Coast' },
+        { value: 'mtncameroon', label: 'MTN Cameroon' },
+        { value: 'mtnbenin', label: 'MTN Benin' },
+        { value: 'mtnswaziland', label: 'MTN eSwatini' },
+        { value: 'mtnguineaconakry', label: 'MTN Guinea' },
+        { value: 'mtnzambia', label: 'MTN Zambia' },
+        { value: 'mtnliberia', label: 'MTN Liberia' },
+        { value: 'mtnsouthafrica', label: 'MTN South Africa' },
+      ],
+    },
+    { key: 'mtn_currency', label: 'Currency', type: 'text', required: true, placeholder: 'EUR (sandbox) / UGX / GHS / …' },
+    {
+      key: 'mtn_base_url',
+      label: 'Base URL (optional)',
+      type: 'text',
+      required: false,
+      placeholder: 'https://sandbox.momodeveloper.mtn.com',
+    },
   ],
 };
 
@@ -87,6 +129,8 @@ function getTypeColor(type: PaymentMethodType) {
       return 'bg-blue-500/10 text-blue-500 border-blue-500/20';
     case 'zenopay':
       return 'bg-purple-500/10 text-purple-500 border-purple-500/20';
+    case 'mtn_momo':
+      return 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20';
     default:
       return 'bg-gray-500/10 text-gray-500 border-gray-500/20';
   }
@@ -97,7 +141,7 @@ function getTypeLabel(type: PaymentMethodType): string {
 }
 
 function hasTestableCredentials(type: PaymentMethodType): boolean {
-  return type === 'mpesa_paybill_with_keys' || type === 'zenopay';
+  return type === 'mpesa_paybill_with_keys' || type === 'zenopay' || type === 'mtn_momo';
 }
 
 export default function PaymentMethodsPage() {
@@ -164,6 +208,17 @@ export default function PaymentMethodsPage() {
   const openCreateForm = () => {
     resetForm();
     setShowForm(true);
+  };
+
+  const applyTypeDefaults = (type: PaymentMethodType): Record<string, string> => {
+    if (type === 'mtn_momo') {
+      return {
+        mtn_target_environment: 'sandbox',
+        mtn_currency: 'EUR',
+        mtn_base_url: 'https://sandbox.momodeveloper.mtn.com',
+      };
+    }
+    return {};
   };
 
   const openEditForm = async (method: PaymentMethodConfig) => {
@@ -567,8 +622,9 @@ export default function PaymentMethodsPage() {
                   <FilterSelect
                     value={formType}
                     onChange={(v) => {
-                      setFormType(v as PaymentMethodType);
-                      setFormFields({});
+                      const nextType = v as PaymentMethodType;
+                      setFormType(nextType);
+                      setFormFields(applyTypeDefaults(nextType));
                     }}
                     options={PAYMENT_METHOD_TYPES.map(t => ({ value: t.value, label: t.label }))}
                     className="w-full"
@@ -588,7 +644,24 @@ export default function PaymentMethodsPage() {
                   <div className="space-y-3">
                     {(FIELDS_BY_TYPE[editingMethod?.method_type ?? formType] ?? []).map((field) => {
                       const isPassword = field.type === 'password';
+                      const isSelect = field.type === 'select';
                       const isVisible = showSecrets[field.key];
+
+                      if (isSelect) {
+                        return (
+                          <div key={field.key}>
+                            <label className="block text-xs text-foreground-muted mb-1">
+                              {field.label} {field.required && <span className="text-red-500">*</span>}
+                            </label>
+                            <FilterSelect
+                              value={formFields[field.key] || ''}
+                              onChange={(v) => setFormFields(prev => ({ ...prev, [field.key]: v }))}
+                              options={field.options ?? []}
+                              className="w-full"
+                            />
+                          </div>
+                        );
+                      }
 
                       return (
                         <div key={field.key}>
@@ -601,7 +674,7 @@ export default function PaymentMethodsPage() {
                               name={`pm_${field.key}`}
                               value={formFields[field.key] || ''}
                               onChange={(e) => setFormFields(prev => ({ ...prev, [field.key]: e.target.value }))}
-                              placeholder={editingMethod ? '(unchanged)' : `Enter ${field.label.toLowerCase()}`}
+                              placeholder={editingMethod ? '(unchanged)' : (field.placeholder ?? `Enter ${field.label.toLowerCase()}`)}
                               required={field.required && !editingMethod}
                               autoComplete={isPassword ? 'new-password' : 'off'}
                               data-lpignore="true"
