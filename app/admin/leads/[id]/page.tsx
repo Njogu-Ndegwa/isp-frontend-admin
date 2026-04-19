@@ -77,16 +77,20 @@ export default function LeadDetailPage() {
   const [stageNote, setStageNote] = useState('');
   const [lostReason, setLostReason] = useState('');
   const [stageSubmitting, setStageSubmitting] = useState(false);
+  const [stageError, setStageError] = useState<string | null>(null);
 
   // Activity form
   const [activityType, setActivityType] = useState<CreateActivityRequest['activity_type']>('note');
   const [activityDesc, setActivityDesc] = useState('');
   const [activitySubmitting, setActivitySubmitting] = useState(false);
+  const [activityError, setActivityError] = useState<string | null>(null);
+  const [activitySavedAt, setActivitySavedAt] = useState<number | null>(null);
 
   // Follow-up form
   const [followUpTitle, setFollowUpTitle] = useState('');
   const [followUpDue, setFollowUpDue] = useState('');
   const [followUpSubmitting, setFollowUpSubmitting] = useState(false);
+  const [followUpError, setFollowUpError] = useState<string | null>(null);
 
   // Edit info
   const [showEditModal, setShowEditModal] = useState(false);
@@ -99,9 +103,9 @@ export default function LeadDetailPage() {
   const [showDelete, setShowDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
-  const fetchLead = useCallback(async () => {
+  const fetchLead = useCallback(async (opts?: { silent?: boolean }) => {
     try {
-      setLoading(true);
+      if (!opts?.silent) setLoading(true);
       setError(null);
       const [data, src] = await Promise.all([
         api.getLead(leadId),
@@ -110,9 +114,11 @@ export default function LeadDetailPage() {
       setLead(data);
       setSources(src);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load lead');
+      if (!opts?.silent) {
+        setError(err instanceof Error ? err.message : 'Failed to load lead');
+      }
     } finally {
-      setLoading(false);
+      if (!opts?.silent) setLoading(false);
     }
   }, [leadId]);
 
@@ -186,6 +192,7 @@ export default function LeadDetailPage() {
   const handleStageChange = async (e: React.FormEvent) => {
     e.preventDefault();
     setStageSubmitting(true);
+    setStageError(null);
     try {
       await api.changeLeadStage(lead.id, {
         stage: newStage,
@@ -195,9 +202,10 @@ export default function LeadDetailPage() {
       setShowStageModal(false);
       setStageNote('');
       setLostReason('');
-      fetchLead();
+      fetchLead({ silent: true });
     } catch (err) {
-      console.error(err);
+      console.error('Stage change failed:', err);
+      setStageError(err instanceof Error ? err.message : 'Failed to change stage');
     } finally {
       setStageSubmitting(false);
     }
@@ -207,12 +215,15 @@ export default function LeadDetailPage() {
     e.preventDefault();
     if (!activityDesc.trim()) return;
     setActivitySubmitting(true);
+    setActivityError(null);
     try {
       await api.logLeadActivity(lead.id, { activity_type: activityType, description: activityDesc.trim() });
       setActivityDesc('');
-      fetchLead();
+      setActivitySavedAt(Date.now());
+      fetchLead({ silent: true });
     } catch (err) {
-      console.error(err);
+      console.error('Log activity failed:', err);
+      setActivityError(err instanceof Error ? err.message : 'Failed to log activity');
     } finally {
       setActivitySubmitting(false);
     }
@@ -222,13 +233,15 @@ export default function LeadDetailPage() {
     e.preventDefault();
     if (!followUpTitle.trim() || !followUpDue) return;
     setFollowUpSubmitting(true);
+    setFollowUpError(null);
     try {
       await api.createLeadFollowUp(lead.id, { title: followUpTitle.trim(), due_at: new Date(followUpDue).toISOString() });
       setFollowUpTitle('');
       setFollowUpDue('');
-      fetchLead();
+      fetchLead({ silent: true });
     } catch (err) {
-      console.error(err);
+      console.error('Add follow-up failed:', err);
+      setFollowUpError(err instanceof Error ? err.message : 'Failed to schedule follow-up');
     } finally {
       setFollowUpSubmitting(false);
     }
@@ -237,9 +250,10 @@ export default function LeadDetailPage() {
   const handleCompleteFollowUp = async (fupId: number) => {
     try {
       await api.completeFollowUp(fupId);
-      fetchLead();
+      fetchLead({ silent: true });
     } catch (err) {
-      console.error(err);
+      console.error('Complete follow-up failed:', err);
+      setFollowUpError(err instanceof Error ? err.message : 'Failed to complete follow-up');
     }
   };
 
@@ -341,7 +355,7 @@ export default function LeadDetailPage() {
         <div className="flex flex-wrap items-center gap-3 mb-3">
           <LeadStageBadge stage={lead.stage} />
           <button
-            onClick={() => { setNewStage(lead.stage); setShowStageModal(true); }}
+            onClick={() => { setNewStage(lead.stage); setStageError(null); setShowStageModal(true); }}
             className="text-xs text-accent-primary hover:underline"
           >
             Change stage
@@ -456,6 +470,9 @@ export default function LeadDetailPage() {
               <button type="submit" className="btn-primary text-sm" disabled={activitySubmitting || !activityDesc.trim()}>
                 {activitySubmitting ? 'Logging...' : 'Log'}
               </button>
+              {activitySavedAt && !activitySubmitting && !activityError && Date.now() - activitySavedAt < 3000 && (
+                <span className="text-xs text-emerald-400 self-center">Logged</span>
+              )}
             </div>
             <textarea
               className="input w-full text-sm"
@@ -464,6 +481,11 @@ export default function LeadDetailPage() {
               value={activityDesc}
               onChange={e => setActivityDesc(e.target.value)}
             />
+            {activityError && (
+              <div className="mt-2 p-2 rounded-lg bg-red-500/10 border border-red-500/20 text-xs text-red-400">
+                {activityError}
+              </div>
+            )}
           </form>
 
           {/* Activities list */}
@@ -519,6 +541,11 @@ export default function LeadDetailPage() {
             <button type="submit" className="btn-primary text-sm" disabled={followUpSubmitting || !followUpTitle.trim() || !followUpDue}>
               {followUpSubmitting ? 'Scheduling...' : 'Schedule Follow-up'}
             </button>
+            {followUpError && (
+              <div className="mt-2 p-2 rounded-lg bg-red-500/10 border border-red-500/20 text-xs text-red-400">
+                {followUpError}
+              </div>
+            )}
           </form>
 
           <div className="space-y-2">
@@ -608,6 +635,11 @@ export default function LeadDetailPage() {
           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => !stageSubmitting && setShowStageModal(false)} />
           <div className="relative bg-background-secondary border border-border rounded-2xl w-full max-w-sm p-5">
             <h3 className="text-lg font-semibold mb-4">Change Stage</h3>
+            {stageError && (
+              <div className="mb-3 p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-sm text-red-400">
+                {stageError}
+              </div>
+            )}
             <form onSubmit={handleStageChange} className="space-y-3">
               <div>
                 <label className="block text-sm font-medium mb-1">New Stage</label>
