@@ -8,6 +8,7 @@ import LeadStageBadge, { STAGE_ORDER, getStageMeta } from '../../../components/L
 import ConfirmDialog from '../../../components/ConfirmDialog';
 import ConvertLeadModal from '../../../components/ConvertLeadModal';
 import { api } from '../../../lib/api';
+import { useCurrentLead } from '../../../lib/useCurrentLead';
 import type {
   LeadDetail, LeadActivity, LeadFollowUp, LeadSource,
   LeadStage, UpdateLeadRequest, CreateActivityRequest,
@@ -56,12 +57,19 @@ export default function LeadDetailPage() {
   const params = useParams();
   const router = useRouter();
   const leadId = Number(params.id);
+  const { current: currentLead, startConversation, endConversation } = useCurrentLead();
 
   const [lead, setLead] = useState<LeadDetail | null>(null);
   const [sources, setSources] = useState<LeadSource[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<Tab>('timeline');
+
+  // Inline notes editing
+  const [notesDraft, setNotesDraft] = useState('');
+  const [notesSaving, setNotesSaving] = useState(false);
+  const [notesError, setNotesError] = useState<string | null>(null);
+  const [notesSavedAt, setNotesSavedAt] = useState<number | null>(null);
 
   // Stage change
   const [showStageModal, setShowStageModal] = useState(false);
@@ -109,6 +117,35 @@ export default function LeadDetailPage() {
   }, [leadId]);
 
   useEffect(() => { fetchLead(); }, [fetchLead]);
+
+  useEffect(() => {
+    if (lead) setNotesDraft(lead.notes || '');
+  }, [lead?.id, lead?.notes]);
+
+  const isChatting = currentLead?.id === leadId;
+
+  const handleToggleChat = () => {
+    if (!lead) return;
+    if (isChatting) endConversation();
+    else startConversation(lead.id, lead.name);
+  };
+
+  const handleSaveNotes = async () => {
+    if (!lead) return;
+    const trimmed = notesDraft.trim();
+    if ((lead.notes || '') === trimmed) return;
+    setNotesSaving(true);
+    setNotesError(null);
+    try {
+      await api.updateLead(lead.id, { notes: trimmed || null });
+      setNotesSavedAt(Date.now());
+      fetchLead();
+    } catch (err) {
+      setNotesError(err instanceof Error ? err.message : 'Failed to save notes');
+    } finally {
+      setNotesSaving(false);
+    }
+  };
 
   if (user?.role !== 'admin') {
     return (
@@ -261,6 +298,34 @@ export default function LeadDetailPage() {
         backHref="/admin/leads"
         action={
           <div className="flex items-center gap-2">
+            <button
+              onClick={handleToggleChat}
+              className={`text-sm font-medium rounded-lg px-3 py-2 border transition-colors flex items-center gap-1.5 ${
+                isChatting
+                  ? 'bg-emerald-500/10 border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/15'
+                  : 'bg-background-secondary border-border text-foreground-muted hover:text-foreground hover:border-border-hover'
+              }`}
+              title={isChatting ? 'Stop marking this lead as your current conversation' : 'Mark that you are currently talking with this lead'}
+            >
+              {isChatting ? (
+                <>
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400" />
+                  </span>
+                  <span className="hidden sm:inline">Chatting now</span>
+                  <span className="sm:hidden">Chat on</span>
+                </>
+              ) : (
+                <>
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M8 10h.01M12 10h.01M16 10h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                  </svg>
+                  <span className="hidden sm:inline">Start conversation</span>
+                  <span className="sm:hidden">Chat</span>
+                </>
+              )}
+            </button>
             {!lead.converted_user_id && lead.stage !== 'lost' && (
               <button onClick={() => setShowConvert(true)} className="btn-secondary text-sm">
                 Convert
@@ -316,13 +381,43 @@ export default function LeadDetailPage() {
               </p>
             </div>
           )}
-          {lead.notes && (
-            <div className="col-span-2 md:col-span-4">
-              <span className="text-foreground-muted text-xs">Notes</span>
-              <p className="text-sm">{lead.notes}</p>
-            </div>
-          )}
         </div>
+      </div>
+
+      {/* Notes — always visible, inline-editable */}
+      <div className="card p-4">
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-2">
+            <svg className="w-4 h-4 text-foreground-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+            </svg>
+            <h3 className="text-sm font-semibold">Notes</h3>
+          </div>
+          <div className="flex items-center gap-2">
+            {notesSavedAt && !notesSaving && !notesError && Date.now() - notesSavedAt < 3000 && (
+              <span className="text-[10px] text-emerald-400">Saved</span>
+            )}
+            <button
+              onClick={handleSaveNotes}
+              disabled={notesSaving || (lead.notes || '') === notesDraft.trim()}
+              className="text-xs font-medium text-accent-primary hover:underline disabled:opacity-40 disabled:no-underline"
+            >
+              {notesSaving ? 'Saving…' : 'Save'}
+            </button>
+          </div>
+        </div>
+        <textarea
+          className="input w-full text-sm"
+          rows={3}
+          placeholder="Jot down context about this lead — preferred time, budget, pain points…"
+          value={notesDraft}
+          onChange={(e) => setNotesDraft(e.target.value)}
+          onBlur={handleSaveNotes}
+        />
+        {notesError && <p className="text-xs text-red-400 mt-1">{notesError}</p>}
+        <p className="text-[10px] text-foreground-muted mt-1">
+          Tip: For conversation history and call logs, use the Timeline tab below.
+        </p>
       </div>
 
       {/* Tabs */}

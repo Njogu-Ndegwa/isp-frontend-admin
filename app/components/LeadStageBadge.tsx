@@ -14,12 +14,12 @@ const STAGE_CONFIG: Record<LeadStage, { label: string; variant: string }> = {
 };
 
 export const STAGE_ORDER: LeadStage[] = [
-  'new_lead', 'contacted', 'talking', 'installation_help',
-  'signed_up', 'paying', 'churned', 'lost',
+  'new_lead', 'contacted', 'talking', 'signed_up',
+  'installation_help', 'paying', 'churned', 'lost',
 ];
 
 export const ACTIVE_STAGES: LeadStage[] = [
-  'new_lead', 'contacted', 'talking', 'installation_help',
+  'new_lead', 'contacted', 'talking', 'signed_up', 'installation_help',
 ];
 
 export function getStageMeta(stage: LeadStage) {

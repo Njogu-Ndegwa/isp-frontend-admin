@@ -8,10 +8,10 @@ import DataTable, { DataTableColumn } from '../../components/DataTable';
 import MobileDataCard from '../../components/MobileDataCard';
 import SearchInput from '../../components/SearchInput';
 import FilterSelect from '../../components/FilterSelect';
-import LeadsSubNav from '../../components/LeadsSubNav';
 import LeadStageBadge, { STAGE_ORDER, ACTIVE_STAGES, getStageMeta } from '../../components/LeadStageBadge';
 import LeadBackfillDialog from '../../components/LeadBackfillDialog';
 import { api } from '../../lib/api';
+import { useCurrentLead } from '../../lib/useCurrentLead';
 import type { Lead, LeadSource, LeadPipelineSummary, LeadStage, CreateLeadRequest } from '../../lib/types';
 
 // ───── Types ─────────────────────────────────────────────
@@ -139,6 +139,7 @@ const AGE_META: Record<string, { label: string; order: number }> = {
 export default function LeadsPage() {
   const { user } = useAuth();
   const router = useRouter();
+  const { current: currentLead, endConversation } = useCurrentLead();
 
   const [view, setView] = useState<ViewMode>('kanban');
   const [density, setDensity] = useState<Density>('comfortable');
@@ -443,8 +444,6 @@ export default function LeadsPage() {
         }
       />
 
-      <LeadsSubNav />
-
       {/* ─── View chips (Linear/Asana-style saved views) ─── */}
       <div className="flex gap-2 items-center overflow-x-auto no-scrollbar -mx-4 px-4 md:mx-0 md:px-0">
         {allViews.map(v => {
@@ -489,7 +488,51 @@ export default function LeadsPage() {
         )}
       </div>
 
-      {/* ─── Toolbar ─── */}
+      {/* ─── Currently Talking banner ─── */}
+      {currentLead && (
+        <div className="flex items-center justify-between gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="relative flex h-2.5 w-2.5 flex-shrink-0">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-400" />
+            </span>
+            <span className="text-xs text-foreground-muted">Currently talking with</span>
+            <button
+              onClick={() => router.push(`/admin/leads/${currentLead.id}`)}
+              className="text-sm font-semibold text-foreground hover:text-emerald-400 truncate"
+            >
+              {currentLead.name}
+            </button>
+          </div>
+          <button
+            onClick={endConversation}
+            className="text-xs text-foreground-muted hover:text-foreground border border-border hover:border-border-hover rounded-full px-2.5 py-1 whitespace-nowrap"
+            title="End conversation"
+          >
+            End chat
+          </button>
+        </div>
+      )}
+
+      {/* ─── Filters (unified with Customers / Transactions) ─── */}
+      <div className="flex flex-col sm:flex-row gap-3">
+        <div className="flex-1">
+          <SearchInput
+            value={search}
+            onChange={(v) => {
+              clearTimeout(searchTimeout.current);
+              searchTimeout.current = setTimeout(() => setSearch(v), 300);
+            }}
+            placeholder="Search leads by name, phone, email or handle..."
+          />
+        </div>
+        <div className="grid grid-cols-2 gap-2 sm:flex">
+          <FilterSelect options={STAGE_FILTER_OPTIONS} value={stageFilter} onChange={(v) => setStageFilter(v as LeadStage | '')} />
+          <FilterSelect options={sourceFilterOptions} value={sourceFilter} onChange={setSourceFilter} />
+        </div>
+      </div>
+
+      {/* ─── View toolbar ─── */}
       <div className="flex flex-wrap items-center gap-2">
         <div className="flex bg-background-tertiary rounded-lg p-0.5">
           <button
@@ -554,22 +597,6 @@ export default function LeadsPage() {
             </button>
           </>
         )}
-
-        {view === 'list' && (
-          <>
-            <SearchInput
-              value={search}
-              onChange={(v) => {
-                clearTimeout(searchTimeout.current);
-                searchTimeout.current = setTimeout(() => setSearch(v), 300);
-              }}
-              placeholder="Search leads..."
-              className="flex-1 min-w-[180px]"
-            />
-            <FilterSelect options={STAGE_FILTER_OPTIONS} value={stageFilter} onChange={(v) => setStageFilter(v as LeadStage | '')} />
-            <FilterSelect options={sourceFilterOptions} value={sourceFilter} onChange={setSourceFilter} />
-          </>
-        )}
       </div>
 
       {loading ? (
@@ -620,9 +647,7 @@ export default function LeadsPage() {
 
                 {!collapsed && (
                   <div className={`overflow-x-auto ${groupBy !== 'none' ? 'p-2 -mx-0 px-2' : '-mx-4 px-4 md:mx-0 md:px-0'}`}>
-                    <div className={`flex gap-3 min-w-max ${
-                      groupBy === 'none' ? 'md:min-w-0 md:grid md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8' : ''
-                    }`}>
+                    <div className="flex gap-3 min-w-max pb-1">
                       {visibleStages.map(stage => {
                         const stageLeads = leadsByStageFor(lane.leads, stage);
                         const meta = getStageMeta(stage);
@@ -634,7 +659,7 @@ export default function LeadsPage() {
                         return (
                           <div
                             key={stage}
-                            className={`w-[260px] md:w-auto flex flex-col rounded-xl border transition-colors ${
+                            className={`w-[300px] sm:w-[320px] flex-shrink-0 flex flex-col rounded-xl border transition-colors ${
                               isOver ? 'border-accent-primary bg-accent-primary/5' : 'border-border bg-background-secondary/50'
                             }`}
                             onDragOver={(e) => handleDragOver(e, overKey)}
@@ -674,6 +699,7 @@ export default function LeadsPage() {
                                     lead={lead}
                                     density={density}
                                     dragging={draggedLead?.id === lead.id}
+                                    isCurrent={currentLead?.id === lead.id}
                                     onDragStart={() => handleDragStart(lead)}
                                     onClick={() => router.push(`/admin/leads/${lead.id}`)}
                                   />
@@ -902,11 +928,12 @@ export default function LeadsPage() {
 
 // ───── KanbanCard (extracted for density variants) ───────
 function KanbanCard({
-  lead, density, dragging, onDragStart, onClick,
+  lead, density, dragging, isCurrent, onDragStart, onClick,
 }: {
   lead: Lead;
   density: Density;
   dragging: boolean;
+  isCurrent?: boolean;
   onDragStart: () => void;
   onClick: () => void;
 }) {
@@ -921,10 +948,20 @@ function KanbanCard({
       onClick={onClick}
       className={`rounded-lg border bg-background-secondary hover:border-border-hover cursor-pointer transition-all hover:shadow-sm ${
         dragging ? 'opacity-40' : ''
-      } ${overdue ? 'border-red-500/30' : 'border-border'} ${isCompact ? 'p-2' : 'p-3'}`}
+      } ${
+        isCurrent
+          ? 'border-emerald-500/60 ring-1 ring-emerald-500/40 bg-emerald-500/5'
+          : overdue ? 'border-red-500/30' : 'border-border'
+      } ${isCompact ? 'p-2' : 'p-3'}`}
     >
       <div className="flex items-start justify-between gap-2 mb-1">
-        <span className={`font-medium leading-tight line-clamp-1 ${isCompact ? 'text-xs' : 'text-sm'}`}>
+        <span className={`font-medium leading-tight line-clamp-1 flex items-center gap-1.5 ${isCompact ? 'text-xs' : 'text-sm'}`}>
+          {isCurrent && (
+            <span className="relative flex h-2 w-2 flex-shrink-0" title="Currently chatting">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400" />
+            </span>
+          )}
           {lead.name}
         </span>
         {overdue && !isCompact && (
