@@ -93,14 +93,7 @@ const FIELDS_BY_TYPE: Record<PaymentMethodType, FieldDef[]> = {
         { value: 'mtnsouthafrica', label: 'MTN South Africa' },
       ],
     },
-    { key: 'mtn_currency', label: 'Currency', type: 'text', required: true, placeholder: 'EUR (sandbox) / UGX / GHS / …' },
-    {
-      key: 'mtn_base_url',
-      label: 'Base URL (optional)',
-      type: 'text',
-      required: false,
-      placeholder: 'https://sandbox.momodeveloper.mtn.com',
-    },
+    { key: 'mtn_currency', label: 'Currency', type: 'text', required: true, placeholder: 'UGX / GHS / EUR …' },
   ],
 };
 
@@ -213,9 +206,8 @@ export default function PaymentMethodsPage() {
   const applyTypeDefaults = (type: PaymentMethodType): Record<string, string> => {
     if (type === 'mtn_momo') {
       return {
-        mtn_target_environment: 'sandbox',
-        mtn_currency: 'EUR',
-        mtn_base_url: 'https://sandbox.momodeveloper.mtn.com',
+        mtn_target_environment: 'mtnuganda',
+        mtn_currency: 'UGX',
       };
     }
     return {};
