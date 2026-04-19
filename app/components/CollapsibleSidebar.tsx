@@ -173,7 +173,24 @@ function isItemActive(pathname: string, href: string): boolean {
     return pathname === '/customers' || pathname.startsWith('/customers/');
   }
   if (href === '/admin/leads') {
-    return pathname === '/admin/leads' || pathname.startsWith('/admin/leads/');
+    // Pipeline is the "root" leads page – match exactly or sub-routes that aren't sibling sub-sections
+    if (pathname === '/admin/leads') return true;
+    if (pathname.startsWith('/admin/leads/')) {
+      if (pathname.startsWith('/admin/leads/followups')) return false;
+      if (pathname.startsWith('/admin/leads/analytics')) return false;
+      if (pathname.startsWith('/admin/leads/sources')) return false;
+      return true; // lead detail pages like /admin/leads/[id] stay on Pipeline
+    }
+    return false;
+  }
+  if (href === '/admin/leads/followups') {
+    return pathname === '/admin/leads/followups' || pathname.startsWith('/admin/leads/followups/');
+  }
+  if (href === '/admin/leads/analytics') {
+    return pathname === '/admin/leads/analytics';
+  }
+  if (href === '/admin/leads/sources') {
+    return pathname === '/admin/leads/sources';
   }
   if (href === '/admin/resellers') {
     return pathname === '/admin/resellers' || pathname.startsWith('/admin/resellers/');
@@ -213,18 +230,51 @@ const adminNavGroups: NavGroup[] = [
     ],
   },
   {
-    id: 'admin-management',
-    label: 'Management',
+    id: 'admin-leads',
+    label: 'Leads',
     items: [
       {
-        name: 'Leads',
+        name: 'Pipeline',
         href: '/admin/leads',
         icon: (
           <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3.75 6.75h.008v.008H3.75V6.75zm0 5.25h.008v.008H3.75V12zm0 5.25h.008v.008H3.75v-.008zM7.5 6.75h12M7.5 12h12m-12 5.25h12" />
           </svg>
         ),
       },
+      {
+        name: 'Follow-ups',
+        href: '/admin/leads/followups',
+        icon: (
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 2m6-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+        ),
+      },
+      {
+        name: 'Analytics',
+        href: '/admin/leads/analytics',
+        icon: (
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 3v18h18M7 15l4-4 3 3 5-6" />
+          </svg>
+        ),
+      },
+      {
+        name: 'Sources',
+        href: '/admin/leads/sources',
+        icon: (
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
+          </svg>
+        ),
+      },
+    ],
+  },
+  {
+    id: 'admin-management',
+    label: 'Management',
+    items: [
       {
         name: 'Resellers',
         href: '/admin/resellers',

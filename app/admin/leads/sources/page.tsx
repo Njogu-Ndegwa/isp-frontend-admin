@@ -5,6 +5,7 @@ import { useAuth } from '../../../context/AuthContext';
 import Header from '../../../components/Header';
 import DataTable, { DataTableColumn } from '../../../components/DataTable';
 import MobileDataCard from '../../../components/MobileDataCard';
+import LeadsSubNav from '../../../components/LeadsSubNav';
 import { api } from '../../../lib/api';
 import type { LeadSource } from '../../../lib/types';
 
@@ -144,13 +145,14 @@ export default function LeadSourcesPage() {
       <Header
         title="Lead Sources"
         subtitle="Manage where your leads come from"
-        backHref="/admin/leads"
         action={
           <button onClick={openCreate} className="btn-primary text-sm">
             + Add Source
           </button>
         }
       />
+
+      <LeadsSubNav />
 
       {loading ? (
         <div className="space-y-3">

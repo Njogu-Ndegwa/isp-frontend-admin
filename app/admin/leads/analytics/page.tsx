@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useAuth } from '../../../context/AuthContext';
 import Header from '../../../components/Header';
 import StatCard from '../../../components/StatCard';
+import LeadsSubNav from '../../../components/LeadsSubNav';
 import { getStageMeta } from '../../../components/LeadStageBadge';
 import { api } from '../../../lib/api';
 import type { LeadPipelineStats, FollowUpsResponse, LeadStage } from '../../../lib/types';
@@ -60,7 +61,8 @@ export default function LeadAnalyticsPage() {
   if (loading) {
     return (
       <div className="space-y-4 pb-24 md:pb-6">
-        <Header title="Pipeline Analytics" backHref="/admin/leads" />
+        <Header title="Pipeline Analytics" />
+        <LeadsSubNav />
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {[1, 2, 3, 4].map(i => (
             <div key={i} className="card p-4 animate-pulse">
@@ -76,7 +78,8 @@ export default function LeadAnalyticsPage() {
   if (error || !stats) {
     return (
       <div className="space-y-4 pb-24 md:pb-6">
-        <Header title="Pipeline Analytics" backHref="/admin/leads" />
+        <Header title="Pipeline Analytics" />
+        <LeadsSubNav />
         <div className="card p-6 text-center">
           <p className="text-red-400 mb-3">{error || 'Failed to load'}</p>
           <button onClick={fetchData} className="btn-primary text-sm">Retry</button>
@@ -118,7 +121,8 @@ export default function LeadAnalyticsPage() {
 
   return (
     <div className="space-y-6 pb-24 md:pb-6">
-      <Header title="Pipeline Analytics" subtitle="Lead conversion insights" backHref="/admin/leads" />
+      <Header title="Pipeline Analytics" subtitle="Lead conversion insights" />
+      <LeadsSubNav />
 
       {/* Summary cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
