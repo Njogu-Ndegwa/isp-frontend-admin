@@ -1904,7 +1904,7 @@ class ApiClient {
   }
 
   async backfillLeads(data: LeadBackfillRequest = {}): Promise<LeadBackfillResponse> {
-    this.demoBlock();
+    if (this.isDemoMode()) return demo.demoBackfillLeads(data);
     const response = await fetch(`${BASE_URL}/leads/backfill`, {
       method: 'POST', headers: this.getHeaders(), body: JSON.stringify(data),
     });

@@ -58,6 +58,9 @@ import type {
   FollowUpsResponse,
   UpcomingFollowUp,
   LeadStage,
+  LeadBackfillRequest,
+  LeadBackfillResponse,
+  LeadBackfillItem,
 } from './types';
 
 const now = new Date();
@@ -1240,6 +1243,71 @@ export function demoUpcomingFollowUps(days = 7): FollowUpsResponse {
 
   allFollowups.sort((a, b) => new Date(a.due_at).getTime() - new Date(b.due_at).getTime());
   return { followups: allFollowups, total: allFollowups.length };
+}
+
+// ─── Demo reseller users available for backfill ─────────────────────
+const demoBackfillCandidates: Array<{
+  user_id: number;
+  email: string | null;
+  name: string;
+  stage: LeadStage;
+  reason: string;
+  signup_date: string;
+}> = [
+  { user_id: 101, email: 'active@demo-isp.co', name: 'Active Networks', stage: 'paying', reason: 'subscription.status=active, has completed payments', signup_date: iso(45).slice(0, 10) },
+  { user_id: 102, email: 'cityfiber@demo-isp.co', name: 'CityFiber Solutions', stage: 'paying', reason: 'subscription.status=active, has completed payments', signup_date: iso(38).slice(0, 10) },
+  { user_id: 103, email: 'speedlink@demo-isp.co', name: 'SpeedLink ISP', stage: 'paying', reason: 'has completed payments', signup_date: iso(30).slice(0, 10) },
+  { user_id: 104, email: 'suspended@demo-isp.co', name: 'Old Towers Net', stage: 'churned', reason: 'subscription.status=suspended, has completed payments', signup_date: iso(120).slice(0, 10) },
+  { user_id: 105, email: 'techsetup@demo-isp.co', name: 'Tech Setup Kenya', stage: 'installation_help', reason: 'has 2 router(s), no paying signal', signup_date: iso(14).slice(0, 10) },
+  { user_id: 106, email: 'startup@demo-isp.co', name: 'Startup Reseller', stage: 'installation_help', reason: 'has 1 customer record, no paying signal', signup_date: iso(10).slice(0, 10) },
+  { user_id: 107, email: 'newjoin1@demo-isp.co', name: 'New Join Networks', stage: 'signed_up', reason: 'registered, no routers/customers/payments yet', signup_date: iso(6).slice(0, 10) },
+  { user_id: 108, email: 'newjoin2@demo-isp.co', name: 'Fresh Fiber', stage: 'signed_up', reason: 'registered, no routers/customers/payments yet', signup_date: iso(4).slice(0, 10) },
+  { user_id: 109, email: 'newjoin3@demo-isp.co', name: 'Hello Net', stage: 'signed_up', reason: 'registered, no routers/customers/payments yet', signup_date: iso(2).slice(0, 10) },
+];
+
+let demoBackfillLeadCounter = 1000;
+
+export function demoBackfillLeads(req: LeadBackfillRequest = {}): LeadBackfillResponse {
+  const since = req.since && req.since !== 'all' ? req.since : null;
+  const dryRun = !!req.dry_run;
+
+  let candidates = demoBackfillCandidates;
+  if (since) {
+    candidates = candidates.filter(c => c.signup_date >= since);
+  }
+
+  const stageCounts: Partial<Record<LeadStage, number>> = {};
+  const items: LeadBackfillItem[] = candidates.map(c => {
+    stageCounts[c.stage] = (stageCounts[c.stage] || 0) + 1;
+    return {
+      user_id: c.user_id,
+      email: c.email,
+      name: c.name,
+      stage: c.stage,
+      reason: c.reason,
+      signup_date: c.signup_date,
+      lead_id: dryRun ? null : ++demoBackfillLeadCounter,
+    };
+  });
+
+  const count = items.length;
+  const message = dryRun
+    ? `Dry run — ${count} reseller(s) would be backfilled.`
+    : `Backfill complete — ${count} lead(s) created.`;
+
+  return {
+    since,
+    dry_run: dryRun,
+    admin_owner_id: 1,
+    admin_owner_email: 'admin@demo-isp.co',
+    source_id: 7,
+    source_name: 'Website',
+    candidates: count,
+    leads_created: dryRun ? 0 : count,
+    stage_counts: stageCounts,
+    items,
+    message,
+  };
 }
 
 // ─── Error message for write operations ─────────────────────────────
