@@ -1212,6 +1212,66 @@ export interface PPPoEDiagnoseResponse {
   info: Record<string, unknown>;
 }
 
+export interface PPPoEClientDetailsCauseHints {
+  category: string;
+  probable_cause: string;
+  technician_action: string;
+}
+
+export interface PPPoEClientDetailsSummary {
+  issues_count: number;
+  has_critical: boolean;
+  log_entries: number;
+}
+
+export interface PPPoEClientChecklistItem {
+  severity: 'critical' | 'warning' | 'info';
+  layer: string;
+  action: string;
+}
+
+export interface PPPoEClientSecretInfo {
+  name: string;
+  last_disconnect_reason: string;
+}
+
+export interface PPPoEClientDiagnosticInfo {
+  ports: Array<Record<string, unknown>>;
+  pppoe_servers: Array<Record<string, unknown>>;
+  pppoe_access: Record<string, unknown>;
+  bridge_pppoe: Record<string, unknown> | null;
+  pool: Array<Record<string, unknown>>;
+  secret: PPPoEClientSecretInfo | null;
+  active_session: Record<string, unknown> | null;
+  status: string;
+  last_disconnect_reason: string;
+  recent_logs: LogEntry[];
+}
+
+export interface PPPoEClientDiagnostic {
+  success: boolean;
+  username: string;
+  status: string;
+  issues_count: number;
+  has_critical: boolean;
+  issues: DiagnosticIssue[];
+  info: PPPoEClientDiagnosticInfo;
+}
+
+export interface PPPoEClientDetailsResponse {
+  router_id: number;
+  router_name: string;
+  username: string;
+  generated_at: string;
+  connection_state: string;
+  disconnect_reason: string;
+  cause_hints: PPPoEClientDetailsCauseHints;
+  summary: PPPoEClientDetailsSummary;
+  technician_checklist: PPPoEClientChecklistItem[];
+  diagnostic: PPPoEClientDiagnostic;
+  recent_logs: LogEntry[];
+}
+
 export interface PPPoELogsResponse {
   router_id: number;
   router_name: string;

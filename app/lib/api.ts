@@ -54,6 +54,7 @@ import {
   UpdateDualPortsResponse,
   PPPoEOverviewResponse,
   PPPoEDiagnoseResponse,
+  PPPoEClientDetailsResponse,
   PPPoELogsResponse,
   PPPoESecretsResponse,
   PPPoEMonitorResponse,
@@ -158,7 +159,15 @@ const BASE_URL = 'https://isp.bitwavetechnologies.com/api';
 class ApiClient {
   isDemoMode(): boolean {
     if (typeof window === 'undefined') return false;
-    return localStorage.getItem('demo_mode') === 'true';
+    if (localStorage.getItem('demo_mode') !== 'true') return false;
+    try {
+      const rawUser = localStorage.getItem('auth_user');
+      if (!rawUser) return true;
+      const parsed = JSON.parse(rawUser) as { role?: string };
+      return parsed.role !== 'admin';
+    } catch {
+      return true;
+    }
   }
 
   private demoBlock(): never {
@@ -1068,6 +1077,55 @@ class ApiClient {
     return this.handleResponse<PPPoEDiagnoseResponse>(response);
   }
 
+  async getPPPoEClientDetails(routerId: number, username: string): Promise<PPPoEClientDetailsResponse> {
+    if (this.isDemoMode()) {
+      return {
+        router_id: routerId,
+        router_name: 'Demo Router',
+        username,
+        generated_at: new Date().toISOString(),
+        connection_state: 'offline',
+        disconnect_reason: 'peer-not-responding',
+        cause_hints: {
+          category: 'physical_or_cpe',
+          probable_cause: 'Client CPE is unreachable or link is unstable',
+          technician_action: 'Check cable, switch port, CPE power, and link flaps',
+        },
+        summary: {
+          issues_count: 0,
+          has_critical: false,
+          log_entries: 0,
+        },
+        technician_checklist: [],
+        diagnostic: {
+          success: true,
+          username,
+          status: 'offline',
+          issues_count: 0,
+          has_critical: false,
+          issues: [],
+          info: {
+            ports: [],
+            pppoe_servers: [],
+            pppoe_access: {},
+            bridge_pppoe: null,
+            pool: [],
+            secret: { name: username, last_disconnect_reason: 'peer-not-responding' },
+            active_session: null,
+            status: 'offline',
+            last_disconnect_reason: 'peer-not-responding',
+            recent_logs: [],
+          },
+        },
+        recent_logs: [],
+      };
+    }
+    const response = await fetch(`${BASE_URL}/pppoe/${routerId}/client-details/${encodeURIComponent(username)}`, {
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<PPPoEClientDetailsResponse>(response);
+  }
+
   async getPPPoELogs(routerId: number, username?: string, limit = 50): Promise<PPPoELogsResponse> {
     if (this.isDemoMode()) return demo.demoPPPoELogs(routerId);
     const params = new URLSearchParams({ limit: limit.toString() });
@@ -1764,7 +1822,7 @@ class ApiClient {
   }
 
   async createLeadSource(data: CreateSourceRequest): Promise<LeadSource> {
-    this.demoBlock();
+    if (this.isDemoMode()) this.demoBlock();
     const response = await fetch(`${BASE_URL}/leads/sources`, {
       method: 'POST', headers: this.getHeaders(), body: JSON.stringify(data),
     });
@@ -1772,7 +1830,7 @@ class ApiClient {
   }
 
   async updateLeadSource(id: number, data: UpdateSourceRequest): Promise<LeadSource> {
-    this.demoBlock();
+    if (this.isDemoMode()) this.demoBlock();
     const response = await fetch(`${BASE_URL}/leads/sources/${id}`, {
       method: 'PUT', headers: this.getHeaders(), body: JSON.stringify(data),
     });
@@ -1780,7 +1838,7 @@ class ApiClient {
   }
 
   async deleteLeadSource(id: number): Promise<{ detail: string; id: number }> {
-    this.demoBlock();
+    if (this.isDemoMode()) this.demoBlock();
     const response = await fetch(`${BASE_URL}/leads/sources/${id}`, {
       method: 'DELETE', headers: this.getHeaders(),
     });
@@ -1812,7 +1870,7 @@ class ApiClient {
   }
 
   async createLead(data: CreateLeadRequest): Promise<Lead> {
-    this.demoBlock();
+    if (this.isDemoMode()) this.demoBlock();
     const response = await fetch(`${BASE_URL}/leads`, {
       method: 'POST', headers: this.getHeaders(), body: JSON.stringify(data),
     });
@@ -1820,7 +1878,7 @@ class ApiClient {
   }
 
   async updateLead(id: number, data: UpdateLeadRequest): Promise<Lead> {
-    this.demoBlock();
+    if (this.isDemoMode()) this.demoBlock();
     const response = await fetch(`${BASE_URL}/leads/${id}`, {
       method: 'PUT', headers: this.getHeaders(), body: JSON.stringify(data),
     });
@@ -1828,7 +1886,7 @@ class ApiClient {
   }
 
   async changeLeadStage(id: number, data: ChangeStageRequest): Promise<Lead> {
-    this.demoBlock();
+    if (this.isDemoMode()) this.demoBlock();
     const response = await fetch(`${BASE_URL}/leads/${id}/stage`, {
       method: 'PATCH', headers: this.getHeaders(), body: JSON.stringify(data),
     });
@@ -1836,7 +1894,7 @@ class ApiClient {
   }
 
   async deleteLead(id: number): Promise<{ detail: string; id: number }> {
-    this.demoBlock();
+    if (this.isDemoMode()) this.demoBlock();
     const response = await fetch(`${BASE_URL}/leads/${id}`, {
       method: 'DELETE', headers: this.getHeaders(),
     });
@@ -1856,7 +1914,7 @@ class ApiClient {
   }
 
   async logLeadActivity(leadId: number, data: CreateActivityRequest): Promise<LeadActivity> {
-    this.demoBlock();
+    if (this.isDemoMode()) this.demoBlock();
     const response = await fetch(`${BASE_URL}/leads/${leadId}/activities`, {
       method: 'POST', headers: this.getHeaders(), body: JSON.stringify(data),
     });
@@ -1873,7 +1931,7 @@ class ApiClient {
   }
 
   async createLeadFollowUp(leadId: number, data: CreateFollowUpRequest): Promise<LeadFollowUp> {
-    this.demoBlock();
+    if (this.isDemoMode()) this.demoBlock();
     const response = await fetch(`${BASE_URL}/leads/${leadId}/followups`, {
       method: 'POST', headers: this.getHeaders(), body: JSON.stringify(data),
     });
@@ -1888,7 +1946,7 @@ class ApiClient {
   }
 
   async completeFollowUp(followUpId: number): Promise<{ detail: string; id: number }> {
-    this.demoBlock();
+    if (this.isDemoMode()) this.demoBlock();
     const response = await fetch(`${BASE_URL}/leads/followups/${followUpId}/complete`, {
       method: 'PATCH', headers: this.getHeaders(),
     });
@@ -1896,7 +1954,7 @@ class ApiClient {
   }
 
   async convertLead(leadId: number, data: ConvertLeadRequest): Promise<ConvertLeadResponse> {
-    this.demoBlock();
+    if (this.isDemoMode()) this.demoBlock();
     const response = await fetch(`${BASE_URL}/leads/${leadId}/convert`, {
       method: 'POST', headers: this.getHeaders(), body: JSON.stringify(data),
     });
