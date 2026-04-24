@@ -183,7 +183,7 @@ export default function LeadDetailPage() {
         <Header title="Lead Not Found" backHref="/admin/leads" />
         <div className="card p-6 text-center">
           <p className="text-red-400 mb-3">{error || 'Lead not found'}</p>
-          <button onClick={fetchLead} className="btn-primary text-sm">Retry</button>
+          <button onClick={() => fetchLead()} className="btn-primary text-sm">Retry</button>
         </div>
       </div>
     );
