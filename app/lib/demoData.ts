@@ -266,6 +266,15 @@ export const demoMikroTikMetrics: MikroTikMetrics = {
     bytesIn: Math.floor(Math.random() * 500000000), bytesOut: Math.floor(Math.random() * 2000000000),
   })),
   activeSessionCount: 42,
+  activePppoeSessions: Array.from({ length: 5 }, (_, i) => ({
+    user: demoCustomers[(i + 8) % demoCustomers.length].name.toLowerCase().replace(/\s+/g, '_'),
+    address: `10.20.${i + 1}.${Math.floor(Math.random() * 250 + 2)}`,
+    uptime: `${Math.floor(Math.random() * 6 + 1)}d ${Math.floor(Math.random() * 23)}h`,
+    service: 'pppoe',
+    callerId: `AA:BB:CC:${(i + 10).toString(16).padStart(2, '0').toUpperCase()}:${(i + 20).toString(16).padStart(2, '0').toUpperCase()}:${(i + 30).toString(16).padStart(2, '0').toUpperCase()}`,
+    sessionId: `0x8100001${i}`,
+  })),
+  activePppoeCount: 17,
   interfaces: [
     { name: 'ether1-WAN', type: 'ether', running: true, disabled: false, rx_byte: 85000000000, tx_byte: 12000000000, rx_packet: 65000000, tx_packet: 9800000, rx_error: 0, tx_error: 0 },
     { name: 'ether2-LAN', type: 'ether', running: true, disabled: false, rx_byte: 11000000000, tx_byte: 78000000000, rx_packet: 8500000, tx_packet: 60000000, rx_error: 2, tx_error: 0 },

@@ -745,6 +745,7 @@ function MikroTikSection({
   const system = data.system ?? { boardName: 'Unknown', platform: 'Unknown', version: '0', uptime: 'N/A' };
   const interfaces = data.interfaces ?? [];
   const activeUsers = data.activeSessionCount ?? 0;
+  const activePppoe = data.activePppoeCount ?? 0;
   const uptime = data.uptime || system.uptime || 'N/A';
   const routerName = data.routerName || system.boardName || 'Router';
   const bandwidth = data.bandwidth ?? { downloadMbps: 0, uploadMbps: 0 };
@@ -760,8 +761,12 @@ function MikroTikSection({
           <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <p className="font-semibold text-foreground text-sm sm:text-base">{routerName}</p>
-              <span className="badge badge-success text-[10px]">Online</span>
-              {data.cached && <span className="badge bg-blue-500/20 text-blue-400 text-[10px]">Cached</span>}
+              {data.stale ? (
+                <span className="badge bg-red-500/20 text-red-400 text-[10px]">Offline • Stale</span>
+              ) : (
+                <span className="badge badge-success text-[10px]">Online</span>
+              )}
+              {data.cached && !data.stale && <span className="badge bg-blue-500/20 text-blue-400 text-[10px]">Cached</span>}
               {loading && <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />}
             </div>
             <p className="text-[10px] sm:text-xs text-foreground-muted truncate">
@@ -807,14 +812,25 @@ function MikroTikSection({
           subtitle={`${formatBytes(storage.usedBytes ?? 0)} / ${formatBytes(storage.totalBytes ?? 0)}`}
         />
         
-        {/* Active Users Card */}
+        {/* Active Users Card - Hotspot + PPPoE breakdown */}
         <div className="p-3 sm:p-4 rounded-2xl bg-gradient-to-b from-amber-500/20 to-amber-500/5 flex flex-col items-center justify-center">
-          <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-2xl bg-amber-500/20 flex items-center justify-center mb-2 sm:mb-3">
-            <UsersIcon className="w-6 h-6 sm:w-8 sm:h-8 text-amber-500" />
+          <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-amber-500/20 flex items-center justify-center mb-2">
+            <UsersIcon className="w-5 h-5 sm:w-6 sm:h-6 text-amber-500" />
           </div>
-          <span className="text-2xl sm:text-3xl font-bold text-amber-500 stat-value">{activeUsers}</span>
-          <span className="text-xs sm:text-sm font-medium text-foreground mt-1">Active Users</span>
-          <span className="text-[9px] sm:text-[10px] text-foreground-muted">Currently online</span>
+          <div className="flex items-stretch gap-3 sm:gap-4">
+            <div className="flex flex-col items-center">
+              <span className="text-xl sm:text-2xl font-bold text-amber-500 stat-value leading-none">{activeUsers}</span>
+              <span className="text-[9px] sm:text-[10px] font-medium text-foreground-muted uppercase tracking-wide mt-1">Hotspot</span>
+            </div>
+            <div className="w-px bg-amber-500/20" />
+            <div className="flex flex-col items-center">
+              <span className="text-xl sm:text-2xl font-bold text-sky-400 stat-value leading-none">{activePppoe}</span>
+              <span className="text-[9px] sm:text-[10px] font-medium text-foreground-muted uppercase tracking-wide mt-1">PPPoE</span>
+            </div>
+          </div>
+          <span className="text-[9px] sm:text-[10px] text-foreground-muted mt-2">
+            {activeUsers + activePppoe} active • online
+          </span>
         </div>
       </div>
 

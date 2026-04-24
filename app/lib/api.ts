@@ -247,19 +247,20 @@ class ApiClient {
     return this.handleResponse<DashboardAnalytics>(response);
   }
 
-  // MikroTik Metrics
+  // MikroTik Metrics - GET /api/mikrotik/health[?router_id=<id>]
   async getMikroTikMetrics(routerId?: number): Promise<MikroTikMetrics> {
     if (this.isDemoMode()) return demo.demoMikroTikMetrics;
     const params = new URLSearchParams();
     if (routerId) {
       params.append('router_id', routerId.toString());
     }
-    const url = routerId 
-      ? `${BASE_URL}/mikrotik/health?${params.toString()}`
-      : `${BASE_URL}/dashboard/mikrotik`;
+    const qs = params.toString();
+    const url = qs
+      ? `${BASE_URL}/mikrotik/health?${qs}`
+      : `${BASE_URL}/mikrotik/health`;
     const response = await fetch(url, { headers: this.getHeaders() });
     const data = await this.handleResponse<Record<string, unknown>>(response);
-    
+
     // Transform snake_case API response to camelCase for frontend
     return this.transformMikroTikResponse(data);
   }
@@ -270,7 +271,7 @@ class ApiClient {
     const memory = data.memory as Record<string, unknown> | undefined;
     const storage = data.storage as Record<string, unknown> | undefined;
     const bandwidth = data.bandwidth as Record<string, unknown> | undefined;
-    
+
     return {
       system: {
         uptime: (system?.uptime as string) ?? '',
@@ -297,7 +298,9 @@ class ApiClient {
       },
       healthSensors: (data.health_sensors as Record<string, unknown>) ?? {},
       activeSessions: (data.active_sessions as Array<unknown>) ?? [],
-      activeSessionCount: (data.active_users as number) ?? (data.active_hotspot_sessions as number) ?? (data.active_session_count as number) ?? 0,
+      activeSessionCount: (data.active_users as number) ?? 0,
+      activePppoeSessions: (data.active_pppoe_sessions as Array<unknown>) ?? [],
+      activePppoeCount: (data.active_pppoe_users as number) ?? 0,
       interfaces: (data.interfaces as Array<unknown>) ?? [],
       generatedAt: (data.generated_at as string) ?? '',
       uptime: (system?.uptime as string) ?? '',
@@ -311,6 +314,7 @@ class ApiClient {
       snapshotAgeSeconds: (data.snapshot_age_seconds as number) ?? 0,
       cached: (data.cached as boolean) ?? false,
       cacheAgeSeconds: (data.cache_age_seconds as number) ?? 0,
+      stale: (data.stale as boolean) ?? false,
     } as MikroTikMetrics;
   }
 

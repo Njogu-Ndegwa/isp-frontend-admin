@@ -258,16 +258,17 @@ export default function PPPoEMonitorPage() {
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(20);
 
-  const fetchData = useCallback(async (routerId: number, refresh = false) => {
+  const fetchData = useCallback(async (routerId: number, mode: 'initial' | 'refresh' | 'poll' = 'initial') => {
     try {
-      if (refresh) {
-        setRefreshing(true);
-      } else {
+      if (mode === 'initial') {
         setLoading(true);
         setData(null);
+      } else if (mode === 'refresh') {
+        setRefreshing(true);
       }
+      // 'poll' mode updates silently in the background — no spinners, no data clear
       setError(null);
-      const result = await api.getPPPoEUsers(routerId, refresh);
+      const result = await api.getPPPoEUsers(routerId, mode === 'refresh');
       setData(result);
     } catch (err: unknown) {
       if (err instanceof Error) {
@@ -284,8 +285,8 @@ export default function PPPoEMonitorPage() {
   useEffect(() => {
     if (!selectedRouterId || !isAuthenticated) return;
 
-    fetchData(selectedRouterId);
-    const interval = setInterval(() => fetchData(selectedRouterId), POLL_INTERVAL);
+    fetchData(selectedRouterId, 'initial');
+    const interval = setInterval(() => fetchData(selectedRouterId, 'poll'), POLL_INTERVAL);
     return () => clearInterval(interval);
   }, [selectedRouterId, isAuthenticated, fetchData]);
 
@@ -294,7 +295,7 @@ export default function PPPoEMonitorPage() {
   }, [statusFilter, searchQuery, sortBy]);
 
   const handleRefresh = () => {
-    if (selectedRouterId) fetchData(selectedRouterId, true);
+    if (selectedRouterId) fetchData(selectedRouterId, 'refresh');
   };
 
   const handlePageChange = useCallback((newPage: number) => {

@@ -843,6 +843,20 @@ export interface MikroTikActiveSession {
   uptime: string;
   bytesIn: number;
   bytesOut: number;
+  macAddress?: string;
+  packetsIn?: number;
+  packetsOut?: number;
+  idleTime?: string;
+}
+
+export interface MikroTikPppoeSession {
+  user: string;
+  address: string;
+  uptime: string;
+  service?: string;
+  callerId?: string;
+  encoding?: string;
+  sessionId?: string;
 }
 
 export interface MikroTikBandwidth {
@@ -858,6 +872,8 @@ export interface MikroTikMetrics {
   healthSensors: Record<string, unknown>;
   activeSessions: MikroTikActiveSession[];
   activeSessionCount: number;
+  activePppoeSessions: MikroTikPppoeSession[];
+  activePppoeCount: number;
   interfaces: MikroTikInterface[];
   generatedAt: string;
   uptime?: string;
@@ -868,6 +884,7 @@ export interface MikroTikMetrics {
   snapshotAgeSeconds?: number;
   cached?: boolean;
   cacheAgeSeconds?: number;
+  stale?: boolean;
 }
 
 // Bandwidth History Types
