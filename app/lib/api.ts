@@ -151,6 +151,15 @@ import {
   LeadBackfillRequest,
   LeadBackfillResponse,
   LeadStage,
+  AccessCredential,
+  AccessCredentialsListResponse,
+  AccessCredentialFilters,
+  CreateAccessCredentialRequest,
+  CreateAccessCredentialResponse,
+  UpdateAccessCredentialRequest,
+  CustomerUsageResponse,
+  CustomerUsagePeriod,
+  ResellerTopUsageEntry,
 } from './types';
 import * as demo from './demoData';
 
@@ -1971,6 +1980,113 @@ class ApiClient {
       method: 'POST', headers: this.getHeaders(), body: JSON.stringify(data),
     });
     return this.handleResponse<LeadBackfillResponse>(response);
+  }
+
+  // ─── Access Credentials (perpetual hotspot logins) ────────────────
+
+  async getAccessCredentials(filters: AccessCredentialFilters = {}): Promise<AccessCredentialsListResponse> {
+    const params = new URLSearchParams();
+    if (filters.status) params.append('status', filters.status);
+    if (filters.router_id) params.append('router_id', filters.router_id.toString());
+    if (filters.q) params.append('q', filters.q);
+    params.append('page', (filters.page ?? 1).toString());
+    params.append('per_page', (filters.per_page ?? 50).toString());
+    const response = await fetch(
+      `${BASE_URL}/access-credentials?${params.toString()}`,
+      { headers: this.getHeaders() }
+    );
+    return this.handleResponse<AccessCredentialsListResponse>(response);
+  }
+
+  async getAccessCredential(id: number, reveal = false): Promise<AccessCredential> {
+    const params = reveal ? '?reveal=true' : '';
+    const response = await fetch(`${BASE_URL}/access-credentials/${id}${params}`, {
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<AccessCredential>(response);
+  }
+
+  async createAccessCredential(data: CreateAccessCredentialRequest): Promise<CreateAccessCredentialResponse> {
+    const response = await fetch(`${BASE_URL}/access-credentials`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify(data),
+    });
+    return this.handleResponse<CreateAccessCredentialResponse>(response);
+  }
+
+  async updateAccessCredential(id: number, data: UpdateAccessCredentialRequest): Promise<AccessCredential> {
+    const response = await fetch(`${BASE_URL}/access-credentials/${id}`, {
+      method: 'PATCH',
+      headers: this.getHeaders(),
+      body: JSON.stringify(data),
+    });
+    return this.handleResponse<AccessCredential>(response);
+  }
+
+  async rotateAccessCredentialPassword(id: number): Promise<AccessCredential> {
+    const response = await fetch(`${BASE_URL}/access-credentials/${id}/rotate-password`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<AccessCredential>(response);
+  }
+
+  async revokeAccessCredential(id: number): Promise<AccessCredential> {
+    const response = await fetch(`${BASE_URL}/access-credentials/${id}/revoke`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<AccessCredential>(response);
+  }
+
+  async restoreAccessCredential(id: number): Promise<AccessCredential> {
+    const response = await fetch(`${BASE_URL}/access-credentials/${id}/restore`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<AccessCredential>(response);
+  }
+
+  async forceLogoutAccessCredential(id: number): Promise<AccessCredential> {
+    const response = await fetch(`${BASE_URL}/access-credentials/${id}/force-logout`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<AccessCredential>(response);
+  }
+
+  async deleteAccessCredential(id: number): Promise<{ message: string }> {
+    const response = await fetch(`${BASE_URL}/access-credentials/${id}`, {
+      method: 'DELETE',
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<{ message: string }>(response);
+  }
+
+  // ─── FUP / Per-Customer Usage Tracking ─────────────────────────────
+
+  async getCustomerUsage(customerId: number): Promise<CustomerUsageResponse> {
+    const response = await fetch(`${BASE_URL}/customers/${customerId}/usage`, {
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<CustomerUsageResponse>(response);
+  }
+
+  async getCustomerUsageHistory(customerId: number, limit = 6): Promise<CustomerUsagePeriod[]> {
+    const response = await fetch(
+      `${BASE_URL}/customers/${customerId}/usage/history?limit=${limit}`,
+      { headers: this.getHeaders() }
+    );
+    return this.handleResponse<CustomerUsagePeriod[]>(response);
+  }
+
+  async getResellerTopUsage(limit = 20): Promise<ResellerTopUsageEntry[]> {
+    const response = await fetch(
+      `${BASE_URL}/resellers/me/usage/top?limit=${limit}`,
+      { headers: this.getHeaders() }
+    );
+    return this.handleResponse<ResellerTopUsageEntry[]>(response);
   }
 }
 

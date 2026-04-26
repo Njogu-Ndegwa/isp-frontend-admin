@@ -2,7 +2,8 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { api } from '../lib/api';
-import { DashboardAnalytics, DayDetail, MikroTikMetrics, MikroTikInterface, BandwidthHistory, BandwidthDataPoint, TopUsersResponse, SubscriptionAlert } from '../lib/types';
+import { DashboardAnalytics, DayDetail, MikroTikMetrics, MikroTikInterface, BandwidthHistory, BandwidthDataPoint, TopUsersResponse, SubscriptionAlert, ResellerTopUsageEntry } from '../lib/types';
+import Link from 'next/link';
 import { useAuth } from '../context/AuthContext';
 import { parseUTCToGMT3, formatGMT3Date, formatTimeGMT3, formatDateOnlyGMT3 } from '../lib/dateUtils';
 import {
@@ -62,6 +63,10 @@ export default function DashboardPage() {
   const [topUsers, setTopUsers] = useState<TopUsersResponse | null>(null);
   const [topUsersLoading, setTopUsersLoading] = useState(true);
   const [topUsersError, setTopUsersError] = useState<string | null>(null);
+
+  // Top FUP usage state (reseller-wide, monthly)
+  const [topUsageThisMonth, setTopUsageThisMonth] = useState<ResellerTopUsageEntry[] | null>(null);
+  const [topUsageLoading, setTopUsageLoading] = useState(true);
   
   // UI state - use DateFilter type for flexibility
   const [dateFilter, setDateFilter] = useState<DateFilter>({ type: 'preset', preset: 'today' });
@@ -205,6 +210,20 @@ export default function DashboardPage() {
     const interval = setInterval(loadTopUsers, 30000);
     return () => clearInterval(interval);
   }, [loadTopUsers]);
+
+  // Load monthly top FUP usage (reseller-wide)
+  useEffect(() => {
+    let cancelled = false;
+    setTopUsageLoading(true);
+    api.getResellerTopUsage(10).then((rows) => {
+      if (!cancelled) setTopUsageThisMonth(rows);
+    }).catch(() => {
+      if (!cancelled) setTopUsageThisMonth([]);
+    }).finally(() => {
+      if (!cancelled) setTopUsageLoading(false);
+    });
+    return () => { cancelled = true; };
+  }, []);
 
   const refreshAll = () => {
     loadAnalytics();
@@ -424,6 +443,10 @@ export default function DashboardPage() {
           onRetry={loadTopUsers}
         />
       )}
+
+      {/* Top Users by Monthly Usage (FUP) */}
+      <TopUsageThisMonthSection data={topUsageThisMonth} loading={topUsageLoading} />
+
 
       {/* Bandwidth History - Full Width Chart */}
       {selectedRouterId && (
@@ -1714,5 +1737,146 @@ function StorageIcon({ className = "w-4 h-4" }: { className?: string }) {
     <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" />
     </svg>
+  );
+}
+
+// Top users by monthly FUP usage (reseller-wide)
+function TopUsageThisMonthSection({
+  data,
+  loading,
+}: {
+  data: ResellerTopUsageEntry[] | null;
+  loading: boolean;
+}) {
+  const formatMb = (mb: number): string => {
+    if (mb >= 1024) return `${(mb / 1024).toFixed(2)} GB`;
+    return `${mb.toFixed(0)} MB`;
+  };
+
+  if (loading) {
+    return <SkeletonCard />;
+  }
+
+  if (!data || data.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="card p-4 sm:p-6 animate-fade-in" style={{ animationDelay: '0.1s', opacity: 0 }}>
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="font-semibold text-foreground flex items-center gap-2 text-sm sm:text-base">
+          <span className="w-1.5 h-5 rounded-full bg-purple-500" />
+          Top Users This Period
+        </h3>
+        <span className="text-[10px] sm:text-xs text-foreground-muted">
+          PPPoE · monthly cap
+        </span>
+      </div>
+
+      {/* Desktop table */}
+      <div className="hidden md:block">
+        <table className="w-full">
+          <thead>
+            <tr className="border-b border-border">
+              <th className="text-left py-2 text-xs font-medium text-foreground-muted uppercase tracking-wider w-12">#</th>
+              <th className="text-left py-2 text-xs font-medium text-foreground-muted uppercase tracking-wider">Customer</th>
+              <th className="text-left py-2 text-xs font-medium text-foreground-muted uppercase tracking-wider">Plan</th>
+              <th className="text-left py-2 text-xs font-medium text-foreground-muted uppercase tracking-wider">Usage</th>
+              <th className="text-right py-2 text-xs font-medium text-foreground-muted uppercase tracking-wider">% used</th>
+            </tr>
+          </thead>
+          <tbody>
+            {data.map((entry, i) => {
+              const percent = Math.min(100, Math.max(0, entry.percent_used || 0));
+              const barColor = entry.fup_active
+                ? 'bg-danger'
+                : percent >= 90
+                ? 'bg-warning'
+                : percent >= 75
+                ? 'bg-amber-500'
+                : 'bg-purple-500';
+              return (
+                <tr key={entry.customer_id} className="border-b border-border/50 hover:bg-background-tertiary/30 transition-colors">
+                  <td className="py-3 text-foreground-muted">{i + 1}</td>
+                  <td className="py-3">
+                    <Link href={`/customers/${entry.customer_id}`} className="font-medium text-foreground hover:text-accent-primary transition-colors">
+                      {entry.customer_name}
+                    </Link>
+                    <p className="text-xs font-mono text-foreground-muted">{entry.pppoe_username}</p>
+                  </td>
+                  <td className="py-3">
+                    <span className="text-sm text-foreground-muted">{entry.plan_name}</span>
+                  </td>
+                  <td className="py-3 w-64">
+                    <div className="flex items-center gap-2">
+                      <div className="h-2 bg-background-tertiary rounded-full overflow-hidden flex-1">
+                        <div
+                          className={`h-full ${barColor} rounded-full transition-all duration-500`}
+                          style={{ width: `${percent}%` }}
+                        />
+                      </div>
+                      <span className="text-xs text-foreground-muted whitespace-nowrap font-mono">
+                        {formatMb(entry.total_mb)}{entry.cap_mb != null ? ` / ${formatMb(entry.cap_mb)}` : ''}
+                      </span>
+                    </div>
+                  </td>
+                  <td className="py-3 text-right">
+                    <span className={`text-sm font-semibold ${entry.fup_active ? 'text-danger' : percent >= 90 ? 'text-warning' : 'text-foreground'}`}>
+                      {percent.toFixed(1)}%
+                    </span>
+                    {entry.fup_active && (
+                      <p className="text-[10px] text-danger uppercase tracking-wider mt-0.5">FUP</p>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Mobile cards */}
+      <div className="md:hidden space-y-2">
+        {data.map((entry, i) => {
+          const percent = Math.min(100, Math.max(0, entry.percent_used || 0));
+          const barColor = entry.fup_active
+            ? 'bg-danger'
+            : percent >= 90
+            ? 'bg-warning'
+            : percent >= 75
+            ? 'bg-amber-500'
+            : 'bg-purple-500';
+          return (
+            <Link
+              key={entry.customer_id}
+              href={`/customers/${entry.customer_id}`}
+              className="block p-3 rounded-lg bg-background-tertiary/30 border border-border/50 active:opacity-70"
+            >
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="text-xs text-foreground-muted w-5">{i + 1}.</span>
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-foreground truncate">{entry.customer_name}</p>
+                    <p className="text-[10px] font-mono text-foreground-muted truncate">{entry.pppoe_username}</p>
+                  </div>
+                </div>
+                <span className={`text-sm font-semibold flex-shrink-0 ${entry.fup_active ? 'text-danger' : percent >= 90 ? 'text-warning' : 'text-foreground'}`}>
+                  {percent.toFixed(0)}%
+                </span>
+              </div>
+              <div className="h-1.5 bg-background-tertiary rounded-full overflow-hidden mb-1">
+                <div className={`h-full ${barColor} rounded-full transition-all duration-500`} style={{ width: `${percent}%` }} />
+              </div>
+              <div className="flex items-center justify-between text-[10px] text-foreground-muted">
+                <span className="font-mono">
+                  {formatMb(entry.total_mb)}{entry.cap_mb != null ? ` / ${formatMb(entry.cap_mb)}` : ''}
+                </span>
+                {entry.fup_active && <span className="text-danger uppercase tracking-wider font-medium">FUP</span>}
+              </div>
+            </Link>
+          );
+        })}
+      </div>
+    </div>
   );
 }

@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { api } from '../../lib/api';
-import { Customer, Plan, Router as RouterType, UpdateCustomerRequest } from '../../lib/types';
+import { Customer, Plan, Router as RouterType, UpdateCustomerRequest, CustomerUsageResponse } from '../../lib/types';
 import { useAlert } from '../../context/AlertContext';
 import Header from '../../components/Header';
 import { PageLoader } from '../../components/LoadingSpinner';
@@ -29,6 +29,7 @@ export default function EditCustomerPage() {
   const [deleteLoading, setDeleteLoading] = useState(false);
 
   const [formData, setFormData] = useState<UpdateCustomerRequest>({});
+  const [usage, setUsage] = useState<CustomerUsageResponse | null>(null);
 
   useEffect(() => {
     loadData();
@@ -71,6 +72,17 @@ export default function EditCustomerPage() {
   const isPPPoE = customer
     ? (customer.connection_type ?? customer.plan?.connection_type) === 'pppoe'
     : false;
+
+  useEffect(() => {
+    if (!customer || !isPPPoE) return;
+    let cancelled = false;
+    api.getCustomerUsage(customer.id).then((data) => {
+      if (!cancelled) setUsage(data);
+    }).catch(() => {
+      if (!cancelled) setUsage(null);
+    });
+    return () => { cancelled = true; };
+  }, [customer, isPPPoE]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -155,7 +167,9 @@ export default function EditCustomerPage() {
         backHref="/customers"
       />
 
-      <div className="max-w-lg mx-auto">
+      <div className="max-w-lg mx-auto space-y-4">
+        {isPPPoE && usage && <UsagePanel usage={usage} />}
+
         <div className="card p-6">
           {formError && (
             <div className="mb-4 p-3 rounded-lg bg-danger/10 border border-danger/30 text-danger text-sm">
@@ -338,6 +352,100 @@ export default function EditCustomerPage() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function UsagePanel({ usage }: { usage: CustomerUsageResponse }) {
+  const period = usage.period;
+
+  if (!period) {
+    if (!usage.plan_data_cap_mb) return null;
+    return (
+      <div className="card p-4">
+        <h3 className="text-sm font-semibold text-foreground-muted uppercase tracking-wider mb-2">Usage</h3>
+        <p className="text-sm text-foreground-muted">No billing period yet — usage tracking starts after the first renewal.</p>
+      </div>
+    );
+  }
+
+  const cap = period.cap_mb;
+  const total = period.total_mb;
+  const percent = Math.min(100, Math.max(0, period.percent_used || 0));
+  const isOver = cap != null && total >= cap;
+  const fupActive = period.fup_active;
+  const action = period.fup_action || usage.plan_fup_action;
+
+  const barColor = fupActive
+    ? 'bg-danger'
+    : percent >= 90
+    ? 'bg-warning'
+    : percent >= 75
+    ? 'bg-amber-500'
+    : 'bg-accent-primary';
+
+  const formatMb = (mb: number): string => {
+    if (mb >= 1024) return `${(mb / 1024).toFixed(2)} GB`;
+    return `${mb.toFixed(1)} MB`;
+  };
+
+  const actionLabel = (a: string | null | undefined) => {
+    switch (a) {
+      case 'throttle': return 'Throttled';
+      case 'block': return 'Blocked';
+      case 'notify_only': return 'Cap exceeded — notify only';
+      default: return 'FUP active';
+    }
+  };
+
+  return (
+    <div className="card p-4 space-y-3">
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-semibold text-foreground-muted uppercase tracking-wider">This Period Usage</h3>
+        {action && (
+          <span className="text-[10px] uppercase tracking-wider text-foreground-muted">
+            FUP: <span className="text-foreground font-medium">{action.replace('_', ' ')}</span>
+          </span>
+        )}
+      </div>
+
+      {fupActive && (
+        <div className="p-3 rounded-lg bg-danger/10 border border-danger/30 flex items-start gap-2">
+          <svg className="w-4 h-4 text-danger flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          </svg>
+          <div className="text-xs text-danger">
+            <p className="font-semibold">FUP triggered — {actionLabel(period.fup_action_taken || action)}</p>
+            <p className="opacity-80">Auto-lifts on next renewal.</p>
+          </div>
+        </div>
+      )}
+
+      {!fupActive && isOver && cap != null && (
+        <div className="p-3 rounded-lg bg-warning/10 border border-warning/30 text-xs text-warning">
+          Cap exceeded — FUP action will apply on next bandwidth snapshot.
+        </div>
+      )}
+
+      <div>
+        <div className="flex items-baseline justify-between mb-1">
+          <span className="text-lg font-semibold text-foreground">{formatMb(total)}</span>
+          <span className="text-xs text-foreground-muted">
+            {cap != null ? `of ${formatMb(cap)}` : 'Unlimited'}
+          </span>
+        </div>
+        {cap != null ? (
+          <div className="w-full h-2 rounded-full bg-background-tertiary overflow-hidden">
+            <div className={`h-full ${barColor} transition-all duration-500`} style={{ width: `${percent}%` }} />
+          </div>
+        ) : (
+          <div className="w-full h-2 rounded-full bg-success/30" />
+        )}
+        <div className="flex items-center justify-between mt-1.5 text-xs text-foreground-muted">
+          <span>{percent.toFixed(1)}% used</span>
+          <span>↓ {formatMb(period.download_mb)} · ↑ {formatMb(period.upload_mb)}</span>
+        </div>
+      </div>
     </div>
   );
 }

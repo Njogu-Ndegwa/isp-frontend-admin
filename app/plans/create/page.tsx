@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { api } from '../../lib/api';
-import { CreatePlanRequest } from '../../lib/types';
+import { CreatePlanRequest, FupAction } from '../../lib/types';
 import { useAlert } from '../../context/AlertContext';
 import Header from '../../components/Header';
 import DateTimePicker from '../../components/DateTimePicker';
@@ -27,7 +27,12 @@ export default function CreatePlanPage() {
     badge_text: null,
     original_price: null,
     valid_until: null,
+    data_cap_mb: null,
+    fup_action: null,
+    fup_throttle_profile: null,
   });
+
+  const isPPPoE = formData.connection_type === 'pppoe';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -37,6 +42,16 @@ export default function CreatePlanPage() {
       if (!payload.badge_text) payload.badge_text = null;
       if (!payload.original_price) payload.original_price = null;
       payload.valid_until = payload.valid_until ? gmt3InputToISO(payload.valid_until) : null;
+      // FUP fields only apply to PPPoE — strip them for hotspot plans
+      if (!isPPPoE) {
+        payload.data_cap_mb = null;
+        payload.fup_action = null;
+        payload.fup_throttle_profile = null;
+      } else {
+        if (!payload.data_cap_mb) payload.data_cap_mb = null;
+        if (!payload.fup_action) payload.fup_action = null;
+        if (!payload.fup_throttle_profile) payload.fup_throttle_profile = null;
+      }
       await api.createPlan(payload);
       showAlert('success', `Plan "${formData.name}" created successfully!`);
       router.push('/plans');
@@ -233,6 +248,64 @@ export default function CreatePlanPage() {
                 <span className="text-sm text-foreground">Hidden from public portal</span>
               </label>
             </div>
+
+            {isPPPoE && (
+              <div className="pt-4 border-t border-border">
+                <h3 className="text-sm font-semibold text-foreground-muted uppercase tracking-wider mb-1">Fair Usage Policy</h3>
+                <p className="text-xs text-foreground-muted mb-4">Optional monthly data cap and action when exceeded. PPPoE only.</p>
+
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                  <div>
+                    <label htmlFor="data_cap_mb" className="block text-sm font-medium text-foreground-muted mb-1.5">
+                      Monthly Data Cap (MB)
+                    </label>
+                    <input
+                      id="data_cap_mb"
+                      type="number"
+                      value={formData.data_cap_mb ?? ''}
+                      onChange={(e) => setFormData({ ...formData, data_cap_mb: e.target.value ? parseInt(e.target.value) : null })}
+                      className="input"
+                      placeholder="e.g. 100000 (100 GB)"
+                      min={0}
+                    />
+                    <p className="mt-1 text-xs text-foreground-muted">Leave empty or 0 for unlimited</p>
+                  </div>
+                  <div>
+                    <label htmlFor="fup_action" className="block text-sm font-medium text-foreground-muted mb-1.5">
+                      Action on Exceed
+                    </label>
+                    <select
+                      id="fup_action"
+                      value={formData.fup_action ?? ''}
+                      onChange={(e) => setFormData({ ...formData, fup_action: (e.target.value || null) as FupAction | null })}
+                      className="select"
+                    >
+                      <option value="">Default (throttle)</option>
+                      <option value="throttle">Throttle</option>
+                      <option value="block">Block</option>
+                      <option value="notify_only">Notify Only</option>
+                    </select>
+                  </div>
+                </div>
+
+                {formData.fup_action === 'throttle' && (
+                  <div>
+                    <label htmlFor="fup_throttle_profile" className="block text-sm font-medium text-foreground-muted mb-1.5">
+                      Throttle PPP Profile <span className="text-danger">*</span>
+                    </label>
+                    <input
+                      id="fup_throttle_profile"
+                      type="text"
+                      value={formData.fup_throttle_profile || ''}
+                      onChange={(e) => setFormData({ ...formData, fup_throttle_profile: e.target.value || null })}
+                      className="input"
+                      placeholder="e.g. throttled-1m"
+                    />
+                    <p className="mt-1 text-xs text-foreground-muted">MikroTik PPP profile to switch user to when throttled</p>
+                  </div>
+                )}
+              </div>
+            )}
 
             <div className="flex gap-3 pt-4">
               <Link href="/plans" className="btn-secondary flex-1 text-center">

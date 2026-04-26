@@ -313,6 +313,8 @@ export interface UpdateDualPortsResponse {
 }
 
 // Plan Types
+export type FupAction = 'throttle' | 'block' | 'notify_only';
+
 export interface Plan {
   id: number;
   name: string;
@@ -331,6 +333,10 @@ export interface Plan {
   badge_text?: string | null;
   original_price?: number | null;
   valid_until?: string | null;
+  // FUP / monthly data cap (PPPoE only)
+  data_cap_mb?: number | null;
+  fup_action?: FupAction | null;
+  fup_throttle_profile?: string | null;
 }
 
 export interface CreatePlanRequest {
@@ -347,10 +353,125 @@ export interface CreatePlanRequest {
   badge_text?: string | null;
   original_price?: number | null;
   valid_until?: string | null;
+  data_cap_mb?: number | null;
+  fup_action?: FupAction | null;
+  fup_throttle_profile?: string | null;
 }
 
 export interface UpdatePlanRequest extends Partial<CreatePlanRequest> {
   is_hidden?: boolean;
+}
+
+// FUP / per-customer usage tracking
+export interface CustomerUsagePeriod {
+  id: number;
+  period_start: string;
+  period_end: string;
+  upload_mb: number;
+  download_mb: number;
+  total_mb: number;
+  cap_mb: number | null;
+  percent_used: number;
+  fup_action: FupAction | null;
+  fup_triggered_at: string | null;
+  fup_action_taken: FupAction | null;
+  fup_reverted_at: string | null;
+  fup_active: boolean;
+  closed_at: string | null;
+}
+
+export interface CustomerUsageResponse {
+  customer_id: number;
+  pppoe_username: string | null;
+  plan_name: string | null;
+  plan_data_cap_mb: number | null;
+  plan_fup_action: FupAction | null;
+  period: CustomerUsagePeriod | null;
+}
+
+export interface ResellerTopUsageEntry {
+  customer_id: number;
+  customer_name: string;
+  pppoe_username: string;
+  plan_name: string;
+  cap_mb: number | null;
+  total_mb: number;
+  percent_used: number;
+  fup_active: boolean;
+}
+
+// Access Credentials (perpetual hotspot logins)
+export type AccessCredStatus = 'active' | 'revoked';
+export type AccessCredFilterStatus = AccessCredStatus | 'in_use' | 'idle';
+
+export interface AccessCredentialLive {
+  is_online: boolean;
+  bound_mac_address: string | null;
+  bound_ip_address: string | null;
+  uptime_this_session: string | null;
+  idle_time: string | null;
+  current_rx_rate_bps: number | null;
+  current_tx_rate_bps: number | null;
+}
+
+export interface AccessCredential {
+  id: number;
+  router_id: number;
+  username: string;
+  password?: string;
+  rate_limit: string | null;
+  data_cap_mb: number | null;
+  label: string | null;
+  status: AccessCredStatus;
+  bound_mac_address: string | null;
+  bound_at: string | null;
+  last_login_at: string | null;
+  last_seen_at: string | null;
+  last_seen_ip: string | null;
+  total_bytes_in: number;
+  total_bytes_out: number;
+  created_at: string;
+  updated_at: string;
+  revoked_at: string | null;
+  live: AccessCredentialLive | null;
+}
+
+export interface CreateAccessCredentialRequest {
+  router_id: number;
+  username?: string;
+  password?: string;
+  rate_limit?: string | null;
+  data_cap_mb?: number | null;
+  label?: string | null;
+}
+
+export interface CreateAccessCredentialResponse extends AccessCredential {
+  warning?: string | null;
+}
+
+export interface UpdateAccessCredentialRequest {
+  rate_limit?: string | null;
+  data_cap_mb?: number | null;
+  label?: string | null;
+  clear_rate_limit?: boolean;
+  clear_data_cap?: boolean;
+  clear_label?: boolean;
+}
+
+export interface AccessCredentialsListResponse {
+  items: AccessCredential[];
+  total: number;
+  page: number;
+  per_page: number;
+  pages: number;
+}
+
+export interface AccessCredentialFilters {
+  status?: AccessCredFilterStatus;
+  router_id?: number;
+  q?: string;
+  page?: number;
+  per_page?: number;
 }
 
 export interface PlanPerformanceDetail {

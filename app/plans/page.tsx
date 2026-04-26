@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { api } from '../lib/api';
-import { Plan, UpdatePlanRequest, Router } from '../lib/types';
+import { Plan, UpdatePlanRequest, Router, FupAction } from '../lib/types';
 import Header from '../components/Header';
 import { PageLoader } from '../components/LoadingSpinner';
 import PullToRefresh from '../components/PullToRefresh';
@@ -631,7 +631,12 @@ function EditPlanModal({
     badge_text: plan.badge_text || null,
     original_price: plan.original_price ?? null,
     valid_until: utcToGMT3Input(plan.valid_until) || null,
+    data_cap_mb: plan.data_cap_mb ?? null,
+    fup_action: plan.fup_action ?? null,
+    fup_throttle_profile: plan.fup_throttle_profile ?? null,
   });
+
+  const isPPPoE = formData.connection_type === 'pppoe';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -642,6 +647,15 @@ function EditPlanModal({
       if (!payload.badge_text) payload.badge_text = null;
       if (!payload.original_price) payload.original_price = null;
       payload.valid_until = payload.valid_until ? gmt3InputToISO(payload.valid_until) : null;
+      if (!isPPPoE) {
+        payload.data_cap_mb = null;
+        payload.fup_action = null;
+        payload.fup_throttle_profile = null;
+      } else {
+        if (!payload.data_cap_mb) payload.data_cap_mb = null;
+        if (!payload.fup_action) payload.fup_action = null;
+        if (!payload.fup_throttle_profile) payload.fup_throttle_profile = null;
+      }
       await api.updatePlan(plan.id, payload);
       onSuccess();
     } catch (err) {
@@ -818,6 +832,53 @@ function EditPlanModal({
                 <span className="text-sm text-foreground">Hidden from public portal</span>
               </label>
             </div>
+
+            {isPPPoE && (
+              <div className="pt-4 border-t border-border">
+                <h3 className="text-sm font-semibold text-foreground-muted uppercase tracking-wider mb-1">Fair Usage Policy</h3>
+                <p className="text-xs text-foreground-muted mb-4">Optional monthly data cap and action when exceeded.</p>
+
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                  <div>
+                    <label className="block text-sm font-medium text-foreground mb-2">Data Cap (MB)</label>
+                    <input
+                      type="number"
+                      value={formData.data_cap_mb ?? ''}
+                      onChange={(e) => setFormData({ ...formData, data_cap_mb: e.target.value ? parseInt(e.target.value) : null })}
+                      className="input"
+                      placeholder="e.g. 100000 (100 GB)"
+                      min={0}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-foreground mb-2">Action on Exceed</label>
+                    <select
+                      value={formData.fup_action ?? ''}
+                      onChange={(e) => setFormData({ ...formData, fup_action: (e.target.value || null) as FupAction | null })}
+                      className="select"
+                    >
+                      <option value="">Default (throttle)</option>
+                      <option value="throttle">Throttle</option>
+                      <option value="block">Block</option>
+                      <option value="notify_only">Notify Only</option>
+                    </select>
+                  </div>
+                </div>
+
+                {formData.fup_action === 'throttle' && (
+                  <div>
+                    <label className="block text-sm font-medium text-foreground mb-2">Throttle PPP Profile</label>
+                    <input
+                      type="text"
+                      value={formData.fup_throttle_profile || ''}
+                      onChange={(e) => setFormData({ ...formData, fup_throttle_profile: e.target.value || null })}
+                      className="input"
+                      placeholder="e.g. throttled-1m"
+                    />
+                  </div>
+                )}
+              </div>
+            )}
           </form>
         </div>
 
