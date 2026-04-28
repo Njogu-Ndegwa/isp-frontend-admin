@@ -842,7 +842,11 @@ export default function CustomersPage() {
                 const usageCard = usageMap.get(customer.id);
                 const isOnline = liveCard?.online ?? false;
                 const isPppoeCard = getConnectionType(customer) === 'pppoe';
-                const cardLoadingLive = isPppoeCard && !pppoeLiveLoaded && !usageLoaded;
+                // Show the secondary-row skeleton until we either have *some*
+                // data to display or both fetches have settled — prevents the
+                // brief "—" / router-name flash between fetches resolving.
+                const hasAnyLiveData = Boolean(liveCard) || Boolean(usageCard);
+                const cardLoadingLive = isPppoeCard && !hasAnyLiveData && (!pppoeLiveLoaded || !usageLoaded);
                 const usageColors = usageCard ? getUsageColor(usageCard.percent_used) : null;
                 return (
                 <MobileDataCard
@@ -857,10 +861,16 @@ export default function CustomersPage() {
                       : getConnectionType(customer) === 'pppoe' ? 'info' : 'primary',
                   }}
                   badge={
-                    liveCard && isOnline
-                      ? { label: 'Online' }
-                      : getConnectionType(customer) === 'pppoe'
-                      ? { label: 'PPPoE' }
+                    cardLoadingLive
+                      ? undefined
+                      : liveCard
+                      ? liveCard.disabled
+                        ? { label: 'Disabled', variant: 'warning' as const }
+                        : liveCard.online
+                        ? { label: 'Online', variant: 'success' as const }
+                        : { label: 'Offline', variant: 'neutral' as const }
+                      : isPppoeCard
+                      ? { label: 'PPPoE', variant: 'info' as const }
                       : undefined
                   }
                   status={{
@@ -890,6 +900,11 @@ export default function CustomersPage() {
                           </span>
                         )}
                       </span>
+                    ) : isPppoeCard ? (
+                      // PPPoE customer with no live state and no usage data —
+                      // the connection pill above already conveys the offline
+                      // state, so don't fall back to the router name here.
+                      <span className="text-foreground-muted text-xs">—</span>
                     ) : (
                       customer.router?.name || '-'
                     ),
