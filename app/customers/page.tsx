@@ -867,7 +867,10 @@ export default function CustomersPage() {
                       ? liveCard.disabled
                         ? { label: 'Disabled', variant: 'warning' as const }
                         : liveCard.online
-                        ? { label: 'Online', variant: 'success' as const }
+                        // Teal (not `success`) so the "Online" pill doesn't
+                        // visually merge with the green "Active" status pill
+                        // sitting right next to it.
+                        ? { label: 'Online', variant: 'teal' as const }
                         : { label: 'Offline', variant: 'neutral' as const }
                       : isPppoeCard
                       ? { label: 'PPPoE', variant: 'info' as const }

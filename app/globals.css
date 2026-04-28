@@ -21,6 +21,7 @@
   --warning: #d97706;
   --danger: #dc2626;
   --info: #4f46e5;
+  --teal: #0d9488;
 
   --border: rgba(0, 0, 0, 0.08);
   --border-hover: rgba(0, 0, 0, 0.15);
@@ -56,6 +57,7 @@
   --warning: #f59e0b;
   --danger: #ef4444;
   --info: #6366f1;
+  --teal: #14b8a6;
 
   --border: rgba(255, 255, 255, 0.08);
   --border-hover: rgba(255, 255, 255, 0.15);
@@ -417,6 +419,11 @@ body {
 .badge-info {
   background: rgba(99, 102, 241, 0.12);
   color: var(--info);
+}
+
+.badge-teal {
+  background: rgba(20, 184, 166, 0.12);
+  color: var(--teal);
 }
 
 .badge-neutral {

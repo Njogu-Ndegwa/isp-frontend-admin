@@ -25,13 +25,14 @@ interface MobileDataCardProps {
   badge?: {
     label: string;
     /**
-     * When set, the badge renders as a styled pill using the same palette
-     * as `status` (success / warning / danger / neutral / info). This is
-     * the preferred path for state-style badges (Online / Offline /
-     * Disabled, etc.) so they read clearly and don't visually merge with
-     * the customer's account status.
+     * When set, the badge renders as a styled pill using the shared
+     * palette. `teal` is intended as a positive "alive" state that
+     * still reads as success-ish but is distinct from `success` green
+     * — useful when both `status` (e.g. account = Active) and `badge`
+     * (e.g. connection = Online) sit next to each other and would
+     * otherwise visually collide.
      */
-    variant?: 'success' | 'warning' | 'danger' | 'neutral' | 'info';
+    variant?: 'success' | 'warning' | 'danger' | 'neutral' | 'info' | 'teal';
     /** Legacy: raw Tailwind class string applied to a plain text badge. */
     color?: string;
   };
@@ -72,6 +73,7 @@ const badgeClasses = {
   danger: 'badge-danger',
   neutral: 'badge-neutral',
   info: 'badge-info',
+  teal: 'badge-teal',
 };
 
 export default function MobileDataCard({
@@ -140,21 +142,25 @@ export default function MobileDataCard({
                   {value.text}
                 </p>
               )}
-              {status && (
-                <span className={`badge ${badgeClasses[status.variant]} capitalize text-[11px]`}>
-                  {status.label}
-                </span>
-              )}
-              {badge && (
-                badge.variant ? (
-                  <span className={`badge ${badgeClasses[badge.variant]} capitalize text-[11px]`}>
-                    {badge.label}
-                  </span>
-                ) : (
-                  <span className={`text-xs ${badge.color || 'text-foreground-muted'}`}>
-                    {badge.label}
-                  </span>
-                )
+              {(status || badge) && (
+                <div className="flex items-center justify-end gap-1.5 flex-wrap">
+                  {status && (
+                    <span className={`badge ${badgeClasses[status.variant]} capitalize text-[11px]`}>
+                      {status.label}
+                    </span>
+                  )}
+                  {badge && (
+                    badge.variant ? (
+                      <span className={`badge ${badgeClasses[badge.variant]} capitalize text-[11px]`}>
+                        {badge.label}
+                      </span>
+                    ) : (
+                      <span className={`text-xs ${badge.color || 'text-foreground-muted'}`}>
+                        {badge.label}
+                      </span>
+                    )
+                  )}
+                </div>
               )}
             </div>
           </div>
