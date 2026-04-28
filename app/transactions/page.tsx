@@ -565,6 +565,7 @@ export default function TransactionsPage() {
             columns={TRANSACTION_COLUMNS}
             data={displayedTransactions}
             rowKey={(tx) => `${tx.payment_method}-${tx.transaction_id}`}
+            scrollable
             renderCell={(tx, key) => {
               switch (key) {
                 case 'id':

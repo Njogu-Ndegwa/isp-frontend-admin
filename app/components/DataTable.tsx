@@ -23,6 +23,20 @@ interface DataTableProps<T> {
   footer?: React.ReactNode;
   className?: string;
   animateRows?: boolean;
+  /**
+   * When true, the table keeps cells on a single line and grows to its
+   * natural width, letting the surrounding scroll container scroll
+   * horizontally instead of squeezing columns. Use this for wide tables
+   * (≥ 7 columns, or tables with technical/numeric data that doesn't
+   * compress well — e.g. customers, monitoring views, transactions).
+   */
+  scrollable?: boolean;
+  /**
+   * Optional explicit min-width for the table when `scrollable` is true.
+   * Defaults to a sensible value based on the column count. Accepts any
+   * valid CSS length (e.g. `'1100px'`, `'72rem'`).
+   */
+  minWidth?: string;
 }
 
 export default function DataTable<T>({
@@ -37,15 +51,29 @@ export default function DataTable<T>({
   footer,
   className,
   animateRows = true,
+  scrollable = false,
+  minWidth,
 }: DataTableProps<T>) {
   const outerClass = className !== undefined
     ? className
     : 'hidden md:block card animate-fade-in';
 
+  const resolvedMinWidth = scrollable
+    ? minWidth ?? `${Math.max(720, columns.length * 140)}px`
+    : undefined;
+
+  const tableStyle: React.CSSProperties | undefined = scrollable
+    ? { minWidth: resolvedMinWidth, width: '100%' }
+    : undefined;
+
+  const innerScrollClass = scrollable
+    ? 'overflow-x-auto [&_th]:whitespace-nowrap [&_td]:whitespace-nowrap'
+    : 'overflow-x-auto';
+
   return (
     <div className={outerClass}>
-      <div className="overflow-x-auto">
-        <table>
+      <div className={innerScrollClass}>
+        <table style={tableStyle}>
           <thead>
             <tr>
               {columns.map((col) => (

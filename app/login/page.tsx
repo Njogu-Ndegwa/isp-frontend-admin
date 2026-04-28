@@ -24,7 +24,9 @@ function LoginContent() {
   const [credentials, setCredentials] = useState({ email: prefillEmail, password: '' });
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [demoLoginInProgress, setDemoLoginInProgress] = useState(false);
   const passwordRef = useRef<HTMLInputElement>(null);
+  const initialAuthHandled = useRef(false);
 
   useEffect(() => {
     if (prefillEmail) {
@@ -32,16 +34,29 @@ function LoginContent() {
     }
   }, [prefillEmail]);
 
+  // Handle pre-existing auth state on mount only. Without the ref guard this
+  // would re-fire after `loginAsDemo()` updates state and immediately log the
+  // user back out before navigation to /dashboard completes.
+  useEffect(() => {
+    if (initialAuthHandled.current) return;
+    if (!isAuthenticated) return;
+    initialAuthHandled.current = true;
+    if (isDemo) {
+      logout();
+    } else {
+      router.push('/dashboard');
+    }
+  }, [isAuthenticated, isDemo, logout, router]);
+
   const handleTryDemo = () => {
+    initialAuthHandled.current = true;
+    setDemoLoginInProgress(true);
     loginAsDemo();
     showAlert('success', 'Welcome to the demo! Explore with sample data.');
     router.push('/dashboard');
   };
 
-  if (isAuthenticated && isDemo) {
-    logout();
-  } else if (isAuthenticated) {
-    router.push('/dashboard');
+  if (isAuthenticated && !isDemo && !demoLoginInProgress) {
     return null;
   }
 

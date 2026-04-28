@@ -353,6 +353,7 @@ export default function AccessCredentialsPage() {
             columns={COLUMNS}
             data={items}
             rowKey={(c) => c.id}
+            scrollable
             onRowClick={(c) => routerNav.push(`/access-credentials/${c.id}`)}
             renderCell={(cred, key) => {
               const statusLabel = computedStatusLabel(cred);

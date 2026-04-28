@@ -4,7 +4,12 @@ import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { api } from '../lib/api';
-import { Customer, PPPoECredentials, ActivatePPPoERequest } from '../lib/types';
+import {
+  Customer,
+  PPPoECredentials,
+  ActivatePPPoERequest,
+  PPPoEMonitorUser,
+} from '../lib/types';
 import { formatDateGMT3 } from '../lib/dateUtils';
 import { useAlert } from '../context/AlertContext';
 import Header from '../components/Header';
@@ -12,18 +17,41 @@ import { PageLoader } from '../components/LoadingSpinner';
 import StatCard from '../components/StatCard';
 import MobileDataCard from '../components/MobileDataCard';
 import SearchInput from '../components/SearchInput';
-import FilterSelect from '../components/FilterSelect';
+import FilterPills from '../components/FilterPills';
+import Tabs from '../components/Tabs';
+import RouterSelector from '../components/RouterSelector';
 import DataTable, { DataTableColumn } from '../components/DataTable';
 import Pagination from '../components/Pagination';
 
 type FilterStatus = 'all' | 'active' | 'inactive';
 type ConnectionFilter = 'all' | 'hotspot' | 'pppoe';
 
+const STORAGE_KEY_STATUS = 'customers.filter.status';
+const STORAGE_KEY_CONNECTION = 'customers.filter.connection';
+const STORAGE_KEY_LIVE_ROUTER = 'customers.live.routerId';
+const PPPOE_POLL_INTERVAL = 30_000;
+
 function getConnectionType(customer: Customer): 'hotspot' | 'pppoe' {
   return customer.connection_type ?? customer.plan?.connection_type ?? 'hotspot';
 }
 
-const CUSTOMER_COLUMNS: DataTableColumn[] = [
+function formatRate(bpsStr: string | undefined | null): string {
+  const bps = parseInt(bpsStr ?? '0', 10) || 0;
+  if (bps === 0) return '—';
+  if (bps >= 1_000_000) return `${(bps / 1_000_000).toFixed(1)} Mbps`;
+  if (bps >= 1_000) return `${(bps / 1_000).toFixed(0)} Kbps`;
+  return `${bps} bps`;
+}
+
+function formatBytes(bytes: number | undefined | null): string {
+  if (!bytes || bytes === 0) return '—';
+  if (bytes >= 1_073_741_824) return `${(bytes / 1_073_741_824).toFixed(2)} GB`;
+  if (bytes >= 1_048_576) return `${(bytes / 1_048_576).toFixed(1)} MB`;
+  if (bytes >= 1_024) return `${(bytes / 1_024).toFixed(0)} KB`;
+  return `${bytes} B`;
+}
+
+const BASE_CUSTOMER_COLUMNS: DataTableColumn[] = [
   { key: 'name', label: 'Customer' },
   { key: 'phone', label: 'Phone' },
   { key: 'type', label: 'Type' },
@@ -31,8 +59,15 @@ const CUSTOMER_COLUMNS: DataTableColumn[] = [
   { key: 'router', label: 'Router' },
   { key: 'status', label: 'Status' },
   { key: 'expiry', label: 'Expiry' },
-  { key: 'actions', label: '' },
 ];
+
+const PPPOE_LIVE_COLUMNS: DataTableColumn[] = [
+  { key: 'live', label: 'Live' },
+  { key: 'bandwidth', label: 'Bandwidth' },
+  { key: 'usage', label: 'Session Usage' },
+];
+
+const ACTIONS_COLUMN: DataTableColumn = { key: 'actions', label: '' };
 
 export default function CustomersPage() {
   const routerNav = useRouter();
@@ -51,7 +86,51 @@ export default function CustomersPage() {
   const [allCustomersCache, setAllCustomersCache] = useState<Customer[]>([]);
   const [refreshKey, setRefreshKey] = useState(0);
 
+  // Live PPPoE monitoring (composed from /pppoe/{router}/users)
+  const [selectedLiveRouterId, setSelectedLiveRouterId] = useState<number | null>(null);
+  const [pppoeLive, setPppoeLive] = useState<Map<string, PPPoEMonitorUser>>(new Map());
+  const [pppoeLiveLoading, setPppoeLiveLoading] = useState(false);
+  const [pppoeLiveError, setPppoeLiveError] = useState<string | null>(null);
+
   const hasClientFilters = searchQuery.trim() !== '' || connectionFilter !== 'all';
+  const showLiveColumns = connectionFilter === 'pppoe' && pppoeLive.size > 0;
+
+  // Load filter prefs from localStorage on mount
+  const filtersHydrated = useRef(false);
+  useEffect(() => {
+    try {
+      const savedStatus = localStorage.getItem(STORAGE_KEY_STATUS);
+      if (savedStatus === 'all' || savedStatus === 'active' || savedStatus === 'inactive') {
+        setFilter(savedStatus);
+      }
+      const savedConn = localStorage.getItem(STORAGE_KEY_CONNECTION);
+      if (savedConn === 'all' || savedConn === 'hotspot' || savedConn === 'pppoe') {
+        setConnectionFilter(savedConn);
+      }
+      const savedRouter = localStorage.getItem(STORAGE_KEY_LIVE_ROUTER);
+      if (savedRouter) {
+        const id = parseInt(savedRouter, 10);
+        if (!Number.isNaN(id)) setSelectedLiveRouterId(id);
+      }
+    } catch {
+      /* ignore localStorage errors */
+    }
+    filtersHydrated.current = true;
+  }, []);
+
+  // Persist filter prefs (skip the first render before hydration)
+  useEffect(() => {
+    if (!filtersHydrated.current) return;
+    try { localStorage.setItem(STORAGE_KEY_STATUS, filter); } catch { /* ignore */ }
+  }, [filter]);
+  useEffect(() => {
+    if (!filtersHydrated.current) return;
+    try { localStorage.setItem(STORAGE_KEY_CONNECTION, connectionFilter); } catch { /* ignore */ }
+  }, [connectionFilter]);
+  useEffect(() => {
+    if (!filtersHydrated.current || selectedLiveRouterId === null) return;
+    try { localStorage.setItem(STORAGE_KEY_LIVE_ROUTER, String(selectedLiveRouterId)); } catch { /* ignore */ }
+  }, [selectedLiveRouterId]);
 
   // Modal state
   const [credentialsModal, setCredentialsModal] = useState<PPPoECredentials | null>(null);
@@ -136,6 +215,34 @@ export default function CustomersPage() {
     load();
     return () => { cancelled = true; };
   }, [filter, hasClientFilters, refreshKey]);
+
+  // Live PPPoE composition — only fetch when PPPoE filter is active and a router is selected
+  useEffect(() => {
+    if (connectionFilter !== 'pppoe' || !selectedLiveRouterId) {
+      setPppoeLive(new Map());
+      setPppoeLiveError(null);
+      return;
+    }
+    let cancelled = false;
+    const load = async (silent: boolean) => {
+      try {
+        if (!silent) setPppoeLiveLoading(true);
+        setPppoeLiveError(null);
+        const data = await api.getPPPoEUsers(selectedLiveRouterId);
+        if (cancelled) return;
+        const map = new Map<string, PPPoEMonitorUser>();
+        data.users.forEach((u) => map.set(u.username, u));
+        setPppoeLive(map);
+      } catch (err) {
+        if (!cancelled) setPppoeLiveError(err instanceof Error ? err.message : 'Failed to load live data');
+      } finally {
+        if (!cancelled && !silent) setPppoeLiveLoading(false);
+      }
+    };
+    load(false);
+    const intervalId = window.setInterval(() => load(true), PPPOE_POLL_INTERVAL);
+    return () => { cancelled = true; clearInterval(intervalId); };
+  }, [connectionFilter, selectedLiveRouterId]);
 
   const handlePageChange = useCallback((newPage: number) => {
     setPage(newPage);
@@ -375,8 +482,38 @@ export default function CustomersPage() {
         </div>
       )}
 
+      {/* Connection type tabs — primary view selector. Most users want
+          Hotspot or PPPoE separately, so we promote this above search. */}
+      <Tabs<ConnectionFilter>
+        value={connectionFilter}
+        onChange={(v) => { setConnectionFilter(v); setPage(1); }}
+        ariaLabel="Connection type"
+        className="mb-4 animate-fade-in"
+        tabs={[
+          { value: 'all', label: 'All' },
+          {
+            value: 'hotspot',
+            label: 'Hotspot',
+            icon: (
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0" />
+              </svg>
+            ),
+          },
+          {
+            value: 'pppoe',
+            label: 'PPPoE',
+            icon: (
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M8.5 14.5A2.5 2.5 0 0011 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 11-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 002.5 2.5z" />
+              </svg>
+            ),
+          },
+        ]}
+      />
+
       {/* Filters */}
-      <div className="mb-6 animate-fade-in">
+      <div className="mb-6 animate-fade-in space-y-3">
         <div className="flex flex-col sm:flex-row gap-3">
           <div className="flex-1">
             <SearchInput
@@ -385,56 +522,47 @@ export default function CustomersPage() {
               placeholder="Search by name, phone, MAC, or PPPoE username..."
             />
           </div>
-          <div className="grid grid-cols-2 gap-2 sm:flex">
-            <FilterSelect
-              value={filter}
-              onChange={(v) => { setFilter(v as FilterStatus); setPage(1); }}
-              options={[
-                { value: 'all', label: 'All Status' },
-                { value: 'active', label: 'Active' },
-                { value: 'inactive', label: 'Inactive' },
-              ]}
-            />
-            <FilterSelect
-              value={connectionFilter}
-              onChange={(v) => setConnectionFilter(v as ConnectionFilter)}
-              options={[
-                { value: 'all', label: 'All Types' },
-                { value: 'hotspot', label: 'Hotspot' },
-                { value: 'pppoe', label: 'PPPoE' },
-              ]}
-            />
-          </div>
         </div>
 
-        {/* Active Filters */}
-        {(filter !== 'all' || connectionFilter !== 'all') && (
-          <div className="flex items-center gap-2 mt-3 flex-wrap">
-            <span className="text-xs text-foreground-muted">Filters:</span>
-            {filter !== 'all' && (
-              <button
-                onClick={() => setFilter('all')}
-                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-accent-primary/10 text-accent-primary hover:bg-accent-primary/20 transition-colors capitalize"
-              >
-                {filter}
-                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-              </button>
-            )}
-            {connectionFilter !== 'all' && (
-              <button
-                onClick={() => setConnectionFilter('all')}
-                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-accent-primary/10 text-accent-primary hover:bg-accent-primary/20 transition-colors"
-              >
-                {connectionFilter === 'pppoe' ? 'PPPoE' : 'Hotspot'}
-                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-              </button>
-            )}
-            <button
-              onClick={() => { setFilter('all'); setConnectionFilter('all'); setPage(1); }}
-              className="text-xs text-foreground-muted hover:text-foreground transition-colors underline underline-offset-2"
-            >
-              Clear all
-            </button>
+        {/* Status pills — secondary in-view filter, remembered across visits */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-xs uppercase tracking-wider text-foreground-muted hidden sm:inline">Status</span>
+          <FilterPills<FilterStatus>
+            value={filter}
+            onChange={(v) => { setFilter(v); setPage(1); }}
+            ariaLabel="Filter by status"
+            options={[
+              { value: 'all', label: 'All', count: totalAll || undefined },
+              { value: 'active', label: 'Active', count: totalActive || undefined },
+              { value: 'inactive', label: 'Inactive', count: totalAll && totalActive !== undefined ? Math.max(0, totalAll - totalActive) : undefined },
+            ]}
+          />
+        </div>
+
+        {/* Live PPPoE monitoring — composed from the PPPoE Monitor data feed */}
+        {connectionFilter === 'pppoe' && (
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between p-3 rounded-xl bg-info/5 border border-info/20 animate-fade-in">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="inline-flex items-center gap-1.5 text-info text-xs font-semibold uppercase tracking-wider">
+                <span className="w-2 h-2 rounded-full bg-info animate-pulse" />
+                Live PPPoE
+              </span>
+              <span className="text-xs text-foreground-muted">
+                {pppoeLiveLoading
+                  ? 'Loading live data…'
+                  : pppoeLiveError
+                  ? <span className="text-danger">{pppoeLiveError}</span>
+                  : pppoeLive.size > 0
+                  ? `${Array.from(pppoeLive.values()).filter((u) => u.online).length} online · ${pppoeLive.size} secrets · auto-refresh 30s`
+                  : 'Pick a router to enrich rows with online status & bandwidth'}
+              </span>
+            </div>
+            <div className="flex-shrink-0">
+              <RouterSelector
+                selectedRouterId={selectedLiveRouterId}
+                onRouterChange={setSelectedLiveRouterId}
+              />
+            </div>
           </div>
         )}
       </div>
@@ -445,11 +573,17 @@ export default function CustomersPage() {
         <>
           {/* Desktop Table */}
           <DataTable<Customer>
-            columns={CUSTOMER_COLUMNS}
+            columns={
+              showLiveColumns
+                ? [...BASE_CUSTOMER_COLUMNS, ...PPPOE_LIVE_COLUMNS, ACTIONS_COLUMN]
+                : [...BASE_CUSTOMER_COLUMNS, ACTIONS_COLUMN]
+            }
             data={displayedCustomers}
             rowKey={(c) => c.id}
             onRowClick={(c) => routerNav.push(`/customers/${c.id}`)}
+            scrollable
             renderCell={(customer, key) => {
+              const live = customer.pppoe_username ? pppoeLive.get(customer.pppoe_username) : undefined;
               switch (key) {
                 case 'name':
                   return (
@@ -503,6 +637,57 @@ export default function CustomersPage() {
                     </div>
                   ) : (
                     <span className="text-foreground-muted">-</span>
+                  );
+                case 'live':
+                  if (!live) {
+                    return <span className="text-foreground-muted text-xs">—</span>;
+                  }
+                  return (
+                    <div className="flex flex-col gap-0.5">
+                      {live.disabled ? (
+                        <span className="inline-flex items-center gap-1.5 text-warning text-xs font-medium">
+                          <span className="w-2 h-2 rounded-full bg-warning" /> Disabled
+                        </span>
+                      ) : live.online ? (
+                        <span className="inline-flex items-center gap-1.5 text-emerald-500 text-xs font-medium">
+                          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" /> Online
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1.5 text-foreground-muted text-xs font-medium">
+                          <span className="w-2 h-2 rounded-full bg-foreground-muted/40" /> Offline
+                        </span>
+                      )}
+                      {live.online && live.address && (
+                        <span className="font-mono text-[11px] text-foreground-muted">{live.address}</span>
+                      )}
+                      {live.online && live.uptime && (
+                        <span className="text-[11px] text-foreground-muted">up {live.uptime}</span>
+                      )}
+                      {!live.online && live.last_disconnect_reason && (
+                        <span className="text-[11px] text-warning truncate max-w-[180px]" title={live.last_disconnect_reason}>
+                          {live.last_disconnect_reason}
+                        </span>
+                      )}
+                    </div>
+                  );
+                case 'bandwidth':
+                  if (!live) return <span className="text-foreground-muted text-xs">—</span>;
+                  return (
+                    <div className="flex flex-col gap-0.5 text-xs tabular-nums">
+                      <span className="text-accent-primary">↓ {formatRate(live.download_rate)}</span>
+                      <span className="text-teal-500">↑ {formatRate(live.upload_rate)}</span>
+                      {live.max_limit && (
+                        <span className="text-[11px] text-foreground-muted font-mono">limit {live.max_limit}</span>
+                      )}
+                    </div>
+                  );
+                case 'usage':
+                  if (!live) return <span className="text-foreground-muted text-xs">—</span>;
+                  return (
+                    <div className="flex flex-col gap-0.5 text-xs tabular-nums">
+                      <span className="text-foreground-muted">↓ {formatBytes(live.download_bytes)}</span>
+                      <span className="text-foreground-muted">↑ {formatBytes(live.upload_bytes)}</span>
+                    </div>
                   );
                 case 'actions':
                   return (
@@ -590,7 +775,10 @@ export default function CustomersPage() {
                 {searchQuery ? 'No customers match your search' : 'No customers found'}
               </div>
             ) : (
-              displayedCustomers.map((customer) => (
+              displayedCustomers.map((customer) => {
+                const liveCard = customer.pppoe_username ? pppoeLive.get(customer.pppoe_username) : undefined;
+                const isOnline = liveCard?.online ?? false;
+                return (
                 <MobileDataCard
                   key={customer.id}
                   id={customer.id}
@@ -598,9 +786,17 @@ export default function CustomersPage() {
                   subtitle={customer.pppoe_username || customer.phone || undefined}
                   avatar={{
                     text: (customer.name || '?').charAt(0).toUpperCase(),
-                    color: getConnectionType(customer) === 'pppoe' ? 'info' : 'primary',
+                    color: liveCard
+                      ? (liveCard.disabled ? 'warning' : isOnline ? 'success' : 'danger')
+                      : getConnectionType(customer) === 'pppoe' ? 'info' : 'primary',
                   }}
-                  badge={getConnectionType(customer) === 'pppoe' ? { label: 'PPPoE' } : undefined}
+                  badge={
+                    liveCard && isOnline
+                      ? { label: 'Online' }
+                      : getConnectionType(customer) === 'pppoe'
+                      ? { label: 'PPPoE' }
+                      : undefined
+                  }
                   status={{
                     label: customer.status,
                     variant: customer.status === 'active' ? 'success' : customer.status === 'expired' ? 'danger' : 'neutral',
@@ -609,10 +805,21 @@ export default function CustomersPage() {
                     text: customer.plan?.name || 'No Plan',
                   }}
                   secondary={{
-                    left: customer.router?.name || '-',
-                    right: customer.status === 'active' && customer.hours_remaining !== undefined
-                      ? <span className={`font-medium ${getTimeRemainingColor(customer.hours_remaining)}`}>{formatTimeRemaining(customer.hours_remaining)}</span>
-                      : formatCustomerExpiry(customer.expiry),
+                    left: liveCard && isOnline ? (
+                      <span className="flex items-center gap-1.5 text-xs tabular-nums">
+                        <span className="text-accent-primary">↓ {formatRate(liveCard.download_rate)}</span>
+                        <span className="text-teal-500">↑ {formatRate(liveCard.upload_rate)}</span>
+                      </span>
+                    ) : (
+                      customer.router?.name || '-'
+                    ),
+                    right: liveCard && isOnline && liveCard.address ? (
+                      <span className="font-mono text-[11px] text-foreground-muted">{liveCard.address}</span>
+                    ) : customer.status === 'active' && customer.hours_remaining !== undefined ? (
+                      <span className={`font-medium ${getTimeRemainingColor(customer.hours_remaining)}`}>{formatTimeRemaining(customer.hours_remaining)}</span>
+                    ) : (
+                      formatCustomerExpiry(customer.expiry)
+                    ),
                   }}
                   href={`/customers/${customer.id}`}
                   rightAction={
@@ -673,7 +880,8 @@ export default function CustomersPage() {
                   layout="compact"
                   className="animate-fade-in"
                 />
-              ))
+                );
+              })
             )}
 
             <Pagination page={page} perPage={perPage} total={effectiveTotal} onPageChange={handlePageChange} onPerPageChange={handlePerPageChange} loading={loading} noun="customers" />

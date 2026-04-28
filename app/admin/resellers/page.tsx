@@ -412,6 +412,7 @@ export default function ResellersListPage() {
             columns={RESELLER_COLUMNS}
             data={desktopSlice}
             rowKey={(item) => item.id}
+            scrollable
             onRowClick={(item) => router.push(`/admin/resellers/${item.id}`)}
             renderCell={(item, col) => {
               switch (col) {
