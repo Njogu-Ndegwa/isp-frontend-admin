@@ -37,6 +37,17 @@ interface DataTableProps<T> {
    * valid CSS length (e.g. `'1100px'`, `'72rem'`).
    */
   minWidth?: string;
+  /**
+   * When true, renders shimmering skeleton rows in place of `data` so the
+   * column structure stays visible during the initial fetch. Pages that
+   * have async data should pass their own loading flag here instead of
+   * unmounting the table behind a page-wide spinner — that way per-cell
+   * skeletons (live data, etc.) can transition smoothly once the main
+   * payload arrives.
+   */
+  loading?: boolean;
+  /** Number of skeleton rows to render while `loading` is true. Defaults to 8. */
+  loadingRows?: number;
 }
 
 export default function DataTable<T>({
@@ -53,6 +64,8 @@ export default function DataTable<T>({
   animateRows = true,
   scrollable = false,
   minWidth,
+  loading = false,
+  loadingRows = 8,
 }: DataTableProps<T>) {
   const outerClass = className !== undefined
     ? className
@@ -84,7 +97,17 @@ export default function DataTable<T>({
             </tr>
           </thead>
           <tbody>
-            {data.length === 0 ? (
+            {loading ? (
+              Array.from({ length: loadingRows }).map((_, i) => (
+                <tr key={`__skeleton-${i}`} className="animate-fade-in" aria-hidden="true">
+                  {columns.map((col) => (
+                    <td key={col.key} className={col.className}>
+                      <div className="h-4 rounded skeleton" />
+                    </td>
+                  ))}
+                </tr>
+              ))
+            ) : data.length === 0 ? (
               <tr>
                 <td colSpan={columns.length} className="text-center text-foreground-muted py-12">
                   {emptyState?.icon && (

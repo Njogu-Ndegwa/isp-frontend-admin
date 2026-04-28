@@ -14,7 +14,7 @@ import {
 import { formatDateGMT3 } from '../lib/dateUtils';
 import { useAlert } from '../context/AlertContext';
 import Header from '../components/Header';
-import { PageLoader } from '../components/LoadingSpinner';
+import { SkeletonCard } from '../components/LoadingSpinner';
 import StatCard from '../components/StatCard';
 import MobileDataCard from '../components/MobileDataCard';
 import SearchInput from '../components/SearchInput';
@@ -571,14 +571,11 @@ export default function CustomersPage() {
 
       </div>
 
-      {loading ? (
-        <PageLoader />
-      ) : (
-        <>
-          {/* Desktop Table */}
+      {/* Desktop Table */}
           <DataTable<Customer>
             columns={CUSTOMER_COLUMNS}
             data={displayedCustomers}
+            loading={loading}
             rowKey={(c) => c.id}
             onRowClick={(c) => routerNav.push(`/customers/${c.id}`)}
             renderCell={(customer, key) => {
@@ -828,7 +825,11 @@ export default function CustomersPage() {
 
           {/* Mobile Cards */}
           <div className="md:hidden space-y-3">
-            {displayedCustomers.length === 0 ? (
+            {loading ? (
+              Array.from({ length: 6 }).map((_, i) => (
+                <SkeletonCard key={`__customer-skeleton-${i}`} />
+              ))
+            ) : displayedCustomers.length === 0 ? (
               <div className="card p-8 text-center text-foreground-muted">
                 <svg className="w-12 h-12 mx-auto mb-4 text-foreground-muted/50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -965,8 +966,6 @@ export default function CustomersPage() {
 
             <Pagination page={page} perPage={perPage} total={effectiveTotal} onPageChange={handlePageChange} onPerPageChange={handlePerPageChange} loading={loading} noun="customers" />
           </div>
-        </>
-      )}
 
       {/* Credentials Modal */}
       {credentialsModal && (
