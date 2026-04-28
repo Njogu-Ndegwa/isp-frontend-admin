@@ -9,7 +9,7 @@ import {
   PPPoECredentials,
   ActivatePPPoERequest,
   PPPoEMonitorUser,
-  ResellerTopUsageEntry,
+  CustomerUsagePeriod,
 } from '../lib/types';
 import { formatDateGMT3 } from '../lib/dateUtils';
 import { useAlert } from '../context/AlertContext';
@@ -30,9 +30,6 @@ const STORAGE_KEY_STATUS = 'customers.filter.status';
 const STORAGE_KEY_CONNECTION = 'customers.filter.connection';
 const PPPOE_POLL_INTERVAL = 30_000;
 const USAGE_POLL_INTERVAL = 60_000;
-// Top-N covers anyone with non-trivial usage; customers below the cut
-// are effectively idle and render as "—" with no harm.
-const USAGE_TOP_LIMIT = 500;
 
 function getConnectionType(customer: Customer): 'hotspot' | 'pppoe' {
   return customer.connection_type ?? customer.plan?.connection_type ?? 'hotspot';
@@ -105,10 +102,18 @@ export default function CustomersPage() {
   // an empty dash while we're still loading.
   const [pppoeLiveLoaded, setPppoeLiveLoaded] = useState(false);
 
-  // Period data usage (FUP) per customer — fetched in bulk so a customer's
-  // monthly total + cap can be shown inline without drilling into them.
-  const [usageMap, setUsageMap] = useState<Map<number, ResellerTopUsageEntry>>(new Map());
-  const [usageLoaded, setUsageLoaded] = useState(false);
+  // Period data usage (FUP) per customer. We use a single source of truth —
+  // `api.getCustomerUsage` — for every visible PPPoE customer, mirroring
+  // the customer-detail page so the table never disagrees with the drill-in
+  // view. The bulk `getResellerTopUsage` endpoint was tempting for fast
+  // initial paint, but it only returned the top-N by consumption, leaving
+  // light users (and brand-new ones) silently empty.
+  const [usageMap, setUsageMap] = useState<Map<number, CustomerUsagePeriod>>(new Map());
+  // Per-customer "we've already attempted to fetch this one" set — used to
+  // distinguish "loading" (skeleton) from "fetched but no data" ("—") on
+  // a per-row basis. Survives page changes so customers we've already
+  // resolved don't flash a skeleton on revisit.
+  const [usageFetched, setUsageFetched] = useState<Set<number>>(new Set());
 
   // Persistent connection-type counts. Computed from `allCustomersCache` the
   // first time it gets populated (i.e. once the user lands on a connection
@@ -270,32 +275,6 @@ export default function CustomersPage() {
     return () => { cancelled = true; if (intervalId) clearInterval(intervalId); };
   }, []);
 
-  // Period data usage (FUP) — bulk fetch keyed by customer_id. Polls less
-  // frequently than live bandwidth since totals change slowly. Failures
-  // are swallowed silently; cells fall back to "—".
-  useEffect(() => {
-    let cancelled = false;
-    let intervalId: number | null = null;
-
-    const load = async () => {
-      try {
-        const entries = await api.getResellerTopUsage(USAGE_TOP_LIMIT);
-        if (cancelled) return;
-        const map = new Map<number, ResellerTopUsageEntry>();
-        entries.forEach((e) => map.set(e.customer_id, e));
-        setUsageMap(map);
-      } catch {
-        // ignore — leave previous map intact
-      } finally {
-        if (!cancelled) setUsageLoaded(true);
-      }
-    };
-
-    load();
-    intervalId = window.setInterval(load, USAGE_POLL_INTERVAL);
-    return () => { cancelled = true; if (intervalId) clearInterval(intervalId); };
-  }, []);
-
   const handlePageChange = useCallback((newPage: number) => {
     setPage(newPage);
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -373,11 +352,66 @@ export default function CustomersPage() {
     };
   }, [connectionFilter, totalAll, totalActive, allCustomersCache]);
 
-  const displayedCustomers = hasClientFilters
-    ? filteredCustomers.slice((page - 1) * perPage, page * perPage)
-    : filteredCustomers;
+  // Memoized so its array reference is stable across renders (otherwise
+  // every re-render would refire the per-customer usage enrichment effect
+  // below, hammering the API).
+  const displayedCustomers = useMemo(() => (
+    hasClientFilters
+      ? filteredCustomers.slice((page - 1) * perPage, page * perPage)
+      : filteredCustomers
+  ), [hasClientFilters, filteredCustomers, page, perPage]);
 
   const effectiveTotal = hasClientFilters ? filteredCustomers.length : totalItems;
+
+  // Period data usage — single data source.
+  //
+  // We fetch each visible PPPoE customer's usage in parallel via the same
+  // `getCustomerUsage` endpoint the customer-detail page uses, so the table
+  // and detail view can never disagree. The fetch re-runs whenever the
+  // displayed set changes (page / filter / search) and on a fixed poll so
+  // totals stay reasonably fresh.
+  useEffect(() => {
+    if (displayedCustomers.length === 0) return;
+    const targets = displayedCustomers.filter((c) => getConnectionType(c) === 'pppoe');
+    if (targets.length === 0) return;
+
+    let cancelled = false;
+    let intervalId: number | null = null;
+
+    const load = async () => {
+      const results = await Promise.allSettled(
+        targets.map((c) => api.getCustomerUsage(c.id).then((resp) => ({ id: c.id, resp })))
+      );
+      if (cancelled) return;
+      setUsageMap((prev) => {
+        const next = new Map(prev);
+        for (const r of results) {
+          if (r.status !== 'fulfilled') continue;
+          const { id, resp } = r.value;
+          if (resp.period) {
+            next.set(id, resp.period);
+          } else {
+            // No billing period yet — drop any stale entry so the cell
+            // honestly renders "—" instead of last cycle's number.
+            next.delete(id);
+          }
+        }
+        return next;
+      });
+      // Mark every target as fetched, even ones that failed or returned a
+      // null period — the cell can confidently swap from skeleton to "—"
+      // for those instead of looping back into a loading state.
+      setUsageFetched((prev) => {
+        const next = new Set(prev);
+        for (const c of targets) next.add(c.id);
+        return next;
+      });
+    };
+
+    load();
+    intervalId = window.setInterval(load, USAGE_POLL_INTERVAL);
+    return () => { cancelled = true; if (intervalId) clearInterval(intervalId); };
+  }, [displayedCustomers]);
 
   const getStatusBadge = (status: Customer['status']) => {
     const badges = {
@@ -755,7 +789,7 @@ export default function CustomersPage() {
                   if (!isPppoe) {
                     return <span className="text-foreground-muted text-xs">—</span>;
                   }
-                  if (!usageLoaded) {
+                  if (!usageFetched.has(customer.id)) {
                     return (
                       <div className="flex flex-col gap-1.5 min-w-[120px]" aria-label="Loading data usage">
                         <div className="flex items-center justify-between gap-2">
@@ -904,7 +938,8 @@ export default function CustomersPage() {
                 // data to display or both fetches have settled — prevents the
                 // brief "—" / router-name flash between fetches resolving.
                 const hasAnyLiveData = Boolean(liveCard) || Boolean(usageCard);
-                const cardLoadingLive = isPppoeCard && !hasAnyLiveData && (!pppoeLiveLoaded || !usageLoaded);
+                const usageReadyForCard = !isPppoeCard || usageFetched.has(customer.id);
+                const cardLoadingLive = isPppoeCard && !hasAnyLiveData && (!pppoeLiveLoaded || !usageReadyForCard);
                 const usageColors = usageCard ? getUsageColor(usageCard.percent_used) : null;
                 return (
                 <MobileDataCard
