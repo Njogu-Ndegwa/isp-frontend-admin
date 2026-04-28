@@ -26,13 +26,13 @@ interface MobileDataCardProps {
     label: string;
     /**
      * When set, the badge renders as a styled pill using the shared
-     * palette. `teal` is intended as a positive "alive" state that
-     * still reads as success-ish but is distinct from `success` green
-     * — useful when both `status` (e.g. account = Active) and `badge`
-     * (e.g. connection = Online) sit next to each other and would
-     * otherwise visually collide.
+     * palette. `cyan` is intended as a positive "alive" state that
+     * still reads as success-ish but is unambiguously distinct from
+     * `success` green — useful when both `status` (e.g. account =
+     * Active) and `badge` (e.g. connection = Online) sit next to
+     * each other and would otherwise visually collide.
      */
-    variant?: 'success' | 'warning' | 'danger' | 'neutral' | 'info' | 'teal';
+    variant?: 'success' | 'warning' | 'danger' | 'neutral' | 'info' | 'cyan';
     /** Legacy: raw Tailwind class string applied to a plain text badge. */
     color?: string;
   };
@@ -73,7 +73,7 @@ const badgeClasses = {
   danger: 'badge-danger',
   neutral: 'badge-neutral',
   info: 'badge-info',
-  teal: 'badge-teal',
+  cyan: 'badge-cyan',
 };
 
 export default function MobileDataCard({

@@ -21,7 +21,7 @@
   --warning: #d97706;
   --danger: #dc2626;
   --info: #4f46e5;
-  --teal: #0d9488;
+  --cyan: #0891b2;
 
   --border: rgba(0, 0, 0, 0.08);
   --border-hover: rgba(0, 0, 0, 0.15);
@@ -57,7 +57,7 @@
   --warning: #f59e0b;
   --danger: #ef4444;
   --info: #6366f1;
-  --teal: #14b8a6;
+  --cyan: #06b6d4;
 
   --border: rgba(255, 255, 255, 0.08);
   --border-hover: rgba(255, 255, 255, 0.15);
@@ -421,9 +421,9 @@ body {
   color: var(--info);
 }
 
-.badge-teal {
-  background: rgba(20, 184, 166, 0.12);
-  color: var(--teal);
+.badge-cyan {
+  background: rgba(6, 182, 212, 0.14);
+  color: var(--cyan);
 }
 
 .badge-neutral {
