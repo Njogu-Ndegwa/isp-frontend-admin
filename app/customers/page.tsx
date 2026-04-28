@@ -9,6 +9,7 @@ import {
   PPPoECredentials,
   ActivatePPPoERequest,
   PPPoEMonitorUser,
+  ResellerTopUsageEntry,
 } from '../lib/types';
 import { formatDateGMT3 } from '../lib/dateUtils';
 import { useAlert } from '../context/AlertContext';
@@ -28,6 +29,10 @@ type ConnectionFilter = 'all' | 'hotspot' | 'pppoe';
 const STORAGE_KEY_STATUS = 'customers.filter.status';
 const STORAGE_KEY_CONNECTION = 'customers.filter.connection';
 const PPPOE_POLL_INTERVAL = 30_000;
+const USAGE_POLL_INTERVAL = 60_000;
+// Top-N covers anyone with non-trivial usage; customers below the cut
+// are effectively idle and render as "—" with no harm.
+const USAGE_TOP_LIMIT = 500;
 
 function getConnectionType(customer: Customer): 'hotspot' | 'pppoe' {
   return customer.connection_type ?? customer.plan?.connection_type ?? 'hotspot';
@@ -41,28 +46,36 @@ function formatRate(bpsStr: string | undefined | null): string {
   return `${bps} bps`;
 }
 
-function formatBytes(bytes: number | undefined | null): string {
-  if (!bytes || bytes === 0) return '—';
-  if (bytes >= 1_073_741_824) return `${(bytes / 1_073_741_824).toFixed(2)} GB`;
-  if (bytes >= 1_048_576) return `${(bytes / 1_048_576).toFixed(1)} MB`;
-  if (bytes >= 1_024) return `${(bytes / 1_024).toFixed(0)} KB`;
-  return `${bytes} B`;
+function formatDataMB(mb: number | undefined | null): string {
+  if (!mb || mb < 0.05) return '0 MB';
+  if (mb >= 1024) return `${(mb / 1024).toFixed(2)} GB`;
+  return `${mb.toFixed(0)} MB`;
+}
+
+function getUsageColor(percent: number): {
+  text: string;
+  bar: string;
+} {
+  if (percent >= 90) return { text: 'text-danger', bar: 'bg-danger' };
+  if (percent >= 75) return { text: 'text-warning', bar: 'bg-warning' };
+  if (percent >= 50) return { text: 'text-amber-400', bar: 'bg-amber-400' };
+  return { text: 'text-emerald-500', bar: 'bg-emerald-500' };
 }
 
 // Columns are tuned to fit any non-mobile viewport without horizontal
 // scroll: lower-priority columns progressively hide on tablet (md) and
 // laptop (lg) widths, leaving the highest-value cells (name, online,
-// bandwidth, status, actions) visible from md upward.
+// usage, status, actions) visible from md upward.
 const CUSTOMER_COLUMNS: DataTableColumn[] = [
   { key: 'name', label: 'Customer' },
   { key: 'phone', label: 'Phone', className: 'hidden xl:table-cell' },
-  { key: 'plan', label: 'Plan', className: 'hidden lg:table-cell' },
-  { key: 'router', label: 'Router', className: 'hidden xl:table-cell' },
+  { key: 'plan', label: 'Plan', className: 'hidden xl:table-cell' },
+  { key: 'router', label: 'Router', className: 'hidden 2xl:table-cell' },
   { key: 'status', label: 'Status' },
   { key: 'online', label: 'Online' },
   { key: 'bandwidth', label: 'Bandwidth', className: 'hidden lg:table-cell' },
-  { key: 'usage', label: 'Session Usage', className: 'hidden xl:table-cell' },
-  { key: 'expiry', label: 'Expiry', className: 'hidden lg:table-cell' },
+  { key: 'usage', label: 'Data Usage', className: 'hidden lg:table-cell' },
+  { key: 'expiry', label: 'Expiry', className: 'hidden xl:table-cell' },
   { key: 'actions', label: '' },
 ];
 
@@ -87,6 +100,15 @@ export default function CustomersPage() {
   // by polling /pppoe/{router}/users in parallel; per-router failures are
   // swallowed so a single offline router never breaks the page.
   const [pppoeLive, setPppoeLive] = useState<Map<string, PPPoEMonitorUser>>(new Map());
+  // Flips true once the first fetch settles (success OR failure) so cells
+  // can switch from skeleton → real data / "—" instead of always rendering
+  // an empty dash while we're still loading.
+  const [pppoeLiveLoaded, setPppoeLiveLoaded] = useState(false);
+
+  // Period data usage (FUP) per customer — fetched in bulk so a customer's
+  // monthly total + cap can be shown inline without drilling into them.
+  const [usageMap, setUsageMap] = useState<Map<number, ResellerTopUsageEntry>>(new Map());
+  const [usageLoaded, setUsageLoaded] = useState(false);
 
   const hasClientFilters = searchQuery.trim() !== '' || connectionFilter !== 'all';
 
@@ -231,11 +253,39 @@ export default function CustomersPage() {
       } catch {
         // Routers list itself failed — leave any previous live data intact
         // and try again on the next tick.
+      } finally {
+        if (!cancelled) setPppoeLiveLoaded(true);
       }
     };
 
     load();
     intervalId = window.setInterval(load, PPPOE_POLL_INTERVAL);
+    return () => { cancelled = true; if (intervalId) clearInterval(intervalId); };
+  }, []);
+
+  // Period data usage (FUP) — bulk fetch keyed by customer_id. Polls less
+  // frequently than live bandwidth since totals change slowly. Failures
+  // are swallowed silently; cells fall back to "—".
+  useEffect(() => {
+    let cancelled = false;
+    let intervalId: number | null = null;
+
+    const load = async () => {
+      try {
+        const entries = await api.getResellerTopUsage(USAGE_TOP_LIMIT);
+        if (cancelled) return;
+        const map = new Map<number, ResellerTopUsageEntry>();
+        entries.forEach((e) => map.set(e.customer_id, e));
+        setUsageMap(map);
+      } catch {
+        // ignore — leave previous map intact
+      } finally {
+        if (!cancelled) setUsageLoaded(true);
+      }
+    };
+
+    load();
+    intervalId = window.setInterval(load, USAGE_POLL_INTERVAL);
     return () => { cancelled = true; if (intervalId) clearInterval(intervalId); };
   }, []);
 
@@ -533,6 +583,7 @@ export default function CustomersPage() {
             onRowClick={(c) => routerNav.push(`/customers/${c.id}`)}
             renderCell={(customer, key) => {
               const live = customer.pppoe_username ? pppoeLive.get(customer.pppoe_username) : undefined;
+              const usage = usageMap.get(customer.id);
               const isPppoe = getConnectionType(customer) === 'pppoe';
               switch (key) {
                 case 'name':
@@ -590,6 +641,14 @@ export default function CustomersPage() {
                   if (!isPppoe) {
                     return <span className="text-foreground-muted text-xs">—</span>;
                   }
+                  if (!pppoeLiveLoaded) {
+                    return (
+                      <div className="flex flex-col gap-1.5" aria-label="Loading online status">
+                        <div className="h-3 w-16 skeleton" />
+                        <div className="h-2.5 w-20 skeleton" />
+                      </div>
+                    );
+                  }
                   if (!live) {
                     return (
                       <span className="inline-flex items-center gap-1.5 text-foreground-muted text-xs">
@@ -621,21 +680,76 @@ export default function CustomersPage() {
                     </div>
                   );
                 case 'bandwidth':
-                  if (!isPppoe || !live) return <span className="text-foreground-muted text-xs">—</span>;
+                  if (!isPppoe) return <span className="text-foreground-muted text-xs">—</span>;
+                  if (!pppoeLiveLoaded) {
+                    return (
+                      <div className="flex flex-col gap-1" aria-label="Loading bandwidth">
+                        <div className="h-3 w-14 skeleton" />
+                        <div className="h-3 w-12 skeleton" />
+                      </div>
+                    );
+                  }
+                  if (!live) return <span className="text-foreground-muted text-xs">—</span>;
                   return (
                     <div className="flex flex-col gap-0.5 text-xs tabular-nums">
                       <span className="text-accent-primary">↓ {formatRate(live.download_rate)}</span>
                       <span className="text-teal-500">↑ {formatRate(live.upload_rate)}</span>
                     </div>
                   );
-                case 'usage':
-                  if (!isPppoe || !live) return <span className="text-foreground-muted text-xs">—</span>;
+                case 'usage': {
+                  if (!isPppoe) {
+                    return <span className="text-foreground-muted text-xs">—</span>;
+                  }
+                  if (!usageLoaded) {
+                    return (
+                      <div className="flex flex-col gap-1.5 min-w-[120px]" aria-label="Loading data usage">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="h-3 w-14 skeleton" />
+                          <div className="h-2.5 w-10 skeleton" />
+                        </div>
+                        <div className="h-1 w-full skeleton" />
+                      </div>
+                    );
+                  }
+                  if (!usage) {
+                    return <span className="text-foreground-muted text-xs">—</span>;
+                  }
+                  const colors = getUsageColor(usage.percent_used);
                   return (
-                    <div className="flex flex-col gap-0.5 text-xs tabular-nums">
-                      <span className="text-foreground-muted">↓ {formatBytes(live.download_bytes)}</span>
-                      <span className="text-foreground-muted">↑ {formatBytes(live.upload_bytes)}</span>
+                    <div className="flex flex-col gap-1 min-w-[120px]">
+                      <div className="flex items-baseline justify-between gap-2 text-xs tabular-nums">
+                        <span className="font-medium text-foreground">
+                          {formatDataMB(usage.total_mb)}
+                        </span>
+                        {usage.cap_mb ? (
+                          <span className="text-foreground-muted text-[11px]">
+                            / {formatDataMB(usage.cap_mb)}
+                          </span>
+                        ) : (
+                          <span className="text-foreground-muted text-[10px] uppercase tracking-wider">no cap</span>
+                        )}
+                      </div>
+                      {usage.cap_mb !== null && (
+                        <div className="flex items-center gap-1.5">
+                          <div className="flex-1 h-1 bg-background-tertiary rounded-full overflow-hidden">
+                            <div
+                              className={`h-full rounded-full transition-all ${colors.bar}`}
+                              style={{ width: `${Math.min(100, Math.max(0, usage.percent_used))}%` }}
+                            />
+                          </div>
+                          <span className={`text-[10px] tabular-nums font-medium ${colors.text}`}>
+                            {usage.percent_used.toFixed(0)}%
+                          </span>
+                        </div>
+                      )}
+                      {usage.fup_active && (
+                        <span className="text-[10px] uppercase tracking-wider text-danger font-semibold">
+                          FUP active
+                        </span>
+                      )}
                     </div>
                   );
+                }
                 case 'actions':
                   return (
                     <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
@@ -724,7 +838,11 @@ export default function CustomersPage() {
             ) : (
               displayedCustomers.map((customer) => {
                 const liveCard = customer.pppoe_username ? pppoeLive.get(customer.pppoe_username) : undefined;
+                const usageCard = usageMap.get(customer.id);
                 const isOnline = liveCard?.online ?? false;
+                const isPppoeCard = getConnectionType(customer) === 'pppoe';
+                const cardLoadingLive = isPppoeCard && !pppoeLiveLoaded && !usageLoaded;
+                const usageColors = usageCard ? getUsageColor(usageCard.percent_used) : null;
                 return (
                 <MobileDataCard
                   key={customer.id}
@@ -752,10 +870,24 @@ export default function CustomersPage() {
                     text: customer.plan?.name || 'No Plan',
                   }}
                   secondary={{
-                    left: liveCard && isOnline ? (
+                    left: cardLoadingLive ? (
+                      <span className="inline-flex items-center gap-1.5" aria-label="Loading live data">
+                        <span className="h-3 w-14 skeleton inline-block" />
+                        <span className="h-3 w-12 skeleton inline-block" />
+                      </span>
+                    ) : liveCard && isOnline ? (
                       <span className="flex items-center gap-1.5 text-xs tabular-nums">
                         <span className="text-accent-primary">↓ {formatRate(liveCard.download_rate)}</span>
                         <span className="text-teal-500">↑ {formatRate(liveCard.upload_rate)}</span>
+                      </span>
+                    ) : usageCard ? (
+                      <span className="flex items-center gap-1.5 text-xs tabular-nums">
+                        <span className="text-foreground">{formatDataMB(usageCard.total_mb)}</span>
+                        {usageCard.cap_mb !== null && usageColors && (
+                          <span className={`${usageColors.text} text-[11px] font-medium`}>
+                            {usageCard.percent_used.toFixed(0)}%
+                          </span>
+                        )}
                       </span>
                     ) : (
                       customer.router?.name || '-'
