@@ -413,6 +413,50 @@ export default function CustomersPage() {
     return () => { cancelled = true; if (intervalId) clearInterval(intervalId); };
   }, [displayedCustomers]);
 
+  // Peer-relative usage tiers across the customers currently on screen.
+  // Used to color-code the total-used number so heavier-than-average users
+  // visually pop. We bin into four tiers (low / mid / high / top) by
+  // percentile rank instead of absolute thresholds, so the comparison is
+  // always meaningful for whatever set the admin is looking at.
+  const usagePeerTiers = useMemo(() => {
+    const totals: number[] = [];
+    for (const c of displayedCustomers) {
+      const u = usageMap.get(c.id);
+      if (u && u.total_mb > 0) totals.push(u.total_mb);
+    }
+    // Need at least a handful of data points for percentiles to be useful;
+    // below that the comparison is just noise (e.g. "top 25%" of 2 = the
+    // single higher value).
+    if (totals.length < 4) return null;
+    totals.sort((a, b) => a - b);
+    const at = (pct: number) => totals[Math.floor((totals.length - 1) * pct)];
+    const p25 = at(0.25);
+    const p75 = at(0.75);
+    const p90 = at(0.9);
+    // No real spread between low and high quartiles → everyone is similar,
+    // so don't tint anything.
+    if (p90 === p25) return null;
+    return { p25, p75, p90 };
+  }, [displayedCustomers, usageMap]);
+
+  const getPeerUsageStyle = (totalMb: number): string => {
+    const t = usagePeerTiers;
+    if (!t) return 'text-foreground font-medium';
+    if (totalMb >= t.p90) return 'text-warning font-semibold';
+    if (totalMb >= t.p75) return 'text-accent-primary font-medium';
+    if (totalMb < t.p25) return 'text-foreground-muted font-normal';
+    return 'text-foreground font-medium';
+  };
+
+  const getPeerUsageLabel = (totalMb: number): string => {
+    const t = usagePeerTiers;
+    if (!t) return '';
+    if (totalMb >= t.p90) return ' (top 10% on this page)';
+    if (totalMb >= t.p75) return ' (heavy user vs peers on this page)';
+    if (totalMb < t.p25) return ' (light user vs peers on this page)';
+    return '';
+  };
+
   const getStatusBadge = (status: Customer['status']) => {
     const badges = {
       active: 'badge-success',
@@ -804,22 +848,30 @@ export default function CustomersPage() {
                     return <span className="text-foreground-muted text-xs">—</span>;
                   }
                   const colors = getUsageColor(usage.percent_used);
+                  const peerStyle = getPeerUsageStyle(usage.total_mb);
+                  const peerLabel = getPeerUsageLabel(usage.total_mb);
+                  const tooltip = usage.cap_mb
+                    ? `${formatDataMB(usage.total_mb)} used of ${formatDataMB(usage.cap_mb)} cap this period (${usage.percent_used.toFixed(1)}% of cap)${peerLabel}`
+                    : `${formatDataMB(usage.total_mb)} used this period — no cap${peerLabel}`;
                   return (
-                    <div className="flex flex-col gap-1 min-w-[120px]">
+                    <div className="flex flex-col gap-0.5 min-w-[120px]" title={tooltip}>
+                      <span className="text-[9px] uppercase tracking-wider text-foreground-muted/80 leading-none">
+                        Used
+                      </span>
                       <div className="flex items-baseline justify-between gap-2 text-xs tabular-nums">
-                        <span className="font-medium text-foreground">
+                        <span className={peerStyle}>
                           {formatDataMB(usage.total_mb)}
                         </span>
                         {usage.cap_mb ? (
                           <span className="text-foreground-muted text-[11px]">
-                            / {formatDataMB(usage.cap_mb)}
+                            of {formatDataMB(usage.cap_mb)}
                           </span>
                         ) : (
                           <span className="text-foreground-muted text-[10px] uppercase tracking-wider">no cap</span>
                         )}
                       </div>
                       {usage.cap_mb !== null && (
-                        <div className="flex items-center gap-1.5">
+                        <div className="flex items-center gap-1.5 mt-0.5">
                           <div className="flex-1 h-1 bg-background-tertiary rounded-full overflow-hidden">
                             <div
                               className={`h-full rounded-full transition-all ${colors.bar}`}
@@ -827,7 +879,7 @@ export default function CustomersPage() {
                             />
                           </div>
                           <span className={`text-[10px] tabular-nums font-medium ${colors.text}`}>
-                            {usage.percent_used.toFixed(0)}%
+                            {usage.percent_used.toFixed(0)}% of cap
                           </span>
                         </div>
                       )}
@@ -987,16 +1039,24 @@ export default function CustomersPage() {
                       // to show — it's meaningful whether or not the customer
                       // is currently online. Live rates take the secondary
                       // slot when available so we don't lose them entirely.
-                      <span className="flex items-center gap-1.5 text-xs tabular-nums">
-                        <span className="text-foreground">{formatDataMB(usageCard.total_mb)}</span>
+                      <span
+                        className="flex items-center gap-1.5 text-xs tabular-nums"
+                        title={
+                          usageCard.cap_mb
+                            ? `Used ${formatDataMB(usageCard.total_mb)} of ${formatDataMB(usageCard.cap_mb)} cap this period (${usageCard.percent_used.toFixed(1)}%)${getPeerUsageLabel(usageCard.total_mb)}`
+                            : `Used ${formatDataMB(usageCard.total_mb)} this period — no cap${getPeerUsageLabel(usageCard.total_mb)}`
+                        }
+                      >
+                        <span className="text-[9px] uppercase tracking-wider text-foreground-muted/80">Used</span>
+                        <span className={getPeerUsageStyle(usageCard.total_mb)}>{formatDataMB(usageCard.total_mb)}</span>
                         {usageCard.cap_mb !== null && (
                           <span className="text-foreground-muted text-[11px]">
-                            / {formatDataMB(usageCard.cap_mb)}
+                            of {formatDataMB(usageCard.cap_mb)}
                           </span>
                         )}
                         {usageCard.cap_mb !== null && usageColors && (
                           <span className={`${usageColors.text} text-[11px] font-medium`}>
-                            {usageCard.percent_used.toFixed(0)}%
+                            · {usageCard.percent_used.toFixed(0)}%
                           </span>
                         )}
                       </span>
