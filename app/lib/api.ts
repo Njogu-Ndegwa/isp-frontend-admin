@@ -206,6 +206,13 @@ class ApiClient {
   private async handleResponse<T>(response: Response, skipAuthRedirect = false): Promise<T> {
     if (!response.ok) {
       if (response.status === 401 && typeof window !== 'undefined' && !skipAuthRedirect) {
+        // In demo mode, the token "demo-token" is not recognized by the real
+        // backend. Any endpoint that wasn't stubbed will 401 — we must NOT
+        // wipe the demo session and bounce the user back to /login. Instead,
+        // throw a benign error so the calling page just shows a fallback.
+        if (this.isDemoMode()) {
+          throw new Error('Endpoint not available in demo mode.');
+        }
         localStorage.removeItem('auth_token');
         localStorage.removeItem('auth_user');
         window.location.href = '/login';
@@ -1453,7 +1460,9 @@ class ApiClient {
   // Payment Methods CRUD
 
   async getPaymentMethods(includeInactive = false): Promise<PaymentMethodConfig[]> {
-    if (this.isDemoMode()) return [];
+    if (this.isDemoMode()) {
+      return includeInactive ? demo.demoPaymentMethods : demo.demoPaymentMethods.filter(p => p.is_active);
+    }
     const params = includeInactive ? '?include_inactive=true' : '';
     const response = await fetch(`${BASE_URL}/payment-methods${params}`, {
       headers: this.getHeaders(),
@@ -2082,6 +2091,7 @@ class ApiClient {
   }
 
   async getResellerTopUsage(limit = 20): Promise<ResellerTopUsageEntry[]> {
+    if (this.isDemoMode()) return demo.demoResellerTopUsage(limit);
     const response = await fetch(
       `${BASE_URL}/resellers/me/usage/top?limit=${limit}`,
       { headers: this.getHeaders() }

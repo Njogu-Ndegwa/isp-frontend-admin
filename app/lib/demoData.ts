@@ -1254,6 +1254,45 @@ export function demoUpcomingFollowUps(days = 7): FollowUpsResponse {
   return { followups: allFollowups, total: allFollowups.length };
 }
 
+// ─── Payment methods (reseller settings) ────────────────────────────
+export const demoPaymentMethods: import('./types').PaymentMethodConfig[] = [
+  {
+    id: 1, user_id: 0, method_type: 'mpesa_paybill', label: 'Safaricom Paybill',
+    is_active: true, mpesa_paybill_number: '600000',
+    created_at: iso(50), updated_at: iso(2),
+  },
+  {
+    id: 2, user_id: 0, method_type: 'bank_account', label: 'KCB Business Account',
+    is_active: true, bank_paybill_number: '522522', bank_account_number: '1234567890',
+    created_at: iso(45), updated_at: iso(5),
+  },
+  {
+    id: 3, user_id: 0, method_type: 'mpesa_paybill_with_keys', label: 'Till Number',
+    is_active: false, mpesa_shortcode: '987654',
+    created_at: iso(20), updated_at: iso(20),
+  },
+];
+
+// ─── Reseller-wide top usage (FUP) ──────────────────────────────────
+export function demoResellerTopUsage(limit = 20): import('./types').ResellerTopUsageEntry[] {
+  const pppoeCustomers = demoCustomers.filter(c => c.connection_type === 'pppoe');
+  const entries = pppoeCustomers.slice(0, limit).map((c, i) => {
+    const cap = c.plan.name.includes('Business') ? 200_000 : 100_000;
+    const totalMb = Math.floor(cap * (0.3 + Math.random() * 0.85));
+    return {
+      customer_id: c.id,
+      customer_name: c.name,
+      pppoe_username: c.pppoe_username ?? `pppoe-${c.name.split(' ')[0].toLowerCase()}`,
+      plan_name: c.plan.name,
+      cap_mb: cap,
+      total_mb: totalMb,
+      percent_used: Math.round((totalMb / cap) * 100),
+      fup_active: totalMb > cap,
+    };
+  });
+  return entries.sort((a, b) => b.total_mb - a.total_mb).slice(0, limit);
+}
+
 // ─── Demo reseller users available for backfill ─────────────────────
 const demoBackfillCandidates: Array<{
   user_id: number;

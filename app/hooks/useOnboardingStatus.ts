@@ -18,6 +18,11 @@ export interface OnboardingStatus {
 
 const TOTAL_STEPS = 4;
 
+function isDemo(): boolean {
+  if (typeof window === 'undefined') return false;
+  return localStorage.getItem('demo_mode') === 'true';
+}
+
 export function useOnboardingStatus(): OnboardingStatus {
   const [hasRouters, setHasRouters] = useState(false);
   const [hasPlans, setHasPlans] = useState(false);
@@ -27,6 +32,19 @@ export function useOnboardingStatus(): OnboardingStatus {
   const [error, setError] = useState<string | null>(null);
 
   const checkStatus = useCallback(async () => {
+    // Demo mode is treated as a fully set-up account. There's nothing for
+    // the demo user to actually configure, so we short-circuit instead of
+    // letting the onboarding nudges/checklist appear.
+    if (isDemo()) {
+      setHasRouters(true);
+      setHasPlans(true);
+      setHasPaymentMethods(true);
+      setHasProfile(true);
+      setLoading(false);
+      setError(null);
+      return;
+    }
+
     try {
       setLoading(true);
       setError(null);
@@ -99,6 +117,17 @@ export interface OnboardingCheckResult {
 }
 
 export async function fullOnboardingCheck(): Promise<OnboardingCheckResult> {
+  if (isDemo()) {
+    return {
+      hasRouters: true,
+      hasPlans: true,
+      hasPaymentMethods: true,
+      hasProfile: true,
+      isComplete: true,
+      completedCount: TOTAL_STEPS,
+      firstIncompleteStep: 0,
+    };
+  }
   try {
     const [routers, plans, paymentMethods, profile] = await Promise.allSettled([
       api.getRouters(),

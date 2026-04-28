@@ -24,17 +24,25 @@ const STEPS = [
 
 export default function SetupPage() {
   const router = useRouter();
-  const { isAuthenticated, isLoading, user } = useAuth();
+  const { isAuthenticated, isLoading, isDemo, user } = useAuth();
   const [currentStep, setCurrentStep] = useState(0);
   const [completed, setCompleted] = useState<Record<string, boolean>>({});
   const [showCelebration, setShowCelebration] = useState(false);
   const [resuming, setResuming] = useState(true);
 
   useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
+    if (isLoading) return;
+    if (!isAuthenticated) {
       router.replace('/login');
+      return;
     }
-  }, [isAuthenticated, isLoading, router]);
+    // Demo users have nothing to actually configure — bounce them to the
+    // dashboard rather than letting them sit on a setup page where every
+    // action would just throw "not available in demo mode".
+    if (isDemo) {
+      router.replace('/dashboard');
+    }
+  }, [isAuthenticated, isLoading, isDemo, router]);
 
   useEffect(() => {
     if (!isAuthenticated || isLoading) return;

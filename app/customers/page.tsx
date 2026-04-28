@@ -19,7 +19,6 @@ import MobileDataCard from '../components/MobileDataCard';
 import SearchInput from '../components/SearchInput';
 import FilterPills from '../components/FilterPills';
 import Tabs from '../components/Tabs';
-import RouterSelector from '../components/RouterSelector';
 import DataTable, { DataTableColumn } from '../components/DataTable';
 import Pagination from '../components/Pagination';
 
@@ -28,7 +27,6 @@ type ConnectionFilter = 'all' | 'hotspot' | 'pppoe';
 
 const STORAGE_KEY_STATUS = 'customers.filter.status';
 const STORAGE_KEY_CONNECTION = 'customers.filter.connection';
-const STORAGE_KEY_LIVE_ROUTER = 'customers.live.routerId';
 const PPPOE_POLL_INTERVAL = 30_000;
 
 function getConnectionType(customer: Customer): 'hotspot' | 'pppoe' {
@@ -51,23 +49,22 @@ function formatBytes(bytes: number | undefined | null): string {
   return `${bytes} B`;
 }
 
-const BASE_CUSTOMER_COLUMNS: DataTableColumn[] = [
+// Columns are tuned to fit any non-mobile viewport without horizontal
+// scroll: lower-priority columns progressively hide on tablet (md) and
+// laptop (lg) widths, leaving the highest-value cells (name, online,
+// bandwidth, status, actions) visible from md upward.
+const CUSTOMER_COLUMNS: DataTableColumn[] = [
   { key: 'name', label: 'Customer' },
-  { key: 'phone', label: 'Phone' },
-  { key: 'type', label: 'Type' },
-  { key: 'plan', label: 'Plan' },
-  { key: 'router', label: 'Router' },
+  { key: 'phone', label: 'Phone', className: 'hidden xl:table-cell' },
+  { key: 'plan', label: 'Plan', className: 'hidden lg:table-cell' },
+  { key: 'router', label: 'Router', className: 'hidden xl:table-cell' },
   { key: 'status', label: 'Status' },
-  { key: 'expiry', label: 'Expiry' },
+  { key: 'online', label: 'Online' },
+  { key: 'bandwidth', label: 'Bandwidth', className: 'hidden lg:table-cell' },
+  { key: 'usage', label: 'Session Usage', className: 'hidden xl:table-cell' },
+  { key: 'expiry', label: 'Expiry', className: 'hidden lg:table-cell' },
+  { key: 'actions', label: '' },
 ];
-
-const PPPOE_LIVE_COLUMNS: DataTableColumn[] = [
-  { key: 'live', label: 'Live' },
-  { key: 'bandwidth', label: 'Bandwidth' },
-  { key: 'usage', label: 'Session Usage' },
-];
-
-const ACTIONS_COLUMN: DataTableColumn = { key: 'actions', label: '' };
 
 export default function CustomersPage() {
   const routerNav = useRouter();
@@ -86,14 +83,12 @@ export default function CustomersPage() {
   const [allCustomersCache, setAllCustomersCache] = useState<Customer[]>([]);
   const [refreshKey, setRefreshKey] = useState(0);
 
-  // Live PPPoE monitoring (composed from /pppoe/{router}/users)
-  const [selectedLiveRouterId, setSelectedLiveRouterId] = useState<number | null>(null);
+  // Live PPPoE monitoring — composed silently across ALL the user's routers
+  // by polling /pppoe/{router}/users in parallel; per-router failures are
+  // swallowed so a single offline router never breaks the page.
   const [pppoeLive, setPppoeLive] = useState<Map<string, PPPoEMonitorUser>>(new Map());
-  const [pppoeLiveLoading, setPppoeLiveLoading] = useState(false);
-  const [pppoeLiveError, setPppoeLiveError] = useState<string | null>(null);
 
   const hasClientFilters = searchQuery.trim() !== '' || connectionFilter !== 'all';
-  const showLiveColumns = connectionFilter === 'pppoe' && pppoeLive.size > 0;
 
   // Load filter prefs from localStorage on mount
   const filtersHydrated = useRef(false);
@@ -106,11 +101,6 @@ export default function CustomersPage() {
       const savedConn = localStorage.getItem(STORAGE_KEY_CONNECTION);
       if (savedConn === 'all' || savedConn === 'hotspot' || savedConn === 'pppoe') {
         setConnectionFilter(savedConn);
-      }
-      const savedRouter = localStorage.getItem(STORAGE_KEY_LIVE_ROUTER);
-      if (savedRouter) {
-        const id = parseInt(savedRouter, 10);
-        if (!Number.isNaN(id)) setSelectedLiveRouterId(id);
       }
     } catch {
       /* ignore localStorage errors */
@@ -127,10 +117,6 @@ export default function CustomersPage() {
     if (!filtersHydrated.current) return;
     try { localStorage.setItem(STORAGE_KEY_CONNECTION, connectionFilter); } catch { /* ignore */ }
   }, [connectionFilter]);
-  useEffect(() => {
-    if (!filtersHydrated.current || selectedLiveRouterId === null) return;
-    try { localStorage.setItem(STORAGE_KEY_LIVE_ROUTER, String(selectedLiveRouterId)); } catch { /* ignore */ }
-  }, [selectedLiveRouterId]);
 
   // Modal state
   const [credentialsModal, setCredentialsModal] = useState<PPPoECredentials | null>(null);
@@ -216,33 +202,42 @@ export default function CustomersPage() {
     return () => { cancelled = true; };
   }, [filter, hasClientFilters, refreshKey]);
 
-  // Live PPPoE composition — only fetch when PPPoE filter is active and a router is selected
+  // Live PPPoE composition — automatically polls every router in parallel
+  // and merges the results into a single username→PPPoEMonitorUser map.
+  // Per-router failures (offline router, 5xx) are swallowed silently so one
+  // bad router never blanks the live columns for the others.
   useEffect(() => {
-    if (connectionFilter !== 'pppoe' || !selectedLiveRouterId) {
-      setPppoeLive(new Map());
-      setPppoeLiveError(null);
-      return;
-    }
     let cancelled = false;
-    const load = async (silent: boolean) => {
+    let intervalId: number | null = null;
+
+    const load = async () => {
       try {
-        if (!silent) setPppoeLiveLoading(true);
-        setPppoeLiveError(null);
-        const data = await api.getPPPoEUsers(selectedLiveRouterId);
+        const routers = await api.getRoutersByUserId(1);
+        if (cancelled || routers.length === 0) {
+          if (!cancelled) setPppoeLive(new Map());
+          return;
+        }
+        const results = await Promise.allSettled(
+          routers.map((r) => api.getPPPoEUsers(r.id))
+        );
         if (cancelled) return;
         const map = new Map<string, PPPoEMonitorUser>();
-        data.users.forEach((u) => map.set(u.username, u));
+        for (const r of results) {
+          if (r.status === 'fulfilled') {
+            r.value.users.forEach((u) => map.set(u.username, u));
+          }
+        }
         setPppoeLive(map);
-      } catch (err) {
-        if (!cancelled) setPppoeLiveError(err instanceof Error ? err.message : 'Failed to load live data');
-      } finally {
-        if (!cancelled && !silent) setPppoeLiveLoading(false);
+      } catch {
+        // Routers list itself failed — leave any previous live data intact
+        // and try again on the next tick.
       }
     };
-    load(false);
-    const intervalId = window.setInterval(() => load(true), PPPOE_POLL_INTERVAL);
-    return () => { cancelled = true; clearInterval(intervalId); };
-  }, [connectionFilter, selectedLiveRouterId]);
+
+    load();
+    intervalId = window.setInterval(load, PPPOE_POLL_INTERVAL);
+    return () => { cancelled = true; if (intervalId) clearInterval(intervalId); };
+  }, []);
 
   const handlePageChange = useCallback((newPage: number) => {
     setPage(newPage);
@@ -387,21 +382,6 @@ export default function CustomersPage() {
     showAlert('success', `${label} copied`);
   };
 
-  const ConnectionBadge = ({ type }: { type?: string }) => {
-    if (type === 'pppoe') {
-      return (
-        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider bg-info/10 text-info">
-          PPPoE
-        </span>
-      );
-    }
-    return (
-      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider bg-accent-primary/10 text-accent-primary">
-        Hotspot
-      </span>
-    );
-  };
-
   if (error) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -539,32 +519,6 @@ export default function CustomersPage() {
           />
         </div>
 
-        {/* Live PPPoE monitoring — composed from the PPPoE Monitor data feed */}
-        {connectionFilter === 'pppoe' && (
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between p-3 rounded-xl bg-info/5 border border-info/20 animate-fade-in">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="inline-flex items-center gap-1.5 text-info text-xs font-semibold uppercase tracking-wider">
-                <span className="w-2 h-2 rounded-full bg-info animate-pulse" />
-                Live PPPoE
-              </span>
-              <span className="text-xs text-foreground-muted">
-                {pppoeLiveLoading
-                  ? 'Loading live data…'
-                  : pppoeLiveError
-                  ? <span className="text-danger">{pppoeLiveError}</span>
-                  : pppoeLive.size > 0
-                  ? `${Array.from(pppoeLive.values()).filter((u) => u.online).length} online · ${pppoeLive.size} secrets · auto-refresh 30s`
-                  : 'Pick a router to enrich rows with online status & bandwidth'}
-              </span>
-            </div>
-            <div className="flex-shrink-0">
-              <RouterSelector
-                selectedRouterId={selectedLiveRouterId}
-                onRouterChange={setSelectedLiveRouterId}
-              />
-            </div>
-          </div>
-        )}
       </div>
 
       {loading ? (
@@ -573,17 +527,13 @@ export default function CustomersPage() {
         <>
           {/* Desktop Table */}
           <DataTable<Customer>
-            columns={
-              showLiveColumns
-                ? [...BASE_CUSTOMER_COLUMNS, ...PPPOE_LIVE_COLUMNS, ACTIONS_COLUMN]
-                : [...BASE_CUSTOMER_COLUMNS, ACTIONS_COLUMN]
-            }
+            columns={CUSTOMER_COLUMNS}
             data={displayedCustomers}
             rowKey={(c) => c.id}
             onRowClick={(c) => routerNav.push(`/customers/${c.id}`)}
-            scrollable
             renderCell={(customer, key) => {
               const live = customer.pppoe_username ? pppoeLive.get(customer.pppoe_username) : undefined;
+              const isPppoe = getConnectionType(customer) === 'pppoe';
               switch (key) {
                 case 'name':
                   return (
@@ -601,8 +551,6 @@ export default function CustomersPage() {
                   );
                 case 'phone':
                   return <span className="font-mono text-sm text-foreground-muted">{customer.phone || '-'}</span>;
-                case 'type':
-                  return <ConnectionBadge type={getConnectionType(customer)} />;
                 case 'plan':
                   return (
                     <div>
@@ -638,9 +586,16 @@ export default function CustomersPage() {
                   ) : (
                     <span className="text-foreground-muted">-</span>
                   );
-                case 'live':
-                  if (!live) {
+                case 'online':
+                  if (!isPppoe) {
                     return <span className="text-foreground-muted text-xs">—</span>;
+                  }
+                  if (!live) {
+                    return (
+                      <span className="inline-flex items-center gap-1.5 text-foreground-muted text-xs">
+                        <span className="w-2 h-2 rounded-full bg-foreground-muted/30" /> —
+                      </span>
+                    );
                   }
                   return (
                     <div className="flex flex-col gap-0.5">
@@ -663,26 +618,18 @@ export default function CustomersPage() {
                       {live.online && live.uptime && (
                         <span className="text-[11px] text-foreground-muted">up {live.uptime}</span>
                       )}
-                      {!live.online && live.last_disconnect_reason && (
-                        <span className="text-[11px] text-warning truncate max-w-[180px]" title={live.last_disconnect_reason}>
-                          {live.last_disconnect_reason}
-                        </span>
-                      )}
                     </div>
                   );
                 case 'bandwidth':
-                  if (!live) return <span className="text-foreground-muted text-xs">—</span>;
+                  if (!isPppoe || !live) return <span className="text-foreground-muted text-xs">—</span>;
                   return (
                     <div className="flex flex-col gap-0.5 text-xs tabular-nums">
                       <span className="text-accent-primary">↓ {formatRate(live.download_rate)}</span>
                       <span className="text-teal-500">↑ {formatRate(live.upload_rate)}</span>
-                      {live.max_limit && (
-                        <span className="text-[11px] text-foreground-muted font-mono">limit {live.max_limit}</span>
-                      )}
                     </div>
                   );
                 case 'usage':
-                  if (!live) return <span className="text-foreground-muted text-xs">—</span>;
+                  if (!isPppoe || !live) return <span className="text-foreground-muted text-xs">—</span>;
                   return (
                     <div className="flex flex-col gap-0.5 text-xs tabular-nums">
                       <span className="text-foreground-muted">↓ {formatBytes(live.download_bytes)}</span>
