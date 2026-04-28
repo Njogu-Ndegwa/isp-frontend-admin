@@ -74,7 +74,7 @@ const CUSTOMER_COLUMNS: DataTableColumn[] = [
   { key: 'status', label: 'Status' },
   { key: 'online', label: 'Online' },
   { key: 'bandwidth', label: 'Bandwidth', className: 'hidden lg:table-cell' },
-  { key: 'usage', label: 'Data Usage', className: 'hidden lg:table-cell' },
+  { key: 'usage', label: 'Data Usage' },
   { key: 'expiry', label: 'Expiry', className: 'hidden xl:table-cell' },
   { key: 'actions', label: '' },
 ];
@@ -109,6 +109,13 @@ export default function CustomersPage() {
   // monthly total + cap can be shown inline without drilling into them.
   const [usageMap, setUsageMap] = useState<Map<number, ResellerTopUsageEntry>>(new Map());
   const [usageLoaded, setUsageLoaded] = useState(false);
+
+  // Persistent connection-type counts. Computed from `allCustomersCache` the
+  // first time it gets populated (i.e. once the user lands on a connection
+  // tab or runs a search). Kept in its own state so the counts stay visible
+  // on the tabs even after the user switches back to the "All" connection
+  // view (which clears the cache to use server-side pagination).
+  const [connCounts, setConnCounts] = useState<{ pppoe: number; hotspot: number } | null>(null);
 
   const hasClientFilters = searchQuery.trim() !== '' || connectionFilter !== 'all';
 
@@ -317,6 +324,55 @@ export default function CustomersPage() {
     });
   }, [hasClientFilters, allCustomersCache, customers, filter, connectionFilter, searchQuery]);
 
+  // Whenever we have the full customer list in memory, snapshot how many of
+  // each connection type exist. We hold onto this in `connCounts` so that
+  // when the user later switches back to the "All" connection tab (which
+  // drops the cache for performance) the connection tabs don't lose their
+  // counts.
+  useEffect(() => {
+    if (allCustomersCache.length === 0) return;
+    let pppoe = 0;
+    let hotspot = 0;
+    for (const c of allCustomersCache) {
+      if (getConnectionType(c) === 'pppoe') pppoe++;
+      else hotspot++;
+    }
+    setConnCounts({ pppoe, hotspot });
+  }, [allCustomersCache]);
+
+  // Status pill counts must reflect the current connection tab. On the
+  // "All" connection view the server-side totals are accurate. On a
+  // Hotspot / PPPoE tab we already have the full cache in memory (because
+  // `hasClientFilters` is true) so we can derive precise counts from it.
+  const statusCounts = useMemo<{ all?: number; active?: number; inactive?: number }>(() => {
+    if (connectionFilter === 'all') {
+      return {
+        all: totalAll || undefined,
+        active: totalActive || undefined,
+        inactive: totalAll && totalActive !== undefined
+          ? Math.max(0, totalAll - totalActive) || undefined
+          : undefined,
+      };
+    }
+    if (allCustomersCache.length === 0) {
+      // Cache is still loading for this connection tab — better to show no
+      // count at all than a misleading global one.
+      return { all: undefined, active: undefined, inactive: undefined };
+    }
+    const filtered = allCustomersCache.filter((c) => getConnectionType(c) === connectionFilter);
+    let active = 0;
+    let inactive = 0;
+    for (const c of filtered) {
+      if (c.status === 'active') active++;
+      else if (c.status === 'inactive') inactive++;
+    }
+    return {
+      all: filtered.length || undefined,
+      active: active || undefined,
+      inactive: inactive || undefined,
+    };
+  }, [connectionFilter, totalAll, totalActive, allCustomersCache]);
+
   const displayedCustomers = hasClientFilters
     ? filteredCustomers.slice((page - 1) * perPage, page * perPage)
     : filteredCustomers;
@@ -520,10 +576,11 @@ export default function CustomersPage() {
         ariaLabel="Connection type"
         className="mb-4 animate-fade-in"
         tabs={[
-          { value: 'all', label: 'All' },
+          { value: 'all', label: 'All', count: totalAll || undefined },
           {
             value: 'hotspot',
             label: 'Hotspot',
+            count: connCounts?.hotspot,
             icon: (
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0" />
@@ -533,6 +590,7 @@ export default function CustomersPage() {
           {
             value: 'pppoe',
             label: 'PPPoE',
+            count: connCounts?.pppoe,
             icon: (
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M8.5 14.5A2.5 2.5 0 0011 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 11-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 002.5 2.5z" />
@@ -562,9 +620,9 @@ export default function CustomersPage() {
             onChange={(v) => { setFilter(v); setPage(1); }}
             ariaLabel="Filter by status"
             options={[
-              { value: 'all', label: 'All', count: totalAll || undefined },
-              { value: 'active', label: 'Active', count: totalActive || undefined },
-              { value: 'inactive', label: 'Inactive', count: totalAll && totalActive !== undefined ? Math.max(0, totalAll - totalActive) : undefined },
+              { value: 'all', label: 'All', count: statusCounts.all },
+              { value: 'active', label: 'Active', count: statusCounts.active },
+              { value: 'inactive', label: 'Inactive', count: statusCounts.inactive },
             ]}
           />
         </div>
@@ -889,19 +947,28 @@ export default function CustomersPage() {
                         <span className="h-3 w-14 skeleton inline-block" />
                         <span className="h-3 w-12 skeleton inline-block" />
                       </span>
-                    ) : liveCard && isOnline ? (
-                      <span className="flex items-center gap-1.5 text-xs tabular-nums">
-                        <span className="text-accent-primary">↓ {formatRate(liveCard.download_rate)}</span>
-                        <span className="text-teal-500">↑ {formatRate(liveCard.upload_rate)}</span>
-                      </span>
                     ) : usageCard ? (
+                      // Period usage is the most consistently useful number
+                      // to show — it's meaningful whether or not the customer
+                      // is currently online. Live rates take the secondary
+                      // slot when available so we don't lose them entirely.
                       <span className="flex items-center gap-1.5 text-xs tabular-nums">
                         <span className="text-foreground">{formatDataMB(usageCard.total_mb)}</span>
+                        {usageCard.cap_mb !== null && (
+                          <span className="text-foreground-muted text-[11px]">
+                            / {formatDataMB(usageCard.cap_mb)}
+                          </span>
+                        )}
                         {usageCard.cap_mb !== null && usageColors && (
                           <span className={`${usageColors.text} text-[11px] font-medium`}>
                             {usageCard.percent_used.toFixed(0)}%
                           </span>
                         )}
+                      </span>
+                    ) : liveCard && isOnline ? (
+                      <span className="flex items-center gap-1.5 text-xs tabular-nums">
+                        <span className="text-accent-primary">↓ {formatRate(liveCard.download_rate)}</span>
+                        <span className="text-teal-500">↑ {formatRate(liveCard.upload_rate)}</span>
                       </span>
                     ) : isPppoeCard ? (
                       // PPPoE customer with no live state and no usage data —
@@ -911,7 +978,15 @@ export default function CustomersPage() {
                     ) : (
                       customer.router?.name || '-'
                     ),
-                    right: liveCard && isOnline && liveCard.address ? (
+                    right: liveCard && isOnline && usageCard ? (
+                      // When usage took the left slot but the customer is
+                      // still actively connected, surface their live rates
+                      // here so we don't hide the live activity entirely.
+                      <span className="flex items-center gap-1 text-[11px] tabular-nums">
+                        <span className="text-accent-primary">↓ {formatRate(liveCard.download_rate)}</span>
+                        <span className="text-teal-500">↑ {formatRate(liveCard.upload_rate)}</span>
+                      </span>
+                    ) : liveCard && isOnline && liveCard.address ? (
                       <span className="font-mono text-[11px] text-foreground-muted">{liveCard.address}</span>
                     ) : customer.status === 'active' && customer.hours_remaining !== undefined ? (
                       <span className={`font-medium ${getTimeRemainingColor(customer.hours_remaining)}`}>{formatTimeRemaining(customer.hours_remaining)}</span>
