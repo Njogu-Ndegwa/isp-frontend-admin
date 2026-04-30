@@ -2409,6 +2409,11 @@ export interface GrowthTargetUpdatePayload {
 
 // ─── Shop Types ──────────────────────────────────────────────────────
 
+export interface ShopProductSpec {
+  label: string;
+  value: string;
+}
+
 export interface ShopProduct {
   id: number;
   name: string;
@@ -2419,6 +2424,18 @@ export interface ShopProduct {
   category: string | null;
   is_active: boolean;
   created_at: string;
+  /* Extended fields (returned by GET /shop/products/{id} and optionally by list) */
+  sku?: string;
+  brand?: string;
+  images?: string[];
+  specifications?: ShopProductSpec[];
+  highlights?: string[];
+  original_price?: number;
+  rating?: number;
+  review_count?: number;
+  weight_kg?: number;
+  warranty_months?: number;
+  tags?: string[];
 }
 
 export interface CreateProductRequest {

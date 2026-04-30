@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, Suspense } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { api } from '../lib/api';
 import { useCart } from './layout';
 import type { ShopProduct } from '../lib/types';
@@ -19,8 +20,10 @@ function ProductCard({ product }: { product: ShopProduct }) {
   const { addItem, items } = useCart();
   const cartItem = items.find(i => i.product.id === product.id);
   const [added, setAdded] = useState(false);
+  const [imgError, setImgError] = useState(false);
 
-  const handleAdd = () => {
+  const handleAdd = (e: React.MouseEvent) => {
+    e.preventDefault();
     addItem(product);
     setAdded(true);
     setTimeout(() => setAdded(false), 1500);
@@ -28,14 +31,22 @@ function ProductCard({ product }: { product: ShopProduct }) {
 
   const isLowStock = product.stock_quantity > 0 && product.stock_quantity <= 5;
   const isOutOfStock = product.stock_quantity === 0;
+  const discount = product.original_price
+    ? Math.round((1 - product.price / product.original_price) * 100)
+    : 0;
 
   return (
-    <div className="card group flex flex-col overflow-hidden hover:border-amber-500/30 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-amber-500/5">
-      {/* Product image / placeholder */}
+    <Link href={`/store/products/${product.id}`} className="card group flex flex-col overflow-hidden hover:border-amber-500/30 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-amber-500/5">
+      {/* Product image */}
       <div className="relative bg-background-secondary aspect-square flex items-center justify-center overflow-hidden">
-        {product.image_url ? (
+        {product.image_url && !imgError ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={product.image_url} alt={product.name} className="w-full h-full object-cover" />
+          <img
+            src={product.image_url}
+            alt={product.name}
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+            onError={() => setImgError(true)}
+          />
         ) : (
           <div className="flex flex-col items-center gap-2 text-foreground-muted/40">
             <svg className="w-12 h-12" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
@@ -49,37 +60,72 @@ function ProductCard({ product }: { product: ShopProduct }) {
             <span className="text-xs font-semibold text-foreground-muted border border-border rounded-full px-3 py-1">Out of Stock</span>
           </div>
         )}
-        {isLowStock && !isOutOfStock && (
+        {discount > 0 && (
           <div className="absolute top-2 right-2">
-            <span className="text-[10px] font-semibold bg-amber-500/20 text-amber-500 rounded-full px-2 py-0.5">
+            <span className="text-[10px] font-bold bg-emerald-500 text-white rounded-full px-2 py-0.5">
+              -{discount}%
+            </span>
+          </div>
+        )}
+        {isLowStock && !isOutOfStock && !discount && (
+          <div className="absolute top-2 right-2">
+            <span className="text-[10px] font-semibold bg-amber-500/90 text-[#09090b] rounded-full px-2 py-0.5">
               Only {product.stock_quantity} left
             </span>
           </div>
         )}
-        {product.category && (
+        {product.tags?.includes('bestseller') && (
+          <div className="absolute top-2 left-2">
+            <span className="text-[10px] font-bold bg-amber-500/90 text-[#09090b] rounded-full px-2 py-0.5">
+              🏆 Best Seller
+            </span>
+          </div>
+        )}
+        {product.category && !product.tags?.includes('bestseller') && (
           <div className="absolute top-2 left-2">
             <span className="text-[10px] font-medium bg-background/90 backdrop-blur-sm text-foreground-muted border border-border rounded-full px-2 py-0.5">
               {CATEGORY_ICONS[product.category] || '📦'} {product.category}
             </span>
           </div>
         )}
+        {/* Quick-view overlay */}
+        <div className="absolute bottom-0 left-0 right-0 p-3 opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0 transition-all duration-200">
+          <div className="bg-background/90 backdrop-blur-sm rounded-lg py-1.5 text-center text-xs font-medium text-foreground">
+            View Details →
+          </div>
+        </div>
       </div>
 
       {/* Details */}
       <div className="flex flex-col flex-1 p-4 gap-3">
         <div className="flex-1">
-          <h3 className="font-semibold text-sm leading-snug text-foreground group-hover:text-accent-primary transition-colors line-clamp-2">
+          {product.brand && <p className="text-[10px] text-foreground-muted uppercase tracking-wide font-medium">{product.brand}</p>}
+          <h3 className="font-semibold text-sm leading-snug text-foreground group-hover:text-accent-primary transition-colors line-clamp-2 mt-0.5">
             {product.name}
           </h3>
-          {product.description && (
-            <p className="mt-1.5 text-xs text-foreground-muted leading-relaxed line-clamp-2">{product.description}</p>
+          {product.rating !== undefined && (
+            <div className="flex items-center gap-1 mt-1">
+              {[1,2,3,4,5].map(i => (
+                <svg key={i} className={`w-3 h-3 ${i <= Math.round(product.rating!) ? 'text-amber-400' : 'text-background-tertiary'}`} fill="currentColor" viewBox="0 0 20 20">
+                  <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                </svg>
+              ))}
+              <span className="text-[10px] text-foreground-muted ml-0.5">{product.rating?.toFixed(1)}</span>
+            </div>
           )}
         </div>
 
         <div className="flex items-center justify-between">
-          <span className="text-lg font-bold gradient-text">
-            KES {product.price.toLocaleString()}
-          </span>
+          <div>
+            <span className="text-base font-bold gradient-text">
+              KES {product.price.toLocaleString()}
+            </span>
+            {product.original_price && (
+              <span className="text-xs text-foreground-muted line-through ml-1.5">
+                KES {product.original_price.toLocaleString()}
+              </span>
+            )}
+          </div>
           {cartItem && (
             <span className="text-xs text-accent-primary font-medium bg-accent-primary/10 px-2 py-0.5 rounded-full">
               {cartItem.quantity} in cart
@@ -101,7 +147,7 @@ function ProductCard({ product }: { product: ShopProduct }) {
           {isOutOfStock ? 'Out of Stock' : added ? '✓ Added to Cart' : 'Add to Cart'}
         </button>
       </div>
-    </div>
+    </Link>
   );
 }
 
@@ -173,11 +219,12 @@ function CartDrawer({ onClose }: { onClose: () => void }) {
   );
 }
 
-export default function StorePage() {
+function StorePageInner() {
+  const searchParams = useSearchParams();
   const [products, setProducts] = useState<ShopProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [activeCategory, setActiveCategory] = useState<string | null>(null);
+  const [activeCategory, setActiveCategory] = useState<string | null>(searchParams.get('cat'));
   const [cartOpen, setCartOpen] = useState(false);
   const { count } = useCart();
 
@@ -345,5 +392,13 @@ export default function StorePage() {
         </div>
       </section>
     </>
+  );
+}
+
+export default function StorePage() {
+  return (
+    <Suspense fallback={<div className="py-20 text-center text-foreground-muted text-sm">Loading store...</div>}>
+      <StorePageInner />
+    </Suspense>
   );
 }

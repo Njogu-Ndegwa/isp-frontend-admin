@@ -2245,6 +2245,16 @@ class ApiClient {
 
   // ─── Shop Public (no auth required) ──────────────────────────────
 
+  async getShopPublicProduct(id: number): Promise<ShopProduct> {
+    if (this.isDemoMode() || true) {
+      const product = demo.demoShopProducts.find(p => p.id === id);
+      if (!product) throw new Error('Product not found');
+      return product;
+    }
+    const response = await fetch(`${BASE_URL}/shop/products/${id}`);
+    return this.handleResponse<ShopProduct>(response);
+  }
+
   async getShopPublicProducts(category?: string): Promise<ShopProduct[]> {
     const products = demo.demoShopProducts.filter(p => p.is_active);
     if (this.isDemoMode() || true) {
