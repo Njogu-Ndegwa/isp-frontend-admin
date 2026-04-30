@@ -163,8 +163,68 @@ function Skeleton() {
   );
 }
 
+/* ─── Bitwave Ad Panel ───────────────────────────────────────────── */
+function BitwaveAdPanel() {
+  return (
+    <Link
+      href="/landing"
+      className="block group relative overflow-hidden rounded-2xl border border-amber-500/20 bg-gradient-to-br from-[#09090b] to-[#1a1400] p-5 hover:border-amber-500/40 transition-all hover:-translate-y-0.5 hover:shadow-xl hover:shadow-amber-500/10"
+    >
+      <div className="absolute inset-0 bg-gradient-to-br from-amber-500/5 via-transparent to-orange-500/5" />
+      <div className="relative">
+        <div className="flex items-center gap-2 mb-3">
+          <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center shadow-md shadow-amber-500/30">
+            <svg className="w-4 h-4 text-[#09090b]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0" /></svg>
+          </div>
+          <span className="text-xs font-semibold text-amber-500 uppercase tracking-wide">Bitwave ISP Platform</span>
+        </div>
+        <p className="text-sm font-semibold text-white leading-snug mb-1">
+          You bought the gear. Now automate the billing.
+        </p>
+        <p className="text-xs text-white/50 leading-relaxed mb-4">
+          Bitwave connects to your MikroTik routers and handles PPPoE, hotspot billing, M-Pesa payments, and disconnect/reconnect — automatically.
+        </p>
+        <div className="flex items-center gap-1.5 text-xs font-semibold text-amber-400 group-hover:text-amber-300 transition-colors">
+          See how it works
+          <svg className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
+        </div>
+      </div>
+    </Link>
+  );
+}
+
 /* ─── Main Page ──────────────────────────────────────────────────── */
 type ActiveTab = 'specs' | 'description' | 'shipping';
+
+function ExpandableDescription({ text }: { text: string }) {
+  const [expanded, setExpanded] = useState(false);
+  const paragraphs = text.split('\n').filter(Boolean);
+  const isLong = paragraphs.length > 2 || text.length > 350;
+  const preview = paragraphs.slice(0, 2).join('\n');
+
+  return (
+    <div className="max-w-2xl">
+      <div className="text-foreground-muted leading-relaxed whitespace-pre-line text-sm">
+        {expanded || !isLong ? text : preview}
+        {!expanded && isLong && (
+          <span className="text-foreground-muted/60">...</span>
+        )}
+      </div>
+      {isLong && (
+        <button
+          onClick={() => setExpanded(!expanded)}
+          className="mt-3 flex items-center gap-1.5 text-sm font-medium text-accent-primary hover:text-amber-400 transition-colors"
+        >
+          {expanded ? (
+            <><svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" /></svg>Show less</>
+          ) : (
+            <><svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>Read the full story</>
+          )}
+        </button>
+      )}
+    </div>
+  );
+}
 
 export default function ProductDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -392,6 +452,9 @@ export default function ProductDetailPage() {
                 : `${product.warranty_months}-month warranty`}
             </div>
           )}
+
+          {/* Bitwave billing ad */}
+          <BitwaveAdPanel />
         </div>
       </div>
 
@@ -427,10 +490,10 @@ export default function ProductDetailPage() {
           )}
 
           {tab === 'description' && (
-            <div className="max-w-2xl">
-              <p className="text-foreground-muted leading-relaxed">{product.description || 'No detailed description available.'}</p>
+            <div className="max-w-2xl space-y-6">
+              <ExpandableDescription text={product.description || 'No detailed description available.'} />
               {product.highlights && product.highlights.length > 0 && (
-                <div className="mt-6">
+                <div>
                   <h3 className="font-semibold mb-3">Key Features</h3>
                   <ul className="space-y-2">
                     {product.highlights.map((h, i) => (

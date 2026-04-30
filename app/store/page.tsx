@@ -7,6 +7,94 @@ import { api } from '../lib/api';
 import { useCart } from './layout';
 import type { ShopProduct } from '../lib/types';
 
+/* ─── Dismissible Bitwave banner ─────────────────────────────────── */
+function BitwaveBanner() {
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    try {
+      const dismissed = localStorage.getItem('bw_store_ad_dismissed');
+      if (!dismissed) setVisible(true);
+    } catch { setVisible(true); }
+  }, []);
+
+  const dismiss = () => {
+    setVisible(false);
+    try { localStorage.setItem('bw_store_ad_dismissed', '1'); } catch {}
+  };
+
+  if (!visible) return null;
+
+  return (
+    <div className="relative overflow-hidden rounded-2xl border border-amber-500/20 bg-gradient-to-br from-[#09090b] via-[#0f0d00] to-[#09090b] p-6 mb-6">
+      {/* Background glow */}
+      <div className="absolute inset-0 bg-gradient-to-r from-amber-500/5 via-orange-500/3 to-transparent pointer-events-none" />
+      <div className="absolute -top-12 -right-12 w-48 h-48 rounded-full bg-amber-500/5 blur-3xl pointer-events-none" />
+
+      <button
+        onClick={dismiss}
+        className="absolute top-3 right-3 p-1.5 rounded-lg text-white/30 hover:text-white/60 hover:bg-white/5 transition-colors"
+        aria-label="Dismiss"
+      >
+        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+      </button>
+
+      <div className="relative flex flex-col sm:flex-row items-start sm:items-center gap-5">
+        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center flex-shrink-0 shadow-lg shadow-amber-500/25">
+          <svg className="w-6 h-6 text-[#09090b]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0" /></svg>
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-xs font-semibold text-amber-500 uppercase tracking-wide">Bitwave ISP Billing</span>
+            <span className="text-[10px] bg-amber-500/20 text-amber-400 rounded-full px-2 py-0.5 font-medium">Trusted by 200+ ISPs</span>
+          </div>
+          <p className="text-white font-semibold text-sm sm:text-base">
+            You have the equipment. Now automate everything that comes after.
+          </p>
+          <p className="text-white/50 text-xs mt-1 leading-relaxed">
+            Bitwave connects to your MikroTik routers and handles PPPoE, hotspot billing, M-Pesa payments, and auto-disconnect — without you lifting a finger.
+          </p>
+        </div>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <Link href="/landing" onClick={dismiss} className="flex items-center gap-1.5 bg-gradient-to-r from-amber-500 to-orange-500 text-[#09090b] text-xs font-bold px-4 py-2.5 rounded-xl hover:shadow-lg hover:shadow-amber-500/30 transition-all whitespace-nowrap">
+            See How It Works
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
+          </Link>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Inline grid ad (appears after item 8) ──────────────────────── */
+function BitwaveGridAd() {
+  return (
+    <Link
+      href="/landing"
+      className="col-span-2 sm:col-span-3 lg:col-span-4 group block relative overflow-hidden rounded-2xl border border-amber-500/20 bg-gradient-to-r from-[#09090b] via-[#0f0d01] to-[#09090b] p-6 hover:border-amber-500/40 transition-all"
+    >
+      <div className="absolute inset-0 bg-gradient-to-r from-amber-500/8 via-transparent to-transparent pointer-events-none" />
+      <div className="absolute -right-8 top-1/2 -translate-y-1/2 w-40 h-40 rounded-full bg-amber-500/5 blur-2xl pointer-events-none" />
+
+      <div className="relative flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center flex-shrink-0 shadow-md shadow-amber-500/25">
+            <svg className="w-5 h-5 text-[#09090b]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0" /></svg>
+          </div>
+          <div>
+            <p className="text-white text-sm font-bold">Powering the ISP behind the equipment</p>
+            <p className="text-white/40 text-xs mt-0.5">Bitwave automates billing, payments & router management for ISPs across Kenya</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 text-amber-400 text-xs font-semibold group-hover:gap-3 transition-all whitespace-nowrap">
+          Join 200+ ISPs on Bitwave
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
+        </div>
+      </div>
+    </Link>
+  );
+}
+
 const CATEGORY_ICONS: Record<string, string> = {
   Routers: '🔌',
   Cables: '🔗',
@@ -327,6 +415,9 @@ function StorePageInner() {
           </div>
         </div>
 
+        {/* Bitwave banner (dismissible) */}
+        <BitwaveBanner />
+
         {/* Results count */}
         <p className="text-xs text-foreground-muted mb-4">
           {loading ? 'Loading products...' : `${filtered.length} product${filtered.length !== 1 ? 's' : ''}${activeCategory ? ` in ${activeCategory}` : ''}`}
@@ -355,7 +446,12 @@ function StorePageInner() {
           </div>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-            {filtered.map(p => <ProductCard key={p.id} product={p} />)}
+            {filtered.map((p, i) => (
+              <>
+                <ProductCard key={p.id} product={p} />
+                {i === 7 && <BitwaveGridAd key="grid-ad" />}
+              </>
+            ))}
           </div>
         )}
 
