@@ -767,8 +767,17 @@ function MikroTikSection({
   const storage = data.storage ?? { usedPercent: 0, usedBytes: 0, totalBytes: 0 };
   const system = data.system ?? { boardName: 'Unknown', platform: 'Unknown', version: '0', uptime: 'N/A' };
   const interfaces = data.interfaces ?? [];
-  const activeUsers = data.activeSessionCount ?? 0;
-  const activePppoe = data.activePppoeCount ?? 0;
+  // Hotspot count comes from a snapshot (a few minutes old — see snapshotAgeSeconds);
+  // PPPoE count is read live; total is backend-computed and guaranteed to equal hotspot + pppoe.
+  const activeHotspot = data.activeHotspotUsers ?? data.activeSessionCount ?? 0;
+  const activePppoe = data.activePppoeUsers ?? data.activePppoeCount ?? 0;
+  const activeTotal = data.activeTotalUsers ?? activeHotspot + activePppoe;
+  const snapshotAgeSec = Math.round(data.snapshotAgeSeconds ?? 0);
+  const hotspotAgeLabel = snapshotAgeSec > 0
+    ? snapshotAgeSec < 60
+      ? `updated ${snapshotAgeSec}s ago`
+      : `updated ${Math.round(snapshotAgeSec / 60)}m ago`
+    : 'snapshot';
   const uptime = data.uptime || system.uptime || 'N/A';
   const routerName = data.routerName || system.boardName || 'Router';
   const bandwidth = data.bandwidth ?? { downloadMbps: 0, uploadMbps: 0 };
@@ -841,18 +850,20 @@ function MikroTikSection({
             <UsersIcon className="w-5 h-5 sm:w-6 sm:h-6 text-amber-500" />
           </div>
           <div className="flex items-stretch gap-3 sm:gap-4">
-            <div className="flex flex-col items-center">
-              <span className="text-xl sm:text-2xl font-bold text-amber-500 stat-value leading-none">{activeUsers}</span>
+            <div className="flex flex-col items-center" title={`Hotspot users — ${hotspotAgeLabel}`}>
+              <span className="text-xl sm:text-2xl font-bold text-amber-500 stat-value leading-none">{activeHotspot}</span>
               <span className="text-[9px] sm:text-[10px] font-medium text-foreground-muted uppercase tracking-wide mt-1">Hotspot</span>
+              <span className="text-[8px] sm:text-[9px] text-foreground-muted/70 mt-0.5">{hotspotAgeLabel}</span>
             </div>
             <div className="w-px bg-amber-500/20" />
-            <div className="flex flex-col items-center">
+            <div className="flex flex-col items-center" title="PPPoE users — live count">
               <span className="text-xl sm:text-2xl font-bold text-sky-400 stat-value leading-none">{activePppoe}</span>
               <span className="text-[9px] sm:text-[10px] font-medium text-foreground-muted uppercase tracking-wide mt-1">PPPoE</span>
+              <span className="text-[8px] sm:text-[9px] text-emerald-400/80 mt-0.5">live</span>
             </div>
           </div>
           <span className="text-[9px] sm:text-[10px] text-foreground-muted mt-2">
-            {activeUsers + activePppoe} active • online
+            {activeTotal} active • online
           </span>
         </div>
       </div>

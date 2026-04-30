@@ -9,6 +9,10 @@ import {
   ShopAnalytics,
   AddTrackingEventRequest,
   ShopTrackingEvent,
+  PlaceOrderRequest,
+  PlaceOrderResponse,
+  InitiatePaymentResponse,
+  ShopPaymentStatusResponse,
   DashboardOverview,
   DashboardAnalytics,
   MikroTikMetrics,
@@ -2237,6 +2241,86 @@ class ApiClient {
       headers: this.getHeaders(),
     });
     return this.handleResponse<ShopAnalytics>(response);
+  }
+
+  // ─── Shop Public (no auth required) ──────────────────────────────
+
+  async getShopPublicProducts(category?: string): Promise<ShopProduct[]> {
+    const products = demo.demoShopProducts.filter(p => p.is_active);
+    if (this.isDemoMode() || true) {
+      if (category) return products.filter(p => p.category === category);
+      return products;
+    }
+    const url = category
+      ? `${BASE_URL}/shop/products?category=${encodeURIComponent(category as string)}`
+      : `${BASE_URL}/shop/products`;
+    const response = await fetch(url);
+    return this.handleResponse<ShopProduct[]>(response);
+  }
+
+  async placeShopOrder(data: PlaceOrderRequest): Promise<PlaceOrderResponse> {
+    if (this.isDemoMode() || true) {
+      const orderNum = `ORD-${Date.now().toString().slice(-6)}`;
+      return {
+        order_id: Math.floor(Math.random() * 900) + 100,
+        order_number: orderNum,
+        total_amount: data.items.reduce((sum, item) => {
+          const product = demo.demoShopProducts.find(p => p.id === item.product_id);
+          return sum + (product ? product.price * item.quantity : 0);
+        }, 0),
+        status: 'pending',
+        payment_status: 'unpaid',
+      };
+    }
+    const response = await fetch(`${BASE_URL}/shop/orders`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    return this.handleResponse<PlaceOrderResponse>(response);
+  }
+
+  async initiateShopPayment(orderId: number, phone: string): Promise<InitiatePaymentResponse> {
+    if (this.isDemoMode() || true) {
+      return {
+        message: 'STK Push sent. Enter your M-Pesa PIN to complete payment.',
+        checkout_request_id: `ws_CO_${Date.now()}`,
+        order_number: `ORD-${orderId}`,
+      };
+    }
+    const response = await fetch(`${BASE_URL}/shop/orders/${orderId}/pay`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phone }),
+    });
+    return this.handleResponse<InitiatePaymentResponse>(response);
+  }
+
+  async checkShopPaymentStatus(orderId: number): Promise<ShopPaymentStatusResponse> {
+    if (this.isDemoMode() || true) {
+      return {
+        payment_status: 'paid',
+        status: 'confirmed',
+        mpesa_receipt_number: `QJK${Math.floor(Math.random() * 900000 + 100000)}`,
+      };
+    }
+    const response = await fetch(`${BASE_URL}/shop/orders/${orderId}/payment-status`);
+    return this.handleResponse<ShopPaymentStatusResponse>(response);
+  }
+
+  async trackShopOrder(orderNumber: string, phone: string): Promise<ShopOrder> {
+    if (this.isDemoMode() || true) {
+      const order = demo.demoShopOrders[0];
+      return {
+        ...order,
+        order_number: orderNumber,
+        buyer_phone: phone,
+      };
+    }
+    const response = await fetch(
+      `${BASE_URL}/shop/orders/track/${encodeURIComponent(orderNumber)}?phone=${encodeURIComponent(phone)}`
+    );
+    return this.handleResponse<ShopOrder>(response);
   }
 }
 

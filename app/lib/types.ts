@@ -2541,6 +2541,40 @@ export interface AddTrackingEventRequest {
   note?: string;
 }
 
+export interface CartItem {
+  product: ShopProduct;
+  quantity: number;
+}
+
+export interface PlaceOrderRequest {
+  buyer_name: string;
+  buyer_phone: string;
+  buyer_email?: string;
+  delivery_address?: string;
+  notes?: string;
+  items: { product_id: number; quantity: number }[];
+}
+
+export interface PlaceOrderResponse {
+  order_id: number;
+  order_number: string;
+  total_amount: number;
+  status: ShopOrderStatus;
+  payment_status: ShopPaymentStatus;
+}
+
+export interface InitiatePaymentResponse {
+  message: string;
+  checkout_request_id: string;
+  order_number: string;
+}
+
+export interface ShopPaymentStatusResponse {
+  payment_status: ShopPaymentStatus;
+  status: ShopOrderStatus;
+  mpesa_receipt_number: string | null;
+}
+
 // ─── Lead Pipeline / CRM ─────────────────────────────────────────────
 
 export type LeadStage =

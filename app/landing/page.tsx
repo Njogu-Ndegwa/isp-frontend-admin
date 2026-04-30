@@ -86,6 +86,13 @@ const NAV_LINKS = [
   { label: 'Testimonials', href: '#testimonials' },
 ];
 
+const SHOP_PRODUCTS = [
+  { name: 'Mikrotik hAP ac²', category: 'Routers', price: 'KES 4,500', tag: 'Best Seller', emoji: '🔌' },
+  { name: 'Cat6 Outdoor Cable (305m)', category: 'Cables', price: 'KES 3,800', tag: 'Popular', emoji: '🔗' },
+  { name: 'Ubiquiti airGrid M5 HP', category: 'Antennas', price: 'KES 9,200', tag: 'Long Range', emoji: '📡' },
+  { name: 'TP-Link 24-Port Switch', category: 'Switches', price: 'KES 6,500', tag: 'In Stock', emoji: '🔀' },
+];
+
 const FEATURES = [
   {
     title: 'Automated Billing',
@@ -380,6 +387,10 @@ export default function LandingPage() {
           </button>
           <div className="hidden md:flex items-center gap-8">
             {NAV_LINKS.map(l => (<button key={l.href} onClick={() => scrollTo(l.href.slice(1))} className={`text-sm font-medium transition-colors ${scrolled ? 'text-foreground-muted hover:text-foreground' : 'text-white/70 hover:text-white'}`}>{l.label}</button>))}
+            <Link href="/store" className={`text-sm font-semibold flex items-center gap-1.5 px-3 py-1.5 rounded-lg border transition-all ${scrolled ? 'border-amber-500/30 text-amber-500 hover:bg-amber-500/10' : 'border-white/20 text-amber-400 hover:border-amber-400/40 hover:bg-amber-400/10'}`}>
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" /></svg>
+              Shop
+            </Link>
           </div>
           <div className="hidden md:flex items-center gap-3">
             <button onClick={handleTryDemo} className={`text-sm font-medium transition-colors ${scrolled ? 'text-foreground-muted hover:text-foreground' : 'text-white/70 hover:text-white'}`}>Demo</button>
@@ -395,6 +406,10 @@ export default function LandingPage() {
         <div className={`md:hidden overflow-hidden transition-all duration-300 bg-background/95 backdrop-blur-xl ${mobileMenuOpen ? 'max-h-80 border-b border-border' : 'max-h-0'}`}>
           <div className="px-4 py-4 space-y-3">
             {NAV_LINKS.map(l => (<button key={l.href} onClick={() => scrollTo(l.href.slice(1))} className="block w-full text-left text-sm font-medium text-foreground-muted hover:text-foreground py-2 transition-colors">{l.label}</button>))}
+            <Link href="/store" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-2 py-2 text-sm font-semibold text-amber-500 hover:text-amber-400 transition-colors">
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" /></svg>
+              Equipment Shop
+            </Link>
             <div className="pt-3 border-t border-border space-y-2">
               <div className="flex gap-3">
                 <Link href="/signup" className="btn-primary text-sm flex-1 text-center">Sign Up</Link>
@@ -547,6 +562,62 @@ export default function LandingPage() {
               </Reveal>
             ))}
           </div>
+        </div>
+      </section>
+
+      {/* ============================================================ */}
+      {/*  SHOP FEATURE SECTION                                         */}
+      {/* ============================================================ */}
+      <section id="shop" className="py-20 md:py-28 px-4 bg-gradient-to-br from-background via-background to-amber-500/5">
+        <div className="max-w-6xl mx-auto">
+          <Reveal>
+            <div className="text-center mb-14">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-amber-500/20 bg-amber-500/5 mb-4">
+                <svg className="w-3.5 h-3.5 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" /></svg>
+                <span className="text-xs text-amber-500 font-medium">Equipment Shop</span>
+              </div>
+              <h2 className="text-3xl md:text-4xl font-bold mt-2">
+                Everything your ISP needs,<br /><span className="gradient-text">in one place</span>
+              </h2>
+              <p className="mt-4 text-foreground-muted max-w-xl mx-auto">
+                Shop genuine MikroTik routers, Ubiquiti antennas, Cat6 cables, and ISP accessories. Pay via M-Pesa, get delivered anywhere in Kenya.
+              </p>
+            </div>
+          </Reveal>
+
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
+            {SHOP_PRODUCTS.map((p, i) => (
+              <Reveal key={i} delay={0.07 * i}>
+                <div className="card group hover:border-amber-500/30 transition-all hover:-translate-y-0.5 hover:shadow-lg hover:shadow-amber-500/5">
+                  <div className="aspect-square bg-background-secondary rounded-t-xl flex items-center justify-center text-5xl">
+                    {p.emoji}
+                  </div>
+                  <div className="p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-[10px] font-medium text-foreground-muted border border-border rounded-full px-2 py-0.5">{p.category}</span>
+                      <span className="text-[10px] font-semibold text-amber-500 bg-amber-500/10 rounded-full px-2 py-0.5">{p.tag}</span>
+                    </div>
+                    <h3 className="text-sm font-semibold leading-snug group-hover:text-accent-primary transition-colors">{p.name}</h3>
+                    <p className="text-base font-bold gradient-text mt-2">{p.price}</p>
+                  </div>
+                </div>
+              </Reveal>
+            ))}
+          </div>
+
+          <Reveal delay={0.2}>
+            <div className="text-center">
+              <Link
+                href="/store"
+                className="inline-flex items-center gap-2.5 bg-gradient-to-r from-amber-500 to-orange-500 text-[#09090b] font-semibold px-8 py-4 rounded-xl hover:shadow-xl hover:shadow-amber-500/30 hover:-translate-y-0.5 transition-all"
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" /></svg>
+                Browse the Full Shop
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
+              </Link>
+              <p className="mt-3 text-sm text-foreground-muted">Pay with M-Pesa · Fast delivery · Genuine products</p>
+            </div>
+          </Reveal>
         </div>
       </section>
 
@@ -732,6 +803,7 @@ export default function LandingPage() {
               <h4 className="text-sm font-semibold uppercase tracking-wider text-foreground-muted mb-4">Product</h4>
               <ul className="space-y-2.5">
                 {['Billing System', 'Router Management', 'Customer Portal', 'Analytics Dashboard'].map(item => (<li key={item}><span className="text-sm text-foreground-muted hover:text-foreground transition-colors cursor-pointer">{item}</span></li>))}
+                <li><Link href="/store" className="text-sm text-amber-500 hover:text-amber-400 transition-colors font-medium">Equipment Shop →</Link></li>
               </ul>
             </div>
             <div>

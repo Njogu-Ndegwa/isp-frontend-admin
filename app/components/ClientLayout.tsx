@@ -8,6 +8,7 @@ import MobileBottomNav from './MobileBottomNav';
 import SubscriptionBlockedModal from './SubscriptionBlockedModal';
 
 const PUBLIC_PATHS = ['/', '/login', '/landing', '/signup'];
+const PUBLIC_PREFIXES = ['/store'];
 const FULLSCREEN_AUTH_PATHS = ['/setup'];
 
 function DemoBanner() {
@@ -40,7 +41,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   const router = useRouter();
   const { isAuthenticated, isLoading, isDemo, user } = useAuth();
 
-  const isPublicPage = PUBLIC_PATHS.includes(pathname);
+  const isPublicPage = PUBLIC_PATHS.includes(pathname) || PUBLIC_PREFIXES.some(p => pathname.startsWith(p));
 
   if (isPublicPage) {
     return <main className="min-h-screen">{children}</main>;
