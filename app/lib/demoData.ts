@@ -61,6 +61,10 @@ import type {
   LeadBackfillRequest,
   LeadBackfillResponse,
   LeadBackfillItem,
+  ShopProduct,
+  ShopOrder,
+  ShopDashboard,
+  ShopAnalytics,
 } from './types';
 
 const now = new Date();
@@ -266,6 +270,7 @@ export const demoMikroTikMetrics: MikroTikMetrics = {
     bytesIn: Math.floor(Math.random() * 500000000), bytesOut: Math.floor(Math.random() * 2000000000),
   })),
   activeSessionCount: 42,
+  activeHotspotUsers: 42,
   activePppoeSessions: Array.from({ length: 5 }, (_, i) => ({
     user: demoCustomers[(i + 8) % demoCustomers.length].name.toLowerCase().replace(/\s+/g, '_'),
     address: `10.20.${i + 1}.${Math.floor(Math.random() * 250 + 2)}`,
@@ -275,6 +280,9 @@ export const demoMikroTikMetrics: MikroTikMetrics = {
     sessionId: `0x8100001${i}`,
   })),
   activePppoeCount: 17,
+  activePppoeUsers: 17,
+  activeTotalUsers: 59,
+  sessionsTruncated: false,
   interfaces: [
     { name: 'ether1-WAN', type: 'ether', running: true, disabled: false, rx_byte: 85000000000, tx_byte: 12000000000, rx_packet: 65000000, tx_packet: 9800000, rx_error: 0, tx_error: 0 },
     { name: 'ether2-LAN', type: 'ether', running: true, disabled: false, rx_byte: 11000000000, tx_byte: 78000000000, rx_packet: 8500000, tx_packet: 60000000, rx_error: 2, tx_error: 0 },
@@ -1357,6 +1365,231 @@ export function demoBackfillLeads(req: LeadBackfillRequest = {}): LeadBackfillRe
     message,
   };
 }
+
+// ─── Shop Demo Data ──────────────────────────────────────────────────
+
+export const demoShopProducts: ShopProduct[] = [
+  {
+    id: 1,
+    name: 'Mikrotik hAP ac²',
+    description: 'Dual-band 2.4/5 GHz home access point with five Gigabit ports. Ideal for home and small-office deployments.',
+    price: 4500.00,
+    stock_quantity: 18,
+    image_url: null,
+    category: 'Routers',
+    is_active: true,
+    created_at: iso(30),
+  },
+  {
+    id: 2,
+    name: 'TP-Link TL-WR841N',
+    description: '300 Mbps wireless N router — affordable entry-level option for home hotspot setups.',
+    price: 1800.00,
+    stock_quantity: 32,
+    image_url: null,
+    category: 'Routers',
+    is_active: true,
+    created_at: iso(25),
+  },
+  {
+    id: 3,
+    name: 'CAT6 Ethernet Cable (20m)',
+    description: 'High-quality CAT6 UTP patch cable, 20 metres. Suitable for indoor structured cabling.',
+    price: 650.00,
+    stock_quantity: 50,
+    image_url: null,
+    category: 'Cables',
+    is_active: true,
+    created_at: iso(20),
+  },
+  {
+    id: 4,
+    name: 'RJ45 Crimping Kit',
+    description: 'Professional crimping tool, wire stripper, and 50-piece RJ45 connectors in one kit.',
+    price: 1200.00,
+    stock_quantity: 10,
+    image_url: null,
+    category: 'Tools',
+    is_active: true,
+    created_at: iso(15),
+  },
+  {
+    id: 5,
+    name: 'Outdoor CPE (5 GHz)',
+    description: 'Long-range 5 GHz outdoor CPE for point-to-point or point-to-multipoint links up to 15 km.',
+    price: 6500.00,
+    stock_quantity: 0,
+    image_url: null,
+    category: 'CPE',
+    is_active: false,
+    created_at: iso(10),
+  },
+];
+
+export const demoShopOrders: ShopOrder[] = [
+  {
+    id: 42,
+    order_number: 'ORD3A9F1C2B',
+    buyer_name: 'Jane Doe',
+    buyer_phone: '0712345678',
+    buyer_email: 'jane@example.com',
+    delivery_address: '123 Ngong Road, Nairobi',
+    total_amount: 9000.00,
+    status: 'confirmed',
+    payment_status: 'paid',
+    mpesa_receipt_number: 'QJK3X1Y2Z4',
+    notes: null,
+    created_at: iso(0, 2),
+    items: [
+      { id: 10, product_id: 1, product_name: 'Mikrotik hAP ac²', product_price: 4500.00, quantity: 2, subtotal: 9000.00 },
+    ],
+    tracking_history: [
+      { id: 1, status_label: 'Payment confirmed', note: 'M-Pesa receipt: QJK3X1Y2Z4', created_at: iso(0, 2) },
+    ],
+  },
+  {
+    id: 43,
+    order_number: 'ORD7B2E4D1F',
+    buyer_name: 'John Kamau',
+    buyer_phone: '0722111222',
+    buyer_email: null,
+    delivery_address: 'Westlands, Nairobi',
+    total_amount: 1800.00,
+    status: 'shipped',
+    payment_status: 'paid',
+    mpesa_receipt_number: 'PQR1234567',
+    notes: 'Call before delivery',
+    created_at: iso(1),
+    items: [
+      { id: 11, product_id: 2, product_name: 'TP-Link TL-WR841N', product_price: 1800.00, quantity: 1, subtotal: 1800.00 },
+    ],
+    tracking_history: [
+      { id: 2, status_label: 'Payment confirmed', note: null, created_at: iso(1) },
+      { id: 3, status_label: 'Dispatched from warehouse', note: 'Rider en route', created_at: iso(0, 8) },
+    ],
+  },
+  {
+    id: 44,
+    order_number: 'ORD5C3F7A8E',
+    buyer_name: 'Mary Wanjiku',
+    buyer_phone: '0733444555',
+    buyer_email: 'mary@example.com',
+    delivery_address: null,
+    total_amount: 1850.00,
+    status: 'pending',
+    payment_status: 'unpaid',
+    mpesa_receipt_number: null,
+    notes: null,
+    created_at: iso(0, 1),
+    items: [
+      { id: 12, product_id: 3, product_name: 'CAT6 Ethernet Cable (20m)', product_price: 650.00, quantity: 1, subtotal: 650.00 },
+      { id: 13, product_id: 4, product_name: 'RJ45 Crimping Kit', product_price: 1200.00, quantity: 1, subtotal: 1200.00 },
+    ],
+    tracking_history: [],
+  },
+  {
+    id: 45,
+    order_number: 'ORD8D1B9C3A',
+    buyer_name: 'Peter Otieno',
+    buyer_phone: '0700888999',
+    buyer_email: null,
+    delivery_address: 'Kisumu Town',
+    total_amount: 4500.00,
+    status: 'delivered',
+    payment_status: 'paid',
+    mpesa_receipt_number: 'XYZ9876543',
+    notes: null,
+    created_at: iso(3),
+    items: [
+      { id: 14, product_id: 1, product_name: 'Mikrotik hAP ac²', product_price: 4500.00, quantity: 1, subtotal: 4500.00 },
+    ],
+    tracking_history: [
+      { id: 4, status_label: 'Payment confirmed', note: null, created_at: iso(3) },
+      { id: 5, status_label: 'Dispatched', note: null, created_at: iso(2, 4) },
+      { id: 6, status_label: 'Delivered', note: 'Customer received', created_at: iso(2) },
+    ],
+  },
+  {
+    id: 46,
+    order_number: 'ORD2A4C6E8F',
+    buyer_name: 'Grace Njeri',
+    buyer_phone: '0711222333',
+    buyer_email: null,
+    delivery_address: 'Mombasa Road',
+    total_amount: 1300.00,
+    status: 'cancelled',
+    payment_status: 'unpaid',
+    mpesa_receipt_number: null,
+    notes: 'Customer changed mind',
+    created_at: iso(4),
+    items: [
+      { id: 15, product_id: 3, product_name: 'CAT6 Ethernet Cable (20m)', product_price: 650.00, quantity: 2, subtotal: 1300.00 },
+    ],
+    tracking_history: [],
+  },
+];
+
+export const demoShopDashboard: ShopDashboard = {
+  revenue: {
+    today: 10800.00,
+    this_week: 67200.00,
+    this_month: 241000.00,
+    all_time: 1850000.00,
+  },
+  orders: {
+    total: 46,
+    by_status: {
+      pending: 3,
+      confirmed: 5,
+      processing: 2,
+      shipped: 4,
+      delivered: 30,
+      cancelled: 2,
+    },
+    by_payment: {
+      unpaid: 4,
+      paid: 40,
+      refunded: 2,
+    },
+    pending_payment: 4,
+    needs_fulfillment: 7,
+  },
+  top_products: [
+    { product_id: 1, product_name: 'Mikrotik hAP ac²', units_sold: 42, revenue: 189000.00 },
+    { product_id: 2, product_name: 'TP-Link TL-WR841N', units_sold: 28, revenue: 50400.00 },
+    { product_id: 3, product_name: 'CAT6 Ethernet Cable (20m)', units_sold: 35, revenue: 22750.00 },
+    { product_id: 4, product_name: 'RJ45 Crimping Kit', units_sold: 12, revenue: 14400.00 },
+  ],
+  recent_orders: demoShopOrders.slice(0, 5),
+  generated_at: iso(),
+};
+
+export const demoShopAnalytics: ShopAnalytics = {
+  period: { label: 'Last 30 Days', start: dateStr(30), end: dateStr(0) },
+  summary: {
+    total_revenue: 241000.00,
+    total_orders: 58,
+    unique_buyers: 42,
+    avg_order_value: 4155.17,
+  },
+  daily_trend: Array.from({ length: 30 }, (_, i) => {
+    const d = new Date(now);
+    d.setDate(d.getDate() - (29 - i));
+    const label = d.toLocaleDateString('en-GB', { month: 'short', day: 'numeric' });
+    const orders = Math.floor(Math.random() * 4);
+    return { date: d.toISOString().split('T')[0], label, orders, revenue: orders * 4500 };
+  }),
+  top_products: [
+    { product_id: 1, product_name: 'Mikrotik hAP ac²', units_sold: 22, revenue: 99000.00 },
+    { product_id: 2, product_name: 'TP-Link TL-WR841N', units_sold: 15, revenue: 27000.00 },
+  ],
+  revenue_by_status: [
+    { status: 'delivered', orders: 48, revenue: 216000.00 },
+    { status: 'confirmed', orders: 8, revenue: 36000.00 },
+    { status: 'cancelled', orders: 2, revenue: 9000.00 },
+  ],
+  generated_at: iso(),
+};
 
 // ─── Error message for write operations ─────────────────────────────
 export const DEMO_WRITE_ERROR = 'This action is not available in demo mode. Sign up for a free account to get started!';

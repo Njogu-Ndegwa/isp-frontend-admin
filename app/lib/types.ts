@@ -992,9 +992,23 @@ export interface MikroTikMetrics {
   storage: MikroTikStorage;
   healthSensors: Record<string, unknown>;
   activeSessions: MikroTikActiveSession[];
+  /** Legacy alias of `activeHotspotUsers` (hotspot users only). Prefer `activeHotspotUsers` in new code. */
   activeSessionCount: number;
+  /** Hotspot users only — persisted on the latest bandwidth snapshot. See `snapshotAgeSeconds` for freshness. */
+  activeHotspotUsers: number;
+  /** PPPoE users currently online — read live from the router on every request. */
+  activePppoeUsers: number;
+  /** Combined hotspot + PPPoE. Always equals `activeHotspotUsers + activePppoeUsers` (backend-computed, guaranteed consistent). */
+  activeTotalUsers: number;
+  /**
+   * Per-session PPPoE detail. Only returned when the request was made with `includeSessions=true`,
+   * and capped at 50 entries. Prefer `getPPPoEActiveSessions(routerId)` for drill-down tables.
+   */
   activePppoeSessions: MikroTikPppoeSession[];
+  /** Legacy alias of `activePppoeUsers`. */
   activePppoeCount: number;
+  /** True when `includeSessions=true` and the router had more than 50 PPPoE sessions. */
+  sessionsTruncated?: boolean;
   interfaces: MikroTikInterface[];
   generatedAt: string;
   uptime?: string;
@@ -2391,6 +2405,140 @@ export interface GrowthTargetUpdatePayload {
   label?: string;
   unit?: string;
   inverse?: boolean;
+}
+
+// ─── Shop Types ──────────────────────────────────────────────────────
+
+export interface ShopProduct {
+  id: number;
+  name: string;
+  description: string | null;
+  price: number;
+  stock_quantity: number;
+  image_url: string | null;
+  category: string | null;
+  is_active: boolean;
+  created_at: string;
+}
+
+export interface CreateProductRequest {
+  name: string;
+  description?: string | null;
+  price: number;
+  stock_quantity?: number;
+  image_url?: string | null;
+  category?: string | null;
+  is_active?: boolean;
+}
+
+export interface UpdateProductRequest {
+  name?: string;
+  description?: string | null;
+  price?: number;
+  stock_quantity?: number;
+  image_url?: string | null;
+  category?: string | null;
+  is_active?: boolean;
+}
+
+export type ShopOrderStatus = 'pending' | 'confirmed' | 'processing' | 'shipped' | 'delivered' | 'cancelled';
+export type ShopPaymentStatus = 'unpaid' | 'paid' | 'refunded';
+
+export interface ShopOrderItem {
+  id: number;
+  product_id: number;
+  product_name: string;
+  product_price: number;
+  quantity: number;
+  subtotal: number;
+}
+
+export interface ShopTrackingEvent {
+  id: number;
+  status_label: string;
+  note: string | null;
+  created_at: string;
+}
+
+export interface ShopOrder {
+  id: number;
+  order_number: string;
+  buyer_name: string;
+  buyer_phone: string;
+  buyer_email: string | null;
+  delivery_address: string | null;
+  total_amount: number;
+  status: ShopOrderStatus;
+  payment_status: ShopPaymentStatus;
+  mpesa_receipt_number: string | null;
+  notes: string | null;
+  created_at: string;
+  items?: ShopOrderItem[];
+  tracking_history?: ShopTrackingEvent[];
+}
+
+export interface ShopDashboardRevenue {
+  today: number;
+  this_week: number;
+  this_month: number;
+  all_time: number;
+}
+
+export interface ShopDashboardOrderCounts {
+  total: number;
+  by_status: Record<ShopOrderStatus, number>;
+  by_payment: Record<ShopPaymentStatus, number>;
+  pending_payment: number;
+  needs_fulfillment: number;
+}
+
+export interface ShopTopProduct {
+  product_id: number;
+  product_name: string;
+  units_sold: number;
+  revenue: number;
+}
+
+export interface ShopDashboard {
+  revenue: ShopDashboardRevenue;
+  orders: ShopDashboardOrderCounts;
+  top_products: ShopTopProduct[];
+  recent_orders: ShopOrder[];
+  generated_at: string;
+}
+
+export interface ShopAnalyticsPeriod {
+  label: string;
+  start: string;
+  end: string;
+}
+
+export interface ShopAnalyticsSummary {
+  total_revenue: number;
+  total_orders: number;
+  unique_buyers: number;
+  avg_order_value: number;
+}
+
+export interface ShopDailyTrend {
+  date: string;
+  label: string;
+  orders: number;
+  revenue: number;
+}
+
+export interface ShopAnalytics {
+  period: ShopAnalyticsPeriod;
+  summary: ShopAnalyticsSummary;
+  daily_trend: ShopDailyTrend[];
+  top_products: ShopTopProduct[];
+  revenue_by_status: { status: string; orders: number; revenue: number }[];
+  generated_at: string;
+}
+
+export interface AddTrackingEventRequest {
+  status_label: string;
+  note?: string;
 }
 
 // ─── Lead Pipeline / CRM ─────────────────────────────────────────────

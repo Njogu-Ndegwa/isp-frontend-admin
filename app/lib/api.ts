@@ -1,4 +1,14 @@
 import {
+  ShopProduct,
+  CreateProductRequest,
+  UpdateProductRequest,
+  ShopOrder,
+  ShopOrderStatus,
+  ShopPaymentStatus,
+  ShopDashboard,
+  ShopAnalytics,
+  AddTrackingEventRequest,
+  ShopTrackingEvent,
   DashboardOverview,
   DashboardAnalytics,
   MikroTikMetrics,
@@ -263,12 +273,21 @@ class ApiClient {
     return this.handleResponse<DashboardAnalytics>(response);
   }
 
-  // MikroTik Metrics - GET /api/mikrotik/health[?router_id=<id>]
-  async getMikroTikMetrics(routerId?: number): Promise<MikroTikMetrics> {
+  // MikroTik Metrics - GET /api/mikrotik/health[?router_id=<id>][&include_sessions=true]
+  // The default response is slim (no per-session arrays). Pass `includeSessions=true` only for
+  // legacy/backward-compat consumers — the array is capped at 50 entries; for full drill-down
+  // use getPPPoEActiveSessions(routerId) / getActiveSessions(routerId).
+  async getMikroTikMetrics(
+    routerId?: number,
+    options: { includeSessions?: boolean } = {}
+  ): Promise<MikroTikMetrics> {
     if (this.isDemoMode()) return demo.demoMikroTikMetrics;
     const params = new URLSearchParams();
     if (routerId) {
       params.append('router_id', routerId.toString());
+    }
+    if (options.includeSessions) {
+      params.append('include_sessions', 'true');
     }
     const qs = params.toString();
     const url = qs
@@ -287,6 +306,16 @@ class ApiClient {
     const memory = data.memory as Record<string, unknown> | undefined;
     const storage = data.storage as Record<string, unknown> | undefined;
     const bandwidth = data.bandwidth as Record<string, unknown> | undefined;
+
+    // User counts. The backend now exposes hotspot/pppoe/total explicitly and guarantees
+    // total == hotspot + pppoe. We fall back to legacy fields only if the new ones are absent
+    // (e.g. older backend deployments) and re-compute total locally as a last resort.
+    const hotspotRaw = data.active_hotspot_users ?? data.active_users;
+    const pppoeRaw = data.active_pppoe_users;
+    const activeHotspotUsers = (hotspotRaw as number) ?? 0;
+    const activePppoeUsers = (pppoeRaw as number) ?? 0;
+    const activeTotalUsers =
+      (data.active_total_users as number) ?? activeHotspotUsers + activePppoeUsers;
 
     return {
       system: {
@@ -314,9 +343,13 @@ class ApiClient {
       },
       healthSensors: (data.health_sensors as Record<string, unknown>) ?? {},
       activeSessions: (data.active_sessions as Array<unknown>) ?? [],
-      activeSessionCount: (data.active_users as number) ?? 0,
+      activeSessionCount: activeHotspotUsers,
+      activeHotspotUsers,
+      activePppoeUsers,
+      activeTotalUsers,
       activePppoeSessions: (data.active_pppoe_sessions as Array<unknown>) ?? [],
-      activePppoeCount: (data.active_pppoe_users as number) ?? 0,
+      activePppoeCount: activePppoeUsers,
+      sessionsTruncated: (data.sessions_truncated as boolean) ?? false,
       interfaces: (data.interfaces as Array<unknown>) ?? [],
       generatedAt: (data.generated_at as string) ?? '',
       uptime: (system?.uptime as string) ?? '',
@@ -2097,6 +2130,113 @@ class ApiClient {
       { headers: this.getHeaders() }
     );
     return this.handleResponse<ResellerTopUsageEntry[]>(response);
+  }
+
+  // ─── Shop ────────────────────────────────────────────────────────
+
+  async getShopAdminProducts(): Promise<ShopProduct[]> {
+    if (this.isDemoMode()) return demo.demoShopProducts;
+    const response = await fetch(`${BASE_URL}/shop/admin/products`, {
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<ShopProduct[]>(response);
+  }
+
+  async createShopProduct(data: CreateProductRequest): Promise<ShopProduct> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(`${BASE_URL}/shop/products`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify(data),
+    });
+    return this.handleResponse<ShopProduct>(response);
+  }
+
+  async updateShopProduct(productId: number, data: UpdateProductRequest): Promise<ShopProduct> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(`${BASE_URL}/shop/products/${productId}`, {
+      method: 'PUT',
+      headers: this.getHeaders(),
+      body: JSON.stringify(data),
+    });
+    return this.handleResponse<ShopProduct>(response);
+  }
+
+  async deleteShopProduct(productId: number): Promise<{ message: string }> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(`${BASE_URL}/shop/products/${productId}`, {
+      method: 'DELETE',
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<{ message: string }>(response);
+  }
+
+  async getShopAdminOrders(params?: {
+    status?: ShopOrderStatus;
+    payment_status?: ShopPaymentStatus;
+  }): Promise<ShopOrder[]> {
+    if (this.isDemoMode()) {
+      let orders = demo.demoShopOrders;
+      if (params?.status) orders = orders.filter(o => o.status === params.status);
+      if (params?.payment_status) orders = orders.filter(o => o.payment_status === params.payment_status);
+      return orders;
+    }
+    const qs = new URLSearchParams();
+    if (params?.status) qs.set('status', params.status);
+    if (params?.payment_status) qs.set('payment_status', params.payment_status);
+    const query = qs.toString() ? `?${qs.toString()}` : '';
+    const response = await fetch(`${BASE_URL}/shop/admin/orders${query}`, {
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<ShopOrder[]>(response);
+  }
+
+  async getShopAdminOrder(orderId: number): Promise<ShopOrder> {
+    if (this.isDemoMode()) {
+      const order = demo.demoShopOrders.find(o => o.id === orderId);
+      if (!order) throw new Error('Order not found');
+      return order;
+    }
+    const response = await fetch(`${BASE_URL}/shop/admin/orders/${orderId}`, {
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<ShopOrder>(response);
+  }
+
+  async updateShopOrderStatus(orderId: number, status: ShopOrderStatus): Promise<{ message: string; status: ShopOrderStatus }> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(`${BASE_URL}/shop/admin/orders/${orderId}/status`, {
+      method: 'PUT',
+      headers: this.getHeaders(),
+      body: JSON.stringify({ status }),
+    });
+    return this.handleResponse<{ message: string; status: ShopOrderStatus }>(response);
+  }
+
+  async addShopTrackingEvent(orderId: number, data: AddTrackingEventRequest): Promise<ShopTrackingEvent> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(`${BASE_URL}/shop/admin/orders/${orderId}/tracking`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify(data),
+    });
+    return this.handleResponse<ShopTrackingEvent>(response);
+  }
+
+  async getShopDashboard(): Promise<ShopDashboard> {
+    if (this.isDemoMode()) return demo.demoShopDashboard;
+    const response = await fetch(`${BASE_URL}/shop/dashboard`, {
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<ShopDashboard>(response);
+  }
+
+  async getShopAnalytics(preset = 'this_month'): Promise<ShopAnalytics> {
+    if (this.isDemoMode()) return demo.demoShopAnalytics;
+    const response = await fetch(`${BASE_URL}/shop/analytics?preset=${preset}`, {
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<ShopAnalytics>(response);
   }
 }
 
