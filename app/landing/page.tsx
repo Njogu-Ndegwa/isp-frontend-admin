@@ -403,7 +403,7 @@ export default function LandingPage() {
             </svg>
           </button>
         </div>
-        <div className={`md:hidden overflow-hidden transition-all duration-300 bg-background/95 backdrop-blur-xl ${mobileMenuOpen ? 'max-h-80 border-b border-border' : 'max-h-0'}`}>
+        <div className={`md:hidden overflow-hidden transition-all duration-300 bg-background/95 backdrop-blur-xl ${mobileMenuOpen ? 'max-h-[32rem] border-b border-border' : 'max-h-0'}`}>
           <div className="px-4 py-4 space-y-3">
             {NAV_LINKS.map(l => (<button key={l.href} onClick={() => scrollTo(l.href.slice(1))} className="block w-full text-left text-sm font-medium text-foreground-muted hover:text-foreground py-2 transition-colors">{l.label}</button>))}
             <Link href="/store" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-2 py-2 text-sm font-semibold text-amber-500 hover:text-amber-400 transition-colors">
