@@ -67,7 +67,10 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   const isOnAdminPage = pathname.startsWith('/admin');
   const isOnResellerPage = !isOnAdminPage;
 
-  if (isAdmin && isOnResellerPage) {
+  const ADMIN_ALLOWED_NON_ADMIN_PATHS = ['/shop'];
+  const isOnAdminAllowedPath = ADMIN_ALLOWED_NON_ADMIN_PATHS.some(p => pathname.startsWith(p));
+
+  if (isAdmin && isOnResellerPage && !isOnAdminAllowedPath) {
     router.replace('/admin');
     return null;
   }

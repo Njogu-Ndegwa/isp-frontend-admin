@@ -24,6 +24,7 @@ export default function Header({
   const [showSidebar, setShowSidebar] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
   const { user, logout } = useAuth();
+  const isAdmin = user?.role === 'admin';
 
   useEffect(() => {
     setMounted(true);
@@ -162,14 +163,16 @@ export default function Header({
           </div>
           <div className="flex items-center gap-3 flex-shrink-0">
             {action}
-            <Link
-              href="/store"
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-amber-500/25 text-amber-500 text-xs font-semibold hover:bg-amber-500/10 transition-all"
-              title="Visit Equipment Shop"
-            >
-              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" /></svg>
-              Shop
-            </Link>
+            {isAdmin && (
+              <Link
+                href="/shop"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-amber-500/25 text-amber-500 text-xs font-semibold hover:bg-amber-500/10 transition-all"
+                title="Equipment Shop"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
+                Shop
+              </Link>
+            )}
             <Link
               href="/settings"
               className="p-2 rounded-lg text-foreground-muted hover:text-foreground hover:bg-background-tertiary transition-all"
