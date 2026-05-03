@@ -2246,7 +2246,7 @@ class ApiClient {
   // ─── Shop Public (no auth required) ──────────────────────────────
 
   async getShopPublicProduct(id: number): Promise<ShopProduct> {
-    if (this.isDemoMode() || true) {
+    if (this.isDemoMode()) {
       const product = demo.demoShopProducts.find(p => p.id === id);
       if (!product) throw new Error('Product not found');
       return product;
@@ -2256,8 +2256,8 @@ class ApiClient {
   }
 
   async getShopPublicProducts(category?: string): Promise<ShopProduct[]> {
-    const products = demo.demoShopProducts.filter(p => p.is_active);
-    if (this.isDemoMode() || true) {
+    if (this.isDemoMode()) {
+      const products = demo.demoShopProducts.filter(p => p.is_active);
       if (category) return products.filter(p => p.category === category);
       return products;
     }
@@ -2269,7 +2269,7 @@ class ApiClient {
   }
 
   async placeShopOrder(data: PlaceOrderRequest): Promise<PlaceOrderResponse> {
-    if (this.isDemoMode() || true) {
+    if (this.isDemoMode()) {
       const orderNum = `ORD-${Date.now().toString().slice(-6)}`;
       return {
         order_id: Math.floor(Math.random() * 900) + 100,
@@ -2291,7 +2291,7 @@ class ApiClient {
   }
 
   async initiateShopPayment(orderId: number, phone: string): Promise<InitiatePaymentResponse> {
-    if (this.isDemoMode() || true) {
+    if (this.isDemoMode()) {
       return {
         message: 'STK Push sent. Enter your M-Pesa PIN to complete payment.',
         checkout_request_id: `ws_CO_${Date.now()}`,
@@ -2307,7 +2307,7 @@ class ApiClient {
   }
 
   async checkShopPaymentStatus(orderId: number): Promise<ShopPaymentStatusResponse> {
-    if (this.isDemoMode() || true) {
+    if (this.isDemoMode()) {
       return {
         payment_status: 'paid',
         status: 'confirmed',
@@ -2319,7 +2319,7 @@ class ApiClient {
   }
 
   async trackShopOrder(orderNumber: string, phone: string): Promise<ShopOrder> {
-    if (this.isDemoMode() || true) {
+    if (this.isDemoMode()) {
       const order = demo.demoShopOrders[0];
       return {
         ...order,
