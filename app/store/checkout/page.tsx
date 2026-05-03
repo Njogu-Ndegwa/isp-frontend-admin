@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useCart } from '../layout';
 import { api } from '../../lib/api';
@@ -206,8 +206,14 @@ function PaymentStep({ form, onSuccess, onBack }: {
   const [state, setState] = useState<PayState>('idle');
   const [order, setOrder] = useState<PlaceOrderResponse | null>(null);
   const [error, setError] = useState('');
+  const cancelledRef = useRef(false);
+
+  useEffect(() => {
+    return () => { cancelledRef.current = true; };
+  }, []);
 
   const handlePay = async () => {
+    cancelledRef.current = false;
     try {
       setState('placing');
       const placed = await api.placeShopOrder({
@@ -218,25 +224,50 @@ function PaymentStep({ form, onSuccess, onBack }: {
         notes: form.notes || undefined,
         items: items.map(i => ({ product_id: i.product.id, quantity: i.quantity })),
       });
+      if (cancelledRef.current) return;
       setOrder(placed);
 
       setState('stk');
       await api.initiateShopPayment(placed.order_id, mpesaPhone);
+      if (cancelledRef.current) return;
 
       setState('polling');
-      await new Promise(r => setTimeout(r, 3000));
-      const status = await api.checkShopPaymentStatus(placed.order_id);
 
-      if (status.payment_status === 'paid') {
-        clearCart();
-        onSuccess(placed, status.mpesa_receipt_number ?? '');
-      } else {
+      // Poll every 5 s for up to 90 s — gives the user time to receive the
+      // STK prompt, enter their PIN, and Safaricom to send the callback.
+      const POLL_INTERVAL = 5000;
+      const MAX_WAIT = 90000;
+      let elapsed = 0;
+
+      while (elapsed < MAX_WAIT) {
+        await new Promise(r => setTimeout(r, POLL_INTERVAL));
+        if (cancelledRef.current) return;
+        elapsed += POLL_INTERVAL;
+
+        try {
+          const status = await api.checkShopPaymentStatus(placed.order_id);
+          if (cancelledRef.current) return;
+          if (status.payment_status === 'paid') {
+            clearCart();
+            onSuccess(placed, status.mpesa_receipt_number ?? '');
+            return;
+          }
+        } catch {
+          // Network hiccup — keep polling
+        }
+      }
+
+      if (!cancelledRef.current) {
         setState('error');
-        setError('Payment not confirmed. Please check your M-Pesa and try again.');
+        setError(
+          `Payment confirmation timed out. If you completed the M-Pesa payment, please contact support with your order number${placed.order_number ? ` (${placed.order_number})` : ''}.`
+        );
       }
     } catch (e: unknown) {
-      setState('error');
-      setError(e instanceof Error ? e.message : 'Payment failed. Please try again.');
+      if (!cancelledRef.current) {
+        setState('error');
+        setError(e instanceof Error ? e.message : 'Payment failed. Please try again.');
+      }
     }
   };
 
@@ -254,10 +285,12 @@ function PaymentStep({ form, onSuccess, onBack }: {
             {state === 'placing' ? 'Creating your order...' : state === 'stk' ? 'STK Push sent!' : 'Confirming payment...'}
           </p>
           <p className="text-sm text-foreground-muted mt-1">
-            {state === 'stk' ? `Check your phone (${mpesaPhone}) and enter your M-Pesa PIN` : 'Please wait...'}
+            {state === 'placing'
+              ? 'Please wait...'
+              : `Check your phone (${mpesaPhone}) and enter your M-Pesa PIN`}
           </p>
         </div>
-        {state === 'stk' && (
+        {(state === 'stk' || state === 'polling') && (
           <div className="inline-flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/20 rounded-xl px-4 py-3 text-sm text-emerald-400">
             <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
             Enter your M-Pesa PIN on your phone to complete payment
