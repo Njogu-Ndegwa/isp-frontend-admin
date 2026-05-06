@@ -10,13 +10,15 @@ import {
   PortalAnnouncementType,
   UpdatePortalSettingsRequest,
 } from '../../lib/types';
+import { getThemePalette } from '../../lib/portalThemes';
+import PortalPreview from '../../components/PortalPreview';
 import { PageLoader } from '../../components/LoadingSpinner';
 import { useAlert } from '../../context/AlertContext';
 
 const THEME_OPTIONS: { value: PortalColorTheme; label: string; color: string }[] = [
+  { value: 'sunset_orange', label: 'Sunset Orange', color: '#E85D04' },
   { value: 'ocean_blue', label: 'Ocean Blue', color: '#3b82f6' },
   { value: 'emerald_green', label: 'Emerald Green', color: '#10b981' },
-  { value: 'sunset_orange', label: 'Sunset Orange', color: '#E85D04' },
   { value: 'midnight_purple', label: 'Midnight Purple', color: '#7c3aed' },
   { value: 'rose_gold', label: 'Rose Gold', color: '#e11d48' },
   { value: 'slate_gray', label: 'Slate Gray', color: '#475569' },
@@ -49,6 +51,7 @@ export default function PortalCustomizationPage() {
   const [saving, setSaving] = useState(false);
   const [resetting, setResetting] = useState(false);
   const [changed, setChanged] = useState<UpdatePortalSettingsRequest>({});
+  const [showPreviewModal, setShowPreviewModal] = useState(false);
 
   const loadSettings = useCallback(async () => {
     try {
@@ -127,8 +130,16 @@ export default function PortalCustomizationPage() {
   const current = (key: keyof UpdatePortalSettingsRequest) =>
     (changed[key] !== undefined ? changed[key] : s[key as keyof typeof s]) as unknown;
 
-  return (
-    <div className="max-w-3xl space-y-6">
+  // Build merged settings for live preview
+  const previewSettings = {
+    ...s,
+    ...changed,
+  } as typeof s;
+
+  const palette = getThemePalette(previewSettings.color_theme);
+
+  const SettingsForm = (
+    <div className="space-y-6">
       {/* Section header */}
       <div className="md:hidden">
         <h2 className="text-lg font-semibold text-foreground">Portal Customization</h2>
@@ -513,6 +524,73 @@ export default function PortalCustomizationPage() {
           {saving ? 'Saving...' : 'Save'}
         </button>
       </div>
+    </div>
+  );
+
+  return (
+    <div className="flex flex-col lg:flex-row gap-6 lg:gap-8">
+      {/* Settings form */}
+      <div className="flex-1 min-w-0 max-w-3xl">
+        {SettingsForm}
+      </div>
+
+      {/* Desktop preview — sticky side panel */}
+      <div className="hidden lg:block w-[420px] flex-shrink-0">
+        <div className="sticky top-8 space-y-3">
+          <div className="flex items-center justify-between px-1">
+            <h3 className="text-sm font-semibold text-foreground">Live Preview</h3>
+            <span className="text-xs text-foreground-muted">Updates as you edit</span>
+          </div>
+          <PortalPreview settings={previewSettings} palette={palette} />
+        </div>
+      </div>
+
+      {/* Mobile preview floating button */}
+      <button
+        onClick={() => setShowPreviewModal(true)}
+        className="lg:hidden fixed z-[9999] flex items-center gap-2 px-4 py-3 rounded-full shadow-lg"
+        style={{
+          bottom: 'calc(5rem + env(safe-area-inset-bottom, 0px))',
+          right: '16px',
+          background: 'var(--accent-primary)',
+          color: '#1c1917',
+          fontWeight: 600,
+          fontSize: '0.875rem',
+        }}
+      >
+        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
+          <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+        </svg>
+        Preview
+      </button>
+
+      {/* Mobile preview modal */}
+      {showPreviewModal && (
+        <div
+          className="lg:hidden fixed inset-0 z-[9998] flex items-center justify-center p-4"
+          style={{ background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(4px)' }}
+          onClick={() => setShowPreviewModal(false)}
+        >
+          <div
+            className="relative w-full max-w-[420px]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => setShowPreviewModal(false)}
+              className="absolute -top-10 right-0 text-white p-2"
+              aria-label="Close preview"
+            >
+              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+            <div className="max-h-[80vh] overflow-y-auto rounded-[44px] p-1">
+              <PortalPreview settings={previewSettings} palette={palette} />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

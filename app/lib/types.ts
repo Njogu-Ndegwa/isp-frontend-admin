@@ -2595,9 +2595,9 @@ export interface ShopPaymentStatusResponse {
 // ─── Portal Customization ────────────────────────────────────────────
 
 export type PortalColorTheme =
+  | 'sunset_orange'
   | 'ocean_blue'
   | 'emerald_green'
-  | 'sunset_orange'
   | 'midnight_purple'
   | 'rose_gold'
   | 'slate_gray';
@@ -2605,6 +2605,23 @@ export type PortalColorTheme =
 export type PortalHeaderStyle = 'standard' | 'minimal' | 'hero' | 'compact';
 export type PortalLanguage = 'en' | 'sw' | 'fr';
 export type PortalAnnouncementType = 'info' | 'warning' | 'success';
+
+export interface PortalThemePalette {
+  primary: string;
+  primaryLight: string;
+  primaryDark: string;
+  accent: string;
+  background: string;
+  surface: string;
+  text: string;
+  textSecondary: string;
+  textInverse: string;
+  border: string;
+  success: string;
+  error: string;
+  info: string;
+  warning: string;
+}
 
 export interface PortalSettings {
   id: number;
