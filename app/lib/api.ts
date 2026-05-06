@@ -174,6 +174,9 @@ import {
   CustomerUsageResponse,
   CustomerUsagePeriod,
   ResellerTopUsageEntry,
+  PortalSettingsResponse,
+  UpdatePortalSettingsRequest,
+  UpdatePortalSettingsResponse,
 } from './types';
 import * as demo from './demoData';
 
@@ -2331,6 +2334,71 @@ class ApiClient {
       `${BASE_URL}/shop/orders/track/${encodeURIComponent(orderNumber)}?phone=${encodeURIComponent(phone)}`
     );
     return this.handleResponse<ShopOrder>(response);
+  }
+
+  // ─── Portal Customization ─────────────────────────────────────────
+
+  async getPortalSettings(): Promise<PortalSettingsResponse> {
+    if (this.isDemoMode()) {
+      return {
+        settings: {
+          id: 1,
+          user_id: 1,
+          color_theme: 'ocean_blue',
+          header_style: 'standard',
+          show_ads: true,
+          show_welcome_banner: true,
+          welcome_title: 'Demo ISP',
+          welcome_subtitle: 'Fast internet for everyone',
+          company_logo_url: null,
+          header_bg_image_url: null,
+          footer_text: null,
+          portal_support_phone: '+254700000000',
+          portal_support_whatsapp: null,
+          show_ratings: true,
+          show_reconnect_button: true,
+          show_social_links: false,
+          facebook_url: null,
+          whatsapp_group_url: null,
+          instagram_url: null,
+          show_announcement: false,
+          announcement_type: 'info',
+          announcement_text: null,
+          portal_language: 'en',
+          plans_section_title: null,
+          featured_plan_ids: null,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        },
+        available_themes: ['ocean_blue', 'emerald_green', 'sunset_orange', 'midnight_purple', 'rose_gold', 'slate_gray'],
+        available_header_styles: ['standard', 'minimal', 'hero', 'compact'],
+        available_languages: ['en', 'sw', 'fr'],
+        available_announcement_types: ['info', 'warning', 'success'],
+      };
+    }
+    const response = await fetch(`${BASE_URL}/portal/settings`, {
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<PortalSettingsResponse>(response);
+  }
+
+  async updatePortalSettings(data: UpdatePortalSettingsRequest): Promise<UpdatePortalSettingsResponse> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(`${BASE_URL}/portal/settings`, {
+      method: 'PUT',
+      headers: this.getHeaders(),
+      body: JSON.stringify(data),
+    });
+    return this.handleResponse<UpdatePortalSettingsResponse>(response);
+  }
+
+  async resetPortalSettings(): Promise<{ message: string; settings: PortalSettingsResponse['settings'] }> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(`${BASE_URL}/portal/settings/reset`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<{ message: string; settings: PortalSettingsResponse['settings'] }>(response);
   }
 }
 

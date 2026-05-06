@@ -2592,6 +2592,90 @@ export interface ShopPaymentStatusResponse {
   mpesa_receipt_number: string | null;
 }
 
+// ─── Portal Customization ────────────────────────────────────────────
+
+export type PortalColorTheme =
+  | 'ocean_blue'
+  | 'emerald_green'
+  | 'sunset_orange'
+  | 'midnight_purple'
+  | 'rose_gold'
+  | 'slate_gray';
+
+export type PortalHeaderStyle = 'standard' | 'minimal' | 'hero' | 'compact';
+export type PortalLanguage = 'en' | 'sw' | 'fr';
+export type PortalAnnouncementType = 'info' | 'warning' | 'success';
+
+export interface PortalSettings {
+  id: number;
+  user_id: number;
+  color_theme: PortalColorTheme;
+  header_style: PortalHeaderStyle;
+  show_ads: boolean;
+  show_welcome_banner: boolean;
+  welcome_title: string | null;
+  welcome_subtitle: string | null;
+  company_logo_url: string | null;
+  header_bg_image_url: string | null;
+  footer_text: string | null;
+  portal_support_phone: string | null;
+  portal_support_whatsapp: string | null;
+  show_ratings: boolean;
+  show_reconnect_button: boolean;
+  show_social_links: boolean;
+  facebook_url: string | null;
+  whatsapp_group_url: string | null;
+  instagram_url: string | null;
+  show_announcement: boolean;
+  announcement_type: PortalAnnouncementType;
+  announcement_text: string | null;
+  portal_language: PortalLanguage;
+  plans_section_title: string | null;
+  featured_plan_ids: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PortalSettingsResponse {
+  settings: PortalSettings;
+  available_themes: PortalColorTheme[];
+  available_header_styles: PortalHeaderStyle[];
+  available_languages: PortalLanguage[];
+  available_announcement_types: PortalAnnouncementType[];
+}
+
+export interface UpdatePortalSettingsRequest {
+  color_theme?: PortalColorTheme;
+  header_style?: PortalHeaderStyle;
+  show_ads?: boolean;
+  show_welcome_banner?: boolean;
+  welcome_title?: string | null;
+  welcome_subtitle?: string | null;
+  company_logo_url?: string | null;
+  header_bg_image_url?: string | null;
+  footer_text?: string | null;
+  portal_support_phone?: string | null;
+  portal_support_whatsapp?: string | null;
+  show_ratings?: boolean;
+  show_reconnect_button?: boolean;
+  show_social_links?: boolean;
+  facebook_url?: string | null;
+  whatsapp_group_url?: string | null;
+  instagram_url?: string | null;
+  show_announcement?: boolean;
+  announcement_type?: PortalAnnouncementType;
+  announcement_text?: string | null;
+  portal_language?: PortalLanguage;
+  plans_section_title?: string | null;
+  featured_plan_ids?: string | null;
+}
+
+export interface UpdatePortalSettingsResponse {
+  message: string;
+  updated_fields: string[];
+  settings: PortalSettings;
+}
+
 // ─── Lead Pipeline / CRM ─────────────────────────────────────────────
 
 export type LeadStage =
