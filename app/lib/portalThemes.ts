@@ -22,7 +22,7 @@ export type PortalColorTheme =
   | 'sunset_orange'
   | 'ocean_blue'
   | 'emerald_green'
-  | 'burnt_amber'
+  | 'deep_teal'
   | 'rose_gold'
   | 'slate_gray';
 
@@ -107,12 +107,12 @@ export const THEME_PALETTES: Record<PortalColorTheme, PortalThemePalette> = {
     info: '#3B82F6',
     warning: '#F59E0B',
   },
-  burnt_amber: {
-    primary: '#C2410C',
-    primaryLight: '#EA580C',
-    primaryDark: '#9A3412',
-    accent: '#FBBF24',
-    background: '#FFF7ED',
+  deep_teal: {
+    primary: '#0F766E',
+    primaryLight: '#14B8A6',
+    primaryDark: '#115E59',
+    accent: '#2DD4BF',
+    background: '#F0FDFA',
     surface: '#FFFFFF',
     text: '#1A1A1A',
     textSecondary: '#5C5C5C',

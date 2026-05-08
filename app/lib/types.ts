@@ -2598,7 +2598,7 @@ export type PortalColorTheme =
   | 'sunset_orange'
   | 'ocean_blue'
   | 'emerald_green'
-  | 'burnt_amber'
+  | 'deep_teal'
   | 'rose_gold'
   | 'slate_gray';
 

@@ -18,7 +18,7 @@ const THEME_OPTIONS: { value: PortalColorTheme; label: string; color: string }[]
   { value: 'sunset_orange', label: 'Sunset Orange', color: '#E85D04' },
   { value: 'ocean_blue', label: 'Ocean Blue', color: '#3b82f6' },
   { value: 'emerald_green', label: 'Emerald Green', color: '#10b981' },
-  { value: 'burnt_amber', label: 'Burnt Amber', color: '#C2410C' },
+  { value: 'deep_teal', label: 'Deep Teal', color: '#0F766E' },
   { value: 'rose_gold', label: 'Rose Gold', color: '#e11d48' },
   { value: 'slate_gray', label: 'Slate Gray', color: '#475569' },
 ];
