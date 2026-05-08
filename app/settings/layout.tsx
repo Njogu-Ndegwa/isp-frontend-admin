@@ -47,10 +47,6 @@ const settingsNav = [
   },
 ];
 
-function isActive(pathname: string, href: string) {
-  return pathname === href || pathname.startsWith(href + '/');
-}
-
 export { settingsNav };
 
 export default function SettingsLayout({ children }: { children: React.ReactNode }) {
@@ -98,35 +94,7 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
         <h1 className="text-2xl sm:text-3xl font-bold text-foreground tracking-tight">Settings</h1>
       </div>
 
-      <div className="flex gap-8">
-        {/* Desktop sidebar nav */}
-        <nav className="hidden md:block w-56 flex-shrink-0">
-          <div className="sticky top-8 space-y-1">
-            {settingsNav.map((item) => {
-              const active = isActive(pathname, item.href);
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
-                    active
-                      ? 'bg-accent-primary/10 text-accent-primary'
-                      : 'text-foreground-muted hover:text-foreground hover:bg-background-tertiary'
-                  }`}
-                >
-                  <span className={active ? 'text-accent-primary' : ''}>{item.icon}</span>
-                  {item.label}
-                </Link>
-              );
-            })}
-          </div>
-        </nav>
-
-        {/* Content area */}
-        <div className="flex-1 min-w-0">
-          {children}
-        </div>
-      </div>
+      {children}
     </div>
   );
 }

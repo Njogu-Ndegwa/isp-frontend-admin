@@ -77,6 +77,14 @@ const LANGUAGE_OPTIONS: { value: PortalLanguage; label: string }[] = [
   { value: 'fr', label: 'French' },
 ];
 
+const IMAGE_PRESETS: { key: string; label: string }[] = [
+  { key: 'https://images.unsplash.com/photo-1477959858617-67f85cf4f1df?w=750&h=370&fit=crop&q=80', label: 'City' },
+  { key: 'https://images.unsplash.com/photo-1529156069898-49953e39b3ac?w=750&h=370&fit=crop&q=80', label: 'People' },
+  { key: 'https://images.unsplash.com/photo-1523805009345-7448845a9e53?w=750&h=370&fit=crop&q=80', label: 'Nature' },
+  { key: 'https://images.unsplash.com/photo-1554118811-1e0d58224f24?w=750&h=370&fit=crop&q=80', label: 'Café' },
+  { key: 'https://images.unsplash.com/photo-1518770660439-4636190af475?w=750&h=370&fit=crop&q=80', label: 'Tech' },
+];
+
 
 
 export default function PortalCustomizationPage() {
@@ -183,7 +191,7 @@ export default function PortalCustomizationPage() {
   const SettingsForm = (
     <div className="space-y-6">
       {/* Section header */}
-      <div className="md:hidden">
+      <div>
         <h2 className="text-lg font-semibold text-foreground">Portal Customization</h2>
         <p className="text-xs text-foreground-muted mt-0.5">Configure how your captive portal looks and behaves</p>
       </div>
@@ -286,7 +294,10 @@ export default function PortalCustomizationPage() {
               {/* Hero Background Presets */}
               <div>
                 <label className="block text-xs font-medium text-foreground-muted mb-2">Hero Background</label>
-                <div className="grid grid-cols-5 gap-2">
+
+                {/* Gradient patterns */}
+                <p className="text-[0.65rem] text-foreground-muted/70 mb-1.5">Gradient patterns</p>
+                <div className="grid grid-cols-5 gap-2 mb-3">
                   {[
                     { key: null, label: 'Solid' },
                     { key: 'preset-waves', label: 'Waves' },
@@ -320,6 +331,38 @@ export default function PortalCustomizationPage() {
                                 ? `radial-gradient(circle at 50% 30%, ${palette.primaryLight}80 0%, transparent 60%), linear-gradient(135deg, ${palette.primary}, ${palette.primaryDark})`
                                 : `repeating-linear-gradient(45deg, ${palette.primaryDark}50, ${palette.primaryDark}50 8px, ${palette.primary}50 8px, ${palette.primary}50 16px), linear-gradient(135deg, ${palette.primary}, ${palette.primaryDark})`,
                             backgroundSize: preset.key === 'preset-mesh' ? '8px 8px, 8px 8px, 100% 100%' : 'cover',
+                          }}
+                        />
+                        <span className={`text-[0.6rem] font-medium ${isActive ? 'text-accent-primary' : 'text-foreground-muted'}`}>
+                          {preset.label}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Photo backgrounds */}
+                <p className="text-[0.65rem] text-foreground-muted/70 mb-1.5">Photo backgrounds</p>
+                <div className="grid grid-cols-5 gap-2">
+                  {IMAGE_PRESETS.map((preset) => {
+                    const currentPreset = (current('header_bg_image_url') as string | null) ?? null;
+                    const isActive = currentPreset === preset.key;
+                    return (
+                      <button
+                        key={preset.key}
+                        onClick={() => markChange('header_bg_image_url', preset.key)}
+                        className={`flex flex-col items-center gap-1 p-2 rounded-lg border transition-all ${
+                          isActive
+                            ? 'border-accent-primary bg-accent-primary/5'
+                            : 'border-border hover:bg-background-tertiary'
+                        }`}
+                      >
+                        <div
+                          className="w-full h-10 rounded-md"
+                          style={{
+                            backgroundImage: `linear-gradient(135deg, ${palette.primary}cc 0%, ${palette.primaryDark}aa 100%), url(${preset.key})`,
+                            backgroundSize: 'cover',
+                            backgroundPosition: 'center',
                           }}
                         />
                         <span className={`text-[0.6rem] font-medium ${isActive ? 'text-accent-primary' : 'text-foreground-muted'}`}>
@@ -516,14 +559,14 @@ export default function PortalCustomizationPage() {
   );
 
   return (
-    <div className="flex flex-col lg:flex-row gap-6 lg:gap-8">
+    <div className="flex flex-col xl:flex-row gap-6 xl:gap-8">
       {/* Settings form */}
       <div className="flex-1 min-w-0 max-w-3xl">
         {SettingsForm}
       </div>
 
-      {/* Desktop preview — sticky side panel */}
-      <div className="hidden lg:block w-[420px] flex-shrink-0">
+      {/* Desktop preview — sticky side panel (xl+) */}
+      <div className="hidden xl:block w-[420px] flex-shrink-0">
         <div className="sticky top-8 space-y-3">
           <div className="flex items-center justify-between px-1">
             <h3 className="text-sm font-semibold text-foreground">Live Preview</h3>
@@ -533,49 +576,53 @@ export default function PortalCustomizationPage() {
         </div>
       </div>
 
-      {/* Mobile preview floating button */}
+      {/* Preview floating button — shown below xl */}
       <button
         onClick={() => setShowPreviewModal(true)}
-        className="lg:hidden fixed z-[9999] flex items-center gap-2 px-4 py-3 rounded-full shadow-lg"
+        className="xl:hidden fixed z-[9999] flex items-center gap-2 px-4 py-3 rounded-full shadow-xl"
         style={{
           bottom: 'calc(5rem + env(safe-area-inset-bottom, 0px))',
           right: '16px',
           background: 'var(--accent-primary)',
           color: '#1c1917',
-          fontWeight: 600,
+          fontWeight: 700,
           fontSize: '0.875rem',
+          boxShadow: '0 4px 20px rgba(0,0,0,0.25)',
         }}
       >
-        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
-          <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 1.5H8.25A2.25 2.25 0 006 3.75v16.5a2.25 2.25 0 002.25 2.25h7.5A2.25 2.25 0 0018 20.25V3.75a2.25 2.25 0 00-2.25-2.25H13.5m-3 0V3h3V1.5m-3 0h3m-3 8.25h3m-3 3.75h3m-3 3.75H12" />
         </svg>
         Preview
       </button>
 
-      {/* Mobile preview modal */}
+      {/* Preview modal — shown below xl */}
       {showPreviewModal && (
         <div
-          className="lg:hidden fixed inset-0 z-[9998] flex items-center justify-center p-4"
-          style={{ background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(4px)' }}
+          className="xl:hidden fixed inset-0 z-[9998] flex flex-col items-center justify-start pt-6 pb-8"
+          style={{ background: 'rgba(0,0,0,0.88)', backdropFilter: 'blur(10px)', overflowY: 'auto' }}
           onClick={() => setShowPreviewModal(false)}
         >
-          <div
-            className="relative w-full max-w-[420px]"
-            onClick={(e) => e.stopPropagation()}
-          >
+          {/* Modal header */}
+          <div className="flex items-center justify-between w-full max-w-sm px-5 mb-5 flex-shrink-0">
+            <div>
+              <p className="text-white font-semibold text-sm">Portal Preview</p>
+              <p className="text-white/50 text-xs mt-0.5">Live · updates as you edit</p>
+            </div>
             <button
               onClick={() => setShowPreviewModal(false)}
-              className="absolute -top-10 right-0 text-white p-2"
+              className="flex items-center justify-center w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
               aria-label="Close preview"
             >
-              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
-            <div className="max-h-[80vh] overflow-y-auto rounded-[44px] p-1">
-              <PortalPreview settings={previewSettings} palette={palette} />
-            </div>
+          </div>
+
+          {/* Phone preview — PortalPreview's own responsive CSS handles small screens */}
+          <div className="flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+            <PortalPreview settings={previewSettings} palette={palette} />
           </div>
         </div>
       )}

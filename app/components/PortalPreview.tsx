@@ -23,6 +23,7 @@ const MOCK_ADS = [
 
 export default function PortalPreview({ settings, palette }: PortalPreviewProps) {
   const isDark = false; // All current themes are light mode
+  const isHero = settings.header_style === 'hero';
 
   const cssVars = `
     --p-primary: ${palette.primary};
@@ -252,17 +253,8 @@ export default function PortalPreview({ settings, palette }: PortalPreviewProps)
     <div className="pp-phone-wrapper">
       {/* Phone bezel */}
       <div className="pp-phone-bezel">
-        {/* Status bar */}
-        <div className="pp-status-bar">
-          <span className="pp-status-time">9:41</span>
-          <div className="pp-status-notch" />
-          <div className="pp-status-icons">
-            <span>📶</span>
-            <span>🔋</span>
-          </div>
-        </div>
 
-        {/* Scrollable viewport */}
+        {/* Scrollable viewport — status bar is sticky inside */}
         <div className="pp-viewport" style={{ '--vars': cssVars } as React.CSSProperties}>
           <div className="pp-viewport-inner" style={{ background: palette.background, color: palette.text }}>
             <style>{`
@@ -271,10 +263,48 @@ export default function PortalPreview({ settings, palette }: PortalPreviewProps)
                 min-height: 100%;
                 padding-bottom: 24px;
               }
-              /* Header: Standard */
-              .pp-header-standard {
+
+              /* Status bar — sticky at top of viewport */
+              .pp-status-bar {
                 position: sticky;
                 top: 0;
+                z-index: 200;
+                height: 36px;
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                padding: 0 24px;
+                background: ${isHero ? palette.primary : palette.surface};
+                flex-shrink: 0;
+              }
+              .pp-status-time {
+                font-size: 0.7rem;
+                font-weight: 600;
+                color: ${isHero ? '#ffffff' : palette.text};
+                font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+                min-width: 32px;
+              }
+              .pp-status-notch {
+                width: 80px;
+                height: 18px;
+                background: #1a1a1a;
+                border-radius: 0 0 12px 12px;
+                position: absolute;
+                left: 50%;
+                transform: translateX(-50%);
+                top: 0;
+              }
+              .pp-status-icons {
+                display: flex;
+                gap: 4px;
+                font-size: 0.65rem;
+                min-width: 32px;
+                justify-content: flex-end;
+              }
+              /* Header: Standard — sticks below the status bar */
+              .pp-header-standard {
+                position: sticky;
+                top: 36px;
                 z-index: 100;
                 background: ${palette.surface};
                 border-bottom: 1px solid ${palette.border};
@@ -366,12 +396,12 @@ export default function PortalPreview({ settings, palette }: PortalPreviewProps)
 
               /* Header: Hero */
               .pp-header-hero {
-                padding: 28px 20px;
+                padding: 32px 20px;
                 text-align: center;
                 color: #fff;
                 background-size: cover;
                 background-position: center;
-                min-height: 120px;
+                min-height: 185px;
                 display: flex;
                 flex-direction: column;
                 align-items: center;
@@ -661,14 +691,14 @@ export default function PortalPreview({ settings, palette }: PortalPreviewProps)
               .pp-reconnect-btn {
                 flex-shrink: 0;
                 padding: 10px 16px;
-                background: linear-gradient(135deg, ${palette.info} 0%, ${palette.primaryDark} 100%);
+                background: linear-gradient(135deg, ${palette.primary} 0%, ${palette.primaryDark} 100%);
                 color: #fff;
                 border: none;
                 border-radius: 10px;
                 font-size: 0.8rem;
                 font-weight: 700;
                 cursor: pointer;
-                box-shadow: 0 4px 12px ${palette.info}40;
+                box-shadow: 0 4px 12px ${palette.primary}40;
               }
 
               /* Plans */
@@ -805,6 +835,16 @@ export default function PortalPreview({ settings, palette }: PortalPreviewProps)
               }
             `}</style>
 
+            {/* Status bar — inside viewport so it blends with hero gradient */}
+            <div className="pp-status-bar">
+              <span className="pp-status-time">9:41</span>
+              <div className="pp-status-notch" />
+              <div className="pp-status-icons">
+                <span>📶</span>
+                <span>🔋</span>
+              </div>
+            </div>
+
             {renderHeader()}
             {renderSupportStrip()}
             {renderAnnouncement()}
@@ -851,7 +891,7 @@ export default function PortalPreview({ settings, palette }: PortalPreviewProps)
         </div>
       </div>
 
-      {/* Scoped phone styles */}
+      {/* Scoped phone chrome styles */}
       <style>{`
         .pp-phone-wrapper {
           display: flex;
@@ -868,46 +908,13 @@ export default function PortalPreview({ settings, palette }: PortalPreviewProps)
             0 0 0 1px rgba(255, 255, 255, 0.1);
           position: relative;
         }
-        .pp-status-bar {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          padding: 8px 24px 4px;
-          background: ${palette.surface};
-          border-radius: 34px 34px 0 0;
-          position: relative;
-        }
-        .pp-status-time {
-          font-size: 0.7rem;
-          font-weight: 600;
-          color: ${palette.text};
-          font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-          min-width: 32px;
-        }
-        .pp-status-notch {
-          width: 80px;
-          height: 18px;
-          background: #1a1a1a;
-          border-radius: 0 0 12px 12px;
-          position: absolute;
-          left: 50%;
-          transform: translateX(-50%);
-          top: 0;
-        }
-        .pp-status-icons {
-          display: flex;
-          gap: 4px;
-          font-size: 0.65rem;
-          min-width: 32px;
-          justify-content: flex-end;
-        }
         .pp-viewport {
           width: 375px;
           height: 650px;
           overflow-y: auto;
           overflow-x: hidden;
           background: ${palette.surface};
-          border-radius: 0 0 34px 34px;
+          border-radius: 34px;
           position: relative;
           scrollbar-width: none;
         }

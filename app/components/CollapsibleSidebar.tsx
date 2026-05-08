@@ -167,6 +167,15 @@ const navGroups: NavGroup[] = [
           </svg>
         ),
       },
+      {
+        name: 'Portal',
+        href: '/settings/portal-customization',
+        icon: (
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.53 16.122a3 3 0 00-5.78 1.128 2.25 2.25 0 01-2.4 2.245 4.5 4.5 0 008.4-2.245c0-.399-.078-.78-.22-1.128zm0 0a15.998 15.998 0 003.388-1.62m-5.048 4.025a3 3 0 01-4.293 0l-4.293-4.293a3 3 0 010-4.293l8.586-8.586a3 3 0 014.293 0l4.293 4.293a3 3 0 010 4.293l-8.586 8.586z" />
+          </svg>
+        ),
+      },
     ],
   },
 ];
