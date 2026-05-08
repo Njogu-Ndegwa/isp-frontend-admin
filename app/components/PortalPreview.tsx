@@ -65,35 +65,17 @@ export default function PortalPreview({ settings, palette }: PortalPreviewProps)
         );
       case 'hero':
         return (
-          <>
-            {/* Slim nav bar */}
-            <div className="pp-header-hero-nav">
-              <div className="pp-header-hero-nav-inner">
-                <a href="#" className="pp-brand">
-                  <span className="pp-brand-icon">📡</span>
-                  <div className="pp-brand-text">
-                    <h1 className="pp-brand-title">{title}</h1>
-                  </div>
-                </a>
-                <a href="#" className="pp-help-btn">
-                  <span>📞</span>
-                  <span className="pp-help-text">Help</span>
-                </a>
-              </div>
-            </div>
-            {/* Shorter hero banner */}
-            <div
-              className="pp-header-hero"
-              style={{
-                backgroundImage: settings.header_bg_image_url
-                  ? `linear-gradient(135deg, ${palette.primary}ee 0%, ${palette.primaryDark}dd 100%), url(${settings.header_bg_image_url})`
-                  : `linear-gradient(135deg, ${palette.primary} 0%, ${palette.primaryDark} 100%)`,
-              }}
-            >
-              <h1 className="pp-header-hero-title">{title}</h1>
-              <p className="pp-header-hero-subtitle">{subtitle}</p>
-            </div>
-          </>
+          <div
+            className="pp-header-hero"
+            style={{
+              backgroundImage: settings.header_bg_image_url
+                ? `linear-gradient(135deg, ${palette.primary}ee 0%, ${palette.primaryDark}dd 100%), url(${settings.header_bg_image_url})`
+                : `linear-gradient(135deg, ${palette.primary} 0%, ${palette.primaryDark} 100%)`,
+            }}
+          >
+            <h1 className="pp-header-hero-title">{title}</h1>
+            <p className="pp-header-hero-subtitle">{subtitle}</p>
+          </div>
         );
       case 'standard':
       default:
@@ -352,36 +334,20 @@ export default function PortalPreview({ settings, palette }: PortalPreviewProps)
               }
 
               /* Header: Hero */
-              .pp-header-hero-nav {
-                position: sticky;
-                top: 0;
-                z-index: 100;
-                background: ${palette.surface};
-                border-bottom: 1px solid ${palette.border};
-                backdrop-filter: blur(12px);
-              }
-              .pp-header-hero-nav-inner {
-                max-width: 600px;
-                margin: 0 auto;
-                padding: 10px 16px;
-                display: flex;
-                align-items: center;
-                justify-content: space-between;
-              }
               .pp-header-hero {
-                padding: 20px 16px;
+                padding: 28px 20px;
                 text-align: center;
                 color: #fff;
                 background-size: cover;
                 background-position: center;
-                min-height: 100px;
+                min-height: 120px;
                 display: flex;
                 flex-direction: column;
                 align-items: center;
                 justify-content: center;
               }
               .pp-header-hero-title {
-                font-size: 1.2rem;
+                font-size: 1.35rem;
                 font-weight: 700;
                 margin: 0 0 3px;
                 text-shadow: 0 2px 4px rgba(0,0,0,0.3);
