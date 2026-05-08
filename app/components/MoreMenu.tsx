@@ -97,7 +97,7 @@ const settingsItems = [
     ),
   },
   {
-    name: 'Portal',
+    name: 'Portal Customization',
     href: '/settings/portal-customization',
     icon: (
       <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
