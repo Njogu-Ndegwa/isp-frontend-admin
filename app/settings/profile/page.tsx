@@ -174,9 +174,8 @@ export default function ProfilePage() {
   ];
 
   return (
-    <div className="max-w-2xl space-y-6">
-      {/* Section header -- visible on mobile where layout sidebar is hidden */}
-      <div className="md:hidden">
+    <div className="space-y-6">
+      <div>
         <h2 className="text-lg font-semibold text-foreground">Profile</h2>
         <p className="text-xs text-foreground-muted mt-0.5">Manage your account and business details</p>
       </div>

@@ -82,7 +82,7 @@ export default function SubscriptionSettingsPage() {
 
   if (error) {
     return (
-      <div className="max-w-2xl space-y-6">
+      <div className="space-y-6">
         <section className="rounded-2xl bg-background-secondary border border-border overflow-hidden">
           <div className="p-5 text-center">
             <svg className="w-10 h-10 mx-auto text-danger mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -107,7 +107,7 @@ export default function SubscriptionSettingsPage() {
   const needsAction = canPay || isExpiredOrSuspended;
 
   return (
-    <div className="max-w-2xl space-y-5 pb-24 md:pb-6">
+    <div className="space-y-5 pb-24 md:pb-6">
 
       {/* --- Section 1: Urgent Action Banner --- */}
       {needsAction && pendingInv && (
