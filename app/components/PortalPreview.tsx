@@ -66,19 +66,10 @@ export default function PortalPreview({ settings, palette }: PortalPreviewProps)
         );
       case 'hero': {
         const bgUrl = settings.header_bg_image_url;
-        const isPreset = bgUrl?.startsWith('preset-');
-        const heroBg = isPreset
-          ? bgUrl === 'preset-waves'
-            ? `radial-gradient(ellipse at top, ${palette.primaryLight}60, transparent 70%), linear-gradient(135deg, ${palette.primary}, ${palette.primaryDark})`
-            : bgUrl === 'preset-mesh'
-            ? `linear-gradient(${palette.primaryLight}25 1px, transparent 1px), linear-gradient(90deg, ${palette.primaryLight}25 1px, transparent 1px), linear-gradient(135deg, ${palette.primary}, ${palette.primaryDark})`
-            : bgUrl === 'preset-radial'
-            ? `radial-gradient(circle at 50% 30%, ${palette.primaryLight}80 0%, transparent 60%), linear-gradient(135deg, ${palette.primary}, ${palette.primaryDark})`
-            : `repeating-linear-gradient(45deg, ${palette.primaryDark}50, ${palette.primaryDark}50 8px, ${palette.primary}50 8px, ${palette.primary}50 16px), linear-gradient(135deg, ${palette.primary}, ${palette.primaryDark})`
-          : bgUrl
-          ? `linear-gradient(135deg, ${palette.primary}ee 0%, ${palette.primaryDark}dd 100%), url(${bgUrl})`
+        const heroBg = bgUrl
+          ? `linear-gradient(135deg, ${palette.primary}bb 0%, ${palette.primaryDark}88 100%), url(${bgUrl})`
           : `linear-gradient(135deg, ${palette.primary} 0%, ${palette.primaryDark} 100%)`;
-        const heroBgSize = bgUrl === 'preset-mesh' ? '8px 8px, 8px 8px, 100% 100%' : 'cover';
+        const heroBgSize = 'cover';
         return (
           <div
             className="pp-header-hero"
@@ -87,11 +78,28 @@ export default function PortalPreview({ settings, palette }: PortalPreviewProps)
               backgroundSize: heroBgSize,
             }}
           >
+            {/* WiFi signal icon — shown when there is no company logo */}
+            {!settings.company_logo_url && (
+              <div className="pp-hero-wifi-icon">
+                <svg width="30" height="24" viewBox="0 0 24 20" fill="none">
+                  <path d="M2 6C6.42 1.58 13.58 1.58 18 6" stroke="rgba(255,255,255,0.4)" strokeWidth="2" strokeLinecap="round"/>
+                  <path d="M5 9.5c3.86-3.86 10.14-3.86 14 0" stroke="rgba(255,255,255,0.6)" strokeWidth="2" strokeLinecap="round"/>
+                  <path d="M8 13c2.21-2.21 5.79-2.21 8 0" stroke="rgba(255,255,255,0.85)" strokeWidth="2" strokeLinecap="round"/>
+                  <circle cx="12" cy="18" r="1.5" fill="rgba(255,255,255,0.95)"/>
+                </svg>
+              </div>
+            )}
             {settings.company_logo_url && (
               <img src={settings.company_logo_url} alt="" className="pp-header-hero-logo" />
             )}
             <h1 className="pp-header-hero-title">{title}</h1>
             <p className="pp-header-hero-subtitle">{subtitle}</p>
+            {/* Feature pills */}
+            <div className="pp-hero-features">
+              <span className="pp-hero-feature">⚡ Fast</span>
+              <span className="pp-hero-feature">🔒 Secure</span>
+              <span className="pp-hero-feature">📱 Easy</span>
+            </div>
           </div>
         );
       }
@@ -427,6 +435,27 @@ export default function PortalPreview({ settings, palette }: PortalPreviewProps)
                 margin: 0;
                 opacity: 0.9;
                 text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+              }
+              .pp-hero-wifi-icon {
+                margin-bottom: 10px;
+                opacity: 0.85;
+              }
+              .pp-hero-features {
+                display: flex;
+                gap: 6px;
+                margin-top: 10px;
+                flex-wrap: wrap;
+                justify-content: center;
+              }
+              .pp-hero-feature {
+                font-size: 0.58rem;
+                font-weight: 700;
+                padding: 3px 8px;
+                border-radius: 9999px;
+                background: rgba(255,255,255,0.2);
+                color: rgba(255,255,255,0.95);
+                letter-spacing: 0.3px;
+                backdrop-filter: blur(4px);
               }
 
               /* Support strip (for Hero & Minimal) */

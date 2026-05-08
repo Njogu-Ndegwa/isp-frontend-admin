@@ -295,54 +295,6 @@ export default function PortalCustomizationPage() {
               <div>
                 <label className="block text-xs font-medium text-foreground-muted mb-2">Hero Background</label>
 
-                {/* Gradient patterns */}
-                <p className="text-[0.65rem] text-foreground-muted/70 mb-1.5">Gradient patterns</p>
-                <div className="grid grid-cols-5 gap-2 mb-3">
-                  {[
-                    { key: null, label: 'Solid' },
-                    { key: 'preset-waves', label: 'Waves' },
-                    { key: 'preset-mesh', label: 'Mesh' },
-                    { key: 'preset-radial', label: 'Glow' },
-                    { key: 'preset-stripes', label: 'Stripes' },
-                  ].map((preset) => {
-                    const currentPreset = (current('header_bg_image_url') as string | null) ?? null;
-                    const isActive = currentPreset === preset.key;
-                    return (
-                      <button
-                        key={preset.label}
-                        onClick={() => markChange('header_bg_image_url', preset.key)}
-                        className={`flex flex-col items-center gap-1 p-2 rounded-lg border transition-all ${
-                          isActive
-                            ? 'border-accent-primary bg-accent-primary/5'
-                            : 'border-border hover:bg-background-tertiary'
-                        }`}
-                      >
-                        <div
-                          className="w-full h-10 rounded-md"
-                          style={{
-                            background:
-                              preset.key === null
-                                ? `linear-gradient(135deg, ${palette.primary}, ${palette.primaryDark})`
-                                : preset.key === 'preset-waves'
-                                ? `radial-gradient(ellipse at top, ${palette.primaryLight}60, transparent 70%), linear-gradient(135deg, ${palette.primary}, ${palette.primaryDark})`
-                                : preset.key === 'preset-mesh'
-                                ? `linear-gradient(${palette.primaryLight}25 1px, transparent 1px), linear-gradient(90deg, ${palette.primaryLight}25 1px, transparent 1px), linear-gradient(135deg, ${palette.primary}, ${palette.primaryDark})`
-                                : preset.key === 'preset-radial'
-                                ? `radial-gradient(circle at 50% 30%, ${palette.primaryLight}80 0%, transparent 60%), linear-gradient(135deg, ${palette.primary}, ${palette.primaryDark})`
-                                : `repeating-linear-gradient(45deg, ${palette.primaryDark}50, ${palette.primaryDark}50 8px, ${palette.primary}50 8px, ${palette.primary}50 16px), linear-gradient(135deg, ${palette.primary}, ${palette.primaryDark})`,
-                            backgroundSize: preset.key === 'preset-mesh' ? '8px 8px, 8px 8px, 100% 100%' : 'cover',
-                          }}
-                        />
-                        <span className={`text-[0.6rem] font-medium ${isActive ? 'text-accent-primary' : 'text-foreground-muted'}`}>
-                          {preset.label}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-
-                {/* Photo backgrounds */}
-                <p className="text-[0.65rem] text-foreground-muted/70 mb-1.5">Photo backgrounds</p>
                 <div className="grid grid-cols-5 gap-2">
                   {IMAGE_PRESETS.map((preset) => {
                     const currentPreset = (current('header_bg_image_url') as string | null) ?? null;
@@ -360,7 +312,7 @@ export default function PortalCustomizationPage() {
                         <div
                           className="w-full h-10 rounded-md"
                           style={{
-                            backgroundImage: `linear-gradient(135deg, ${palette.primary}cc 0%, ${palette.primaryDark}aa 100%), url(${preset.key})`,
+                            backgroundImage: `linear-gradient(135deg, ${palette.primary}bb 0%, ${palette.primaryDark}88 100%), url(${preset.key})`,
                             backgroundSize: 'cover',
                             backgroundPosition: 'center',
                           }}
