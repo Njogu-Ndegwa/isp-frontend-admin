@@ -2370,7 +2370,7 @@ class ApiClient {
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         },
-        available_themes: ['sunset_orange', 'ocean_blue', 'emerald_green', 'deep_teal', 'rose_gold', 'slate_gray'],
+        available_themes: ['sunset_orange', 'ocean_blue', 'emerald_green', 'bright_violet', 'rose_gold', 'slate_gray'],
         available_header_styles: ['standard', 'minimal', 'hero', 'compact'],
         available_languages: ['en', 'sw', 'fr'],
         available_announcement_types: ['info', 'warning', 'success'],
