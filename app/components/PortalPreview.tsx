@@ -99,6 +99,20 @@ export default function PortalPreview({ settings, palette }: PortalPreviewProps)
     }
   };
 
+  const renderSupportStrip = () => {
+    // Show support contact when header doesn't have a Help button (Hero & Minimal)
+    const needsStrip = settings.header_style === 'hero' || settings.header_style === 'minimal';
+    if (!needsStrip) return null;
+    const phone = settings.portal_support_phone;
+    if (!phone) return null;
+    return (
+      <a href={`tel:${phone}`} className="pp-support-strip">
+        <span>📞</span>
+        <span className="pp-support-strip-text">Need help? Call {phone}</span>
+      </a>
+    );
+  };
+
   const renderAnnouncement = () => {
     // Hardcoded off — hidden from UI
     return null;
@@ -357,6 +371,25 @@ export default function PortalPreview({ settings, palette }: PortalPreviewProps)
                 margin: 0;
                 opacity: 0.9;
                 text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+              }
+
+              /* Support strip (for Hero & Minimal) */
+              .pp-support-strip {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                gap: 6px;
+                padding: 8px 16px;
+                background: ${palette.primary}10;
+                border-bottom: 1px solid ${palette.border};
+                text-decoration: none;
+                color: ${palette.primary};
+                font-size: 0.75rem;
+                font-weight: 600;
+              }
+              .pp-support-strip-text {
+                font-size: 0.7rem;
+                color: ${palette.textSecondary};
               }
 
               /* Announcement */
@@ -747,6 +780,7 @@ export default function PortalPreview({ settings, palette }: PortalPreviewProps)
             `}</style>
 
             {renderHeader()}
+            {renderSupportStrip()}
             {renderAnnouncement()}
             {renderWelcomeBanner()}
             {renderAds()}

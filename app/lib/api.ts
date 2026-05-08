@@ -2347,7 +2347,7 @@ class ApiClient {
           color_theme: 'sunset_orange',
           header_style: 'standard',
           show_ads: true,
-          show_welcome_banner: true,
+          show_welcome_banner: false,
           welcome_title: 'Demo ISP',
           welcome_subtitle: 'Fast internet for everyone',
           company_logo_url: null,

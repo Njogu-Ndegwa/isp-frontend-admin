@@ -179,6 +179,7 @@ export default function PortalCustomizationPage() {
     show_ratings: false,
     show_social_links: false,
     show_announcement: false,
+    show_welcome_banner: false,
   } as typeof s;
 
   const palette = getThemePalette(previewSettings.color_theme);
@@ -284,26 +285,30 @@ export default function PortalCustomizationPage() {
           <p className="text-xs text-foreground-muted mt-0.5">Titles and welcome message</p>
         </div>
         <div className="p-5 space-y-4">
-          <div>
-            <label className="block text-xs font-medium text-foreground-muted mb-1.5">Welcome Title</label>
-            <input
-              type="text"
-              className="input"
-              value={(current('welcome_title') as string | null) ?? ''}
-              onChange={(e) => markChange('welcome_title', e.target.value || null)}
-              placeholder="Welcome to My WiFi"
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-foreground-muted mb-1.5">Welcome Subtitle</label>
-            <input
-              type="text"
-              className="input"
-              value={(current('welcome_subtitle') as string | null) ?? ''}
-              onChange={(e) => markChange('welcome_subtitle', e.target.value || null)}
-              placeholder="Affordable internet for everyone"
-            />
-          </div>
+          {current('header_style') === 'hero' && (
+            <>
+              <div>
+                <label className="block text-xs font-medium text-foreground-muted mb-1.5">Welcome Title</label>
+                <input
+                  type="text"
+                  className="input"
+                  value={(current('welcome_title') as string | null) ?? ''}
+                  onChange={(e) => markChange('welcome_title', e.target.value || null)}
+                  placeholder="Welcome to My WiFi"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-foreground-muted mb-1.5">Welcome Subtitle</label>
+                <input
+                  type="text"
+                  className="input"
+                  value={(current('welcome_subtitle') as string | null) ?? ''}
+                  onChange={(e) => markChange('welcome_subtitle', e.target.value || null)}
+                  placeholder="Affordable internet for everyone"
+                />
+              </div>
+            </>
+          )}
           <div>
             <label className="block text-xs font-medium text-foreground-muted mb-1.5">Footer Text</label>
             <input
@@ -336,7 +341,6 @@ export default function PortalCustomizationPage() {
         <div className="p-5 space-y-3">
           {[
             { key: 'show_ads' as const, label: 'Show Ads', desc: 'Display the marketplace ads strip' },
-            { key: 'show_welcome_banner' as const, label: 'Show Welcome Banner', desc: 'Display the welcome title and subtitle' },
           ].map((toggle) => (
             <label
               key={toggle.key}
