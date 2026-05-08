@@ -54,12 +54,8 @@ const HEADER_STYLE_OPTIONS: {
     value: 'hero',
     label: 'Hero',
     thumbnail: (
-      <div className="w-full h-8 rounded-md border border-border bg-background-tertiary/50 flex flex-col gap-1 p-1">
-        <div className="flex items-center justify-between">
-          <div className="w-8 h-2 rounded bg-foreground/20" />
-          <div className="w-5 h-2 rounded bg-foreground/20" />
-        </div>
-        <div className="w-full h-3 rounded bg-accent-primary/30" />
+      <div className="w-full h-8 rounded-md border border-border overflow-hidden">
+        <div className="w-full h-full bg-accent-primary/30" />
       </div>
     ),
   },
@@ -287,6 +283,66 @@ export default function PortalCustomizationPage() {
         <div className="p-5 space-y-4">
           {current('header_style') === 'hero' && (
             <>
+              {/* Hero Background Presets */}
+              <div>
+                <label className="block text-xs font-medium text-foreground-muted mb-2">Hero Background</label>
+                <div className="grid grid-cols-5 gap-2">
+                  {[
+                    { key: null, label: 'Solid' },
+                    { key: 'preset-waves', label: 'Waves' },
+                    { key: 'preset-mesh', label: 'Mesh' },
+                    { key: 'preset-radial', label: 'Glow' },
+                    { key: 'preset-stripes', label: 'Stripes' },
+                  ].map((preset) => {
+                    const currentPreset = (current('header_bg_image_url') as string | null) ?? null;
+                    const isActive = currentPreset === preset.key;
+                    return (
+                      <button
+                        key={preset.label}
+                        onClick={() => markChange('header_bg_image_url', preset.key)}
+                        className={`flex flex-col items-center gap-1 p-2 rounded-lg border transition-all ${
+                          isActive
+                            ? 'border-accent-primary bg-accent-primary/5'
+                            : 'border-border hover:bg-background-tertiary'
+                        }`}
+                      >
+                        <div
+                          className="w-full h-10 rounded-md"
+                          style={{
+                            background:
+                              preset.key === null
+                                ? `linear-gradient(135deg, ${palette.primary}, ${palette.primaryDark})`
+                                : preset.key === 'preset-waves'
+                                ? `radial-gradient(ellipse at top, ${palette.primaryLight}60, transparent 70%), linear-gradient(135deg, ${palette.primary}, ${palette.primaryDark})`
+                                : preset.key === 'preset-mesh'
+                                ? `linear-gradient(${palette.primaryLight}25 1px, transparent 1px), linear-gradient(90deg, ${palette.primaryLight}25 1px, transparent 1px), linear-gradient(135deg, ${palette.primary}, ${palette.primaryDark})`
+                                : preset.key === 'preset-radial'
+                                ? `radial-gradient(circle at 50% 30%, ${palette.primaryLight}80 0%, transparent 60%), linear-gradient(135deg, ${palette.primary}, ${palette.primaryDark})`
+                                : `repeating-linear-gradient(45deg, ${palette.primaryDark}50, ${palette.primaryDark}50 8px, ${palette.primary}50 8px, ${palette.primary}50 16px), linear-gradient(135deg, ${palette.primary}, ${palette.primaryDark})`,
+                            backgroundSize: preset.key === 'preset-mesh' ? '8px 8px, 8px 8px, 100% 100%' : 'cover',
+                          }}
+                        />
+                        <span className={`text-[0.6rem] font-medium ${isActive ? 'text-accent-primary' : 'text-foreground-muted'}`}>
+                          {preset.label}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-foreground-muted mb-1.5">Company Logo URL</label>
+                <input
+                  type="url"
+                  className="input"
+                  value={(current('company_logo_url') as string | null) ?? ''}
+                  onChange={(e) => markChange('company_logo_url', e.target.value || null)}
+                  placeholder="https://example.com/logo.png"
+                />
+                <p className="text-[0.65rem] text-foreground-muted mt-1">Shown centered above the hero title</p>
+              </div>
+
               <div>
                 <label className="block text-xs font-medium text-foreground-muted mb-1.5">Welcome Title</label>
                 <input

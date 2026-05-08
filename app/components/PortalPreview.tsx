@@ -63,20 +63,37 @@ export default function PortalPreview({ settings, palette }: PortalPreviewProps)
             <a href="#" className="pp-header-compact-help">📞 Help</a>
           </div>
         );
-      case 'hero':
+      case 'hero': {
+        const bgUrl = settings.header_bg_image_url;
+        const isPreset = bgUrl?.startsWith('preset-');
+        const heroBg = isPreset
+          ? bgUrl === 'preset-waves'
+            ? `radial-gradient(ellipse at top, ${palette.primaryLight}60, transparent 70%), linear-gradient(135deg, ${palette.primary}, ${palette.primaryDark})`
+            : bgUrl === 'preset-mesh'
+            ? `linear-gradient(${palette.primaryLight}25 1px, transparent 1px), linear-gradient(90deg, ${palette.primaryLight}25 1px, transparent 1px), linear-gradient(135deg, ${palette.primary}, ${palette.primaryDark})`
+            : bgUrl === 'preset-radial'
+            ? `radial-gradient(circle at 50% 30%, ${palette.primaryLight}80 0%, transparent 60%), linear-gradient(135deg, ${palette.primary}, ${palette.primaryDark})`
+            : `repeating-linear-gradient(45deg, ${palette.primaryDark}50, ${palette.primaryDark}50 8px, ${palette.primary}50 8px, ${palette.primary}50 16px), linear-gradient(135deg, ${palette.primary}, ${palette.primaryDark})`
+          : bgUrl
+          ? `linear-gradient(135deg, ${palette.primary}ee 0%, ${palette.primaryDark}dd 100%), url(${bgUrl})`
+          : `linear-gradient(135deg, ${palette.primary} 0%, ${palette.primaryDark} 100%)`;
+        const heroBgSize = bgUrl === 'preset-mesh' ? '8px 8px, 8px 8px, 100% 100%' : 'cover';
         return (
           <div
             className="pp-header-hero"
             style={{
-              backgroundImage: settings.header_bg_image_url
-                ? `linear-gradient(135deg, ${palette.primary}ee 0%, ${palette.primaryDark}dd 100%), url(${settings.header_bg_image_url})`
-                : `linear-gradient(135deg, ${palette.primary} 0%, ${palette.primaryDark} 100%)`,
+              backgroundImage: heroBg,
+              backgroundSize: heroBgSize,
             }}
           >
+            {settings.company_logo_url && (
+              <img src={settings.company_logo_url} alt="" className="pp-header-hero-logo" />
+            )}
             <h1 className="pp-header-hero-title">{title}</h1>
             <p className="pp-header-hero-subtitle">{subtitle}</p>
           </div>
         );
+      }
       case 'standard':
       default:
         return (
@@ -359,6 +376,15 @@ export default function PortalPreview({ settings, palette }: PortalPreviewProps)
                 flex-direction: column;
                 align-items: center;
                 justify-content: center;
+              }
+              .pp-header-hero-logo {
+                width: 40px;
+                height: 40px;
+                border-radius: 10px;
+                object-fit: cover;
+                margin-bottom: 8px;
+                background: rgba(255,255,255,0.2);
+                box-shadow: 0 2px 8px rgba(0,0,0,0.2);
               }
               .pp-header-hero-title {
                 font-size: 1.35rem;
