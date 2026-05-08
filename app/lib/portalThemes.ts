@@ -22,9 +22,9 @@ export type PortalColorTheme =
   | 'sunset_orange'
   | 'ocean_blue'
   | 'emerald_green'
+  | 'burnt_amber'
   | 'rose_gold'
-  | 'slate_gray'
-  | 'midnight_purple';
+  | 'slate_gray';
 
 export const THEME_PALETTES: Record<PortalColorTheme, PortalThemePalette> = {
   sunset_orange: {
@@ -107,21 +107,21 @@ export const THEME_PALETTES: Record<PortalColorTheme, PortalThemePalette> = {
     info: '#3B82F6',
     warning: '#F59E0B',
   },
-  midnight_purple: {
-    primary: '#7C3AED',
-    primaryLight: '#A78BFA',
-    primaryDark: '#6D28D9',
-    accent: '#C084FC',
-    background: '#1A0B2E',
-    surface: '#2D1B4E',
-    text: '#FFFFFF',
-    textSecondary: '#C4B5FD',
+  burnt_amber: {
+    primary: '#C2410C',
+    primaryLight: '#EA580C',
+    primaryDark: '#9A3412',
+    accent: '#FBBF24',
+    background: '#FFF7ED',
+    surface: '#FFFFFF',
+    text: '#1A1A1A',
+    textSecondary: '#5C5C5C',
     textInverse: '#FFFFFF',
-    border: '#4C1D95',
-    success: '#34D399',
-    error: '#F87171',
-    info: '#60A5FA',
-    warning: '#FBBF24',
+    border: '#E5E5E5',
+    success: '#10B981',
+    error: '#EF4444',
+    info: '#3B82F6',
+    warning: '#F59E0B',
   },
 };
 

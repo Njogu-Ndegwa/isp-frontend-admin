@@ -7,7 +7,6 @@ import {
   PortalColorTheme,
   PortalHeaderStyle,
   PortalLanguage,
-  PortalAnnouncementType,
   UpdatePortalSettingsRequest,
 } from '../../lib/types';
 import { getThemePalette } from '../../lib/portalThemes';
@@ -19,16 +18,61 @@ const THEME_OPTIONS: { value: PortalColorTheme; label: string; color: string }[]
   { value: 'sunset_orange', label: 'Sunset Orange', color: '#E85D04' },
   { value: 'ocean_blue', label: 'Ocean Blue', color: '#3b82f6' },
   { value: 'emerald_green', label: 'Emerald Green', color: '#10b981' },
-  { value: 'midnight_purple', label: 'Midnight Purple', color: '#7c3aed' },
+  { value: 'burnt_amber', label: 'Burnt Amber', color: '#C2410C' },
   { value: 'rose_gold', label: 'Rose Gold', color: '#e11d48' },
   { value: 'slate_gray', label: 'Slate Gray', color: '#475569' },
 ];
 
-const HEADER_STYLE_OPTIONS: { value: PortalHeaderStyle; label: string }[] = [
-  { value: 'standard', label: 'Standard' },
-  { value: 'minimal', label: 'Minimal' },
-  { value: 'hero', label: 'Hero' },
-  { value: 'compact', label: 'Compact' },
+const HEADER_STYLE_OPTIONS: {
+  value: PortalHeaderStyle;
+  label: string;
+  thumbnail: React.ReactNode;
+}[] = [
+  {
+    value: 'standard',
+    label: 'Standard',
+    thumbnail: (
+      <div className="w-full h-8 rounded-md border border-border bg-background-tertiary/50 flex flex-col gap-1 p-1">
+        <div className="flex items-center justify-between">
+          <div className="w-10 h-2 rounded bg-foreground/20" />
+          <div className="w-6 h-2 rounded bg-foreground/20" />
+        </div>
+        <div className="w-full h-2 rounded bg-foreground/10" />
+      </div>
+    ),
+  },
+  {
+    value: 'minimal',
+    label: 'Minimal',
+    thumbnail: (
+      <div className="w-full h-8 rounded-md border border-border bg-background-tertiary/50 flex items-center justify-center p-1">
+        <div className="w-16 h-2 rounded bg-foreground/20" />
+      </div>
+    ),
+  },
+  {
+    value: 'hero',
+    label: 'Hero',
+    thumbnail: (
+      <div className="w-full h-8 rounded-md border border-border bg-background-tertiary/50 flex flex-col gap-1 p-1">
+        <div className="flex items-center justify-between">
+          <div className="w-8 h-2 rounded bg-foreground/20" />
+          <div className="w-5 h-2 rounded bg-foreground/20" />
+        </div>
+        <div className="w-full h-3 rounded bg-accent-primary/30" />
+      </div>
+    ),
+  },
+  {
+    value: 'compact',
+    label: 'Compact',
+    thumbnail: (
+      <div className="w-full h-8 rounded-md border border-border bg-background-tertiary/50 flex items-center justify-between p-1">
+        <div className="w-8 h-2 rounded bg-foreground/20" />
+        <div className="w-5 h-2 rounded bg-foreground/20" />
+      </div>
+    ),
+  },
 ];
 
 const LANGUAGE_OPTIONS: { value: PortalLanguage; label: string }[] = [
@@ -37,11 +81,7 @@ const LANGUAGE_OPTIONS: { value: PortalLanguage; label: string }[] = [
   { value: 'fr', label: 'French' },
 ];
 
-const ANNOUNCEMENT_TYPE_OPTIONS: { value: PortalAnnouncementType; label: string; className: string }[] = [
-  { value: 'info', label: 'Info', className: 'bg-blue-500/10 text-blue-500 border-blue-500/20' },
-  { value: 'warning', label: 'Warning', className: 'bg-amber-500/10 text-amber-500 border-amber-500/20' },
-  { value: 'success', label: 'Success', className: 'bg-green-500/10 text-green-500 border-green-500/20' },
-];
+
 
 export default function PortalCustomizationPage() {
   const { showAlert } = useAlert();
@@ -131,9 +171,14 @@ export default function PortalCustomizationPage() {
     (changed[key] !== undefined ? changed[key] : s[key as keyof typeof s]) as unknown;
 
   // Build merged settings for live preview
+  // Hardcode defaults for features hidden from the UI
   const previewSettings = {
     ...s,
     ...changed,
+    show_reconnect_button: true,
+    show_ratings: false,
+    show_social_links: false,
+    show_announcement: false,
   } as typeof s;
 
   const palette = getThemePalette(previewSettings.color_theme);
@@ -215,12 +260,13 @@ export default function PortalCustomizationPage() {
                 <button
                   key={style.value}
                   onClick={() => markChange('header_style', style.value)}
-                  className={`p-3 rounded-xl border transition-all text-center ${
+                  className={`p-3 rounded-xl border transition-all text-center space-y-2 ${
                     isActive
                       ? 'border-accent-primary bg-accent-primary/5'
                       : 'border-border hover:bg-background-tertiary'
                   }`}
                 >
+                  {style.thumbnail}
                   <span className={`text-sm font-medium ${isActive ? 'text-accent-primary' : 'text-foreground'}`}>
                     {style.label}
                   </span>
@@ -235,29 +281,9 @@ export default function PortalCustomizationPage() {
       <section className="rounded-2xl bg-background-secondary border border-border overflow-hidden">
         <div className="p-5 border-b border-border">
           <h2 className="text-base font-semibold text-foreground">Branding</h2>
-          <p className="text-xs text-foreground-muted mt-0.5">Logo, titles, and welcome message</p>
+          <p className="text-xs text-foreground-muted mt-0.5">Titles and welcome message</p>
         </div>
         <div className="p-5 space-y-4">
-          <div>
-            <label className="block text-xs font-medium text-foreground-muted mb-1.5">Company Logo URL</label>
-            <input
-              type="url"
-              className="input"
-              value={(current('company_logo_url') as string | null) ?? ''}
-              onChange={(e) => markChange('company_logo_url', e.target.value || null)}
-              placeholder="https://example.com/logo.png"
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-foreground-muted mb-1.5">Header Background Image URL</label>
-            <input
-              type="url"
-              className="input"
-              value={(current('header_bg_image_url') as string | null) ?? ''}
-              onChange={(e) => markChange('header_bg_image_url', e.target.value || null)}
-              placeholder="https://example.com/hero-bg.jpg (used with Hero layout)"
-            />
-          </div>
           <div>
             <label className="block text-xs font-medium text-foreground-muted mb-1.5">Welcome Title</label>
             <input
@@ -301,7 +327,7 @@ export default function PortalCustomizationPage() {
         </div>
       </section>
 
-      {/* Toggles */}
+      {/* Features */}
       <section className="rounded-2xl bg-background-secondary border border-border overflow-hidden">
         <div className="p-5 border-b border-border">
           <h2 className="text-base font-semibold text-foreground">Features</h2>
@@ -311,9 +337,6 @@ export default function PortalCustomizationPage() {
           {[
             { key: 'show_ads' as const, label: 'Show Ads', desc: 'Display the marketplace ads strip' },
             { key: 'show_welcome_banner' as const, label: 'Show Welcome Banner', desc: 'Display the welcome title and subtitle' },
-            { key: 'show_ratings' as const, label: 'Show Ratings', desc: 'Display the customer feedback section' },
-            { key: 'show_reconnect_button' as const, label: 'Show Reconnect Button', desc: 'Allow customers to reconnect after payment' },
-            { key: 'show_social_links' as const, label: 'Show Social Links', desc: 'Display Facebook, WhatsApp, and Instagram links' },
           ].map((toggle) => (
             <label
               key={toggle.key}
@@ -331,61 +354,6 @@ export default function PortalCustomizationPage() {
               />
             </label>
           ))}
-        </div>
-      </section>
-
-      {/* Announcement Banner */}
-      <section className="rounded-2xl bg-background-secondary border border-border overflow-hidden">
-        <div className="p-5 border-b border-border">
-          <h2 className="text-base font-semibold text-foreground">Announcement Banner</h2>
-          <p className="text-xs text-foreground-muted mt-0.5">Display a temporary notice to customers</p>
-        </div>
-        <div className="p-5 space-y-4">
-          <label className="flex items-center justify-between p-3 rounded-xl bg-background-tertiary/50 cursor-pointer">
-            <div>
-              <div className="text-sm font-medium text-foreground">Enable Announcement</div>
-              <div className="text-xs text-foreground-muted">Show a banner at the top of the portal</div>
-            </div>
-            <input
-              type="checkbox"
-              checked={!!current('show_announcement')}
-              onChange={(e) => markChange('show_announcement', e.target.checked)}
-              className="w-5 h-5 rounded border-border text-accent-primary focus:ring-accent-primary"
-            />
-          </label>
-
-          {!!current('show_announcement') && (
-            <>
-              <div>
-                <label className="block text-xs font-medium text-foreground-muted mb-1.5">Announcement Type</label>
-                <div className="flex flex-wrap gap-2">
-                  {ANNOUNCEMENT_TYPE_OPTIONS.map((opt) => {
-                    const isActive = current('announcement_type') === opt.value;
-                    return (
-                      <button
-                        key={opt.value}
-                        onClick={() => markChange('announcement_type', opt.value)}
-                        className={`px-3 py-1.5 rounded-lg border text-xs font-medium transition-all ${
-                          isActive ? opt.className : 'border-border text-foreground-muted hover:bg-background-tertiary'
-                        }`}
-                      >
-                        {opt.label}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-foreground-muted mb-1.5">Announcement Message</label>
-                <textarea
-                  className="input min-h-[80px] resize-y"
-                  value={(current('announcement_text') as string | null) ?? ''}
-                  onChange={(e) => markChange('announcement_text', e.target.value || null)}
-                  placeholder="Network maintenance tonight 11 PM – 1 AM."
-                />
-              </div>
-            </>
-          )}
         </div>
       </section>
 
@@ -414,46 +382,6 @@ export default function PortalCustomizationPage() {
               value={(current('portal_support_whatsapp') as string | null) ?? ''}
               onChange={(e) => markChange('portal_support_whatsapp', e.target.value || null)}
               placeholder="+254700000000"
-            />
-          </div>
-        </div>
-      </section>
-
-      {/* Social Links */}
-      <section className="rounded-2xl bg-background-secondary border border-border overflow-hidden">
-        <div className="p-5 border-b border-border">
-          <h2 className="text-base font-semibold text-foreground">Social Links</h2>
-          <p className="text-xs text-foreground-muted mt-0.5">Links shown when social links are enabled</p>
-        </div>
-        <div className="p-5 space-y-4">
-          <div>
-            <label className="block text-xs font-medium text-foreground-muted mb-1.5">Facebook URL</label>
-            <input
-              type="url"
-              className="input"
-              value={(current('facebook_url') as string | null) ?? ''}
-              onChange={(e) => markChange('facebook_url', e.target.value || null)}
-              placeholder="https://facebook.com/yourpage"
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-foreground-muted mb-1.5">WhatsApp Group URL</label>
-            <input
-              type="url"
-              className="input"
-              value={(current('whatsapp_group_url') as string | null) ?? ''}
-              onChange={(e) => markChange('whatsapp_group_url', e.target.value || null)}
-              placeholder="https://chat.whatsapp.com/..."
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-foreground-muted mb-1.5">Instagram URL</label>
-            <input
-              type="url"
-              className="input"
-              value={(current('instagram_url') as string | null) ?? ''}
-              onChange={(e) => markChange('instagram_url', e.target.value || null)}
-              placeholder="https://instagram.com/yourhandle"
             />
           </div>
         </div>
