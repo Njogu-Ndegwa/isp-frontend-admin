@@ -265,7 +265,12 @@ export default function PortalCustomizationPage() {
               return (
                 <button
                   key={style.value}
-                  onClick={() => markChange('header_style', style.value)}
+                  onClick={() => {
+                    markChange('header_style', style.value);
+                    if (style.value === 'hero' && !current('header_bg_image_url')) {
+                      markChange('header_bg_image_url', IMAGE_PRESETS[2].key);
+                    }
+                  }}
                   className={`p-3 rounded-xl border transition-all text-center space-y-2 ${
                     isActive
                       ? 'border-accent-primary bg-accent-primary/5'

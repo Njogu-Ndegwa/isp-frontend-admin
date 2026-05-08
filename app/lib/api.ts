@@ -2351,7 +2351,7 @@ class ApiClient {
           welcome_title: 'Demo ISP',
           welcome_subtitle: 'Fast internet for everyone',
           company_logo_url: null,
-          header_bg_image_url: null,
+          header_bg_image_url: 'https://images.unsplash.com/photo-1523805009345-7448845a9e53?w=750&h=370&fit=crop&q=80',
           footer_text: null,
           portal_support_phone: '+254700000000',
           portal_support_whatsapp: null,
@@ -2393,7 +2393,21 @@ class ApiClient {
   }
 
   async resetPortalSettings(): Promise<{ message: string; settings: PortalSettingsResponse['settings'] }> {
-    if (this.isDemoMode()) this.demoBlock();
+    if (this.isDemoMode()) {
+      const current = (await this.getPortalSettings()).settings;
+      return {
+        message: 'Portal settings reset to defaults',
+        settings: {
+          ...current,
+          color_theme: 'sunset_orange',
+          header_style: 'hero',
+          header_bg_image_url: 'https://images.unsplash.com/photo-1523805009345-7448845a9e53?w=750&h=370&fit=crop&q=80',
+          show_ads: false,
+          welcome_title: 'Demo ISP',
+          welcome_subtitle: 'Fast internet for everyone',
+        },
+      };
+    }
     const response = await fetch(`${BASE_URL}/portal/settings/reset`, {
       method: 'POST',
       headers: this.getHeaders(),
