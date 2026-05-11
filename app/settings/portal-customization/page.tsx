@@ -474,54 +474,47 @@ export default function PortalCustomizationPage() {
         </div>
       </div>
 
-      {/* Preview floating button — shown below xl */}
+      {/* FAB toggle — preview open: close icon; preview closed: preview icon + label */}
       <button
-        onClick={() => setShowPreviewModal(true)}
-        className="xl:hidden fixed z-[9999] flex items-center gap-2 px-4 py-3 rounded-full shadow-xl"
+        onClick={() => setShowPreviewModal((v) => !v)}
+        aria-label={showPreviewModal ? 'Close preview' : 'Open preview'}
+        className="xl:hidden fixed z-[9999] flex items-center justify-center shadow-xl transition-all active:scale-95"
         style={{
           bottom: 'calc(5rem + env(safe-area-inset-bottom, 0px))',
           right: '16px',
-          background: 'var(--accent-primary)',
-          color: '#1c1917',
+          background: showPreviewModal ? 'rgba(28,25,23,0.85)' : 'var(--accent-primary)',
+          color: showPreviewModal ? '#fff' : '#1c1917',
           fontWeight: 700,
           fontSize: '0.875rem',
-          boxShadow: '0 4px 20px rgba(0,0,0,0.25)',
+          boxShadow: '0 4px 20px rgba(0,0,0,0.3)',
+          borderRadius: showPreviewModal ? '50%' : '9999px',
+          width: showPreviewModal ? '44px' : 'auto',
+          height: showPreviewModal ? '44px' : 'auto',
+          padding: showPreviewModal ? '0' : '10px 18px',
+          gap: showPreviewModal ? '0' : '8px',
         }}
       >
-        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 1.5H8.25A2.25 2.25 0 006 3.75v16.5a2.25 2.25 0 002.25 2.25h7.5A2.25 2.25 0 0018 20.25V3.75a2.25 2.25 0 00-2.25-2.25H13.5m-3 0V3h3V1.5m-3 0h3m-3 8.25h3m-3 3.75h3m-3 3.75H12" />
-        </svg>
-        Preview
+        {showPreviewModal ? (
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        ) : (
+          <>
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 1.5H8.25A2.25 2.25 0 006 3.75v16.5a2.25 2.25 0 002.25 2.25h7.5A2.25 2.25 0 0018 20.25V3.75a2.25 2.25 0 00-2.25-2.25H13.5m-3 0V3h3V1.5m-3 0h3m-3 8.25h3m-3 3.75h3m-3 3.75H12" />
+            </svg>
+            Preview
+          </>
+        )}
       </button>
 
-      {/* Preview modal — shown below xl */}
+      {/* Full-screen portal preview — no phone chrome, fills the entire screen */}
       {showPreviewModal && (
         <div
-          className="xl:hidden fixed inset-0 z-[9998] flex flex-col items-center justify-start pt-6 pb-8"
-          style={{ background: 'rgba(0,0,0,0.88)', backdropFilter: 'blur(10px)', overflowY: 'auto' }}
-          onClick={() => setShowPreviewModal(false)}
+          className="xl:hidden fixed inset-0 z-[9997] overflow-y-auto overflow-x-hidden"
+          style={{ background: palette.background, scrollbarWidth: 'none' }}
         >
-          {/* Modal header */}
-          <div className="flex items-center justify-between w-full max-w-sm px-5 mb-5 flex-shrink-0">
-            <div>
-              <p className="text-white font-semibold text-sm">Portal Preview</p>
-              <p className="text-white/50 text-xs mt-0.5">Live · updates as you edit</p>
-            </div>
-            <button
-              onClick={() => setShowPreviewModal(false)}
-              className="flex items-center justify-center w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
-              aria-label="Close preview"
-            >
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
-
-          {/* Phone preview — PortalPreview's own responsive CSS handles small screens */}
-          <div className="flex-shrink-0" onClick={(e) => e.stopPropagation()}>
-            <PortalPreview settings={previewSettings} palette={palette} />
-          </div>
+          <PortalPreview settings={previewSettings} palette={palette} fullscreen />
         </div>
       )}
     </div>

@@ -6,6 +6,8 @@ import { PortalSettings, PortalThemePalette, PortalHeaderStyle } from '../lib/ty
 interface PortalPreviewProps {
   settings: PortalSettings;
   palette: PortalThemePalette;
+  /** When true, renders as a full-screen experience with no phone bezel or fake status bar */
+  fullscreen?: boolean;
 }
 
 const MOCK_PLANS = [
@@ -21,7 +23,7 @@ const MOCK_ADS = [
   { id: 3, name: 'Phone Cases', seller: 'Tech Soko', price: 'KSH 250', badge: 'SALE' },
 ];
 
-export default function PortalPreview({ settings, palette }: PortalPreviewProps) {
+export default function PortalPreview({ settings, palette, fullscreen = false }: PortalPreviewProps) {
   const isDark = false; // All current themes are light mode
   const isHero = settings.header_style === 'hero';
 
@@ -283,15 +285,9 @@ export default function PortalPreview({ settings, palette }: PortalPreviewProps)
     return <div className="pp-footer">© {new Date().getFullYear()} Bitwave Technologies. All rights reserved.</div>;
   };
 
-  return (
-    <div className="pp-phone-wrapper">
-      {/* Phone bezel */}
-      <div className="pp-phone-bezel">
-
-        {/* Scrollable viewport — status bar is sticky inside */}
-        <div className="pp-viewport" style={{ '--vars': cssVars } as React.CSSProperties}>
-          <div className="pp-viewport-inner" style={{ background: palette.background, color: palette.text }}>
-            <style>{`
+  const portalContent = (
+    <div className="pp-viewport-inner" style={{ background: palette.background, color: palette.text, minHeight: fullscreen ? '100%' : undefined }}>
+      <style>{`
               .pp-viewport-inner {
                 font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
                 min-height: 100%;
@@ -916,15 +912,17 @@ export default function PortalPreview({ settings, palette }: PortalPreviewProps)
               }
             `}</style>
 
-            {/* Status bar — inside viewport so it blends with hero gradient */}
-            <div className="pp-status-bar">
-              <span className="pp-status-time">9:41</span>
-              <div className="pp-status-notch" />
-              <div className="pp-status-icons">
-                <span>📶</span>
-                <span>🔋</span>
+            {/* Status bar — only shown inside phone bezel, not in fullscreen */}
+            {!fullscreen && (
+              <div className="pp-status-bar">
+                <span className="pp-status-time">9:41</span>
+                <div className="pp-status-notch" />
+                <div className="pp-status-icons">
+                  <span>📶</span>
+                  <span>🔋</span>
+                </div>
               </div>
-            </div>
+            )}
 
             {renderHeader()}
             {renderSupportStrip()}
@@ -994,6 +992,24 @@ export default function PortalPreview({ settings, palette }: PortalPreviewProps)
               )}
             </div>
           </div>
+  );
+
+  /* ── Fullscreen mode: no phone chrome, fills the parent ── */
+  if (fullscreen) {
+    return (
+      <div style={{ width: '100%', minHeight: '100%', background: palette.background }}>
+        {portalContent}
+      </div>
+    );
+  }
+
+  /* ── Default mode: phone bezel wrapper ── */
+  return (
+    <div className="pp-phone-wrapper">
+      {/* Phone bezel */}
+      <div className="pp-phone-bezel">
+        <div className="pp-viewport" style={{ '--vars': cssVars } as React.CSSProperties}>
+          {portalContent}
         </div>
       </div>
 
