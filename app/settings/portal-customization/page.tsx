@@ -42,30 +42,11 @@ const HEADER_STYLE_OPTIONS: {
     ),
   },
   {
-    value: 'minimal',
-    label: 'Minimal',
-    thumbnail: (
-      <div className="w-full h-8 rounded-md border border-border bg-background-tertiary/50 flex items-center justify-center p-1">
-        <div className="w-16 h-2 rounded bg-foreground/20" />
-      </div>
-    ),
-  },
-  {
     value: 'hero',
     label: 'Hero',
     thumbnail: (
       <div className="w-full h-8 rounded-md border border-border overflow-hidden">
         <div className="w-full h-full bg-accent-primary/30" />
-      </div>
-    ),
-  },
-  {
-    value: 'compact',
-    label: 'Compact',
-    thumbnail: (
-      <div className="w-full h-8 rounded-md border border-border bg-background-tertiary/50 flex items-center justify-between p-1">
-        <div className="w-8 h-2 rounded bg-foreground/20" />
-        <div className="w-5 h-2 rounded bg-foreground/20" />
       </div>
     ),
   },
@@ -259,7 +240,7 @@ export default function PortalCustomizationPage() {
           <p className="text-xs text-foreground-muted mt-0.5">How the top section of the portal is displayed</p>
         </div>
         <div className="p-5">
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 gap-3">
             {HEADER_STYLE_OPTIONS.map((style) => {
               const isActive = current('header_style') === style.value;
               return (
@@ -333,18 +314,6 @@ export default function PortalCustomizationPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-foreground-muted mb-1.5">Company Logo URL</label>
-                <input
-                  type="url"
-                  className="input"
-                  value={(current('company_logo_url') as string | null) ?? ''}
-                  onChange={(e) => markChange('company_logo_url', e.target.value || null)}
-                  placeholder="https://example.com/logo.png"
-                />
-                <p className="text-[0.65rem] text-foreground-muted mt-1">Shown centered above the hero title</p>
-              </div>
-
-              <div>
                 <label className="block text-xs font-medium text-foreground-muted mb-1.5">Welcome Title</label>
                 <input
                   type="text"
@@ -366,16 +335,6 @@ export default function PortalCustomizationPage() {
               </div>
             </>
           )}
-          <div>
-            <label className="block text-xs font-medium text-foreground-muted mb-1.5">Footer Text</label>
-            <input
-              type="text"
-              className="input"
-              value={(current('footer_text') as string | null) ?? ''}
-              onChange={(e) => markChange('footer_text', e.target.value || null)}
-              placeholder="© 2026 My ISP. All rights reserved."
-            />
-          </div>
           <div>
             <label className="block text-xs font-medium text-foreground-muted mb-1.5">Plans Section Title</label>
             <input
@@ -472,26 +431,6 @@ export default function PortalCustomizationPage() {
                 </button>
               );
             })}
-          </div>
-        </div>
-      </section>
-
-      {/* Featured Plans */}
-      <section className="rounded-2xl bg-background-secondary border border-border overflow-hidden">
-        <div className="p-5 border-b border-border">
-          <h2 className="text-base font-semibold text-foreground">Featured Plans</h2>
-          <p className="text-xs text-foreground-muted mt-0.5">Pin specific plans to the top of the list</p>
-        </div>
-        <div className="p-5">
-          <div>
-            <label className="block text-xs font-medium text-foreground-muted mb-1.5">Featured Plan IDs</label>
-            <input
-              type="text"
-              className="input"
-              value={(current('featured_plan_ids') as string | null) ?? ''}
-              onChange={(e) => markChange('featured_plan_ids', e.target.value || null)}
-              placeholder="3,7 (comma-separated plan IDs)"
-            />
           </div>
         </div>
       </section>

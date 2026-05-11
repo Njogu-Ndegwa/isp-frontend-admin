@@ -278,8 +278,7 @@ export default function PortalPreview({ settings, palette }: PortalPreviewProps)
   };
 
   const renderFooter = () => {
-    if (!settings.footer_text) return null;
-    return <div className="pp-footer">{settings.footer_text}</div>;
+    return <div className="pp-footer">© {new Date().getFullYear()} Bitwave Technologies. All rights reserved.</div>;
   };
 
   return (
