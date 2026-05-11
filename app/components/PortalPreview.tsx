@@ -265,7 +265,9 @@ export default function PortalPreview({ settings, palette }: PortalPreviewProps)
               <span className="pp-plan-currency">KSH</span>
               {plan.price}
             </div>
-            <div className="pp-plan-speed">{plan.speed}</div>
+            {settings.show_plan_speed !== false && (
+              <div className="pp-plan-speed">{plan.speed}</div>
+            )}
           </div>
         ))}
       </div>

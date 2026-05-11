@@ -2649,6 +2649,7 @@ export interface PortalSettings {
   portal_language: PortalLanguage;
   plans_section_title: string | null;
   featured_plan_ids: string | null;
+  show_plan_speed: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -2685,6 +2686,7 @@ export interface UpdatePortalSettingsRequest {
   portal_language?: PortalLanguage;
   plans_section_title?: string | null;
   featured_plan_ids?: string | null;
+  show_plan_speed?: boolean;
 }
 
 export interface UpdatePortalSettingsResponse {

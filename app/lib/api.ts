@@ -2367,6 +2367,7 @@ class ApiClient {
           portal_language: 'en',
           plans_section_title: null,
           featured_plan_ids: null,
+          show_plan_speed: true,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         },

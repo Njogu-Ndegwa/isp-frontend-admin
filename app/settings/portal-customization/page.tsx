@@ -357,6 +357,7 @@ export default function PortalCustomizationPage() {
         <div className="p-5 space-y-3">
           {[
             { key: 'show_ads' as const, label: 'Show Ads', desc: 'Display the marketplace ads strip' },
+            { key: 'show_plan_speed' as const, label: 'Show Plan Speed', desc: 'Display download/upload speed on each plan card' },
           ].map((toggle) => (
             <label
               key={toggle.key}
