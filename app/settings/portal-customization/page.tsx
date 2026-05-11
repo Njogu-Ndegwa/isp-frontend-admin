@@ -161,7 +161,7 @@ export default function PortalCustomizationPage() {
     ...s,
     ...changed,
     show_reconnect_button: true,
-    show_ads: changed.show_ads ?? false,
+    show_ads: changed.show_ads ?? s.show_ads,
     show_ratings: false,
     show_social_links: false,
     show_announcement: false,
