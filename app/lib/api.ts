@@ -177,6 +177,8 @@ import {
   PortalSettingsResponse,
   UpdatePortalSettingsRequest,
   UpdatePortalSettingsResponse,
+  RevenueOverTimePeriod,
+  RevenueOverTimeResponse,
 } from './types';
 import * as demo from './demoData';
 
@@ -278,6 +280,29 @@ class ApiClient {
       { headers: this.getHeaders() }
     );
     return this.handleResponse<DashboardAnalytics>(response);
+  }
+
+  async getRevenueOverTime(options: {
+    period?: RevenueOverTimePeriod;
+    startDate?: string;
+    endDate?: string;
+    routerId?: number;
+  } = {}): Promise<RevenueOverTimeResponse> {
+    const params = new URLSearchParams();
+    if (options.startDate && options.endDate) {
+      params.append('start_date', options.startDate);
+      params.append('end_date', options.endDate);
+    } else if (options.period) {
+      params.append('period', options.period);
+    }
+    if (options.routerId) {
+      params.append('router_id', options.routerId.toString());
+    }
+    const response = await fetch(
+      `${BASE_URL}/dashboard/revenue-over-time?${params.toString()}`,
+      { headers: this.getHeaders() }
+    );
+    return this.handleResponse<RevenueOverTimeResponse>(response);
   }
 
   // MikroTik Metrics - GET /api/mikrotik/health[?router_id=<id>][&include_sessions=true]

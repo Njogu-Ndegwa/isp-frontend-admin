@@ -23,6 +23,7 @@ import RouterSelector from '../components/RouterSelector';
 import SubscriptionAlertBanner from '../components/SubscriptionAlertBanner';
 import OnboardingChecklist from '../components/OnboardingChecklist';
 import { useOnboardingStatus } from '../hooks/useOnboardingStatus';
+import RevenueOverTimeChart from '../components/RevenueOverTimeChart';
 
 // Date filter types
 type DateFilterPreset = 'today' | 'this_month';
@@ -424,9 +425,12 @@ export default function DashboardPage() {
         </>
       )}
 
+      {/* Revenue Over Time Chart */}
+      <RevenueOverTimeChart routerId={selectedRouterId} />
+
       {/* Router Health */}
       {selectedRouterId && (
-        <MikroTikSection 
+        <MikroTikSection
           data={mikrotik} 
           loading={mikrotikLoading} 
           error={mikrotikError}

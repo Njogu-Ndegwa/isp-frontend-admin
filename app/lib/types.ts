@@ -100,6 +100,30 @@ export interface DashboardAnalytics {
   mikrotik?: unknown;
 }
 
+// Revenue Over Time Chart
+export type RevenueOverTimePeriod = '7d' | '30d' | '90d' | '6m' | '1y' | 'custom';
+
+export interface RevenueDataPoint {
+  date: string;
+  label: string;
+  revenue: number;
+  transactions: number;
+}
+
+export interface RevenueOverTimeResponse {
+  period: string;
+  group_by: 'daily' | 'weekly' | 'monthly';
+  start_date: string;
+  end_date: string;
+  router_id: number | null;
+  data: RevenueDataPoint[];
+  totals: {
+    revenue: number;
+    transactions: number;
+    avg_per_period: number;
+  };
+}
+
 // Legacy Dashboard Types (kept for compatibility)
 export interface Revenue {
   today: number;
