@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '../context/AuthContext';
@@ -43,6 +44,30 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
 
   const isPublicPage = PUBLIC_PATHS.includes(pathname) || PUBLIC_PREFIXES.some(p => pathname.startsWith(p));
 
+  const isAdmin = user?.role === 'admin';
+  const isOnAdminPage = pathname.startsWith('/admin');
+  const isOnResellerPage = !isOnAdminPage;
+  const ADMIN_ALLOWED_NON_ADMIN_PATHS = ['/shop'];
+  const isOnAdminAllowedPath = ADMIN_ALLOWED_NON_ADMIN_PATHS.some(p => pathname.startsWith(p));
+
+  const needsRedirect = !isPublicPage && !isLoading && (
+    !isAuthenticated
+    || (isAdmin && isOnResellerPage && !isOnAdminAllowedPath)
+    || (!isAdmin && isOnAdminPage)
+  );
+
+  const redirectTarget = !isAuthenticated
+    ? '/login'
+    : (isAdmin && isOnResellerPage && !isOnAdminAllowedPath)
+      ? '/admin'
+      : '/dashboard';
+
+  useEffect(() => {
+    if (needsRedirect) {
+      router.replace(redirectTarget);
+    }
+  }, [needsRedirect, redirectTarget, router]);
+
   if (isPublicPage) {
     return <main className="min-h-screen">{children}</main>;
   }
@@ -58,25 +83,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     );
   }
 
-  if (!isAuthenticated) {
-    router.replace('/login');
-    return null;
-  }
-
-  const isAdmin = user?.role === 'admin';
-  const isOnAdminPage = pathname.startsWith('/admin');
-  const isOnResellerPage = !isOnAdminPage;
-
-  const ADMIN_ALLOWED_NON_ADMIN_PATHS = ['/shop'];
-  const isOnAdminAllowedPath = ADMIN_ALLOWED_NON_ADMIN_PATHS.some(p => pathname.startsWith(p));
-
-  if (isAdmin && isOnResellerPage && !isOnAdminAllowedPath) {
-    router.replace('/admin');
-    return null;
-  }
-
-  if (!isAdmin && isOnAdminPage) {
-    router.replace('/dashboard');
+  if (needsRedirect) {
     return null;
   }
 

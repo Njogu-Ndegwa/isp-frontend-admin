@@ -2431,6 +2431,127 @@ export interface GrowthTargetUpdatePayload {
   inverse?: boolean;
 }
 
+// ─── Admin Subscription Collections ─────────────────────────────────
+
+export type SubscriptionPaymentStatus = 'pending' | 'completed' | 'failed';
+export type BankSendStatus = 'sent' | 'partially_sent' | 'pending_send' | 'unsent' | 'not_applicable';
+
+export interface AdminSubscriptionCollectionsSummary {
+  total_collected: number;
+  completed_sent: number;
+  pending_send: number;
+  completed_bank_net: number;
+  completed_fees: number;
+  available_to_send: number;
+  fee_preview: {
+    safaricom_fee: number;
+    kadogo_surcharge: number;
+    total_fee: number;
+    net_payout: number;
+  };
+}
+
+export interface AdminSubscriptionPaymentRow {
+  id: number;
+  invoice_id: number | null;
+  reseller_id: number;
+  reseller_email: string;
+  reseller_name: string | null;
+  amount: number;
+  payment_method: string;
+  payment_reference: string | null;
+  mpesa_checkout_request_id: string | null;
+  phone_number: string | null;
+  status: SubscriptionPaymentStatus;
+  send_status: BankSendStatus;
+  sent_amount: number;
+  pending_send_amount: number;
+  unsent_amount: number;
+  created_at: string | null;
+}
+
+export interface AdminSubscriptionPaymentsResponse {
+  page: number;
+  per_page: number;
+  total: number;
+  total_pages: number;
+  summary: {
+    total_collected: number;
+    completed_sent: number;
+    pending_send: number;
+    available_to_send: number;
+  };
+  payments: AdminSubscriptionPaymentRow[];
+}
+
+export interface OwnerBankDestination {
+  id: number;
+  user_id: number;
+  method_type: 'bank_account' | 'mpesa_paybill';
+  label: string;
+  is_active: boolean;
+  bank_paybill_number?: string;
+  bank_account_number?: string;
+  mpesa_paybill_number?: string;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface CreateBankDestinationRequest {
+  method_type: 'bank_account' | 'mpesa_paybill';
+  label: string;
+  bank_paybill_number?: string;
+  bank_account_number?: string;
+  mpesa_paybill_number?: string;
+}
+
+export interface SendToBankRequest {
+  payment_method_id?: number;
+}
+
+export interface SendToBankResponse {
+  message: string;
+  balance_before: number;
+  destination: {
+    id: number;
+    method_type: string;
+    label: string;
+  };
+  transaction: {
+    id: number;
+    amount: number;
+    fee: number;
+    net_amount: number;
+    party_a: string;
+    party_b: string;
+    account_reference: string;
+    status: string;
+    conversation_id: string;
+    created_at: string;
+  };
+}
+
+export interface B2BTransaction {
+  id: number;
+  reseller_id: number;
+  amount: number;
+  fee: number;
+  net_amount: number;
+  party_a: string;
+  party_b: string;
+  account_reference: string;
+  status: string;
+  result_code: string | null;
+  result_desc: string | null;
+  transaction_id: string | null;
+  created_at: string;
+  completed_at: string | null;
+}
+
+export interface B2BTransactionsResponse {
+  transactions: B2BTransaction[];
+}
+
 // ─── Shop Types ──────────────────────────────────────────────────────
 
 export interface ShopProductSpec {

@@ -179,6 +179,13 @@ import {
   UpdatePortalSettingsResponse,
   RevenueOverTimePeriod,
   RevenueOverTimeResponse,
+  AdminSubscriptionCollectionsSummary,
+  AdminSubscriptionPaymentsResponse,
+  OwnerBankDestination,
+  CreateBankDestinationRequest,
+  SendToBankRequest,
+  SendToBankResponse,
+  B2BTransactionsResponse,
 } from './types';
 import * as demo from './demoData';
 
@@ -2416,6 +2423,76 @@ class ApiClient {
       body: JSON.stringify(data),
     });
     return this.handleResponse<UpdatePortalSettingsResponse>(response);
+  }
+
+  // ─── Admin Subscription Collections ────────────────────────────────
+
+  async getAdminSubscriptionCollections(): Promise<AdminSubscriptionCollectionsSummary> {
+    const response = await fetch(`${BASE_URL}/admin/subscriptions/collections`, {
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<AdminSubscriptionCollectionsSummary>(response);
+  }
+
+  async getAdminSubscriptionPayments(params?: {
+    page?: number;
+    per_page?: number;
+    reseller_id?: number;
+    status?: string;
+    send_status?: string;
+    start_date?: string;
+    end_date?: string;
+  }): Promise<AdminSubscriptionPaymentsResponse> {
+    const qs = new URLSearchParams();
+    if (params?.page) qs.set('page', params.page.toString());
+    if (params?.per_page) qs.set('per_page', params.per_page.toString());
+    if (params?.reseller_id) qs.set('reseller_id', params.reseller_id.toString());
+    if (params?.status) qs.set('status', params.status);
+    if (params?.send_status) qs.set('send_status', params.send_status);
+    if (params?.start_date) qs.set('start_date', params.start_date);
+    if (params?.end_date) qs.set('end_date', params.end_date);
+    const query = qs.toString() ? `?${qs.toString()}` : '';
+    const response = await fetch(`${BASE_URL}/admin/subscriptions/payments${query}`, {
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<AdminSubscriptionPaymentsResponse>(response);
+  }
+
+  async getAdminBankDestinations(): Promise<{ destinations: OwnerBankDestination[] }> {
+    const response = await fetch(`${BASE_URL}/admin/subscriptions/bank-destinations`, {
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<{ destinations: OwnerBankDestination[] }>(response);
+  }
+
+  async createAdminBankDestination(data: CreateBankDestinationRequest): Promise<OwnerBankDestination> {
+    const response = await fetch(`${BASE_URL}/admin/subscriptions/bank-destinations`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify(data),
+    });
+    return this.handleResponse<OwnerBankDestination>(response);
+  }
+
+  async sendSubscriptionCollectionsToBank(data?: SendToBankRequest): Promise<SendToBankResponse> {
+    const response = await fetch(`${BASE_URL}/admin/subscriptions/send-to-bank`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify(data || {}),
+    });
+    return this.handleResponse<SendToBankResponse>(response);
+  }
+
+  async getAdminB2BTransactions(params?: {
+    reseller_id?: number;
+  }): Promise<B2BTransactionsResponse> {
+    const qs = new URLSearchParams();
+    if (params?.reseller_id) qs.set('reseller_id', params.reseller_id.toString());
+    const query = qs.toString() ? `?${qs.toString()}` : '';
+    const response = await fetch(`${BASE_URL}/admin/b2b-transactions${query}`, {
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<B2BTransactionsResponse>(response);
   }
 
   async resetPortalSettings(): Promise<{ message: string; settings: PortalSettingsResponse['settings'] }> {
