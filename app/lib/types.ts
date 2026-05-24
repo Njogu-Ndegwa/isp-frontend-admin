@@ -209,6 +209,8 @@ export interface Customer {
   connection_type?: 'hotspot' | 'pppoe';
   pppoe_username?: string;
   static_ip?: string;
+  account_number?: string;
+  wallet_credit_kes?: number;
 }
 
 export interface UpdateCustomerRequest {
@@ -659,6 +661,8 @@ export interface PaymentMethodConfig {
   mtn_target_environment?: string;
   mtn_base_url?: string;
   mtn_currency?: string;
+  // C2B registration
+  c2b_registered_at?: string | null;
 }
 
 export interface CreatePaymentMethodRequest {
@@ -3089,4 +3093,52 @@ export interface LeadBackfillResponse {
   stage_counts: Partial<Record<LeadStage, number>>;
   items: LeadBackfillItem[];
   message: string;
+}
+
+// ─── C2B Paybill Types ─────────────────────────────────────────────
+
+export type UnmatchedReason = 'unknown_account' | 'amount_too_low' | 'wrong_reseller' | 'invalid_luhn';
+
+export interface UnmatchedTransaction {
+  id: number;
+  trans_id: string;
+  bill_ref_number: string;
+  trans_amount: number;
+  msisdn: string;
+  business_shortcode: string;
+  received_at: string;
+}
+
+export interface UnmatchedPayment {
+  id: number;
+  reason: UnmatchedReason;
+  resolved_at: string | null;
+  resolved_by_user_id: number | null;
+  resolution_customer_id: number | null;
+  notes: string | null;
+  assigned_reseller_id: number;
+  transaction: UnmatchedTransaction;
+}
+
+export interface AttributePaymentRequest {
+  customer_id: number;
+  notes?: string;
+}
+
+export interface AttributePaymentResponse {
+  ok: boolean;
+  customer_id: number;
+  new_wallet_credit_kes: number;
+  c2b_transaction_id: number;
+}
+
+export interface C2BRegisterRequest {
+  confirmation_url: string;
+  validation_url: string;
+  response_type: string;
+}
+
+export interface C2BRegisterResponse {
+  ResponseCode: string;
+  ResponseDescription: string;
 }
