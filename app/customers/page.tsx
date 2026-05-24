@@ -295,6 +295,7 @@ export default function CustomersPage() {
         return (
           (customer.name?.toLowerCase() || '').includes(query) ||
           (customer.phone || '').includes(query) ||
+          (customer.account_number || '').includes(query) ||
           (customer.mac_address?.toLowerCase() || '').includes(query) ||
           (customer.pppoe_username?.toLowerCase() || '').includes(query)
         );
@@ -685,7 +686,7 @@ export default function CustomersPage() {
             <SearchInput
               value={searchQuery}
               onChange={setSearchQuery}
-              placeholder="Search by name, phone, MAC, or PPPoE username..."
+              placeholder="Search by name, phone, account number, MAC, or PPPoE username..."
             />
           </div>
         </div>
@@ -727,6 +728,9 @@ export default function CustomersPage() {
                       </div>
                       <div>
                         <span className="font-medium text-foreground">{customer.name || 'Unknown'}</span>
+                        {customer.account_number && (
+                          <p className="text-xs font-mono text-foreground-muted">4159825 &mdash; {customer.account_number}</p>
+                        )}
                         {customer.pppoe_username && (
                           <p className="text-xs font-mono text-foreground-muted">{customer.pppoe_username}</p>
                         )}
@@ -998,7 +1002,7 @@ export default function CustomersPage() {
                   key={customer.id}
                   id={customer.id}
                   title={customer.name || 'Unknown'}
-                  subtitle={customer.pppoe_username || customer.phone || undefined}
+                  subtitle={customer.account_number ? `4159825 — ${customer.account_number}` : (customer.pppoe_username || customer.phone || undefined)}
                   avatar={{
                     text: (customer.name || '?').charAt(0).toUpperCase(),
                     color: liveCard
