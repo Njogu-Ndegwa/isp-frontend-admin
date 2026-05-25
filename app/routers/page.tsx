@@ -791,8 +791,8 @@ function RoutersTab({
                         </span>
                       )}
                       {router.hotspot_sharing_blocked && (
-                        <span className="badge bg-accent-primary/10 text-accent-primary border border-accent-primary/30 text-[10px]" title="Hotspot sharing is blocked (TTL filtering)">
-                          NO TETHER
+                        <span className="text-[10px] font-medium uppercase px-1.5 py-0.5 rounded bg-accent-primary/10 text-accent-primary border border-accent-primary/30" title="Hotspot sharing is blocked (TTL filtering)">
+                          No Tether
                         </span>
                       )}
                     </div>
