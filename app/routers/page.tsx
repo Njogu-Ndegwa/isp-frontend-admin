@@ -633,17 +633,17 @@ function RoutersTab({
                   }}
                   secondary={{
                     left: (
-                      <span className="flex items-center gap-1">
+                      <span className="flex items-center gap-1 flex-wrap">
                         {router.emergency_active && (
-                          <span className="text-[10px] font-medium uppercase px-1.5 py-0.5 rounded bg-danger/10 text-danger border border-danger/30">Emergency</span>
+                          <span className="text-[10px] font-medium leading-none px-1.5 py-0.5 rounded bg-danger/10 text-danger border border-danger/30">emergency</span>
                         )}
                         {router.hotspot_sharing_blocked && (
-                          <span className="text-[10px] font-medium uppercase px-1.5 py-0.5 rounded bg-accent-primary/10 text-accent-primary border border-accent-primary/30">No Tether</span>
+                          <span className="text-[10px] font-medium leading-none px-1.5 py-0.5 rounded bg-accent-primary/10 text-accent-primary border border-accent-primary/30">no tether</span>
                         )}
                         {(router.payment_methods ?? ['mpesa', 'voucher']).map((m) => (
-                          <span key={m} className={`text-[10px] font-medium uppercase px-1.5 py-0.5 rounded ${
+                          <span key={m} className={`text-[10px] font-medium leading-none px-1.5 py-0.5 rounded ${
                             m === 'mpesa' ? 'bg-success/10 text-success' : 'bg-accent-primary/10 text-accent-primary'
-                          }`}>{m === 'mpesa' ? 'Mobile' : 'Voucher'}</span>
+                          }`}>{m === 'mpesa' ? 'mobile' : 'voucher'}</span>
                         ))}
                       </span>
                     ),
@@ -786,13 +786,13 @@ function RoutersTab({
                         <span className="text-[10px] text-amber-400" title="Status data is stale">Stale</span>
                       )}
                       {router.emergency_active && (
-                        <span className="badge bg-danger/10 text-danger border border-danger/30 text-[10px]" title={router.emergency_message || 'Emergency mode active'}>
-                          EMERGENCY
+                        <span className="text-[10px] font-medium leading-none px-1.5 py-0.5 rounded bg-danger/10 text-danger border border-danger/30" title={router.emergency_message || 'Emergency mode active'}>
+                          emergency
                         </span>
                       )}
                       {router.hotspot_sharing_blocked && (
-                        <span className="text-[10px] font-medium uppercase px-1.5 py-0.5 rounded bg-accent-primary/10 text-accent-primary border border-accent-primary/30" title="Hotspot sharing is blocked (TTL filtering)">
-                          No Tether
+                        <span className="text-[10px] font-medium leading-none px-1.5 py-0.5 rounded bg-accent-primary/10 text-accent-primary border border-accent-primary/30" title="Hotspot sharing is blocked (TTL filtering)">
+                          no tether
                         </span>
                       )}
                     </div>
