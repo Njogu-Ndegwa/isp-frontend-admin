@@ -1501,6 +1501,7 @@ export interface PPPoEMonitorCustomer {
   plan: string | null;
   plan_speed: string | null;
   expiry: string | null;
+  account_number?: string;
 }
 
 export interface PPPoEMonitorUser {

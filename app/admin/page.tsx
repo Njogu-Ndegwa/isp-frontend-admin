@@ -23,6 +23,7 @@ import {
 } from '../lib/types';
 import { formatDateGMT3 } from '../lib/dateUtils';
 import { useAuth } from '../context/AuthContext';
+import { useAlert } from '../context/AlertContext';
 import Header from '../components/Header';
 import StatCard from '../components/StatCard';
 import DataTable from '../components/DataTable';
@@ -317,6 +318,38 @@ const signupsFormatter = (value: any) => [value ?? 0, 'Signups'];
 
 export default function AdminDashboardPage() {
   const { user } = useAuth();
+  const { showAlert } = useAlert();
+
+  // C2B Platform Paybill registration
+  const [c2bPlatformLoading, setC2bPlatformLoading] = useState(false);
+  const [c2bPlatformRegistered, setC2bPlatformRegistered] = useState(false);
+  const [c2bResponse, setC2bResponse] = useState<Record<string, unknown> | null>(null);
+
+  const handleRegisterPlatformPaybill = async () => {
+    setC2bPlatformLoading(true);
+    setC2bResponse(null);
+    try {
+      const baseUrl = 'https://isp.bitwavetechnologies.net';
+      const result = await api.registerPlatformPaybill({
+        confirmation_url: `${baseUrl}/api/c2b/confirmation`,
+        validation_url: `${baseUrl}/api/c2b/validation`,
+        response_type: 'Completed',
+      });
+      setC2bResponse(result as unknown as Record<string, unknown>);
+      if (result.ResponseCode === '0') {
+        showAlert('success', 'Platform C2B paybill registered with Safaricom');
+        setC2bPlatformRegistered(true);
+      } else {
+        showAlert('warning', `Safaricom: ${result.ResponseDescription}`);
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Platform C2B registration failed';
+      setC2bResponse({ error: message });
+      showAlert('error', message);
+    } finally {
+      setC2bPlatformLoading(false);
+    }
+  };
 
   // Global period filter
   const [globalPeriod, setGlobalPeriod] = useState<PeriodFilter>('30d');
@@ -924,6 +957,47 @@ export default function AdminDashboardPage() {
           </div>
         </>
       ) : null}
+
+      {/* C2B Platform Paybill Registration — Admin only */}
+      {user?.role === 'admin' && (
+        <div className="card p-5 mt-8">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-semibold text-foreground">Platform C2B Paybill</h3>
+              <p className="text-xs text-foreground-muted mt-0.5">Register the platform&apos;s shared paybill with Safaricom for C2B auto-activation</p>
+            </div>
+            {c2bPlatformRegistered ? (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-success/10 text-success border border-success/20">
+                <span className="w-2 h-2 rounded-full bg-success" />
+                Registered
+              </span>
+            ) : (
+              <button
+                onClick={handleRegisterPlatformPaybill}
+                disabled={c2bPlatformLoading}
+                className="px-4 py-2 rounded-xl bg-accent-primary text-white text-sm font-medium hover:bg-accent-primary/90 transition-colors disabled:opacity-50 flex items-center gap-2"
+              >
+                {c2bPlatformLoading && (
+                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                )}
+                Register Platform Paybill
+              </button>
+            )}
+          </div>
+          {c2bResponse && (
+            <div className={`mt-4 rounded-lg border p-3 text-xs font-mono ${
+              c2bResponse.error
+                ? 'bg-danger/5 border-danger/20 text-danger'
+                : c2bResponse.ResponseCode === '0'
+                ? 'bg-success/5 border-success/20 text-foreground'
+                : 'bg-warning/5 border-warning/20 text-foreground'
+            }`}>
+              <p className="text-[10px] font-sans font-medium text-foreground-muted uppercase tracking-wider mb-1.5">Safaricom Response</p>
+              <pre className="whitespace-pre-wrap break-all">{JSON.stringify(c2bResponse, null, 2)}</pre>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

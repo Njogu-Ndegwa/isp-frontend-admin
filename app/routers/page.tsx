@@ -25,6 +25,7 @@ import PullToRefresh from '../components/PullToRefresh';
 import DataTable, { DataTableColumn } from '../components/DataTable';
 import MobileDataCard from '../components/MobileDataCard';
 import { formatDateGMT3 } from '../lib/dateUtils';
+import DeviceModeTroubleshoot from '../components/DeviceModeTroubleshoot';
 
 const formatSafeDate = (dateStr: string | null | undefined): string => {
   try {
@@ -1239,6 +1240,8 @@ function NewTokenModal({
             </div>
           )}
 
+          <DeviceModeTroubleshoot />
+
           <div className="flex items-center gap-2 text-xs text-foreground-muted">
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -1370,6 +1373,8 @@ function AddRouterModal({
               </>
             )}
           </button>
+
+          <DeviceModeTroubleshoot />
 
           {/* Pending tokens */}
           {tokensLoading && tokens.length === 0 ? (

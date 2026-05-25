@@ -148,6 +148,8 @@ export default function PaymentMethodsPage() {
   const [formLoading, setFormLoading] = useState(false);
   const [testingId, setTestingId] = useState<number | null>(null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [c2bRegisterId, setC2bRegisterId] = useState<number | null>(null);
+  const [c2bRegisterLoading, setC2bRegisterLoading] = useState(false);
 
   // Confirmation modal
   const [confirmModal, setConfirmModal] = useState<{
@@ -307,6 +309,29 @@ export default function PaymentMethodsPage() {
     }
   };
 
+  const handleC2BRegister = async (id: number) => {
+    setC2bRegisterLoading(true);
+    try {
+      const baseUrl = window.location.origin;
+      const result = await api.registerC2B(id, {
+        confirmation_url: `${baseUrl}/api/c2b/confirmation`,
+        validation_url: `${baseUrl}/api/c2b/validation`,
+        response_type: 'Completed',
+      });
+      if (result.ResponseCode === '0') {
+        showAlert('success', 'C2B registered successfully with Safaricom');
+      } else {
+        showAlert('warning', `Safaricom response: ${result.ResponseDescription}`);
+      }
+      setC2bRegisterId(null);
+      loadData();
+    } catch (err) {
+      showAlert('error', err instanceof Error ? err.message : 'C2B registration failed');
+    } finally {
+      setC2bRegisterLoading(false);
+    }
+  };
+
   const handleAssign = async () => {
     if (!assignModalRouter) return;
     setAssignLoading(true);
@@ -434,13 +459,35 @@ export default function PaymentMethodsPage() {
                 );
               case 'status':
                 return (
-                  <span className={`badge ${method.is_active ? 'badge-success' : 'badge-danger'}`}>
-                    {method.is_active ? 'Active' : 'Inactive'}
-                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <span className={`badge ${method.is_active ? 'badge-success' : 'badge-danger'}`}>
+                      {method.is_active ? 'Active' : 'Inactive'}
+                    </span>
+                    {method.c2b_registered_at && (
+                      <span className="badge bg-success/10 text-success border border-success/20">C2B</span>
+                    )}
+                  </div>
                 );
               case 'actions':
                 return (
                   <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                    {method.method_type === 'mpesa_paybill_with_keys' && (
+                      method.c2b_registered_at ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-medium bg-success/10 text-success border border-success/20">
+                          <span className="w-1.5 h-1.5 rounded-full bg-success" />
+                          C2B Active
+                        </span>
+                      ) : (
+                        <button
+                          onClick={() => handleC2BRegister(method.id)}
+                          disabled={c2bRegisterLoading || !method.is_active}
+                          className="px-2 py-1 rounded-md text-xs font-medium bg-accent-primary/10 text-accent-primary hover:bg-accent-primary/20 transition-colors disabled:opacity-50"
+                          title="Register for C2B Paybill"
+                        >
+                          {c2bRegisterLoading ? 'Registering...' : 'Register C2B'}
+                        </button>
+                      )
+                    )}
                     {hasTestableCredentials(method.method_type) && (
                       <button
                         onClick={() => handleTest(method.id)}

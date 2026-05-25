@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext';
 import { useAlert } from '../context/AlertContext';
 import { api } from '../lib/api';
 import { fullOnboardingCheck } from '../hooks/useOnboardingStatus';
+import DeviceModeTroubleshoot from '../components/DeviceModeTroubleshoot';
 import type {
   VpnType,
   ProvisionTokenResponse,
@@ -494,6 +495,8 @@ function RouterStep({ onComplete }: { onComplete: () => void }) {
               </>
             )}
           </button>
+
+          <DeviceModeTroubleshoot />
 
           <div className="text-center space-y-3 pt-2">
             <p className="text-xs text-foreground-muted">

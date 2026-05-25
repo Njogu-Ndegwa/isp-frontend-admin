@@ -321,7 +321,8 @@ export default function PPPoEMonitorPage() {
       users = users.filter((u) =>
         u.username.toLowerCase().includes(q) ||
         (u.customer?.name ?? '').toLowerCase().includes(q) ||
-        (u.customer?.phone ?? '').includes(q)
+        (u.customer?.phone ?? '').includes(q) ||
+        (u.customer?.account_number ?? '').includes(q)
       );
     }
 
@@ -367,6 +368,9 @@ export default function PPPoEMonitorPage() {
               <span className="font-medium text-foreground">
                 {user.customer?.name ?? user.username}
               </span>
+              {user.customer?.account_number && (
+                <p className="text-xs font-mono text-foreground-muted">4159825 &mdash; {user.customer.account_number}</p>
+              )}
               {user.customer && (
                 <p className="text-xs font-mono text-foreground-muted">{user.username}</p>
               )}
@@ -707,7 +711,7 @@ export default function PPPoEMonitorPage() {
                     key={user.username}
                     id={user.username}
                     title={user.customer?.name ?? user.username}
-                    subtitle={user.customer ? user.username : undefined}
+                    subtitle={user.customer?.account_number ? `4159825 — ${user.customer.account_number}` : (user.customer ? user.username : undefined)}
                     avatar={{
                       text: (user.customer?.name ?? user.username).charAt(0).toUpperCase(),
                       color: user.disabled ? 'warning' : user.online ? 'success' : 'danger',

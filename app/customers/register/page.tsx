@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { api } from '../../lib/api';
-import { Plan, Router, RegisterCustomerRequest, PPPoECredentials } from '../../lib/types';
+import { Plan, Router, RegisterCustomerRequest, PPPoECredentials, Customer } from '../../lib/types';
 import { useAlert } from '../../context/AlertContext';
 import Header from '../../components/Header';
 import { PageLoader } from '../../components/LoadingSpinner';
@@ -19,6 +19,7 @@ export default function RegisterCustomerPage() {
   const [submitting, setSubmitting] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [credentials, setCredentials] = useState<PPPoECredentials | null>(null);
+  const [registeredCustomer, setRegisteredCustomer] = useState<Customer | null>(null);
 
   const [formData, setFormData] = useState<RegisterCustomerRequest>({
     name: '',
@@ -72,6 +73,7 @@ export default function RegisterCustomerPage() {
       if (formData.static_ip) payload.static_ip = formData.static_ip;
 
       const customer = await api.registerCustomer(payload);
+      setRegisteredCustomer(customer);
       showAlert('success', `Customer "${customer.name}" registered successfully!`);
 
       const customerIsPPPoE = isPPPoE || customer.plan?.connection_type === 'pppoe';
@@ -115,6 +117,23 @@ export default function RegisterCustomerPage() {
               <p className="text-sm text-foreground-muted mt-1">Give these credentials to the customer for their CPE router</p>
             </div>
 
+            {registeredCustomer?.account_number && (
+              <div className="bg-accent-primary/10 border border-accent-primary/20 rounded-lg p-3">
+                <label className="text-xs font-medium text-accent-primary uppercase tracking-wider">Paybill Account Number</label>
+                <div className="flex items-center justify-between mt-1">
+                  <span className="font-mono text-lg font-semibold text-foreground">{registeredCustomer.account_number}</span>
+                  <button
+                    onClick={() => copyToClipboard(registeredCustomer.account_number!, 'Account number')}
+                    className="p-1.5 rounded-md hover:bg-background-secondary transition-colors text-foreground-muted hover:text-foreground"
+                  >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            )}
+
             <div className="space-y-3">
               <div className="bg-background-tertiary rounded-lg p-3">
                 <label className="text-xs font-medium text-foreground-muted uppercase tracking-wider">PPPoE Username</label>
@@ -150,7 +169,7 @@ export default function RegisterCustomerPage() {
               <button
                 onClick={() => {
                   copyToClipboard(
-                    `Username: ${credentials.pppoe_username}\nPassword: ${credentials.pppoe_password}`,
+                    `${registeredCustomer?.account_number ? `Account Number: ${registeredCustomer.account_number}\n` : ''}Username: ${credentials.pppoe_username}\nPassword: ${credentials.pppoe_password}`,
                     'Credentials'
                   );
                 }}

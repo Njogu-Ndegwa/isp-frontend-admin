@@ -170,6 +170,47 @@ export default function EditCustomerPage() {
       <div className="max-w-lg mx-auto space-y-4">
         {isPPPoE && usage && <UsagePanel usage={usage} />}
 
+        {isPPPoE && (
+          <div className="card p-4 space-y-3">
+            <h3 className="text-sm font-semibold text-foreground-muted uppercase tracking-wider">Paybill Payment Instructions</h3>
+            <div className="space-y-2">
+              <div className="bg-background-tertiary rounded-lg p-3">
+                <label className="text-xs font-medium text-foreground-muted uppercase tracking-wider">Account Number</label>
+                {customer.account_number ? (
+                  <div className="flex items-center justify-between mt-1">
+                    <span className="font-mono text-sm text-foreground">{customer.account_number}</span>
+                    <button
+                      type="button"
+                      onClick={() => { navigator.clipboard.writeText(customer.account_number!); showAlert('success', 'Account number copied'); }}
+                      className="p-1.5 rounded-md hover:bg-background-secondary transition-colors text-foreground-muted hover:text-foreground"
+                    >
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                      </svg>
+                    </button>
+                  </div>
+                ) : (
+                  <p className="text-xs text-foreground-muted mt-1">Not yet assigned — will be generated on next registration or payment</p>
+                )}
+              </div>
+              <div className="bg-background-tertiary rounded-lg p-3">
+                <label className="text-xs font-medium text-foreground-muted uppercase tracking-wider">Plan Amount</label>
+                <div className="mt-1">
+                  <span className="text-sm font-medium text-foreground">KES {customer.plan?.price ?? '-'}</span>
+                </div>
+              </div>
+              {(customer.wallet_credit_kes ?? 0) > 0 && (
+                <div className="bg-success/10 border border-success/20 rounded-lg p-3">
+                  <label className="text-xs font-medium text-success uppercase tracking-wider">Wallet Credit</label>
+                  <div className="mt-1">
+                    <span className="text-sm font-semibold text-success">KES {customer.wallet_credit_kes}</span>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         <div className="card p-6">
           {formError && (
             <div className="mb-4 p-3 rounded-lg bg-danger/10 border border-danger/30 text-danger text-sm">

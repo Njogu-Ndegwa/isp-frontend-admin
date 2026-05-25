@@ -186,6 +186,11 @@ import {
   SendToBankRequest,
   SendToBankResponse,
   B2BTransactionsResponse,
+  UnmatchedPayment,
+  AttributePaymentRequest,
+  AttributePaymentResponse,
+  C2BRegisterRequest,
+  C2BRegisterResponse,
 } from './types';
 import * as demo from './demoData';
 
@@ -2493,6 +2498,47 @@ class ApiClient {
       headers: this.getHeaders(),
     });
     return this.handleResponse<B2BTransactionsResponse>(response);
+  }
+
+  // ─── C2B Paybill ──────────────────────────────────────────────────
+
+  async getUnmatchedPayments(resolved = false, limit = 100): Promise<UnmatchedPayment[]> {
+    if (this.isDemoMode()) return [];
+    const params = new URLSearchParams({ resolved: String(resolved), limit: String(limit) });
+    const response = await fetch(`${BASE_URL}/c2b/unmatched?${params}`, {
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<UnmatchedPayment[]>(response);
+  }
+
+  async attributeUnmatchedPayment(id: number, data: AttributePaymentRequest): Promise<AttributePaymentResponse> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(`${BASE_URL}/c2b/unmatched/${id}/attribute`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify(data),
+    });
+    return this.handleResponse<AttributePaymentResponse>(response);
+  }
+
+  async registerPlatformPaybill(data: C2BRegisterRequest): Promise<C2BRegisterResponse> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(`${BASE_URL}/admin/c2b/register-platform-paybill`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify(data),
+    });
+    return this.handleResponse<C2BRegisterResponse>(response);
+  }
+
+  async registerC2B(paymentMethodId: number, data: C2BRegisterRequest): Promise<C2BRegisterResponse> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(`${BASE_URL}/payment-methods/${paymentMethodId}/register-c2b`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify(data),
+    });
+    return this.handleResponse<C2BRegisterResponse>(response);
   }
 
   async resetPortalSettings(): Promise<{ message: string; settings: PortalSettingsResponse['settings'] }> {
