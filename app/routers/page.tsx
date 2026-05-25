@@ -375,6 +375,7 @@ function RoutersTab({
   const [emergencyLoading, setEmergencyLoading] = useState<number | null>(null);
   const [emergencyModalRouter, setEmergencyModalRouter] = useState<Router | null>(null);
   const [emergencyMsg, setEmergencyMsg] = useState('');
+  const [tetherLoading, setTetherLoading] = useState<number | null>(null);
 
   const handleToggleEmergency = async (router: Router, message?: string) => {
     try {
@@ -391,6 +392,22 @@ function RoutersTab({
       setEmergencyLoading(null);
       setEmergencyModalRouter(null);
       setEmergencyMsg('');
+    }
+  };
+
+  const handleToggleAntiTether = async (router: Router) => {
+    try {
+      setTetherLoading(router.id);
+      if (router.hotspot_sharing_blocked) {
+        await api.disableAntiTethering({ router_id: router.id });
+      } else {
+        await api.enableAntiTethering({ router_id: router.id });
+      }
+      await loadRouters();
+    } catch (err) {
+      console.error('Anti-tethering toggle failed:', err);
+    } finally {
+      setTetherLoading(null);
     }
   };
 
@@ -467,6 +484,24 @@ function RoutersTab({
         ) : (
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          </svg>
+        )}
+      </button>
+      <button
+        onClick={(e) => { e.stopPropagation(); handleToggleAntiTether(router); }}
+        disabled={tetherLoading === router.id}
+        className={`p-1.5 rounded-lg transition-colors active:opacity-70 ${
+          router.hotspot_sharing_blocked
+            ? 'bg-accent-primary/10 text-accent-primary hover:bg-accent-primary/20'
+            : 'text-foreground-muted hover:bg-accent-primary/10 hover:text-accent-primary'
+        }`}
+        title={router.hotspot_sharing_blocked ? 'Disable anti-tethering' : 'Block hotspot sharing'}
+      >
+        {tetherLoading === router.id ? (
+          <div className="w-4 h-4 border-2 border-current/30 border-t-current rounded-full animate-spin" />
+        ) : (
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
           </svg>
         )}
       </button>
@@ -601,6 +636,9 @@ function RoutersTab({
                       <span className="flex items-center gap-1">
                         {router.emergency_active && (
                           <span className="text-[10px] font-medium uppercase px-1.5 py-0.5 rounded bg-danger/10 text-danger border border-danger/30">Emergency</span>
+                        )}
+                        {router.hotspot_sharing_blocked && (
+                          <span className="text-[10px] font-medium uppercase px-1.5 py-0.5 rounded bg-accent-primary/10 text-accent-primary border border-accent-primary/30">No Tether</span>
                         )}
                         {(router.payment_methods ?? ['mpesa', 'voucher']).map((m) => (
                           <span key={m} className={`text-[10px] font-medium uppercase px-1.5 py-0.5 rounded ${
@@ -750,6 +788,11 @@ function RoutersTab({
                       {router.emergency_active && (
                         <span className="badge bg-danger/10 text-danger border border-danger/30 text-[10px]" title={router.emergency_message || 'Emergency mode active'}>
                           EMERGENCY
+                        </span>
+                      )}
+                      {router.hotspot_sharing_blocked && (
+                        <span className="badge bg-accent-primary/10 text-accent-primary border border-accent-primary/30 text-[10px]" title="Hotspot sharing is blocked (TTL filtering)">
+                          NO TETHER
                         </span>
                       )}
                     </div>

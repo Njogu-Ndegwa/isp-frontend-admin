@@ -737,6 +737,7 @@ export interface Router {
   availability_successes?: number;
   emergency_active?: boolean;
   emergency_message?: string | null;
+  hotspot_sharing_blocked?: boolean;
 }
 
 export interface UptimeCheck {
@@ -816,6 +817,17 @@ export interface EmergencyModeResponse {
   emergency_plans_shown?: number;
   regular_plans_shown?: number;
   emergency_plans_hidden?: number;
+}
+
+export interface AntiTetherRequest {
+  router_id: number;
+}
+
+export interface AntiTetherResponse {
+  success: boolean;
+  message: string;
+  router_id: number;
+  hotspot_sharing_blocked: boolean;
 }
 
 export interface HotspotSession {

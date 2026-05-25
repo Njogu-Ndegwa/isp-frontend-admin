@@ -83,6 +83,8 @@ import {
   ActivateEmergencyRequest,
   DeactivateEmergencyRequest,
   EmergencyModeResponse,
+  AntiTetherRequest,
+  AntiTetherResponse,
   AdminDashboard,
   AdminResellersParams,
   AdminResellersResponse,
@@ -562,6 +564,26 @@ class ApiClient {
   async deactivateEmergencyMode(data: DeactivateEmergencyRequest): Promise<EmergencyModeResponse> {
     if (this.isDemoMode()) this.demoBlock();
     const response = await fetch(`${BASE_URL}/plans/deactivate-emergency`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify(data),
+    });
+    return this.handleResponse(response);
+  }
+
+  async enableAntiTethering(data: AntiTetherRequest): Promise<AntiTetherResponse> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(`${BASE_URL}/routers/anti-tethering/enable`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify(data),
+    });
+    return this.handleResponse(response);
+  }
+
+  async disableAntiTethering(data: AntiTetherRequest): Promise<AntiTetherResponse> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(`${BASE_URL}/routers/anti-tethering/disable`, {
       method: 'POST',
       headers: this.getHeaders(),
       body: JSON.stringify(data),
