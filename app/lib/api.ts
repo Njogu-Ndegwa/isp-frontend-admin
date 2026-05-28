@@ -319,13 +319,14 @@ class ApiClient {
     return this.handleResponse<RevenueOverTimeResponse>(response);
   }
 
-  // MikroTik Metrics - GET /api/mikrotik/health[?router_id=<id>][&include_sessions=true]
+  // MikroTik Metrics - GET /api/mikrotik/health[?router_id=<id>][&include_sessions=true][&prefer_snapshot=true]
   // The default response is slim (no per-session arrays). Pass `includeSessions=true` only for
   // legacy/backward-compat consumers — the array is capped at 50 entries; for full drill-down
   // use getPPPoEActiveSessions(routerId) / getActiveSessions(routerId).
+  // Dashboard tiles can pass `preferSnapshot=true` to avoid waiting on a cold live RouterOS call.
   async getMikroTikMetrics(
     routerId?: number,
-    options: { includeSessions?: boolean } = {}
+    options: { includeSessions?: boolean; preferSnapshot?: boolean } = {}
   ): Promise<MikroTikMetrics> {
     if (this.isDemoMode()) return demo.demoMikroTikMetrics;
     const params = new URLSearchParams();
@@ -334,6 +335,9 @@ class ApiClient {
     }
     if (options.includeSessions) {
       params.append('include_sessions', 'true');
+    }
+    if (options.preferSnapshot) {
+      params.append('prefer_snapshot', 'true');
     }
     const qs = params.toString();
     const url = qs

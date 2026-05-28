@@ -16,6 +16,11 @@ export interface OnboardingStatus {
   refresh: () => Promise<void>;
 }
 
+interface OnboardingStatusOptions {
+  enabled?: boolean;
+  delayMs?: number;
+}
+
 const TOTAL_STEPS = 4;
 
 function isDemo(): boolean {
@@ -23,7 +28,8 @@ function isDemo(): boolean {
   return localStorage.getItem('demo_mode') === 'true';
 }
 
-export function useOnboardingStatus(): OnboardingStatus {
+export function useOnboardingStatus(options: OnboardingStatusOptions = {}): OnboardingStatus {
+  const { enabled = true, delayMs = 0 } = options;
   const [hasRouters, setHasRouters] = useState(false);
   const [hasPlans, setHasPlans] = useState(false);
   const [hasPaymentMethods, setHasPaymentMethods] = useState(false);
@@ -78,8 +84,21 @@ export function useOnboardingStatus(): OnboardingStatus {
   }, []);
 
   useEffect(() => {
+    if (!enabled) {
+      setLoading(false);
+      return;
+    }
+
+    if (delayMs > 0) {
+      setLoading(true);
+      const timeout = window.setTimeout(() => {
+        checkStatus();
+      }, delayMs);
+      return () => window.clearTimeout(timeout);
+    }
+
     checkStatus();
-  }, [checkStatus]);
+  }, [checkStatus, delayMs, enabled]);
 
   const completedCount = [hasRouters, hasPlans, hasPaymentMethods, hasProfile].filter(Boolean).length;
 

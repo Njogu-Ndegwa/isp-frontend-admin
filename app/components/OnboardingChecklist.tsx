@@ -43,11 +43,15 @@ function getProgressMessage(completedCount: number, totalSteps: number) {
   return { heading: 'Setup in progress', sub: `${completedCount} of ${totalSteps} steps complete.` };
 }
 
-export default function OnboardingChecklist() {
-  const status = useOnboardingStatus();
+interface OnboardingChecklistProps {
+  delayMs?: number;
+}
+
+export default function OnboardingChecklist({ delayMs = 0 }: OnboardingChecklistProps) {
   const [dismissed, setDismissed] = useState(() =>
     typeof window !== 'undefined' && localStorage.getItem('onboarding_checklist_dismissed') === 'true'
   );
+  const status = useOnboardingStatus({ enabled: !dismissed, delayMs });
 
   if (dismissed || status.loading || status.isComplete) return null;
 
@@ -109,7 +113,6 @@ export default function OnboardingChecklist() {
           {STEPS.map((step, index) => {
             const done = status[step.check];
             const isCurrent = index === currentStepIndex;
-            const isFuture = !done && index > currentStepIndex;
             const StepIconComponent = step.icon;
 
             return (

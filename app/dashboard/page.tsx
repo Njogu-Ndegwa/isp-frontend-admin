@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { api } from '../lib/api';
-import { DashboardAnalytics, DayDetail, MikroTikMetrics, MikroTikInterface, BandwidthHistory, BandwidthDataPoint, TopUsersResponse, SubscriptionAlert, ResellerTopUsageEntry } from '../lib/types';
+import { DashboardAnalytics, DayDetail, MikroTikMetrics, MikroTikInterface, BandwidthHistory, BandwidthDataPoint, TopUsersResponse, SubscriptionAlert, ResellerTopUsageEntry, SubscriptionOverview } from '../lib/types';
 import Link from 'next/link';
 import { useAuth } from '../context/AuthContext';
 import { parseUTCToGMT3, formatGMT3Date, formatTimeGMT3, formatDateOnlyGMT3 } from '../lib/dateUtils';
@@ -22,7 +22,6 @@ import { SkeletonCard } from '../components/LoadingSpinner';
 import RouterSelector from '../components/RouterSelector';
 import SubscriptionAlertBanner from '../components/SubscriptionAlertBanner';
 import OnboardingChecklist from '../components/OnboardingChecklist';
-import { useOnboardingStatus } from '../hooks/useOnboardingStatus';
 import RevenueOverTimeChart from '../components/RevenueOverTimeChart';
 
 // Date filter types
@@ -41,6 +40,42 @@ const DATE_FILTER_OPTIONS: { filter: DateFilter; label: string }[] = [
   { filter: { type: 'days', days: 30 }, label: '30D' },
   { filter: { type: 'preset', preset: 'this_month' }, label: 'This Month' },
 ];
+
+const buildSubscriptionAlert = (overview: SubscriptionOverview): SubscriptionAlert | null => {
+  const status = overview.status;
+  const invoice = overview.pending_invoice ?? null;
+  let message: string | null = null;
+
+  if (status === 'suspended' || status === 'inactive') {
+    message = 'Your subscription is suspended. Please pay your outstanding invoice to continue using the service.';
+  } else if (invoice?.is_overdue) {
+    const paid = invoice.amount_paid ?? 0;
+    const remaining = invoice.balance_remaining ?? Math.max(invoice.final_charge - paid, 0);
+    message = `Your ${invoice.period_label} invoice of KES ${invoice.final_charge.toLocaleString()} is overdue.`;
+    message += paid > 0
+      ? ` KES ${paid.toLocaleString()} paid, KES ${remaining.toLocaleString()} remaining.`
+      : ' Please pay to avoid suspension.';
+  } else if (invoice?.is_due_soon) {
+    const paid = invoice.amount_paid ?? 0;
+    const remaining = invoice.balance_remaining ?? Math.max(invoice.final_charge - paid, 0);
+    const days = invoice.days_until_due ?? 0;
+    message = `Your ${invoice.period_label} invoice of KES ${invoice.final_charge.toLocaleString()} is due in ${days} day${days === 1 ? '' : 's'}.`;
+    if (paid > 0) {
+      message += ` KES ${paid.toLocaleString()} paid, KES ${remaining.toLocaleString()} remaining.`;
+    }
+  } else if (status === 'trial' && overview.expires_at) {
+    const expiresAt = new Date(overview.expires_at).getTime();
+    if (!Number.isNaN(expiresAt)) {
+      const daysLeft = Math.ceil((expiresAt - Date.now()) / 86400000);
+      if (daysLeft <= 3) {
+        const safeDays = Math.max(daysLeft, 0);
+        message = `Your free trial ends in ${safeDays} day${safeDays === 1 ? '' : 's'}.`;
+      }
+    }
+  }
+
+  return message ? { status, message, current_invoice: invoice } : null;
+};
 
 export default function DashboardPage() {
   const { subscriptionAlert: authAlert } = useAuth();
@@ -84,9 +119,6 @@ export default function DashboardPage() {
 
   // Subscription alert
   const [subscriptionAlert, setSubscriptionAlert] = useState<SubscriptionAlert | null>(null);
-
-  // Onboarding status — used to show setup progress
-  const onboarding = useOnboardingStatus();
 
   // Helper to check if two date filters are equal
   const isFilterEqual = (a: DateFilter, b: DateFilter): boolean => {
@@ -137,7 +169,7 @@ export default function DashboardPage() {
     try {
       setMikrotikLoading(true);
       setMikrotikError(null);
-      const metrics = await api.getMikroTikMetrics(selectedRouterId);
+      const metrics = await api.getMikroTikMetrics(selectedRouterId, { preferSnapshot: true });
       setMikrotik(metrics);
     } catch (err) {
       setMikrotikError(err instanceof Error ? err.message : 'Failed to load router metrics');
@@ -176,15 +208,24 @@ export default function DashboardPage() {
     }
   }, [selectedRouterId]);
 
-  // Load subscription alert on mount
+  // Load subscription alert without hitting the legacy dashboard overview endpoint.
   useEffect(() => {
-    api.getDashboardOverview().then((overview) => {
-      const data = overview as unknown as { subscription_alert?: SubscriptionAlert };
-      if (data?.subscription_alert) {
-        setSubscriptionAlert(data.subscription_alert);
-      }
-    }).catch(() => {});
-  }, []);
+    if (authAlert || api.isDemoMode()) return;
+
+    let cancelled = false;
+    const timeout = window.setTimeout(() => {
+      api.getSubscription().then((overview) => {
+        if (!cancelled) {
+          setSubscriptionAlert(buildSubscriptionAlert(overview));
+        }
+      }).catch(() => {});
+    }, 1200);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeout);
+    };
+  }, [authAlert]);
 
   // Load both in parallel on mount and when selectedDays changes
   useEffect(() => {
@@ -193,37 +234,58 @@ export default function DashboardPage() {
 
   // MikroTik metrics - auto-refresh every 30 seconds
   useEffect(() => {
-    loadMikrotik();
-    const interval = setInterval(loadMikrotik, 30000);
-    return () => clearInterval(interval);
-  }, [loadMikrotik]);
+    if (!selectedRouterId) return;
+
+    const timeout = window.setTimeout(loadMikrotik, 900);
+    const interval = window.setInterval(loadMikrotik, 30000);
+    return () => {
+      window.clearTimeout(timeout);
+      window.clearInterval(interval);
+    };
+  }, [loadMikrotik, selectedRouterId]);
 
   useEffect(() => {
-    loadBandwidth();
+    if (!selectedRouterId) return;
+
     // Auto-refresh bandwidth every 60 seconds
-    const interval = setInterval(loadBandwidth, 60000);
-    return () => clearInterval(interval);
-  }, [loadBandwidth]);
+    const timeout = window.setTimeout(loadBandwidth, 1200);
+    const interval = window.setInterval(loadBandwidth, 60000);
+    return () => {
+      window.clearTimeout(timeout);
+      window.clearInterval(interval);
+    };
+  }, [loadBandwidth, selectedRouterId]);
 
   useEffect(() => {
-    loadTopUsers();
+    if (!selectedRouterId) return;
+
     // Auto-refresh top users every 30 seconds
-    const interval = setInterval(loadTopUsers, 30000);
-    return () => clearInterval(interval);
-  }, [loadTopUsers]);
+    const timeout = window.setTimeout(loadTopUsers, 1100);
+    const interval = window.setInterval(loadTopUsers, 30000);
+    return () => {
+      window.clearTimeout(timeout);
+      window.clearInterval(interval);
+    };
+  }, [loadTopUsers, selectedRouterId]);
 
   // Load monthly top FUP usage (reseller-wide)
   useEffect(() => {
     let cancelled = false;
-    setTopUsageLoading(true);
-    api.getResellerTopUsage(10).then((rows) => {
-      if (!cancelled) setTopUsageThisMonth(rows);
-    }).catch(() => {
-      if (!cancelled) setTopUsageThisMonth([]);
-    }).finally(() => {
-      if (!cancelled) setTopUsageLoading(false);
-    });
-    return () => { cancelled = true; };
+    const timeout = window.setTimeout(() => {
+      setTopUsageLoading(true);
+      api.getResellerTopUsage(10).then((rows) => {
+        if (!cancelled) setTopUsageThisMonth(rows);
+      }).catch(() => {
+        if (!cancelled) setTopUsageThisMonth([]);
+      }).finally(() => {
+        if (!cancelled) setTopUsageLoading(false);
+      });
+    }, 1500);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeout);
+    };
   }, []);
 
   const refreshAll = () => {
@@ -349,8 +411,8 @@ export default function DashboardPage() {
         )}
       </div>
 
-      {/* Onboarding progress — shows whenever setup is incomplete */}
-      {!onboarding.loading && !onboarding.isComplete && <OnboardingChecklist />}
+      {/* Onboarding progress is non-critical; defer its setup checks until core dashboard data starts rendering. */}
+      <OnboardingChecklist delayMs={1500} />
 
       {/* Analytics Section - Key Metrics FIRST */}
       {hasRouters !== false && analyticsError ? (
@@ -426,7 +488,9 @@ export default function DashboardPage() {
       )}
 
       {/* Revenue Over Time Chart */}
-      <RevenueOverTimeChart routerId={selectedRouterId} />
+      {hasRouters !== false && (
+        <RevenueOverTimeChart routerId={selectedRouterId} enabled={selectedRouterId !== null} />
+      )}
 
       {/* Router Health */}
       {selectedRouterId && (
@@ -891,8 +955,8 @@ function MikroTikSection({
             Network Interfaces ({interfaces.filter(i => i?.type !== 'loopback').length})
           </summary>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2 animate-fade-in">
-            {interfaces.filter(iface => iface?.type !== 'loopback').map((iface) => (
-              iface && <InterfaceCard key={iface.name || Math.random()} iface={iface} />
+            {interfaces.filter(iface => iface?.type !== 'loopback').map((iface, index) => (
+              iface && <InterfaceCard key={iface.name || `${iface.type}-${index}`} iface={iface} />
             ))}
           </div>
         </details>

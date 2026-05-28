@@ -91,9 +91,10 @@ function ChartSkeleton() {
 
 interface Props {
   routerId?: number | null;
+  enabled?: boolean;
 }
 
-export default function RevenueOverTimeChart({ routerId }: Props) {
+export default function RevenueOverTimeChart({ routerId, enabled = true }: Props) {
   const [data, setData] = useState<RevenueOverTimeResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -124,10 +125,17 @@ export default function RevenueOverTimeChart({ routerId }: Props) {
   );
 
   useEffect(() => {
+    if (!enabled) {
+      setLoading(true);
+      setError(null);
+      setData(null);
+      return;
+    }
+
     if (!isCustomActive) {
       fetchData({ period });
     }
-  }, [fetchData, period, isCustomActive]);
+  }, [enabled, fetchData, period, isCustomActive]);
 
   const handlePeriodClick = (p: RevenueOverTimePeriod) => {
     setPeriod(p);
