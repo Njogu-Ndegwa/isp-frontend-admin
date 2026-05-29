@@ -2337,8 +2337,13 @@ export interface AdminCustomerSignupsTimeSeries {
 
 export interface AdminSubscriptionRevenueHistory {
   period: string;
-  subscription_revenue_over_time: { date: string; label: string; revenue: number }[];
-  previous_period: { date: string; label: string; revenue: number }[];
+  granularity?: 'day' | 'week' | 'month';
+  total_revenue?: number;
+  previous_total_revenue?: number;
+  change_percent?: number;
+  average_revenue_per_bucket?: number;
+  subscription_revenue_over_time: { date: string; label: string; revenue: number; cumulative_revenue?: number }[];
+  previous_period: { date: string; label: string; revenue: number; cumulative_revenue?: number }[];
 }
 
 export interface AdminARPUMetrics {

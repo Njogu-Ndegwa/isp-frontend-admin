@@ -31,16 +31,16 @@ import MobileDataCard from '../components/MobileDataCard';
 import { SkeletonCard } from '../components/LoadingSpinner';
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid,
-  Tooltip, ResponsiveContainer,
+  Tooltip, ResponsiveContainer, ComposedChart, Line,
 } from 'recharts';
 
 type PeriodFilter = '7d' | '30d' | '90d' | '1y';
 
 const PERIOD_OPTIONS: { value: PeriodFilter; label: string }[] = [
-  { value: '7d', label: '7D' },
-  { value: '30d', label: '30D' },
-  { value: '90d', label: '90D' },
-  { value: '1y', label: '1Y' },
+  { value: '7d', label: 'Week' },
+  { value: '30d', label: 'Month' },
+  { value: '90d', label: 'Quarter' },
+  { value: '1y', label: 'Year' },
 ];
 
 const formatSafeDate = (dateStr: string | null | undefined): string => {
@@ -63,6 +63,12 @@ const formatCompact = (amount: number): string => {
   if (amount >= 1_000_000) return `${(amount / 1_000_000).toFixed(1)}M`;
   if (amount >= 1_000) return `${(amount / 1_000).toFixed(1)}K`;
   return amount.toString();
+};
+
+const formatPercentChange = (value: number | undefined | null): string => {
+  const safeValue = value ?? 0;
+  const prefix = safeValue > 0 ? '+' : '';
+  return `${prefix}${safeValue.toFixed(1)}%`;
 };
 
 // ---------- Sub-components ----------
@@ -152,7 +158,7 @@ function ChartCard({
       </div>
       {isEmpty ? (
         <div className="flex items-center justify-center h-[200px] text-foreground-muted text-xs">
-          Awaiting backend endpoint
+          No data for this period
         </div>
       ) : (
         children
@@ -311,6 +317,15 @@ const chartTooltipStyle = {
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const revenueFormatter = (value: any) => [formatKES(Number(value) || 0), 'Revenue'];
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const subscriptionRevenueFormatter = (value: any, name: any) => {
+  const labels: Record<string, string> = {
+    revenue: 'Collected',
+    cumulativeRevenue: 'Total collected',
+    prevCumulativeRevenue: 'Previous total',
+  };
+  return [formatKES(Number(value) || 0), labels[String(name)] ?? String(name)];
+};
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const signupsFormatter = (value: any) => [value ?? 0, 'Signups'];
 
@@ -495,16 +510,20 @@ export default function AdminDashboardPage() {
   }, [stats]);
 
   const subRevenueData = useMemo(() => {
+    let runningTotal = 0;
     return subRevenueHistory?.subscription_revenue_over_time?.map((d) => ({
       name: d.label,
       revenue: d.revenue,
+      cumulativeRevenue: d.cumulative_revenue ?? (runningTotal += d.revenue),
     })) ?? [];
   }, [subRevenueHistory]);
 
   const subRevenuePrevData = useMemo(() => {
+    let runningTotal = 0;
     return subRevenueHistory?.previous_period?.map((d) => ({
       name: d.label,
       revenue: d.revenue,
+      cumulativeRevenue: d.cumulative_revenue ?? (runningTotal += d.revenue),
     })) ?? [];
   }, [subRevenueHistory]);
 
@@ -527,9 +546,25 @@ export default function AdminDashboardPage() {
     if (!subRevCompare || subRevenuePrevData.length === 0) return subRevenueData;
     return subRevenueData.map((d, i) => ({
       ...d,
-      prevRevenue: subRevenuePrevData[i]?.revenue ?? undefined,
+      prevCumulativeRevenue: subRevenuePrevData[i]?.cumulativeRevenue ?? undefined,
     }));
   }, [subRevenueData, subRevenuePrevData, subRevCompare]);
+  const subRevenueTotal = subRevenueHistory?.total_revenue
+    ?? subRevenueData[subRevenueData.length - 1]?.cumulativeRevenue
+    ?? 0;
+  const subRevenuePreviousTotal = subRevenueHistory?.previous_total_revenue
+    ?? subRevenuePrevData[subRevenuePrevData.length - 1]?.cumulativeRevenue
+    ?? 0;
+  const subRevenueChangePercent = subRevenueHistory?.change_percent ?? (
+    subRevenuePreviousTotal > 0
+      ? ((subRevenueTotal - subRevenuePreviousTotal) / subRevenuePreviousTotal) * 100
+      : subRevenueTotal > 0 ? 100 : 0
+  );
+  const subRevenueBucketLabel = subRevenueHistory?.granularity === 'month'
+    ? 'Monthly'
+    : subRevenueHistory?.granularity === 'week'
+      ? 'Weekly'
+      : 'Daily';
 
   const customerSignupsCompareData = useMemo(() => {
     if (!customerSignupsCompare || customerSignupsPrevData.length === 0) return customerSignupsData;
@@ -699,7 +734,7 @@ export default function AdminDashboardPage() {
 
             {/* Subscription Revenue */}
             <ChartCard
-              title="Subscription Revenue"
+              title="Subscription Revenue Growth"
               period={effectiveSubRevPeriod}
               onPeriodChange={(p) => setSubRevChartPeriod(p === globalPeriod ? null : p)}
               showCompare
@@ -707,8 +742,26 @@ export default function AdminDashboardPage() {
               onCompareToggle={() => setSubRevCompare(!subRevCompare)}
               isEmpty={subRevenueData.length === 0}
             >
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4 text-xs">
+                <div>
+                  <p className="text-[10px] text-foreground-muted uppercase tracking-wider">Total collected</p>
+                  <p className="text-sm font-semibold text-foreground">{formatKES(subRevenueTotal)}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] text-foreground-muted uppercase tracking-wider">Vs previous</p>
+                  <p className={`text-sm font-semibold ${subRevenueChangePercent >= 0 ? 'text-emerald-500' : 'text-red-400'}`}>
+                    {formatPercentChange(subRevenueChangePercent)}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[10px] text-foreground-muted uppercase tracking-wider">{subRevenueBucketLabel} avg</p>
+                  <p className="text-sm font-semibold text-foreground">
+                    {formatKES(subRevenueHistory?.average_revenue_per_bucket ?? 0)}
+                  </p>
+                </div>
+              </div>
               <ResponsiveContainer width="100%" height={220}>
-                <AreaChart data={subRevenueCompareData}>
+                <ComposedChart data={subRevenueCompareData}>
                   <defs>
                     <linearGradient id="subRevGrad" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor="#6366f1" stopOpacity={0.3} />
@@ -718,12 +771,13 @@ export default function AdminDashboardPage() {
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
                   <XAxis dataKey="name" tick={{ fontSize: 10, fill: 'var(--color-foreground-muted)' }} />
                   <YAxis tick={{ fontSize: 10, fill: 'var(--color-foreground-muted)' }} tickFormatter={(v) => formatCompact(v)} />
-                  <Tooltip {...chartTooltipStyle} formatter={revenueFormatter} />
-                  <Area type="monotone" dataKey="revenue" stroke="#6366f1" fill="url(#subRevGrad)" strokeWidth={2} />
+                  <Tooltip {...chartTooltipStyle} formatter={subscriptionRevenueFormatter} />
+                  <Bar dataKey="revenue" fill="#818cf8" opacity={0.35} radius={[3, 3, 0, 0]} />
+                  <Area type="monotone" dataKey="cumulativeRevenue" stroke="#6366f1" fill="url(#subRevGrad)" strokeWidth={2.5} />
                   {subRevCompare && (
-                    <Area type="monotone" dataKey="prevRevenue" stroke="#6366f1" fill="none" strokeWidth={1.5} strokeDasharray="5 5" opacity={0.4} />
+                    <Line type="monotone" dataKey="prevCumulativeRevenue" stroke="#6366f1" strokeWidth={1.5} strokeDasharray="5 5" dot={false} opacity={0.55} />
                   )}
-                </AreaChart>
+                </ComposedChart>
               </ResponsiveContainer>
             </ChartCard>
 
