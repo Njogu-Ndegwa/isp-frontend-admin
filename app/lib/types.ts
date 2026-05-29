@@ -1060,6 +1060,10 @@ export interface MikroTikMetrics {
   cached?: boolean;
   cacheAgeSeconds?: number;
   stale?: boolean;
+  live?: boolean;
+  fallbackReason?: string;
+  refreshInProgress?: boolean;
+  retryAfterSeconds?: number;
 }
 
 // Bandwidth History Types

@@ -245,6 +245,28 @@ export default function DashboardPage() {
   }, [loadMikrotik, selectedRouterId]);
 
   useEffect(() => {
+    if (!selectedRouterId || !mikrotik?.stale) return;
+    if (!mikrotik.refreshInProgress && (mikrotik.retryAfterSeconds ?? 0) <= 0) return;
+
+    const retrySeconds = Math.min(
+      20,
+      Math.max(4, mikrotik.retryAfterSeconds || 5)
+    );
+    const timeout = window.setTimeout(() => {
+      void loadMikrotik();
+    }, retrySeconds * 1000);
+
+    return () => window.clearTimeout(timeout);
+  }, [
+    loadMikrotik,
+    mikrotik?.generatedAt,
+    mikrotik?.refreshInProgress,
+    mikrotik?.retryAfterSeconds,
+    mikrotik?.stale,
+    selectedRouterId,
+  ]);
+
+  useEffect(() => {
     if (!selectedRouterId) return;
 
     // Auto-refresh bandwidth every 60 seconds
@@ -849,6 +871,26 @@ function MikroTikSection({
   const uptime = data.uptime || system.uptime || 'N/A';
   const routerName = data.routerName || system.boardName || 'Router';
   const bandwidth = data.bandwidth ?? { downloadMbps: 0, uploadMbps: 0 };
+  const hasSystemDetails = Boolean(system.boardName || system.platform || system.version || data.uptime || system.uptime);
+  const systemSummary = hasSystemDetails
+    ? `${system.boardName || 'Router'} - ${system.platform || 'Unknown'}${system.version ? ` v${system.version}` : ''} - Up: ${uptime}`
+    : data.refreshInProgress
+      ? 'System details updating'
+      : 'System details unavailable';
+  const isFastSnapshot = data.live === false && data.fallbackReason === 'dashboard_fast_snapshot';
+  const isLiveFailure = data.live === false && Boolean(data.fallbackReason) && !isFastSnapshot;
+  const statusLabel = data.stale
+    ? data.refreshInProgress || isFastSnapshot
+      ? 'Updating'
+      : isLiveFailure
+        ? 'Offline - Stale'
+        : 'Stale'
+    : 'Online';
+  const statusClass = data.stale
+    ? isLiveFailure
+      ? 'bg-red-500/20 text-red-400'
+      : 'bg-amber-500/20 text-amber-400'
+    : 'badge-success';
   
   return (
     <div className="card p-4 sm:p-5 animate-fade-in flex-1">
@@ -861,16 +903,12 @@ function MikroTikSection({
           <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <p className="font-semibold text-foreground text-sm sm:text-base">{routerName}</p>
-              {data.stale ? (
-                <span className="badge bg-red-500/20 text-red-400 text-[10px]">Offline • Stale</span>
-              ) : (
-                <span className="badge badge-success text-[10px]">Online</span>
-              )}
+              <span className={`badge text-[10px] ${statusClass}`}>{statusLabel}</span>
               {data.cached && !data.stale && <span className="badge bg-blue-500/20 text-blue-400 text-[10px]">Cached</span>}
               {loading && <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />}
             </div>
             <p className="text-[10px] sm:text-xs text-foreground-muted truncate">
-              {system.boardName} • {system.platform || 'Unknown'} {system.version ? `v${system.version}` : ''} • Up: {uptime}
+              {systemSummary}
             </p>
           </div>
         </div>

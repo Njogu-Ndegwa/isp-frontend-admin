@@ -414,6 +414,10 @@ class ApiClient {
       cached: (data.cached as boolean) ?? false,
       cacheAgeSeconds: (data.cache_age_seconds as number) ?? 0,
       stale: (data.stale as boolean) ?? false,
+      live: data.live as boolean | undefined,
+      fallbackReason: (data.fallback_reason as string) ?? '',
+      refreshInProgress: (data.refresh_in_progress as boolean) ?? false,
+      retryAfterSeconds: (data.retry_after_seconds as number) ?? 0,
     } as MikroTikMetrics;
   }
 
