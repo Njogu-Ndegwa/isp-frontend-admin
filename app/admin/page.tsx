@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import Link from 'next/link';
 import { api } from '../lib/api';
 import {
@@ -17,7 +17,6 @@ import {
   AdminTrialConversion,
   AdminActivationFunnel,
   AdminRevenueConcentration,
-  AdminRevenueForecast,
   AdminGrowthTarget,
   AdminGrowthTargetsResponse,
 } from '../lib/types';
@@ -396,16 +395,22 @@ export default function AdminDashboardPage() {
   const [trialConversion, setTrialConversion] = useState<AdminTrialConversion | null>(null);
   const [activationFunnel, setActivationFunnel] = useState<AdminActivationFunnel | null>(null);
   const [revenueConcentration, setRevenueConcentration] = useState<AdminRevenueConcentration | null>(null);
-  const [revenueForecast, setRevenueForecast] = useState<AdminRevenueForecast | null>(null);
   const [growthTargets, setGrowthTargets] = useState<AdminGrowthTargetsResponse | null>(null);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const loadSeqRef = useRef(0);
 
   const fetchDashboard = useCallback(async (period: PeriodFilter) => {
+    const loadSeq = loadSeqRef.current + 1;
+    loadSeqRef.current = loadSeq;
+
     try {
       setLoading(true);
       setError(null);
+      setSignupsSummary(null);
+      setCustomerSignups(null);
+      setSubRevenueHistory(null);
 
       const statsPeriod = period as AdminResellerStatsPeriod;
 
@@ -419,43 +424,58 @@ export default function AdminDashboardPage() {
         api.getAdminExpiringSoon(7).catch(() => null),
       ]);
 
+      if (loadSeqRef.current !== loadSeq) return;
       setData(dashResult);
       setStats(statsResult);
       setExpiring(expiringResult);
+      setLoading(false);
 
-      // Fire new endpoints in parallel — all gracefully return null on failure
-      const [
-        mrrRes, churnRes, signupsRes, custSignupsRes, subRevHistRes,
-        arpuRes, trialRes, funnelRes, concRes, forecastRes, targetsRes,
-      ] = await Promise.all([
-        api.getAdminMRR(),
-        api.getAdminChurn(),
-        api.getAdminSignupsSummary(period),
-        api.getAdminCustomerSignups(period),
-        api.getAdminSubscriptionRevenueHistory(period),
-        api.getAdminARPU(),
-        api.getAdminTrialConversion(),
-        api.getAdminActivationFunnel(),
-        api.getAdminRevenueConcentration(),
-        api.getAdminRevenueForecast(period),
-        api.getAdminGrowthTargets(),
-      ]);
+      // Secondary analytics load after the first paint so slow reports do not block the page.
+      void (async () => {
+        const isCurrent = () => loadSeqRef.current === loadSeq;
+        const wait = (ms: number) => new Promise<void>((resolve) => window.setTimeout(resolve, ms));
 
-      setMrr(mrrRes);
-      setChurn(churnRes);
-      setSignupsSummary(signupsRes);
-      setCustomerSignups(custSignupsRes);
-      setSubRevenueHistory(subRevHistRes);
-      setArpu(arpuRes);
-      setTrialConversion(trialRes);
-      setActivationFunnel(funnelRes);
-      setRevenueConcentration(concRes);
-      setRevenueForecast(forecastRes);
-      setGrowthTargets(targetsRes);
+        const [mrrRes, churnRes, arpuRes, trialRes, signupsRes] = await Promise.all([
+          api.getAdminMRR(),
+          api.getAdminChurn(),
+          api.getAdminARPU(),
+          api.getAdminTrialConversion(),
+          api.getAdminSignupsSummary(period),
+        ]);
+        if (!isCurrent()) return;
+        setMrr(mrrRes);
+        setChurn(churnRes);
+        setArpu(arpuRes);
+        setTrialConversion(trialRes);
+        setSignupsSummary(signupsRes);
+
+        await wait(250);
+        const [custSignupsRes, subRevHistRes] = await Promise.all([
+          api.getAdminCustomerSignups(period),
+          api.getAdminSubscriptionRevenueHistory(period),
+        ]);
+        if (!isCurrent()) return;
+        setCustomerSignups(custSignupsRes);
+        setSubRevenueHistory(subRevHistRes);
+
+        await wait(350);
+        const [funnelRes, concRes, targetsRes] = await Promise.all([
+          api.getAdminActivationFunnel(),
+          api.getAdminRevenueConcentration(),
+          api.getAdminGrowthTargets(),
+        ]);
+        if (!isCurrent()) return;
+        setActivationFunnel(funnelRes);
+        setRevenueConcentration(concRes);
+        setGrowthTargets(targetsRes);
+      })();
     } catch (err) {
+      if (loadSeqRef.current !== loadSeq) return;
       setError(err instanceof Error ? err.message : 'Failed to load dashboard');
     } finally {
-      setLoading(false);
+      if (loadSeqRef.current === loadSeq) {
+        setLoading(false);
+      }
     }
   }, []);
 
