@@ -778,6 +778,56 @@ export interface RouterUptimeResponse {
   recent_checks: UptimeCheck[];
 }
 
+export interface InsuranceWireGuardVerification {
+  ip: string;
+  port: number;
+  ping_success: boolean;
+  ping_stdout?: string;
+  ping_stderr?: string;
+  tcp_success: boolean;
+  tcp_error?: string | null;
+}
+
+export interface InsuranceWireGuardStatus {
+  success: boolean;
+  active: boolean;
+  router_id: number;
+  router_name: string;
+  current_ip: string;
+  backup_ip: string;
+  missing_settings?: string[];
+  error?: string;
+  verification?: InsuranceWireGuardVerification;
+}
+
+export interface InsuranceWireGuardPlanResponse {
+  success: boolean;
+  applied: false;
+  router_id: number;
+  router_name: string;
+  current_ip: string;
+  backup_ip: string;
+  missing_settings: string[];
+  plan: string[];
+}
+
+export interface InsuranceWireGuardApplyResponse {
+  success: boolean;
+  applied: true;
+  router_id: number;
+  router_name: string;
+  current_ip: string;
+  backup_ip: string;
+  router_public_key: string;
+  router_actions: string[];
+  manager: Record<string, unknown>;
+  verification: InsuranceWireGuardVerification;
+}
+
+export type InsuranceWireGuardConfigureResponse =
+  | InsuranceWireGuardPlanResponse
+  | InsuranceWireGuardApplyResponse;
+
 export interface CreateRouterRequest {
   name: string;
   identity: string;

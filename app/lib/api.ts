@@ -77,6 +77,8 @@ import {
   PortStatusResponse,
   MacDiagnoseResponse,
   RouterUptimeResponse,
+  InsuranceWireGuardStatus,
+  InsuranceWireGuardConfigureResponse,
   WalledGardenResponse,
   AddWalledGardenDomainRequest,
   AddWalledGardenIpRequest,
@@ -760,6 +762,40 @@ class ApiClient {
       headers: this.getHeaders(true),
     });
     return this.handleResponse<RouterUptimeResponse>(response);
+  }
+
+  async getInsuranceWireGuardStatus(routerId: number): Promise<InsuranceWireGuardStatus> {
+    if (this.isDemoMode()) {
+      return {
+        success: true,
+        active: false,
+        router_id: routerId,
+        router_name: 'Demo Router',
+        current_ip: '10.0.0.28',
+        backup_ip: '10.250.0.28',
+        verification: {
+          ip: '10.250.0.28',
+          port: 8728,
+          ping_success: false,
+          tcp_success: false,
+          tcp_error: 'Demo mode',
+        },
+      };
+    }
+    const response = await fetch(`${BASE_URL}/admin/routers/${routerId}/insurance-wireguard/status`, {
+      headers: this.getHeaders(true),
+    });
+    return this.handleResponse<InsuranceWireGuardStatus>(response);
+  }
+
+  async configureInsuranceWireGuard(routerId: number, apply = false): Promise<InsuranceWireGuardConfigureResponse> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(`${BASE_URL}/admin/routers/${routerId}/insurance-wireguard`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify({ apply }),
+    });
+    return this.handleResponse<InsuranceWireGuardConfigureResponse>(response);
   }
 
   async getRouterUsers(routerId: number): Promise<RouterUsersResponse> {

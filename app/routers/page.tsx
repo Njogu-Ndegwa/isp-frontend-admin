@@ -26,6 +26,7 @@ import DataTable, { DataTableColumn } from '../components/DataTable';
 import MobileDataCard from '../components/MobileDataCard';
 import { formatDateGMT3 } from '../lib/dateUtils';
 import DeviceModeTroubleshoot from '../components/DeviceModeTroubleshoot';
+import BackupVpnControls from '../components/BackupVpnControls';
 
 const formatSafeDate = (dateStr: string | null | undefined): string => {
   try {
@@ -53,7 +54,7 @@ const ROUTER_COLUMNS: DataTableColumn[] = [
 ];
 
 export default function RoutersPage() {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   const [showAddRouter, setShowAddRouter] = useState(false);
 
   // Router state
@@ -263,6 +264,7 @@ export default function RoutersPage() {
         loadUptime={loadUptime}
         setUptimeRouter={setUptimeRouter}
         onAddRouter={() => setShowAddRouter(true)}
+        canManageBackupVpn={user?.role === 'admin'}
       />
 
       {editingRouter && (
@@ -342,6 +344,7 @@ function RoutersTab({
   loadUptime,
   setUptimeRouter,
   onAddRouter,
+  canManageBackupVpn,
 }: {
   routers: Router[];
   loading: boolean;
@@ -371,6 +374,7 @@ function RoutersTab({
   loadUptime: (routerId: number, hours?: number) => Promise<void>;
   setUptimeRouter: (id: number | null) => void;
   onAddRouter: () => void;
+  canManageBackupVpn: boolean;
 }) {
   const [emergencyLoading, setEmergencyLoading] = useState<number | null>(null);
   const [emergencyModalRouter, setEmergencyModalRouter] = useState<Router | null>(null);
@@ -430,6 +434,7 @@ function RoutersTab({
 
   const renderActions = (router: Router) => (
     <div className="flex items-center gap-1 flex-wrap justify-end">
+      {canManageBackupVpn && <BackupVpnControls routerId={router.id} routerName={router.name} compact />}
       <button
         onClick={(e) => { e.stopPropagation(); loadRouterUsers(router.id); }}
         className="p-1.5 rounded-lg hover:bg-accent-primary/10 text-foreground-muted hover:text-accent-primary transition-colors active:opacity-70"

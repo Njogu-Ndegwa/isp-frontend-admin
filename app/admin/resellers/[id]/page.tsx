@@ -25,6 +25,7 @@ import MobileDataCard from '../../../components/MobileDataCard';
 import FilterDatePicker from '../../../components/FilterDatePicker';
 import { SkeletonCard } from '../../../components/LoadingSpinner';
 import Pagination from '../../../components/Pagination';
+import BackupVpnControls from '../../../components/BackupVpnControls';
 
 const formatSafeDate = (dateStr: string | null | undefined): string => {
   try {
@@ -1326,6 +1327,9 @@ function RoutersTab({ routers, loading }: { routers: AdminRouterDetail[]; loadin
               Checked: {formatSafeDate(r.last_checked_at)}
             </p>
           )}
+          <div className="mt-3 pt-3 border-t border-border">
+            <BackupVpnControls routerId={r.id} routerName={r.name} />
+          </div>
         </div>
       ))}
     </div>
