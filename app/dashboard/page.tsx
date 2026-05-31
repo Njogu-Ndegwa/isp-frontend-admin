@@ -23,7 +23,6 @@ import RouterSelector from '../components/RouterSelector';
 import SubscriptionAlertBanner from '../components/SubscriptionAlertBanner';
 import OnboardingChecklist from '../components/OnboardingChecklist';
 import RevenueOverTimeChart from '../components/RevenueOverTimeChart';
-import DailyTransactionsChart from '../components/DailyTransactionsChart';
 
 // Date filter types
 type DateFilterPreset = 'today' | 'this_month';
@@ -542,11 +541,6 @@ export default function DashboardPage() {
       {/* Revenue Over Time Chart */}
       {hasRouters !== false && (
         <RevenueOverTimeChart routerId={selectedRouterId} enabled={selectedRouterId !== null} />
-      )}
-
-      {/* Daily Transactions Chart */}
-      {hasRouters !== false && (
-        <DailyTransactionsChart routerId={selectedRouterId} enabled={selectedRouterId !== null} />
       )}
 
       {/* Router Health */}

@@ -29,6 +29,7 @@ import DataTable from '../components/DataTable';
 import MobileDataCard from '../components/MobileDataCard';
 import { SkeletonCard } from '../components/LoadingSpinner';
 import DbPoolMonitor from '../components/DbPoolMonitor';
+import DailyTransactionsChart from '../components/DailyTransactionsChart';
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, ComposedChart, Line,
@@ -624,6 +625,9 @@ export default function AdminDashboardPage() {
         }
       />
 
+      {/* DB Pool Monitor — Admin only, shown above dashboard data so it's visible even on slow loads */}
+      {user?.role === 'admin' && <DbPoolMonitor />}
+
       {loading ? (
         <div className="space-y-6">
           <div className="grid grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4">
@@ -847,6 +851,9 @@ export default function AdminDashboardPage() {
             </ChartCard>
           </div>
 
+          {/* Daily Transactions (platform-wide) */}
+          <DailyTransactionsChart />
+
           {/* Activation Funnel */}
           {activationFunnel ? (
             <ActivationFunnelSection funnel={activationFunnel} />
@@ -1032,13 +1039,6 @@ export default function AdminDashboardPage() {
           </div>
         </>
       ) : null}
-
-      {/* DB Pool Monitor — Admin only */}
-      {user?.role === 'admin' && (
-        <div className="mt-8">
-          <DbPoolMonitor />
-        </div>
-      )}
 
       {/* C2B Platform Paybill Registration — Admin only */}
       {user?.role === 'admin' && (
