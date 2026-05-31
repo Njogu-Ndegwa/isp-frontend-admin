@@ -41,6 +41,24 @@ const DATE_FILTER_OPTIONS: { filter: DateFilter; label: string }[] = [
   { filter: { type: 'preset', preset: 'this_month' }, label: 'This Month' },
 ];
 
+const DASHBOARD_LOAD_DELAYS_MS = {
+  mikrotik: 1500,
+  subscription: 3000,
+  topUsers: 4500,
+  usage: 5500,
+  bandwidth: 6500,
+  onboarding: 8000,
+} as const;
+
+const MIKROTIK_REFRESH_INTERVAL_MS = 60_000;
+const TOP_USERS_REFRESH_INTERVAL_MS = 60_000;
+const BANDWIDTH_REFRESH_INTERVAL_MS = 120_000;
+const STALE_HEALTH_RETRY_MIN_SECONDS = 20;
+const STALE_HEALTH_RETRY_MAX_SECONDS = 60;
+
+const isDashboardVisible = () =>
+  typeof document === 'undefined' || document.visibilityState === 'visible';
+
 const buildSubscriptionAlert = (overview: SubscriptionOverview): SubscriptionAlert | null => {
   const status = overview.status;
   const invoice = overview.pending_invoice ?? null;
@@ -219,7 +237,7 @@ export default function DashboardPage() {
           setSubscriptionAlert(buildSubscriptionAlert(overview));
         }
       }).catch(() => {});
-    }, 1200);
+    }, DASHBOARD_LOAD_DELAYS_MS.subscription);
 
     return () => {
       cancelled = true;
@@ -232,12 +250,16 @@ export default function DashboardPage() {
     loadAnalytics();
   }, [loadAnalytics]);
 
-  // MikroTik metrics - auto-refresh every 30 seconds
+  // MikroTik metrics - auto-refresh while the dashboard is visible.
   useEffect(() => {
     if (!selectedRouterId) return;
 
-    const timeout = window.setTimeout(loadMikrotik, 900);
-    const interval = window.setInterval(loadMikrotik, 30000);
+    const refresh = () => {
+      if (isDashboardVisible()) void loadMikrotik();
+    };
+
+    const timeout = window.setTimeout(refresh, DASHBOARD_LOAD_DELAYS_MS.mikrotik);
+    const interval = window.setInterval(refresh, MIKROTIK_REFRESH_INTERVAL_MS);
     return () => {
       window.clearTimeout(timeout);
       window.clearInterval(interval);
@@ -247,13 +269,14 @@ export default function DashboardPage() {
   useEffect(() => {
     if (!selectedRouterId || !mikrotik?.stale) return;
     if (!mikrotik.refreshInProgress && (mikrotik.retryAfterSeconds ?? 0) <= 0) return;
+    if (!isDashboardVisible()) return;
 
     const retrySeconds = Math.min(
-      20,
-      Math.max(4, mikrotik.retryAfterSeconds || 5)
+      STALE_HEALTH_RETRY_MAX_SECONDS,
+      Math.max(STALE_HEALTH_RETRY_MIN_SECONDS, mikrotik.retryAfterSeconds || 30)
     );
     const timeout = window.setTimeout(() => {
-      void loadMikrotik();
+      if (isDashboardVisible()) void loadMikrotik();
     }, retrySeconds * 1000);
 
     return () => window.clearTimeout(timeout);
@@ -269,9 +292,12 @@ export default function DashboardPage() {
   useEffect(() => {
     if (!selectedRouterId) return;
 
-    // Auto-refresh bandwidth every 60 seconds
-    const timeout = window.setTimeout(loadBandwidth, 1200);
-    const interval = window.setInterval(loadBandwidth, 60000);
+    const refresh = () => {
+      if (isDashboardVisible()) void loadBandwidth();
+    };
+
+    const timeout = window.setTimeout(refresh, DASHBOARD_LOAD_DELAYS_MS.bandwidth);
+    const interval = window.setInterval(refresh, BANDWIDTH_REFRESH_INTERVAL_MS);
     return () => {
       window.clearTimeout(timeout);
       window.clearInterval(interval);
@@ -281,9 +307,12 @@ export default function DashboardPage() {
   useEffect(() => {
     if (!selectedRouterId) return;
 
-    // Auto-refresh top users every 30 seconds
-    const timeout = window.setTimeout(loadTopUsers, 1100);
-    const interval = window.setInterval(loadTopUsers, 30000);
+    const refresh = () => {
+      if (isDashboardVisible()) void loadTopUsers();
+    };
+
+    const timeout = window.setTimeout(refresh, DASHBOARD_LOAD_DELAYS_MS.topUsers);
+    const interval = window.setInterval(refresh, TOP_USERS_REFRESH_INTERVAL_MS);
     return () => {
       window.clearTimeout(timeout);
       window.clearInterval(interval);
@@ -302,7 +331,7 @@ export default function DashboardPage() {
       }).finally(() => {
         if (!cancelled) setTopUsageLoading(false);
       });
-    }, 1500);
+    }, DASHBOARD_LOAD_DELAYS_MS.usage);
 
     return () => {
       cancelled = true;
@@ -434,7 +463,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Onboarding progress is non-critical; defer its setup checks until core dashboard data starts rendering. */}
-      <OnboardingChecklist delayMs={1500} />
+      <OnboardingChecklist delayMs={DASHBOARD_LOAD_DELAYS_MS.onboarding} />
 
       {/* Analytics Section - Key Metrics FIRST */}
       {hasRouters !== false && analyticsError ? (
