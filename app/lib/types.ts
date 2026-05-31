@@ -124,6 +124,108 @@ export interface RevenueOverTimeResponse {
   };
 }
 
+// Daily Transactions Chart - GET /api/dashboard/transactions-daily
+export type DailyTransactionsPeriod = '7d' | '30d' | '90d' | '6m' | '1y' | 'custom';
+
+export type TransactionPaymentMethod =
+  | 'mobile_money'
+  | 'cash'
+  | 'card'
+  | 'bank_transfer'
+  | 'other';
+
+export type TransactionStatusFilter =
+  | 'completed'
+  | 'pending'
+  | 'failed'
+  | 'refunded'
+  | 'all';
+
+export interface DailyTransactionPoint {
+  date: string;
+  label: string;
+  transactions: number;
+  revenue: number;
+}
+
+export interface DailyTransactionsResponse {
+  period: string;
+  start_date: string;
+  end_date: string;
+  router_id: number | null;
+  payment_method: TransactionPaymentMethod | null;
+  status: TransactionStatusFilter;
+  data: DailyTransactionPoint[];
+  totals: {
+    transactions: number;
+    revenue: number;
+    active_days: number;
+    avg_transactions_per_day: number;
+    avg_transactions_per_active_day: number;
+  };
+  generated_at: string;
+}
+
+// DB Pool Monitoring - GET /api/admin/db-pool
+export type DbPoolPressureLevel = 'healthy' | 'watch' | 'warning' | 'critical';
+
+export type DbPoolPattern =
+  | 'normal_pool_pressure'
+  | 'moderate_pool_checkout'
+  | 'high_pool_checkout'
+  | 'very_high_pool_checkout'
+  | 'low_checkout_headroom'
+  | 'very_low_checkout_headroom'
+  | 'overflow_connections_in_use'
+  | 'pool_exhausted'
+  | string;
+
+export interface DbPoolPressure {
+  level: DbPoolPressureLevel;
+  patterns: DbPoolPattern[];
+  read: string;
+}
+
+export interface DbPoolSnapshot {
+  status: string;
+  configured_pool_size: number;
+  configured_max_overflow: number;
+  configured_max_app_connections: number;
+  checked_out: number;
+  checkout_headroom: number;
+  checked_out_percent: number;
+  pressure: DbPoolPressure;
+}
+
+export interface DbPostgresActivity {
+  skipped?: boolean;
+  reason?: string;
+  states?: Record<string, number>;
+  wait_events?: Record<string, number>;
+  total_connections?: number;
+}
+
+export interface DbLongRunningConnection {
+  pid?: number;
+  state?: string;
+  wait_event_type?: string | null;
+  wait_event?: string | null;
+  query?: string;
+  query_age_seconds?: number;
+  application_name?: string;
+  client_addr?: string;
+  // backend tolerates additional fields
+  [key: string]: unknown;
+}
+
+export interface DbPoolResponse {
+  generated_at: string;
+  pool_snapshot_timing: string;
+  pool: DbPoolSnapshot;
+  postgres_activity: DbPostgresActivity;
+  long_running_connections: DbLongRunningConnection[];
+}
+
 // Legacy Dashboard Types (kept for compatibility)
 export interface Revenue {
   today: number;

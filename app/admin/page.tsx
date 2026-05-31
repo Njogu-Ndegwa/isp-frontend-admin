@@ -28,6 +28,7 @@ import StatCard from '../components/StatCard';
 import DataTable from '../components/DataTable';
 import MobileDataCard from '../components/MobileDataCard';
 import { SkeletonCard } from '../components/LoadingSpinner';
+import DbPoolMonitor from '../components/DbPoolMonitor';
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, ComposedChart, Line,
@@ -350,7 +351,7 @@ export default function AdminDashboardPage() {
         response_type: 'Completed',
       });
       setC2bResponse(result as unknown as Record<string, unknown>);
-      if (result.ResponseCode === '0') {
+      if (result.ResponseDescription === 'Success' || result.ResponseCode === '0') {
         showAlert('success', 'Platform C2B paybill registered with Safaricom');
         setC2bPlatformRegistered(true);
       } else {
@@ -1032,6 +1033,13 @@ export default function AdminDashboardPage() {
         </>
       ) : null}
 
+      {/* DB Pool Monitor — Admin only */}
+      {user?.role === 'admin' && (
+        <div className="mt-8">
+          <DbPoolMonitor />
+        </div>
+      )}
+
       {/* C2B Platform Paybill Registration — Admin only */}
       {user?.role === 'admin' && (
         <div className="card p-5 mt-8">
@@ -1062,7 +1070,7 @@ export default function AdminDashboardPage() {
             <div className={`mt-4 rounded-lg border p-3 text-xs font-mono ${
               c2bResponse.error
                 ? 'bg-danger/5 border-danger/20 text-danger'
-                : c2bResponse.ResponseCode === '0'
+                : c2bResponse.ResponseDescription === 'Success' || c2bResponse.ResponseCode === '0'
                 ? 'bg-success/5 border-success/20 text-foreground'
                 : 'bg-warning/5 border-warning/20 text-foreground'
             }`}>

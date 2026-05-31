@@ -183,6 +183,11 @@ import {
   UpdatePortalSettingsResponse,
   RevenueOverTimePeriod,
   RevenueOverTimeResponse,
+  DailyTransactionsPeriod,
+  DailyTransactionsResponse,
+  TransactionPaymentMethod,
+  TransactionStatusFilter,
+  DbPoolResponse,
   AdminSubscriptionCollectionsSummary,
   AdminSubscriptionPaymentsResponse,
   OwnerBankDestination,
@@ -319,6 +324,44 @@ class ApiClient {
       { headers: this.getHeaders() }
     );
     return this.handleResponse<RevenueOverTimeResponse>(response);
+  }
+
+  // Daily Transactions - GET /api/dashboard/transactions-daily
+  async getTransactionsDaily(options: {
+    period?: DailyTransactionsPeriod;
+    startDate?: string;
+    endDate?: string;
+    routerId?: number;
+    paymentMethod?: TransactionPaymentMethod;
+    status?: TransactionStatusFilter;
+  } = {}): Promise<DailyTransactionsResponse> {
+    const params = new URLSearchParams();
+    if (options.startDate && options.endDate) {
+      params.append('start_date', options.startDate);
+      params.append('end_date', options.endDate);
+    } else if (options.period && options.period !== 'custom') {
+      params.append('period', options.period);
+    }
+    if (options.routerId) params.append('router_id', options.routerId.toString());
+    if (options.paymentMethod) params.append('payment_method', options.paymentMethod);
+    if (options.status) params.append('status', options.status);
+
+    const response = await fetch(
+      `${BASE_URL}/dashboard/transactions-daily?${params.toString()}`,
+      { headers: this.getHeaders() }
+    );
+    return this.handleResponse<DailyTransactionsResponse>(response);
+  }
+
+  // DB Pool Monitoring - GET /api/admin/db-pool[?include_activity=true]
+  // Admin only. Lightweight by default; pass includeActivity=true sparingly.
+  async getDbPool(includeActivity = false): Promise<DbPoolResponse> {
+    const params = new URLSearchParams();
+    if (includeActivity) params.append('include_activity', 'true');
+    const qs = params.toString();
+    const url = `${BASE_URL}/admin/db-pool${qs ? `?${qs}` : ''}`;
+    const response = await fetch(url, { headers: this.getHeaders() });
+    return this.handleResponse<DbPoolResponse>(response);
   }
 
   // MikroTik Metrics - GET /api/mikrotik/health[?router_id=<id>][&include_sessions=true][&prefer_snapshot=true]
