@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { api } from '../lib/api';
 import {
   InsuranceWireGuardApplyResponse,
@@ -11,10 +12,12 @@ import {
 import { useAlert } from '../context/AlertContext';
 
 type LoadingAction = 'status' | 'preview' | 'apply' | null;
+type Tone = 'active' | 'inactive' | 'missing' | 'partial' | 'unknown';
 
 interface BackupVpnControlsProps {
   routerId: number;
   routerName: string;
+  /** Reserved for future variations of the trigger. */
   compact?: boolean;
   className?: string;
 }
@@ -27,86 +30,119 @@ const isApplyResponse = (
   result: InsuranceWireGuardConfigureResponse | null
 ): result is InsuranceWireGuardApplyResponse => Boolean(result && result.applied === true);
 
-function statusTone(status: InsuranceWireGuardStatus | null) {
-  if (!status) {
-    return {
-      label: 'Unchecked',
-      className: 'bg-background-tertiary text-foreground-muted border-border',
-      dotClass: 'bg-foreground-muted',
-      title: 'Backup VPN status has not been checked',
-    };
-  }
+function deriveTone(status: InsuranceWireGuardStatus | null): Tone {
+  if (!status) return 'unknown';
+  if (status.active) return 'active';
+  if (status.missing_settings && status.missing_settings.length > 0) return 'missing';
+  if (status.verification?.ping_success && !status.verification?.tcp_success) return 'partial';
+  return 'inactive';
+}
 
-  if (status.active) {
-    return {
-      label: 'Backup active',
-      className: 'bg-emerald-500/10 text-emerald-500 border-emerald-500/30',
-      dotClass: 'bg-emerald-500',
-      title: `${status.backup_ip} reachable from new server`,
-    };
-  }
+const TONE_DOT: Record<Tone, string> = {
+  active: 'bg-emerald-500',
+  inactive: 'bg-red-500',
+  missing: 'bg-amber-500',
+  partial: 'bg-amber-500',
+  unknown: 'bg-foreground-muted',
+};
 
-  if (status.missing_settings?.length) {
-    return {
-      label: 'Config missing',
-      className: 'bg-amber-500/10 text-amber-500 border-amber-500/30',
-      dotClass: 'bg-amber-500',
-      title: status.missing_settings.join(', '),
-    };
-  }
+const TONE_RING: Record<Tone, string> = {
+  active: 'ring-emerald-500/40',
+  inactive: 'ring-red-500/40',
+  missing: 'ring-amber-500/40',
+  partial: 'ring-amber-500/40',
+  unknown: 'ring-transparent',
+};
 
-  if (status.verification?.ping_success && !status.verification?.tcp_success) {
-    return {
-      label: 'API blocked',
-      className: 'bg-amber-500/10 text-amber-500 border-amber-500/30',
-      dotClass: 'bg-amber-500',
-      title: status.verification.tcp_error || 'Router ping works, API TCP check failed',
-    };
-  }
+const TONE_HERO: Record<Tone, { bg: string; border: string; text: string; label: string; sub: string }> = {
+  active: {
+    bg: 'bg-emerald-500/10',
+    border: 'border-emerald-500/30',
+    text: 'text-emerald-500',
+    label: 'Backup VPN is active',
+    sub: 'The router is reachable through the backup tunnel.',
+  },
+  inactive: {
+    bg: 'bg-red-500/10',
+    border: 'border-red-500/30',
+    text: 'text-red-500',
+    label: 'Backup VPN not active',
+    sub: 'Create the backup configuration to enable failover.',
+  },
+  missing: {
+    bg: 'bg-amber-500/10',
+    border: 'border-amber-500/30',
+    text: 'text-amber-500',
+    label: 'Configuration incomplete',
+    sub: 'Some settings are missing — review them before applying.',
+  },
+  partial: {
+    bg: 'bg-amber-500/10',
+    border: 'border-amber-500/30',
+    text: 'text-amber-500',
+    label: 'Partially reachable',
+    sub: 'Ping works but the API port is not reachable.',
+  },
+  unknown: {
+    bg: 'bg-background-tertiary',
+    border: 'border-border',
+    text: 'text-foreground-muted',
+    label: 'Checking status...',
+    sub: 'Verifying the backup VPN configuration.',
+  },
+};
 
-  return {
-    label: 'Not active',
-    className: 'bg-red-500/10 text-red-500 border-red-500/30',
-    dotClass: 'bg-red-500',
-    title: status.error || status.verification?.tcp_error || 'Backup VPN is not reachable',
-  };
+function ShieldIcon({ className = 'w-4 h-4' }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+    </svg>
+  );
+}
+
+function Spinner({ className = 'w-4 h-4' }: { className?: string }) {
+  return <span className={`block border-2 border-current/30 border-t-current rounded-full animate-spin ${className}`} />;
 }
 
 export default function BackupVpnControls({
   routerId,
   routerName,
-  compact = false,
   className = '',
 }: BackupVpnControlsProps) {
   const { showAlert } = useAlert();
+  const [open, setOpen] = useState(false);
   const [status, setStatus] = useState<InsuranceWireGuardStatus | null>(null);
   const [loading, setLoading] = useState<LoadingAction>(null);
   const [preview, setPreview] = useState<InsuranceWireGuardPlanResponse | null>(null);
   const [applyResult, setApplyResult] = useState<InsuranceWireGuardApplyResponse | null>(null);
 
-  const tone = statusTone(status);
+  const tone = deriveTone(status);
   const isBusy = loading !== null;
 
-  const checkStatus = async () => {
+  const checkStatus = useCallback(async (silent = false) => {
     try {
       setLoading('status');
       const result = await api.getInsuranceWireGuardStatus(routerId);
       setStatus(result);
-      if (result.active) {
-        showAlert('success', `${routerName} backup VPN is active`);
-      } else if (result.missing_settings?.length) {
-        showAlert('warning', `Backup VPN config missing: ${result.missing_settings.join(', ')}`);
-      } else {
-        showAlert('warning', `${routerName} backup VPN is not active`);
+      if (!silent) {
+        if (result.active) {
+          showAlert('success', `${routerName} backup VPN is active`);
+        } else if (result.missing_settings?.length) {
+          showAlert('warning', `Missing config: ${result.missing_settings.join(', ')}`);
+        }
       }
+      return result;
     } catch (err) {
-      showAlert('error', err instanceof Error ? err.message : 'Failed to check backup VPN');
+      if (!silent) {
+        showAlert('error', err instanceof Error ? err.message : 'Failed to check backup VPN');
+      }
+      return null;
     } finally {
       setLoading(null);
     }
-  };
+  }, [routerId, routerName, showAlert]);
 
-  const openPreview = async () => {
+  const loadPreview = useCallback(async () => {
     try {
       setLoading('preview');
       setApplyResult(null);
@@ -115,13 +151,13 @@ export default function BackupVpnControls({
         setPreview(result);
       }
     } catch (err) {
-      showAlert('error', err instanceof Error ? err.message : 'Failed to preview backup VPN setup');
+      showAlert('error', err instanceof Error ? err.message : 'Failed to load setup plan');
     } finally {
       setLoading(null);
     }
-  };
+  }, [routerId, showAlert]);
 
-  const applyBackup = async () => {
+  const applyBackup = useCallback(async () => {
     try {
       setLoading('apply');
       const result = await api.configureInsuranceWireGuard(routerId, true);
@@ -129,9 +165,10 @@ export default function BackupVpnControls({
 
       setApplyResult(result);
       setPreview(null);
+      const active = Boolean(result.verification?.ping_success && result.verification?.tcp_success);
       setStatus({
         success: result.success,
-        active: Boolean(result.verification?.ping_success && result.verification?.tcp_success),
+        active,
         router_id: result.router_id,
         router_name: result.router_name,
         current_ip: result.current_ip,
@@ -139,167 +176,427 @@ export default function BackupVpnControls({
         verification: result.verification,
       });
 
-      if (result.verification?.ping_success && result.verification?.tcp_success) {
+      if (active) {
         showAlert('success', `${result.router_name} backup VPN is active`);
       } else {
-        showAlert('warning', `${result.router_name} backup VPN was configured, but verification is incomplete`);
+        showAlert('warning', `${result.router_name} configured, verification incomplete`);
       }
     } catch (err) {
       showAlert('error', err instanceof Error ? err.message : 'Failed to create backup VPN');
     } finally {
       setLoading(null);
     }
+  }, [routerId, showAlert]);
+
+  // When the dialog opens, auto-check status and (if not active) load the plan
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    (async () => {
+      const result = await checkStatus(true);
+      if (cancelled) return;
+      if (result && !result.active) {
+        await loadPreview();
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [open, checkStatus, loadPreview]);
+
+  // Lock body scroll while dialog is open
+  useEffect(() => {
+    if (!open) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = prev; };
+  }, [open]);
+
+  // Esc to close
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !isBusy) handleClose();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [open, isBusy]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleOpen = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setOpen(true);
   };
 
-  const hasMissingSettings = Boolean(preview?.missing_settings?.length);
+  const handleClose = () => {
+    if (isBusy) return;
+    setOpen(false);
+    // Keep status cached, clear ephemeral state
+    setPreview(null);
+    setApplyResult(null);
+  };
 
   return (
-    <div className={`flex items-center gap-1.5 ${compact ? '' : 'flex-wrap'} ${className}`}>
-      <span
-        className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-1 text-[11px] font-medium ${tone.className}`}
-        title={tone.title}
-      >
-        <span className={`h-1.5 w-1.5 rounded-full ${tone.dotClass}`} />
-        {!compact && tone.label}
-      </span>
-
+    <>
       <button
         type="button"
-        onClick={(e) => { e.stopPropagation(); checkStatus(); }}
-        disabled={isBusy}
-        className="p-1.5 rounded-lg hover:bg-emerald-500/10 text-foreground-muted hover:text-emerald-500 transition-colors active:opacity-70 disabled:opacity-50"
-        title="Check backup VPN"
+        onClick={handleOpen}
+        className={`relative p-1.5 rounded-lg text-foreground-muted hover:text-emerald-500 hover:bg-emerald-500/10 transition-colors active:opacity-70 ${className}`}
+        title="Backup VPN"
+        aria-label={`Backup VPN for ${routerName}`}
       >
-        {loading === 'status' ? (
-          <span className="block w-4 h-4 border-2 border-current/30 border-t-current rounded-full animate-spin" />
-        ) : (
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-          </svg>
+        <ShieldIcon className="w-4 h-4" />
+        {status && (
+          <span
+            className={`absolute top-0.5 right-0.5 w-2 h-2 rounded-full ring-2 ring-background-secondary ${TONE_DOT[tone]}`}
+          />
         )}
       </button>
 
-      <button
-        type="button"
-        onClick={(e) => { e.stopPropagation(); openPreview(); }}
-        disabled={isBusy}
-        className="p-1.5 rounded-lg hover:bg-accent-primary/10 text-foreground-muted hover:text-accent-primary transition-colors active:opacity-70 disabled:opacity-50"
-        title="Create backup VPN"
-      >
-        {loading === 'preview' || loading === 'apply' ? (
-          <span className="block w-4 h-4 border-2 border-current/30 border-t-current rounded-full animate-spin" />
-        ) : (
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v12m6-6H6" />
-          </svg>
-        )}
-      </button>
+      {open && (
+        <BackupVpnDialog
+          routerName={routerName}
+          status={status}
+          preview={preview}
+          applyResult={applyResult}
+          loading={loading}
+          tone={tone}
+          isBusy={isBusy}
+          onRecheck={() => checkStatus(false)}
+          onLoadPreview={loadPreview}
+          onApply={applyBackup}
+          onClose={handleClose}
+        />
+      )}
+    </>
+  );
+}
 
-      {preview && (
-        <div className="fixed inset-0 z-[180] flex items-center justify-center p-4" onClick={(e) => e.stopPropagation()}>
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => !isBusy && setPreview(null)} />
-          <div className="relative w-full max-w-lg bg-background-secondary border border-border rounded-2xl p-5 shadow-xl animate-fade-in">
-            <div className="flex items-start justify-between gap-3 mb-4">
-              <div>
-                <h3 className="text-lg font-semibold text-foreground">Backup VPN Setup</h3>
-                <p className="text-sm text-foreground-muted">{preview.router_name}</p>
-              </div>
-              <span className="text-xs font-mono rounded-lg bg-background-tertiary px-2 py-1 text-foreground-muted">
-                {preview.backup_ip}
+// ---------------------------------------------------------------------------
+// Dialog
+// ---------------------------------------------------------------------------
+
+function BackupVpnDialog({
+  routerName,
+  status,
+  preview,
+  applyResult,
+  loading,
+  tone,
+  isBusy,
+  onRecheck,
+  onLoadPreview,
+  onApply,
+  onClose,
+}: {
+  routerName: string;
+  status: InsuranceWireGuardStatus | null;
+  preview: InsuranceWireGuardPlanResponse | null;
+  applyResult: InsuranceWireGuardApplyResponse | null;
+  loading: LoadingAction;
+  tone: Tone;
+  isBusy: boolean;
+  onRecheck: () => void;
+  onLoadPreview: () => void;
+  onApply: () => void;
+  onClose: () => void;
+}) {
+  if (typeof window === 'undefined') return null;
+
+  const hero = TONE_HERO[tone];
+  const currentIp = applyResult?.current_ip ?? preview?.current_ip ?? status?.current_ip;
+  const backupIp = applyResult?.backup_ip ?? preview?.backup_ip ?? status?.backup_ip;
+  const verification = applyResult?.verification ?? status?.verification;
+  const missingSettings = preview?.missing_settings ?? status?.missing_settings ?? [];
+  const isActive = tone === 'active';
+  const canApply = Boolean(preview) && missingSettings.length === 0 && !applyResult;
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center"
+      onClick={(e) => e.stopPropagation()}
+      onMouseDown={(e) => e.stopPropagation()}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Backup VPN"
+    >
+      {/* Backdrop */}
+      <div
+        className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-fade-in"
+        onClick={(e) => { e.stopPropagation(); onClose(); }}
+      />
+
+      {/* Sheet / Card */}
+      <div
+        className="
+          relative w-full sm:max-w-lg
+          bg-background-secondary border-t sm:border border-border
+          rounded-t-2xl sm:rounded-2xl
+          shadow-2xl
+          max-h-[92vh] sm:max-h-[88vh]
+          flex flex-col
+          animate-slide-up sm:animate-fade-in
+        "
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Drag handle (mobile) */}
+        <div className="sm:hidden flex justify-center pt-2 pb-1">
+          <span className="w-10 h-1 rounded-full bg-foreground-muted/40" />
+        </div>
+
+        {/* Header */}
+        <div className="px-5 pt-3 sm:pt-5 pb-4 flex items-start gap-3">
+          <div className={`flex-shrink-0 w-11 h-11 rounded-xl flex items-center justify-center bg-emerald-500/10 text-emerald-500 ring-1 ${TONE_RING[tone]}`}>
+            <ShieldIcon className="w-6 h-6" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <h3 className="text-base sm:text-lg font-semibold text-foreground truncate">Backup VPN</h3>
+            <p className="text-sm text-foreground-muted truncate">{routerName}</p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={isBusy}
+            className="p-1.5 rounded-lg hover:bg-background-tertiary text-foreground-muted transition-colors disabled:opacity-50"
+            aria-label="Close"
+          >
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        {/* Scrollable body */}
+        <div className="flex-1 overflow-y-auto px-5 pb-4 space-y-4">
+          {/* Status hero */}
+          <div className={`rounded-xl border ${hero.border} ${hero.bg} p-4`}>
+            <div className="flex items-center gap-2.5">
+              <span className={`relative flex h-2.5 w-2.5`}>
+                {isActive && <span className="absolute inset-0 rounded-full bg-emerald-500 opacity-60 animate-ping" />}
+                <span className={`relative inline-flex h-2.5 w-2.5 rounded-full ${TONE_DOT[tone]}`} />
               </span>
+              <p className={`text-sm font-semibold ${hero.text}`}>
+                {loading === 'status' && !status ? 'Checking status...' : hero.label}
+              </p>
             </div>
+            <p className="text-xs text-foreground-muted mt-1.5 ml-5">{hero.sub}</p>
 
-            {hasMissingSettings && (
-              <div className="mb-4 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-500">
-                Missing: {preview.missing_settings.join(', ')}
-              </div>
+            {status?.error && (
+              <p className="text-xs text-red-400 mt-2 ml-5 break-words">{status.error}</p>
             )}
+          </div>
 
-            <div className="mb-5 max-h-64 overflow-y-auto rounded-xl border border-border bg-background-tertiary/50 p-3">
-              <ol className="space-y-2 text-sm text-foreground-muted">
-                {preview.plan.map((step, index) => (
-                  <li key={`${step}-${index}`} className="flex gap-2">
-                    <span className="mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-background-secondary text-[11px] text-foreground">
-                      {index + 1}
+          {/* IP route card */}
+          {(currentIp || backupIp) && (
+            <div className="rounded-xl border border-border bg-background-tertiary/40 p-4">
+              <p className="text-[11px] uppercase tracking-wider text-foreground-muted mb-3 font-semibold">Tunnel</p>
+              <div className="flex items-center gap-2">
+                <div className="flex-1 min-w-0">
+                  <p className="text-[10px] uppercase tracking-wider text-foreground-muted">Current</p>
+                  <p className="font-mono text-sm text-foreground truncate">{currentIp || '—'}</p>
+                </div>
+                <svg className="w-5 h-5 text-foreground-muted flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                </svg>
+                <div className="flex-1 min-w-0 text-right">
+                  <p className="text-[10px] uppercase tracking-wider text-foreground-muted">Backup</p>
+                  <p className="font-mono text-sm text-foreground truncate">{backupIp || '—'}</p>
+                </div>
+              </div>
+
+              {verification && (
+                <div className="mt-3 pt-3 border-t border-border grid grid-cols-2 gap-2">
+                  <VerifyChip
+                    label="Ping"
+                    ok={verification.ping_success}
+                    detail={verification.ping_stderr}
+                  />
+                  <VerifyChip
+                    label="API"
+                    ok={verification.tcp_success}
+                    detail={verification.tcp_error || undefined}
+                  />
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Missing settings */}
+          {missingSettings.length > 0 && (
+            <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <svg className="w-4 h-4 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+                <p className="text-sm font-medium text-amber-500">Missing settings</p>
+              </div>
+              <ul className="text-xs text-foreground-muted space-y-1 ml-6 list-disc">
+                {missingSettings.map((s) => (
+                  <li key={s} className="font-mono">{s}</li>
+                ))}
+              </ul>
+              <p className="text-xs text-foreground-muted mt-2">
+                Configure these in admin settings before applying the backup VPN setup.
+              </p>
+            </div>
+          )}
+
+          {/* Result (after apply) */}
+          {applyResult && (
+            <div className="rounded-xl border border-border bg-background-tertiary/40 p-4">
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-[11px] uppercase tracking-wider text-foreground-muted font-semibold">Actions performed</p>
+                <span className="text-[10px] text-foreground-muted">{applyResult.router_actions.length} steps</span>
+              </div>
+              <ul className="space-y-2 max-h-56 overflow-y-auto">
+                {applyResult.router_actions.map((action, i) => (
+                  <li key={`${action}-${i}`} className="flex items-start gap-2.5 text-sm text-foreground-muted">
+                    <span className="flex-shrink-0 w-4 h-4 rounded-full bg-emerald-500/15 text-emerald-500 flex items-center justify-center mt-0.5">
+                      <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                      </svg>
                     </span>
-                    <span>{step}</span>
+                    <span className="break-words">{action}</span>
+                  </li>
+                ))}
+              </ul>
+
+              {applyResult.router_public_key && (
+                <div className="mt-3 pt-3 border-t border-border">
+                  <p className="text-[10px] uppercase tracking-wider text-foreground-muted mb-1">Router public key</p>
+                  <p className="font-mono text-[11px] text-foreground break-all">{applyResult.router_public_key}</p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Setup plan (before apply) */}
+          {!applyResult && preview && preview.plan.length > 0 && (
+            <div className="rounded-xl border border-border bg-background-tertiary/40 p-4">
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-[11px] uppercase tracking-wider text-foreground-muted font-semibold">Setup plan</p>
+                <span className="text-[10px] text-foreground-muted">{preview.plan.length} steps</span>
+              </div>
+              <ol className="space-y-2 max-h-56 overflow-y-auto">
+                {preview.plan.map((step, i) => (
+                  <li key={`${step}-${i}`} className="flex items-start gap-2.5 text-sm text-foreground-muted">
+                    <span className="flex-shrink-0 w-5 h-5 rounded-full bg-accent-primary/10 text-accent-primary text-[11px] font-medium flex items-center justify-center mt-0.5">
+                      {i + 1}
+                    </span>
+                    <span className="break-words">{step}</span>
                   </li>
                 ))}
               </ol>
             </div>
+          )}
 
-            <div className="flex justify-end gap-3">
-              <button
-                type="button"
-                onClick={() => setPreview(null)}
-                disabled={isBusy}
-                className="px-4 py-2 rounded-xl border border-border text-sm font-medium text-foreground-muted hover:bg-background-tertiary transition-colors disabled:opacity-50"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={applyBackup}
-                disabled={isBusy || hasMissingSettings}
-                className="btn-primary text-sm px-4 py-2 disabled:opacity-50"
-              >
-                {loading === 'apply' ? 'Creating...' : 'Create Backup VPN'}
-              </button>
+          {/* Loading plan state */}
+          {!applyResult && !preview && !isActive && loading === 'preview' && (
+            <div className="rounded-xl border border-border bg-background-tertiary/40 p-6 flex items-center justify-center gap-3 text-sm text-foreground-muted">
+              <Spinner className="w-4 h-4" />
+              <span>Loading setup plan...</span>
             </div>
-          </div>
+          )}
         </div>
-      )}
 
-      {applyResult && (
-        <div className="fixed inset-0 z-[180] flex items-center justify-center p-4" onClick={(e) => e.stopPropagation()}>
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setApplyResult(null)} />
-          <div className="relative w-full max-w-lg bg-background-secondary border border-border rounded-2xl p-5 shadow-xl animate-fade-in">
-            <div className="flex items-start justify-between gap-3 mb-4">
-              <div>
-                <h3 className="text-lg font-semibold text-foreground">Backup VPN Result</h3>
-                <p className="text-sm text-foreground-muted">{applyResult.router_name}</p>
-              </div>
-              <span className={`rounded-full px-2 py-1 text-xs font-medium ${
-                applyResult.verification.ping_success && applyResult.verification.tcp_success
-                  ? 'bg-emerald-500/10 text-emerald-500'
-                  : 'bg-amber-500/10 text-amber-500'
-              }`}>
-                {applyResult.verification.ping_success && applyResult.verification.tcp_success ? 'Active' : 'Needs check'}
-              </span>
-            </div>
+        {/* Footer actions */}
+        <div className="px-5 py-4 border-t border-border bg-background-secondary/95 backdrop-blur-sm flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-3 rounded-b-2xl">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onRecheck}
+              disabled={isBusy}
+              className="btn-secondary text-sm flex items-center gap-2 disabled:opacity-50"
+            >
+              {loading === 'status' ? (
+                <Spinner className="w-4 h-4" />
+              ) : (
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+              )}
+              <span>Re-check</span>
+            </button>
+            {applyResult || isActive ? null : (
+              <button
+                type="button"
+                onClick={onLoadPreview}
+                disabled={isBusy || loading === 'preview'}
+                className="btn-ghost text-sm flex items-center gap-2 disabled:opacity-50"
+                title="Reload plan"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                </svg>
+                <span>Reload plan</span>
+              </button>
+            )}
+          </div>
 
-            <div className="grid grid-cols-2 gap-3 mb-4 text-sm">
-              <div className="rounded-xl bg-background-tertiary p-3">
-                <p className="text-xs text-foreground-muted">Backup IP</p>
-                <p className="font-mono text-foreground">{applyResult.backup_ip}</p>
-              </div>
-              <div className="rounded-xl bg-background-tertiary p-3">
-                <p className="text-xs text-foreground-muted">API Check</p>
-                <p className={applyResult.verification.tcp_success ? 'text-emerald-500' : 'text-amber-500'}>
-                  {applyResult.verification.tcp_success ? 'Reachable' : 'Failed'}
-                </p>
-              </div>
-            </div>
-
-            <div className="max-h-48 overflow-y-auto rounded-xl border border-border bg-background-tertiary/50 p-3">
-              <ul className="space-y-1.5 text-sm text-foreground-muted">
-                {applyResult.router_actions.map((action, index) => (
-                  <li key={`${action}-${index}`} className="flex gap-2">
-                    <span className="text-emerald-500">OK</span>
-                    <span>{action}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            <div className="flex justify-end mt-5">
-              <button type="button" onClick={() => setApplyResult(null)} className="btn-primary text-sm px-4 py-2">
+          <div className="flex items-center gap-2 sm:justify-end">
+            {applyResult ? (
+              <button
+                type="button"
+                onClick={onClose}
+                className="btn-primary text-sm w-full sm:w-auto"
+              >
                 Done
               </button>
-            </div>
+            ) : isActive ? (
+              <button
+                type="button"
+                onClick={onLoadPreview}
+                disabled={isBusy}
+                className="btn-secondary text-sm w-full sm:w-auto disabled:opacity-50"
+              >
+                Reconfigure
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={onApply}
+                disabled={!canApply || isBusy}
+                className="btn-primary text-sm w-full sm:w-auto flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {loading === 'apply' ? (
+                  <>
+                    <Spinner className="w-4 h-4" />
+                    <span>Creating...</span>
+                  </>
+                ) : (
+                  <>
+                    <ShieldIcon className="w-4 h-4" />
+                    <span>Create Backup VPN</span>
+                  </>
+                )}
+              </button>
+            )}
           </div>
         </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
+function VerifyChip({ label, ok, detail }: { label: string; ok: boolean; detail?: string }) {
+  return (
+    <div
+      className={`flex items-center gap-2 rounded-lg px-2.5 py-2 text-xs font-medium ${
+        ok
+          ? 'bg-emerald-500/10 text-emerald-500'
+          : 'bg-red-500/10 text-red-500'
+      }`}
+      title={detail || undefined}
+    >
+      {ok ? (
+        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+        </svg>
+      ) : (
+        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" />
+        </svg>
       )}
+      <span>{label}</span>
+      <span className="ml-auto opacity-80">{ok ? 'OK' : 'Fail'}</span>
     </div>
   );
 }
