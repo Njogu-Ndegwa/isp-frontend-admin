@@ -1,11 +1,15 @@
 'use client';
 
 import { useEffect, useState, useCallback, useMemo } from 'react';
+import Link from 'next/link';
 import { api } from '../lib/api';
 import {
   PPPoEMonitorResponse,
   PPPoEMonitorUser,
   PPPoEDiagnoseResponse,
+  PPPoECleanupConflictCustomer,
+  PPPoECleanupConflictDetail,
+  PPPoECleanupError,
 } from '../lib/types';
 import Header from '../components/Header';
 import RouterSelector from '../components/RouterSelector';
@@ -17,6 +21,7 @@ import FilterSelect from '../components/FilterSelect';
 import Pagination from '../components/Pagination';
 import { PageLoader } from '../components/LoadingSpinner';
 import { useAuth } from '../context/AuthContext';
+import { useAlert } from '../context/AlertContext';
 import { formatDateGMT3 } from '../lib/dateUtils';
 
 type StatusFilter = 'all' | 'online' | 'offline';
@@ -56,6 +61,7 @@ const TABLE_COLUMNS: DataTableColumn[] = [
   { key: 'limit', label: 'Limit', className: 'hidden xl:table-cell' },
   { key: 'plan', label: 'Plan', className: 'hidden lg:table-cell' },
   { key: 'lastSeen', label: 'Last Seen / Reason', className: 'hidden xl:table-cell' },
+  { key: 'actions', label: '' },
 ];
 
 const STATUS_FILTER_OPTIONS = [
@@ -243,8 +249,247 @@ function DiagnoseDialog({
   );
 }
 
+function CleanupDialog({
+  user,
+  routerId,
+  routerName,
+  onClose,
+  onSuccess,
+}: {
+  user: PPPoEMonitorUser;
+  routerId: number;
+  routerName: string;
+  onClose: () => void;
+  onSuccess: (message: string) => void;
+}) {
+  const [loading, setLoading] = useState(false);
+  const [errorText, setErrorText] = useState<string | null>(null);
+  const [conflict, setConflict] = useState<PPPoECleanupConflictCustomer | null>(null);
+  const [conflictMessage, setConflictMessage] = useState<string | null>(null);
+
+  const cidMatch = user.comment?.match(/CID\s*:\s*(\d+)/i);
+  const customerIdHint = cidMatch ? cidMatch[1] : null;
+
+  const runCleanup = async (force: boolean) => {
+    try {
+      setLoading(true);
+      setErrorText(null);
+      const result = await api.cleanupPPPoERouterUser(routerId, user.username, { force });
+      const action = result.cleanup?.remove_result?.action;
+      // not_found means the secret was already gone — treat as success per spec.
+      const msg =
+        action === 'not_found'
+          ? `${user.username} was already absent from ${result.router_name}.`
+          : force
+            ? `Force removed ${user.username} from ${result.router_name}.`
+            : `Removed ${user.username} from ${result.router_name}.`;
+      onSuccess(msg);
+    } catch (err) {
+      if (err instanceof PPPoECleanupError) {
+        if (err.status === 409) {
+          const detail = err.body?.detail as PPPoECleanupConflictDetail | undefined;
+          if (detail && typeof detail === 'object' && 'customer' in detail) {
+            setConflict(detail.customer);
+            setConflictMessage(detail.message ?? err.message);
+            return;
+          }
+        }
+        if (err.status === 503) {
+          setErrorText('Router is unreachable. Try again when the router is online.');
+          return;
+        }
+        if (err.status === 502) {
+          setErrorText(err.message || 'Cleanup failed at the router. Try again.');
+          return;
+        }
+        setErrorText(err.message);
+        return;
+      }
+      setErrorText(err instanceof Error ? err.message : 'Cleanup failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={onClose}>
+      <div className="card p-6 w-full max-w-md space-y-4" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-start justify-between">
+          <div>
+            <h3 className="text-lg font-semibold text-foreground">
+              {conflict ? 'Still linked to a customer' : 'Remove from Router'}
+            </h3>
+            <p className="text-xs text-foreground-muted mt-0.5">{routerName}</p>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-1 rounded-md hover:bg-background-tertiary text-foreground-muted"
+            aria-label="Close"
+          >
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        {!conflict && (
+          <>
+            <div className="rounded-lg bg-background-tertiary p-3 space-y-2 text-sm">
+              <div className="flex justify-between gap-3">
+                <span className="text-foreground-muted">Username</span>
+                <span className="font-mono text-foreground">{user.username}</span>
+              </div>
+              <div className="flex justify-between gap-3">
+                <span className="text-foreground-muted">Status</span>
+                <span className={user.online ? 'text-emerald-500 font-medium' : 'text-foreground-muted'}>
+                  {user.online ? 'Online' : 'Offline'}
+                </span>
+              </div>
+              {user.online && user.address && (
+                <div className="flex justify-between gap-3">
+                  <span className="text-foreground-muted">IP address</span>
+                  <span className="font-mono text-foreground">{user.address}</span>
+                </div>
+              )}
+              {user.online && user.caller_id && (
+                <div className="flex justify-between gap-3">
+                  <span className="text-foreground-muted">Caller ID / MAC</span>
+                  <span className="font-mono text-foreground">{user.caller_id}</span>
+                </div>
+              )}
+              {user.comment && (
+                <div className="flex justify-between gap-3">
+                  <span className="text-foreground-muted">Comment</span>
+                  <span className="font-mono text-foreground text-right break-all">{user.comment}</span>
+                </div>
+              )}
+            </div>
+
+            <p className="text-sm text-foreground-muted">
+              This will disconnect the PPPoE session and remove the PPPoE secret from the router.
+              It will not delete a billing customer because no matching customer was found.
+            </p>
+
+            {user.online && (
+              <div className="rounded-lg bg-warning/10 border border-warning/20 p-3 text-sm text-warning">
+                This user is currently online and will be disconnected immediately.
+              </div>
+            )}
+
+            {customerIdHint && (
+              <div className="rounded-lg bg-info/10 border border-info/20 p-3 text-xs text-info">
+                Router comment references customer <span className="font-mono">CID:{customerIdHint}</span>.
+                If that customer still exists, open it first instead of removing the secret.
+              </div>
+            )}
+
+            {errorText && (
+              <div className="rounded-lg bg-danger/10 border border-danger/20 p-3 text-sm text-danger">
+                {errorText}
+              </div>
+            )}
+
+            <div className="flex gap-3 pt-1">
+              <button onClick={onClose} className="btn-secondary flex-1" disabled={loading}>
+                Cancel
+              </button>
+              <button
+                onClick={() => runCleanup(false)}
+                disabled={loading}
+                className="flex-1 px-4 py-2 rounded-lg text-sm font-medium bg-danger text-white hover:bg-danger/90 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                {loading ? (
+                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  'Remove from Router'
+                )}
+              </button>
+            </div>
+          </>
+        )}
+
+        {conflict && (
+          <>
+            <p className="text-sm text-foreground">
+              {conflictMessage ??
+                'PPPoE username still belongs to a customer. Delete or deactivate the customer first.'}
+            </p>
+            <div className="rounded-lg bg-background-tertiary p-3 space-y-1 text-sm">
+              <div className="flex justify-between gap-3">
+                <span className="text-foreground-muted">Customer</span>
+                <span className="font-medium text-foreground">{conflict.name}</span>
+              </div>
+              {conflict.phone && (
+                <div className="flex justify-between gap-3">
+                  <span className="text-foreground-muted">Phone</span>
+                  <span className="font-mono text-foreground">{conflict.phone}</span>
+                </div>
+              )}
+              {conflict.status && (
+                <div className="flex justify-between gap-3">
+                  <span className="text-foreground-muted">Status</span>
+                  <span className="text-foreground capitalize">{conflict.status}</span>
+                </div>
+              )}
+              {conflict.plan && (
+                <div className="flex justify-between gap-3">
+                  <span className="text-foreground-muted">Plan</span>
+                  <span className="text-foreground">{conflict.plan}</span>
+                </div>
+              )}
+              {conflict.expiry && (
+                <div className="flex justify-between gap-3">
+                  <span className="text-foreground-muted">Expiry</span>
+                  <span className="text-foreground">{conflict.expiry}</span>
+                </div>
+              )}
+            </div>
+
+            <p className="text-xs text-foreground-muted">
+              Prefer opening the customer and using the normal delete or deactivate flow — that path
+              also removes the PPPoE secret from the router. Force removal here will disconnect the
+              customer without touching billing.
+            </p>
+
+            {errorText && (
+              <div className="rounded-lg bg-danger/10 border border-danger/20 p-3 text-sm text-danger">
+                {errorText}
+              </div>
+            )}
+
+            <div className="flex flex-col gap-2 pt-1">
+              <Link
+                href={`/customers/${conflict.id}`}
+                className="btn-primary flex items-center justify-center gap-2"
+                onClick={onClose}
+              >
+                Open customer
+              </Link>
+              <button
+                onClick={() => runCleanup(true)}
+                disabled={loading}
+                className="px-4 py-2 rounded-lg text-sm font-medium border border-danger/40 text-danger hover:bg-danger/10 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                {loading ? (
+                  <div className="w-4 h-4 border-2 border-danger/30 border-t-danger rounded-full animate-spin" />
+                ) : (
+                  'Force remove from router'
+                )}
+              </button>
+              <button onClick={onClose} className="btn-secondary" disabled={loading}>
+                Close
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function PPPoEMonitorPage() {
   const { isAuthenticated } = useAuth();
+  const { showAlert } = useAlert();
   const [selectedRouterId, setSelectedRouterId] = useState<number | null>(null);
   const [data, setData] = useState<PPPoEMonitorResponse | null>(null);
   const [loading, setLoading] = useState(false);
@@ -255,6 +500,7 @@ export default function PPPoEMonitorPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<SortBy>('status');
   const [diagnoseUser, setDiagnoseUser] = useState<string | null>(null);
+  const [cleanupUser, setCleanupUser] = useState<PPPoEMonitorUser | null>(null);
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(20);
 
@@ -365,9 +611,16 @@ export default function PPPoEMonitorPage() {
               {(user.customer?.name ?? user.username).charAt(0).toUpperCase()}
             </div>
             <div>
-              <span className="font-medium text-foreground">
-                {user.customer?.name ?? user.username}
-              </span>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="font-medium text-foreground">
+                  {user.customer?.name ?? user.username}
+                </span>
+                {!user.customer && (
+                  <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wide bg-warning/10 text-warning border border-warning/20">
+                    Router-only
+                  </span>
+                )}
+              </div>
               {user.customer?.account_number && (
                 <p className="text-xs font-mono text-foreground-muted">4159825 &mdash; {user.customer.account_number}</p>
               )}
@@ -409,6 +662,20 @@ export default function PPPoEMonitorPage() {
               <div className="text-warning">{user.last_disconnect_reason}</div>
             )}
           </div>
+        );
+      case 'actions':
+        if (user.customer) return <span className="text-foreground-muted">—</span>;
+        return (
+          <button
+            onClick={(e) => { e.stopPropagation(); setCleanupUser(user); }}
+            className="p-1.5 rounded-md hover:bg-danger/10 transition-colors text-foreground-muted hover:text-danger"
+            title="Remove from router"
+            aria-label={`Remove ${user.username} from router`}
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            </svg>
+          </button>
         );
       default:
         return null;
@@ -707,56 +974,69 @@ export default function PPPoEMonitorPage() {
             ) : (
               <>
                 {displayedUsers.map((user) => (
-                  <MobileDataCard
-                    key={user.username}
-                    id={user.username}
-                    title={user.customer?.name ?? user.username}
-                    subtitle={user.customer?.account_number ? `4159825 — ${user.customer.account_number}` : (user.customer ? user.username : undefined)}
-                    avatar={{
-                      text: (user.customer?.name ?? user.username).charAt(0).toUpperCase(),
-                      color: user.disabled ? 'warning' : user.online ? 'success' : 'danger',
-                    }}
-                    status={{
-                      label: user.disabled ? 'Disabled' : user.online ? 'Online' : 'Offline',
-                      variant: user.disabled ? 'warning' : user.online ? 'success' : 'neutral',
-                    }}
-                    value={{
-                      text: user.customer?.plan ?? user.profile ?? '—',
-                      highlight: user.online,
-                    }}
-                    secondary={{
-                      left: (
-                        <span className="flex items-center gap-1.5">
+                  <div key={user.username} className="space-y-0">
+                    <MobileDataCard
+                      id={user.username}
+                      title={user.customer?.name ?? user.username}
+                      subtitle={user.customer?.account_number ? `4159825 — ${user.customer.account_number}` : (user.customer ? user.username : undefined)}
+                      avatar={{
+                        text: (user.customer?.name ?? user.username).charAt(0).toUpperCase(),
+                        color: user.disabled ? 'warning' : user.online ? 'success' : 'danger',
+                      }}
+                      status={{
+                        label: user.disabled ? 'Disabled' : user.online ? 'Online' : 'Offline',
+                        variant: user.disabled ? 'warning' : user.online ? 'success' : 'neutral',
+                      }}
+                      badge={!user.customer ? { label: 'Router-only', variant: 'warning' } : undefined}
+                      value={{
+                        text: user.customer?.plan ?? user.profile ?? '—',
+                        highlight: user.online,
+                      }}
+                      secondary={{
+                        left: (
+                          <span className="flex items-center gap-1.5">
+                            {user.online && (
+                              <>
+                                <span className="text-accent-primary">↓{formatRate(user.download_rate)}</span>
+                                <span className="text-teal-500">↑{formatRate(user.upload_rate)}</span>
+                              </>
+                            )}
+                            {!user.online && user.last_disconnect_reason && (
+                              <span className="text-warning text-xs">{user.last_disconnect_reason}</span>
+                            )}
+                            {!user.online && !user.last_disconnect_reason && (
+                              <span className="text-foreground-muted">{user.customer?.plan ?? '—'}</span>
+                            )}
+                          </span>
+                        ),
+                        right: user.online
+                          ? user.uptime ?? '—'
+                          : user.last_logged_out || '—',
+                      }}
+                      rightAction={
+                        <div className="flex items-center gap-2">
                           {user.online && (
-                            <>
-                              <span className="text-accent-primary">↓{formatRate(user.download_rate)}</span>
-                              <span className="text-teal-500">↑{formatRate(user.upload_rate)}</span>
-                            </>
+                            <span className="text-xs text-foreground-muted font-mono">{user.address}</span>
                           )}
-                          {!user.online && user.last_disconnect_reason && (
-                            <span className="text-warning text-xs">{user.last_disconnect_reason}</span>
-                          )}
-                          {!user.online && !user.last_disconnect_reason && (
-                            <span className="text-foreground-muted">{user.customer?.plan ?? '—'}</span>
-                          )}
-                        </span>
-                      ),
-                      right: user.online
-                        ? user.uptime ?? '—'
-                        : user.last_logged_out || '—',
-                    }}
-                    rightAction={
-                      <div className="flex items-center gap-2">
-                        {user.online && (
-                          <span className="text-xs text-foreground-muted font-mono">{user.address}</span>
-                        )}
-                        <span className="text-xs text-foreground-muted">{user.max_limit || '—'}</span>
-                      </div>
-                    }
-                    onClick={() => setDiagnoseUser(user.username)}
-                    layout="compact"
-                    className="animate-fade-in"
-                  />
+                          <span className="text-xs text-foreground-muted">{user.max_limit || '—'}</span>
+                        </div>
+                      }
+                      onClick={() => setDiagnoseUser(user.username)}
+                      layout="compact"
+                      className="animate-fade-in"
+                    />
+                    {!user.customer && (
+                      <button
+                        onClick={() => setCleanupUser(user)}
+                        className="w-full mt-1 px-3 py-2 rounded-lg text-xs font-medium border border-danger/30 text-danger hover:bg-danger/10 transition-colors flex items-center justify-center gap-1.5"
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                        Remove from Router
+                      </button>
+                    )}
+                  </div>
                 ))}
 
                 <Pagination
@@ -793,6 +1073,21 @@ export default function PPPoEMonitorPage() {
           username={diagnoseUser}
           routerId={selectedRouterId}
           onClose={() => setDiagnoseUser(null)}
+        />
+      )}
+
+      {/* Cleanup Dialog — orphan removal */}
+      {cleanupUser && selectedRouterId && (
+        <CleanupDialog
+          user={cleanupUser}
+          routerId={selectedRouterId}
+          routerName={data?.router_name ?? 'router'}
+          onClose={() => setCleanupUser(null)}
+          onSuccess={(msg) => {
+            showAlert('success', msg);
+            setCleanupUser(null);
+            fetchData(selectedRouterId, 'refresh');
+          }}
         />
       )}
     </div>

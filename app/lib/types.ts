@@ -1714,6 +1714,56 @@ export interface PPPoEMonitorResponse {
   users: PPPoEMonitorUser[];
 }
 
+export interface PPPoECleanupResult {
+  success?: boolean;
+  disconnect_result?: {
+    success?: boolean;
+    disconnected?: number;
+    message?: string;
+  };
+  remove_result?: {
+    success?: boolean;
+    action?: 'removed' | 'not_found' | string;
+    message?: string;
+  };
+}
+
+export interface PPPoECleanupResponse {
+  success: boolean;
+  router_id: number;
+  router_name: string;
+  username: string;
+  customer_present: boolean;
+  forced: boolean;
+  cleanup: PPPoECleanupResult;
+}
+
+export interface PPPoECleanupConflictCustomer {
+  id: number;
+  name: string;
+  phone?: string;
+  status?: string;
+  plan?: string | null;
+  expiry?: string | null;
+}
+
+export interface PPPoECleanupConflictDetail {
+  message: string;
+  customer: PPPoECleanupConflictCustomer;
+}
+
+export class PPPoECleanupError extends Error {
+  status: number;
+  body: { detail?: string | PPPoECleanupConflictDetail | Record<string, unknown> };
+
+  constructor(message: string, status: number, body: PPPoECleanupError['body']) {
+    super(message);
+    this.name = 'PPPoECleanupError';
+    this.status = status;
+    this.body = body;
+  }
+}
+
 export interface HotspotOverviewResponse {
   router_id: number;
   router_name: string;

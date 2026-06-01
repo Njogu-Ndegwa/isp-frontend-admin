@@ -72,6 +72,8 @@ import {
   PPPoELogsResponse,
   PPPoESecretsResponse,
   PPPoEMonitorResponse,
+  PPPoECleanupResponse,
+  PPPoECleanupError,
   HotspotOverviewResponse,
   HotspotLogsResponse,
   PortStatusResponse,
@@ -1250,6 +1252,36 @@ class ApiClient {
       headers: this.getHeaders(),
     });
     return this.handleResponse<PPPoEMonitorResponse>(response);
+  }
+
+  // Remove a PPPoE user from the router. Use only for orphan rows where
+  // user.customer === null (or with force=true as an explicit admin action).
+  async cleanupPPPoERouterUser(
+    routerId: number,
+    username: string,
+    options: { force?: boolean } = {},
+  ): Promise<PPPoECleanupResponse> {
+    if (this.isDemoMode()) this.demoBlock();
+    const qs = options.force ? '?force=true' : '';
+    const url = `${BASE_URL}/pppoe/${routerId}/users/${encodeURIComponent(username)}${qs}`;
+    const response = await fetch(url, {
+      method: 'DELETE',
+      headers: this.getHeaders(),
+    });
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      const detail = (body as { detail?: unknown }).detail;
+      let message: string;
+      if (detail && typeof detail === 'object' && 'message' in detail && typeof (detail as { message: unknown }).message === 'string') {
+        message = (detail as { message: string }).message;
+      } else if (typeof detail === 'string') {
+        message = detail;
+      } else {
+        message = `Cleanup failed with HTTP ${response.status}`;
+      }
+      throw new PPPoECleanupError(message, response.status, body);
+    }
+    return body as PPPoECleanupResponse;
   }
 
   // MikroTik PPPoE Monitoring
