@@ -66,8 +66,8 @@ import {
   UpdatePlainPortsResponse,
   UpdateDualPortsRequest,
   UpdateDualPortsResponse,
-  ApplyAccessDefaultsRequest,
-  ApplyAccessDefaultsResponse,
+  RebootRouterRequest,
+  RebootRouterResponse,
   PPPoEOverviewResponse,
   PPPoEDiagnoseResponse,
   PPPoEClientDetailsResponse,
@@ -1247,17 +1247,14 @@ class ApiClient {
     return this.handleResponse<UpdateDualPortsResponse>(response);
   }
 
-  async applyAccessDefaults(
-    routerId: number,
-    data: ApplyAccessDefaultsRequest = { pppoe: true, hotspot: true }
-  ): Promise<ApplyAccessDefaultsResponse> {
+  async rebootRouter(routerId: number, data: RebootRouterRequest): Promise<RebootRouterResponse> {
     if (this.isDemoMode()) this.demoBlock();
-    const response = await fetch(`${BASE_URL}/routers/${routerId}/apply-access-defaults`, {
+    const response = await fetch(`${BASE_URL}/routers/${routerId}/reboot`, {
       method: 'POST',
       headers: this.getHeaders(),
       body: JSON.stringify(data),
     });
-    return this.handleResponse<ApplyAccessDefaultsResponse>(response);
+    return this.handleResponse<RebootRouterResponse>(response);
   }
 
   // PPPoE User Monitoring (bandwidth & online status)

@@ -16,7 +16,6 @@ import {
   RouterInterfaceInfo,
   RouterUptimeResponse,
   UptimeCheck,
-  ApplyAccessDefaultsResponse,
 } from '../lib/types';
 import Header from '../components/Header';
 import { PageLoader } from '../components/LoadingSpinner';
@@ -54,35 +53,6 @@ const ROUTER_COLUMNS: DataTableColumn[] = [
   { key: 'status', label: 'Status' },
   { key: 'actions', label: '' },
 ];
-
-const formatAccessDefaultsResult = (result: ApplyAccessDefaultsResponse): string => {
-  const parts: string[] = [];
-  const pppoe = result.result.pppoe;
-  const hotspot = result.result.hotspot;
-  const warnings = [
-    ...(pppoe?.warnings ?? []),
-    ...(hotspot?.warnings ?? []),
-  ].length;
-
-  if (result.applied.pppoe && pppoe) {
-    parts.push(
-      pppoe.error
-        ? `PPPoE error: ${pppoe.error}`
-        : `PPPoE ${pppoe.servers_updated ?? 0} server(s), ${pppoe.profiles_updated ?? 0} profile(s)`
-    );
-  }
-
-  if (result.applied.hotspot && hotspot) {
-    parts.push(
-      hotspot.error
-        ? `Hotspot error: ${hotspot.error}`
-        : `Hotspot ${hotspot.servers_updated ?? 0} server(s)`
-    );
-  }
-
-  const warningText = warnings ? ` with ${warnings} warning${warnings === 1 ? '' : 's'}` : '';
-  return `${result.router_name}: ${parts.join('; ') || result.message}${warningText}`;
-};
 
 export default function RoutersPage() {
   const { isAuthenticated, user } = useAuth();
@@ -412,7 +382,9 @@ function RoutersTab({
   const [emergencyModalRouter, setEmergencyModalRouter] = useState<Router | null>(null);
   const [emergencyMsg, setEmergencyMsg] = useState('');
   const [tetherLoading, setTetherLoading] = useState<number | null>(null);
-  const [defaultsLoading, setDefaultsLoading] = useState<number | null>(null);
+  const [rebootLoading, setRebootLoading] = useState<number | null>(null);
+  const [rebootModalRouter, setRebootModalRouter] = useState<Router | null>(null);
+  const [rebootReason, setRebootReason] = useState('');
 
   const handleToggleEmergency = async (router: Router, message?: string) => {
     try {
@@ -448,17 +420,23 @@ function RoutersTab({
     }
   };
 
-  const handleApplyAccessDefaults = async (router: Router) => {
+  const handleRebootRouter = async (router: Router) => {
     try {
-      setDefaultsLoading(router.id);
-      const result = await api.applyAccessDefaults(router.id, { pppoe: true, hotspot: true });
-      showAlert(result.success ? 'success' : 'warning', formatAccessDefaultsResult(result));
+      setRebootLoading(router.id);
+      const reason = rebootReason.trim();
+      const result = await api.rebootRouter(router.id, {
+        confirm: true,
+        reason: reason || undefined,
+      });
+      showAlert('success', `${result.router_name}: ${result.message}`, 7000);
+      setRebootModalRouter(null);
+      setRebootReason('');
       await loadRouters();
     } catch (err) {
-      console.error('Apply access defaults failed:', err);
-      showAlert('error', err instanceof Error ? err.message : 'Failed to apply access defaults');
+      console.error('Router reboot failed:', err);
+      showAlert('error', err instanceof Error ? err.message : 'Failed to reboot router');
     } finally {
-      setDefaultsLoading(null);
+      setRebootLoading(null);
     }
   };
 
@@ -505,16 +483,16 @@ function RoutersTab({
         </svg>
       </button>
       <button
-        onClick={(e) => { e.stopPropagation(); handleApplyAccessDefaults(router); }}
-        disabled={defaultsLoading === router.id}
-        className="p-1.5 rounded-lg hover:bg-success/10 text-foreground-muted hover:text-success transition-colors active:opacity-70 disabled:opacity-50"
-        title="Apply access defaults"
+        onClick={(e) => { e.stopPropagation(); setRebootModalRouter(router); setRebootReason(''); }}
+        disabled={rebootLoading === router.id}
+        className="p-1.5 rounded-lg hover:bg-danger/10 text-foreground-muted hover:text-danger transition-colors active:opacity-70 disabled:opacity-50"
+        title="Reboot router"
       >
-        {defaultsLoading === router.id ? (
+        {rebootLoading === router.id ? (
           <div className="w-4 h-4 border-2 border-current/30 border-t-current rounded-full animate-spin" />
         ) : (
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v9m5.657-6.364a9 9 0 11-11.314 0" />
           </svg>
         )}
       </button>
@@ -1037,6 +1015,72 @@ function RoutersTab({
             </div>
           )}
         </PullToRefresh>
+      )}
+
+      {/* Router Reboot Modal */}
+      {rebootModalRouter && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            onClick={() => {
+              if (rebootLoading !== rebootModalRouter.id) {
+                setRebootModalRouter(null);
+                setRebootReason('');
+              }
+            }}
+          />
+          <div className="relative w-full max-w-md card p-6 animate-fade-in">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-full bg-danger/10 flex items-center justify-center">
+                <svg className="w-5 h-5 text-danger" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v9m5.657-6.364a9 9 0 11-11.314 0" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-foreground">Reboot Router</h3>
+                <p className="text-sm text-foreground-muted">{rebootModalRouter.name}</p>
+              </div>
+            </div>
+            <p className="text-sm text-foreground-muted mb-4">
+              This will restart the router and disconnect customers until it comes back online.
+            </p>
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-foreground mb-2">Reason (optional)</label>
+              <textarea
+                value={rebootReason}
+                onChange={(e) => setRebootReason(e.target.value)}
+                disabled={rebootLoading === rebootModalRouter.id}
+                className="input min-h-[80px] resize-y"
+                placeholder="e.g., clearing stale PPPoE sessions after power outage"
+                maxLength={500}
+                rows={2}
+              />
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => { setRebootModalRouter(null); setRebootReason(''); }}
+                disabled={rebootLoading === rebootModalRouter.id}
+                className="btn-secondary flex-1 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => handleRebootRouter(rebootModalRouter)}
+                disabled={rebootLoading === rebootModalRouter.id}
+                className="flex-1 px-4 py-2 rounded-lg bg-danger text-white font-medium hover:bg-danger/90 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {rebootLoading === rebootModalRouter.id ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    Rebooting...
+                  </>
+                ) : (
+                  'Reboot Router'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Emergency Activation Modal */}

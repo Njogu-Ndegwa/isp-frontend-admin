@@ -440,35 +440,21 @@ export interface UpdateDualPortsResponse {
   plain_ports?: string[] | null;
 }
 
-export interface ApplyAccessDefaultsRequest {
-  pppoe?: boolean;
-  hotspot?: boolean;
+export interface RebootRouterRequest {
+  confirm: boolean;
+  reason?: string | null;
 }
 
-export interface AccessDefaultsServiceResult {
-  success?: boolean;
-  error?: string;
-  servers_updated?: number;
-  profiles_updated?: number;
-  servers?: Record<string, unknown>[];
-  profiles?: Record<string, unknown>[];
-  warnings?: string[];
-}
-
-export interface ApplyAccessDefaultsResponse {
+export interface RebootRouterResponse {
   success: boolean;
   router_id: number;
   router_name: string;
-  applied: {
-    pppoe: boolean;
-    hotspot: boolean;
-  };
-  result: {
-    success: boolean;
-    pppoe?: AccessDefaultsServiceResult;
-    hotspot?: AccessDefaultsServiceResult;
-  };
+  status: string;
+  command_sent: boolean;
+  connection_closed: boolean;
   message: string;
+  reason?: string | null;
+  requested_at: string;
 }
 
 // Plan Types
