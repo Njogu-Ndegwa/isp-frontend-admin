@@ -16,10 +16,12 @@ import {
   RouterInterfaceInfo,
   RouterUptimeResponse,
   UptimeCheck,
+  ApplyAccessDefaultsResponse,
 } from '../lib/types';
 import Header from '../components/Header';
 import { PageLoader } from '../components/LoadingSpinner';
 import { useAuth } from '../context/AuthContext';
+import { useAlert } from '../context/AlertContext';
 import Link from 'next/link';
 import PullToRefresh from '../components/PullToRefresh';
 import DataTable, { DataTableColumn } from '../components/DataTable';
@@ -52,6 +54,35 @@ const ROUTER_COLUMNS: DataTableColumn[] = [
   { key: 'status', label: 'Status' },
   { key: 'actions', label: '' },
 ];
+
+const formatAccessDefaultsResult = (result: ApplyAccessDefaultsResponse): string => {
+  const parts: string[] = [];
+  const pppoe = result.result.pppoe;
+  const hotspot = result.result.hotspot;
+  const warnings = [
+    ...(pppoe?.warnings ?? []),
+    ...(hotspot?.warnings ?? []),
+  ].length;
+
+  if (result.applied.pppoe && pppoe) {
+    parts.push(
+      pppoe.error
+        ? `PPPoE error: ${pppoe.error}`
+        : `PPPoE ${pppoe.servers_updated ?? 0} server(s), ${pppoe.profiles_updated ?? 0} profile(s)`
+    );
+  }
+
+  if (result.applied.hotspot && hotspot) {
+    parts.push(
+      hotspot.error
+        ? `Hotspot error: ${hotspot.error}`
+        : `Hotspot ${hotspot.servers_updated ?? 0} server(s)`
+    );
+  }
+
+  const warningText = warnings ? ` with ${warnings} warning${warnings === 1 ? '' : 's'}` : '';
+  return `${result.router_name}: ${parts.join('; ') || result.message}${warningText}`;
+};
 
 export default function RoutersPage() {
   const { isAuthenticated, user } = useAuth();
@@ -376,10 +407,12 @@ function RoutersTab({
   onAddRouter: () => void;
   canManageBackupVpn: boolean;
 }) {
+  const { showAlert } = useAlert();
   const [emergencyLoading, setEmergencyLoading] = useState<number | null>(null);
   const [emergencyModalRouter, setEmergencyModalRouter] = useState<Router | null>(null);
   const [emergencyMsg, setEmergencyMsg] = useState('');
   const [tetherLoading, setTetherLoading] = useState<number | null>(null);
+  const [defaultsLoading, setDefaultsLoading] = useState<number | null>(null);
 
   const handleToggleEmergency = async (router: Router, message?: string) => {
     try {
@@ -412,6 +445,20 @@ function RoutersTab({
       console.error('Anti-tethering toggle failed:', err);
     } finally {
       setTetherLoading(null);
+    }
+  };
+
+  const handleApplyAccessDefaults = async (router: Router) => {
+    try {
+      setDefaultsLoading(router.id);
+      const result = await api.applyAccessDefaults(router.id, { pppoe: true, hotspot: true });
+      showAlert(result.success ? 'success' : 'warning', formatAccessDefaultsResult(result));
+      await loadRouters();
+    } catch (err) {
+      console.error('Apply access defaults failed:', err);
+      showAlert('error', err instanceof Error ? err.message : 'Failed to apply access defaults');
+    } finally {
+      setDefaultsLoading(null);
     }
   };
 
@@ -456,6 +503,20 @@ function RoutersTab({
         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
         </svg>
+      </button>
+      <button
+        onClick={(e) => { e.stopPropagation(); handleApplyAccessDefaults(router); }}
+        disabled={defaultsLoading === router.id}
+        className="p-1.5 rounded-lg hover:bg-success/10 text-foreground-muted hover:text-success transition-colors active:opacity-70 disabled:opacity-50"
+        title="Apply access defaults"
+      >
+        {defaultsLoading === router.id ? (
+          <div className="w-4 h-4 border-2 border-current/30 border-t-current rounded-full animate-spin" />
+        ) : (
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+          </svg>
+        )}
       </button>
       <button
         onClick={(e) => { e.stopPropagation(); loadUptime(router.id); }}

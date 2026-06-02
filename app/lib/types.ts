@@ -440,6 +440,37 @@ export interface UpdateDualPortsResponse {
   plain_ports?: string[] | null;
 }
 
+export interface ApplyAccessDefaultsRequest {
+  pppoe?: boolean;
+  hotspot?: boolean;
+}
+
+export interface AccessDefaultsServiceResult {
+  success?: boolean;
+  error?: string;
+  servers_updated?: number;
+  profiles_updated?: number;
+  servers?: Record<string, unknown>[];
+  profiles?: Record<string, unknown>[];
+  warnings?: string[];
+}
+
+export interface ApplyAccessDefaultsResponse {
+  success: boolean;
+  router_id: number;
+  router_name: string;
+  applied: {
+    pppoe: boolean;
+    hotspot: boolean;
+  };
+  result: {
+    success: boolean;
+    pppoe?: AccessDefaultsServiceResult;
+    hotspot?: AccessDefaultsServiceResult;
+  };
+  message: string;
+}
+
 // Plan Types
 export type FupAction = 'throttle' | 'block' | 'notify_only';
 
