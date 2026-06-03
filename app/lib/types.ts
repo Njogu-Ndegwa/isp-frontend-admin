@@ -440,6 +440,37 @@ export interface UpdateDualPortsResponse {
   plain_ports?: string[] | null;
 }
 
+export interface PPPoECustomerImportReport {
+  success: boolean;
+  has_errors: boolean;
+  dry_run: boolean;
+  total_rows: number;
+  created: number;
+  updated: number;
+  skipped: number;
+  missing_phone: number;
+  created_plans: Array<Record<string, unknown>>;
+  plan_mappings: Record<string, number>;
+  statuses: Record<string, number>;
+  packages: Record<string, number>;
+  activities: Record<string, number>;
+  errors: string[];
+  warnings: string[];
+  samples: Array<Record<string, unknown>>;
+}
+
+export interface PPPoECustomerImportResponse {
+  success: boolean;
+  stage: 'parse' | 'import';
+  router_id: number;
+  router_name: string;
+  reseller_id?: number;
+  source_file: string;
+  dry_run: boolean;
+  report?: PPPoECustomerImportReport;
+  parse_report?: PPPoECustomerImportReport;
+}
+
 export interface RebootRouterRequest {
   confirm: boolean;
   reason?: string | null;

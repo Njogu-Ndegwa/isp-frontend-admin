@@ -6,10 +6,12 @@ import Link from 'next/link';
 import { api } from '../lib/api';
 import {
   Customer,
+  Router,
   PPPoECredentials,
   ActivatePPPoERequest,
   PPPoEMonitorUser,
   CustomerUsagePeriod,
+  PPPoECustomerImportResponse,
 } from '../lib/types';
 import { formatDateGMT3 } from '../lib/dateUtils';
 import { useAlert } from '../context/AlertContext';
@@ -92,6 +94,13 @@ export default function CustomersPage() {
   const [perPage, setPerPage] = useState(20);
   const [allCustomersCache, setAllCustomersCache] = useState<Customer[]>([]);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [importRouters, setImportRouters] = useState<Router[]>([]);
+  const [importRouterId, setImportRouterId] = useState('');
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [importBusy, setImportBusy] = useState(false);
+  const [importError, setImportError] = useState<string | null>(null);
+  const [importResult, setImportResult] = useState<PPPoECustomerImportResponse | null>(null);
 
   // Live PPPoE monitoring — composed silently across ALL the user's routers
   // by polling /pppoe/{router}/users in parallel; per-router failures are
@@ -166,6 +175,69 @@ export default function CustomersPage() {
   });
 
   const refreshData = useCallback(() => setRefreshKey(k => k + 1), []);
+  const importReport = importResult?.report ?? importResult?.parse_report ?? null;
+  const importCanApply = Boolean(
+    importFile && importRouterId && importResult?.success && importResult.report?.dry_run
+  );
+
+  const openImportModal = useCallback(async () => {
+    setShowImportModal(true);
+    setImportError(null);
+    if (importRouters.length > 0) return;
+    try {
+      const routers = await api.getRouters();
+      setImportRouters(routers);
+      if (routers.length > 0) setImportRouterId(String(routers[0].id));
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to load routers';
+      setImportError(message);
+      showAlert('error', message);
+    }
+  }, [importRouters.length, showAlert]);
+
+  const runPPPoEImport = useCallback(async (apply: boolean) => {
+    if (!importRouterId) {
+      showAlert('error', 'Select a router');
+      return;
+    }
+    if (!importFile) {
+      showAlert('error', 'Select an Excel file');
+      return;
+    }
+
+    setImportBusy(true);
+    setImportError(null);
+    try {
+      const result = await api.importPPPoECustomers(Number(importRouterId), {
+        file: importFile,
+        apply,
+      });
+      setImportResult(result);
+      const report = result.report ?? result.parse_report;
+      if (!result.success) {
+        const firstError = report?.errors?.[0] || 'Import has errors';
+        setImportError(firstError);
+        showAlert('error', firstError);
+        return;
+      }
+
+      const created = report?.created ?? 0;
+      const updated = report?.updated ?? 0;
+      showAlert(
+        'success',
+        apply
+          ? `Imported ${created} new and updated ${updated} customers`
+          : `Preview ready: ${created} new, ${updated} updates`
+      );
+      if (apply) refreshData();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Import failed';
+      setImportError(message);
+      showAlert('error', message);
+    } finally {
+      setImportBusy(false);
+    }
+  }, [importFile, importRouterId, refreshData, showAlert]);
 
   const prevSearchRef = useRef(searchQuery);
   const prevConnFilterRef = useRef(connectionFilter);
@@ -592,16 +664,29 @@ export default function CustomersPage() {
         title="Customers"
         subtitle={`Manage your ${totalItems || customers.length} registered customers`}
         action={
-          <Link
-            href="/customers/register"
-            className="btn-primary flex items-center gap-2 whitespace-nowrap shrink-0"
-          >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-            </svg>
-            <span className="hidden sm:inline">Register Customer</span>
-            <span className="sm:hidden">Add</span>
-          </Link>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={openImportModal}
+              className="btn-secondary flex items-center gap-2 whitespace-nowrap shrink-0"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 16V4m0 0l-4 4m4-4l4 4M4 20h16" />
+              </svg>
+              <span className="hidden sm:inline">Import PPPoE</span>
+              <span className="sm:hidden">Import</span>
+            </button>
+            <Link
+              href="/customers/register"
+              className="btn-primary flex items-center gap-2 whitespace-nowrap shrink-0"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+              </svg>
+              <span className="hidden sm:inline">Register Customer</span>
+              <span className="sm:hidden">Add</span>
+            </Link>
+          </div>
         }
       />
 
@@ -1158,6 +1243,145 @@ export default function CustomersPage() {
 
             <Pagination page={page} perPage={perPage} total={effectiveTotal} onPageChange={handlePageChange} onPerPageChange={handlePerPageChange} loading={loading} noun="customers" />
           </div>
+
+      {/* PPPoE Import Modal */}
+      {showImportModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={() => !importBusy && setShowImportModal(false)}>
+          <div className="card p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto space-y-5" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <h3 className="text-lg font-semibold text-foreground">Import PPPoE Customers</h3>
+                <p className="text-sm text-foreground-muted">{importFile?.name || 'Excel workbook'}</p>
+              </div>
+              <button
+                onClick={() => !importBusy && setShowImportModal(false)}
+                disabled={importBusy}
+                className="p-1 rounded-md hover:bg-background-tertiary text-foreground-muted disabled:opacity-40"
+                title="Close"
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="grid sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-foreground-muted mb-1.5">Router</label>
+                <select
+                  value={importRouterId}
+                  onChange={(e) => {
+                    setImportRouterId(e.target.value);
+                    setImportResult(null);
+                    setImportError(null);
+                  }}
+                  className="select"
+                  disabled={importBusy}
+                >
+                  <option value="">Select router</option>
+                  {importRouters.map((router) => (
+                    <option key={router.id} value={router.id}>
+                      {router.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-foreground-muted mb-1.5">Workbook</label>
+                <input
+                  type="file"
+                  accept=".xlsx"
+                  disabled={importBusy}
+                  onChange={(e) => {
+                    setImportFile(e.target.files?.[0] || null);
+                    setImportResult(null);
+                    setImportError(null);
+                  }}
+                  className="block w-full text-sm text-foreground file:mr-3 file:rounded-md file:border-0 file:bg-background-tertiary file:px-3 file:py-2 file:text-sm file:font-medium file:text-foreground hover:file:bg-background-secondary"
+                />
+              </div>
+            </div>
+
+            {importError && (
+              <div className="rounded-lg border border-danger/30 bg-danger/10 px-4 py-3 text-sm text-danger">
+                {importError}
+              </div>
+            )}
+
+            {importReport && (
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                  {[
+                    ['Rows', importReport.total_rows],
+                    ['Create', importReport.created],
+                    ['Update', importReport.updated],
+                    ['Skip', importReport.skipped],
+                    ['No Phone', importReport.missing_phone],
+                  ].map(([label, value]) => (
+                    <div key={label} className="rounded-lg bg-background-tertiary px-3 py-2">
+                      <div className="text-xs text-foreground-muted">{label}</div>
+                      <div className="text-lg font-semibold text-foreground">{value}</div>
+                    </div>
+                  ))}
+                </div>
+
+                {Object.keys(importReport.packages || {}).length > 0 && (
+                  <div className="rounded-lg bg-background-tertiary px-4 py-3">
+                    <div className="text-sm font-medium text-foreground mb-2">Packages</div>
+                    <div className="grid sm:grid-cols-2 gap-x-4 gap-y-1 text-sm">
+                      {Object.entries(importReport.packages).slice(0, 8).map(([name, count]) => (
+                        <div key={name} className="flex items-center justify-between gap-3">
+                          <span className="truncate text-foreground-muted">{name}</span>
+                          <span className="font-medium text-foreground">{count}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {(importReport.warnings.length > 0 || importReport.errors.length > 0) && (
+                  <div className="space-y-2">
+                    {importReport.errors.slice(0, 4).map((err) => (
+                      <div key={err} className="rounded-lg border border-danger/30 bg-danger/10 px-3 py-2 text-sm text-danger">
+                        {err}
+                      </div>
+                    ))}
+                    {importReport.warnings.slice(0, 4).map((warning) => (
+                      <div key={warning} className="rounded-lg border border-warning/30 bg-warning/10 px-3 py-2 text-sm text-warning">
+                        {warning}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div className="flex flex-col sm:flex-row gap-3 pt-1">
+              <button
+                onClick={() => setShowImportModal(false)}
+                disabled={importBusy}
+                className="btn-secondary sm:flex-1 disabled:opacity-50"
+              >
+                Close
+              </button>
+              <button
+                onClick={() => runPPPoEImport(false)}
+                disabled={importBusy || !importFile || !importRouterId}
+                className="btn-secondary sm:flex-1 flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                {importBusy ? <div className="w-4 h-4 border-2 border-foreground/30 border-t-foreground rounded-full animate-spin" /> : 'Preview'}
+              </button>
+              <button
+                onClick={() => runPPPoEImport(true)}
+                disabled={importBusy || !importCanApply}
+                className="btn-primary sm:flex-1 flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                Apply Import
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Credentials Modal */}
       {credentialsModal && (

@@ -66,6 +66,7 @@ import {
   UpdatePlainPortsResponse,
   UpdateDualPortsRequest,
   UpdateDualPortsResponse,
+  PPPoECustomerImportResponse,
   RebootRouterRequest,
   RebootRouterResponse,
   PPPoEOverviewResponse,
@@ -1245,6 +1246,42 @@ class ApiClient {
       body: JSON.stringify(data),
     });
     return this.handleResponse<UpdateDualPortsResponse>(response);
+  }
+
+  async importPPPoECustomers(
+    routerId: number,
+    options: {
+      file: File;
+      apply: boolean;
+      sheet?: string;
+      sourceTimezone?: string;
+      createMissingPlans?: boolean;
+      defaultPlanPrice?: number;
+      reassignExisting?: boolean;
+      packagePlanMapping?: Record<string, number>;
+    }
+  ): Promise<PPPoECustomerImportResponse> {
+    if (this.isDemoMode()) this.demoBlock();
+    const formData = new FormData();
+    formData.append('file', options.file);
+    formData.append('apply', options.apply ? 'true' : 'false');
+    formData.append('sheet', options.sheet || 'Items');
+    formData.append('source_timezone', options.sourceTimezone || 'Africa/Nairobi');
+    formData.append('create_missing_plans', options.createMissingPlans ? 'true' : 'false');
+    formData.append('default_plan_price', String(options.defaultPlanPrice || 0));
+    formData.append('reassign_existing', options.reassignExisting ? 'true' : 'false');
+    if (options.packagePlanMapping && Object.keys(options.packagePlanMapping).length > 0) {
+      formData.append('package_plan_json', JSON.stringify(options.packagePlanMapping));
+    }
+
+    const headers = this.getHeaders() as Record<string, string>;
+    delete headers['Content-Type'];
+    const response = await fetch(`${BASE_URL}/routers/${routerId}/pppoe-customers/import`, {
+      method: 'POST',
+      headers,
+      body: formData,
+    });
+    return this.handleResponse<PPPoECustomerImportResponse>(response);
   }
 
   async rebootRouter(routerId: number, data: RebootRouterRequest): Promise<RebootRouterResponse> {
