@@ -16,6 +16,8 @@ import {
   RouterInterfaceInfo,
   RouterUptimeResponse,
   UptimeCheck,
+  InsuranceTunnelBatchJob,
+  InsuranceTunnelBatchPreview,
 } from '../lib/types';
 import Header from '../components/Header';
 import { PageLoader } from '../components/LoadingSpinner';
@@ -28,6 +30,7 @@ import MobileDataCard from '../components/MobileDataCard';
 import { formatDateGMT3 } from '../lib/dateUtils';
 import DeviceModeTroubleshoot from '../components/DeviceModeTroubleshoot';
 import BackupVpnControls from '../components/BackupVpnControls';
+import InsuranceTunnelBadge from '../components/InsuranceTunnelBadge';
 
 const formatSafeDate = (dateStr: string | null | undefined): string => {
   try {
@@ -385,6 +388,9 @@ function RoutersTab({
   const [rebootLoading, setRebootLoading] = useState<number | null>(null);
   const [rebootModalRouter, setRebootModalRouter] = useState<Router | null>(null);
   const [rebootReason, setRebootReason] = useState('');
+  const [batchPreview, setBatchPreview] = useState<InsuranceTunnelBatchPreview | null>(null);
+  const [batchJob, setBatchJob] = useState<InsuranceTunnelBatchJob | null>(null);
+  const [batchLoading, setBatchLoading] = useState<'preview' | 'start' | 'refresh' | null>(null);
 
   const handleToggleEmergency = async (router: Router, message?: string) => {
     try {
@@ -440,6 +446,52 @@ function RoutersTab({
     }
   };
 
+  const loadBatchPreview = async () => {
+    try {
+      setBatchLoading('preview');
+      const result = await api.previewInsuranceTunnelBatch();
+      setBatchPreview(result);
+      showAlert('success', `Preview ready: ${result.eligible} eligible, ${result.skipped} skipped`);
+    } catch (err) {
+      showAlert('error', err instanceof Error ? err.message : 'Failed to preview insurance tunnel batch');
+    } finally {
+      setBatchLoading(null);
+    }
+  };
+
+  const startBatch = async () => {
+    try {
+      setBatchLoading('start');
+      const result = await api.startInsuranceTunnelBatch(2);
+      setBatchJob(result);
+      showAlert('success', `Insurance tunnel batch started for ${result.total} routers`);
+    } catch (err) {
+      showAlert('error', err instanceof Error ? err.message : 'Failed to start insurance tunnel batch');
+    } finally {
+      setBatchLoading(null);
+    }
+  };
+
+  const refreshBatch = useCallback(async () => {
+    try {
+      setBatchLoading('refresh');
+      const result = await api.getCurrentInsuranceTunnelBatch();
+      setBatchJob(result.job);
+    } catch (err) {
+      showAlert('error', err instanceof Error ? err.message : 'Failed to refresh insurance tunnel batch');
+    } finally {
+      setBatchLoading(null);
+    }
+  }, [showAlert]);
+
+  useEffect(() => {
+    if (!batchJob || !['queued', 'running'].includes(batchJob.status)) return;
+    const id = window.setInterval(() => {
+      refreshBatch();
+    }, 5000);
+    return () => window.clearInterval(id);
+  }, [batchJob, refreshBatch]);
+
   if (error) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -456,6 +508,8 @@ function RoutersTab({
       </div>
     );
   }
+
+  const batchSummary = batchJob?.summary;
 
   const renderActions = (router: Router) => (
     <div className="flex items-center gap-1 flex-wrap justify-end">
@@ -624,6 +678,87 @@ function RoutersTab({
         </div>
       </div>
 
+      {canManageBackupVpn && (
+        <div className="mb-4 rounded-lg border border-border bg-background-secondary p-4">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h3 className="text-sm font-semibold text-foreground">Insurance tunnel rollout</h3>
+                {batchJob && (
+                  <span className="rounded-md border border-border bg-background-tertiary px-2 py-0.5 text-xs text-foreground-muted">
+                    {batchJob.status}
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-foreground-muted mt-1">
+                Preview first, then run a throttled background job for all eligible routers.
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={loadBatchPreview}
+                disabled={batchLoading !== null}
+                className="btn-secondary text-sm disabled:opacity-50"
+              >
+                {batchLoading === 'preview' ? 'Previewing...' : 'Preview Batch'}
+              </button>
+              <button
+                type="button"
+                onClick={startBatch}
+                disabled={batchLoading !== null || (batchJob ? ['queued', 'running'].includes(batchJob.status) : false)}
+                className="btn-primary text-sm disabled:opacity-50"
+              >
+                {batchLoading === 'start' ? 'Starting...' : 'Start Batch'}
+              </button>
+              <button
+                type="button"
+                onClick={refreshBatch}
+                disabled={batchLoading !== null}
+                className="btn-ghost text-sm disabled:opacity-50"
+              >
+                {batchLoading === 'refresh' ? 'Refreshing...' : 'Refresh Status'}
+              </button>
+            </div>
+          </div>
+
+          {(batchPreview || batchJob) && (
+            <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-2">
+              <BatchMetric label="Total" value={batchJob?.total ?? batchPreview?.total ?? 0} />
+              <BatchMetric label="Eligible" value={batchPreview?.eligible ?? 0} />
+              <BatchMetric label="Verified" value={batchSummary?.verified ?? 0} tone="success" />
+              <BatchMetric label="Partial" value={batchSummary?.partial ?? 0} tone="warning" />
+              <BatchMetric label="Failed" value={batchSummary?.failed ?? 0} tone="danger" />
+              <BatchMetric label="Skipped" value={(batchSummary?.skipped ?? batchPreview?.skipped) || 0} />
+            </div>
+          )}
+
+          {batchPreview && (batchPreview.missing_wireguard_settings.length > 0 || batchPreview.missing_l2tp_settings.length > 0) && (
+            <p className="mt-3 text-xs text-amber-500">
+              Missing settings exist. WireGuard: {batchPreview.missing_wireguard_settings.join(', ') || 'none'}.
+              {' '}L2TP: {batchPreview.missing_l2tp_settings.join(', ') || 'none'}.
+            </p>
+          )}
+
+          {batchJob?.items?.length ? (
+            <div className="mt-3 max-h-48 overflow-y-auto rounded-lg border border-border">
+              {batchJob.items.slice(0, 25).map((item) => (
+                <div key={item.router_id} className="flex items-center justify-between gap-3 border-b border-border last:border-b-0 px-3 py-2 text-xs">
+                  <div className="min-w-0">
+                    <p className="truncate font-medium text-foreground">{item.router_name}</p>
+                    <p className="text-foreground-muted">{item.current_ip} {'->'} {item.backup_ip || '-'}</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <InsuranceTunnelBadge type={item.tunnel_type ?? item.planned_tunnel_type} />
+                    <span className="text-foreground-muted">{item.status}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : null}
+        </div>
+      )}
+
       {/* Emergency Mode Banner */}
       {routers.some(r => r.emergency_active) && (
         <div className="mb-4 p-3 rounded-lg bg-danger/10 border border-danger/30 animate-fade-in">
@@ -684,6 +819,7 @@ function RoutersTab({
                         {router.hotspot_sharing_blocked && (
                           <span className="text-[10px] font-medium leading-none px-1.5 py-0.5 rounded bg-accent-primary/10 text-accent-primary border border-accent-primary/30">no tether</span>
                         )}
+                        <InsuranceTunnelBadge type={router.planned_insurance_tunnel_type} />
                         {(router.payment_methods ?? ['mpesa', 'voucher']).map((m) => (
                           <span key={m} className={`text-[10px] font-medium leading-none px-1.5 py-0.5 rounded ${
                             m === 'mpesa' ? 'bg-success/10 text-success' : 'bg-accent-primary/10 text-accent-primary'
@@ -787,6 +923,7 @@ function RoutersTab({
                         {router.name.charAt(0).toUpperCase()}
                       </div>
                       <span className="font-medium text-foreground">{router.name}</span>
+                      <InsuranceTunnelBadge type={router.planned_insurance_tunnel_type} />
                     </div>
                   );
                 case 'ip':
@@ -1407,6 +1544,30 @@ function NewTokenModal({
           Done
         </button>
       </div>
+    </div>
+  );
+}
+
+function BatchMetric({
+  label,
+  value,
+  tone = 'neutral',
+}: {
+  label: string;
+  value: number;
+  tone?: 'neutral' | 'success' | 'warning' | 'danger';
+}) {
+  const toneClass = {
+    neutral: 'text-foreground',
+    success: 'text-emerald-500',
+    warning: 'text-amber-500',
+    danger: 'text-red-500',
+  }[tone];
+
+  return (
+    <div className="rounded-lg border border-border bg-background-tertiary/40 px-3 py-2">
+      <p className="text-[10px] uppercase tracking-wider text-foreground-muted">{label}</p>
+      <p className={`text-lg font-semibold ${toneClass}`}>{value}</p>
     </div>
   );
 }

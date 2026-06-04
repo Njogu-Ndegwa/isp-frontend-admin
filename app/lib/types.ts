@@ -888,6 +888,8 @@ export interface Router {
   emergency_active?: boolean;
   emergency_message?: string | null;
   hotspot_sharing_blocked?: boolean;
+  token_vpn_type?: 'wireguard' | 'l2tp' | null;
+  planned_insurance_tunnel_type?: 'wireguard' | 'l2tp' | 'auto';
 }
 
 export interface UptimeCheck {
@@ -945,6 +947,8 @@ export interface InsuranceWireGuardStatus {
   router_name: string;
   current_ip: string;
   backup_ip: string;
+  tunnel_type?: 'wireguard' | 'l2tp' | 'auto' | null;
+  token_vpn_type?: 'wireguard' | 'l2tp' | null;
   missing_settings?: string[];
   error?: string;
   verification?: InsuranceWireGuardVerification;
@@ -957,6 +961,8 @@ export interface InsuranceWireGuardPlanResponse {
   router_name: string;
   current_ip: string;
   backup_ip: string;
+  tunnel_type?: 'wireguard' | 'l2tp' | 'auto';
+  token_vpn_type?: 'wireguard' | 'l2tp' | null;
   missing_settings: string[];
   plan: string[];
 }
@@ -968,7 +974,11 @@ export interface InsuranceWireGuardApplyResponse {
   router_name: string;
   current_ip: string;
   backup_ip: string;
-  router_public_key: string;
+  tunnel_type?: 'wireguard' | 'l2tp';
+  token_vpn_type?: 'wireguard' | 'l2tp' | null;
+  routeros_version?: string;
+  router_public_key?: string;
+  l2tp_username?: string;
   router_actions: string[];
   manager: Record<string, unknown>;
   verification: InsuranceWireGuardVerification;
@@ -977,6 +987,52 @@ export interface InsuranceWireGuardApplyResponse {
 export type InsuranceWireGuardConfigureResponse =
   | InsuranceWireGuardPlanResponse
   | InsuranceWireGuardApplyResponse;
+
+export interface InsuranceTunnelBatchItem {
+  router_id: number;
+  router_name: string;
+  current_ip: string;
+  backup_ip: string | null;
+  token_vpn_type?: 'wireguard' | 'l2tp' | null;
+  planned_tunnel_type?: 'wireguard' | 'l2tp' | 'auto';
+  tunnel_type?: 'wireguard' | 'l2tp';
+  routeros_version?: string;
+  recently_offline?: boolean;
+  eligible?: boolean;
+  status: 'queued' | 'running' | 'verified' | 'partial' | 'failed' | 'skipped';
+  error?: string | null;
+  verification?: InsuranceWireGuardVerification;
+}
+
+export interface InsuranceTunnelBatchPreview {
+  success: boolean;
+  applied: false;
+  total: number;
+  eligible: number;
+  skipped: number;
+  missing_wireguard_settings: string[];
+  missing_l2tp_settings: string[];
+  items: InsuranceTunnelBatchItem[];
+}
+
+export interface InsuranceTunnelBatchJob {
+  job_id: string;
+  status: 'queued' | 'running' | 'completed' | 'failed';
+  created_at: string;
+  started_at?: string | null;
+  finished_at?: string | null;
+  updated_at: string;
+  total: number;
+  summary: Record<string, number>;
+  options: Record<string, unknown>;
+  items: InsuranceTunnelBatchItem[];
+  error?: string;
+}
+
+export interface InsuranceTunnelBatchCurrentResponse {
+  success: boolean;
+  job: InsuranceTunnelBatchJob | null;
+}
 
 export interface CreateRouterRequest {
   name: string;
@@ -2102,6 +2158,8 @@ export interface AdminRouterDetail {
   last_checked_at: string | null;
   customer_count: number;
   total_revenue: number;
+  token_vpn_type?: 'wireguard' | 'l2tp' | null;
+  planned_insurance_tunnel_type?: 'wireguard' | 'l2tp' | 'auto';
 }
 
 export interface AdminRoutersResponse {

@@ -26,6 +26,7 @@ import FilterDatePicker from '../../../components/FilterDatePicker';
 import { SkeletonCard } from '../../../components/LoadingSpinner';
 import Pagination from '../../../components/Pagination';
 import BackupVpnControls from '../../../components/BackupVpnControls';
+import InsuranceTunnelBadge from '../../../components/InsuranceTunnelBadge';
 
 const formatSafeDate = (dateStr: string | null | undefined): string => {
   try {
@@ -1296,7 +1297,10 @@ function RoutersTab({ routers, loading }: { routers: AdminRouterDetail[]; loadin
         <div key={r.id} className="card p-4">
           <div className="flex items-start justify-between mb-3">
             <div>
-              <h4 className="font-medium text-sm">{r.name}</h4>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h4 className="font-medium text-sm">{r.name}</h4>
+                <InsuranceTunnelBadge type={r.planned_insurance_tunnel_type} />
+              </div>
               <p className="text-xs text-foreground-muted">{r.identity}</p>
             </div>
             <span className={`flex items-center gap-1.5 text-xs font-medium px-2 py-0.5 rounded-full ${

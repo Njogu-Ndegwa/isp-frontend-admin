@@ -13,6 +13,7 @@ import { useAlert } from '../context/AlertContext';
 
 type LoadingAction = 'status' | 'preview' | 'apply' | null;
 type Tone = 'active' | 'inactive' | 'missing' | 'partial' | 'unknown';
+type TunnelType = 'wireguard' | 'l2tp' | 'auto' | null | undefined;
 
 interface BackupVpnControlsProps {
   routerId: number;
@@ -59,14 +60,14 @@ const TONE_HERO: Record<Tone, { bg: string; border: string; text: string; label:
     bg: 'bg-emerald-500/10',
     border: 'border-emerald-500/30',
     text: 'text-emerald-500',
-    label: 'Backup VPN is active',
+    label: 'Insurance tunnel is active',
     sub: 'The router is reachable through the backup tunnel.',
   },
   inactive: {
     bg: 'bg-red-500/10',
     border: 'border-red-500/30',
     text: 'text-red-500',
-    label: 'Backup VPN not active',
+    label: 'Insurance tunnel not active',
     sub: 'Create the backup configuration to enable failover.',
   },
   missing: {
@@ -88,7 +89,7 @@ const TONE_HERO: Record<Tone, { bg: string; border: string; text: string; label:
     border: 'border-border',
     text: 'text-foreground-muted',
     label: 'Checking status...',
-    sub: 'Verifying the backup VPN configuration.',
+    sub: 'Verifying the insurance tunnel configuration.',
   },
 };
 
@@ -102,6 +103,13 @@ function ShieldIcon({ className = 'w-4 h-4' }: { className?: string }) {
 
 function Spinner({ className = 'w-4 h-4' }: { className?: string }) {
   return <span className={`block border-2 border-current/30 border-t-current rounded-full animate-spin ${className}`} />;
+}
+
+function formatTunnelType(type: TunnelType): string {
+  if (type === 'wireguard') return 'WireGuard';
+  if (type === 'l2tp') return 'L2TP/IPsec';
+  if (type === 'auto') return 'Auto detect';
+  return 'Unknown';
 }
 
 export default function BackupVpnControls({
@@ -126,7 +134,7 @@ export default function BackupVpnControls({
       setStatus(result);
       if (!silent) {
         if (result.active) {
-          showAlert('success', `${routerName} backup VPN is active`);
+          showAlert('success', `${routerName} insurance tunnel is active`);
         } else if (result.missing_settings?.length) {
           showAlert('warning', `Missing config: ${result.missing_settings.join(', ')}`);
         }
@@ -134,7 +142,7 @@ export default function BackupVpnControls({
       return result;
     } catch (err) {
       if (!silent) {
-        showAlert('error', err instanceof Error ? err.message : 'Failed to check backup VPN');
+        showAlert('error', err instanceof Error ? err.message : 'Failed to check insurance tunnel');
       }
       return null;
     } finally {
@@ -173,16 +181,18 @@ export default function BackupVpnControls({
         router_name: result.router_name,
         current_ip: result.current_ip,
         backup_ip: result.backup_ip,
+        tunnel_type: result.tunnel_type,
+        token_vpn_type: result.token_vpn_type,
         verification: result.verification,
       });
 
       if (active) {
-        showAlert('success', `${result.router_name} backup VPN is active`);
+        showAlert('success', `${result.router_name} insurance tunnel is active`);
       } else {
         showAlert('warning', `${result.router_name} configured, verification incomplete`);
       }
     } catch (err) {
-      showAlert('error', err instanceof Error ? err.message : 'Failed to create backup VPN');
+      showAlert('error', err instanceof Error ? err.message : 'Failed to create insurance tunnel');
     } finally {
       setLoading(null);
     }
@@ -239,8 +249,8 @@ export default function BackupVpnControls({
         type="button"
         onClick={handleOpen}
         className={`relative p-1.5 rounded-lg text-foreground-muted hover:text-emerald-500 hover:bg-emerald-500/10 transition-colors active:opacity-70 ${className}`}
-        title="Backup VPN"
-        aria-label={`Backup VPN for ${routerName}`}
+        title="Insurance tunnel"
+        aria-label={`Insurance tunnel for ${routerName}`}
       >
         <ShieldIcon className="w-4 h-4" />
         {status && (
@@ -303,6 +313,9 @@ function BackupVpnDialog({
   const hero = TONE_HERO[tone];
   const currentIp = applyResult?.current_ip ?? preview?.current_ip ?? status?.current_ip;
   const backupIp = applyResult?.backup_ip ?? preview?.backup_ip ?? status?.backup_ip;
+  const tunnelType = applyResult?.tunnel_type ?? preview?.tunnel_type ?? status?.tunnel_type;
+  const tokenVpnType = applyResult?.token_vpn_type ?? preview?.token_vpn_type ?? status?.token_vpn_type;
+  const routerOsVersion = applyResult?.routeros_version;
   const verification = applyResult?.verification ?? status?.verification;
   const missingSettings = preview?.missing_settings ?? status?.missing_settings ?? [];
   const isActive = tone === 'active';
@@ -315,7 +328,7 @@ function BackupVpnDialog({
       onMouseDown={(e) => e.stopPropagation()}
       role="dialog"
       aria-modal="true"
-      aria-label="Backup VPN"
+      aria-label="Insurance tunnel"
     >
       {/* Backdrop */}
       <div
@@ -347,7 +360,7 @@ function BackupVpnDialog({
             <ShieldIcon className="w-6 h-6" />
           </div>
           <div className="min-w-0 flex-1">
-            <h3 className="text-base sm:text-lg font-semibold text-foreground truncate">Backup VPN</h3>
+            <h3 className="text-base sm:text-lg font-semibold text-foreground truncate">Insurance Tunnel</h3>
             <p className="text-sm text-foreground-muted truncate">{routerName}</p>
           </div>
           <button
@@ -387,6 +400,21 @@ function BackupVpnDialog({
           {(currentIp || backupIp) && (
             <div className="rounded-xl border border-border bg-background-tertiary/40 p-4">
               <p className="text-[11px] uppercase tracking-wider text-foreground-muted mb-3 font-semibold">Tunnel</p>
+              <div className="mb-3 flex flex-wrap items-center gap-2">
+                <span className="inline-flex items-center rounded-md border border-border bg-background-secondary px-2 py-1 text-xs text-foreground-muted">
+                  Type: <span className="ml-1 font-medium text-foreground">{formatTunnelType(tunnelType)}</span>
+                </span>
+                {tokenVpnType && (
+                  <span className="inline-flex items-center rounded-md border border-border bg-background-secondary px-2 py-1 text-xs text-foreground-muted">
+                    Token: <span className="ml-1 font-medium text-foreground">{formatTunnelType(tokenVpnType)}</span>
+                  </span>
+                )}
+                {routerOsVersion && (
+                  <span className="inline-flex items-center rounded-md border border-border bg-background-secondary px-2 py-1 text-xs text-foreground-muted">
+                    RouterOS: <span className="ml-1 font-medium text-foreground">{routerOsVersion}</span>
+                  </span>
+                )}
+              </div>
               <div className="flex items-center gap-2">
                 <div className="flex-1 min-w-0">
                   <p className="text-[10px] uppercase tracking-wider text-foreground-muted">Current</p>
@@ -433,7 +461,7 @@ function BackupVpnDialog({
                 ))}
               </ul>
               <p className="text-xs text-foreground-muted mt-2">
-                Configure these in admin settings before applying the backup VPN setup.
+                Configure these in admin settings before applying the insurance tunnel setup.
               </p>
             </div>
           )}
@@ -460,8 +488,14 @@ function BackupVpnDialog({
 
               {applyResult.router_public_key && (
                 <div className="mt-3 pt-3 border-t border-border">
-                  <p className="text-[10px] uppercase tracking-wider text-foreground-muted mb-1">Router public key</p>
-                  <p className="font-mono text-[11px] text-foreground break-all">{applyResult.router_public_key}</p>
+                <p className="text-[10px] uppercase tracking-wider text-foreground-muted mb-1">Router public key</p>
+                <p className="font-mono text-[11px] text-foreground break-all">{applyResult.router_public_key}</p>
+              </div>
+              )}
+              {applyResult.l2tp_username && (
+                <div className="mt-3 pt-3 border-t border-border">
+                  <p className="text-[10px] uppercase tracking-wider text-foreground-muted mb-1">L2TP user</p>
+                  <p className="font-mono text-[11px] text-foreground break-all">{applyResult.l2tp_username}</p>
                 </div>
               )}
             </div>
@@ -563,7 +597,7 @@ function BackupVpnDialog({
                 ) : (
                   <>
                     <ShieldIcon className="w-4 h-4" />
-                    <span>Create Backup VPN</span>
+                    <span>Create Insurance Tunnel</span>
                   </>
                 )}
               </button>

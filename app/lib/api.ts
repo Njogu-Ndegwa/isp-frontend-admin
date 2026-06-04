@@ -84,6 +84,9 @@ import {
   RouterUptimeResponse,
   InsuranceWireGuardStatus,
   InsuranceWireGuardConfigureResponse,
+  InsuranceTunnelBatchCurrentResponse,
+  InsuranceTunnelBatchJob,
+  InsuranceTunnelBatchPreview,
   WalledGardenResponse,
   AddWalledGardenDomainRequest,
   AddWalledGardenIpRequest,
@@ -208,7 +211,18 @@ import {
 } from './types';
 import * as demo from './demoData';
 
-const BASE_URL = 'https://isp.bitwavetechnologies.com/api';
+const DEFAULT_API_BASE_URL = 'https://isp.bitwavetechnologies.com/api';
+
+const normalizeApiBaseUrl = (url: string): string => {
+  const trimmed = url.trim().replace(/\/+$/, '');
+  return trimmed.endsWith('/api') ? trimmed : `${trimmed}/api`;
+};
+
+export const API_BASE_URL = normalizeApiBaseUrl(
+  process.env.NEXT_PUBLIC_API_BASE_URL || DEFAULT_API_BASE_URL
+);
+export const API_ORIGIN = API_BASE_URL.replace(/\/api$/, '');
+const BASE_URL = API_BASE_URL;
 
 class ApiClient {
   isDemoMode(): boolean {
@@ -830,7 +844,7 @@ class ApiClient {
         },
       };
     }
-    const response = await fetch(`${BASE_URL}/admin/routers/${routerId}/insurance-wireguard/status`, {
+    const response = await fetch(`${BASE_URL}/admin/routers/${routerId}/insurance-tunnel/status`, {
       headers: this.getHeaders(true),
     });
     return this.handleResponse<InsuranceWireGuardStatus>(response);
@@ -838,12 +852,48 @@ class ApiClient {
 
   async configureInsuranceWireGuard(routerId: number, apply = false): Promise<InsuranceWireGuardConfigureResponse> {
     if (this.isDemoMode()) this.demoBlock();
-    const response = await fetch(`${BASE_URL}/admin/routers/${routerId}/insurance-wireguard`, {
+    const response = await fetch(`${BASE_URL}/admin/routers/${routerId}/insurance-tunnel`, {
       method: 'POST',
       headers: this.getHeaders(),
       body: JSON.stringify({ apply }),
     });
     return this.handleResponse<InsuranceWireGuardConfigureResponse>(response);
+  }
+
+  async previewInsuranceTunnelBatch(): Promise<InsuranceTunnelBatchPreview> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(`${BASE_URL}/admin/insurance-tunnels/batch`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify({ apply: false }),
+    });
+    return this.handleResponse<InsuranceTunnelBatchPreview>(response);
+  }
+
+  async startInsuranceTunnelBatch(maxConcurrency = 2): Promise<InsuranceTunnelBatchJob> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(`${BASE_URL}/admin/insurance-tunnels/batch`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify({ apply: true, max_concurrency: maxConcurrency }),
+    });
+    return this.handleResponse<InsuranceTunnelBatchJob>(response);
+  }
+
+  async getCurrentInsuranceTunnelBatch(): Promise<InsuranceTunnelBatchCurrentResponse> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(`${BASE_URL}/admin/insurance-tunnels/batch`, {
+      headers: this.getHeaders(true),
+    });
+    return this.handleResponse<InsuranceTunnelBatchCurrentResponse>(response);
+  }
+
+  async getInsuranceTunnelBatch(jobId: string): Promise<InsuranceTunnelBatchCurrentResponse> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(`${BASE_URL}/admin/insurance-tunnels/batch/${jobId}`, {
+      headers: this.getHeaders(true),
+    });
+    return this.handleResponse<InsuranceTunnelBatchCurrentResponse>(response);
   }
 
   async getRouterUsers(routerId: number): Promise<RouterUsersResponse> {
