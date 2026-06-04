@@ -308,45 +308,6 @@ export default function CustomersPage() {
     return () => { cancelled = true; };
   }, [filter, hasClientFilters, refreshKey]);
 
-  // Live PPPoE composition — automatically polls every router in parallel
-  // and merges the results into a single username→PPPoEMonitorUser map.
-  // Per-router failures (offline router, 5xx) are swallowed silently so one
-  // bad router never blanks the live columns for the others.
-  useEffect(() => {
-    let cancelled = false;
-    let intervalId: number | null = null;
-
-    const load = async () => {
-      try {
-        const routers = await api.getRoutersByUserId(1);
-        if (cancelled || routers.length === 0) {
-          if (!cancelled) setPppoeLive(new Map());
-          return;
-        }
-        const results = await Promise.allSettled(
-          routers.map((r) => api.getPPPoEUsers(r.id))
-        );
-        if (cancelled) return;
-        const map = new Map<string, PPPoEMonitorUser>();
-        for (const r of results) {
-          if (r.status === 'fulfilled') {
-            r.value.users.forEach((u) => map.set(u.username, u));
-          }
-        }
-        setPppoeLive(map);
-      } catch {
-        // Routers list itself failed — leave any previous live data intact
-        // and try again on the next tick.
-      } finally {
-        if (!cancelled) setPppoeLiveLoaded(true);
-      }
-    };
-
-    load();
-    intervalId = window.setInterval(load, PPPOE_POLL_INTERVAL);
-    return () => { cancelled = true; if (intervalId) clearInterval(intervalId); };
-  }, []);
-
   const handlePageChange = useCallback((newPage: number) => {
     setPage(newPage);
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -435,6 +396,56 @@ export default function CustomersPage() {
   ), [hasClientFilters, filteredCustomers, page, perPage]);
 
   const effectiveTotal = hasClientFilters ? filteredCustomers.length : totalItems;
+
+  const pppoeLiveRouterIds = useMemo(() => {
+    const ids = new Set<number>();
+    for (const customer of displayedCustomers) {
+      if (getConnectionType(customer) !== 'pppoe') continue;
+      const routerId = customer.router_id ?? customer.router?.id;
+      if (routerId) ids.add(routerId);
+    }
+    return Array.from(ids).sort((a, b) => a - b);
+  }, [displayedCustomers]);
+
+  // Live PPPoE composition for the visible customer rows only. Polling every
+  // router in the account made the customer list behave like a fleet-wide live
+  // diagnostic page and created avoidable RouterOS/DB pressure.
+  useEffect(() => {
+    let cancelled = false;
+    let intervalId: number | null = null;
+
+    if (pppoeLiveRouterIds.length === 0) {
+      setPppoeLive(new Map());
+      setPppoeLiveLoaded(true);
+      return () => { cancelled = true; };
+    }
+
+    setPppoeLiveLoaded(false);
+
+    const load = async () => {
+      try {
+        const results = await Promise.allSettled(
+          pppoeLiveRouterIds.map((routerId) => api.getPPPoEUsers(routerId))
+        );
+        if (cancelled) return;
+        const map = new Map<string, PPPoEMonitorUser>();
+        for (const result of results) {
+          if (result.status === 'fulfilled') {
+            result.value.users.forEach((u) => map.set(u.username, u));
+          }
+        }
+        setPppoeLive(map);
+      } catch {
+        // Leave prior live data intact and retry on the next tick.
+      } finally {
+        if (!cancelled) setPppoeLiveLoaded(true);
+      }
+    };
+
+    load();
+    intervalId = window.setInterval(load, PPPOE_POLL_INTERVAL);
+    return () => { cancelled = true; if (intervalId) clearInterval(intervalId); };
+  }, [pppoeLiveRouterIds]);
 
   // Period data usage — single data source.
   //
