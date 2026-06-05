@@ -321,10 +321,29 @@ export default function DbPoolMonitor() {
       {expanded && (
         <div className="pt-3 space-y-3 animate-fade-in">
           {/* Activity grids */}
-          {showActivity ? (
+          {data.postgres_activity?.error ? (
+            <div className="text-xs text-danger break-words">
+              Activity unavailable: {data.postgres_activity.detail || data.postgres_activity.error}
+            </div>
+          ) : showActivity ? (
             <>
-              <ActivityGrid title="Connection states" entries={data.postgres_activity.states} />
-              <ActivityGrid title="Wait events" entries={data.postgres_activity.wait_events} />
+              <ActivityGrid
+                title="Connection states"
+                items={(data.postgres_activity.states ?? []).map((s) => ({
+                  label: s.state,
+                  value: s.count,
+                }))}
+              />
+              <ActivityGrid
+                title="Wait events"
+                items={(data.postgres_activity.wait_events ?? []).map((w) => ({
+                  label:
+                    w.wait_event_type === 'none' && w.wait_event === 'none'
+                      ? 'none'
+                      : `${w.wait_event_type} / ${w.wait_event}`,
+                  value: w.count,
+                }))}
+              />
               {typeof data.postgres_activity.total_connections === 'number' && (
                 <div className="text-[11px] text-foreground-muted">
                   Total Postgres connections (current DB):{' '}
@@ -345,6 +364,7 @@ export default function DbPoolMonitor() {
                       <thead className="bg-background-tertiary/60">
                         <tr className="text-left text-[10px] uppercase tracking-wider text-foreground-muted">
                           <th className="px-2.5 py-1.5 font-medium">PID</th>
+                          <th className="px-2.5 py-1.5 font-medium">Client</th>
                           <th className="px-2.5 py-1.5 font-medium">State</th>
                           <th className="px-2.5 py-1.5 font-medium">Wait</th>
                           <th className="px-2.5 py-1.5 font-medium">Age</th>
@@ -355,13 +375,19 @@ export default function DbPoolMonitor() {
                         {data.long_running_connections.map((c: DbLongRunningConnection, i) => (
                           <tr key={`${c.pid ?? i}`} className="border-t border-border align-top">
                             <td className="px-2.5 py-1.5 font-mono text-foreground">{c.pid ?? '—'}</td>
-                            <td className="px-2.5 py-1.5 text-foreground-muted">{c.state ?? '—'}</td>
-                            <td className="px-2.5 py-1.5 text-foreground-muted">
-                              {c.wait_event ? `${c.wait_event_type ?? ''}/${c.wait_event}` : '—'}
+                            <td
+                              className="px-2.5 py-1.5 text-foreground-muted font-mono whitespace-nowrap"
+                              title={c.usename ? `${c.usename}${c.application_name ? ` · ${c.application_name}` : ''}` : undefined}
+                            >
+                              {c.client_addr ?? '—'}
                             </td>
-                            <td className="px-2.5 py-1.5 text-foreground-muted">{formatDuration(c.query_age_seconds)}</td>
+                            <td className="px-2.5 py-1.5 text-foreground-muted whitespace-nowrap">{c.state ?? '—'}</td>
+                            <td className="px-2.5 py-1.5 text-foreground-muted whitespace-nowrap">
+                              {c.wait_event && c.wait_event !== 'none' ? `${c.wait_event_type ?? ''}/${c.wait_event}` : '—'}
+                            </td>
+                            <td className="px-2.5 py-1.5 text-foreground-muted whitespace-nowrap">{formatDuration(c.age_seconds)}</td>
                             <td className="px-2.5 py-1.5 text-foreground-muted">
-                              <span className="line-clamp-2 break-words font-mono" title={c.query}>{c.query ?? '—'}</span>
+                              <span className="line-clamp-2 break-words font-mono" title={c.query_preview}>{c.query_preview || '—'}</span>
                             </td>
                           </tr>
                         ))}
@@ -388,26 +414,26 @@ export default function DbPoolMonitor() {
 
 function ActivityGrid({
   title,
-  entries,
+  items,
 }: {
   title: string;
-  entries?: Record<string, number>;
+  items: Array<{ label: string; value: number }>;
 }) {
-  const items = entries ? Object.entries(entries).sort((a, b) => b[1] - a[1]) : [];
+  const sorted = [...items].sort((a, b) => b.value - a.value);
   return (
     <div>
       <p className="text-[11px] uppercase tracking-wider text-foreground-muted mb-2 font-semibold">{title}</p>
-      {items.length === 0 ? (
+      {sorted.length === 0 ? (
         <p className="text-xs text-foreground-muted">No data.</p>
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-          {items.map(([k, v]) => (
+          {sorted.map(({ label, value }) => (
             <div
-              key={k}
+              key={label}
               className="rounded-lg bg-background-tertiary/50 border border-border p-2 flex items-center justify-between gap-2"
             >
-              <span className="text-[11px] text-foreground-muted truncate" title={k}>{k}</span>
-              <span className="text-sm font-mono text-foreground tabular-nums">{v}</span>
+              <span className="text-[11px] text-foreground-muted truncate" title={label}>{label}</span>
+              <span className="text-sm font-mono text-foreground tabular-nums">{value}</span>
             </div>
           ))}
         </div>
