@@ -197,23 +197,40 @@ export interface DbPoolSnapshot {
   pressure: DbPoolPressure;
 }
 
+export interface DbConnectionStateCount {
+  state: string;
+  count: number;
+}
+
+export interface DbWaitEventCount {
+  wait_event_type: string;
+  wait_event: string;
+  count: number;
+}
+
 export interface DbPostgresActivity {
   skipped?: boolean;
   reason?: string;
-  states?: Record<string, number>;
-  wait_events?: Record<string, number>;
+  // Present when include_activity=true succeeds (the backend returns arrays of
+  // grouped rows from pg_stat_activity, not maps).
+  states?: DbConnectionStateCount[];
+  wait_events?: DbWaitEventCount[];
   total_connections?: number;
+  // Present when the pg_stat_activity query itself failed.
+  error?: string;
+  detail?: string;
 }
 
 export interface DbLongRunningConnection {
   pid?: number;
+  usename?: string | null;
+  application_name?: string | null;
+  client_addr?: string | null;
   state?: string;
   wait_event_type?: string | null;
   wait_event?: string | null;
-  query?: string;
-  query_age_seconds?: number;
-  application_name?: string;
-  client_addr?: string;
+  age_seconds?: number;
+  query_preview?: string;
   // backend tolerates additional fields
   [key: string]: unknown;
 }
