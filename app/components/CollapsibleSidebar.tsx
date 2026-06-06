@@ -182,6 +182,9 @@ const navGroups: NavGroup[] = [
 
 const STORAGE_KEY_COLLAPSED = 'sidebarCollapsed';
 const STORAGE_KEY_GROUPS = 'sidebarGroupState';
+const STORAGE_KEY_PREF = 'sidebarCollapsePref';
+
+type CollapsePref = 'auto' | 'collapsed' | 'expanded';
 
 function isItemActive(pathname: string, href: string): boolean {
   if (href === '/ads') {
@@ -353,13 +356,26 @@ export default function CollapsibleSidebar() {
   const { isAuthenticated, logout, user } = useAuth();
   const isAdmin = user?.role === 'admin';
   const allNavGroups = isAdmin ? adminNavGroups : navGroups;
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [pref, setPref] = useState<CollapsePref>('auto');
+  const [bp, setBp] = useState<'mobile' | 'tablet' | 'desktop'>(() => {
+    if (typeof window === 'undefined') return 'desktop';
+    if (window.matchMedia('(min-width: 1024px)').matches) return 'desktop';
+    if (window.matchMedia('(min-width: 768px)').matches) return 'tablet';
+    return 'mobile';
+  });
   const [hoveredItem, setHoveredItem] = useState<string | null>(null);
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
 
+  // Load collapse preference (migrating the legacy boolean key) + saved group state
   useEffect(() => {
-    const saved = localStorage.getItem(STORAGE_KEY_COLLAPSED);
-    if (saved) setIsCollapsed(saved === 'true');
+    const savedPref = localStorage.getItem(STORAGE_KEY_PREF) as CollapsePref | null;
+    if (savedPref === 'auto' || savedPref === 'collapsed' || savedPref === 'expanded') {
+      setPref(savedPref);
+    } else {
+      const legacy = localStorage.getItem(STORAGE_KEY_COLLAPSED);
+      if (legacy === 'true') setPref('collapsed');
+      else if (legacy === 'false') setPref('expanded');
+    }
 
     const savedGroups = localStorage.getItem(STORAGE_KEY_GROUPS);
     if (savedGroups) {
@@ -370,8 +386,22 @@ export default function CollapsibleSidebar() {
   }, []);
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY_COLLAPSED, isCollapsed.toString());
-  }, [isCollapsed]);
+    localStorage.setItem(STORAGE_KEY_PREF, pref);
+  }, [pref]);
+
+  // Track the active breakpoint so the effective width stays correct on resize
+  useEffect(() => {
+    const md = window.matchMedia('(min-width: 768px)');
+    const lg = window.matchMedia('(min-width: 1024px)');
+    const update = () => setBp(lg.matches ? 'desktop' : md.matches ? 'tablet' : 'mobile');
+    update();
+    md.addEventListener('change', update);
+    lg.addEventListener('change', update);
+    return () => {
+      md.removeEventListener('change', update);
+      lg.removeEventListener('change', update);
+    };
+  }, []);
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY_GROUPS, JSON.stringify(expandedGroups));
@@ -404,9 +434,18 @@ export default function CollapsibleSidebar() {
     });
   }, []);
 
+  // `auto` ⇒ rail on the tablet band, expanded on desktop; explicit pref overrides.
+  const effectiveCollapsed = pref === 'auto' ? bp === 'tablet' : pref === 'collapsed';
+  const sidebarWidthPx = bp === 'mobile' ? 0 : effectiveCollapsed ? 64 : 256;
+
+  // Publish the single source of truth that <main>'s margin consumes.
+  useEffect(() => {
+    document.documentElement.style.setProperty('--app-sidebar-w', `${sidebarWidthPx}px`);
+  }, [sidebarWidthPx]);
+
   if (pathname === '/login') return null;
 
-  const sidebarWidth = isCollapsed ? 'w-16' : 'w-64';
+  const sidebarWidth = effectiveCollapsed ? 'w-16' : 'w-64';
 
   const renderNavItem = (item: NavItem) => {
     const isActive = isItemActive(pathname, item.href);
@@ -423,12 +462,12 @@ export default function CollapsibleSidebar() {
             isActive
               ? 'bg-amber-500/10 text-amber-500'
               : 'text-foreground-muted hover:text-foreground hover:bg-background-tertiary'
-          } ${isCollapsed ? 'justify-center' : ''}`}
+          } ${effectiveCollapsed ? 'justify-center' : ''}`}
         >
           <span className={`transition-colors ${isActive ? 'text-amber-500' : 'group-hover:text-amber-500'}`}>
             {item.icon}
           </span>
-          {!isCollapsed && (
+          {!effectiveCollapsed && (
             <>
               <span className="font-medium text-sm truncate">{item.name}</span>
               {isActive && (
@@ -438,7 +477,7 @@ export default function CollapsibleSidebar() {
           )}
         </Link>
 
-        {isCollapsed && hoveredItem === item.href && (
+        {effectiveCollapsed && hoveredItem === item.href && (
           <div className="absolute left-full top-1/2 -translate-y-1/2 ml-2 px-3 py-1.5 bg-background-tertiary border border-border rounded-lg text-sm text-foreground whitespace-nowrap z-50 shadow-lg">
             {item.name}
             <div className="absolute left-0 top-1/2 -translate-x-1 -translate-y-1/2 w-2 h-2 bg-background-tertiary border-l border-b border-border rotate-45" />
@@ -464,11 +503,11 @@ export default function CollapsibleSidebar() {
 
     return (
       <div key={group.id}>
-        {showDivider && isCollapsed && (
+        {showDivider && effectiveCollapsed && (
           <div className="my-2 border-t border-border" />
         )}
 
-        {!isCollapsed && (
+        {!effectiveCollapsed && (
           <>
             {showDivider && <div className={`mt-3 pt-3 border-t border-border`} />}
             <button
@@ -496,8 +535,8 @@ export default function CollapsibleSidebar() {
 
         <div
           className={`space-y-1 overflow-hidden transition-all duration-200 ${
-            !isCollapsed && !isExpanded ? 'max-h-0 opacity-0' : 'max-h-[500px] opacity-100'
-          } ${!isCollapsed && isExpanded ? 'mt-1' : ''}`}
+            !effectiveCollapsed && !isExpanded ? 'max-h-0 opacity-0' : 'max-h-[500px] opacity-100'
+          } ${!effectiveCollapsed && isExpanded ? 'mt-1' : ''}`}
         >
           {group.items.map(renderNavItem)}
         </div>
@@ -508,8 +547,8 @@ export default function CollapsibleSidebar() {
   return (
     <aside className={`fixed left-0 top-0 h-screen ${sidebarWidth} bg-background-secondary/80 backdrop-blur-xl border-r border-border flex flex-col z-50 transition-all duration-300 ease-in-out hidden md:flex`}>
       {/* Logo & Toggle */}
-      <div className={`p-5 border-b border-border flex items-center ${isCollapsed ? 'justify-center' : 'justify-between'}`}>
-        {!isCollapsed && (
+      <div className={`p-5 border-b border-border flex items-center ${effectiveCollapsed ? 'justify-center' : 'justify-between'}`}>
+        {!effectiveCollapsed && (
           <Link href={isAdmin ? '/admin' : '/dashboard'} className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center shadow-lg shadow-amber-500/20">
               <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -524,12 +563,12 @@ export default function CollapsibleSidebar() {
         )}
         
         <button
-          onClick={() => setIsCollapsed(!isCollapsed)}
+          onClick={() => setPref(effectiveCollapsed ? 'expanded' : 'collapsed')}
           className="p-2 rounded-lg text-foreground-muted hover:text-foreground hover:bg-background-tertiary transition-all"
-          title={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          title={effectiveCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
         >
           <svg 
-            className={`w-5 h-5 transition-transform duration-300 ${isCollapsed ? 'rotate-180' : ''}`} 
+            className={`w-5 h-5 transition-transform duration-300 ${effectiveCollapsed ? 'rotate-180' : ''}`} 
             fill="none" 
             viewBox="0 0 24 24" 
             stroke="currentColor"
@@ -545,32 +584,32 @@ export default function CollapsibleSidebar() {
 
       {/* Theme toggle & User section */}
       <div className="p-3 border-t border-border space-y-1">
-        <ThemeToggle collapsed={isCollapsed} />
+        <ThemeToggle collapsed={effectiveCollapsed} />
         {isAuthenticated ? (
           <button
             onClick={logout}
-            className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-foreground-muted hover:text-red-500 hover:bg-red-500/10 transition-all ${isCollapsed ? 'justify-center' : ''}`}
-            title={isCollapsed ? 'Logout' : ''}
+            className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-foreground-muted hover:text-red-500 hover:bg-red-500/10 transition-all ${effectiveCollapsed ? 'justify-center' : ''}`}
+            title={effectiveCollapsed ? 'Logout' : ''}
           >
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
             </svg>
-            {!isCollapsed && <span className="font-medium text-sm">Logout</span>}
+            {!effectiveCollapsed && <span className="font-medium text-sm">Logout</span>}
           </button>
         ) : (
           <Link
             href="/login"
-            className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-foreground-muted hover:text-amber-500 hover:bg-amber-500/10 transition-all ${isCollapsed ? 'justify-center' : ''}`}
+            className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-foreground-muted hover:text-amber-500 hover:bg-amber-500/10 transition-all ${effectiveCollapsed ? 'justify-center' : ''}`}
           >
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
             </svg>
-            {!isCollapsed && <span className="font-medium text-sm">Login</span>}
+            {!effectiveCollapsed && <span className="font-medium text-sm">Login</span>}
           </Link>
         )}
       </div>
 
-      {!isCollapsed && (
+      {!effectiveCollapsed && (
         <div className="px-5 py-3 text-[10px] text-foreground-muted/40 font-medium">
           v1.0.0 · Bitwave Tech
         </div>

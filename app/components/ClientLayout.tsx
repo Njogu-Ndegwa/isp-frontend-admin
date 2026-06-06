@@ -98,7 +98,10 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
       <CollapsibleSidebar />
       <MobileBottomNav />
       <SubscriptionBlockedModal />
-      <main className="min-h-screen p-4 md:p-8 md:ml-16 lg:ml-64 pb-24 md:pb-8">
+      <main
+        className="min-h-screen p-4 md:p-8 pb-24 md:pb-8 transition-[margin] duration-300 ease-in-out"
+        style={{ marginLeft: 'var(--app-sidebar-w, 0px)' }}
+      >
         {children}
       </main>
     </>
