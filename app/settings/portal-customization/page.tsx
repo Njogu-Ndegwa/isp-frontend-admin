@@ -240,7 +240,7 @@ export default function PortalCustomizationPage() {
           <p className="text-xs text-foreground-muted mt-0.5">How the top section of the portal is displayed</p>
         </div>
         <div className="p-5">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {HEADER_STYLE_OPTIONS.map((style) => {
               const isActive = current('header_style') === style.value;
               return (
@@ -282,7 +282,7 @@ export default function PortalCustomizationPage() {
               <div>
                 <label className="block text-xs font-medium text-foreground-muted mb-2">Hero Background</label>
 
-                <div className="grid grid-cols-5 gap-2">
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
                   {IMAGE_PRESETS.map((preset) => {
                     const currentPreset = (current('header_bg_image_url') as string | null) ?? null;
                     const isActive = currentPreset === preset.key;

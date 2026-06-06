@@ -280,7 +280,7 @@ export default function PlansPage() {
               placeholder="Search by plan name, price, or speed..."
             />
           </div>
-          <div className="grid grid-cols-3 gap-2 sm:flex">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:flex">
             <FilterSelect
               value={activeTab}
               onChange={(v) => setActiveTab(v as FilterTab)}
@@ -702,7 +702,7 @@ function EditPlanModal({
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-foreground mb-2">Price (KES)</label>
                 <input
@@ -725,7 +725,7 @@ function EditPlanModal({
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-foreground mb-2">Duration Value</label>
                 <input
@@ -751,7 +751,7 @@ function EditPlanModal({
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-foreground mb-2">Connection Type</label>
                 <select
@@ -778,7 +778,7 @@ function EditPlanModal({
             <div className="pt-4 border-t border-border">
               <h3 className="text-sm font-semibold text-foreground-muted uppercase tracking-wider mb-4">Advanced Options</h3>
 
-              <div className="grid grid-cols-2 gap-4 mb-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
                 <div>
                   <label className="block text-sm font-medium text-foreground mb-2">Plan Type</label>
                   <select
@@ -838,7 +838,7 @@ function EditPlanModal({
                 <h3 className="text-sm font-semibold text-foreground-muted uppercase tracking-wider mb-1">Fair Usage Policy</h3>
                 <p className="text-xs text-foreground-muted mb-4">Optional monthly data cap and action when exceeded.</p>
 
-                <div className="grid grid-cols-2 gap-4 mb-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
                   <div>
                     <label className="block text-sm font-medium text-foreground mb-2">Data Cap (MB)</label>
                     <input

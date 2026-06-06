@@ -704,7 +704,7 @@ export default function LeadDetailPage() {
                 <label className="block text-sm font-medium mb-1">Name</label>
                 <input type="text" className="input w-full" value={editForm.name || ''} onChange={e => setEditForm(p => ({ ...p, name: e.target.value }))} />
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-sm font-medium mb-1">Phone</label>
                   <input type="tel" className="input w-full" value={editForm.phone || ''} onChange={e => setEditForm(p => ({ ...p, phone: e.target.value || null }))} />
@@ -714,7 +714,7 @@ export default function LeadDetailPage() {
                   <input type="email" className="input w-full" value={editForm.email || ''} onChange={e => setEditForm(p => ({ ...p, email: e.target.value || null }))} />
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-sm font-medium mb-1">Platform</label>
                   <select className="select w-full" value={editForm.social_platform || ''} onChange={e => setEditForm(p => ({ ...p, social_platform: e.target.value || null }))}>

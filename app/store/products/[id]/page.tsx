@@ -429,7 +429,7 @@ export default function ProductDetailPage() {
           )}
 
           {/* Delivery info */}
-          <div className="grid grid-cols-3 gap-3 pt-1">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
             {[
               { icon: '🚚', title: 'Nairobi', sub: '1–2 business days' },
               { icon: '📦', title: 'Countrywide', sub: '3–5 business days' },

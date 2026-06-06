@@ -88,7 +88,7 @@ export default function CreatePlanPage() {
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label htmlFor="price" className="block text-sm font-medium text-foreground-muted mb-1.5">
                   Price (KES)
@@ -119,7 +119,7 @@ export default function CreatePlanPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label htmlFor="duration_value" className="block text-sm font-medium text-foreground-muted mb-1.5">
                   Duration Value
@@ -152,7 +152,7 @@ export default function CreatePlanPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label htmlFor="connection_type" className="block text-sm font-medium text-foreground-muted mb-1.5">
                   Connection Type
@@ -185,7 +185,7 @@ export default function CreatePlanPage() {
             <div className="pt-4 border-t border-border">
               <h3 className="text-sm font-semibold text-foreground-muted uppercase tracking-wider mb-4">Advanced Options</h3>
 
-              <div className="grid grid-cols-2 gap-4 mb-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
                 <div>
                   <label htmlFor="plan_type" className="block text-sm font-medium text-foreground-muted mb-1.5">
                     Plan Type
@@ -254,7 +254,7 @@ export default function CreatePlanPage() {
                 <h3 className="text-sm font-semibold text-foreground-muted uppercase tracking-wider mb-1">Fair Usage Policy</h3>
                 <p className="text-xs text-foreground-muted mb-4">Optional monthly data cap and action when exceeded. PPPoE only.</p>
 
-                <div className="grid grid-cols-2 gap-4 mb-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
                   <div>
                     <label htmlFor="data_cap_mb" className="block text-sm font-medium text-foreground-muted mb-1.5">
                       Monthly Data Cap (MB)

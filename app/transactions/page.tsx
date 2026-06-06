@@ -335,7 +335,7 @@ export default function TransactionsPage() {
               placeholder="Search phone, receipt, reference..."
             />
           </div>
-          <div className="grid grid-cols-3 gap-2 sm:flex">
+          <div className="grid grid-cols-1 gap-2 sm:flex">
             <FilterSelect
               value={methodFilter}
               onChange={(v) => { setMethodFilter(v as PaymentMethodFilter); setPage(1); }}

@@ -543,7 +543,7 @@ export default function ResellerDetailPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="card p-4 sm:p-5">
           <h3 className="text-sm font-semibold text-foreground mb-3">Customers</h3>
-          <div className="grid grid-cols-4 gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
             <MiniStat label="Active" value={detail.customers.active} color="success" />
             <MiniStat label="Inactive" value={detail.customers.inactive} color="default" />
             <MiniStat label="Pending" value={detail.customers.pending} color="warning" />
@@ -553,7 +553,7 @@ export default function ResellerDetailPage() {
 
         <div className="card p-4 sm:p-5">
           <h3 className="text-sm font-semibold text-foreground mb-3">Payout Status</h3>
-          <div className={`grid gap-2 ${detail.payouts.total_transaction_charges ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-3'}`}>
+          <div className={`grid gap-2 ${detail.payouts.total_transaction_charges ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-1 sm:grid-cols-3'}`}>
             <div className="text-center">
               <p className="text-lg font-bold text-emerald-500 stat-value">{formatKES(detail.payouts.total_paid)}</p>
               <p className="text-xs text-foreground-muted mt-0.5">Paid</p>

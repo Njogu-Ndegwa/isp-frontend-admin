@@ -631,8 +631,8 @@ function VoucherMobileCard({
       </div>
 
       {/* Info row: plan + price + router */}
-      <div className="flex items-center gap-2 px-4 pb-2 text-sm">
-        <span className="text-foreground-muted truncate">{v.plan?.name ?? `Plan #${v.plan_id}`}</span>
+      <div className="flex items-center gap-2 px-4 pb-2 text-sm min-w-0">
+        <span className="text-foreground-muted truncate min-w-0">{v.plan?.name ?? `Plan #${v.plan_id}`}</span>
         {v.plan?.price !== undefined && (
           <>
             <span className="text-foreground-muted/40">&middot;</span>
@@ -642,7 +642,7 @@ function VoucherMobileCard({
         {v.router?.name && (
           <>
             <span className="text-foreground-muted/40">&middot;</span>
-            <span className="text-foreground-muted truncate">{v.router.name}</span>
+            <span className="text-foreground-muted truncate min-w-0">{v.router.name}</span>
           </>
         )}
       </div>

@@ -15,7 +15,10 @@ const FULLSCREEN_AUTH_PATHS = ['/setup'];
 function DemoBanner() {
   const { logout } = useAuth();
   return (
-    <div className="bg-gradient-to-r from-amber-500/15 via-orange-500/10 to-amber-500/15 border-b border-amber-500/20">
+    <div
+      className="bg-gradient-to-r from-amber-500/15 via-orange-500/10 to-amber-500/15 border-b border-amber-500/20 transition-[margin] duration-300 ease-in-out"
+      style={{ marginLeft: 'var(--app-sidebar-w, 0px)' }}
+    >
       <div className="max-w-7xl mx-auto px-3 py-2 flex items-center justify-between gap-3">
         <div className="flex items-center gap-2 min-w-0">
           <span className="flex-shrink-0 w-2 h-2 rounded-full bg-amber-500 animate-pulse" />

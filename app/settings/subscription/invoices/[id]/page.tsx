@@ -101,7 +101,7 @@ export default function InvoiceDetailPage() {
           <InvoiceStatusBadge status={invoice.status} />
         </div>
         <div className="p-5 space-y-4">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <p className="text-2xl font-bold text-foreground">{formatKES(invoice.final_charge)}</p>
               {(invoice.amount_paid != null && invoice.amount_paid > 0) && (
@@ -128,7 +128,7 @@ export default function InvoiceDetailPage() {
           </div>
 
           {/* Period timeline */}
-          <div className="flex items-center gap-4 text-xs text-foreground-muted border-t border-border pt-3">
+          <div className="flex flex-wrap items-center gap-4 text-xs text-foreground-muted border-t border-border pt-3">
             {invoice.period_start && <span>Period: {formatSafeDate(invoice.period_start)}</span>}
             {invoice.period_end && <span>to {formatSafeDate(invoice.period_end)}</span>}
             {invoice.created_at && <span className="ml-auto">Created: {formatSafeDate(invoice.created_at)}</span>}

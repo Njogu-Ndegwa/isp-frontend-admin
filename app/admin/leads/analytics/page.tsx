@@ -273,7 +273,7 @@ export default function LeadAnalyticsPage() {
       {/* Health indicators */}
       <div className="card p-4">
         <h3 className="text-sm font-semibold mb-3">Pipeline Health</h3>
-        <div className="grid grid-cols-3 gap-3 mb-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-4">
           <div className="text-center p-3 rounded-xl bg-background-tertiary">
             <p className={`text-2xl font-bold stat-value ${stats.health.stale_leads > 0 ? 'text-red-400' : ''}`}>
               {stats.health.stale_leads}

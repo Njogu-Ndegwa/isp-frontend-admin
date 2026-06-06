@@ -809,8 +809,8 @@ export default function PaymentMethodsPage() {
       {assignModalRouter && (
         <div className="fixed inset-0 z-[10000] flex items-end sm:items-center justify-center">
           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setAssignModalRouter(null)} />
-          <div className="relative w-full sm:max-w-md bg-background-secondary rounded-t-2xl sm:rounded-2xl border border-border shadow-2xl overflow-hidden">
-            <div className="flex items-center justify-between p-5 border-b border-border">
+          <div className="relative w-full sm:max-w-md max-h-[90vh] bg-background-secondary rounded-t-2xl sm:rounded-2xl border border-border shadow-2xl overflow-hidden flex flex-col">
+            <div className="flex items-center justify-between p-5 border-b border-border flex-shrink-0">
               <div>
                 <h2 className="text-lg font-semibold text-foreground">Assign Payment Method</h2>
                 <p className="text-sm text-foreground-muted">{assignModalRouter.name}</p>
@@ -822,7 +822,7 @@ export default function PaymentMethodsPage() {
               </button>
             </div>
 
-            <div className="p-5 space-y-3">
+            <div className="p-5 space-y-3 overflow-y-auto flex-1">
               {/* Legacy option */}
               <label className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
                 assignMethodId === null ? 'border-accent-primary bg-accent-primary/5' : 'border-border hover:bg-background-tertiary'
@@ -862,7 +862,7 @@ export default function PaymentMethodsPage() {
               ))}
             </div>
 
-            <div className="p-5 pt-0 flex gap-3">
+            <div className="p-5 pt-0 flex gap-3 flex-shrink-0">
               <button
                 onClick={() => setAssignModalRouter(null)}
                 className="flex-1 px-4 py-2.5 rounded-xl bg-background-tertiary text-foreground-muted font-medium text-sm hover:text-foreground transition-colors"

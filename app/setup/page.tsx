@@ -356,7 +356,7 @@ function RouterStep({ onComplete }: { onComplete: () => void }) {
         <>
           <div className="card p-4">
             <label className="block text-sm font-medium text-foreground mb-3">RouterOS Version</label>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               <button
                 onClick={() => setVpnType('wireguard')}
                 className={`px-4 py-3 rounded-xl text-sm font-medium transition-all border ${
@@ -594,7 +594,7 @@ function PlanStep({ onComplete }: { onComplete: () => void }) {
 
         <div>
           <label className="block text-sm font-medium text-foreground mb-2">Connection Type</label>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <button
               type="button"
               onClick={() => update('connection_type', 'hotspot')}
@@ -627,7 +627,7 @@ function PlanStep({ onComplete }: { onComplete: () => void }) {
 
       {/* Speed & Price */}
       <div className="card p-4 space-y-4">
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <label className="block text-sm font-medium text-foreground mb-1.5">Speed</label>
             <input
@@ -788,7 +788,7 @@ function PaymentStep({ onComplete }: { onComplete: () => void }) {
       <div className="card p-4 space-y-4">
         <div>
           <label className="block text-sm font-medium text-foreground mb-2">Payment Type</label>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <button
               type="button"
               onClick={() => setMethodType('mpesa_paybill')}

@@ -50,7 +50,7 @@ function DashboardMockup() {
           <div className="flex-1 mx-4 sm:mx-8">
             <div className="flex items-center gap-2 bg-background-tertiary rounded-md px-3 py-1 max-w-sm mx-auto">
               <svg className="w-3 h-3 text-foreground-muted flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
-              <span className="text-[10px] sm:text-xs text-foreground-muted truncate">isp.bitwavetechnologies.com</span>
+              <span className="text-[10px] sm:text-xs text-foreground-muted truncate min-w-0">isp.bitwavetechnologies.com</span>
             </div>
           </div>
         </div>

@@ -235,7 +235,7 @@ export default function LeadFollowUpsPage() {
 
                 <Link href={`/admin/leads/${fup.lead_id}`} className="flex-1 min-w-0">
                   <div className="flex items-start justify-between gap-2 mb-1">
-                    <p className="text-sm font-medium truncate">{fup.title}</p>
+                    <p className="text-sm font-medium truncate min-w-0">{fup.title}</p>
                     <span className={`text-[10px] flex-shrink-0 font-semibold uppercase tracking-wider ${
                       fup.is_overdue ? 'text-red-400' : dueToday ? 'text-amber-400' : 'text-foreground-muted'
                     }`}>
@@ -243,7 +243,7 @@ export default function LeadFollowUpsPage() {
                     </span>
                   </div>
                   <div className="flex items-center gap-2 text-xs text-foreground-muted min-w-0">
-                    <span className="truncate">{fup.lead_name}</span>
+                    <span className="truncate min-w-0">{fup.lead_name}</span>
                     <span className="opacity-50">&middot;</span>
                     <span className={`badge ${getStageMeta(fup.lead_stage).variant} text-[10px]`}>
                       {getStageMeta(fup.lead_stage).label}

@@ -834,7 +834,7 @@ export default function LeadsPage() {
                   autoFocus
                 />
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-sm font-medium mb-1">Phone</label>
                   <input
@@ -854,7 +854,7 @@ export default function LeadsPage() {
                   />
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-sm font-medium mb-1">Platform</label>
                   <select
@@ -986,7 +986,7 @@ function KanbanCard({
       )}
 
       <div className={`flex items-center justify-between text-[10px] text-foreground-muted ${isCompact ? '' : 'mt-1'}`}>
-        <span className="truncate">{lead.phone || lead.email || '-'}</span>
+        <span className="truncate min-w-0">{lead.phone || lead.email || '-'}</span>
         {isSignedUp ? (
           <span
             className="text-emerald-400 font-medium flex-shrink-0"

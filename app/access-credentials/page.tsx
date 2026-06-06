@@ -599,7 +599,7 @@ export default function AccessCredentialsPage() {
       {/* Credentials reveal modal */}
       {credentialsModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={() => setCredentialsModal(null)}>
-          <div className="card p-6 w-full max-w-md space-y-4" onClick={(e) => e.stopPropagation()}>
+          <div className="card p-6 w-full max-w-md mx-4 max-h-[90vh] overflow-y-auto space-y-4" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-semibold text-foreground">Access Credentials</h3>
               <button onClick={() => setCredentialsModal(null)} className="p-1 rounded-md hover:bg-background-tertiary text-foreground-muted">

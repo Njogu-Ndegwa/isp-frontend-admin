@@ -153,7 +153,7 @@ function ProductModal({
           </div>
 
           {/* Price + Stock */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-medium text-foreground-muted mb-1.5">Price (KES) *</label>
               <input
@@ -657,7 +657,7 @@ export default function ShopPage() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="card p-4">
                       <h3 className="text-sm font-semibold text-foreground mb-4">Orders by Status</h3>
-                      <div className="grid grid-cols-3 gap-3">
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                         {(Object.entries(dashboard.orders.by_status) as [ShopOrderStatus, number][]).map(([status, count]) => (
                           <button
                             key={status}
@@ -783,7 +783,7 @@ export default function ShopPage() {
               ) : (
                 <>
                   {/* Desktop table */}
-                  <div className="hidden md:block card overflow-hidden">
+                  <div className="hidden md:block card overflow-x-auto">
                     <table className="w-full text-sm">
                       <thead>
                         <tr className="border-b border-border">
@@ -939,7 +939,7 @@ export default function ShopPage() {
               ) : (
                 <>
                   {/* Desktop table */}
-                  <div className="hidden md:block card overflow-hidden">
+                  <div className="hidden md:block card overflow-x-auto">
                     <table className="w-full text-sm">
                       <thead>
                         <tr className="border-b border-border">

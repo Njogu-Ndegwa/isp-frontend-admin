@@ -1630,7 +1630,7 @@ function AddRouterModal({
 
           <div>
             <label className="block text-sm font-medium text-foreground mb-2">RouterOS Version</label>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               <button
                 onClick={() => setSelectedVpnType('wireguard')}
                 className={`px-4 py-3 rounded-xl text-sm font-medium transition-all border ${
@@ -1869,8 +1869,8 @@ function EditRouterModal({
             />
           </div>
 
-          <div className="grid grid-cols-3 gap-4">
-            <div className="col-span-2">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="col-span-1 sm:col-span-2">
               <label className="block text-sm font-medium text-foreground mb-2">IP Address</label>
               <input
                 type="text"

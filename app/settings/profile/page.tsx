@@ -207,7 +207,7 @@ export default function ProfilePage() {
           </div>
 
           {/* Read-only fields */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {readOnlyFields.map((f) => (
               <div key={f.label} className="p-3 rounded-xl bg-background-tertiary/50">
                 <div className="text-[11px] font-medium text-foreground-muted uppercase tracking-wider mb-1">{f.label}</div>

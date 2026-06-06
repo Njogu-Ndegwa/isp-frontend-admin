@@ -185,7 +185,7 @@ export default function AccountStatementPage() {
 
             {/* Period Summary (show when date filters active) */}
             {(startDate || endDate) && (
-              <div className="grid grid-cols-3 gap-3 mb-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
                 <div className="card p-3 bg-background-tertiary/50">
                   <p className="text-xs text-foreground-muted mb-0.5">Period Payouts</p>
                   <p className="text-lg font-bold text-emerald-500">{formatKES(data.period_summary.total_payouts)}</p>

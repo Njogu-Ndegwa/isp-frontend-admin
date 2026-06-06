@@ -65,8 +65,8 @@ export default function AdAnalyticsPage() {
       />
 
       {/* Period Selector */}
-      <div className="flex items-center justify-between mb-6 animate-fade-in">
-        <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-6 animate-fade-in">
+        <div className="flex flex-wrap items-center gap-2">
           {PERIOD_OPTIONS.map((option) => (
             <button
               key={option.value}

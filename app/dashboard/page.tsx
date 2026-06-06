@@ -1920,7 +1920,7 @@ function TopUsageThisMonthSection({
       </div>
 
       {/* Desktop table */}
-      <div className="hidden md:block">
+      <div className="hidden md:block overflow-x-auto">
         <table className="w-full">
           <thead>
             <tr className="border-b border-border">
