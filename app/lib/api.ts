@@ -550,6 +550,11 @@ class ApiClient {
       const start = (page - 1) * perPage;
       return { data: result.slice(start, start + perPage), page, per_page: perPage, total, total_pages: Math.ceil(total / perPage) || 1 };
     }
+    if (!page || !perPage) {
+      // Caller expects a plain array — normalize a paginated envelope if the
+      // backend ever returns one for an unpaginated request.
+      return Array.isArray(result) ? result : (result.data ?? []);
+    }
     return result;
   }
 
@@ -576,6 +581,11 @@ class ApiClient {
       const total = result.length;
       const start = (page - 1) * perPage;
       return { data: result.slice(start, start + perPage), page, per_page: perPage, total, total_pages: Math.ceil(total / perPage) || 1 };
+    }
+    if (!page || !perPage) {
+      // Caller expects a plain array — normalize a paginated envelope if the
+      // backend ever returns one for an unpaginated request.
+      return Array.isArray(result) ? result : (result.data ?? []);
     }
     return result;
   }
