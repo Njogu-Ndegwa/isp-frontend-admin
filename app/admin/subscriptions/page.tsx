@@ -12,10 +12,8 @@ import EditSubscriptionModal from '../../components/EditSubscriptionModal';
 import DataTable from '../../components/DataTable';
 import MobileDataCard from '../../components/MobileDataCard';
 import { SkeletonCard } from '../../components/LoadingSpinner';
+import { formatKES } from '../../lib/format';
 
-const formatKES = (amount: number): string => {
-  return `KES ${amount.toLocaleString('en-KE', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
-};
 
 const formatSafeDate = (dateStr: string | null | undefined): string => {
   try {

@@ -12,6 +12,7 @@ import MobileDataCard from '../components/MobileDataCard';
 import FilterDatePicker from '../components/FilterDatePicker';
 import Pagination from '../components/Pagination';
 import { SkeletonCard } from '../components/LoadingSpinner';
+import { formatKES } from '../lib/format';
 
 const formatSafeDate = (dateStr: string | null | undefined): string => {
   try {
@@ -24,9 +25,6 @@ const formatSafeDate = (dateStr: string | null | undefined): string => {
   }
 };
 
-const formatKES = (amount: number | undefined | null): string => {
-  return `KES ${(amount ?? 0).toLocaleString('en-KE', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
-};
 
 export default function AccountStatementPage() {
   const { user } = useAuth();

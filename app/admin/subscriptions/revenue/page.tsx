@@ -9,10 +9,8 @@ import Header from '../../../components/Header';
 import StatCard from '../../../components/StatCard';
 import ConfirmDialog from '../../../components/ConfirmDialog';
 import { SkeletonCard } from '../../../components/LoadingSpinner';
+import { formatKES } from '../../../lib/format';
 
-const formatKES = (amount: number): string => {
-  return `KES ${amount.toLocaleString('en-KE', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
-};
 
 const PIE_COLORS = ['#22c55e', '#3b82f6', '#ef4444'];
 

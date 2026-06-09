@@ -34,6 +34,7 @@ import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, ComposedChart, Line,
 } from 'recharts';
+import { formatKES } from '../lib/format';
 
 type PeriodFilter = '7d' | '30d' | '90d' | '1y';
 
@@ -55,10 +56,6 @@ const formatSafeDate = (dateStr: string | null | undefined): string => {
   }
 };
 
-const formatKES = (amount: number | undefined | null): string => {
-  if (amount == null) return 'KES 0';
-  return `KES ${amount.toLocaleString('en-KE', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
-};
 
 const formatCompact = (amount: number): string => {
   if (amount >= 1_000_000) return `${(amount / 1_000_000).toFixed(1)}M`;

@@ -15,6 +15,7 @@ import MobileDataCard from '../../components/MobileDataCard';
 import StatCard from '../../components/StatCard';
 import { PageLoader } from '../../components/LoadingSpinner';
 import ResellerCharts from '../../components/ResellerCharts';
+import { formatKES } from '../../lib/format';
 
 const formatSafeDate = (dateStr: string | null | undefined): string => {
   try {
@@ -27,9 +28,6 @@ const formatSafeDate = (dateStr: string | null | undefined): string => {
   }
 };
 
-const formatKES = (amount: number): string => {
-  return `KES ${amount.toLocaleString('en-KE', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
-};
 
 const SORT_OPTIONS: { value: AdminResellerSortBy; label: string }[] = [
   { value: 'created_at', label: 'Date Joined' },

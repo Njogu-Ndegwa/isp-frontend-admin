@@ -14,6 +14,7 @@ import FilterSelect from '../components/FilterSelect';
 import FilterDatePicker from '../components/FilterDatePicker';
 import DataTable, { DataTableColumn } from '../components/DataTable';
 import Pagination from '../components/Pagination';
+import { formatKES } from '../lib/format';
 
 type StatusFilter = 'all' | 'completed' | 'pending' | 'failed' | 'expired';
 type PaymentMethodFilter = 'all' | 'mobile_money' | 'cash';
@@ -584,7 +585,7 @@ export default function TransactionsPage() {
                     </div>
                   );
                 case 'amount':
-                  return <span className="font-semibold text-accent-primary">KES {tx.amount.toLocaleString()}</span>;
+                  return <span className="font-semibold text-accent-primary">{formatKES(tx.amount)}</span>;
                 case 'status':
                   return (
                     <div className="flex flex-col gap-1">

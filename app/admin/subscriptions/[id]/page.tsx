@@ -11,10 +11,8 @@ import InvoiceStatusBadge from '../../../components/InvoiceStatusBadge';
 import EditSubscriptionModal from '../../../components/EditSubscriptionModal';
 import ConfirmDialog from '../../../components/ConfirmDialog';
 import { SkeletonCard } from '../../../components/LoadingSpinner';
+import { formatKES } from '../../../lib/format';
 
-const formatKES = (amount: number): string => {
-  return `KES ${amount.toLocaleString('en-KE', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
-};
 
 const formatSafeDate = (dateStr: string | null | undefined): string => {
   try {

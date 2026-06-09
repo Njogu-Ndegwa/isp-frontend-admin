@@ -10,3 +10,13 @@ export function formatKES(amount: number | null | undefined): string {
     return `KES ${Math.round(value)}`;
   }
 }
+
+/**
+ * Compact formatter for chart axes/tooltips: KES 1.5M / KES 25K / KES 850.
+ */
+export function formatKESCompact(amount: number | null | undefined): string {
+  const value = typeof amount === 'number' && Number.isFinite(amount) ? amount : 0;
+  if (Math.abs(value) >= 1_000_000) return `KES ${(value / 1_000_000).toFixed(1)}M`;
+  if (Math.abs(value) >= 1_000) return `KES ${(value / 1_000).toFixed(0)}K`;
+  return `KES ${value.toLocaleString('en-KE')}`;
+}

@@ -1,5 +1,20 @@
 import { describe, it, expect } from 'vitest';
-import { formatKES } from '../format';
+import { formatKES, formatKESCompact } from '../format';
+
+describe('formatKESCompact', () => {
+  it('abbreviates millions', () => {
+    expect(formatKESCompact(1_500_000)).toBe('KES 1.5M');
+  });
+  it('abbreviates thousands', () => {
+    expect(formatKESCompact(25_000)).toBe('KES 25K');
+  });
+  it('leaves small amounts unabbreviated', () => {
+    expect(formatKESCompact(850)).toBe('KES 850');
+  });
+  it('falls back for null/undefined', () => {
+    expect(formatKESCompact(null)).toBe('KES 0');
+  });
+});
 
 describe('formatKES', () => {
   it('formats whole amounts with grouping and no decimals', () => {

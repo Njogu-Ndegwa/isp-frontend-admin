@@ -1,14 +1,12 @@
 'use client';
 
 import { SubscriptionInvoice } from '../lib/types';
+import { formatKES } from '../lib/format';
 
 interface InvoiceChargeBreakdownProps {
   invoice: SubscriptionInvoice;
 }
 
-const formatKES = (amount: number): string => {
-  return `KES ${amount.toLocaleString('en-KE', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
-};
 
 export default function InvoiceChargeBreakdown({ invoice }: InvoiceChargeBreakdownProps) {
   return (

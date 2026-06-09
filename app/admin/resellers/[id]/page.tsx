@@ -27,6 +27,7 @@ import { SkeletonCard } from '../../../components/LoadingSpinner';
 import Pagination from '../../../components/Pagination';
 import BackupVpnControls from '../../../components/BackupVpnControls';
 import InsuranceTunnelBadge from '../../../components/InsuranceTunnelBadge';
+import { formatKES } from '../../../lib/format';
 
 const formatSafeDate = (dateStr: string | null | undefined): string => {
   try {
@@ -50,9 +51,6 @@ const formatShortDate = (dateStr: string | null | undefined): string => {
   }
 };
 
-const formatKES = (amount: number | undefined | null): string => {
-  return `KES ${(amount ?? 0).toLocaleString('en-KE', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
-};
 
 type Tab = 'payments' | 'routers' | 'payouts' | 'charges';
 
