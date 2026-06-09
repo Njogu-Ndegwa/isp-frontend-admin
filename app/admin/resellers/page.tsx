@@ -14,8 +14,15 @@ import DataTable, { DataTableColumn } from '../../components/DataTable';
 import MobileDataCard from '../../components/MobileDataCard';
 import StatCard from '../../components/StatCard';
 import { PageLoader } from '../../components/LoadingSpinner';
-import ResellerCharts from '../../components/ResellerCharts';
+import dynamic from 'next/dynamic';
 import { formatKES } from '../../lib/format';
+
+// Recharts-based component is loaded dynamically (client-only) so recharts
+// stays out of this route's First Load JS bundle.
+const ResellerCharts = dynamic(() => import('../../components/ResellerCharts'), {
+  ssr: false,
+  loading: () => <div className="card h-64 animate-pulse" />,
+});
 
 const formatSafeDate = (dateStr: string | null | undefined): string => {
   try {
