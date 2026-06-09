@@ -1,4 +1,4 @@
-export const WIDTHS = [375, 768, 834, 1024, 1280];
+export const WIDTHS = [320, 375, 768, 834, 1024, 1280];
 
 // Reachable as the reseller demo user (role: 'reseller')
 export const RESELLER_PAGES = [
