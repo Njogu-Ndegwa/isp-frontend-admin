@@ -1010,6 +1010,9 @@ export interface InsuranceTunnelBatchItem {
   router_name: string;
   current_ip: string;
   backup_ip: string | null;
+  owner_user_id?: number | null;
+  owner_role?: 'admin' | 'reseller' | string | null;
+  owner_subscription_status?: 'active' | 'trial' | 'inactive' | 'suspended' | string | null;
   token_vpn_type?: 'wireguard' | 'l2tp' | null;
   planned_tunnel_type?: 'wireguard' | 'l2tp' | 'auto';
   tunnel_type?: 'wireguard' | 'l2tp';
@@ -1024,6 +1027,16 @@ export interface InsuranceTunnelBatchItem {
 export interface InsuranceTunnelBatchPreview {
   success: boolean;
   applied: false;
+  options?: {
+    router_ids?: number[] | null;
+    limit?: number | null;
+    tunnel_type?: 'wireguard' | 'l2tp' | 'auto' | null;
+    default_start_limit?: number;
+    max_limit?: number;
+    max_concurrency?: number;
+    skips_recently_offline?: boolean;
+    eligible_owner_subscription_statuses?: string[];
+  };
   total: number;
   eligible: number;
   skipped: number;
@@ -1041,7 +1054,18 @@ export interface InsuranceTunnelBatchJob {
   updated_at: string;
   total: number;
   summary: Record<string, number>;
-  options: Record<string, unknown>;
+  options: {
+    router_ids?: number[] | null;
+    limit?: number | null;
+    tunnel_type?: 'wireguard' | 'l2tp' | 'auto' | null;
+    max_concurrency?: number;
+    default_start_limit?: number;
+    max_limit?: number;
+    force_rotate?: boolean;
+    skips_recently_offline?: boolean;
+    eligible_owner_subscription_statuses?: string[];
+    [key: string]: unknown;
+  };
   items: InsuranceTunnelBatchItem[];
   error?: string;
 }

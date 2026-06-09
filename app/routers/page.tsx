@@ -57,6 +57,8 @@ const ROUTER_COLUMNS: DataTableColumn[] = [
   { key: 'actions', label: '' },
 ];
 
+type InsuranceBatchTunnelFilter = 'all' | 'wireguard' | 'l2tp' | 'auto';
+
 export default function RoutersPage() {
   const { isAuthenticated, user } = useAuth();
   const [showAddRouter, setShowAddRouter] = useState(false);
@@ -391,6 +393,26 @@ function RoutersTab({
   const [batchPreview, setBatchPreview] = useState<InsuranceTunnelBatchPreview | null>(null);
   const [batchJob, setBatchJob] = useState<InsuranceTunnelBatchJob | null>(null);
   const [batchLoading, setBatchLoading] = useState<'preview' | 'start' | 'refresh' | null>(null);
+  const [batchLimit, setBatchLimit] = useState('5');
+  const [batchConcurrency, setBatchConcurrency] = useState('1');
+  const [batchTunnelType, setBatchTunnelType] = useState<InsuranceBatchTunnelFilter>('all');
+  const [batchConfirmed, setBatchConfirmed] = useState(false);
+
+  const batchLimitValue = Math.min(
+    Math.max(Number.parseInt(batchLimit, 10) || 5, 1),
+    batchPreview?.options?.max_limit ?? 50
+  );
+  const batchConcurrencyValue = Math.min(
+    Math.max(Number.parseInt(batchConcurrency, 10) || 1, 1),
+    batchPreview?.options?.max_concurrency ?? 3
+  );
+  const previewTunnelType = batchPreview?.options?.tunnel_type ?? 'all';
+  const batchPreviewMatchesControls = Boolean(
+    batchPreview &&
+    batchPreview.options?.limit === batchLimitValue &&
+    previewTunnelType === batchTunnelType
+  );
+  const batchRunning = batchJob ? ['queued', 'running'].includes(batchJob.status) : false;
 
   const handleToggleEmergency = async (router: Router, message?: string) => {
     try {
@@ -449,7 +471,11 @@ function RoutersTab({
   const loadBatchPreview = async () => {
     try {
       setBatchLoading('preview');
-      const result = await api.previewInsuranceTunnelBatch();
+      setBatchConfirmed(false);
+      const result = await api.previewInsuranceTunnelBatch({
+        limit: batchLimitValue,
+        tunnelType: batchTunnelType,
+      });
       setBatchPreview(result);
       showAlert('success', `Preview ready: ${result.eligible} eligible, ${result.skipped} skipped`);
     } catch (err) {
@@ -461,9 +487,26 @@ function RoutersTab({
 
   const startBatch = async () => {
     try {
+      if (!batchPreviewMatchesControls) {
+        showAlert('error', 'Preview the current batch settings before starting');
+        return;
+      }
+      if (!batchConfirmed) {
+        showAlert('error', 'Confirm the reviewed preview before starting');
+        return;
+      }
+      if (!batchPreview?.eligible) {
+        showAlert('error', 'No eligible routers in this preview');
+        return;
+      }
       setBatchLoading('start');
-      const result = await api.startInsuranceTunnelBatch(2);
+      const result = await api.startInsuranceTunnelBatch({
+        limit: batchLimitValue,
+        maxConcurrency: batchConcurrencyValue,
+        tunnelType: batchTunnelType,
+      });
       setBatchJob(result);
+      setBatchConfirmed(false);
       showAlert('success', `Insurance tunnel batch started for ${result.total} routers`);
     } catch (err) {
       showAlert('error', err instanceof Error ? err.message : 'Failed to start insurance tunnel batch');
@@ -510,6 +553,19 @@ function RoutersTab({
   }
 
   const batchSummary = batchJob?.summary;
+  const batchItems = batchJob?.items?.length ? batchJob.items : batchPreview?.items ?? [];
+  const batchProcessed = batchJob
+    ? Math.min(
+        batchJob.total,
+        (batchSummary?.verified ?? 0) +
+          (batchSummary?.partial ?? 0) +
+          (batchSummary?.failed ?? 0) +
+          (batchSummary?.skipped ?? 0)
+      )
+    : 0;
+  const batchRemaining = batchJob
+    ? Math.max(batchJob.total - batchProcessed, 0)
+    : batchPreview?.eligible ?? 0;
 
   const renderActions = (router: Router) => (
     <div className="flex items-center gap-1 flex-wrap justify-end">
@@ -691,7 +747,7 @@ function RoutersTab({
                 )}
               </div>
               <p className="text-xs text-foreground-muted mt-1">
-                Preview first, then run a throttled background job for all eligible routers.
+                Preview first, then run a throttled background job for eligible active or trial routers.
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
@@ -706,7 +762,13 @@ function RoutersTab({
               <button
                 type="button"
                 onClick={startBatch}
-                disabled={batchLoading !== null || (batchJob ? ['queued', 'running'].includes(batchJob.status) : false)}
+                disabled={
+                  batchLoading !== null ||
+                  batchRunning ||
+                  !batchPreviewMatchesControls ||
+                  !batchConfirmed ||
+                  !batchPreview?.eligible
+                }
                 className="btn-primary text-sm disabled:opacity-50"
               >
                 {batchLoading === 'start' ? 'Starting...' : 'Start Batch'}
@@ -722,10 +784,76 @@ function RoutersTab({
             </div>
           </div>
 
+          <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-4">
+            <label className="block">
+              <span className="text-xs font-medium text-foreground-muted">Limit</span>
+              <input
+                type="number"
+                min={1}
+                max={batchPreview?.options?.max_limit ?? 50}
+                value={batchLimit}
+                onChange={(event) => {
+                  setBatchLimit(event.target.value);
+                  setBatchConfirmed(false);
+                }}
+                className="mt-1 h-9 w-full rounded-lg border border-border bg-background-tertiary px-3 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-amber-500"
+              />
+            </label>
+            <label className="block">
+              <span className="text-xs font-medium text-foreground-muted">Concurrency</span>
+              <select
+                value={batchConcurrency}
+                onChange={(event) => {
+                  setBatchConcurrency(event.target.value);
+                  setBatchConfirmed(false);
+                }}
+                className="mt-1 h-9 w-full rounded-lg border border-border bg-background-tertiary px-3 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-amber-500"
+              >
+                <option value="1">1 at a time</option>
+                <option value="2">2 at a time</option>
+                <option value="3">3 at a time</option>
+              </select>
+            </label>
+            <label className="block">
+              <span className="text-xs font-medium text-foreground-muted">Tunnel</span>
+              <select
+                value={batchTunnelType}
+                onChange={(event) => {
+                  setBatchTunnelType(event.target.value as InsuranceBatchTunnelFilter);
+                  setBatchConfirmed(false);
+                }}
+                className="mt-1 h-9 w-full rounded-lg border border-border bg-background-tertiary px-3 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-amber-500"
+              >
+                <option value="all">All eligible</option>
+                <option value="wireguard">WireGuard only</option>
+                <option value="l2tp">L2TP only</option>
+                <option value="auto">Auto only</option>
+              </select>
+            </label>
+            <label className="flex min-h-[58px] items-center gap-2 rounded-lg border border-border bg-background-tertiary/40 px-3 py-2">
+              <input
+                type="checkbox"
+                checked={batchConfirmed}
+                disabled={!batchPreviewMatchesControls || !batchPreview?.eligible || batchRunning}
+                onChange={(event) => setBatchConfirmed(event.target.checked)}
+                className="h-4 w-4 rounded border-border"
+              />
+              <span className="text-xs text-foreground-muted">
+                Reviewed preview
+              </span>
+            </label>
+          </div>
+
+          <p className="mt-2 text-xs text-foreground-muted">
+            Suspended, inactive, missing-owner, and recently-offline routers are skipped before router access.
+          </p>
+
           {(batchPreview || batchJob) && (
-            <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-2">
+            <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2">
               <BatchMetric label="Total" value={batchJob?.total ?? batchPreview?.total ?? 0} />
               <BatchMetric label="Eligible" value={batchPreview?.eligible ?? 0} />
+              <BatchMetric label="Processed" value={batchProcessed} tone="success" />
+              <BatchMetric label="Remaining" value={batchRemaining} />
               <BatchMetric label="Verified" value={batchSummary?.verified ?? 0} tone="success" />
               <BatchMetric label="Partial" value={batchSummary?.partial ?? 0} tone="warning" />
               <BatchMetric label="Failed" value={batchSummary?.failed ?? 0} tone="danger" />
@@ -740,13 +868,17 @@ function RoutersTab({
             </p>
           )}
 
-          {batchJob?.items?.length ? (
+          {batchItems.length ? (
             <div className="mt-3 max-h-48 overflow-y-auto rounded-lg border border-border">
-              {batchJob.items.slice(0, 25).map((item) => (
+              {batchItems.slice(0, 25).map((item) => (
                 <div key={item.router_id} className="flex items-center justify-between gap-3 border-b border-border last:border-b-0 px-3 py-2 text-xs">
                   <div className="min-w-0">
                     <p className="truncate font-medium text-foreground">{item.router_name}</p>
-                    <p className="text-foreground-muted">{item.current_ip} {'->'} {item.backup_ip || '-'}</p>
+                    <p className="text-foreground-muted">
+                      {item.current_ip} {'->'} {item.backup_ip || '-'}
+                      {item.owner_subscription_status ? ` - ${item.owner_subscription_status}` : ''}
+                    </p>
+                    {item.error ? <p className="truncate text-amber-500">{item.error}</p> : null}
                   </div>
                   <div className="flex items-center gap-2">
                     <InsuranceTunnelBadge type={item.tunnel_type ?? item.planned_tunnel_type} />

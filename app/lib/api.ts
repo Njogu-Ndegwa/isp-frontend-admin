@@ -860,22 +860,42 @@ class ApiClient {
     return this.handleResponse<InsuranceWireGuardConfigureResponse>(response);
   }
 
-  async previewInsuranceTunnelBatch(): Promise<InsuranceTunnelBatchPreview> {
+  async previewInsuranceTunnelBatch(options?: {
+    routerIds?: number[];
+    limit?: number | null;
+    tunnelType?: 'all' | 'wireguard' | 'l2tp' | 'auto';
+  }): Promise<InsuranceTunnelBatchPreview> {
     if (this.isDemoMode()) this.demoBlock();
+    const body: Record<string, unknown> = { apply: false };
+    if (options?.routerIds?.length) body.router_ids = options.routerIds;
+    if (options?.limit) body.limit = options.limit;
+    if (options?.tunnelType && options.tunnelType !== 'all') body.tunnel_type = options.tunnelType;
     const response = await fetch(`${BASE_URL}/admin/insurance-tunnels/batch`, {
       method: 'POST',
       headers: this.getHeaders(),
-      body: JSON.stringify({ apply: false }),
+      body: JSON.stringify(body),
     });
     return this.handleResponse<InsuranceTunnelBatchPreview>(response);
   }
 
-  async startInsuranceTunnelBatch(maxConcurrency = 2): Promise<InsuranceTunnelBatchJob> {
+  async startInsuranceTunnelBatch(options?: {
+    routerIds?: number[];
+    limit?: number | null;
+    maxConcurrency?: number;
+    tunnelType?: 'all' | 'wireguard' | 'l2tp' | 'auto';
+  }): Promise<InsuranceTunnelBatchJob> {
     if (this.isDemoMode()) this.demoBlock();
+    const body: Record<string, unknown> = {
+      apply: true,
+      max_concurrency: options?.maxConcurrency ?? 1,
+    };
+    if (options?.routerIds?.length) body.router_ids = options.routerIds;
+    if (options?.limit) body.limit = options.limit;
+    if (options?.tunnelType && options.tunnelType !== 'all') body.tunnel_type = options.tunnelType;
     const response = await fetch(`${BASE_URL}/admin/insurance-tunnels/batch`, {
       method: 'POST',
       headers: this.getHeaders(),
-      body: JSON.stringify({ apply: true, max_concurrency: maxConcurrency }),
+      body: JSON.stringify(body),
     });
     return this.handleResponse<InsuranceTunnelBatchJob>(response);
   }

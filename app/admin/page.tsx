@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import Link from 'next/link';
-import { api } from '../lib/api';
+import { API_ORIGIN, api } from '../lib/api';
 import {
   AdminDashboard,
   AdminExpiringSoon,
@@ -345,10 +345,9 @@ export default function AdminDashboardPage() {
     setC2bPlatformLoading(true);
     setC2bResponse(null);
     try {
-      const baseUrl = 'https://isp.bitwavetechnologies.net';
       const result = await api.registerPlatformPaybill({
-        confirmation_url: `${baseUrl}/api/c2b/confirmation`,
-        validation_url: `${baseUrl}/api/c2b/validation`,
+        confirmation_url: `${API_ORIGIN}/api/c2b/confirmation`,
+        validation_url: `${API_ORIGIN}/api/c2b/validation`,
         response_type: 'Completed',
       });
       setC2bResponse(result as unknown as Record<string, unknown>);
