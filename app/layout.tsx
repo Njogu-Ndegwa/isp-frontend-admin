@@ -45,7 +45,7 @@ export default function RootLayout({
       <head>
         <Script
           src="https://t.contentsquare.net/uxa/b7ccccb30429d.js"
-          strategy="beforeInteractive"
+          strategy="lazyOnload"
         />
       </head>
       <body

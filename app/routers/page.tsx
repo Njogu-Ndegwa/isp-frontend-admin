@@ -849,7 +849,7 @@ function RoutersTab({
           </p>
 
           {(batchPreview || batchJob) && (
-            <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2">
+            <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-8 gap-2">
               <BatchMetric label="Total" value={batchJob?.total ?? batchPreview?.total ?? 0} />
               <BatchMetric label="Eligible" value={batchPreview?.eligible ?? 0} />
               <BatchMetric label="Processed" value={batchProcessed} tone="success" />
