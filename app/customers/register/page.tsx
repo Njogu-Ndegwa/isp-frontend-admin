@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { api } from '../../lib/api';
+import { copyText } from '../../lib/clipboard';
 import { Plan, Router, RegisterCustomerRequest, PPPoECredentials, Customer } from '../../lib/types';
 import { useAlert } from '../../context/AlertContext';
 import Header from '../../components/Header';
@@ -94,9 +95,9 @@ export default function RegisterCustomerPage() {
     }
   };
 
-  const copyToClipboard = (text: string, label: string) => {
-    navigator.clipboard.writeText(text);
-    showAlert('success', `${label} copied to clipboard`);
+  const copyToClipboard = async (text: string, label: string) => {
+    const ok = await copyText(text);
+    showAlert(ok ? 'success' : 'error', ok ? `${label} copied to clipboard` : 'Copy failed — select and copy manually');
   };
 
   if (loading) return <PageLoader />;

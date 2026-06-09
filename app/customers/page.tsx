@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { api } from '../lib/api';
+import { copyText } from '../lib/clipboard';
 import {
   Customer,
   PPPoECredentials,
@@ -575,9 +576,9 @@ export default function CustomersPage() {
     }
   }, [deleteConfirm, showAlert]);
 
-  const copyToClipboard = (text: string, label: string) => {
-    navigator.clipboard.writeText(text);
-    showAlert('success', `${label} copied`);
+  const copyToClipboard = async (text: string, label: string) => {
+    const ok = await copyText(text);
+    showAlert(ok ? 'success' : 'error', ok ? `${label} copied` : 'Copy failed — select and copy manually');
   };
 
   if (error) {

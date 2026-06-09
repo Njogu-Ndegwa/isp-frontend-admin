@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { api } from '../lib/api';
+import { copyText } from '../lib/clipboard';
 import {
   AccessCredential,
   AccessCredFilterStatus,
@@ -209,9 +210,9 @@ export default function AccessCredentialsPage() {
     }
   }, [deleteConfirm, showAlert, refresh]);
 
-  const copyToClipboard = (text: string, label: string) => {
-    navigator.clipboard.writeText(text);
-    showAlert('success', `${label} copied`);
+  const copyToClipboard = async (text: string, label: string) => {
+    const ok = await copyText(text);
+    showAlert(ok ? 'success' : 'error', ok ? `${label} copied` : 'Copy failed — select and copy manually');
   };
 
   const getRouterName = (id: number) => routers.find((r) => r.id === id)?.name || `#${id}`;
