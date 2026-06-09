@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useAuth } from '../context/AuthContext';
+import { formatKES } from '../lib/format';
 
 /* ------------------------------------------------------------------ */
 /*  Scroll-reveal                                                      */
@@ -146,7 +147,6 @@ function PricingCalculator() {
   const total = Math.max(rawTotal, MIN_SUBSCRIPTION);
   const minimumApplied = rawTotal < MIN_SUBSCRIPTION;
 
-  const formatKES = (n: number) => `KES ${n.toLocaleString()}`;
 
   const tabs: { key: ServiceType; label: string; desc: string }[] = [
     { key: 'hotspot', label: 'Hotspot', desc: '3% of revenue' },

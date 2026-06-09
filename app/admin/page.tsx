@@ -29,11 +29,31 @@ import DataTable from '../components/DataTable';
 import MobileDataCard from '../components/MobileDataCard';
 import { SkeletonCard } from '../components/LoadingSpinner';
 import DbPoolMonitor from '../components/DbPoolMonitor';
-import DailyTransactionsChart from '../components/DailyTransactionsChart';
-import {
-  AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid,
-  Tooltip, ResponsiveContainer, ComposedChart, Line,
-} from 'recharts';
+import dynamic from 'next/dynamic';
+import { formatKES } from '../lib/format';
+
+// Recharts-based components are loaded dynamically (client-only) so recharts
+// stays out of this route's First Load JS bundle.
+const DailyTransactionsChart = dynamic(() => import('../components/DailyTransactionsChart'), {
+  ssr: false,
+  loading: () => <SkeletonCard />,
+});
+const MpesaRevenueChart = dynamic(() => import('./AdminCharts').then(m => m.MpesaRevenueChart), {
+  ssr: false,
+  loading: () => <SkeletonCard />,
+});
+const SubscriptionRevenueChart = dynamic(() => import('./AdminCharts').then(m => m.SubscriptionRevenueChart), {
+  ssr: false,
+  loading: () => <SkeletonCard />,
+});
+const ResellerSignupsChart = dynamic(() => import('./AdminCharts').then(m => m.ResellerSignupsChart), {
+  ssr: false,
+  loading: () => <SkeletonCard />,
+});
+const CustomerSignupsChart = dynamic(() => import('./AdminCharts').then(m => m.CustomerSignupsChart), {
+  ssr: false,
+  loading: () => <SkeletonCard />,
+});
 
 type PeriodFilter = '7d' | '30d' | '90d' | '1y';
 
@@ -55,16 +75,6 @@ const formatSafeDate = (dateStr: string | null | undefined): string => {
   }
 };
 
-const formatKES = (amount: number | undefined | null): string => {
-  if (amount == null) return 'KES 0';
-  return `KES ${amount.toLocaleString('en-KE', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
-};
-
-const formatCompact = (amount: number): string => {
-  if (amount >= 1_000_000) return `${(amount / 1_000_000).toFixed(1)}M`;
-  if (amount >= 1_000) return `${(amount / 1_000).toFixed(1)}K`;
-  return amount.toString();
-};
 
 const formatPercentChange = (value: number | undefined | null): string => {
   const safeValue = value ?? 0;
@@ -304,31 +314,6 @@ function RevenueConcentrationSection({ data }: { data: AdminRevenueConcentration
     </div>
   );
 }
-
-const chartTooltipStyle = {
-  contentStyle: {
-    backgroundColor: 'var(--color-background-secondary)',
-    border: '1px solid var(--color-border)',
-    borderRadius: '12px',
-    fontSize: '11px',
-    padding: '8px 12px',
-  },
-  labelStyle: { color: 'var(--color-foreground-muted)', fontSize: '10px', marginBottom: '4px' },
-};
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const revenueFormatter = (value: any) => [formatKES(Number(value) || 0), 'Revenue'];
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const subscriptionRevenueFormatter = (value: any, name: any) => {
-  const labels: Record<string, string> = {
-    revenue: 'Collected',
-    cumulativeRevenue: 'Total collected',
-    prevCumulativeRevenue: 'Previous total',
-  };
-  return [formatKES(Number(value) || 0), labels[String(name)] ?? String(name)];
-};
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const signupsFormatter = (value: any) => [value ?? 0, 'Signups'];
 
 // ---------- Main Component ----------
 
@@ -739,21 +724,7 @@ export default function AdminDashboardPage() {
               compareEnabled={mpesaCompare}
               onCompareToggle={() => setMpesaCompare(!mpesaCompare)}
             >
-              <ResponsiveContainer width="100%" height={220}>
-                <AreaChart data={mpesaRevenueData}>
-                  <defs>
-                    <linearGradient id="mpesaGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
-                  <XAxis dataKey="name" tick={{ fontSize: 10, fill: 'var(--color-foreground-muted)' }} />
-                  <YAxis tick={{ fontSize: 10, fill: 'var(--color-foreground-muted)' }} tickFormatter={(v) => formatCompact(v)} />
-                  <Tooltip {...chartTooltipStyle} formatter={revenueFormatter} />
-                  <Area type="monotone" dataKey="revenue" stroke="#10b981" fill="url(#mpesaGrad)" strokeWidth={2} />
-                </AreaChart>
-              </ResponsiveContainer>
+              <MpesaRevenueChart data={mpesaRevenueData} />
             </ChartCard>
 
             {/* Subscription Revenue */}
@@ -784,25 +755,7 @@ export default function AdminDashboardPage() {
                   </p>
                 </div>
               </div>
-              <ResponsiveContainer width="100%" height={220}>
-                <ComposedChart data={subRevenueCompareData}>
-                  <defs>
-                    <linearGradient id="subRevGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#6366f1" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
-                  <XAxis dataKey="name" tick={{ fontSize: 10, fill: 'var(--color-foreground-muted)' }} />
-                  <YAxis tick={{ fontSize: 10, fill: 'var(--color-foreground-muted)' }} tickFormatter={(v) => formatCompact(v)} />
-                  <Tooltip {...chartTooltipStyle} formatter={subscriptionRevenueFormatter} />
-                  <Bar dataKey="revenue" fill="#818cf8" opacity={0.35} radius={[3, 3, 0, 0]} />
-                  <Area type="monotone" dataKey="cumulativeRevenue" stroke="#6366f1" fill="url(#subRevGrad)" strokeWidth={2.5} />
-                  {subRevCompare && (
-                    <Line type="monotone" dataKey="prevCumulativeRevenue" stroke="#6366f1" strokeWidth={1.5} strokeDasharray="5 5" dot={false} opacity={0.55} />
-                  )}
-                </ComposedChart>
-              </ResponsiveContainer>
+              <SubscriptionRevenueChart data={subRevenueCompareData} showCompare={subRevCompare} />
             </ChartCard>
 
             {/* Reseller Signups */}
@@ -814,15 +767,7 @@ export default function AdminDashboardPage() {
               compareEnabled={resellerSignupsCompare}
               onCompareToggle={() => setResellerSignupsCompare(!resellerSignupsCompare)}
             >
-              <ResponsiveContainer width="100%" height={220}>
-                <BarChart data={resellerSignupsData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
-                  <XAxis dataKey="name" tick={{ fontSize: 10, fill: 'var(--color-foreground-muted)' }} />
-                  <YAxis tick={{ fontSize: 10, fill: 'var(--color-foreground-muted)' }} allowDecimals={false} />
-                  <Tooltip {...chartTooltipStyle} formatter={signupsFormatter} />
-                  <Bar dataKey="count" fill="#f59e0b" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
+              <ResellerSignupsChart data={resellerSignupsData} />
             </ChartCard>
 
             {/* Customer Signups */}
@@ -835,18 +780,7 @@ export default function AdminDashboardPage() {
               onCompareToggle={() => setCustomerSignupsCompare(!customerSignupsCompare)}
               isEmpty={customerSignupsData.length === 0}
             >
-              <ResponsiveContainer width="100%" height={220}>
-                <BarChart data={customerSignupsCompareData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
-                  <XAxis dataKey="name" tick={{ fontSize: 10, fill: 'var(--color-foreground-muted)' }} />
-                  <YAxis tick={{ fontSize: 10, fill: 'var(--color-foreground-muted)' }} allowDecimals={false} />
-                  <Tooltip {...chartTooltipStyle} formatter={signupsFormatter} />
-                  <Bar dataKey="count" fill="#8b5cf6" radius={[4, 4, 0, 0]} />
-                  {customerSignupsCompare && (
-                    <Bar dataKey="prevCount" fill="#8b5cf6" opacity={0.25} radius={[4, 4, 0, 0]} />
-                  )}
-                </BarChart>
-              </ResponsiveContainer>
+              <CustomerSignupsChart data={customerSignupsCompareData} showCompare={customerSignupsCompare} />
             </ChartCard>
           </div>
 

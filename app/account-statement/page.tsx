@@ -12,6 +12,7 @@ import MobileDataCard from '../components/MobileDataCard';
 import FilterDatePicker from '../components/FilterDatePicker';
 import Pagination from '../components/Pagination';
 import { SkeletonCard } from '../components/LoadingSpinner';
+import { formatKES } from '../lib/format';
 
 const formatSafeDate = (dateStr: string | null | undefined): string => {
   try {
@@ -24,9 +25,6 @@ const formatSafeDate = (dateStr: string | null | undefined): string => {
   }
 };
 
-const formatKES = (amount: number | undefined | null): string => {
-  return `KES ${(amount ?? 0).toLocaleString('en-KE', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
-};
 
 export default function AccountStatementPage() {
   const { user } = useAuth();
@@ -64,8 +62,12 @@ export default function AccountStatementPage() {
   }, [startDate, endDate, perPage]);
 
   useEffect(() => {
-    fetchStatement();
-  }, [fetchStatement]);
+    fetchStatement(1, undefined, perPage);
+    // Refetch only on mount and page-size change; date filters fetch
+    // explicitly via Apply/Clear. fetchStatement identity is intentionally
+    // excluded so editing a date input doesn't trigger a fetch per change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [perPage]);
 
   const handleApplyFilter = () => {
     fetchStatement(1, { start_date: startDate, end_date: endDate });

@@ -9,9 +9,18 @@ import LeadsSubNav from '../../../components/LeadsSubNav';
 import { getStageMeta } from '../../../components/LeadStageBadge';
 import { api } from '../../../lib/api';
 import type { LeadPipelineStats, FollowUpsResponse, LeadStage } from '../../../lib/types';
-import {
-  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell,
-} from 'recharts';
+import dynamic from 'next/dynamic';
+
+// Recharts-based components are loaded dynamically (client-only) so recharts
+// stays out of this route's First Load JS bundle.
+const LeadFunnelChart = dynamic(() => import('./AnalyticsCharts').then(m => m.LeadFunnelChart), {
+  ssr: false,
+  loading: () => <div className="h-full w-full animate-pulse rounded-xl bg-background-tertiary" />,
+});
+const AvgDaysInStageChart = dynamic(() => import('./AnalyticsCharts').then(m => m.AvgDaysInStageChart), {
+  ssr: false,
+  loading: () => <div className="h-full w-full animate-pulse rounded-xl bg-background-tertiary" />,
+});
 
 const FUNNEL_COLORS = ['#3b82f6', '#8b5cf6', '#eab308', '#f97316', '#06b6d4', '#22c55e'];
 
@@ -188,23 +197,7 @@ export default function LeadAnalyticsPage() {
       <div className="card p-4">
         <h3 className="text-sm font-semibold mb-3">Conversion Funnel</h3>
         <div className="h-[250px]">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={funnelData} layout="vertical" margin={{ left: 20, right: 20 }}>
-              <XAxis type="number" tick={{ fill: 'var(--foreground-muted)', fontSize: 12 }} />
-              <YAxis dataKey="name" type="category" tick={{ fill: 'var(--foreground-muted)', fontSize: 11 }} width={100} />
-              <Tooltip
-                contentStyle={{ background: 'var(--background-secondary)', border: '1px solid var(--border)', borderRadius: 12 }}
-                labelStyle={{ color: 'var(--foreground)' }}
-                itemStyle={{ color: 'var(--foreground-muted)' }}
-                formatter={(value: number | undefined) => [value ?? 0, 'Reached']}
-              />
-              <Bar dataKey="reached" radius={[0, 6, 6, 0]}>
-                {funnelData.map((entry, i) => (
-                  <Cell key={i} fill={entry.fill} />
-                ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
+          <LeadFunnelChart data={funnelData} />
         </div>
         <div className="mt-3 space-y-1">
           {stats.funnel.filter(s => s.drop_off_percent > 0).map(step => (
@@ -255,18 +248,7 @@ export default function LeadAnalyticsPage() {
       <div className="card p-4">
         <h3 className="text-sm font-semibold mb-3">Average Days in Stage</h3>
         <div className="h-[200px]">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={avgDaysData} margin={{ left: 10, right: 10 }}>
-              <XAxis dataKey="name" tick={{ fill: 'var(--foreground-muted)', fontSize: 11 }} />
-              <YAxis tick={{ fill: 'var(--foreground-muted)', fontSize: 12 }} />
-              <Tooltip
-                contentStyle={{ background: 'var(--background-secondary)', border: '1px solid var(--border)', borderRadius: 12 }}
-                labelStyle={{ color: 'var(--foreground)' }}
-                formatter={(value: number | undefined) => [`${value ?? 0} days`, 'Avg']}
-              />
-              <Bar dataKey="days" fill="var(--accent-primary)" radius={[6, 6, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
+          <AvgDaysInStageChart data={avgDaysData} />
         </div>
       </div>
 

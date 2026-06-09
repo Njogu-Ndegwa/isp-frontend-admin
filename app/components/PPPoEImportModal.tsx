@@ -426,7 +426,7 @@ export default function PPPoEImportModal({ onClose, onImported }: PPPoEImportMod
 function ReportStats({ report }: { report: NonNullable<PPPoECustomerImportResponse['report']> }) {
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
         {([
           ['Rows', report.total_rows],
           ['Create', report.created],

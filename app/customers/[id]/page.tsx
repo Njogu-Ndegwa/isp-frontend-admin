@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { api } from '../../lib/api';
+import { copyText } from '../../lib/clipboard';
 import { Customer, Plan, Router as RouterType, UpdateCustomerRequest, CustomerUsageResponse } from '../../lib/types';
 import { useAlert } from '../../context/AlertContext';
 import Header from '../../components/Header';
@@ -181,7 +182,10 @@ export default function EditCustomerPage() {
                     <span className="font-mono text-sm text-foreground">{customer.account_number}</span>
                     <button
                       type="button"
-                      onClick={() => { navigator.clipboard.writeText(customer.account_number!); showAlert('success', 'Account number copied'); }}
+                      onClick={async () => {
+                        const ok = await copyText(customer.account_number!);
+                        showAlert(ok ? 'success' : 'error', ok ? 'Account number copied' : 'Copy failed — select and copy manually');
+                      }}
                       className="p-1.5 rounded-md hover:bg-background-secondary transition-colors text-foreground-muted hover:text-foreground"
                     >
                       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>

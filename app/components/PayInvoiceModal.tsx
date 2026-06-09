@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { api } from '../lib/api';
 import { SubscriptionInvoice } from '../lib/types';
 import { useAuth } from '../context/AuthContext';
+import { formatKES } from '../lib/format';
 
 interface PayInvoiceModalProps {
   isOpen: boolean;
@@ -14,9 +15,6 @@ interface PayInvoiceModalProps {
 
 type PayStep = 'form' | 'waiting' | 'success' | 'timeout';
 
-const formatKES = (amount: number): string => {
-  return `KES ${amount.toLocaleString('en-KE', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
-};
 
 export default function PayInvoiceModal({ isOpen, onClose, invoice, onPaymentComplete }: PayInvoiceModalProps) {
   const { user } = useAuth();

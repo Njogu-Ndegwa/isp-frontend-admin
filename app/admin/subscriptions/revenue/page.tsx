@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
+import dynamic from 'next/dynamic';
 import { api } from '../../../lib/api';
 import { AdminSubscriptionRevenue } from '../../../lib/types';
 import { useAuth } from '../../../context/AuthContext';
@@ -9,12 +9,14 @@ import Header from '../../../components/Header';
 import StatCard from '../../../components/StatCard';
 import ConfirmDialog from '../../../components/ConfirmDialog';
 import { SkeletonCard } from '../../../components/LoadingSpinner';
+import { formatKES } from '../../../lib/format';
 
-const formatKES = (amount: number): string => {
-  return `KES ${amount.toLocaleString('en-KE', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
-};
-
-const PIE_COLORS = ['#22c55e', '#3b82f6', '#ef4444'];
+// Recharts-based pie chart is loaded dynamically (client-only) so recharts
+// stays out of this route's First Load JS bundle.
+const RevenuePie = dynamic(() => import('./RevenuePie'), {
+  ssr: false,
+  loading: () => <div className="h-full w-full animate-pulse rounded-full bg-background-tertiary" />,
+});
 
 export default function SubscriptionRevenuePage() {
   const { user } = useAuth();
@@ -170,27 +172,7 @@ export default function SubscriptionRevenuePage() {
             <div className="flex flex-col sm:flex-row items-center gap-6">
               {pieData.length > 0 && (
                 <div className="w-40 h-40">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={pieData}
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={40}
-                        outerRadius={70}
-                        paddingAngle={3}
-                        dataKey="value"
-                      >
-                        {pieData.map((_, index) => (
-                          <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
-                        ))}
-                      </Pie>
-                      <Tooltip
-                        contentStyle={{ backgroundColor: 'var(--color-background-secondary)', border: '1px solid var(--color-border)', borderRadius: '12px' }}
-                        labelStyle={{ color: 'var(--color-foreground)' }}
-                      />
-                    </PieChart>
-                  </ResponsiveContainer>
+                  <RevenuePie data={pieData} />
                 </div>
               )}
               <div className="flex-1 space-y-3">

@@ -2,27 +2,28 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { api } from '../lib/api';
-import { DashboardAnalytics, DayDetail, MikroTikMetrics, MikroTikInterface, BandwidthHistory, BandwidthDataPoint, TopUsersResponse, SubscriptionAlert, ResellerTopUsageEntry, SubscriptionOverview } from '../lib/types';
+import { DashboardAnalytics, DayDetail, MikroTikMetrics, MikroTikInterface, BandwidthHistory, TopUsersResponse, SubscriptionAlert, ResellerTopUsageEntry, SubscriptionOverview } from '../lib/types';
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
 import { useAuth } from '../context/AuthContext';
 import { parseUTCToGMT3, formatGMT3Date, formatTimeGMT3, formatDateOnlyGMT3 } from '../lib/dateUtils';
-import {
-  AreaChart,
-  Area,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  Legend,
-} from 'recharts';
 import Header from '../components/Header';
 import StatCard from '../components/StatCard';
 import { SkeletonCard } from '../components/LoadingSpinner';
 import RouterSelector from '../components/RouterSelector';
 import SubscriptionAlertBanner from '../components/SubscriptionAlertBanner';
 import OnboardingChecklist from '../components/OnboardingChecklist';
-import RevenueOverTimeChart from '../components/RevenueOverTimeChart';
+
+// Recharts-based components are loaded dynamically (client-only) so recharts
+// stays out of this route's First Load JS bundle.
+const RevenueOverTimeChart = dynamic(() => import('../components/RevenueOverTimeChart'), {
+  ssr: false,
+  loading: () => <SkeletonCard />,
+});
+const BandwidthChart = dynamic(() => import('./BandwidthChart'), {
+  ssr: false,
+  loading: () => <SkeletonCard />,
+});
 
 // Date filter types
 type DateFilterPreset = 'today' | 'this_month';
@@ -149,7 +150,7 @@ export default function DashboardPage() {
     return false;
   };
 
-  // Fetch analytics (non-blocking) — only when a router is selected
+  // Fetch analytics (non-blocking) â€” only when a router is selected
   const loadAnalytics = useCallback(async () => {
     if (!selectedRouterId) return;
     try {
@@ -181,7 +182,7 @@ export default function DashboardPage() {
     }
   }, [dateFilter, selectedRouterId]);
 
-  // Fetch MikroTik metrics (non-blocking) — only when a router is selected
+  // Fetch MikroTik metrics (non-blocking) â€” only when a router is selected
   const loadMikrotik = useCallback(async () => {
     if (!selectedRouterId) return;
     try {
@@ -196,7 +197,7 @@ export default function DashboardPage() {
     }
   }, [selectedRouterId]);
 
-  // Fetch bandwidth history (non-blocking) — only when a router is selected
+  // Fetch bandwidth history (non-blocking) â€” only when a router is selected
   const loadBandwidth = useCallback(async () => {
     if (!selectedRouterId) return;
     try {
@@ -211,7 +212,7 @@ export default function DashboardPage() {
     }
   }, [selectedRouterId]);
 
-  // Fetch top users (non-blocking) — only when a router is selected
+  // Fetch top users (non-blocking) â€” only when a router is selected
   const loadTopUsers = useCallback(async () => {
     if (!selectedRouterId) return;
     try {
@@ -886,7 +887,7 @@ function MikroTikSection({
   const storage = data.storage ?? { usedPercent: 0, usedBytes: 0, totalBytes: 0 };
   const system = data.system ?? { boardName: 'Unknown', platform: 'Unknown', version: '0', uptime: 'N/A' };
   const interfaces = data.interfaces ?? [];
-  // Hotspot count comes from a snapshot (a few minutes old — see snapshotAgeSeconds);
+  // Hotspot count comes from a snapshot (a few minutes old â€” see snapshotAgeSeconds);
   // PPPoE count is read live; total is backend-computed and guaranteed to equal hotspot + pppoe.
   const activeHotspot = data.activeHotspotUsers ?? data.activeSessionCount ?? 0;
   const activePppoe = data.activePppoeUsers ?? data.activePppoeCount ?? 0;
@@ -985,20 +986,20 @@ function MikroTikSection({
             <UsersIcon className="w-5 h-5 sm:w-6 sm:h-6 text-amber-500" />
           </div>
           <div className="flex items-stretch gap-3 sm:gap-4">
-            <div className="flex flex-col items-center" title={`Hotspot users — ${hotspotAgeLabel}`}>
+            <div className="flex flex-col items-center" title={`Hotspot users â€” ${hotspotAgeLabel}`}>
               <span className="text-xl sm:text-2xl font-bold text-amber-500 stat-value leading-none">{activeHotspot}</span>
               <span className="text-[9px] sm:text-[10px] font-medium text-foreground-muted uppercase tracking-wide mt-1">Hotspot</span>
               <span className="text-[8px] sm:text-[9px] text-foreground-muted/70 mt-0.5">{hotspotAgeLabel}</span>
             </div>
             <div className="w-px bg-amber-500/20" />
-            <div className="flex flex-col items-center" title="PPPoE users — live count">
+            <div className="flex flex-col items-center" title="PPPoE users â€” live count">
               <span className="text-xl sm:text-2xl font-bold text-sky-400 stat-value leading-none">{activePppoe}</span>
               <span className="text-[9px] sm:text-[10px] font-medium text-foreground-muted uppercase tracking-wide mt-1">PPPoE</span>
               <span className="text-[8px] sm:text-[9px] text-emerald-400/80 mt-0.5">live</span>
             </div>
           </div>
           <span className="text-[9px] sm:text-[10px] text-foreground-muted mt-2">
-            {activeTotal} active • online
+            {activeTotal} active â€¢ online
           </span>
         </div>
       </div>
@@ -1120,7 +1121,7 @@ function BandwidthSection({
               {loading && <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />}
             </div>
             <p className="text-[10px] sm:text-xs text-foreground-muted">
-              Last {data.periodHours}h • {data.count} points
+              Last {data.periodHours}h â€¢ {data.count} points
             </p>
           </div>
         </div>
@@ -1128,9 +1129,9 @@ function BandwidthSection({
           <div className="sm:text-right">
             <p className="text-[10px] sm:text-xs text-foreground-muted">Current Avg</p>
             <p className="text-xs sm:text-sm font-semibold">
-              <span className="text-cyan-500">↓{(latestPoint.avgDownloadMbps ?? 0).toFixed(2)}</span>
+              <span className="text-cyan-500">â†“{(latestPoint.avgDownloadMbps ?? 0).toFixed(2)}</span>
               <span className="text-foreground-muted mx-1">/</span>
-              <span className="text-emerald-500">↑{(latestPoint.avgUploadMbps ?? 0).toFixed(2)}</span>
+              <span className="text-emerald-500">â†‘{(latestPoint.avgUploadMbps ?? 0).toFixed(2)}</span>
               <span className="text-foreground-muted text-[10px] sm:text-xs ml-1">Mbps</span>
             </p>
           </div>
@@ -1181,32 +1182,7 @@ function formatLocalDate(dateStr: string, options: Intl.DateTimeFormatOptions): 
   return formatDateOnlyGMT3(dateStr, options);
 }
 
-// Custom Tooltip for Bandwidth Chart
-function BandwidthTooltip({ active, payload, label }: { active?: boolean; payload?: Array<{ value: number; dataKey: string; color: string }>; label?: string }) {
-  if (!active || !payload || payload.length === 0) return null;
-
-  return (
-    <div className="bg-background-secondary border border-border rounded-lg p-3 shadow-xl">
-      <p className="font-medium text-foreground/90 mb-2 text-sm">{label}</p>
-      {payload.map((entry, index) => (
-        <div key={index} className="flex items-center gap-2 text-sm">
-          <span 
-            className="w-2.5 h-2.5 rounded-full" 
-            style={{ backgroundColor: entry.color }}
-          />
-          <span className="text-foreground-muted">
-            {entry.dataKey === 'avgDownloadMbps' ? 'Avg Download' : 'Avg Upload'}:
-          </span>
-          <span className="font-semibold" style={{ color: entry.color }}>
-            {(entry.value ?? 0).toFixed(2)} Mbps
-          </span>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-// Top Users Section Component — full-width table
+// Top Users Section Component â€” full-width table
 function TopUsersSection({
   data,
   loading,
@@ -1296,7 +1272,7 @@ function TopUsersSection({
               {loading && <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />}
             </div>
             <p className="text-[10px] sm:text-xs text-foreground-muted">
-              {data.topUsers.length} users • {data.totalQueues} total queues
+              {data.topUsers.length} users â€¢ {data.totalQueues} total queues
             </p>
           </div>
         </div>
@@ -1337,7 +1313,7 @@ function TopUsersSection({
                 />
               </div>
               <div className="flex items-center justify-between mt-2 text-xs text-foreground-muted">
-                <span>↑ {formatUsage(user.uploadMB)}</span>
+                <span>â†‘ {formatUsage(user.uploadMB)}</span>
                 <span>Total: {formatUsage(user.totalMB)}</span>
                 {isActive && <span className="text-emerald-500">{formatRate(downloadRate)}</span>}
               </div>
@@ -1437,101 +1413,6 @@ function TopUsersIcon({ className = "w-5 h-5" }: { className?: string }) {
   );
 }
 
-// Bandwidth Chart Component using Recharts
-function BandwidthChart({ data }: { data: BandwidthDataPoint[] }) {
-  // Take last 60 points or all if less
-  const displayData = data.slice(-60).map(point => ({
-    ...point,
-    time: formatGMT3Date(parseUTCTimestamp(point.timestamp), { 
-      hour: '2-digit', 
-      minute: '2-digit',
-      hour12: true,
-    }),
-  }));
-  
-  if (displayData.length === 0) return null;
-
-  return (
-    <div className="h-48 sm:h-64 w-full">
-      <ResponsiveContainer width="100%" height="100%">
-        <AreaChart
-          data={displayData}
-          margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
-        >
-          <defs>
-            <linearGradient id="downloadGradient" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="#06b6d4" stopOpacity={0.3} />
-              <stop offset="95%" stopColor="#06b6d4" stopOpacity={0} />
-            </linearGradient>
-            <linearGradient id="uploadGradient" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
-              <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
-            </linearGradient>
-          </defs>
-          
-          <CartesianGrid 
-            strokeDasharray="3 3" 
-            stroke="var(--border)" 
-            vertical={false}
-          />
-          
-          <XAxis 
-            dataKey="time" 
-            axisLine={false}
-            tickLine={false}
-            tick={{ fill: 'var(--foreground-muted)', fontSize: 11 }}
-            interval="preserveStartEnd"
-            minTickGap={50}
-          />
-          
-          <YAxis 
-            axisLine={false}
-            tickLine={false}
-            tick={{ fill: 'var(--foreground-muted)', fontSize: 11 }}
-            tickFormatter={(value) => `${value.toFixed(1)}`}
-            width={45}
-          />
-          
-          <Tooltip 
-            content={<BandwidthTooltip />}
-            cursor={{ stroke: 'var(--border-hover)', strokeWidth: 1 }}
-          />
-          
-          <Legend 
-            verticalAlign="top"
-            height={36}
-            formatter={(value) => (
-              <span className="text-sm text-foreground-muted">
-                {value === 'avgDownloadMbps' ? 'Avg Download' : 'Avg Upload'}
-              </span>
-            )}
-          />
-          
-          <Area
-            type="monotone"
-            dataKey="avgDownloadMbps"
-            stroke="#06b6d4"
-            strokeWidth={2}
-            fill="url(#downloadGradient)"
-            dot={false}
-            activeDot={{ r: 5, fill: '#06b6d4', stroke: '#fff', strokeWidth: 2 }}
-          />
-          
-          <Area
-            type="monotone"
-            dataKey="avgUploadMbps"
-            stroke="#10b981"
-            strokeWidth={2}
-            fill="url(#uploadGradient)"
-            dot={false}
-            activeDot={{ r: 5, fill: '#10b981', stroke: '#fff', strokeWidth: 2 }}
-          />
-        </AreaChart>
-      </ResponsiveContainer>
-    </div>
-  );
-}
-
 // Bandwidth Icon
 function BandwidthIcon({ className = "w-5 h-5" }: { className?: string }) {
   return (
@@ -1545,10 +1426,10 @@ function BandwidthIcon({ className = "w-5 h-5" }: { className?: string }) {
 function InterfaceCard({ iface }: { iface: MikroTikInterface }) {
   const isActive = iface.running && !iface.disabled;
   const typeIcons: Record<string, string> = {
-    'ether': '🔌',
-    'wlan': '📶',
-    'bridge': '🌉',
-    'wg': '🔒',
+    'ether': 'ðŸ”Œ',
+    'wlan': 'ðŸ“¶',
+    'bridge': 'ðŸŒ‰',
+    'wg': 'ðŸ”’',
   };
 
   return (
@@ -1558,14 +1439,14 @@ function InterfaceCard({ iface }: { iface: MikroTikInterface }) {
         : 'bg-background-tertiary border-transparent'
     }`}>
       <div className="flex items-center justify-between mb-1">
-        <span className="text-sm">{typeIcons[iface.type] || '📡'}</span>
+        <span className="text-sm">{typeIcons[iface.type] || 'ðŸ“¡'}</span>
         <span className={`w-2 h-2 rounded-full ${isActive ? 'bg-emerald-500' : 'bg-foreground-muted/30'}`} />
       </div>
       <p className="font-medium text-xs text-foreground truncate">{iface.name}</p>
       {isActive && (iface.rx_byte > 0 || iface.tx_byte > 0) && (
         <div className="mt-1.5 text-[10px] text-foreground-muted space-y-0.5">
-          <p>↓ {formatBytes(iface.rx_byte)}</p>
-          <p>↑ {formatBytes(iface.tx_byte)}</p>
+          <p>â†“ {formatBytes(iface.rx_byte)}</p>
+          <p>â†‘ {formatBytes(iface.tx_byte)}</p>
         </div>
       )}
     </div>
@@ -1635,7 +1516,7 @@ function DailyTrendChart({
                 KES {day.revenue.toLocaleString()}
               </p>
               <p className="text-[10px] sm:text-xs text-foreground-muted">
-                {day.transactions} tx · {day.users}
+                {day.transactions} tx Â· {day.users}
               </p>
             </div>
           </button>
@@ -1802,7 +1683,7 @@ function DayCard({
       </div>
       <div className="flex items-center gap-1 sm:gap-2 mt-1.5 sm:mt-2">
         <span className="text-[9px] sm:text-[10px] text-foreground-muted">{day.uniqueUsers} users</span>
-        <span className="text-[9px] sm:text-[10px] text-foreground-muted">·</span>
+        <span className="text-[9px] sm:text-[10px] text-foreground-muted">Â·</span>
         <span className="text-[9px] sm:text-[10px] text-foreground-muted">{day.repeatCustomerPercent.toFixed(0)}%</span>
       </div>
     </button>
@@ -1915,7 +1796,7 @@ function TopUsageThisMonthSection({
           Top Users This Period
         </h3>
         <span className="text-[10px] sm:text-xs text-foreground-muted">
-          PPPoE · monthly cap
+          PPPoE Â· monthly cap
         </span>
       </div>
 

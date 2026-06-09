@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { api } from '../../lib/api';
+import { copyText } from '../../lib/clipboard';
 import { CreateAccessCredentialRequest, Router as RouterType, CreateAccessCredentialResponse } from '../../lib/types';
 import { useAlert } from '../../context/AlertContext';
 import Header from '../../components/Header';
@@ -66,9 +67,9 @@ export default function CreateAccessCredentialPage() {
     }
   };
 
-  const copyToClipboard = (text: string, label: string) => {
-    navigator.clipboard.writeText(text);
-    showAlert('success', `${label} copied`);
+  const copyToClipboard = async (text: string, label: string) => {
+    const ok = await copyText(text);
+    showAlert(ok ? 'success' : 'error', ok ? `${label} copied` : 'Copy failed — select and copy manually');
   };
 
   if (result) {

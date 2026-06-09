@@ -12,6 +12,7 @@ import {
   Cell,
 } from 'recharts';
 import { api } from '../lib/api';
+import { formatKES, formatKESCompact } from '../lib/format';
 import {
   DailyTransactionsPeriod,
   DailyTransactionsResponse,
@@ -44,14 +45,7 @@ const STATUS_OPTIONS: { value: TransactionStatusFilter; label: string }[] = [
   { value: 'all', label: 'All' },
 ];
 
-const formatKES = (amount: number): string => {
-  if (amount >= 1_000_000) return `KES ${(amount / 1_000_000).toFixed(1)}M`;
-  if (amount >= 1_000) return `KES ${(amount / 1_000).toFixed(0)}K`;
-  return `KES ${amount.toLocaleString('en-KE')}`;
-};
 
-const formatKESFull = (amount: number): string =>
-  `KES ${amount.toLocaleString('en-KE', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 
 function TxTooltip({
   active,
@@ -75,7 +69,7 @@ function TxTooltip({
       <div className="flex items-center gap-2">
         <span className="w-2 h-2 rounded-full bg-emerald-500" />
         <span className="text-foreground-muted text-xs">Revenue:</span>
-        <span className="font-semibold text-foreground text-xs ml-auto">{formatKESFull(row.revenue)}</span>
+        <span className="font-semibold text-foreground text-xs ml-auto">{formatKES(row.revenue)}</span>
       </div>
     </div>
   );
@@ -319,7 +313,7 @@ export default function DailyTransactionsChart({ routerId, enabled = true }: Pro
             </div>
             <div className="rounded-xl bg-emerald-500/8 border border-emerald-500/15 p-2.5 sm:p-3">
               <p className="text-[10px] text-foreground-muted uppercase tracking-wider mb-0.5">Revenue</p>
-              <p className="text-sm sm:text-base font-bold text-emerald-500">{formatKES(data.totals.revenue)}</p>
+              <p className="text-sm sm:text-base font-bold text-emerald-500">{formatKESCompact(data.totals.revenue)}</p>
             </div>
             <div className="rounded-xl bg-amber-500/8 border border-amber-500/15 p-2.5 sm:p-3">
               <p className="text-[10px] text-foreground-muted uppercase tracking-wider mb-0.5">Avg / Active Day</p>

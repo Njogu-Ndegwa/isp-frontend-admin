@@ -55,7 +55,7 @@ const FIELDS_BY_TYPE: Record<PaymentMethodType, FieldDef[]> = {
   ],
   mpesa_paybill_with_keys: [
     { key: 'mpesa_shortcode', label: 'Business Shortcode', type: 'text', required: true },
-    { key: 'mpesa_passkey', label: 'Passkey', type: 'text', required: true },
+    { key: 'mpesa_passkey', label: 'Passkey', type: 'password', required: true },
     { key: 'mpesa_consumer_key', label: 'Consumer Key', type: 'password', required: true },
     { key: 'mpesa_consumer_secret', label: 'Consumer Secret', type: 'password', required: true },
   ],

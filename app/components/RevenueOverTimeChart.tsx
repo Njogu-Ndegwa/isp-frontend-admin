@@ -12,6 +12,7 @@ import {
 } from 'recharts';
 import { api } from '../lib/api';
 import { RevenueOverTimePeriod, RevenueOverTimeResponse } from '../lib/types';
+import { formatKES, formatKESCompact } from '../lib/format';
 
 // ─── Period options ────────────────────────────────────────────────────────────
 
@@ -25,14 +26,7 @@ const PERIOD_OPTIONS: { value: RevenueOverTimePeriod; label: string }[] = [
 
 // ─── Formatters ────────────────────────────────────────────────────────────────
 
-const formatKES = (amount: number): string => {
-  if (amount >= 1_000_000) return `KES ${(amount / 1_000_000).toFixed(1)}M`;
-  if (amount >= 1_000) return `KES ${(amount / 1_000).toFixed(0)}K`;
-  return `KES ${amount.toLocaleString('en-KE')}`;
-};
 
-const formatKESFull = (amount: number): string =>
-  `KES ${amount.toLocaleString('en-KE', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 
 // ─── Tooltip ───────────────────────────────────────────────────────────────────
 
@@ -55,7 +49,7 @@ function RevenueTooltip({
       <div className="flex items-center gap-2 mb-1">
         <span className="w-2 h-2 rounded-full bg-emerald-500" />
         <span className="text-foreground-muted text-xs">Revenue:</span>
-        <span className="font-semibold text-foreground text-xs ml-auto">{formatKESFull(rev.value)}</span>
+        <span className="font-semibold text-foreground text-xs ml-auto">{formatKES(rev.value)}</span>
       </div>
       {tx && (
         <div className="flex items-center gap-2">
@@ -248,14 +242,14 @@ export default function RevenueOverTimeChart({ routerId, enabled = true }: Props
           <div className="grid grid-cols-3 gap-2 sm:gap-3 mb-4">
             <div className="rounded-xl bg-emerald-500/8 border border-emerald-500/15 p-2.5 sm:p-3">
               <p className="text-[10px] text-foreground-muted uppercase tracking-wider mb-0.5">Total Revenue</p>
-              <p className="text-sm sm:text-base font-bold text-emerald-500">{formatKES(data.totals.revenue)}</p>
+              <p className="text-sm sm:text-base font-bold text-emerald-500">{formatKESCompact(data.totals.revenue)}</p>
             </div>
             <div className="rounded-xl bg-amber-500/8 border border-amber-500/15 p-2.5 sm:p-3">
               <p className="text-[10px] text-foreground-muted uppercase tracking-wider mb-0.5">
                 Avg / {groupLabel === 'daily' ? 'Day' : groupLabel === 'weekly' ? 'Week' : 'Month'}
               </p>
               <p className="text-sm sm:text-base font-bold text-amber-500">
-                {formatKES(data.totals.avg_per_period)}
+                {formatKESCompact(data.totals.avg_per_period)}
               </p>
             </div>
             <div className="rounded-xl bg-indigo-500/8 border border-indigo-500/15 p-2.5 sm:p-3">
@@ -295,7 +289,7 @@ export default function RevenueOverTimeChart({ routerId, enabled = true }: Props
                     axisLine={false}
                     tickLine={false}
                     tick={{ fill: 'var(--foreground-muted)', fontSize: 10 }}
-                    tickFormatter={(v) => formatKES(v)}
+                    tickFormatter={(v) => formatKESCompact(v)}
                     width={58}
                   />
                   <Tooltip
