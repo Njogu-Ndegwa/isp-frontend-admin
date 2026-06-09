@@ -532,7 +532,9 @@ export default function PPPoEMonitorPage() {
     if (!selectedRouterId || !isAuthenticated) return;
 
     fetchData(selectedRouterId, 'initial');
-    const interval = setInterval(() => fetchData(selectedRouterId, 'poll'), POLL_INTERVAL);
+    const interval = setInterval(() => {
+      if (document.visibilityState === 'visible') fetchData(selectedRouterId, 'poll');
+    }, POLL_INTERVAL);
     return () => clearInterval(interval);
   }, [selectedRouterId, isAuthenticated, fetchData]);
 

@@ -195,6 +195,7 @@ export default function DiagnosticsPage() {
   useEffect(() => {
     if (!selectedRouterId) return;
     const interval = setInterval(() => {
+      if (document.visibilityState !== 'visible') return;
       if (activeTab === 'pppoe') loadPppoeOverview();
       else if (activeTab === 'hotspot') loadHotspotOverview();
       else if (activeTab === 'ports') loadPortStatus();
