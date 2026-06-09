@@ -37,6 +37,7 @@ export default function SearchInput({
         type="text"
         value={value}
         onChange={(e) => onChange(e.target.value)}
+        aria-label={placeholder}
         placeholder={displayPlaceholder}
         className="input h-[42px] pr-10"
       />

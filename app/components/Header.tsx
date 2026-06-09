@@ -70,6 +70,7 @@ export default function Header({
             ) : (
               <button
                 onClick={() => setShowSidebar(true)}
+                aria-label="Open navigation menu"
                 className="p-1.5 -ml-1.5 rounded-lg text-foreground-muted hover:text-foreground hover:bg-background-tertiary transition-colors active:opacity-70 touch-manipulation flex-shrink-0"
               >
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -83,6 +84,9 @@ export default function Header({
           <div className="relative flex-shrink-0" ref={userMenuRef}>
             <button
               onClick={() => setShowUserMenu(!showUserMenu)}
+              aria-label="User menu"
+              aria-haspopup="menu"
+              aria-expanded={showUserMenu}
               className="w-9 h-9 rounded-full bg-accent-primary/10 flex items-center justify-center transition-all active:scale-95 ring-2 ring-transparent hover:ring-accent-primary/20"
             >
               <span className="text-sm font-semibold text-accent-primary">{userInitial}</span>
