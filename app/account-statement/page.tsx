@@ -62,8 +62,12 @@ export default function AccountStatementPage() {
   }, [startDate, endDate, perPage]);
 
   useEffect(() => {
-    fetchStatement();
-  }, [fetchStatement]);
+    fetchStatement(1, undefined, perPage);
+    // Refetch only on mount and page-size change; date filters fetch
+    // explicitly via Apply/Clear. fetchStatement identity is intentionally
+    // excluded so editing a date input doesn't trigger a fetch per change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [perPage]);
 
   const handleApplyFilter = () => {
     fetchStatement(1, { start_date: startDate, end_date: endDate });
