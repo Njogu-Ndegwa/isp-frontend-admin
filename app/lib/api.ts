@@ -209,7 +209,14 @@ import {
   C2BRegisterRequest,
   C2BRegisterResponse,
 } from './types';
-import * as demo from './demoData';
+// Demo fixtures are ~2,200 lines; load them on demand so real users never
+// download them as part of the baseline bundle.
+type DemoModule = typeof import('./demoData');
+let demoModulePromise: Promise<DemoModule> | null = null;
+const loadDemo = (): Promise<DemoModule> => (demoModulePromise ??= import('./demoData'));
+
+// Kept local so the synchronous demoBlock() doesn't need the module.
+const DEMO_WRITE_ERROR = 'This action is not available in demo mode. Sign up for a free account to get started!';
 
 const DEFAULT_API_BASE_URL = 'https://isp.bitwavetechnologies.com/api';
 
@@ -239,7 +246,7 @@ class ApiClient {
   }
 
   private demoBlock(): never {
-    throw new Error(demo.DEMO_WRITE_ERROR);
+    throw new Error(DEMO_WRITE_ERROR);
   }
 
   private getToken(): string | null {
@@ -298,7 +305,7 @@ class ApiClient {
       routerId?: number;
     } = { days: 7 }
   ): Promise<DashboardAnalytics> {
-    if (this.isDemoMode()) return demo.demoDashboardAnalytics;
+    if (this.isDemoMode()) return (await loadDemo()).demoDashboardAnalytics;
     const params = new URLSearchParams();
     params.append('user_id', userId.toString());
     
@@ -392,7 +399,7 @@ class ApiClient {
     routerId?: number,
     options: { includeSessions?: boolean; preferSnapshot?: boolean } = {}
   ): Promise<MikroTikMetrics> {
-    if (this.isDemoMode()) return demo.demoMikroTikMetrics;
+    if (this.isDemoMode()) return (await loadDemo()).demoMikroTikMetrics;
     const params = new URLSearchParams();
     if (routerId) {
       params.append('router_id', routerId.toString());
@@ -487,7 +494,7 @@ class ApiClient {
 
   // Bandwidth History
   async getBandwidthHistory(hours = 24, routerId?: number): Promise<BandwidthHistory> {
-    if (this.isDemoMode()) return demo.demoBandwidthHistory;
+    if (this.isDemoMode()) return (await loadDemo()).demoBandwidthHistory;
     const params = new URLSearchParams();
     params.append('hours', hours.toString());
     if (routerId) {
@@ -502,7 +509,7 @@ class ApiClient {
 
   // Top Users by Bandwidth
   async getTopUsers(limit = 10, routerId?: number): Promise<TopUsersResponse> {
-    if (this.isDemoMode()) return demo.demoTopUsers;
+    if (this.isDemoMode()) return (await loadDemo()).demoTopUsers;
     const params = new URLSearchParams();
     params.append('limit', limit.toString());
     if (routerId) {
@@ -517,7 +524,7 @@ class ApiClient {
 
   // Dashboard Overview (legacy)
   async getDashboardOverview(userId = 1): Promise<DashboardOverview> {
-    if (this.isDemoMode()) return demo.demoDashboardOverview;
+    if (this.isDemoMode()) return (await loadDemo()).demoDashboardOverview;
     const response = await fetch(
       `${BASE_URL}/dashboard/overview?user_id=${userId}`,
       { headers: this.getHeaders() }
@@ -530,7 +537,7 @@ class ApiClient {
   async getCustomers(userId: number, page: number, perPage: number): Promise<PaginatedResponse<Customer>>;
   async getCustomers(userId = 1, page?: number, perPage?: number): Promise<Customer[] | PaginatedResponse<Customer>> {
     if (this.isDemoMode()) {
-      const all = demo.demoCustomers;
+      const all = (await loadDemo()).demoCustomers;
       if (page && perPage) {
         const start = (page - 1) * perPage;
         return { data: all.slice(start, start + perPage), page, per_page: perPage, total: all.length, total_pages: Math.ceil(all.length / perPage) };
@@ -562,7 +569,7 @@ class ApiClient {
   async getActiveCustomers(userId: number, page: number, perPage: number): Promise<PaginatedResponse<Customer>>;
   async getActiveCustomers(userId = 1, page?: number, perPage?: number): Promise<Customer[] | PaginatedResponse<Customer>> {
     if (this.isDemoMode()) {
-      const all = demo.demoCustomers.filter(c => c.status === 'active');
+      const all = (await loadDemo()).demoCustomers.filter(c => c.status === 'active');
       if (page && perPage) {
         const start = (page - 1) * perPage;
         return { data: all.slice(start, start + perPage), page, per_page: perPage, total: all.length, total_pages: Math.ceil(all.length / perPage) };
@@ -592,7 +599,7 @@ class ApiClient {
 
   // Plans
   async getPlans(userId?: number, connectionType?: string): Promise<Plan[]> {
-    if (this.isDemoMode()) return connectionType ? demo.demoPlans.filter(p => p.connection_type === connectionType) : demo.demoPlans;
+    if (this.isDemoMode()) return connectionType ? (await loadDemo()).demoPlans.filter(p => p.connection_type === connectionType) : (await loadDemo()).demoPlans;
     const params = new URLSearchParams();
     if (userId) params.append('user_id', userId.toString());
     if (connectionType) params.append('connection_type', connectionType);
@@ -678,7 +685,7 @@ class ApiClient {
     startDate?: string,
     endDate?: string
   ): Promise<PlanPerformanceResponse> {
-    if (this.isDemoMode()) return demo.demoPlanPerformance;
+    if (this.isDemoMode()) return (await loadDemo()).demoPlanPerformance;
     const params = new URLSearchParams();
     if (userId) params.append('user_id', userId.toString());
     if (startDate) params.append('start_date', startDate);
@@ -705,7 +712,7 @@ class ApiClient {
     perPage = 20
   ): Promise<PaginatedResponse<MpesaTransaction>> {
     if (this.isDemoMode()) {
-      const all = demo.demoTransactions;
+      const all = (await loadDemo()).demoTransactions;
       const start = (page - 1) * perPage;
       return {
         data: all.slice(start, start + perPage),
@@ -754,7 +761,7 @@ class ApiClient {
     paymentMethod?: string,
     date?: string
   ): Promise<TransactionSummary> {
-    if (this.isDemoMode()) return demo.demoTransactionSummary;
+    if (this.isDemoMode()) return (await loadDemo()).demoTransactionSummary;
     const params = new URLSearchParams();
     if (userId) params.append('user_id', userId.toString());
     if (routerId) params.append('router_id', routerId.toString());
@@ -784,7 +791,7 @@ class ApiClient {
 
   // Routers
   async getRouters(): Promise<Router[]> {
-    if (this.isDemoMode()) return demo.demoRouters;
+    if (this.isDemoMode()) return (await loadDemo()).demoRouters;
     const response = await fetch(`${BASE_URL}/routers`, {
       headers: this.getHeaders(true),
     });
@@ -821,7 +828,7 @@ class ApiClient {
   }
 
   async getRoutersByUserId(userId: number): Promise<Router[]> {
-    if (this.isDemoMode()) return demo.demoRouters;
+    if (this.isDemoMode()) return (await loadDemo()).demoRouters;
     const response = await fetch(`${BASE_URL}/routers?user_id=${userId}`, {
       headers: this.getHeaders(),
     });
@@ -829,7 +836,7 @@ class ApiClient {
   }
 
   async getRouterUptime(routerId: number, hours = 24, recentChecks = 50): Promise<RouterUptimeResponse> {
-    if (this.isDemoMode()) return demo.demoRouterUptime(routerId);
+    if (this.isDemoMode()) return (await loadDemo()).demoRouterUptime(routerId);
     const response = await fetch(`${BASE_URL}/routers/${routerId}/uptime?hours=${hours}&recent_checks=${recentChecks}`, {
       headers: this.getHeaders(true),
     });
@@ -927,7 +934,7 @@ class ApiClient {
   }
 
   async getRouterUsers(routerId: number): Promise<RouterUsersResponse> {
-    if (this.isDemoMode()) return demo.demoRouterUsers(routerId);
+    if (this.isDemoMode()) return (await loadDemo()).demoRouterUsers(routerId);
     const response = await fetch(`${BASE_URL}/routers/${routerId}/users`, {
       headers: this.getHeaders(true),
     });
@@ -946,7 +953,7 @@ class ApiClient {
   }
 
   async getProvisionTokens(): Promise<ProvisionToken[]> {
-    if (this.isDemoMode()) return demo.demoProvisionTokens;
+    if (this.isDemoMode()) return (await loadDemo()).demoProvisionTokens;
     const response = await fetch(`${BASE_URL}/provision/tokens`, {
       headers: this.getHeaders(),
     });
@@ -974,7 +981,7 @@ class ApiClient {
 
   // Advertisers
   async getAdvertisers(): Promise<Advertiser[]> {
-    if (this.isDemoMode()) return demo.demoAdvertisers;
+    if (this.isDemoMode()) return (await loadDemo()).demoAdvertisers;
     const response = await fetch(`${BASE_URL}/advertisers`, {
       headers: this.getHeaders(true),
     });
@@ -997,7 +1004,7 @@ class ApiClient {
     perPage = 20,
     category?: string
   ): Promise<AdsResponse> {
-    if (this.isDemoMode()) return demo.demoAdsResponse;
+    if (this.isDemoMode()) return (await loadDemo()).demoAdsResponse;
     const params = new URLSearchParams();
     params.append('page', page.toString());
     params.append('per_page', perPage.toString());
@@ -1045,7 +1052,7 @@ class ApiClient {
     perPage = 50,
     clickType?: 'view_details' | 'call' | 'whatsapp'
   ): Promise<AdClicksResponse> {
-    if (this.isDemoMode()) return demo.demoAdClicksResponse;
+    if (this.isDemoMode()) return (await loadDemo()).demoAdClicksResponse;
     const params = new URLSearchParams();
     params.append('page', page.toString());
     params.append('per_page', perPage.toString());
@@ -1063,7 +1070,7 @@ class ApiClient {
     page = 1,
     perPage = 50
   ): Promise<AdImpressionsResponse> {
-    if (this.isDemoMode()) return demo.demoAdImpressionsResponse;
+    if (this.isDemoMode()) return (await loadDemo()).demoAdImpressionsResponse;
     const params = new URLSearchParams();
     params.append('page', page.toString());
     params.append('per_page', perPage.toString());
@@ -1076,7 +1083,7 @@ class ApiClient {
   }
 
   async getAdAnalytics(days = 30): Promise<AdAnalytics> {
-    if (this.isDemoMode()) return demo.demoAdAnalytics;
+    if (this.isDemoMode()) return (await loadDemo()).demoAdAnalytics;
     const response = await fetch(
       `${BASE_URL}/ads/analytics?days=${days}`,
       { headers: this.getHeaders(true) }
@@ -1089,7 +1096,7 @@ class ApiClient {
     userId?: number,
     includeLocation = true
   ): Promise<Rating[]> {
-    if (this.isDemoMode()) return demo.demoRatings;
+    if (this.isDemoMode()) return (await loadDemo()).demoRatings;
     const params = new URLSearchParams();
     if (userId) params.append('user_id', userId.toString());
     if (includeLocation) params.append('include_location', 'true');
@@ -1102,7 +1109,7 @@ class ApiClient {
   }
 
   async getRatingsSummary(userId?: number): Promise<RatingSummary> {
-    if (this.isDemoMode()) return demo.demoRatingSummary;
+    if (this.isDemoMode()) return (await loadDemo()).demoRatingSummary;
     const params = new URLSearchParams();
     if (userId) params.append('user_id', userId.toString());
 
@@ -1117,7 +1124,7 @@ class ApiClient {
     userId?: number,
     withRatings = true
   ): Promise<CustomerMapData[]> {
-    if (this.isDemoMode()) return demo.demoCustomerMapData;
+    if (this.isDemoMode()) return (await loadDemo()).demoCustomerMapData;
     const params = new URLSearchParams();
     if (userId) params.append('user_id', userId.toString());
     if (withRatings) params.append('with_ratings', 'true');
@@ -1136,7 +1143,7 @@ class ApiClient {
     maxLng: number,
     userId?: number
   ): Promise<Rating[]> {
-    if (this.isDemoMode()) return demo.demoRatings;
+    if (this.isDemoMode()) return (await loadDemo()).demoRatings;
     const params = new URLSearchParams();
     params.append('min_lat', minLat.toString());
     params.append('max_lat', maxLat.toString());
@@ -1163,7 +1170,7 @@ class ApiClient {
   }
 
   async getVouchers(filters: VoucherFilters = {}): Promise<VouchersListResponse> {
-    if (this.isDemoMode()) return demo.demoVouchersListResponse;
+    if (this.isDemoMode()) return (await loadDemo()).demoVouchersListResponse;
     const params = new URLSearchParams();
     if (filters.status) params.append('status', filters.status);
     if (filters.plan_id) params.append('plan_id', filters.plan_id.toString());
@@ -1180,7 +1187,7 @@ class ApiClient {
   }
 
   async getVoucherStats(): Promise<VoucherStats> {
-    if (this.isDemoMode()) return demo.demoVoucherStats;
+    if (this.isDemoMode()) return (await loadDemo()).demoVoucherStats;
     const response = await fetch(`${BASE_URL}/vouchers/stats`, {
       headers: this.getHeaders(),
     });
@@ -1273,7 +1280,7 @@ class ApiClient {
   }
 
   async getPPPoECredentials(customerId: number): Promise<PPPoECredentials> {
-    if (this.isDemoMode()) return demo.demoPPPoECredentials(customerId);
+    if (this.isDemoMode()) return (await loadDemo()).demoPPPoECredentials(customerId);
     const response = await fetch(`${BASE_URL}/customers/${customerId}/pppoe-credentials`, {
       headers: this.getHeaders(),
     });
@@ -1291,7 +1298,7 @@ class ApiClient {
 
   // Router Interfaces & PPPoE Port Provisioning
   async getRouterInterfaces(routerId: number): Promise<RouterInterfacesResponse> {
-    if (this.isDemoMode()) return demo.demoRouterInterfaces(routerId);
+    if (this.isDemoMode()) return (await loadDemo()).demoRouterInterfaces(routerId);
     const response = await fetch(`${BASE_URL}/routers/${routerId}/interfaces`, {
       headers: this.getHeaders(),
     });
@@ -1415,7 +1422,7 @@ class ApiClient {
 
   // MikroTik PPPoE Monitoring
   async getPPPoEActiveSessions(routerId: number): Promise<PPPoEActiveResponse> {
-    if (this.isDemoMode()) return demo.demoPPPoEActiveSessions(routerId);
+    if (this.isDemoMode()) return (await loadDemo()).demoPPPoEActiveSessions(routerId);
     const response = await fetch(`${BASE_URL}/mikrotik/${routerId}/pppoe/active`, {
       headers: this.getHeaders(),
     });
@@ -1424,7 +1431,7 @@ class ApiClient {
 
   // Network Diagnostics - PPPoE
   async getPPPoEOverview(routerId: number, refresh = false): Promise<PPPoEOverviewResponse> {
-    if (this.isDemoMode()) return demo.demoPPPoEOverview(routerId);
+    if (this.isDemoMode()) return (await loadDemo()).demoPPPoEOverview(routerId);
     const params = refresh ? '?refresh=true' : '';
     const response = await fetch(`${BASE_URL}/pppoe/${routerId}/overview${params}`, {
       headers: this.getHeaders(),
@@ -1494,7 +1501,7 @@ class ApiClient {
   }
 
   async getPPPoELogs(routerId: number, username?: string, limit = 50): Promise<PPPoELogsResponse> {
-    if (this.isDemoMode()) return demo.demoPPPoELogs(routerId);
+    if (this.isDemoMode()) return (await loadDemo()).demoPPPoELogs(routerId);
     const params = new URLSearchParams({ limit: limit.toString() });
     if (username) params.set('username', username);
     const response = await fetch(`${BASE_URL}/pppoe/${routerId}/logs?${params.toString()}`, {
@@ -1504,7 +1511,7 @@ class ApiClient {
   }
 
   async getPPPoESecrets(routerId: number): Promise<PPPoESecretsResponse> {
-    if (this.isDemoMode()) return demo.demoPPPoESecrets(routerId);
+    if (this.isDemoMode()) return (await loadDemo()).demoPPPoESecrets(routerId);
     const response = await fetch(`${BASE_URL}/pppoe/${routerId}/secrets`, {
       headers: this.getHeaders(),
     });
@@ -1513,7 +1520,7 @@ class ApiClient {
 
   // Network Diagnostics - Hotspot
   async getHotspotOverview(routerId: number, refresh = false): Promise<HotspotOverviewResponse> {
-    if (this.isDemoMode()) return demo.demoHotspotOverview(routerId);
+    if (this.isDemoMode()) return (await loadDemo()).demoHotspotOverview(routerId);
     const params = refresh ? '?refresh=true' : '';
     const response = await fetch(`${BASE_URL}/hotspot/${routerId}/overview${params}`, {
       headers: this.getHeaders(),
@@ -1522,7 +1529,7 @@ class ApiClient {
   }
 
   async getHotspotLogs(routerId: number, search?: string, limit = 50): Promise<HotspotLogsResponse> {
-    if (this.isDemoMode()) return demo.demoHotspotLogs(routerId);
+    if (this.isDemoMode()) return (await loadDemo()).demoHotspotLogs(routerId);
     const params = new URLSearchParams({ limit: limit.toString() });
     if (search) params.set('search', search);
     const response = await fetch(`${BASE_URL}/hotspot/${routerId}/logs?${params.toString()}`, {
@@ -1533,7 +1540,7 @@ class ApiClient {
 
   // Network Diagnostics - Shared
   async getPortStatus(routerId: number, refresh = false): Promise<PortStatusResponse> {
-    if (this.isDemoMode()) return demo.demoPortStatus(routerId);
+    if (this.isDemoMode()) return (await loadDemo()).demoPortStatus(routerId);
     const params = refresh ? '?refresh=true' : '';
     const response = await fetch(`${BASE_URL}/routers/${routerId}/ports${params}`, {
       headers: this.getHeaders(),
@@ -1556,7 +1563,7 @@ class ApiClient {
 
   // Walled Garden
   async getWalledGarden(routerId: number): Promise<WalledGardenResponse> {
-    if (this.isDemoMode()) return demo.demoWalledGarden;
+    if (this.isDemoMode()) return (await loadDemo()).demoWalledGarden;
     const response = await fetch(`${BASE_URL}/mikrotik/walled-garden?router_id=${routerId}`, {
       headers: this.getHeaders(),
     });
@@ -1604,7 +1611,7 @@ class ApiClient {
   // Admin Reseller Management
 
   async getAdminDashboard(): Promise<AdminDashboard> {
-    if (this.isDemoMode()) return demo.demoAdminDashboard;
+    if (this.isDemoMode()) return (await loadDemo()).demoAdminDashboard;
     const response = await fetch(`${BASE_URL}/admin/dashboard`, {
       headers: this.getHeaders(),
     });
@@ -1612,7 +1619,7 @@ class ApiClient {
   }
 
   async getAdminResellers(params?: AdminResellersParams): Promise<AdminResellersResponse> {
-    if (this.isDemoMode()) return demo.demoAdminResellers(params);
+    if (this.isDemoMode()) return (await loadDemo()).demoAdminResellers(params);
     const qs = new URLSearchParams();
     if (params?.search) qs.set('search', params.search);
     if (params?.filter) qs.set('filter', params.filter);
@@ -1629,7 +1636,7 @@ class ApiClient {
   }
 
   async getAdminResellerStats(period: AdminResellerStatsPeriod = '30d'): Promise<AdminResellerStats> {
-    if (this.isDemoMode()) return demo.demoAdminResellerStats(period);
+    if (this.isDemoMode()) return (await loadDemo()).demoAdminResellerStats(period);
     const response = await fetch(`${BASE_URL}/admin/resellers/stats?period=${period}`, {
       headers: this.getHeaders(),
     });
@@ -1637,7 +1644,7 @@ class ApiClient {
   }
 
   async getAdminResellerDetail(resellerId: number, params?: { date?: string; start_date?: string; end_date?: string }): Promise<AdminResellerDetail> {
-    if (this.isDemoMode()) return demo.demoAdminResellerDetail(resellerId);
+    if (this.isDemoMode()) return (await loadDemo()).demoAdminResellerDetail(resellerId);
     const qs = new URLSearchParams();
     if (params?.date) qs.set('date', params.date);
     if (params?.start_date) qs.set('start_date', params.start_date);
@@ -1653,7 +1660,7 @@ class ApiClient {
     resellerId: number,
     params?: { page?: number; per_page?: number; date?: string; start_date?: string; end_date?: string }
   ): Promise<AdminPaymentsResponse> {
-    if (this.isDemoMode()) return demo.demoAdminResellerPayments(resellerId, params?.page, params?.per_page);
+    if (this.isDemoMode()) return (await loadDemo()).demoAdminResellerPayments(resellerId, params?.page, params?.per_page);
     const qs = new URLSearchParams();
     if (params?.page) qs.set('page', params.page.toString());
     if (params?.per_page) qs.set('per_page', params.per_page.toString());
@@ -1668,7 +1675,7 @@ class ApiClient {
   }
 
   async getAdminResellerRouters(resellerId: number): Promise<AdminRoutersResponse> {
-    if (this.isDemoMode()) return demo.demoAdminResellerRouters(resellerId);
+    if (this.isDemoMode()) return (await loadDemo()).demoAdminResellerRouters(resellerId);
     const response = await fetch(`${BASE_URL}/admin/resellers/${resellerId}/routers`, {
       headers: this.getHeaders(),
     });
@@ -1689,7 +1696,7 @@ class ApiClient {
     resellerId: number,
     params?: { page?: number; per_page?: number; start_date?: string; end_date?: string }
   ): Promise<AdminPayoutsResponse> {
-    if (this.isDemoMode()) return demo.demoAdminPayouts(resellerId, params?.page, params?.per_page);
+    if (this.isDemoMode()) return (await loadDemo()).demoAdminPayouts(resellerId, params?.page, params?.per_page);
     const qs = new URLSearchParams();
     if (params?.page) qs.set('page', params.page.toString());
     if (params?.per_page) qs.set('per_page', params.per_page.toString());
@@ -1808,7 +1815,7 @@ class ApiClient {
 
   async getPaymentMethods(includeInactive = false): Promise<PaymentMethodConfig[]> {
     if (this.isDemoMode()) {
-      return includeInactive ? demo.demoPaymentMethods : demo.demoPaymentMethods.filter(p => p.is_active);
+      return includeInactive ? (await loadDemo()).demoPaymentMethods : (await loadDemo()).demoPaymentMethods.filter(p => p.is_active);
     }
     const params = includeInactive ? '?include_inactive=true' : '';
     const response = await fetch(`${BASE_URL}/payment-methods${params}`, {
@@ -2184,7 +2191,7 @@ class ApiClient {
   // ─── Lead Pipeline / CRM ─────────────────────────────────────────
 
   async getLeadSources(activeOnly = true): Promise<LeadSource[]> {
-    if (this.isDemoMode()) return demo.demoLeadSources.filter(s => !activeOnly || s.is_active);
+    if (this.isDemoMode()) return (await loadDemo()).demoLeadSources.filter(s => !activeOnly || s.is_active);
     const params = new URLSearchParams({ active_only: String(activeOnly) });
     const response = await fetch(`${BASE_URL}/leads/sources?${params}`, { headers: this.getHeaders() });
     return this.handleResponse<LeadSource[]>(response);
@@ -2217,7 +2224,7 @@ class ApiClient {
   async getLeads(params?: {
     stage?: LeadStage; source_id?: number; search?: string; page?: number; per_page?: number;
   }): Promise<LeadsListResponse> {
-    if (this.isDemoMode()) return demo.demoLeadsListResponse(params);
+    if (this.isDemoMode()) return (await loadDemo()).demoLeadsListResponse(params);
     const q = new URLSearchParams();
     if (params?.stage) q.append('stage', params.stage);
     if (params?.source_id) q.append('source_id', String(params.source_id));
@@ -2230,7 +2237,7 @@ class ApiClient {
 
   async getLead(id: number): Promise<LeadDetail> {
     if (this.isDemoMode()) {
-      const d = demo.demoLeadDetail(id);
+      const d = (await loadDemo()).demoLeadDetail(id);
       if (!d) throw new Error('Lead not found');
       return d;
     }
@@ -2271,13 +2278,13 @@ class ApiClient {
   }
 
   async getLeadPipelineSummary(): Promise<LeadPipelineSummary> {
-    if (this.isDemoMode()) return demo.demoLeadPipelineSummary;
+    if (this.isDemoMode()) return (await loadDemo()).demoLeadPipelineSummary;
     const response = await fetch(`${BASE_URL}/leads/pipeline/summary`, { headers: this.getHeaders() });
     return this.handleResponse<LeadPipelineSummary>(response);
   }
 
   async getLeadPipelineStats(): Promise<LeadPipelineStats> {
-    if (this.isDemoMode()) return demo.demoLeadPipelineStats;
+    if (this.isDemoMode()) return (await loadDemo()).demoLeadPipelineStats;
     const response = await fetch(`${BASE_URL}/leads/pipeline/stats`, { headers: this.getHeaders() });
     return this.handleResponse<LeadPipelineStats>(response);
   }
@@ -2292,7 +2299,7 @@ class ApiClient {
 
   async getLeadActivities(leadId: number): Promise<ActivitiesResponse> {
     if (this.isDemoMode()) {
-      const d = demo.demoLeadDetail(leadId);
+      const d = (await loadDemo()).demoLeadDetail(leadId);
       return { activities: d?.activities || [] };
     }
     const response = await fetch(`${BASE_URL}/leads/${leadId}/activities`, { headers: this.getHeaders() });
@@ -2308,7 +2315,7 @@ class ApiClient {
   }
 
   async getUpcomingFollowUps(days = 7): Promise<FollowUpsResponse> {
-    if (this.isDemoMode()) return demo.demoUpcomingFollowUps(days);
+    if (this.isDemoMode()) return (await loadDemo()).demoUpcomingFollowUps(days);
     const params = new URLSearchParams({ days: String(days) });
     const response = await fetch(`${BASE_URL}/leads/followups/upcoming?${params}`, { headers: this.getHeaders() });
     return this.handleResponse<FollowUpsResponse>(response);
@@ -2331,7 +2338,7 @@ class ApiClient {
   }
 
   async backfillLeads(data: LeadBackfillRequest = {}): Promise<LeadBackfillResponse> {
-    if (this.isDemoMode()) return demo.demoBackfillLeads(data);
+    if (this.isDemoMode()) return (await loadDemo()).demoBackfillLeads(data);
     const response = await fetch(`${BASE_URL}/leads/backfill`, {
       method: 'POST', headers: this.getHeaders(), body: JSON.stringify(data),
     });
@@ -2438,7 +2445,7 @@ class ApiClient {
   }
 
   async getResellerTopUsage(limit = 20): Promise<ResellerTopUsageEntry[]> {
-    if (this.isDemoMode()) return demo.demoResellerTopUsage(limit);
+    if (this.isDemoMode()) return (await loadDemo()).demoResellerTopUsage(limit);
     const response = await fetch(
       `${BASE_URL}/resellers/me/usage/top?limit=${limit}`,
       { headers: this.getHeaders() }
@@ -2449,7 +2456,7 @@ class ApiClient {
   // ─── Shop ────────────────────────────────────────────────────────
 
   async getShopAdminProducts(): Promise<ShopProduct[]> {
-    if (this.isDemoMode()) return demo.demoShopProducts;
+    if (this.isDemoMode()) return (await loadDemo()).demoShopProducts;
     const response = await fetch(`${BASE_URL}/shop/admin/products`, {
       headers: this.getHeaders(),
     });
@@ -2490,7 +2497,7 @@ class ApiClient {
     payment_status?: ShopPaymentStatus;
   }): Promise<ShopOrder[]> {
     if (this.isDemoMode()) {
-      let orders = demo.demoShopOrders;
+      let orders = (await loadDemo()).demoShopOrders;
       if (params?.status) orders = orders.filter(o => o.status === params.status);
       if (params?.payment_status) orders = orders.filter(o => o.payment_status === params.payment_status);
       return orders;
@@ -2507,7 +2514,7 @@ class ApiClient {
 
   async getShopAdminOrder(orderId: number): Promise<ShopOrder> {
     if (this.isDemoMode()) {
-      const order = demo.demoShopOrders.find(o => o.id === orderId);
+      const order = (await loadDemo()).demoShopOrders.find(o => o.id === orderId);
       if (!order) throw new Error('Order not found');
       return order;
     }
@@ -2538,7 +2545,7 @@ class ApiClient {
   }
 
   async getShopDashboard(): Promise<ShopDashboard> {
-    if (this.isDemoMode()) return demo.demoShopDashboard;
+    if (this.isDemoMode()) return (await loadDemo()).demoShopDashboard;
     const response = await fetch(`${BASE_URL}/shop/dashboard`, {
       headers: this.getHeaders(),
     });
@@ -2546,7 +2553,7 @@ class ApiClient {
   }
 
   async getShopAnalytics(preset = 'this_month'): Promise<ShopAnalytics> {
-    if (this.isDemoMode()) return demo.demoShopAnalytics;
+    if (this.isDemoMode()) return (await loadDemo()).demoShopAnalytics;
     const response = await fetch(`${BASE_URL}/shop/analytics?preset=${preset}`, {
       headers: this.getHeaders(),
     });
@@ -2557,7 +2564,7 @@ class ApiClient {
 
   async getShopPublicProduct(id: number): Promise<ShopProduct> {
     if (this.isDemoMode()) {
-      const product = demo.demoShopProducts.find(p => p.id === id);
+      const product = (await loadDemo()).demoShopProducts.find(p => p.id === id);
       if (!product) throw new Error('Product not found');
       return product;
     }
@@ -2567,7 +2574,7 @@ class ApiClient {
 
   async getShopPublicProducts(category?: string): Promise<ShopProduct[]> {
     if (this.isDemoMode()) {
-      const products = demo.demoShopProducts.filter(p => p.is_active);
+      const products = (await loadDemo()).demoShopProducts.filter(p => p.is_active);
       if (category) return products.filter(p => p.category === category);
       return products;
     }
@@ -2580,12 +2587,13 @@ class ApiClient {
 
   async placeShopOrder(data: PlaceOrderRequest): Promise<PlaceOrderResponse> {
     if (this.isDemoMode()) {
+      const demoMod = await loadDemo();
       const orderNum = `ORD-${Date.now().toString().slice(-6)}`;
       return {
         order_id: Math.floor(Math.random() * 900) + 100,
         order_number: orderNum,
         total_amount: data.items.reduce((sum, item) => {
-          const product = demo.demoShopProducts.find(p => p.id === item.product_id);
+          const product = demoMod.demoShopProducts.find(p => p.id === item.product_id);
           return sum + (product ? product.price * item.quantity : 0);
         }, 0),
         status: 'pending',
@@ -2630,7 +2638,7 @@ class ApiClient {
 
   async trackShopOrder(orderNumber: string, phone: string): Promise<ShopOrder> {
     if (this.isDemoMode()) {
-      const order = demo.demoShopOrders[0];
+      const order = (await loadDemo()).demoShopOrders[0];
       return {
         ...order,
         order_number: orderNumber,
