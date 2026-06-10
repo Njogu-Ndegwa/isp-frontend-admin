@@ -7,6 +7,7 @@ import { useAlert } from '../context/AlertContext';
 import { api } from '../lib/api';
 import { fullOnboardingCheck } from '../hooks/useOnboardingStatus';
 import DeviceModeTroubleshoot from '../components/DeviceModeTroubleshoot';
+import HotspotPackageTroubleshoot from '../components/HotspotPackageTroubleshoot';
 import type {
   VpnType,
   ProvisionTokenResponse,
@@ -497,6 +498,8 @@ function RouterStep({ onComplete }: { onComplete: () => void }) {
           </button>
 
           <DeviceModeTroubleshoot />
+
+          <HotspotPackageTroubleshoot />
 
           <div className="text-center space-y-3 pt-2">
             <p className="text-xs text-foreground-muted">

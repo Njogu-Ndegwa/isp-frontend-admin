@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 
-function CopyCmd({ command }: { command: string }) {
+export function CopyCmd({ command }: { command: string }) {
   const [copied, setCopied] = useState(false);
 
   const handleCopy = async () => {
