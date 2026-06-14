@@ -745,6 +745,7 @@ export interface MpesaTransaction {
   plan: TransactionPlan;
   manual_provision_supported: boolean;
   manual_provision_reason: string | null;
+  counts_as_revenue?: boolean;
 }
 
 export interface ManualProvisionResponse {
@@ -793,6 +794,7 @@ export interface TransactionSummary {
   };
   method_breakdown?: Record<string, StatusBreakdown>;
   router_breakdown: Record<string, RouterBreakdown>;
+  compensation_total?: number;
   period: {
     date?: string;
     start_date: string;
