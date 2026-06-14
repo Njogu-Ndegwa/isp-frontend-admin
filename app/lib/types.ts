@@ -1908,6 +1908,44 @@ export interface PPPoEMonitorResponse {
   users: PPPoEMonitorUser[];
 }
 
+export interface HotspotMonitorUser {
+  username: string;
+  mac_address: string;
+  profile: string;
+  disabled: boolean;
+  comment: string;
+  online: boolean;
+  online_source: 'active' | 'host' | null;
+  address: string | null;
+  uptime: string | null;
+  idle_time: string | null;
+  login_by: string;
+  upload_bytes: number;
+  download_bytes: number;
+  upload_rate: string;
+  download_rate: string;
+  max_limit: string;
+  binding_type: string;
+  bypassed: boolean;
+  authorized: boolean;
+  has_queue: boolean;
+  customer: PPPoEMonitorCustomer | null;
+}
+
+export type HotspotMonitorSummary = PPPoEMonitorSummary;
+
+export interface HotspotMonitorResponse {
+  router_id: number;
+  router_name: string;
+  generated_at: string;
+  cached: boolean;
+  stale?: boolean;
+  cache_age_seconds: number | null;
+  success: boolean;
+  summary: HotspotMonitorSummary;
+  users: HotspotMonitorUser[];
+}
+
 export interface PPPoECleanupResult {
   success?: boolean;
   disconnect_result?: {
@@ -3561,6 +3599,137 @@ export interface C2BRegisterRequest {
 export interface C2BRegisterResponse {
   ResponseCode: string;
   ResponseDescription: string;
+}
+
+// ── Messaging / SMS Types ──────────────────────────────────────────────────
+
+export interface SmsBundle {
+  credits: number;
+  label: string;
+}
+
+export interface SmsCreditInfo {
+  balance: number;
+  total_purchased: number;
+  total_spent: number;
+  price_per_sms_kes: number;
+  min_purchase_credits: number;
+  bundles: SmsBundle[];
+  enabled: boolean;
+}
+
+export interface SmsPurchaseResponse {
+  message: string;
+  order_id: number;
+  quantity: number;
+  amount: number;
+  checkout_request_id: string | null;
+}
+
+export interface SmsRecipient {
+  customer_id: number;
+  phone: string;
+}
+
+export interface SmsRecipientsResponse {
+  count: number;
+  recipients: SmsRecipient[];
+}
+
+export interface SmsSendRequest {
+  body: string;
+  filter?: string;            // "all" | "by_plan" | "active" | "expiring"
+  plan_id?: number;
+  customer_ids?: number[];
+  template_id?: number;
+}
+
+export interface SmsSendResponse {
+  message: string;
+  campaign_id: number;
+  recipient_count: number;
+  segments: number;
+  credits_reserved: number;
+}
+
+export interface SmsTemplate {
+  id: number;
+  name: string;
+  body: string;
+}
+
+export interface SmsCampaign {
+  id: number;
+  body: string;
+  recipient_count: number;
+  segments_per_message: number;
+  total_credits: number;
+  sent_count: number;
+  failed_count: number;
+  refunded_credits: number;
+  status: string;             // queued|sending|completed|partial|failed|canceled
+  created_at: string | null;
+}
+
+export interface SmsCampaignMessage {
+  phone: string;
+  status: string;             // queued|sent|delivered|failed
+  error: string | null;
+}
+
+export interface SmsCampaignDetail {
+  id: number;
+  status: string;
+  messages: SmsCampaignMessage[];
+}
+
+export interface InboxMessage {
+  id: number;
+  subject: string | null;
+  body: string;
+  is_read: boolean;
+  created_at: string | null;
+}
+
+export interface InboxResponse {
+  unread: number;
+  messages: InboxMessage[];
+}
+
+// Admin messaging
+export interface MessagingSettings {
+  price_per_sms_kes: number;
+  min_purchase_credits: number;
+  sender_id: string | null;
+  enabled: boolean;
+  message_retention_days: number;
+  bundles: SmsBundle[];
+}
+
+export interface MessagingSettingsUpdate {
+  price_per_sms_kes?: number;
+  min_purchase_credits?: number;
+  sender_id?: string | null;
+  enabled?: boolean;
+  message_retention_days?: number;
+  bundles?: SmsBundle[];
+}
+
+export interface SmsCreditOrder {
+  id: number;
+  user_id: number;
+  quantity: number;
+  amount: number;
+  status: string;
+  payment_reference: string | null;
+  created_at: string | null;
+}
+
+export interface AdminInboxSendRequest {
+  recipient: string;          // reseller id as string, or "all"
+  subject?: string;
+  body: string;
+  also_sms: boolean;
 }
 
 export interface CompensationLimitSetting {

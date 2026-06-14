@@ -70,12 +70,14 @@ export default function EditCustomerPage() {
     }
   };
 
-  const isPPPoE = customer
-    ? (customer.connection_type ?? customer.plan?.connection_type) === 'pppoe'
-    : false;
+  const connectionType = customer
+    ? (customer.connection_type ?? customer.plan?.connection_type ?? 'hotspot')
+    : null;
+  const isPPPoE = connectionType === 'pppoe';
+  const tracksUsage = connectionType === 'pppoe' || connectionType === 'hotspot';
 
   useEffect(() => {
-    if (!customer || !isPPPoE) return;
+    if (!customer || !tracksUsage) return;
     let cancelled = false;
     api.getCustomerUsage(customer.id).then((data) => {
       if (!cancelled) setUsage(data);
@@ -83,7 +85,7 @@ export default function EditCustomerPage() {
       if (!cancelled) setUsage(null);
     });
     return () => { cancelled = true; };
-  }, [customer, isPPPoE]);
+  }, [customer, tracksUsage]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -169,7 +171,7 @@ export default function EditCustomerPage() {
       />
 
       <div className="max-w-lg mx-auto space-y-4">
-        {isPPPoE && usage && <UsagePanel usage={usage} />}
+        {tracksUsage && usage && <UsagePanel usage={usage} />}
 
         {isPPPoE && (
           <div className="card p-4 space-y-3">
