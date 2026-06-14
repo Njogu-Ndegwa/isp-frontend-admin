@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { useCart } from '../layout';
+import { useCart } from '../cart';
 import { api } from '../../lib/api';
 import type { PlaceOrderResponse } from '../../lib/types';
 

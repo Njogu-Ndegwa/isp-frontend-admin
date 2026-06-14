@@ -575,6 +575,7 @@ export interface CustomerUsagePeriod {
 
 export interface CustomerUsageResponse {
   customer_id: number;
+  connection_type: 'hotspot' | 'pppoe' | null;
   pppoe_username: string | null;
   plan_name: string | null;
   plan_data_cap_mb: number | null;
@@ -584,12 +585,14 @@ export interface CustomerUsageResponse {
 
 export interface ResellerTopUsageEntry {
   customer_id: number;
-  customer_name: string;
-  pppoe_username: string;
+  customer_name: string | null;
+  connection_type: 'hotspot' | 'pppoe' | null;
+  pppoe_username: string | null;
+  identifier: string | null;
   plan_name: string;
   cap_mb: number | null;
   total_mb: number;
-  percent_used: number;
+  percent_used: number | null;
   fup_active: boolean;
 }
 
@@ -945,6 +948,27 @@ export interface RouterUptimeResponse {
     uptime_percentage: number;
   };
   recent_checks: UptimeCheck[];
+}
+
+export interface RouterWebFigOpenResponse {
+  success: boolean;
+  router_id: number;
+  router_name: string;
+  management_ip: string;
+  proxy_path: string;
+  proxy_url?: string;
+  expires_at: string;
+  message: string;
+  remote_access?: Record<string, unknown>;
+}
+
+export interface RouterWebFigCloseResponse {
+  success: boolean;
+  router_id: number;
+  router_name: string;
+  revoked_sessions: number;
+  message: string;
+  remote_access?: Record<string, unknown>;
 }
 
 export interface InsuranceWireGuardVerification {
@@ -1372,6 +1396,17 @@ export interface BandwidthDataPoint {
   avgDownloadMbps: number;
   activeQueues: number;
   activeSessions: number;
+  activeHotspotUsers?: number;
+  activePppoeUsers?: number;
+  hotspotUploadMB?: number;
+  hotspotDownloadMB?: number;
+  hotspotTotalMB?: number;
+  pppoeUploadMB?: number;
+  pppoeDownloadMB?: number;
+  pppoeTotalMB?: number;
+  trackedUploadMB?: number;
+  trackedDownloadMB?: number;
+  trackedTotalMB?: number;
 }
 
 export interface BandwidthHistory {
@@ -1386,6 +1421,10 @@ export interface TopUser {
   name: string;
   target: string;
   mac: string;
+  queueName?: string;
+  connectionType?: 'hotspot' | 'pppoe' | string;
+  serviceLabel?: string;
+  identifier?: string | null;
   uploadBytes: number;
   downloadBytes: number;
   totalBytes: number;
@@ -1597,6 +1636,7 @@ export interface Voucher {
   id: number;
   code: string;
   status: 'available' | 'used' | 'disabled' | 'expired';
+  voucher_type?: 'sale' | 'compensation';
   plan_id?: number;
   plan?: VoucherPlan;
   router_id?: number;
@@ -1617,11 +1657,18 @@ export interface VoucherStats {
   expired: number;
 }
 
+export interface CompensationAllowance {
+  daily_limit: number;
+  used_today: number;
+  remaining: number;
+}
+
 export interface GenerateVouchersRequest {
   plan_id: number;
   quantity: number;
   router_id?: number | null;
   expires_at?: string | null;
+  voucher_type?: 'sale' | 'compensation';
 }
 
 export interface VouchersListResponse {
@@ -3643,4 +3690,10 @@ export interface AdminInboxSendRequest {
   subject?: string;
   body: string;
   also_sms: boolean;
+}
+
+export interface CompensationLimitSetting {
+  daily_limit: number;
+  default: number;
+  is_overridden: boolean;
 }

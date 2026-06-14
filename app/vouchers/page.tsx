@@ -7,6 +7,7 @@ import {
   VoucherStats,
   VouchersListResponse,
   GenerateVouchersRequest,
+  CompensationAllowance,
   Plan,
   Router,
 } from '../lib/types';
@@ -36,6 +37,7 @@ type StatusFilter = '' | 'available' | 'used' | 'disabled' | 'expired';
 const VOUCHER_COLUMNS: DataTableColumn[] = [
   { key: 'code', label: 'Code' },
   { key: 'plan', label: 'Plan' },
+  { key: 'type', label: 'Type' },
   { key: 'router', label: 'Router' },
   { key: 'status', label: 'Status' },
   { key: 'expires', label: 'Expires' },
@@ -462,6 +464,12 @@ export default function VouchersPage() {
                   );
                 case 'router':
                   return <span className="text-foreground-muted">{v.router?.name ?? (v.router_id ? `Router #${v.router_id}` : '-')}</span>;
+                case 'type':
+                  return (
+                    <span className={`badge ${v.voucher_type === 'compensation' ? 'badge-warning' : 'badge-neutral'} capitalize`}>
+                      {v.voucher_type === 'compensation' ? 'Comp' : 'Sale'}
+                    </span>
+                  );
                 case 'status':
                   return (
                     <span className={`badge ${statusBadge(v.status)} capitalize`}>{v.status}</span>
@@ -645,6 +653,12 @@ function VoucherMobileCard({
             <span className="text-foreground-muted truncate min-w-0">{v.router.name}</span>
           </>
         )}
+        {v.voucher_type === 'compensation' && (
+          <>
+            <span className="text-foreground-muted/40">&middot;</span>
+            <span className="badge badge-warning text-[11px]">Comp</span>
+          </>
+        )}
       </div>
 
       {/* Action bar: Copy button prominent + meta */}
@@ -692,7 +706,9 @@ function GenerateVouchersModal({
     quantity: 1,
     router_id: null,
     expires_at: null,
+    voucher_type: 'sale',
   });
+  const [allowance, setAllowance] = useState<CompensationAllowance | null>(null);
 
   useEffect(() => {
     document.body.style.overflow = 'hidden';
@@ -714,6 +730,28 @@ function GenerateVouchersModal({
     };
     loadOptions();
   }, []);
+
+  useEffect(() => {
+    if (formData.voucher_type !== 'compensation') {
+      setAllowance(null);
+      return;
+    }
+    let cancelled = false;
+    api.getCompensationAllowance()
+      .then((a) => { if (!cancelled) setAllowance(a); })
+      .catch(() => { if (!cancelled) setAllowance(null); });
+    return () => { cancelled = true; };
+  }, [formData.voucher_type]);
+
+  useEffect(() => {
+    if (formData.voucher_type === 'compensation' && allowance) {
+      setFormData((f) =>
+        f.quantity > allowance.remaining
+          ? { ...f, quantity: Math.max(1, allowance.remaining) }
+          : f
+      );
+    }
+  }, [allowance, formData.voucher_type]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -739,6 +777,7 @@ function GenerateVouchersModal({
       const payload: GenerateVouchersRequest = {
         plan_id: formData.plan_id,
         quantity: formData.quantity,
+        voucher_type: formData.voucher_type,
         ...(formData.router_id ? { router_id: formData.router_id } : {}),
         ...(expiresAtIso ? { expires_at: expiresAtIso } : {}),
       };
@@ -778,6 +817,23 @@ function GenerateVouchersModal({
 
         <form onSubmit={handleSubmit} className="space-y-5" autoComplete="off">
           <div>
+            <label className="block text-sm font-medium text-foreground mb-1.5">Purpose</label>
+            <select
+              value={formData.voucher_type}
+              onChange={(e) => setFormData({ ...formData, voucher_type: e.target.value as 'sale' | 'compensation' })}
+              className="select text-base"
+            >
+              <option value="sale">Sale — counts as revenue</option>
+              <option value="compensation">Compensation — free, does not count as revenue</option>
+            </select>
+            {formData.voucher_type === 'compensation' && allowance && (
+              <p className="text-[11px] text-foreground-muted mt-1">
+                {allowance.remaining} of {allowance.daily_limit} compensation vouchers left today
+              </p>
+            )}
+          </div>
+
+          <div>
             <label className="block text-sm font-medium text-foreground mb-1.5">Plan *</label>
             <select
               value={formData.plan_id}
@@ -802,14 +858,25 @@ function GenerateVouchersModal({
               <input
                 type="number"
                 value={formData.quantity || ''}
-                onChange={(e) => setFormData({ ...formData, quantity: e.target.value === '' ? 0 : Math.min(100, Math.max(1, parseInt(e.target.value) || 1)) })}
+                onChange={(e) => {
+                  const cap = formData.voucher_type === 'compensation' && allowance
+                    ? Math.max(1, allowance.remaining)
+                    : 100;
+                  setFormData({ ...formData, quantity: e.target.value === '' ? 0 : Math.min(cap, Math.max(1, parseInt(e.target.value) || 1)) });
+                }}
                 onBlur={() => { if (!formData.quantity) setFormData(prev => ({ ...prev, quantity: 1 })); }}
                 className="input text-base"
                 min={1}
-                max={100}
+                max={formData.voucher_type === 'compensation' && allowance ? Math.max(1, allowance.remaining) : 100}
                 required
               />
-              <p className="text-[11px] text-foreground-muted mt-1">1–100 vouchers</p>
+              <p className="text-[11px] text-foreground-muted mt-1">
+                {formData.voucher_type === 'compensation' && allowance
+                  ? (allowance.remaining > 0
+                      ? `Up to ${allowance.remaining} today`
+                      : 'No compensation vouchers left today')
+                  : '1–100 vouchers'}
+              </p>
             </div>
 
             <div>
@@ -848,7 +915,7 @@ function GenerateVouchersModal({
             </button>
             <button
               type="submit"
-              disabled={loading || !formData.plan_id}
+              disabled={loading || !formData.plan_id || (formData.voucher_type === 'compensation' && allowance?.remaining === 0)}
               className="btn-primary flex-1 py-3 flex items-center justify-center gap-2 disabled:opacity-60 touch-manipulation"
             >
               {loading ? (

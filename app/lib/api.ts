@@ -49,6 +49,7 @@ import {
   CustomerMapData,
   Voucher,
   VoucherStats,
+  CompensationAllowance,
   GenerateVouchersRequest,
   VouchersListResponse,
   VoucherFilters,
@@ -66,6 +67,8 @@ import {
   UpdatePlainPortsResponse,
   UpdateDualPortsRequest,
   UpdateDualPortsResponse,
+  RouterWebFigOpenResponse,
+  RouterWebFigCloseResponse,
   PPPoECustomerImportResponse,
   RebootRouterRequest,
   RebootRouterResponse,
@@ -221,6 +224,7 @@ import {
   MessagingSettingsUpdate,
   SmsCreditOrder,
   AdminInboxSendRequest,
+  CompensationLimitSetting,
 } from './types';
 // Demo fixtures are ~2,200 lines; load them on demand so real users never
 // download them as part of the baseline bundle.
@@ -243,6 +247,11 @@ export const API_BASE_URL = normalizeApiBaseUrl(
 );
 export const API_ORIGIN = API_BASE_URL.replace(/\/api$/, '');
 const BASE_URL = API_BASE_URL;
+
+const backendUrl = (path: string): string => {
+  if (/^https?:\/\//i.test(path)) return path;
+  return `${API_ORIGIN}${path.startsWith('/') ? path : `/${path}`}`;
+};
 
 class ApiClient {
   isDemoMode(): boolean {
@@ -856,6 +865,28 @@ class ApiClient {
     return this.handleResponse<RouterUptimeResponse>(response);
   }
 
+  async openRouterWebFig(routerId: number): Promise<RouterWebFigOpenResponse> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(`${BASE_URL}/admin/routers/${routerId}/webfig/open`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+    });
+    const data = await this.handleResponse<RouterWebFigOpenResponse>(response);
+    return {
+      ...data,
+      proxy_url: backendUrl(data.proxy_path),
+    };
+  }
+
+  async closeRouterWebFig(routerId: number): Promise<RouterWebFigCloseResponse> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(`${BASE_URL}/admin/routers/${routerId}/webfig/close`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<RouterWebFigCloseResponse>(response);
+  }
+
   async getInsuranceWireGuardStatus(routerId: number): Promise<InsuranceWireGuardStatus> {
     if (this.isDemoMode()) {
       return {
@@ -1207,6 +1238,14 @@ class ApiClient {
     return this.handleResponse<VoucherStats>(response);
   }
 
+  async getCompensationAllowance(): Promise<CompensationAllowance> {
+    if (this.isDemoMode()) return { daily_limit: 10, used_today: 0, remaining: 10 };
+    const response = await fetch(`${BASE_URL}/vouchers/compensation-allowance`, {
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<CompensationAllowance>(response);
+  }
+
   async disableVoucher(voucherId: number): Promise<Voucher> {
     if (this.isDemoMode()) this.demoBlock();
     const response = await fetch(`${BASE_URL}/vouchers/${voucherId}/disable`, {
@@ -1241,6 +1280,24 @@ class ApiClient {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(objectUrl);
+  }
+
+  async getCompensationLimitSetting(): Promise<CompensationLimitSetting> {
+    if (this.isDemoMode()) return { daily_limit: 10, default: 10, is_overridden: false };
+    const response = await fetch(`${BASE_URL}/admin/settings/compensation-limit`, {
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<CompensationLimitSetting>(response);
+  }
+
+  async updateCompensationLimit(daily_limit: number): Promise<CompensationLimitSetting> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(`${BASE_URL}/admin/settings/compensation-limit`, {
+      method: 'PUT',
+      headers: this.getHeaders(),
+      body: JSON.stringify({ daily_limit }),
+    });
+    return this.handleResponse<CompensationLimitSetting>(response);
   }
 
   async updateCustomer(customerId: number, data: UpdateCustomerRequest): Promise<UpdateCustomerResponse> {

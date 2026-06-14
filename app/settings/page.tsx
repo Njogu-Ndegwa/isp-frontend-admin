@@ -3,7 +3,7 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { settingsNav } from './layout';
+import { settingsNav } from './nav';
 
 export default function SettingsIndexPage() {
   const router = useRouter();
