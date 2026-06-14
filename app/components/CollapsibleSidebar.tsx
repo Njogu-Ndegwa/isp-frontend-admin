@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import { useState, useEffect, useCallback, type ReactNode } from 'react';
 import { useAuth } from '../context/AuthContext';
 import ThemeToggle from './ThemeToggle';
+import InboxBell from './InboxBell';
 
 interface NavItem {
   name: string;
@@ -593,6 +594,7 @@ export default function CollapsibleSidebar() {
 
       {/* Theme toggle & User section */}
       <div className="p-3 border-t border-border space-y-1">
+        <InboxBell collapsed={effectiveCollapsed} />
         <ThemeToggle collapsed={effectiveCollapsed} />
         {isAuthenticated ? (
           <button
