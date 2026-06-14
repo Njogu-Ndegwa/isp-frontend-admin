@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { api } from '../../../lib/api';
-import { useCart } from '../../layout';
+import { useCart } from '../../cart';
 import type { ShopProduct } from '../../../lib/types';
 
 /* ─── Star Rating ────────────────────────────────────────────────── */

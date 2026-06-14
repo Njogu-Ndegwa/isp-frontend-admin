@@ -307,14 +307,31 @@ export const demoBandwidthHistory: BandwidthHistory = {
     const hour = t.getHours();
     const isPeak = hour >= 18 && hour <= 23;
     const base = isPeak ? 35 : hour >= 8 && hour <= 17 ? 20 : 5;
+    const hotspotDownloadMB = parseFloat((base * (0.35 + Math.random() * 0.35)).toFixed(2));
+    const hotspotUploadMB = parseFloat((hotspotDownloadMB * 0.18).toFixed(2));
+    const pppoeDownloadMB = parseFloat((base * (0.45 + Math.random() * 0.45)).toFixed(2));
+    const pppoeUploadMB = parseFloat((pppoeDownloadMB * 0.22).toFixed(2));
+    const activeHotspotUsers = Math.floor(Math.random() * 14 + 8);
+    const activePppoeUsers = Math.floor(Math.random() * 8 + 5);
     return {
       timestamp: t.toISOString(),
       totalDownloadMbps: base + Math.random() * 15,
       totalUploadMbps: (base + Math.random() * 15) * 0.3,
       avgDownloadMbps: base * 0.8 + Math.random() * 10,
       avgUploadMbps: (base * 0.8 + Math.random() * 10) * 0.3,
-      activeQueues: Math.floor(Math.random() * 20 + 15),
+      activeQueues: activeHotspotUsers + activePppoeUsers,
       activeSessions: Math.floor(Math.random() * 15 + 25),
+      activeHotspotUsers,
+      activePppoeUsers,
+      hotspotUploadMB,
+      hotspotDownloadMB,
+      hotspotTotalMB: parseFloat((hotspotUploadMB + hotspotDownloadMB).toFixed(2)),
+      pppoeUploadMB,
+      pppoeDownloadMB,
+      pppoeTotalMB: parseFloat((pppoeUploadMB + pppoeDownloadMB).toFixed(2)),
+      trackedUploadMB: parseFloat((hotspotUploadMB + pppoeUploadMB).toFixed(2)),
+      trackedDownloadMB: parseFloat((hotspotDownloadMB + pppoeDownloadMB).toFixed(2)),
+      trackedTotalMB: parseFloat((hotspotUploadMB + hotspotDownloadMB + pppoeUploadMB + pppoeDownloadMB).toFixed(2)),
     };
   }),
   count: 48,
@@ -327,9 +344,15 @@ export const demoTopUsers: TopUsersResponse = {
   topUsers: demoCustomers.filter(c => c.status === 'active').slice(0, 10).map((c, i) => {
     const dlGB = parseFloat((Math.random() * 15 + 1).toFixed(2));
     const ulMB = Math.floor(Math.random() * 2000 + 200);
+    const connectionType = c.connection_type ?? 'hotspot';
     return {
       name: `queue-${c.name.split(' ')[0].toLowerCase()}`, target: `10.10.1.${10 + i}/32`,
-      mac: c.mac_address, uploadBytes: ulMB * 1048576, downloadBytes: Math.floor(dlGB * 1073741824),
+      mac: connectionType === 'pppoe' ? `pppoe:${c.pppoe_username ?? `pppoe-${i + 1}`}` : c.mac_address,
+      queueName: connectionType === 'pppoe' ? `<pppoe-${c.pppoe_username ?? `pppoe-${i + 1}`}>` : `plan_${c.mac_address.replace(/:/g, '')}`,
+      connectionType,
+      serviceLabel: connectionType === 'pppoe' ? 'PPPoE' : 'Hotspot',
+      identifier: connectionType === 'pppoe' ? (c.pppoe_username ?? `pppoe-${i + 1}`) : c.mac_address,
+      uploadBytes: ulMB * 1048576, downloadBytes: Math.floor(dlGB * 1073741824),
       totalBytes: Math.floor(dlGB * 1073741824) + ulMB * 1048576,
       uploadMB: ulMB, downloadMB: Math.floor(dlGB * 1024), totalMB: Math.floor(dlGB * 1024) + ulMB,
       downloadGB: dlGB, maxLimit: c.plan.name.includes('Business') ? '50M/25M' : '15M/10M',
@@ -1283,14 +1306,21 @@ export const demoPaymentMethods: import('./types').PaymentMethodConfig[] = [
 
 // ─── Reseller-wide top usage (FUP) ──────────────────────────────────
 export function demoResellerTopUsage(limit = 20): import('./types').ResellerTopUsageEntry[] {
-  const pppoeCustomers = demoCustomers.filter(c => c.connection_type === 'pppoe');
-  const entries = pppoeCustomers.slice(0, limit).map((c, i) => {
+  const trackedCustomers = demoCustomers.filter(c => c.connection_type === 'pppoe' || c.connection_type === 'hotspot');
+  const entries = trackedCustomers.slice(0, limit).map((c, i) => {
     const cap = c.plan.name.includes('Business') ? 200_000 : 100_000;
     const totalMb = Math.floor(cap * (0.3 + Math.random() * 0.85));
+    const connectionType = c.connection_type ?? 'hotspot';
     return {
       customer_id: c.id,
       customer_name: c.name,
-      pppoe_username: c.pppoe_username ?? `pppoe-${c.name.split(' ')[0].toLowerCase()}`,
+      connection_type: connectionType,
+      pppoe_username: connectionType === 'pppoe'
+        ? (c.pppoe_username ?? `pppoe-${c.name.split(' ')[0].toLowerCase()}`)
+        : null,
+      identifier: connectionType === 'pppoe'
+        ? (c.pppoe_username ?? `pppoe-${c.name.split(' ')[0].toLowerCase()}`)
+        : c.mac_address,
       plan_name: c.plan.name,
       cap_mb: cap,
       total_mb: totalMb,
