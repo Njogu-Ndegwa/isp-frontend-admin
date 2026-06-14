@@ -743,6 +743,16 @@ function GenerateVouchersModal({
     return () => { cancelled = true; };
   }, [formData.voucher_type]);
 
+  useEffect(() => {
+    if (formData.voucher_type === 'compensation' && allowance) {
+      setFormData((f) =>
+        f.quantity > allowance.remaining
+          ? { ...f, quantity: Math.max(1, allowance.remaining) }
+          : f
+      );
+    }
+  }, [allowance, formData.voucher_type]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.plan_id) {
@@ -860,7 +870,13 @@ function GenerateVouchersModal({
                 max={formData.voucher_type === 'compensation' && allowance ? Math.max(1, allowance.remaining) : 100}
                 required
               />
-              <p className="text-[11px] text-foreground-muted mt-1">1–100 vouchers</p>
+              <p className="text-[11px] text-foreground-muted mt-1">
+                {formData.voucher_type === 'compensation' && allowance
+                  ? (allowance.remaining > 0
+                      ? `Up to ${allowance.remaining} today`
+                      : 'No compensation vouchers left today')
+                  : '1–100 vouchers'}
+              </p>
             </div>
 
             <div>
