@@ -49,6 +49,7 @@ import {
   CustomerMapData,
   Voucher,
   VoucherStats,
+  CompensationAllowance,
   GenerateVouchersRequest,
   VouchersListResponse,
   VoucherFilters,
@@ -1192,6 +1193,14 @@ class ApiClient {
       headers: this.getHeaders(),
     });
     return this.handleResponse<VoucherStats>(response);
+  }
+
+  async getCompensationAllowance(): Promise<CompensationAllowance> {
+    if (this.isDemoMode()) return { daily_limit: 10, used_today: 0, remaining: 10 };
+    const response = await fetch(`${BASE_URL}/vouchers/compensation-allowance`, {
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<CompensationAllowance>(response);
   }
 
   async disableVoucher(voucherId: number): Promise<Voucher> {

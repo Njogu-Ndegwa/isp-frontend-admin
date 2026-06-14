@@ -1597,6 +1597,7 @@ export interface Voucher {
   id: number;
   code: string;
   status: 'available' | 'used' | 'disabled' | 'expired';
+  voucher_type?: 'sale' | 'compensation';
   plan_id?: number;
   plan?: VoucherPlan;
   router_id?: number;
@@ -1617,11 +1618,18 @@ export interface VoucherStats {
   expired: number;
 }
 
+export interface CompensationAllowance {
+  daily_limit: number;
+  used_today: number;
+  remaining: number;
+}
+
 export interface GenerateVouchersRequest {
   plan_id: number;
   quantity: number;
   router_id?: number | null;
   expires_at?: string | null;
+  voucher_type?: 'sale' | 'compensation';
 }
 
 export interface VouchersListResponse {
