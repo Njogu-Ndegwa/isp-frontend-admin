@@ -1106,6 +1106,14 @@ function BandwidthSection({
   const maxUpload = Math.max(...data.history.map(d => d.avgUploadMbps ?? 0));
   const avgDownload = data.history.reduce((sum, d) => sum + (d.avgDownloadMbps ?? 0), 0) / data.history.length;
   const avgUpload = data.history.reduce((sum, d) => sum + (d.avgUploadMbps ?? 0), 0) / data.history.length;
+  const hotspotUsageMb = data.history.reduce((sum, d) => sum + (d.hotspotTotalMB ?? 0), 0);
+  const pppoeUsageMb = data.history.reduce((sum, d) => sum + (d.pppoeTotalMB ?? 0), 0);
+  const trackedUsageMb = hotspotUsageMb + pppoeUsageMb;
+  const hasTrackedUsage = trackedUsageMb > 0;
+  const formatUsageMb = (mb: number) => {
+    if (mb >= 1024) return `${(mb / 1024).toFixed(2)} GB`;
+    return `${mb.toFixed(1)} MB`;
+  };
 
   return (
     <div className="card p-4 sm:p-5 animate-fade-in">
@@ -1157,6 +1165,23 @@ function BandwidthSection({
           <p className="text-base sm:text-lg font-bold text-foreground stat-value">{avgUpload.toFixed(2)} <span className="text-[10px] sm:text-xs font-normal">Mbps</span></p>
         </div>
       </div>
+
+      {hasTrackedUsage && (
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3 mb-4 sm:mb-5">
+          <div className="p-2.5 sm:p-3 rounded-lg bg-background-tertiary">
+            <p className="text-[9px] sm:text-[10px] text-foreground-muted uppercase tracking-wide">Tracked Total</p>
+            <p className="text-base sm:text-lg font-bold text-foreground stat-value">{formatUsageMb(trackedUsageMb)}</p>
+          </div>
+          <div className="p-2.5 sm:p-3 rounded-lg bg-background-tertiary">
+            <p className="text-[9px] sm:text-[10px] text-foreground-muted uppercase tracking-wide">Hotspot</p>
+            <p className="text-base sm:text-lg font-bold text-amber-500 stat-value">{formatUsageMb(hotspotUsageMb)}</p>
+          </div>
+          <div className="p-2.5 sm:p-3 rounded-lg bg-background-tertiary">
+            <p className="text-[9px] sm:text-[10px] text-foreground-muted uppercase tracking-wide">PPPoE</p>
+            <p className="text-base sm:text-lg font-bold text-violet-500 stat-value">{formatUsageMb(pppoeUsageMb)}</p>
+          </div>
+        </div>
+      )}
 
       {/* Chart */}
       <BandwidthChart data={data.history} />
@@ -1256,7 +1281,7 @@ function TopUsersSection({
     );
   }
 
-  const maxDownload = Math.max(...data.topUsers.map(u => u.downloadMB));
+  const maxDownload = Math.max(1, ...data.topUsers.map(u => u.downloadMB));
 
   return (
     <div className="card p-4 sm:p-5 animate-fade-in">
@@ -1285,6 +1310,8 @@ function TopUsersSection({
           const isActive = downloadRate > 0 || uploadRate > 0;
           const downloadPercent = (user.downloadMB / maxDownload) * 100;
           const rank = index + 1;
+          const connectionType = user.connectionType || (user.mac?.startsWith('pppoe:') ? 'pppoe' : 'hotspot');
+          const serviceLabel = connectionType === 'pppoe' ? 'PPPoE' : 'Hotspot';
 
           return (
             <div
@@ -1302,6 +1329,13 @@ function TopUsersSection({
                     {rank}
                   </span>
                   <span className="font-mono text-sm text-foreground">{user.customerPhone}</span>
+                  <span className={`px-1.5 py-0.5 rounded text-[9px] font-medium ${
+                    connectionType === 'pppoe'
+                      ? 'bg-violet-500/10 text-violet-400'
+                      : 'bg-amber-500/10 text-amber-400'
+                  }`}>
+                    {serviceLabel}
+                  </span>
                   {isActive && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />}
                 </div>
                 <span className="text-sm font-semibold text-cyan-500">{formatUsage(user.downloadMB)}</span>
@@ -1329,6 +1363,7 @@ function TopUsersSection({
             <tr className="text-foreground-muted text-xs uppercase tracking-wider border-b border-border">
               <th className="text-left pb-3 font-medium w-12">#</th>
               <th className="text-left pb-3 font-medium">User</th>
+              <th className="text-left pb-3 font-medium">Service</th>
               <th className="text-left pb-3 font-medium">Usage</th>
               <th className="text-right pb-3 font-medium">Download</th>
               <th className="text-right pb-3 font-medium">Upload</th>
@@ -1342,6 +1377,8 @@ function TopUsersSection({
               const isActive = downloadRate > 0 || uploadRate > 0;
               const downloadPercent = (user.downloadMB / maxDownload) * 100;
               const rank = index + 1;
+              const connectionType = user.connectionType || (user.mac?.startsWith('pppoe:') ? 'pppoe' : 'hotspot');
+              const serviceLabel = connectionType === 'pppoe' ? 'PPPoE' : 'Hotspot';
 
               return (
                 <tr
@@ -1366,6 +1403,15 @@ function TopUsersSection({
                     {user.customerName && user.customerName !== user.customerPhone && (
                       <p className="text-xs text-foreground-muted mt-0.5">{user.customerName}</p>
                     )}
+                  </td>
+                  <td className="py-3">
+                    <span className={`inline-flex px-2 py-1 rounded-md text-xs font-medium ${
+                      connectionType === 'pppoe'
+                        ? 'bg-violet-500/10 text-violet-400'
+                        : 'bg-amber-500/10 text-amber-400'
+                    }`}>
+                      {serviceLabel}
+                    </span>
                   </td>
                   <td className="py-3 w-40">
                     <div className="h-2 bg-background-tertiary rounded-full overflow-hidden">
@@ -1796,7 +1842,7 @@ function TopUsageThisMonthSection({
           Top Users This Period
         </h3>
         <span className="text-[10px] sm:text-xs text-foreground-muted">
-          PPPoE Â· monthly cap
+          Hotspot + PPPoE
         </span>
       </div>
 
@@ -1807,6 +1853,7 @@ function TopUsageThisMonthSection({
             <tr className="border-b border-border">
               <th className="text-left py-2 text-xs font-medium text-foreground-muted uppercase tracking-wider w-12">#</th>
               <th className="text-left py-2 text-xs font-medium text-foreground-muted uppercase tracking-wider">Customer</th>
+              <th className="text-left py-2 text-xs font-medium text-foreground-muted uppercase tracking-wider">Service</th>
               <th className="text-left py-2 text-xs font-medium text-foreground-muted uppercase tracking-wider">Plan</th>
               <th className="text-left py-2 text-xs font-medium text-foreground-muted uppercase tracking-wider">Usage</th>
               <th className="text-right py-2 text-xs font-medium text-foreground-muted uppercase tracking-wider">% used</th>
@@ -1822,14 +1869,26 @@ function TopUsageThisMonthSection({
                 : percent >= 75
                 ? 'bg-amber-500'
                 : 'bg-purple-500';
+              const connectionType = entry.connection_type ?? 'hotspot';
+              const serviceLabel = connectionType === 'pppoe' ? 'PPPoE' : 'Hotspot';
+              const identifier = entry.identifier || entry.pppoe_username || 'No identifier';
               return (
                 <tr key={entry.customer_id} className="border-b border-border/50 hover:bg-background-tertiary/30 transition-colors">
                   <td className="py-3 text-foreground-muted">{i + 1}</td>
                   <td className="py-3">
                     <Link href={`/customers/${entry.customer_id}`} className="font-medium text-foreground hover:text-accent-primary transition-colors">
-                      {entry.customer_name}
+                      {entry.customer_name || 'Unnamed customer'}
                     </Link>
-                    <p className="text-xs font-mono text-foreground-muted">{entry.pppoe_username}</p>
+                    <p className="text-xs font-mono text-foreground-muted">{identifier}</p>
+                  </td>
+                  <td className="py-3">
+                    <span className={`inline-flex px-2 py-1 rounded-md text-xs font-medium ${
+                      connectionType === 'pppoe'
+                        ? 'bg-violet-500/10 text-violet-400'
+                        : 'bg-amber-500/10 text-amber-400'
+                    }`}>
+                      {serviceLabel}
+                    </span>
                   </td>
                   <td className="py-3">
                     <span className="text-sm text-foreground-muted">{entry.plan_name}</span>
@@ -1873,6 +1932,9 @@ function TopUsageThisMonthSection({
             : percent >= 75
             ? 'bg-amber-500'
             : 'bg-purple-500';
+          const connectionType = entry.connection_type ?? 'hotspot';
+          const serviceLabel = connectionType === 'pppoe' ? 'PPPoE' : 'Hotspot';
+          const identifier = entry.identifier || entry.pppoe_username || 'No identifier';
           return (
             <Link
               key={entry.customer_id}
@@ -1883,13 +1945,22 @@ function TopUsageThisMonthSection({
                 <div className="flex items-center gap-2 min-w-0">
                   <span className="text-xs text-foreground-muted w-5">{i + 1}.</span>
                   <div className="min-w-0">
-                    <p className="text-sm font-medium text-foreground truncate">{entry.customer_name}</p>
-                    <p className="text-[10px] font-mono text-foreground-muted truncate">{entry.pppoe_username}</p>
+                    <p className="text-sm font-medium text-foreground truncate">{entry.customer_name || 'Unnamed customer'}</p>
+                    <p className="text-[10px] font-mono text-foreground-muted truncate">{identifier}</p>
                   </div>
                 </div>
-                <span className={`text-sm font-semibold flex-shrink-0 ${entry.fup_active ? 'text-danger' : percent >= 90 ? 'text-warning' : 'text-foreground'}`}>
-                  {percent.toFixed(0)}%
-                </span>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <span className={`px-1.5 py-0.5 rounded text-[9px] font-medium ${
+                    connectionType === 'pppoe'
+                      ? 'bg-violet-500/10 text-violet-400'
+                      : 'bg-amber-500/10 text-amber-400'
+                  }`}>
+                    {serviceLabel}
+                  </span>
+                  <span className={`text-sm font-semibold ${entry.fup_active ? 'text-danger' : percent >= 90 ? 'text-warning' : 'text-foreground'}`}>
+                    {percent.toFixed(0)}%
+                  </span>
+                </div>
               </div>
               <div className="h-1.5 bg-background-tertiary rounded-full overflow-hidden mb-1">
                 <div className={`h-full ${barColor} rounded-full transition-all duration-500`} style={{ width: `${percent}%` }} />
