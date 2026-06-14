@@ -33,11 +33,16 @@ export default function PlatformSettingsPage() {
   }, []);
 
   const handleSave = async () => {
+    const clamped = Number.isFinite(inputValue) ? Math.round(Math.min(1000, Math.max(0, inputValue))) : NaN;
+    if (Number.isNaN(clamped)) {
+      setError('Enter a whole number between 0 and 1000.');
+      return;
+    }
     setSaving(true);
     setError(null);
     setSuccessMessage(null);
     try {
-      const result = await api.updateCompensationLimit(inputValue);
+      const result = await api.updateCompensationLimit(clamped);
       setSetting(result);
       setInputValue(result.daily_limit);
       setSuccessMessage('Compensation voucher daily limit updated successfully.');
@@ -110,6 +115,7 @@ export default function PlatformSettingsPage() {
                   type="number"
                   min={0}
                   max={1000}
+                  step={1}
                   value={inputValue}
                   onChange={(e) => setInputValue(Number(e.target.value))}
                   disabled={saving}
@@ -118,7 +124,7 @@ export default function PlatformSettingsPage() {
               </div>
               <button
                 onClick={handleSave}
-                disabled={saving || loading}
+                disabled={saving || loading || !Number.isFinite(inputValue)}
                 className="btn-primary px-5 py-2 text-sm disabled:opacity-50 sm:mb-0"
               >
                 {saving ? (
