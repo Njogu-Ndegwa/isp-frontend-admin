@@ -10,6 +10,7 @@ import {
   PPPoECredentials,
   ActivatePPPoERequest,
   PPPoEMonitorUser,
+  HotspotMonitorUser,
   CustomerUsagePeriod,
 } from '../lib/types';
 import { formatDateGMT3 } from '../lib/dateUtils';
@@ -33,8 +34,30 @@ const STORAGE_KEY_CONNECTION = 'customers.filter.connection';
 const PPPOE_POLL_INTERVAL = 30_000;
 const USAGE_POLL_INTERVAL = 60_000;
 
+type LiveMonitorUser = PPPoEMonitorUser | HotspotMonitorUser;
+
 function getConnectionType(customer: Customer): 'hotspot' | 'pppoe' {
   return customer.connection_type ?? customer.plan?.connection_type ?? 'hotspot';
+}
+
+function normalizeMacForLookup(mac: string | undefined | null): string {
+  return (mac ?? '').replace(/[^0-9a-f]/gi, '').toUpperCase();
+}
+
+function canMonitorLive(customer: Customer): boolean {
+  const routerId = customer.router_id ?? customer.router?.id;
+  if (!routerId) return false;
+  const connectionType = getConnectionType(customer);
+  if (connectionType === 'pppoe') return Boolean(customer.pppoe_username);
+  return Boolean(normalizeMacForLookup(customer.mac_address));
+}
+
+function getHotspotLiveForCustomer(
+  customer: Customer,
+  hotspotLive: Map<string, HotspotMonitorUser>,
+): HotspotMonitorUser | undefined {
+  return hotspotLive.get(`customer:${customer.id}`)
+    ?? hotspotLive.get(normalizeMacForLookup(customer.mac_address));
 }
 
 function formatRate(bpsStr: string | undefined | null): string {
@@ -100,13 +123,15 @@ export default function CustomersPage() {
   // by polling /pppoe/{router}/users in parallel; per-router failures are
   // swallowed so a single offline router never breaks the page.
   const [pppoeLive, setPppoeLive] = useState<Map<string, PPPoEMonitorUser>>(new Map());
+  const [hotspotLive, setHotspotLive] = useState<Map<string, HotspotMonitorUser>>(new Map());
   // Flips true once the first fetch settles (success OR failure) so cells
   // can switch from skeleton → real data / "—" instead of always rendering
   // an empty dash while we're still loading.
   const [pppoeLiveLoaded, setPppoeLiveLoaded] = useState(false);
+  const [hotspotLiveLoaded, setHotspotLiveLoaded] = useState(false);
 
   // Period data usage (FUP) per customer. We use a single source of truth —
-  // `api.getCustomerUsage` — for every visible PPPoE customer, mirroring
+  // `api.getCustomerUsage` — for every visible hotspot/PPPoE customer, mirroring
   // the customer-detail page so the table never disagrees with the drill-in
   // view. The bulk `getResellerTopUsage` endpoint was tempting for fast
   // initial paint, but it only returned the top-N by consumption, leaving
@@ -338,6 +363,16 @@ export default function CustomersPage() {
     return Array.from(ids).sort((a, b) => a - b);
   }, [displayedCustomers]);
 
+  const hotspotLiveRouterIds = useMemo(() => {
+    const ids = new Set<number>();
+    for (const customer of displayedCustomers) {
+      if (getConnectionType(customer) !== 'hotspot') continue;
+      const routerId = customer.router_id ?? customer.router?.id;
+      if (routerId) ids.add(routerId);
+    }
+    return Array.from(ids).sort((a, b) => a - b);
+  }, [displayedCustomers]);
+
   // Live PPPoE composition for the visible customer rows only. Polling every
   // router in the account made the customer list behave like a fleet-wide live
   // diagnostic page and created avoidable RouterOS/DB pressure.
@@ -378,16 +413,62 @@ export default function CustomersPage() {
     return () => { cancelled = true; if (intervalId) clearInterval(intervalId); };
   }, [pppoeLiveRouterIds]);
 
+  // Live hotspot composition for the visible customer rows only. Hotspot
+  // records are keyed by MAC address, with the backend customer id as a
+  // fallback when the endpoint was able to cross-reference the database row.
+  useEffect(() => {
+    let cancelled = false;
+    let intervalId: number | null = null;
+
+    if (hotspotLiveRouterIds.length === 0) {
+      setHotspotLive(new Map());
+      setHotspotLiveLoaded(true);
+      return () => { cancelled = true; };
+    }
+
+    setHotspotLiveLoaded(false);
+
+    const load = async () => {
+      try {
+        const results = await Promise.allSettled(
+          hotspotLiveRouterIds.map((routerId) => api.getHotspotUsers(routerId))
+        );
+        if (cancelled) return;
+        const map = new Map<string, HotspotMonitorUser>();
+        for (const result of results) {
+          if (result.status !== 'fulfilled') continue;
+          result.value.users.forEach((u) => {
+            const macKey = normalizeMacForLookup(u.mac_address);
+            if (macKey) map.set(macKey, u);
+            if (u.customer?.id) map.set(`customer:${u.customer.id}`, u);
+          });
+        }
+        setHotspotLive(map);
+      } catch {
+        // Leave prior live data intact and retry on the next tick.
+      } finally {
+        if (!cancelled) setHotspotLiveLoaded(true);
+      }
+    };
+
+    load();
+    intervalId = window.setInterval(load, PPPOE_POLL_INTERVAL);
+    return () => { cancelled = true; if (intervalId) clearInterval(intervalId); };
+  }, [hotspotLiveRouterIds]);
+
   // Period data usage — single data source.
   //
-  // We fetch each visible PPPoE customer's usage in parallel via the same
+  // We fetch each visible hotspot/PPPoE customer's usage in parallel via the same
   // `getCustomerUsage` endpoint the customer-detail page uses, so the table
   // and detail view can never disagree. The fetch re-runs whenever the
   // displayed set changes (page / filter / search) and on a fixed poll so
   // totals stay reasonably fresh.
   useEffect(() => {
     if (displayedCustomers.length === 0) return;
-    const targets = displayedCustomers.filter((c) => getConnectionType(c) === 'pppoe');
+    const targets = displayedCustomers.filter((c) => {
+      const connectionType = getConnectionType(c);
+      return connectionType === 'pppoe' || connectionType === 'hotspot';
+    });
     if (targets.length === 0) return;
 
     let cancelled = false;
@@ -743,9 +824,13 @@ export default function CustomersPage() {
             rowKey={(c) => c.id}
             onRowClick={(c) => routerNav.push(`/customers/${c.id}`)}
             renderCell={(customer, key) => {
-              const live = customer.pppoe_username ? pppoeLive.get(customer.pppoe_username) : undefined;
+              const connectionType = getConnectionType(customer);
+              const live: LiveMonitorUser | undefined = connectionType === 'pppoe'
+                ? (customer.pppoe_username ? pppoeLive.get(customer.pppoe_username) : undefined)
+                : getHotspotLiveForCustomer(customer, hotspotLive);
+              const liveLoaded = connectionType === 'pppoe' ? pppoeLiveLoaded : hotspotLiveLoaded;
+              const liveMonitorable = canMonitorLive(customer);
               const usage = usageMap.get(customer.id);
-              const isPppoe = getConnectionType(customer) === 'pppoe';
               switch (key) {
                 case 'name':
                   return (
@@ -802,10 +887,10 @@ export default function CustomersPage() {
                     <span className="text-foreground-muted">-</span>
                   );
                 case 'online':
-                  if (!isPppoe) {
+                  if (!liveMonitorable) {
                     return <span className="text-foreground-muted text-xs">—</span>;
                   }
-                  if (!pppoeLiveLoaded) {
+                  if (!liveLoaded) {
                     return (
                       <div className="flex flex-col gap-1.5" aria-label="Loading online status">
                         <div className="h-3 w-16 skeleton" />
@@ -844,8 +929,8 @@ export default function CustomersPage() {
                     </div>
                   );
                 case 'bandwidth':
-                  if (!isPppoe) return <span className="text-foreground-muted text-xs">—</span>;
-                  if (!pppoeLiveLoaded) {
+                  if (!liveMonitorable) return <span className="text-foreground-muted text-xs">—</span>;
+                  if (!liveLoaded) {
                     return (
                       <div className="flex flex-col gap-1" aria-label="Loading bandwidth">
                         <div className="h-3 w-14 skeleton" />
@@ -861,9 +946,6 @@ export default function CustomersPage() {
                     </div>
                   );
                 case 'usage': {
-                  if (!isPppoe) {
-                    return <span className="text-foreground-muted text-xs">—</span>;
-                  }
                   if (!usageFetched.has(customer.id)) {
                     return (
                       <div className="flex flex-col gap-1.5 min-w-[120px]" aria-label="Loading data usage">
@@ -1013,16 +1095,20 @@ export default function CustomersPage() {
               </div>
             ) : (
               displayedCustomers.map((customer) => {
-                const liveCard = customer.pppoe_username ? pppoeLive.get(customer.pppoe_username) : undefined;
+                const connectionTypeCard = getConnectionType(customer);
+                const liveCard: LiveMonitorUser | undefined = connectionTypeCard === 'pppoe'
+                  ? (customer.pppoe_username ? pppoeLive.get(customer.pppoe_username) : undefined)
+                  : getHotspotLiveForCustomer(customer, hotspotLive);
+                const liveLoadedCard = connectionTypeCard === 'pppoe' ? pppoeLiveLoaded : hotspotLiveLoaded;
+                const liveMonitorableCard = canMonitorLive(customer);
                 const usageCard = usageMap.get(customer.id);
                 const isOnline = liveCard?.online ?? false;
-                const isPppoeCard = getConnectionType(customer) === 'pppoe';
                 // Show the secondary-row skeleton until we either have *some*
                 // data to display or both fetches have settled — prevents the
                 // brief "—" / router-name flash between fetches resolving.
                 const hasAnyLiveData = Boolean(liveCard) || Boolean(usageCard);
-                const usageReadyForCard = !isPppoeCard || usageFetched.has(customer.id);
-                const cardLoadingLive = isPppoeCard && !hasAnyLiveData && (!pppoeLiveLoaded || !usageReadyForCard);
+                const usageReadyForCard = usageFetched.has(customer.id);
+                const cardLoadingLive = liveMonitorableCard && !hasAnyLiveData && (!liveLoadedCard || !usageReadyForCard);
                 const usageColors = usageCard ? getUsageColor(usageCard.percent_used) : null;
                 return (
                 <MobileDataCard
@@ -1034,7 +1120,7 @@ export default function CustomersPage() {
                     text: (customer.name || '?').charAt(0).toUpperCase(),
                     color: liveCard
                       ? (liveCard.disabled ? 'warning' : isOnline ? 'success' : 'danger')
-                      : getConnectionType(customer) === 'pppoe' ? 'info' : 'primary',
+                      : connectionTypeCard === 'pppoe' ? 'info' : 'primary',
                   }}
                   badge={
                     cardLoadingLive
@@ -1048,9 +1134,9 @@ export default function CustomersPage() {
                         // status pill sitting right next to it.
                         ? { label: 'Online', variant: 'cyan' as const }
                         : { label: 'Offline', variant: 'neutral' as const }
-                      : isPppoeCard
+                      : connectionTypeCard === 'pppoe'
                       ? { label: 'PPPoE', variant: 'info' as const }
-                      : undefined
+                      : { label: 'Hotspot', variant: 'neutral' as const }
                   }
                   status={{
                     label: customer.status,
@@ -1096,8 +1182,8 @@ export default function CustomersPage() {
                         <span className="text-accent-primary">↓ {formatRate(liveCard.download_rate)}</span>
                         <span className="text-teal-500">↑ {formatRate(liveCard.upload_rate)}</span>
                       </span>
-                    ) : isPppoeCard ? (
-                      // PPPoE customer with no live state and no usage data —
+                    ) : liveMonitorableCard ? (
+                      // Monitored customer with no live state and no usage data —
                       // the connection pill above already conveys the offline
                       // state, so don't fall back to the router name here.
                       <span className="text-foreground-muted text-xs">—</span>

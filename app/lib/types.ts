@@ -1906,6 +1906,44 @@ export interface PPPoEMonitorResponse {
   users: PPPoEMonitorUser[];
 }
 
+export interface HotspotMonitorUser {
+  username: string;
+  mac_address: string;
+  profile: string;
+  disabled: boolean;
+  comment: string;
+  online: boolean;
+  online_source: 'active' | 'host' | null;
+  address: string | null;
+  uptime: string | null;
+  idle_time: string | null;
+  login_by: string;
+  upload_bytes: number;
+  download_bytes: number;
+  upload_rate: string;
+  download_rate: string;
+  max_limit: string;
+  binding_type: string;
+  bypassed: boolean;
+  authorized: boolean;
+  has_queue: boolean;
+  customer: PPPoEMonitorCustomer | null;
+}
+
+export type HotspotMonitorSummary = PPPoEMonitorSummary;
+
+export interface HotspotMonitorResponse {
+  router_id: number;
+  router_name: string;
+  generated_at: string;
+  cached: boolean;
+  stale?: boolean;
+  cache_age_seconds: number | null;
+  success: boolean;
+  summary: HotspotMonitorSummary;
+  users: HotspotMonitorUser[];
+}
+
 export interface PPPoECleanupResult {
   success?: boolean;
   disconnect_result?: {

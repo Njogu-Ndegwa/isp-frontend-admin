@@ -80,6 +80,7 @@ import {
   PPPoEMonitorResponse,
   PPPoECleanupResponse,
   PPPoECleanupError,
+  HotspotMonitorResponse,
   HotspotOverviewResponse,
   HotspotLogsResponse,
   PortStatusResponse,
@@ -1458,6 +1459,15 @@ class ApiClient {
       headers: this.getHeaders(),
     });
     return this.handleResponse<PPPoEMonitorResponse>(response);
+  }
+
+  // Hotspot User Monitoring (bandwidth & online status)
+  async getHotspotUsers(routerId: number, refresh = false): Promise<HotspotMonitorResponse> {
+    const params = refresh ? '?refresh=true' : '';
+    const response = await fetch(`${BASE_URL}/hotspot/${routerId}/users${params}`, {
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<HotspotMonitorResponse>(response);
   }
 
   // Remove a PPPoE user from the router. Use only for orphan rows where
