@@ -208,6 +208,19 @@ import {
   AttributePaymentResponse,
   C2BRegisterRequest,
   C2BRegisterResponse,
+  SmsCreditInfo,
+  SmsPurchaseResponse,
+  SmsRecipientsResponse,
+  SmsSendRequest,
+  SmsSendResponse,
+  SmsTemplate,
+  SmsCampaign,
+  SmsCampaignDetail,
+  InboxResponse,
+  MessagingSettings,
+  MessagingSettingsUpdate,
+  SmsCreditOrder,
+  AdminInboxSendRequest,
 } from './types';
 // Demo fixtures are ~2,200 lines; load them on demand so real users never
 // download them as part of the baseline bundle.
@@ -2840,6 +2853,138 @@ class ApiClient {
       headers: this.getHeaders(),
     });
     return this.handleResponse<{ message: string; settings: PortalSettingsResponse['settings'] }>(response);
+  }
+
+  // ── Messaging / SMS ──────────────────────────────────────────────────────
+
+  async getSmsCredits(): Promise<SmsCreditInfo> {
+    const response = await fetch(`${BASE_URL}/messaging/credits`, {
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<SmsCreditInfo>(response);
+  }
+
+  async purchaseSmsCredits(quantity: number, phone_number: string): Promise<SmsPurchaseResponse> {
+    const response = await fetch(`${BASE_URL}/messaging/credits/purchase`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify({ quantity, phone_number }),
+    });
+    return this.handleResponse<SmsPurchaseResponse>(response);
+  }
+
+  async getSmsRecipients(filter = 'all', planId?: number): Promise<SmsRecipientsResponse> {
+    const params = new URLSearchParams();
+    params.append('filter', filter);
+    if (planId) params.append('plan_id', planId.toString());
+    const response = await fetch(`${BASE_URL}/messaging/recipients?${params.toString()}`, {
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<SmsRecipientsResponse>(response);
+  }
+
+  async sendSms(payload: SmsSendRequest): Promise<SmsSendResponse> {
+    const response = await fetch(`${BASE_URL}/messaging/send`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify(payload),
+    });
+    return this.handleResponse<SmsSendResponse>(response);
+  }
+
+  async getSmsTemplates(): Promise<{ templates: SmsTemplate[] }> {
+    const response = await fetch(`${BASE_URL}/messaging/templates`, {
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<{ templates: SmsTemplate[] }>(response);
+  }
+
+  async createSmsTemplate(name: string, body: string): Promise<SmsTemplate> {
+    const response = await fetch(`${BASE_URL}/messaging/templates`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify({ name, body }),
+    });
+    return this.handleResponse<SmsTemplate>(response);
+  }
+
+  async deleteSmsTemplate(id: number): Promise<{ deleted: number }> {
+    const response = await fetch(`${BASE_URL}/messaging/templates/${id}`, {
+      method: 'DELETE',
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<{ deleted: number }>(response);
+  }
+
+  async getSmsCampaigns(): Promise<{ campaigns: SmsCampaign[] }> {
+    const response = await fetch(`${BASE_URL}/messaging/campaigns`, {
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<{ campaigns: SmsCampaign[] }>(response);
+  }
+
+  async getSmsCampaign(id: number): Promise<SmsCampaignDetail> {
+    const response = await fetch(`${BASE_URL}/messaging/campaigns/${id}`, {
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<SmsCampaignDetail>(response);
+  }
+
+  async getInbox(): Promise<InboxResponse> {
+    const response = await fetch(`${BASE_URL}/messaging/inbox`, {
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<InboxResponse>(response);
+  }
+
+  async markInboxRead(id: number): Promise<{ id: number; is_read: boolean }> {
+    const response = await fetch(`${BASE_URL}/messaging/inbox/${id}/read`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<{ id: number; is_read: boolean }>(response);
+  }
+
+  // Admin messaging
+  async getMessagingSettings(): Promise<MessagingSettings> {
+    const response = await fetch(`${BASE_URL}/admin/messaging/settings`, {
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<MessagingSettings>(response);
+  }
+
+  async updateMessagingSettings(body: MessagingSettingsUpdate): Promise<{ message: string }> {
+    const response = await fetch(`${BASE_URL}/admin/messaging/settings`, {
+      method: 'PUT',
+      headers: this.getHeaders(),
+      body: JSON.stringify(body),
+    });
+    return this.handleResponse<{ message: string }>(response);
+  }
+
+  async getSmsCreditOrders(): Promise<{ orders: SmsCreditOrder[] }> {
+    const response = await fetch(`${BASE_URL}/admin/messaging/credits/orders`, {
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<{ orders: SmsCreditOrder[] }>(response);
+  }
+
+  async adjustResellerCredits(resellerId: number, delta: number, note?: string): Promise<{ reseller_id: number; balance: number }> {
+    const response = await fetch(`${BASE_URL}/admin/messaging/resellers/${resellerId}/credits/adjust`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify({ delta, note }),
+    });
+    return this.handleResponse<{ reseller_id: number; balance: number }>(response);
+  }
+
+  async sendInboxMessage(payload: AdminInboxSendRequest): Promise<{ message: string; recipients: number }> {
+    const response = await fetch(`${BASE_URL}/admin/messaging/inbox`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify(payload),
+    });
+    return this.handleResponse<{ message: string; recipients: number }>(response);
   }
 }
 
