@@ -3521,3 +3521,9 @@ export interface C2BRegisterResponse {
   ResponseCode: string;
   ResponseDescription: string;
 }
+
+export interface CompensationLimitSetting {
+  daily_limit: number;
+  default: number;
+  is_overridden: boolean;
+}

@@ -209,6 +209,7 @@ import {
   AttributePaymentResponse,
   C2BRegisterRequest,
   C2BRegisterResponse,
+  CompensationLimitSetting,
 } from './types';
 // Demo fixtures are ~2,200 lines; load them on demand so real users never
 // download them as part of the baseline bundle.
@@ -1237,6 +1238,24 @@ class ApiClient {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(objectUrl);
+  }
+
+  async getCompensationLimitSetting(): Promise<CompensationLimitSetting> {
+    if (this.isDemoMode()) return { daily_limit: 10, default: 10, is_overridden: false };
+    const response = await fetch(`${BASE_URL}/admin/settings/compensation-limit`, {
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<CompensationLimitSetting>(response);
+  }
+
+  async updateCompensationLimit(daily_limit: number): Promise<CompensationLimitSetting> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(`${BASE_URL}/admin/settings/compensation-limit`, {
+      method: 'PUT',
+      headers: this.getHeaders(),
+      body: JSON.stringify({ daily_limit }),
+    });
+    return this.handleResponse<CompensationLimitSetting>(response);
   }
 
   async updateCustomer(customerId: number, data: UpdateCustomerRequest): Promise<UpdateCustomerResponse> {
