@@ -67,6 +67,7 @@ export default function BuySmsCreditsModal({
           setStep('success');
           onPurchased();
           showAlert('success', `${quantity} SMS credits added to your account!`);
+          return;   // don't fall through to the timeout check on a successful tick
         }
       } catch {
         // keep polling

@@ -34,7 +34,10 @@ function charCount(text: string): number {
 function calcSegments(text: string): { segments: number; chars: number; maxPerSegment: number; isGsm: boolean } {
   if (!text) return { segments: 0, chars: 0, maxPerSegment: 160, isGsm: true };
   const gsm = isGsm7(text);
-  const chars = gsm ? charCount(text) : text.length;
+  // For UCS-2, count Unicode code points ([...text]) not UTF-16 code units
+  // (text.length), so supplementary-plane chars (emoji) match the backend's
+  // Python len() and we don't overcount segments.
+  const chars = gsm ? charCount(text) : [...text].length;
   const single = gsm ? 160 : 70;
   const multi = gsm ? 153 : 67;
   const segments = chars <= single ? 1 : Math.ceil(chars / multi);
@@ -194,6 +197,12 @@ function SendTab({ credits, onCreditsBought, onSwitchToCredits }: {
   // Fetch recipient count when filter/planId changes
   useEffect(() => {
     let cancelled = false;
+    // "By plan" with no plan chosen would resolve to ALL customers on the
+    // backend — misleading. Show 0 until a plan is selected.
+    if (filter === 'by_plan' && !planId) {
+      setRecipientCount(0);
+      return;
+    }
     const load = async () => {
       setRecipientLoading(true);
       try {
