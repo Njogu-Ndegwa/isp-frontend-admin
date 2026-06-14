@@ -947,6 +947,27 @@ export interface RouterUptimeResponse {
   recent_checks: UptimeCheck[];
 }
 
+export interface RouterWebFigOpenResponse {
+  success: boolean;
+  router_id: number;
+  router_name: string;
+  management_ip: string;
+  proxy_path: string;
+  proxy_url?: string;
+  expires_at: string;
+  message: string;
+  remote_access?: Record<string, unknown>;
+}
+
+export interface RouterWebFigCloseResponse {
+  success: boolean;
+  router_id: number;
+  router_name: string;
+  revoked_sessions: number;
+  message: string;
+  remote_access?: Record<string, unknown>;
+}
+
 export interface InsuranceWireGuardVerification {
   ip: string;
   port: number;

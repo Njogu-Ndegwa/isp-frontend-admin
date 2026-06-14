@@ -66,6 +66,8 @@ import {
   UpdatePlainPortsResponse,
   UpdateDualPortsRequest,
   UpdateDualPortsResponse,
+  RouterWebFigOpenResponse,
+  RouterWebFigCloseResponse,
   PPPoECustomerImportResponse,
   RebootRouterRequest,
   RebootRouterResponse,
@@ -230,6 +232,11 @@ export const API_BASE_URL = normalizeApiBaseUrl(
 );
 export const API_ORIGIN = API_BASE_URL.replace(/\/api$/, '');
 const BASE_URL = API_BASE_URL;
+
+const backendUrl = (path: string): string => {
+  if (/^https?:\/\//i.test(path)) return path;
+  return `${API_ORIGIN}${path.startsWith('/') ? path : `/${path}`}`;
+};
 
 class ApiClient {
   isDemoMode(): boolean {
@@ -841,6 +848,28 @@ class ApiClient {
       headers: this.getHeaders(true),
     });
     return this.handleResponse<RouterUptimeResponse>(response);
+  }
+
+  async openRouterWebFig(routerId: number): Promise<RouterWebFigOpenResponse> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(`${BASE_URL}/admin/routers/${routerId}/webfig/open`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+    });
+    const data = await this.handleResponse<RouterWebFigOpenResponse>(response);
+    return {
+      ...data,
+      proxy_url: backendUrl(data.proxy_path),
+    };
+  }
+
+  async closeRouterWebFig(routerId: number): Promise<RouterWebFigCloseResponse> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(`${BASE_URL}/admin/routers/${routerId}/webfig/close`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<RouterWebFigCloseResponse>(response);
   }
 
   async getInsuranceWireGuardStatus(routerId: number): Promise<InsuranceWireGuardStatus> {

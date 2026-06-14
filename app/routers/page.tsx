@@ -390,6 +390,7 @@ function RoutersTab({
   const [rebootLoading, setRebootLoading] = useState<number | null>(null);
   const [rebootModalRouter, setRebootModalRouter] = useState<Router | null>(null);
   const [rebootReason, setRebootReason] = useState('');
+  const [webfigLoading, setWebfigLoading] = useState<number | null>(null);
   const [batchPreview, setBatchPreview] = useState<InsuranceTunnelBatchPreview | null>(null);
   const [batchJob, setBatchJob] = useState<InsuranceTunnelBatchJob | null>(null);
   const [batchLoading, setBatchLoading] = useState<'preview' | 'start' | 'refresh' | null>(null);
@@ -465,6 +466,29 @@ function RoutersTab({
       showAlert('error', err instanceof Error ? err.message : 'Failed to reboot router');
     } finally {
       setRebootLoading(null);
+    }
+  };
+
+  const handleOpenWebFig = async (router: Router) => {
+    const webfigWindow = window.open('', '_blank');
+    if (!webfigWindow) {
+      showAlert('error', 'Browser blocked the WebFig tab. Allow pop-ups and try again.');
+      return;
+    }
+    webfigWindow.document.title = 'Opening WebFig';
+    webfigWindow.document.body.innerHTML = '<p style="font-family: system-ui, sans-serif; padding: 24px;">Opening WebFig...</p>';
+    try {
+      setWebfigLoading(router.id);
+      const result = await api.openRouterWebFig(router.id);
+      const webfigUrl = result.proxy_url || result.proxy_path;
+      webfigWindow.opener = null;
+      webfigWindow.location.href = webfigUrl;
+      showAlert('success', `${router.name}: WebFig opened in a new tab`);
+    } catch (err) {
+      webfigWindow.close();
+      showAlert('error', err instanceof Error ? err.message : 'Failed to open WebFig');
+    } finally {
+      setWebfigLoading(null);
     }
   };
 
@@ -570,6 +594,20 @@ function RoutersTab({
   const renderActions = (router: Router) => (
     <div className="flex items-center gap-1 flex-wrap justify-end">
       {canManageBackupVpn && <BackupVpnControls routerId={router.id} routerName={router.name} compact />}
+      <button
+        onClick={(e) => { e.stopPropagation(); handleOpenWebFig(router); }}
+        disabled={webfigLoading === router.id}
+        className="p-1.5 rounded-lg hover:bg-info/10 text-foreground-muted hover:text-info transition-colors active:opacity-70 disabled:opacity-50"
+        title="Open WebFig"
+      >
+        {webfigLoading === router.id ? (
+          <div className="w-4 h-4 border-2 border-current/30 border-t-current rounded-full animate-spin" />
+        ) : (
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5h18M5 5v14h14V5M8 9h8M8 13h5" />
+          </svg>
+        )}
+      </button>
       <button
         onClick={(e) => { e.stopPropagation(); loadRouterUsers(router.id); }}
         className="p-1.5 rounded-lg hover:bg-accent-primary/10 text-foreground-muted hover:text-accent-primary transition-colors active:opacity-70"
