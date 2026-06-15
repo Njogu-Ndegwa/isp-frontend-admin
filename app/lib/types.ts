@@ -912,6 +912,18 @@ export interface Router {
   hotspot_sharing_blocked?: boolean;
   token_vpn_type?: 'wireguard' | 'l2tp' | null;
   planned_insurance_tunnel_type?: 'wireguard' | 'l2tp' | 'auto';
+  owner_user_id?: number | null;
+  owner_name?: string | null;
+  owner_role?: 'admin' | 'reseller' | string | null;
+  owner_subscription_status?: 'active' | 'trial' | 'inactive' | 'suspended' | string | null;
+  backup_ip?: string | null;
+  backup_ip_error?: string | null;
+  insurance_backup_status?: 'unknown' | 'verified' | 'partial' | 'failed' | 'skipped' | 'queued' | 'running' | 'invalid_ip' | string | null;
+  insurance_backup_active?: boolean | null;
+  insurance_backup_checked_at?: string | null;
+  insurance_backup_error?: string | null;
+  insurance_backup_job_id?: string | null;
+  insurance_backup_verification?: InsuranceWireGuardVerification;
 }
 
 export interface UptimeCheck {

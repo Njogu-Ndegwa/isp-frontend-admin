@@ -58,7 +58,69 @@ const ROUTER_COLUMNS: DataTableColumn[] = [
   { key: 'actions', label: '' },
 ];
 
+const ADMIN_ROUTER_COLUMNS: DataTableColumn[] = [
+  { key: 'name', label: 'Router' },
+  { key: 'owner', label: 'Owner' },
+  { key: 'ip', label: 'IP Address' },
+  { key: 'backup', label: 'Backup' },
+  { key: 'auth', label: 'Auth' },
+  { key: 'status', label: 'Status' },
+  { key: 'actions', label: '' },
+];
+
 type InsuranceBatchTunnelFilter = 'all' | 'wireguard' | 'l2tp' | 'auto';
+
+function isVerifiedBackup(router: Router): boolean {
+  return router.insurance_backup_active === true || router.insurance_backup_status === 'verified';
+}
+
+function ownerLabel(router: Router): string {
+  return router.owner_name || (router.owner_user_id ? `User #${router.owner_user_id}` : '-');
+}
+
+function backupStatusLabel(status?: string | null): string {
+  switch (status) {
+    case 'verified':
+      return 'Verified';
+    case 'partial':
+      return 'Partial';
+    case 'failed':
+      return 'Failed';
+    case 'running':
+      return 'Running';
+    case 'queued':
+      return 'Queued';
+    case 'skipped':
+      return 'Skipped';
+    case 'invalid_ip':
+      return 'Invalid IP';
+    default:
+      return 'Needs check';
+  }
+}
+
+function BackupStatusBadge({ router }: { router: Router }) {
+  const status = router.insurance_backup_status || 'unknown';
+  const classes =
+    status === 'verified'
+      ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/30'
+      : status === 'partial' || status === 'running' || status === 'queued'
+        ? 'bg-amber-500/10 text-amber-500 border-amber-500/30'
+        : status === 'failed' || status === 'invalid_ip'
+          ? 'bg-red-500/10 text-red-500 border-red-500/30'
+          : 'bg-background-tertiary text-foreground-muted border-border';
+  const title = router.insurance_backup_error
+    || (router.backup_ip ? `Backup IP ${router.backup_ip}` : 'No backup verification has been recorded yet');
+
+  return (
+    <span
+      className={`inline-flex items-center rounded-md border px-1.5 py-0.5 text-[10px] font-medium leading-none ${classes}`}
+      title={title}
+    >
+      {backupStatusLabel(status)}
+    </span>
+  );
+}
 
 export default function RoutersPage() {
   const { isAuthenticated, user } = useAuth();
@@ -422,6 +484,10 @@ function RoutersTab({
   );
   const batchPreviewReady = Boolean(batchPreview && batchPreviewMatchesControls);
   const batchRunning = batchJob ? ['queued', 'running'].includes(batchJob.status) : false;
+  const onlineRouters = routers.filter((router) => router.status === 'online');
+  const verifiedBackupRouters = routers.filter(isVerifiedBackup);
+  const onlineVerifiedBackups = onlineRouters.filter(isVerifiedBackup);
+  const onlineMissingBackups = onlineRouters.length - onlineVerifiedBackups.length;
 
   const handleToggleEmergency = async (router: Router, message?: string) => {
     try {
@@ -763,7 +829,9 @@ function RoutersTab({
           <svg className="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2" />
           </svg>
-          <span className="text-sm">{routers.length} routers connected</span>
+          <span className="text-sm">
+            {routers.length} routers visible{canManageBackupVpn ? `, ${onlineRouters.length} online` : ''}
+          </span>
         </div>
         <div className="flex items-center gap-2">
           <button onClick={loadRouters} className="btn-secondary flex items-center gap-2 text-sm">
@@ -780,6 +848,19 @@ function RoutersTab({
           </button>
         </div>
       </div>
+
+      {canManageBackupVpn && (
+        <div className="mb-4 grid grid-cols-2 gap-2 md:grid-cols-4 animate-fade-in">
+          <BatchMetric label="All routers" value={routers.length} />
+          <BatchMetric label="Online" value={onlineRouters.length} tone="success" />
+          <BatchMetric label="Verified backups" value={verifiedBackupRouters.length} tone="success" />
+          <BatchMetric
+            label="Online needs backup"
+            value={onlineMissingBackups}
+            tone={onlineMissingBackups > 0 ? 'warning' : 'success'}
+          />
+        </div>
+      )}
 
       {canManageBackupVpn && (
         <div className="mb-4 rounded-lg border border-border bg-background-secondary p-4">
@@ -977,7 +1058,11 @@ function RoutersTab({
                   key={router.id}
                   id={router.id}
                   title={router.name}
-                  subtitle={`${router.ip_address}:${router.port}`}
+                  subtitle={
+                    canManageBackupVpn
+                      ? `${ownerLabel(router)} - ${router.ip_address}:${router.port}`
+                      : `${router.ip_address}:${router.port}`
+                  }
                   avatar={{
                     text: router.name.charAt(0).toUpperCase(),
                     color: router.emergency_active ? 'danger' : router.status === 'online' ? 'success' : router.status === 'offline' ? 'danger' : 'primary',
@@ -1002,6 +1087,7 @@ function RoutersTab({
                           <span className="text-[10px] font-medium leading-none px-1.5 py-0.5 rounded bg-accent-primary/10 text-accent-primary border border-accent-primary/30">no tether</span>
                         )}
                         <InsuranceTunnelBadge type={router.planned_insurance_tunnel_type} />
+                        {canManageBackupVpn && <BackupStatusBadge router={router} />}
                         {(router.payment_methods ?? ['mpesa', 'voucher']).map((m) => (
                           <span key={m} className={`text-[10px] font-medium leading-none px-1.5 py-0.5 rounded ${
                             m === 'mpesa' ? 'bg-success/10 text-success' : 'bg-accent-primary/10 text-accent-primary'
@@ -1092,10 +1178,12 @@ function RoutersTab({
 
           {/* Desktop Table */}
           <DataTable<Router>
-            columns={ROUTER_COLUMNS}
+            columns={canManageBackupVpn ? ADMIN_ROUTER_COLUMNS : ROUTER_COLUMNS}
             data={routers}
             rowKey={(r) => r.id}
             onRowClick={(router) => loadRouterUsers(router.id)}
+            scrollable={canManageBackupVpn}
+            minWidth={canManageBackupVpn ? '980px' : undefined}
             renderCell={(router, key) => {
               switch (key) {
                 case 'name':
@@ -1108,10 +1196,37 @@ function RoutersTab({
                       <InsuranceTunnelBadge type={router.planned_insurance_tunnel_type} />
                     </div>
                   );
+                case 'owner':
+                  return (
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium text-foreground">{ownerLabel(router)}</p>
+                      <p className="text-xs text-foreground-muted">
+                        {router.owner_role || '-'}
+                        {router.owner_subscription_status ? ` - ${router.owner_subscription_status}` : ''}
+                      </p>
+                    </div>
+                  );
                 case 'ip':
                   return <span className="font-mono text-sm text-foreground-muted">{router.ip_address}:{router.port}</span>;
                 case 'identity':
                   return <span className="text-sm text-foreground-muted">{router.identity || '-'}</span>;
+                case 'backup':
+                  return (
+                    <div className="flex flex-col gap-1">
+                      <div className="flex items-center gap-1.5">
+                        <BackupStatusBadge router={router} />
+                        <InsuranceTunnelBadge type={router.planned_insurance_tunnel_type} />
+                      </div>
+                      <span className="font-mono text-[11px] text-foreground-muted">
+                        {router.backup_ip || '-'}
+                      </span>
+                      {router.insurance_backup_checked_at && (
+                        <span className="text-[10px] text-foreground-muted">
+                          {formatSafeDate(router.insurance_backup_checked_at)}
+                        </span>
+                      )}
+                    </div>
+                  );
                 case 'payment':
                   return (
                     <div className="flex items-center gap-1">
