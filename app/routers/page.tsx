@@ -399,6 +399,10 @@ function RoutersTab({
   const [batchConcurrency, setBatchConcurrency] = useState('1');
   const [batchTunnelType, setBatchTunnelType] = useState<InsuranceBatchTunnelFilter>('all');
   const [batchConfirmed, setBatchConfirmed] = useState(false);
+  const [batchPreviewControls, setBatchPreviewControls] = useState<{
+    limit: number;
+    tunnelType: InsuranceBatchTunnelFilter;
+  } | null>(null);
 
   const batchLimitValue = Math.min(
     Math.max(Number.parseInt(batchLimit, 10) || 5, 1),
@@ -411,9 +415,12 @@ function RoutersTab({
   const previewTunnelType = batchPreview?.options?.tunnel_type ?? 'all';
   const batchPreviewMatchesControls = Boolean(
     batchPreview &&
-    batchPreview.options?.limit === batchLimitValue &&
+    batchPreviewControls &&
+    batchPreviewControls.limit === batchLimitValue &&
+    batchPreviewControls.tunnelType === batchTunnelType &&
     previewTunnelType === batchTunnelType
   );
+  const batchPreviewReady = Boolean(batchPreview && batchPreviewMatchesControls);
   const batchRunning = batchJob ? ['queued', 'running'].includes(batchJob.status) : false;
 
   const handleToggleEmergency = async (router: Router, message?: string) => {
@@ -502,6 +509,7 @@ function RoutersTab({
         tunnelType: batchTunnelType,
       });
       setBatchPreview(result);
+      setBatchPreviewControls({ limit: batchLimitValue, tunnelType: batchTunnelType });
       showAlert('success', `Preview ready: ${result.eligible} eligible, ${result.skipped} skipped`);
     } catch (err) {
       showAlert('error', err instanceof Error ? err.message : 'Failed to preview insurance tunnel batch');
@@ -512,7 +520,7 @@ function RoutersTab({
 
   const startBatch = async () => {
     try {
-      if (!batchPreviewMatchesControls) {
+      if (!batchPreviewReady) {
         showAlert('error', 'Preview the current batch settings before starting');
         return;
       }
@@ -803,10 +811,7 @@ function RoutersTab({
                 onClick={startBatch}
                 disabled={
                   batchLoading !== null ||
-                  batchRunning ||
-                  !batchPreviewMatchesControls ||
-                  !batchConfirmed ||
-                  !batchPreview?.eligible
+                  batchRunning
                 }
                 className="btn-primary text-sm disabled:opacity-50"
               >
@@ -873,7 +878,7 @@ function RoutersTab({
               <input
                 type="checkbox"
                 checked={batchConfirmed}
-                disabled={!batchPreviewMatchesControls || !batchPreview?.eligible || batchRunning}
+                disabled={!batchPreviewReady || batchRunning}
                 onChange={(event) => setBatchConfirmed(event.target.checked)}
                 className="h-4 w-4 rounded border-border"
               />
@@ -886,6 +891,12 @@ function RoutersTab({
           <p className="mt-2 text-xs text-foreground-muted">
             Suspended, inactive, missing-owner, and recently-offline routers are skipped before router access.
           </p>
+
+          {batchPreview && !batchPreviewMatchesControls && (
+            <p className="mt-2 text-xs text-amber-500">
+              Preview settings changed. Preview the current limit and tunnel selection again before starting.
+            </p>
+          )}
 
           {(batchPreview || batchJob) && (
             <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-8 gap-2">
