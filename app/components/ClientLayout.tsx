@@ -50,7 +50,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   const isAdmin = user?.role === 'admin';
   const isOnAdminPage = pathname.startsWith('/admin');
   const isOnResellerPage = !isOnAdminPage;
-  const ADMIN_ALLOWED_NON_ADMIN_PATHS = ['/shop'];
+  const ADMIN_ALLOWED_NON_ADMIN_PATHS = ['/shop', '/routers'];
   const isOnAdminAllowedPath = ADMIN_ALLOWED_NON_ADMIN_PATHS.some(p => pathname.startsWith(p));
 
   const needsRedirect = !isPublicPage && !isLoading && (
