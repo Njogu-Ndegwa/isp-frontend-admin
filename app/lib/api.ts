@@ -191,6 +191,9 @@ import {
   CustomerUsagePeriod,
   ResellerTopUsageEntry,
   PortalSettingsResponse,
+  PublicPortalResponse,
+  ShareSubscriptionRequest,
+  ShareSubscriptionResponse,
   UpdatePortalSettingsRequest,
   UpdatePortalSettingsResponse,
   RevenueOverTimePeriod,
@@ -661,6 +664,22 @@ class ApiClient {
       { method: 'DELETE', headers: this.getHeaders() }
     );
     return this.handleResponse(response);
+  }
+
+  async getPublicPortal(identity: string): Promise<PublicPortalResponse> {
+    const response = await fetch(`${BASE_URL}/public/portal/${encodeURIComponent(identity)}`, {
+      headers: this.getHeaders(false),
+    });
+    return this.handleResponse<PublicPortalResponse>(response, true);
+  }
+
+  async shareSubscriptionDevice(data: ShareSubscriptionRequest): Promise<ShareSubscriptionResponse> {
+    const response = await fetch(`${BASE_URL}/public/device/share-subscription`, {
+      method: 'POST',
+      headers: this.getHeaders(false),
+      body: JSON.stringify(data),
+    });
+    return this.handleResponse<ShareSubscriptionResponse>(response, true);
   }
 
   async activateEmergencyMode(data: ActivateEmergencyRequest): Promise<EmergencyModeResponse> {

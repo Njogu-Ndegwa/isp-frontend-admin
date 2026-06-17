@@ -27,6 +27,7 @@ export default function CreatePlanPage() {
     badge_text: null,
     original_price: null,
     valid_until: null,
+    max_shared_users: 1,
     data_cap_mb: null,
     fup_action: null,
     fup_throttle_profile: null,
@@ -42,6 +43,7 @@ export default function CreatePlanPage() {
       if (!payload.badge_text) payload.badge_text = null;
       if (!payload.original_price) payload.original_price = null;
       payload.valid_until = payload.valid_until ? gmt3InputToISO(payload.valid_until) : null;
+      payload.max_shared_users = isPPPoE ? 1 : Math.max(1, Math.min(50, Number(payload.max_shared_users) || 1));
       // FUP fields only apply to PPPoE — strip them for hotspot plans
       if (!isPPPoE) {
         payload.data_cap_mb = null;
@@ -160,7 +162,14 @@ export default function CreatePlanPage() {
                 <select
                   id="connection_type"
                   value={formData.connection_type}
-                  onChange={(e) => setFormData({ ...formData, connection_type: e.target.value as 'hotspot' | 'pppoe' })}
+                  onChange={(e) => {
+                    const connectionType = e.target.value as 'hotspot' | 'pppoe';
+                    setFormData({
+                      ...formData,
+                      connection_type: connectionType,
+                      max_shared_users: connectionType === 'pppoe' ? 1 : (formData.max_shared_users ?? 1),
+                    });
+                  }}
                   className="select"
                 >
                   <option value="hotspot">Hotspot</option>
@@ -181,6 +190,25 @@ export default function CreatePlanPage() {
                 />
               </div>
             </div>
+
+            {!isPPPoE && (
+              <div>
+                <label htmlFor="max_shared_users" className="block text-sm font-medium text-foreground-muted mb-1.5">
+                  Subscription Devices
+                </label>
+                <input
+                  id="max_shared_users"
+                  type="number"
+                  value={formData.max_shared_users ?? 1}
+                  onChange={(e) => setFormData({ ...formData, max_shared_users: e.target.value === '' ? 1 : (parseInt(e.target.value, 10) || 1) })}
+                  onBlur={() => setFormData((prev) => ({ ...prev, max_shared_users: Math.max(1, Math.min(50, Number(prev.max_shared_users) || 1)) }))}
+                  className="input"
+                  min={1}
+                  max={50}
+                />
+                <p className="mt-1 text-xs text-foreground-muted">1 disables sharing. 2 allows the owner plus one extra device.</p>
+              </div>
+            )}
 
             <div className="pt-4 border-t border-border">
               <h3 className="text-sm font-semibold text-foreground-muted uppercase tracking-wider mb-4">Advanced Options</h3>

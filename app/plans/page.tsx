@@ -24,6 +24,7 @@ const PLAN_COLUMNS: DataTableColumn[] = [
   { key: 'duration', label: 'Duration' },
   { key: 'speed', label: 'Speed' },
   { key: 'connection', label: 'Connection' },
+  { key: 'sharing', label: 'Sharing' },
   { key: 'type', label: 'Type' },
   { key: 'status', label: 'Status' },
   { key: 'actions', label: '' },
@@ -130,6 +131,8 @@ export default function PlansPage() {
       up: plan.upload_speed || '-',
     };
   };
+
+  const getSharingLimit = (plan: Plan) => Math.max(1, Number(plan.max_shared_users) || 1);
 
   const hasEmergencyPlans = plans.some((p) => p.plan_type === 'emergency');
   const anyRouterInEmergency = routers.some((r) => r.emergency_active);
@@ -428,6 +431,17 @@ export default function PlansPage() {
                       {plan.connection_type === 'pppoe' ? 'PPPoE' : 'Hotspot'}
                     </span>
                   );
+                case 'sharing': {
+                  if (plan.connection_type === 'pppoe') {
+                    return <span className="text-sm text-foreground-muted">-</span>;
+                  }
+                  const limit = getSharingLimit(plan);
+                  return (
+                    <span className={`badge ${limit > 1 ? 'badge-info' : 'badge-neutral'}`}>
+                      {limit > 1 ? `${limit} devices` : 'Off'}
+                    </span>
+                  );
+                }
                 case 'type':
                   return (
                     <span className={`badge ${
@@ -538,7 +552,9 @@ export default function PlansPage() {
                     }}
                     secondary={{
                       left: `${plan.duration_value} ${plan.duration_unit.toLowerCase()}`,
-                      right: plan.plan_type === 'emergency' ? 'Emergency' : 'Regular',
+                      right: plan.connection_type === 'hotspot'
+                        ? `${plan.plan_type === 'emergency' ? 'Emergency' : 'Regular'} - ${getSharingLimit(plan) > 1 ? `${getSharingLimit(plan)} devices` : 'No sharing'}`
+                        : plan.plan_type === 'emergency' ? 'Emergency' : 'Regular',
                     }}
                     onClick={() => setEditingPlan(plan)}
                     rightAction={
@@ -631,6 +647,7 @@ function EditPlanModal({
     badge_text: plan.badge_text || null,
     original_price: plan.original_price ?? null,
     valid_until: utcToGMT3Input(plan.valid_until) || null,
+    max_shared_users: Math.max(1, Number(plan.max_shared_users) || 1),
     data_cap_mb: plan.data_cap_mb ?? null,
     fup_action: plan.fup_action ?? null,
     fup_throttle_profile: plan.fup_throttle_profile ?? null,
@@ -647,6 +664,7 @@ function EditPlanModal({
       if (!payload.badge_text) payload.badge_text = null;
       if (!payload.original_price) payload.original_price = null;
       payload.valid_until = payload.valid_until ? gmt3InputToISO(payload.valid_until) : null;
+      payload.max_shared_users = isPPPoE ? 1 : Math.max(1, Math.min(50, Number(payload.max_shared_users) || 1));
       if (!isPPPoE) {
         payload.data_cap_mb = null;
         payload.fup_action = null;
@@ -756,7 +774,14 @@ function EditPlanModal({
                 <label className="block text-sm font-medium text-foreground mb-2">Connection Type</label>
                 <select
                   value={formData.connection_type || 'hotspot'}
-                  onChange={(e) => setFormData({ ...formData, connection_type: e.target.value as 'hotspot' | 'pppoe' })}
+                  onChange={(e) => {
+                    const connectionType = e.target.value as 'hotspot' | 'pppoe';
+                    setFormData({
+                      ...formData,
+                      connection_type: connectionType,
+                      max_shared_users: connectionType === 'pppoe' ? 1 : (formData.max_shared_users ?? 1),
+                    });
+                  }}
                   className="select"
                 >
                   <option value="hotspot">Hotspot</option>
@@ -774,6 +799,22 @@ function EditPlanModal({
                 />
               </div>
             </div>
+
+            {!isPPPoE && (
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-2">Subscription Devices</label>
+                <input
+                  type="number"
+                  value={formData.max_shared_users ?? 1}
+                  onChange={(e) => setFormData({ ...formData, max_shared_users: e.target.value === '' ? 1 : (parseInt(e.target.value, 10) || 1) })}
+                  onBlur={() => setFormData((prev) => ({ ...prev, max_shared_users: Math.max(1, Math.min(50, Number(prev.max_shared_users) || 1)) }))}
+                  className="input"
+                  min={1}
+                  max={50}
+                />
+                <p className="mt-1 text-xs text-foreground-muted">1 disables sharing. 2 allows the owner plus one extra device.</p>
+              </div>
+            )}
 
             <div className="pt-4 border-t border-border">
               <h3 className="text-sm font-semibold text-foreground-muted uppercase tracking-wider mb-4">Advanced Options</h3>

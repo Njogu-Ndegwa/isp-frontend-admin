@@ -9,7 +9,7 @@ import MobileBottomNav from './MobileBottomNav';
 import SubscriptionBlockedModal from './SubscriptionBlockedModal';
 
 const PUBLIC_PATHS = ['/', '/login', '/landing', '/signup'];
-const PUBLIC_PREFIXES = ['/store'];
+const PUBLIC_PREFIXES = ['/store', '/r'];
 const FULLSCREEN_AUTH_PATHS = ['/setup'];
 
 function DemoBanner() {
