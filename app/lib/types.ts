@@ -1063,6 +1063,11 @@ export interface InsuranceTunnelBatchItem {
   status: 'queued' | 'running' | 'verified' | 'partial' | 'failed' | 'skipped';
   error?: string | null;
   verification?: InsuranceWireGuardVerification;
+  verification_attempts?: Array<{
+    attempt: number;
+    verified: boolean;
+    verification: InsuranceWireGuardVerification;
+  }>;
 }
 
 export interface InsuranceTunnelBatchPreview {
