@@ -18,6 +18,7 @@ import {
   UptimeCheck,
   InsuranceTunnelBatchJob,
   InsuranceTunnelBatchPreview,
+  InsuranceWireGuardVerification,
 } from '../lib/types';
 import Header from '../components/Header';
 import { PageLoader } from '../components/LoadingSpinner';
@@ -142,6 +143,18 @@ function BackupStatusBadge({ router }: { router: Router }) {
       {backupStatusLabel(status)}
     </span>
   );
+}
+
+function formatInsuranceVerification(verification?: InsuranceWireGuardVerification): string | null {
+  if (!verification) return null;
+  const parts = [
+    `ping ${verification.ping_success ? 'ok' : 'failed'}`,
+    `tcp ${verification.tcp_success ? 'ok' : 'failed'}`,
+  ];
+  if (verification.tcp_error) {
+    parts.push(verification.tcp_error);
+  }
+  return parts.join(' - ');
 }
 
 export default function RoutersPage() {
@@ -1068,22 +1081,28 @@ function RoutersTab({
           {batchItems.length ? (
             <div className="mt-3 max-h-48 overflow-y-auto rounded-lg border border-border">
               {batchItems.slice(0, 25).map((item) => (
-                <div key={item.router_id} className="flex items-center justify-between gap-3 border-b border-border last:border-b-0 px-3 py-2 text-xs">
-                  <div className="min-w-0">
-                    <p className="truncate font-medium text-foreground">{item.router_name}</p>
-                    <p className="text-foreground-muted">
-                      {item.current_ip} {'->'} {item.backup_ip || '-'}
-                      {item.owner_subscription_status ? ` - ${item.owner_subscription_status}` : ''}
-                      {item.router_status ? ` - ${item.router_status}` : ''}
-                      {item.has_known_backup ? ' - backup known' : ''}
-                    </p>
-                    {item.error ? <p className="truncate text-amber-500">{item.error}</p> : null}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <InsuranceTunnelBadge type={item.tunnel_type ?? item.planned_tunnel_type} />
-                    <span className="text-foreground-muted">{item.status}</span>
-                  </div>
-                </div>
+                (() => {
+                  const verificationSummary = formatInsuranceVerification(item.verification);
+                  return (
+                    <div key={item.router_id} className="flex items-center justify-between gap-3 border-b border-border last:border-b-0 px-3 py-2 text-xs">
+                      <div className="min-w-0">
+                        <p className="truncate font-medium text-foreground">{item.router_name}</p>
+                        <p className="text-foreground-muted">
+                          {item.current_ip} {'->'} {item.backup_ip || '-'}
+                          {item.owner_subscription_status ? ` - ${item.owner_subscription_status}` : ''}
+                          {item.router_status ? ` - ${item.router_status}` : ''}
+                          {item.has_known_backup ? ' - backup known' : ''}
+                        </p>
+                        {item.error ? <p className="truncate text-amber-500">{item.error}</p> : null}
+                        {verificationSummary ? <p className="truncate text-foreground-muted">{verificationSummary}</p> : null}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <InsuranceTunnelBadge type={item.tunnel_type ?? item.planned_tunnel_type} />
+                        <span className="text-foreground-muted">{item.status}</span>
+                      </div>
+                    </div>
+                  );
+                })()
               ))}
             </div>
           ) : null}
