@@ -918,7 +918,8 @@ export interface Router {
   owner_subscription_status?: 'active' | 'trial' | 'inactive' | 'suspended' | string | null;
   backup_ip?: string | null;
   backup_ip_error?: string | null;
-  insurance_backup_status?: 'unknown' | 'verified' | 'partial' | 'failed' | 'skipped' | 'queued' | 'running' | 'invalid_ip' | string | null;
+  insurance_backup_status?: 'unknown' | 'verified' | 'registered' | 'configured' | 'missing' | 'unavailable' | 'partial' | 'failed' | 'skipped' | 'queued' | 'running' | 'invalid_ip' | string | null;
+  insurance_backup_source?: 'batch' | 'manager' | 'derived_ip' | 'l2tp' | string | null;
   insurance_backup_active?: boolean | null;
   insurance_backup_checked_at?: string | null;
   insurance_backup_error?: string | null;
