@@ -925,12 +925,14 @@ class ApiClient {
   async previewInsuranceTunnelBatch(options?: {
     routerIds?: number[];
     limit?: number | null;
+    selectionMode?: 'all' | 'online' | 'online_missing_backup' | 'paid_reseller_online_missing_backup';
     tunnelType?: 'all' | 'wireguard' | 'l2tp' | 'auto';
   }): Promise<InsuranceTunnelBatchPreview> {
     if (this.isDemoMode()) this.demoBlock();
     const body: Record<string, unknown> = { apply: false };
     if (options?.routerIds?.length) body.router_ids = options.routerIds;
     if (options?.limit) body.limit = options.limit;
+    if (options?.selectionMode && options.selectionMode !== 'all') body.selection_mode = options.selectionMode;
     if (options?.tunnelType && options.tunnelType !== 'all') body.tunnel_type = options.tunnelType;
     const response = await fetch(`${BASE_URL}/admin/insurance-tunnels/batch`, {
       method: 'POST',
@@ -943,6 +945,7 @@ class ApiClient {
   async startInsuranceTunnelBatch(options?: {
     routerIds?: number[];
     limit?: number | null;
+    selectionMode?: 'all' | 'online' | 'online_missing_backup' | 'paid_reseller_online_missing_backup';
     maxConcurrency?: number;
     tunnelType?: 'all' | 'wireguard' | 'l2tp' | 'auto';
   }): Promise<InsuranceTunnelBatchJob> {
@@ -953,6 +956,7 @@ class ApiClient {
     };
     if (options?.routerIds?.length) body.router_ids = options.routerIds;
     if (options?.limit) body.limit = options.limit;
+    if (options?.selectionMode && options.selectionMode !== 'all') body.selection_mode = options.selectionMode;
     if (options?.tunnelType && options.tunnelType !== 'all') body.tunnel_type = options.tunnelType;
     const response = await fetch(`${BASE_URL}/admin/insurance-tunnels/batch`, {
       method: 'POST',

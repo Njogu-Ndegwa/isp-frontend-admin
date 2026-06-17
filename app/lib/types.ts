@@ -1056,7 +1056,9 @@ export interface InsuranceTunnelBatchItem {
   planned_tunnel_type?: 'wireguard' | 'l2tp' | 'auto';
   tunnel_type?: 'wireguard' | 'l2tp';
   routeros_version?: string;
+  router_status?: RouterStatus;
   recently_offline?: boolean;
+  has_known_backup?: boolean;
   eligible?: boolean;
   status: 'queued' | 'running' | 'verified' | 'partial' | 'failed' | 'skipped';
   error?: string | null;
@@ -1069,12 +1071,14 @@ export interface InsuranceTunnelBatchPreview {
   options?: {
     router_ids?: number[] | null;
     limit?: number | null;
+    selection_mode?: 'all' | 'online' | 'online_missing_backup' | 'paid_reseller_online_missing_backup';
     tunnel_type?: 'wireguard' | 'l2tp' | 'auto' | null;
     default_start_limit?: number;
     max_limit?: number;
     max_concurrency?: number;
     skips_recently_offline?: boolean;
     eligible_owner_subscription_statuses?: string[];
+    paid_owner_subscription_statuses?: string[];
   };
   total: number;
   eligible: number;
@@ -1096,6 +1100,7 @@ export interface InsuranceTunnelBatchJob {
   options: {
     router_ids?: number[] | null;
     limit?: number | null;
+    selection_mode?: 'all' | 'online' | 'online_missing_backup' | 'paid_reseller_online_missing_backup';
     tunnel_type?: 'wireguard' | 'l2tp' | 'auto' | null;
     max_concurrency?: number;
     default_start_limit?: number;
@@ -1103,6 +1108,7 @@ export interface InsuranceTunnelBatchJob {
     force_rotate?: boolean;
     skips_recently_offline?: boolean;
     eligible_owner_subscription_statuses?: string[];
+    paid_owner_subscription_statuses?: string[];
     [key: string]: unknown;
   };
   items: InsuranceTunnelBatchItem[];

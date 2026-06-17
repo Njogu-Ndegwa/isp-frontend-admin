@@ -68,6 +68,11 @@ const ADMIN_ROUTER_COLUMNS: DataTableColumn[] = [
 ];
 
 type InsuranceBatchTunnelFilter = 'all' | 'wireguard' | 'l2tp' | 'auto';
+type InsuranceBatchSelectionMode =
+  | 'online_missing_backup'
+  | 'paid_reseller_online_missing_backup'
+  | 'online'
+  | 'all';
 
 function hasKnownBackup(router: Router): boolean {
   return (
@@ -477,10 +482,12 @@ function RoutersTab({
   const [batchLimit, setBatchLimit] = useState('5');
   const [batchConcurrency, setBatchConcurrency] = useState('1');
   const [batchTunnelType, setBatchTunnelType] = useState<InsuranceBatchTunnelFilter>('all');
+  const [batchSelectionMode, setBatchSelectionMode] = useState<InsuranceBatchSelectionMode>('online_missing_backup');
   const [batchConfirmed, setBatchConfirmed] = useState(false);
   const [batchPreviewControls, setBatchPreviewControls] = useState<{
     limit: number;
     tunnelType: InsuranceBatchTunnelFilter;
+    selectionMode: InsuranceBatchSelectionMode;
   } | null>(null);
 
   const batchLimitValue = Math.min(
@@ -492,12 +499,15 @@ function RoutersTab({
     batchPreview?.options?.max_concurrency ?? 3
   );
   const previewTunnelType = batchPreview?.options?.tunnel_type ?? 'all';
+  const previewSelectionMode = batchPreview?.options?.selection_mode ?? 'all';
   const batchPreviewMatchesControls = Boolean(
     batchPreview &&
     batchPreviewControls &&
     batchPreviewControls.limit === batchLimitValue &&
     batchPreviewControls.tunnelType === batchTunnelType &&
-    previewTunnelType === batchTunnelType
+    batchPreviewControls.selectionMode === batchSelectionMode &&
+    previewTunnelType === batchTunnelType &&
+    previewSelectionMode === batchSelectionMode
   );
   const batchPreviewReady = Boolean(batchPreview && batchPreviewMatchesControls);
   const batchRunning = batchJob ? ['queued', 'running'].includes(batchJob.status) : false;
@@ -590,9 +600,14 @@ function RoutersTab({
       const result = await api.previewInsuranceTunnelBatch({
         limit: batchLimitValue,
         tunnelType: batchTunnelType,
+        selectionMode: batchSelectionMode,
       });
       setBatchPreview(result);
-      setBatchPreviewControls({ limit: batchLimitValue, tunnelType: batchTunnelType });
+      setBatchPreviewControls({
+        limit: batchLimitValue,
+        tunnelType: batchTunnelType,
+        selectionMode: batchSelectionMode,
+      });
       showAlert('success', `Preview ready: ${result.eligible} eligible, ${result.skipped} skipped`);
     } catch (err) {
       showAlert('error', err instanceof Error ? err.message : 'Failed to preview insurance tunnel batch');
@@ -620,6 +635,7 @@ function RoutersTab({
         limit: batchLimitValue,
         maxConcurrency: batchConcurrencyValue,
         tunnelType: batchTunnelType,
+        selectionMode: batchSelectionMode,
       });
       setBatchJob(result);
       setBatchConfirmed(false);
@@ -909,7 +925,7 @@ function RoutersTab({
                 )}
               </div>
               <p className="text-xs text-foreground-muted mt-1">
-                Preview first, then run a throttled background job for eligible active or trial routers.
+                Choose the target routers first, then run a throttled background job.
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
@@ -943,9 +959,25 @@ function RoutersTab({
             </div>
           </div>
 
-          <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-4">
+          <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-5">
             <label className="block">
-              <span className="text-xs font-medium text-foreground-muted">Limit</span>
+              <span className="text-xs font-medium text-foreground-muted">Target</span>
+              <select
+                value={batchSelectionMode}
+                onChange={(event) => {
+                  setBatchSelectionMode(event.target.value as InsuranceBatchSelectionMode);
+                  setBatchConfirmed(false);
+                }}
+                className="mt-1 h-9 w-full rounded-lg border border-border bg-background-tertiary px-3 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-amber-500"
+              >
+                <option value="online_missing_backup">Online without backup</option>
+                <option value="paid_reseller_online_missing_backup">Paid reseller online without backup</option>
+                <option value="online">Online eligible</option>
+                <option value="all">All eligible</option>
+              </select>
+            </label>
+            <label className="block">
+              <span className="text-xs font-medium text-foreground-muted">Limit cap</span>
               <input
                 type="number"
                 min={1}
@@ -983,7 +1015,7 @@ function RoutersTab({
                 }}
                 className="mt-1 h-9 w-full rounded-lg border border-border bg-background-tertiary px-3 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-amber-500"
               >
-                <option value="all">All eligible</option>
+                <option value="all">All tunnel types</option>
                 <option value="wireguard">WireGuard only</option>
                 <option value="l2tp">L2TP only</option>
                 <option value="auto">Auto only</option>
@@ -1009,7 +1041,7 @@ function RoutersTab({
 
           {batchPreview && !batchPreviewMatchesControls && (
             <p className="mt-2 text-xs text-amber-500">
-              Preview settings changed. Preview the current limit and tunnel selection again before starting.
+              Preview settings changed. Preview the current target, limit, and tunnel selection again before starting.
             </p>
           )}
 
@@ -1042,6 +1074,8 @@ function RoutersTab({
                     <p className="text-foreground-muted">
                       {item.current_ip} {'->'} {item.backup_ip || '-'}
                       {item.owner_subscription_status ? ` - ${item.owner_subscription_status}` : ''}
+                      {item.router_status ? ` - ${item.router_status}` : ''}
+                      {item.has_known_backup ? ' - backup known' : ''}
                     </p>
                     {item.error ? <p className="truncate text-amber-500">{item.error}</p> : null}
                   </div>
