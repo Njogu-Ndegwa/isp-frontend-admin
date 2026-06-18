@@ -6,15 +6,16 @@ import { useParams } from 'next/navigation';
 import { api } from '../../../lib/api';
 import type { PublicPortalResponse, ShareSubscriptionRequest, ShareSubscriptionResponse } from '../../../lib/types';
 import { getThemePalette, type PortalColorTheme } from '../../../lib/portalThemes';
+import styles from './share.module.css';
 
 type DeviceTypeValue = NonNullable<ShareSubscriptionRequest['device_type']>;
 
-const DEVICE_TYPES: Array<{ value: DeviceTypeValue; label: string }> = [
-  { value: 'tv', label: 'TV' },
-  { value: 'laptop', label: 'Laptop' },
-  { value: 'console', label: 'Console' },
-  { value: 'iot', label: 'Smart device' },
-  { value: 'other', label: 'Other' },
+const DEVICE_TYPES: Array<{ value: DeviceTypeValue; label: string; icon: string }> = [
+  { value: 'tv', label: 'TV', icon: 'TV' },
+  { value: 'console', label: 'Console', icon: 'GAME' },
+  { value: 'laptop', label: 'Laptop', icon: 'PC' },
+  { value: 'iot', label: 'Smart', icon: 'IoT' },
+  { value: 'other', label: 'Other', icon: 'NET' },
 ];
 
 const emptyForm = {
@@ -41,6 +42,17 @@ function formatExpiry(value?: string | null) {
 function normalizeParam(value: string | string[] | undefined): string {
   if (Array.isArray(value)) return value[0] ?? '';
   return value ?? '';
+}
+
+function hexToRgbParts(hex: string): string {
+  const clean = hex.replace('#', '').trim();
+  if (!/^[0-9a-f]{6}$/i.test(clean)) return '232, 93, 4';
+  const value = Number.parseInt(clean, 16);
+  return `${(value >> 16) & 255}, ${(value >> 8) & 255}, ${value & 255}`;
+}
+
+function macCharacterCount(value: string): number {
+  return value.replace(/[^0-9a-f]/gi, '').slice(0, 12).length;
 }
 
 export default function RouterSharePage() {
@@ -83,7 +95,7 @@ export default function RouterSharePage() {
   }, [identity]);
 
   const palette = useMemo(() => {
-    const theme = (portal?.portal_settings?.color_theme ?? 'slate_gray') as PortalColorTheme;
+    const theme = (portal?.portal_settings?.color_theme ?? 'sunset_orange') as PortalColorTheme;
     return getThemePalette(theme);
   }, [portal?.portal_settings?.color_theme]);
 
@@ -98,24 +110,32 @@ export default function RouterSharePage() {
   const sharingEnabled = Boolean(portal?.plan_flags?.sharing_enabled) || shareLimit > 1;
   const companionSlots = Math.max(0, shareLimit - 1);
   const expiry = formatExpiry(result?.expiry);
+  const deviceMacCount = macCharacterCount(formData.device_mac);
+  const ownerMacCount = macCharacterCount(formData.owner_mac);
   const backgroundImage = portal?.portal_settings?.header_bg_image_url;
 
-  const pageStyle: CSSProperties = {
-    background: palette.background,
-    color: palette.text,
-  };
-  const heroStyle: CSSProperties = backgroundImage
+  const themeStyle = {
+    '--primary': palette.primary,
+    '--primary-light': palette.primaryLight,
+    '--primary-dark': palette.primaryDark,
+    '--accent': palette.accent,
+    '--primary-rgb': hexToRgbParts(palette.primary),
+    '--accent-rgb': hexToRgbParts(palette.accent),
+    '--bg': palette.background,
+    '--bg-warm': palette.background,
+    '--surface': palette.surface,
+    '--text': palette.text,
+    '--text-secondary': palette.textSecondary,
+    '--text-inverse': palette.textInverse,
+    '--success': palette.success,
+    '--error': palette.error,
+  } as CSSProperties;
+
+  const welcomeStyle = backgroundImage
     ? {
-        backgroundImage: `linear-gradient(135deg, rgba(0, 0, 0, 0.78), rgba(0, 0, 0, 0.42)), url(${JSON.stringify(backgroundImage)})`,
+        backgroundImage: `linear-gradient(135deg, rgba(${hexToRgbParts(palette.primary)}, 0.86), rgba(${hexToRgbParts(palette.accent)}, 0.72)), url("${backgroundImage}")`,
       }
-    : {
-        background: `linear-gradient(135deg, ${palette.primaryDark}, ${palette.primary})`,
-      };
-  const panelStyle: CSSProperties = {
-    background: palette.surface,
-    borderColor: palette.border,
-    boxShadow: '0 18px 60px rgba(15, 23, 42, 0.16)',
-  };
+    : undefined;
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -149,156 +169,156 @@ export default function RouterSharePage() {
   };
 
   return (
-    <main className="relative min-h-screen overflow-hidden" style={pageStyle}>
-      <div className="absolute inset-x-0 top-0 h-[340px] bg-cover bg-center" style={heroStyle} />
-      <div className="absolute inset-x-0 top-[260px] h-32" style={{ background: `linear-gradient(to bottom, transparent, ${palette.background})` }} />
-
-      <div className="relative mx-auto flex min-h-screen w-full max-w-6xl flex-col px-4 py-5 sm:px-6 lg:px-8">
-        <header className="flex items-center justify-between gap-3 py-2 text-white">
-          <div className="flex min-w-0 items-center gap-3">
+    <main className={styles.app} style={themeStyle}>
+      <header className={styles.header}>
+        <div className={styles.headerInner}>
+          <div className={styles.brand}>
             {portal?.portal_settings?.company_logo_url ? (
-              <img
-                src={portal.portal_settings.company_logo_url}
-                alt=""
-                className="h-10 w-10 flex-shrink-0 rounded-lg object-cover bg-white"
-              />
+              <img src={portal.portal_settings.company_logo_url} alt="" className={styles.brandLogo} />
             ) : (
-              <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-white/15 text-sm font-semibold ring-1 ring-white/20">
-                {businessName.charAt(0).toUpperCase()}
-              </div>
+              <span className={styles.brandIcon}>WiFi</span>
             )}
-            <div className="min-w-0">
-              <p className="truncate text-sm font-semibold">{businessName}</p>
-              <p className="truncate text-xs text-white/70">{portal?.router.name || identity}</p>
+            <div className={styles.brandText}>
+              <h1 className={styles.logo}>{businessName}</h1>
+              <span className={styles.tagline}>{portal?.router.name || identity || 'Public WiFi'}</span>
             </div>
           </div>
           {supportPhone && (
-            <a
-              href={`tel:${supportPhone}`}
-              className="inline-flex flex-shrink-0 items-center gap-1.5 rounded-lg border border-white/25 px-3 py-2 text-xs font-medium text-white transition hover:bg-white/10"
-            >
-              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2 5.5A3.5 3.5 0 015.5 2h1.2c.8 0 1.5.6 1.6 1.4l.5 3a2 2 0 01-.5 1.7l-.7.7a13 13 0 006.6 6.6l.7-.7a2 2 0 011.7-.5l3 .5c.8.1 1.4.8 1.4 1.6v1.2A3.5 3.5 0 0117.5 21h-.5C8.7 21 2 14.3 2 6v-.5z" />
-              </svg>
-              Support
+            <a href={`tel:${supportPhone}`} className={styles.helpBtn}>
+              <span className={styles.helpIcon}>Call</span>
+              <span>Help</span>
             </a>
           )}
-        </header>
+        </div>
+      </header>
 
-        <section className="grid flex-1 items-start gap-6 py-6 lg:grid-cols-[minmax(0,0.85fr)_minmax(360px,1fr)] lg:py-12">
-          <div className="pt-4 text-white lg:pt-12">
-            <p className="mb-3 inline-flex rounded-full bg-white/12 px-3 py-1 text-xs font-medium text-white ring-1 ring-white/20">
-              Existing subscription
-            </p>
-            <h1 className="max-w-xl text-3xl font-semibold leading-tight sm:text-4xl lg:text-5xl">
-              Connect another device to your internet
-            </h1>
-            <p className="mt-4 max-w-xl text-sm leading-6 text-white/78 sm:text-base">
-              Use the phone number on the paid subscription to add a TV, laptop, console, or another device.
-            </p>
-            <div className="mt-5 flex flex-wrap gap-2">
-              <span className="rounded-lg bg-black/20 px-3 py-2 text-xs font-medium ring-1 ring-white/15">
-                {sharingEnabled ? `Up to ${shareLimit} devices per subscription` : 'Sharing not enabled'}
-              </span>
-              {sharingEnabled && companionSlots > 0 && (
-                <span className="rounded-lg bg-black/20 px-3 py-2 text-xs font-medium ring-1 ring-white/15">
-                  {companionSlots} extra {companionSlots === 1 ? 'device' : 'devices'}
-                </span>
-              )}
-            </div>
+      <div className={styles.main}>
+        <section className={styles.welcomeBanner} style={welcomeStyle}>
+          <div className={styles.welcomeKicker}>Existing subscription</div>
+          <h2 className={styles.welcomeTitle}>Connect a TV / Device</h2>
+          <p className={styles.welcomeSub}>
+            Add another device to the paid internet subscription on this hotspot.
+          </p>
+        </section>
+
+        <div className={styles.quickSteps}>
+          <div className={styles.step}>
+            <span className={styles.stepNum}>1</span>
+            <span className={styles.stepText}>Enter owner</span>
           </div>
+          <div className={styles.stepArrow}>-</div>
+          <div className={styles.step}>
+            <span className={styles.stepNum}>2</span>
+            <span className={styles.stepText}>Add device</span>
+          </div>
+          <div className={styles.stepArrow}>-</div>
+          <div className={styles.step}>
+            <span className={styles.stepNum}>3</span>
+            <span className={styles.stepText}>Connect</span>
+          </div>
+        </div>
 
-          <div className="rounded-lg border p-4 sm:p-5" style={panelStyle}>
-            {loading ? (
-              <div className="flex min-h-[360px] flex-col items-center justify-center gap-3 text-center">
-                <div className="h-10 w-10 animate-spin rounded-full border-3" style={{ borderColor: `${palette.primary}33`, borderTopColor: palette.primary }} />
-                <p className="text-sm" style={{ color: palette.textSecondary }}>Loading router details...</p>
-              </div>
-            ) : loadError ? (
-              <div className="flex min-h-[360px] flex-col items-center justify-center gap-3 text-center">
-                <div className="flex h-12 w-12 items-center justify-center rounded-lg" style={{ background: `${palette.error}14`, color: palette.error }}>
-                  <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v3.75m0 3.75h.01M10.3 4.3l-8 13.8A2 2 0 004 21h16a2 2 0 001.7-2.9l-8-13.8a2 2 0 00-3.4 0z" />
-                  </svg>
-                </div>
-                <div>
-                  <h2 className="text-lg font-semibold">Link unavailable</h2>
-                  <p className="mt-1 text-sm" style={{ color: palette.textSecondary }}>{loadError}</p>
+        <section className={styles.deviceSection}>
+          <div className={styles.deviceEntry}>
+            <div className={styles.deviceEntryHeader}>
+              <span className={styles.deviceEntryIcon}>TV</span>
+              <div className={styles.deviceEntryText}>
+                <div className={styles.deviceEntryTitle}>Share subscription</div>
+                <div className={styles.deviceEntrySubtitle}>
+                  {sharingEnabled
+                    ? `This plan can allow up to ${shareLimit} total devices`
+                    : 'Smart TVs, consoles and other browserless devices'}
                 </div>
               </div>
-            ) : !sharingEnabled ? (
-              <div className="flex min-h-[360px] flex-col items-center justify-center gap-4 text-center">
-                <div className="flex h-12 w-12 items-center justify-center rounded-lg" style={{ background: `${palette.warning}16`, color: palette.warning }}>
-                  <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M4.9 19h14.2a2 2 0 001.7-3L13.7 4a2 2 0 00-3.4 0L3.2 16a2 2 0 001.7 3z" />
-                  </svg>
+              <span className={styles.deviceEntryChevron}>&gt;</span>
+            </div>
+
+            <div className={styles.deviceEntryBody}>
+              {loading ? (
+                <div className={styles.statePanel}>
+                  <span className={styles.spinner} />
+                  <h3 className={styles.stateTitle}>Loading router details</h3>
+                  <p className={styles.stateText}>Please wait...</p>
                 </div>
-                <div>
-                  <h2 className="text-lg font-semibold">Sharing is not enabled</h2>
-                  <p className="mt-1 text-sm" style={{ color: palette.textSecondary }}>
+              ) : loadError ? (
+                <div className={styles.statePanel}>
+                  <span className={`${styles.stateIcon} ${styles.stateIconError}`}>!</span>
+                  <h3 className={styles.stateTitle}>Link unavailable</h3>
+                  <p className={styles.stateText}>{loadError}</p>
+                </div>
+              ) : !sharingEnabled ? (
+                <div className={styles.statePanel}>
+                  <span className={`${styles.stateIcon} ${styles.stateIconWarning}`}>!</span>
+                  <h3 className={styles.stateTitle}>Sharing is not enabled</h3>
+                  <p className={styles.stateText}>
                     This hotspot is not accepting shared subscription devices right now.
                   </p>
+                  {supportPhone && (
+                    <a href={`tel:${supportPhone}`} className={styles.deviceNextBtn}>
+                      Call support
+                    </a>
+                  )}
                 </div>
-                {supportPhone && (
-                  <a
-                    href={`tel:${supportPhone}`}
-                    className="inline-flex items-center justify-center rounded-lg px-4 py-2 text-sm font-semibold text-white"
-                    style={{ background: palette.primary }}
-                  >
-                    Call support
-                  </a>
-                )}
-              </div>
-            ) : (
-              <>
-                <div className="mb-5">
-                  <h2 className="text-xl font-semibold">Add device</h2>
-                  <p className="mt-1 text-sm" style={{ color: palette.textSecondary }}>
-                    The device will share the paid subscription until the subscription expires.
-                  </p>
-                </div>
+              ) : (
+                <>
+                  <div className={styles.deviceTabs}>
+                    <span className={`${styles.deviceTab} ${styles.deviceTabActive}`}>Add Device</span>
+                    <span className={styles.deviceTab}>Shared Plan</span>
+                  </div>
 
-                {result && (
-                  <div className="mb-4 rounded-lg border p-4" style={{ borderColor: `${palette.success}55`, background: `${palette.success}12` }}>
-                    <div className="flex items-start gap-3">
-                      <div className="mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg" style={{ background: palette.success, color: palette.textInverse }}>
-                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-                        </svg>
-                      </div>
-                      <div className="min-w-0">
-                        <h3 className="text-sm font-semibold">
-                          {result.auth_method === 'RADIUS' ? 'Device connected' : 'Device queued'}
-                        </h3>
-                        <p className="mt-1 text-sm" style={{ color: palette.textSecondary }}>{result.message}</p>
-                        <div className="mt-3 grid grid-cols-1 gap-2 text-xs sm:grid-cols-2">
-                          <span className="rounded-md px-2 py-1 font-mono" style={{ background: `${palette.success}12` }}>
-                            {result.device_mac}
-                          </span>
-                          <span className="rounded-md px-2 py-1" style={{ background: `${palette.success}12` }}>
-                            {result.active_shared_devices}/{Math.max(1, result.max_shared_users - 1)} extra used
-                          </span>
-                          {expiry && (
-                            <span className="rounded-md px-2 py-1 sm:col-span-2" style={{ background: `${palette.success}12` }}>
-                              Active until {expiry}
-                            </span>
-                          )}
+                  <div className={styles.deviceStepsBar}>
+                    <span className={`${styles.deviceStepDot} ${styles.deviceStepDone}`}>1</span>
+                    <span className={`${styles.deviceStepLine} ${styles.deviceStepLineDone}`} />
+                    <span className={`${styles.deviceStepDot} ${styles.deviceStepDone}`}>2</span>
+                    <span className={`${styles.deviceStepLine} ${styles.deviceStepLineDone}`} />
+                    <span className={`${styles.deviceStepDot} ${styles.deviceStepActive}`}>3</span>
+                  </div>
+
+                  {result && (
+                    <div className={styles.deviceSuccessWrap}>
+                      <div className={styles.deviceSuccessIcon}>OK</div>
+                      <h3 className={styles.deviceSuccessTitle}>
+                        {result.auth_method === 'RADIUS' ? 'Device Connected!' : 'Device Queued!'}
+                      </h3>
+                      <div className={styles.deviceSuccessDetails}>
+                        <div className={styles.deviceSummaryRow}>
+                          <span className={styles.deviceSummaryLabel}>Device</span>
+                          <span className={styles.deviceSummaryValue}>{result.device_mac}</span>
                         </div>
+                        <div className={styles.deviceSummaryRow}>
+                          <span className={styles.deviceSummaryLabel}>Shared slots</span>
+                          <span className={styles.deviceSummaryValue}>
+                            {result.active_shared_devices}/{Math.max(1, result.max_shared_users - 1)} used
+                          </span>
+                        </div>
+                        {expiry && (
+                          <div className={styles.deviceSummaryRow}>
+                            <span className={styles.deviceSummaryLabel}>Active until</span>
+                            <span className={styles.deviceSummaryValue}>{expiry}</span>
+                          </div>
+                        )}
+                      </div>
+                      <p className={styles.deviceSuccessTip}>
+                        If the device does not connect automatically, restart its WiFi connection.
+                      </p>
+                    </div>
+                  )}
+
+                  {submitError && (
+                    <div className={styles.deviceErrorWrap}>
+                      <div className={styles.deviceErrorIcon}>X</div>
+                      <div>
+                        <h3 className={styles.deviceErrorTitle}>Something went wrong</h3>
+                        <p className={styles.deviceErrorMsg}>{submitError}</p>
                       </div>
                     </div>
-                  </div>
-                )}
+                  )}
 
-                {submitError && (
-                  <div className="mb-4 rounded-lg border p-3 text-sm" style={{ borderColor: `${palette.error}55`, background: `${palette.error}10`, color: palette.error }}>
-                    {submitError}
-                  </div>
-                )}
+                  <form onSubmit={handleSubmit} autoComplete="off">
+                    <h3 className={styles.deviceStepTitle}>Subscription Owner</h3>
 
-                <form onSubmit={handleSubmit} className="space-y-4" autoComplete="off">
-                  <div>
-                    <label htmlFor="owner_phone" className="mb-1.5 block text-sm font-medium">
-                      Subscription phone number
+                    <label htmlFor="owner_phone" className={styles.deviceLabel}>
+                      Phone Number <span className={styles.required}>*</span>
                     </label>
                     <input
                       id="owner_phone"
@@ -306,102 +326,124 @@ export default function RouterSharePage() {
                       inputMode="tel"
                       value={formData.owner_phone}
                       onChange={(event) => setFormData({ ...formData, owner_phone: event.target.value })}
-                      className="w-full rounded-lg border px-3 py-3 text-sm outline-none transition focus:ring-2"
-                      style={{ borderColor: palette.border, background: palette.surface, color: palette.text }}
-                      placeholder="07..."
+                      className={styles.deviceInput}
+                      placeholder="0712345678"
                       required
                     />
-                  </div>
 
-                  <div>
-                    <label htmlFor="owner_mac" className="mb-1.5 block text-sm font-medium">
-                      Current device MAC <span style={{ color: palette.textSecondary }}>(optional)</span>
+                    <label htmlFor="owner_mac" className={styles.deviceLabel}>
+                      Current device MAC <span className={styles.optional}>(optional)</span>
                     </label>
-                    <input
-                      id="owner_mac"
-                      type="text"
-                      value={formData.owner_mac}
-                      onChange={(event) => setFormData({ ...formData, owner_mac: event.target.value })}
-                      className="w-full rounded-lg border px-3 py-3 font-mono text-sm outline-none transition focus:ring-2"
-                      style={{ borderColor: palette.border, background: palette.surface, color: palette.text }}
-                      placeholder="AA:BB:CC:DD:EE:FF"
-                    />
-                  </div>
-
-                  <div>
-                    <label htmlFor="device_mac" className="mb-1.5 block text-sm font-medium">
-                      New device MAC
-                    </label>
-                    <input
-                      id="device_mac"
-                      type="text"
-                      value={formData.device_mac}
-                      onChange={(event) => setFormData({ ...formData, device_mac: event.target.value })}
-                      className="w-full rounded-lg border px-3 py-3 font-mono text-sm uppercase outline-none transition focus:ring-2"
-                      style={{ borderColor: palette.border, background: palette.surface, color: palette.text }}
-                      placeholder="AA:BB:CC:DD:EE:FF"
-                      required
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                    <div>
-                      <label htmlFor="device_name" className="mb-1.5 block text-sm font-medium">
-                        Device name
-                      </label>
+                    <div className={styles.deviceMacWrap}>
                       <input
-                        id="device_name"
+                        id="owner_mac"
                         type="text"
-                        value={formData.device_name}
-                        onChange={(event) => setFormData({ ...formData, device_name: event.target.value })}
-                        className="w-full rounded-lg border px-3 py-3 text-sm outline-none transition focus:ring-2"
-                        style={{ borderColor: palette.border, background: palette.surface, color: palette.text }}
-                        placeholder="Living room TV"
+                        value={formData.owner_mac}
+                        onChange={(event) => setFormData({ ...formData, owner_mac: event.target.value })}
+                        className={`${styles.deviceInput} ${styles.mono}`}
+                        placeholder="XX:XX:XX:XX:XX:XX"
+                        inputMode="text"
+                        autoCapitalize="characters"
+                        autoComplete="off"
+                        spellCheck={false}
+                        maxLength={17}
                       />
+                      {ownerMacCount === 12 && <span className={styles.deviceMacStatus}>OK</span>}
                     </div>
-                    <div>
-                      <label htmlFor="device_type" className="mb-1.5 block text-sm font-medium">
-                        Device type
-                      </label>
-                      <select
-                        id="device_type"
-                        value={formData.device_type}
-                        onChange={(event) => setFormData({ ...formData, device_type: event.target.value as DeviceTypeValue })}
-                        className="w-full rounded-lg border px-3 py-3 text-sm outline-none transition focus:ring-2"
-                        style={{ borderColor: palette.border, background: palette.surface, color: palette.text }}
-                      >
-                        {DEVICE_TYPES.map((type) => (
-                          <option key={type.value} value={type.value}>{type.label}</option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
 
-                  <button
-                    type="submit"
-                    disabled={submitting}
-                    className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-lg px-4 py-3 text-sm font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-70"
-                    style={{ background: palette.primary }}
-                  >
-                    {submitting ? (
-                      <>
-                        <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
-                        Adding device
-                      </>
-                    ) : (
-                      <>
-                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                        </svg>
-                        Add device
-                      </>
-                    )}
-                  </button>
-                </form>
-              </>
-            )}
+                    <h3 className={styles.deviceStepTitleAlt}>Device Info</h3>
+
+                    <label htmlFor="device_mac" className={styles.deviceLabel}>
+                      MAC Address <span className={styles.required}>*</span>
+                    </label>
+                    <div className={styles.deviceMacWrap}>
+                      <input
+                        id="device_mac"
+                        type="text"
+                        value={formData.device_mac}
+                        onChange={(event) => setFormData({ ...formData, device_mac: event.target.value })}
+                        className={`${styles.deviceInput} ${styles.mono}`}
+                        placeholder="XX:XX:XX:XX:XX:XX"
+                        inputMode="text"
+                        autoCapitalize="characters"
+                        autoComplete="off"
+                        spellCheck={false}
+                        maxLength={17}
+                        required
+                      />
+                      {deviceMacCount === 12 && <span className={styles.deviceMacStatus}>OK</span>}
+                    </div>
+                    <div className={styles.deviceMacCounter}>{deviceMacCount}/12 characters</div>
+
+                    <details className={styles.deviceMacHelp}>
+                      <summary>Where do I find the MAC address?</summary>
+                      <div className={styles.macHelpList}>
+                        <div className={styles.macHelpItem}><strong>Samsung TV</strong> - Settings &gt; General &gt; Network</div>
+                        <div className={styles.macHelpItem}><strong>Android TV</strong> - Settings &gt; Device Preferences &gt; About &gt; Status</div>
+                        <div className={styles.macHelpItem}><strong>PlayStation</strong> - Settings &gt; Network &gt; View Connection Status</div>
+                        <div className={styles.macHelpItem}><strong>Other</strong> - Check WiFi or Network settings for MAC Address.</div>
+                      </div>
+                    </details>
+
+                    <label className={styles.deviceLabel}>Device Type</label>
+                    <div className={styles.deviceTypeGrid}>
+                      {DEVICE_TYPES.map((type) => (
+                        <button
+                          key={type.value}
+                          type="button"
+                          onClick={() => setFormData({ ...formData, device_type: type.value })}
+                          className={`${styles.deviceTypeBtn} ${formData.device_type === type.value ? styles.deviceTypeBtnActive : ''}`}
+                        >
+                          <span>{type.icon}</span>
+                          {type.label}
+                        </button>
+                      ))}
+                    </div>
+
+                    <label htmlFor="device_name" className={styles.deviceLabel}>
+                      Device Name <span className={styles.optional}>(optional)</span>
+                    </label>
+                    <input
+                      id="device_name"
+                      type="text"
+                      value={formData.device_name}
+                      onChange={(event) => setFormData({ ...formData, device_name: event.target.value })}
+                      className={styles.deviceInput}
+                      placeholder="e.g. Living Room TV"
+                      maxLength={40}
+                    />
+
+                    <div className={styles.deviceSummaryCard}>
+                      <div className={styles.deviceSummaryRow}>
+                        <span className={styles.deviceSummaryLabel}>Subscription limit</span>
+                        <span className={styles.deviceSummaryValue}>{shareLimit} total devices</span>
+                      </div>
+                      <div className={styles.deviceSummaryRow}>
+                        <span className={styles.deviceSummaryLabel}>Extra devices</span>
+                        <span className={styles.deviceSummaryValue}>{companionSlots}</span>
+                      </div>
+                    </div>
+
+                    <button type="submit" disabled={submitting} className={styles.devicePayBtn}>
+                      {submitting ? (
+                        <>
+                          <span className={styles.buttonSpinner} />
+                          Adding device...
+                        </>
+                      ) : (
+                        'Add Device'
+                      )}
+                    </button>
+                  </form>
+                </>
+              )}
+            </div>
           </div>
         </section>
+
+        <footer className={styles.portalFooter}>
+          <p>{portal?.portal_settings?.footer_text || 'Powered by Bitwave Technologies'}</p>
+        </footer>
       </div>
     </main>
   );
