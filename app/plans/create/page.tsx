@@ -33,6 +33,8 @@ export default function CreatePlanPage() {
   });
 
   const isPPPoE = formData.connection_type === 'pppoe';
+  const hasDataCap = (formData.data_cap_mb ?? 0) > 0;
+  const throttleSelected = !formData.fup_action || formData.fup_action === 'throttle';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -42,15 +44,14 @@ export default function CreatePlanPage() {
       if (!payload.badge_text) payload.badge_text = null;
       if (!payload.original_price) payload.original_price = null;
       payload.valid_until = payload.valid_until ? gmt3InputToISO(payload.valid_until) : null;
-      // FUP fields only apply to PPPoE — strip them for hotspot plans
-      if (!isPPPoE) {
+      // Clear FUP fields when the plan is uncapped.
+      if (!payload.data_cap_mb) {
         payload.data_cap_mb = null;
         payload.fup_action = null;
         payload.fup_throttle_profile = null;
       } else {
-        if (!payload.data_cap_mb) payload.data_cap_mb = null;
         if (!payload.fup_action) payload.fup_action = null;
-        if (!payload.fup_throttle_profile) payload.fup_throttle_profile = null;
+        if (!throttleSelected || !payload.fup_throttle_profile) payload.fup_throttle_profile = null;
       }
       await api.createPlan(payload);
       showAlert('success', `Plan "${formData.name}" created successfully!`);
@@ -249,15 +250,16 @@ export default function CreatePlanPage() {
               </label>
             </div>
 
-            {isPPPoE && (
-              <div className="pt-4 border-t border-border">
+            <div className="pt-4 border-t border-border">
                 <h3 className="text-sm font-semibold text-foreground-muted uppercase tracking-wider mb-1">Fair Usage Policy</h3>
-                <p className="text-xs text-foreground-muted mb-4">Optional monthly data cap and action when exceeded. PPPoE only.</p>
+                <p className="text-xs text-foreground-muted mb-4">
+                  Optional data cap for each paid plan period. Hotspot throttling uses a queue rate; PPPoE throttling uses a profile.
+                </p>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
                   <div>
                     <label htmlFor="data_cap_mb" className="block text-sm font-medium text-foreground-muted mb-1.5">
-                      Monthly Data Cap (MB)
+                      Data Cap (MB)
                     </label>
                     <input
                       id="data_cap_mb"
@@ -279,6 +281,7 @@ export default function CreatePlanPage() {
                       value={formData.fup_action ?? ''}
                       onChange={(e) => setFormData({ ...formData, fup_action: (e.target.value || null) as FupAction | null })}
                       className="select"
+                      disabled={!hasDataCap}
                     >
                       <option value="">Default (throttle)</option>
                       <option value="throttle">Throttle</option>
@@ -288,10 +291,10 @@ export default function CreatePlanPage() {
                   </div>
                 </div>
 
-                {formData.fup_action === 'throttle' && (
+                {hasDataCap && throttleSelected && (
                   <div>
                     <label htmlFor="fup_throttle_profile" className="block text-sm font-medium text-foreground-muted mb-1.5">
-                      Throttle PPP Profile <span className="text-danger">*</span>
+                      {isPPPoE ? 'Throttle PPP Profile' : 'Throttle Rate'}
                     </label>
                     <input
                       id="fup_throttle_profile"
@@ -299,13 +302,14 @@ export default function CreatePlanPage() {
                       value={formData.fup_throttle_profile || ''}
                       onChange={(e) => setFormData({ ...formData, fup_throttle_profile: e.target.value || null })}
                       className="input"
-                      placeholder="e.g. throttled-1m"
+                      placeholder={isPPPoE ? 'e.g. throttled-1m' : 'e.g. 512K/512K'}
                     />
-                    <p className="mt-1 text-xs text-foreground-muted">MikroTik PPP profile to switch user to when throttled</p>
+                    <p className="mt-1 text-xs text-foreground-muted">
+                      {isPPPoE ? 'MikroTik PPP profile to switch user to when throttled' : 'MikroTik queue max-limit when throttled; blank uses 1M/1M'}
+                    </p>
                   </div>
                 )}
-              </div>
-            )}
+            </div>
 
             <div className="flex gap-3 pt-4">
               <Link href="/plans" className="btn-secondary flex-1 text-center">

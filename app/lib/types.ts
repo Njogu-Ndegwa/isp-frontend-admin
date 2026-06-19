@@ -526,7 +526,7 @@ export interface Plan {
   badge_text?: string | null;
   original_price?: number | null;
   valid_until?: string | null;
-  // FUP / monthly data cap (PPPoE only)
+  // FUP / per-period data cap
   data_cap_mb?: number | null;
   fup_action?: FupAction | null;
   fup_throttle_profile?: string | null;

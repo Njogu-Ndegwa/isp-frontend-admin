@@ -131,6 +131,12 @@ export default function PlansPage() {
     };
   };
 
+  const formatDataCap = (mb?: number | null): string | null => {
+    if (!mb || mb <= 0) return null;
+    if (mb >= 1024) return `${(mb / 1024).toFixed(mb >= 10240 ? 0 : 1)} GB`;
+    return `${mb.toLocaleString()} MB`;
+  };
+
   const hasEmergencyPlans = plans.some((p) => p.plan_type === 'emergency');
   const anyRouterInEmergency = routers.some((r) => r.emergency_active);
   const selectedRouterInEmergency = routers.find((r) => r.id === selectedEmergencyRouter)?.emergency_active ?? false;
@@ -394,6 +400,11 @@ export default function PlansPage() {
                         {plan.badge_text && (
                           <p className="text-xs text-accent-primary truncate">{plan.badge_text}</p>
                         )}
+                        {formatDataCap(plan.data_cap_mb) && (
+                          <p className="text-xs text-warning truncate">
+                            FUP {formatDataCap(plan.data_cap_mb)} / {plan.fup_action?.replace('_', ' ') || 'throttle'}
+                          </p>
+                        )}
                       </div>
                     </div>
                   );
@@ -538,7 +549,7 @@ export default function PlansPage() {
                     }}
                     secondary={{
                       left: `${plan.duration_value} ${plan.duration_unit.toLowerCase()}`,
-                      right: plan.plan_type === 'emergency' ? 'Emergency' : 'Regular',
+                      right: formatDataCap(plan.data_cap_mb) || (plan.plan_type === 'emergency' ? 'Emergency' : 'Regular'),
                     }}
                     onClick={() => setEditingPlan(plan)}
                     rightAction={
@@ -637,6 +648,8 @@ function EditPlanModal({
   });
 
   const isPPPoE = formData.connection_type === 'pppoe';
+  const hasDataCap = (formData.data_cap_mb ?? 0) > 0;
+  const throttleSelected = !formData.fup_action || formData.fup_action === 'throttle';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -647,14 +660,13 @@ function EditPlanModal({
       if (!payload.badge_text) payload.badge_text = null;
       if (!payload.original_price) payload.original_price = null;
       payload.valid_until = payload.valid_until ? gmt3InputToISO(payload.valid_until) : null;
-      if (!isPPPoE) {
+      if (!payload.data_cap_mb) {
         payload.data_cap_mb = null;
         payload.fup_action = null;
         payload.fup_throttle_profile = null;
       } else {
-        if (!payload.data_cap_mb) payload.data_cap_mb = null;
         if (!payload.fup_action) payload.fup_action = null;
-        if (!payload.fup_throttle_profile) payload.fup_throttle_profile = null;
+        if (!throttleSelected || !payload.fup_throttle_profile) payload.fup_throttle_profile = null;
       }
       await api.updatePlan(plan.id, payload);
       onSuccess();
@@ -833,10 +845,11 @@ function EditPlanModal({
               </label>
             </div>
 
-            {isPPPoE && (
-              <div className="pt-4 border-t border-border">
+            <div className="pt-4 border-t border-border">
                 <h3 className="text-sm font-semibold text-foreground-muted uppercase tracking-wider mb-1">Fair Usage Policy</h3>
-                <p className="text-xs text-foreground-muted mb-4">Optional monthly data cap and action when exceeded.</p>
+                <p className="text-xs text-foreground-muted mb-4">
+                  Optional data cap for each paid plan period. Hotspot throttling uses a queue rate; PPPoE throttling uses a profile.
+                </p>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
                   <div>
@@ -856,6 +869,7 @@ function EditPlanModal({
                       value={formData.fup_action ?? ''}
                       onChange={(e) => setFormData({ ...formData, fup_action: (e.target.value || null) as FupAction | null })}
                       className="select"
+                      disabled={!hasDataCap}
                     >
                       <option value="">Default (throttle)</option>
                       <option value="throttle">Throttle</option>
@@ -865,20 +879,24 @@ function EditPlanModal({
                   </div>
                 </div>
 
-                {formData.fup_action === 'throttle' && (
+                {hasDataCap && throttleSelected && (
                   <div>
-                    <label className="block text-sm font-medium text-foreground mb-2">Throttle PPP Profile</label>
+                    <label className="block text-sm font-medium text-foreground mb-2">
+                      {isPPPoE ? 'Throttle PPP Profile' : 'Throttle Rate'}
+                    </label>
                     <input
                       type="text"
                       value={formData.fup_throttle_profile || ''}
                       onChange={(e) => setFormData({ ...formData, fup_throttle_profile: e.target.value || null })}
                       className="input"
-                      placeholder="e.g. throttled-1m"
+                      placeholder={isPPPoE ? 'e.g. throttled-1m' : 'e.g. 512K/512K'}
                     />
+                    <p className="mt-1 text-xs text-foreground-muted">
+                      {isPPPoE ? 'MikroTik PPP profile to switch user to when throttled' : 'MikroTik queue max-limit when throttled; blank uses 1M/1M'}
+                    </p>
                   </div>
                 )}
-              </div>
-            )}
+            </div>
           </form>
         </div>
 
