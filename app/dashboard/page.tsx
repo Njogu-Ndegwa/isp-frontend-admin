@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { api } from '../lib/api';
 import { DashboardAnalytics, DayDetail, MikroTikMetrics, MikroTikInterface, BandwidthHistory, TopUsersResponse, SubscriptionAlert, ResellerTopUsageEntry, SubscriptionOverview } from '../lib/types';
 import Link from 'next/link';
@@ -146,6 +146,7 @@ export default function DashboardPage() {
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [downloadUsageHours, setDownloadUsageHours] = useState(24);
   const [downloadUsageService, setDownloadUsageService] = useState<DownloadUsageServiceFilter>('all');
+  const bandwidthRequestKeyRef = useRef<string | null>(null);
   
   // Router filter state (null until a router is loaded)
   const [selectedRouterId, setSelectedRouterId] = useState<number | null>(null);
@@ -317,13 +318,22 @@ export default function DashboardPage() {
       if (isDashboardVisible()) void loadBandwidth();
     };
 
-    const timeout = window.setTimeout(refresh, DASHBOARD_LOAD_DELAYS_MS.bandwidth);
+    const requestKey = `${selectedRouterId}:${downloadUsageHours}`;
+    const fetchImmediately = bandwidthRequestKeyRef.current !== null
+      && bandwidthRequestKeyRef.current !== requestKey;
+    bandwidthRequestKeyRef.current = requestKey;
+
+    const timeout = fetchImmediately
+      ? undefined
+      : window.setTimeout(refresh, DASHBOARD_LOAD_DELAYS_MS.bandwidth);
+    if (fetchImmediately) refresh();
+
     const interval = window.setInterval(refresh, BANDWIDTH_REFRESH_INTERVAL_MS);
     return () => {
-      window.clearTimeout(timeout);
+      if (timeout !== undefined) window.clearTimeout(timeout);
       window.clearInterval(interval);
     };
-  }, [loadBandwidth, selectedRouterId]);
+  }, [loadBandwidth, selectedRouterId, downloadUsageHours]);
 
   useEffect(() => {
     if (!selectedRouterId) return;
