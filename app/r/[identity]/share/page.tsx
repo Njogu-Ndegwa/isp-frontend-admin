@@ -8,6 +8,7 @@ import type {
   DeliveryAttemptStatus,
   PublicDeviceStatusResponse,
   PublicPortalResponse,
+  ShareOwnerStatusResponse,
   ShareSubscriptionRequest,
   ShareSubscriptionResponse,
 } from '../../../lib/types';
@@ -131,6 +132,10 @@ export default function RouterSharePage() {
   const [statusError, setStatusError] = useState<string | null>(null);
   const [trackedDeviceMac, setTrackedDeviceMac] = useState('');
   const [useDetectedDevice, setUseDetectedDevice] = useState(false);
+  const [ownerStatus, setOwnerStatus] = useState<ShareOwnerStatusResponse | null>(null);
+  const [checkedOwnerPhone, setCheckedOwnerPhone] = useState('');
+  const [ownerChecking, setOwnerChecking] = useState(false);
+  const [ownerStatusError, setOwnerStatusError] = useState<string | null>(null);
 
   const detectedDeviceMac = useMemo(() => {
     const raw =
@@ -184,6 +189,30 @@ export default function RouterSharePage() {
       setStatusLoading(false);
     }
   }, [portal?.router.router_id]);
+
+  const checkOwnerStatus = useCallback(async () => {
+    if (!portal?.router.router_id) return;
+
+    const phone = formData.owner_phone.trim();
+    if (phone.length < 9) {
+      setOwnerStatus(null);
+      setOwnerStatusError('Enter the subscription owner phone number first.');
+      return;
+    }
+
+    setOwnerChecking(true);
+    setOwnerStatusError(null);
+    try {
+      const status = await api.getShareSubscriptionOwnerStatus(portal.router.router_id, phone);
+      setOwnerStatus(status);
+      setCheckedOwnerPhone(phone);
+    } catch (err) {
+      setOwnerStatus(null);
+      setOwnerStatusError(err instanceof Error ? err.message : 'Failed to check this subscription.');
+    } finally {
+      setOwnerChecking(false);
+    }
+  }, [formData.owner_phone, portal?.router.router_id]);
 
   useEffect(() => {
     if (!portal?.router.router_id || !identity) return;
@@ -249,6 +278,27 @@ export default function RouterSharePage() {
       ? styles.deviceStatusSuccess
       : styles.deviceStatusPending;
   const detectedDeviceInUse = Boolean(detectedDeviceMac && useDetectedDevice && formData.device_mac === detectedDeviceMac);
+  const ownerPhone = formData.owner_phone.trim();
+  const ownerStatusCurrent = Boolean(ownerStatus && checkedOwnerPhone === ownerPhone);
+  const ownerHasRoom = Boolean(
+    ownerStatusCurrent &&
+    ownerStatus?.has_active_subscription &&
+    ownerStatus?.sharing_enabled &&
+    Number(ownerStatus.available_shared_devices ?? 0) > 0
+  );
+  const ownerDeviceRows = ownerStatusCurrent ? ownerStatus?.devices ?? [] : [];
+  const ownerStatusTitle = !ownerStatusCurrent
+    ? 'Check subscription first'
+    : ownerStatus?.has_active_subscription
+      ? ownerStatus.sharing_enabled
+        ? Number(ownerStatus.available_shared_devices ?? 0) > 0
+          ? 'Subscription ready to share'
+          : 'Sharing limit reached'
+        : 'Sharing is off for this plan'
+      : 'No active subscription found';
+  const ownerStatusMessage = !ownerStatusCurrent
+    ? 'Enter the owner phone number and check it before adding another device.'
+    : ownerStatus?.message || '';
 
   const themeStyle = {
     '--primary': palette.primary,
@@ -290,6 +340,11 @@ export default function RouterSharePage() {
     event.preventDefault();
     if (!portal || !sharingEnabled) return;
 
+    if (!ownerHasRoom) {
+      setSubmitError('Check the owner subscription first.');
+      return;
+    }
+
     const normalizedDeviceMac = formatMac(formData.device_mac);
     if (!isValidMac(normalizedDeviceMac)) {
       setSubmitError('Enter a valid device MAC address.');
@@ -329,6 +384,7 @@ export default function RouterSharePage() {
         device_name: '',
       }));
       void refreshDeviceStatus(response.device_mac);
+      void checkOwnerStatus();
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : 'Failed to add this device.');
     } finally {
@@ -511,11 +567,88 @@ export default function RouterSharePage() {
                       type="tel"
                       inputMode="tel"
                       value={formData.owner_phone}
-                      onChange={(event) => setFormData({ ...formData, owner_phone: event.target.value })}
+                      onChange={(event) => {
+                        setOwnerStatusError(null);
+                        setSubmitError(null);
+                        setFormData({ ...formData, owner_phone: event.target.value });
+                      }}
                       className={styles.deviceInput}
                       placeholder="0712345678"
                       required
                     />
+
+                    <button
+                      type="button"
+                      className={styles.ownerCheckBtn}
+                      onClick={checkOwnerStatus}
+                      disabled={ownerChecking || ownerPhone.length < 9}
+                    >
+                      {ownerChecking ? (
+                        <>
+                          <span className={styles.buttonSpinner} />
+                          Checking...
+                        </>
+                      ) : (
+                        'Check subscription'
+                      )}
+                    </button>
+
+                    <div className={`${styles.ownerStatusCard} ${ownerHasRoom ? styles.ownerStatusOk : styles.ownerStatusWarn}`}>
+                      <div className={styles.ownerStatusHeader}>
+                        <div>
+                          <h3 className={styles.ownerStatusTitle}>{ownerStatusTitle}</h3>
+                          {ownerStatusMessage && <p className={styles.ownerStatusText}>{ownerStatusMessage}</p>}
+                          {ownerStatusError && <p className={styles.ownerStatusError}>{ownerStatusError}</p>}
+                        </div>
+                        {ownerStatusCurrent && ownerStatus?.has_active_subscription && (
+                          <span className={styles.ownerStatusBadge}>
+                            {ownerStatus.active_shared_devices ?? 0}/{ownerStatus.max_companion_devices ?? 0}
+                          </span>
+                        )}
+                      </div>
+
+                      {ownerStatusCurrent && ownerStatus?.has_active_subscription && (
+                        <div className={styles.ownerStatusDetails}>
+                          <div className={styles.deviceSummaryRow}>
+                            <span className={styles.deviceSummaryLabel}>Owner device</span>
+                            <span className={styles.deviceSummaryValue}>{ownerStatus.owner_device_mac || '-'}</span>
+                          </div>
+                          <div className={styles.deviceSummaryRow}>
+                            <span className={styles.deviceSummaryLabel}>Plan</span>
+                            <span className={styles.deviceSummaryValue}>{ownerStatus.plan?.name || '-'}</span>
+                          </div>
+                          <div className={styles.deviceSummaryRow}>
+                            <span className={styles.deviceSummaryLabel}>Available slots</span>
+                            <span className={styles.deviceSummaryValue}>{ownerStatus.available_shared_devices ?? 0}</span>
+                          </div>
+                          {ownerStatus.owner_expiry && (
+                            <div className={styles.deviceSummaryRow}>
+                              <span className={styles.deviceSummaryLabel}>Active until</span>
+                              <span className={styles.deviceSummaryValue}>{formatExpiry(ownerStatus.owner_expiry)}</span>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {ownerStatusCurrent && ownerDeviceRows.length > 0 && (
+                        <div className={styles.ownerDevicesList}>
+                          <div className={styles.ownerDevicesTitle}>Already shared</div>
+                          {ownerDeviceRows.map((device) => (
+                            <div key={device.id} className={styles.ownerDeviceRow}>
+                              <div>
+                                <div className={styles.ownerDeviceMac}>{device.device_mac}</div>
+                                <div className={styles.ownerDeviceMeta}>
+                                  {device.device_name || device.customer?.name || 'Shared device'}
+                                </div>
+                              </div>
+                              <span className={styles.ownerDeviceStatus}>
+                                {device.delivery?.delivery_status || device.customer?.status || 'active'}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
 
                     <h3 className={styles.deviceStepTitleAlt}>Device Info</h3>
 
@@ -562,6 +695,7 @@ export default function RouterSharePage() {
                         autoComplete="off"
                         spellCheck={false}
                         maxLength={17}
+                        disabled={!ownerHasRoom}
                         required
                       />
                       {deviceMacCount === 12 && <span className={styles.deviceMacStatus}>OK</span>}
@@ -586,6 +720,7 @@ export default function RouterSharePage() {
                           key={type.value}
                           type="button"
                           onClick={() => setFormData({ ...formData, device_type: type.value })}
+                          disabled={!ownerHasRoom}
                           className={`${styles.deviceTypeBtn} ${formData.device_type === type.value ? styles.deviceTypeBtnActive : ''}`}
                         >
                           <span>{type.icon}</span>
@@ -605,6 +740,7 @@ export default function RouterSharePage() {
                       className={styles.deviceInput}
                       placeholder="e.g. Living Room TV"
                       maxLength={40}
+                      disabled={!ownerHasRoom}
                     />
 
                     <div className={styles.deviceSummaryCard}>
@@ -618,12 +754,14 @@ export default function RouterSharePage() {
                       </div>
                     </div>
 
-                    <button type="submit" disabled={submitting || deviceMacCount !== 12} className={styles.devicePayBtn}>
+                    <button type="submit" disabled={submitting || !ownerHasRoom || deviceMacCount !== 12} className={styles.devicePayBtn}>
                       {submitting ? (
                         <>
                           <span className={styles.buttonSpinner} />
                           Adding device...
                         </>
+                      ) : !ownerHasRoom ? (
+                        'Check subscription first'
                       ) : (
                         'Add Device'
                       )}

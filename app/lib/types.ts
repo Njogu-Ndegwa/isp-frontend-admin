@@ -674,6 +674,52 @@ export interface PublicDeviceStatusResponse {
   delivery?: DeliveryAttemptStatus | null;
 }
 
+export interface ShareOwnerStatusDevice {
+  id: number;
+  customer_id: number;
+  device_mac: string;
+  device_name?: string | null;
+  device_type?: string | null;
+  router_id: number;
+  plan_id?: number | null;
+  subscription_owner_customer_id?: number | null;
+  is_subscription_share?: boolean;
+  is_active?: boolean;
+  provisioned_at?: string | null;
+  expires_at?: string | null;
+  created_at?: string | null;
+  customer?: {
+    id: number;
+    name?: string | null;
+    phone?: string | null;
+    status?: string;
+    expiry?: string | null;
+  };
+  delivery?: DeliveryAttemptStatus | null;
+}
+
+export interface ShareOwnerStatusResponse {
+  router_id: number;
+  phone: string;
+  has_active_subscription: boolean;
+  sharing_enabled: boolean;
+  owner_customer_id?: number;
+  owner_device_mac?: string | null;
+  owner_expiry?: string | null;
+  plan?: {
+    id?: number | null;
+    name?: string | null;
+    max_shared_users?: number;
+  };
+  max_shared_users?: number;
+  max_companion_devices?: number;
+  active_shared_devices?: number;
+  available_shared_devices?: number;
+  devices: ShareOwnerStatusDevice[];
+  count: number;
+  message?: string;
+}
+
 export interface UpdatePlanRequest extends Partial<CreatePlanRequest> {
   is_hidden?: boolean;
 }

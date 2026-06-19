@@ -410,6 +410,12 @@
   box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.1);
 }
 
+.deviceInput:disabled {
+  background: #f3f4f6;
+  color: var(--text-light);
+  cursor: not-allowed;
+}
+
 .mono {
   font-family: "DM Sans", monospace;
   letter-spacing: 1.5px;
@@ -657,6 +663,153 @@
 .deviceStatusBtn:disabled {
   opacity: 0.65;
   cursor: not-allowed;
+}
+
+.deviceTypeBtn:disabled {
+  opacity: 0.58;
+  cursor: not-allowed;
+}
+
+.ownerCheckBtn {
+  width: 100%;
+  min-height: 44px;
+  margin-top: var(--space-sm);
+  border: none;
+  border-radius: var(--radius-md);
+  background: var(--primary);
+  color: var(--text-inverse);
+  font: inherit;
+  font-size: 0.95rem;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  cursor: pointer;
+}
+
+.ownerCheckBtn:disabled {
+  opacity: 0.62;
+  cursor: not-allowed;
+}
+
+.ownerStatusCard {
+  margin-top: var(--space-md);
+  padding: var(--space-md);
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: var(--bg-warm);
+}
+
+.ownerStatusOk {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+}
+
+.ownerStatusWarn {
+  border-color: #fed7aa;
+  background: #fff7ed;
+}
+
+.ownerStatusHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-md);
+}
+
+.ownerStatusTitle {
+  margin: 0;
+  font-family: "Outfit", sans-serif;
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.ownerStatusText,
+.ownerStatusError {
+  margin: 4px 0 0;
+  color: var(--text-secondary);
+  font-size: 0.84rem;
+}
+
+.ownerStatusError {
+  color: var(--error);
+  font-weight: 700;
+}
+
+.ownerStatusBadge {
+  flex-shrink: 0;
+  min-width: 42px;
+  min-height: 28px;
+  padding: 4px 8px;
+  border-radius: var(--radius-full);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 0.8rem;
+  font-weight: 900;
+  text-align: center;
+}
+
+.ownerStatusDetails {
+  margin-top: var(--space-sm);
+  padding-top: var(--space-sm);
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.ownerDevicesList {
+  margin-top: var(--space-sm);
+  padding-top: var(--space-sm);
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.ownerDevicesTitle {
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.ownerDeviceRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  padding: var(--space-sm) 0;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.04);
+}
+
+.ownerDeviceRow:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.ownerDeviceMac {
+  font-family: "DM Sans", monospace;
+  color: var(--text);
+  font-size: 0.84rem;
+  font-weight: 900;
+  letter-spacing: 1px;
+}
+
+.ownerDeviceMeta {
+  margin-top: 2px;
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+}
+
+.ownerDeviceStatus {
+  flex-shrink: 0;
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 4px 8px;
+  border-radius: var(--radius-full);
+  background: rgba(var(--primary-rgb), 0.1);
+  color: var(--primary);
+  font-size: 0.72rem;
+  font-weight: 800;
 }
 
 .statePanel {

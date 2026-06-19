@@ -193,6 +193,7 @@ import {
   PortalSettingsResponse,
   PublicPortalResponse,
   PublicDeviceStatusResponse,
+  ShareOwnerStatusResponse,
   ShareSubscriptionRequest,
   ShareSubscriptionResponse,
   UpdatePortalSettingsRequest,
@@ -689,6 +690,14 @@ class ApiClient {
       { headers: this.getHeaders(false) }
     );
     return this.handleResponse<PublicDeviceStatusResponse>(response, true);
+  }
+
+  async getShareSubscriptionOwnerStatus(routerId: number, phone: string): Promise<ShareOwnerStatusResponse> {
+    const response = await fetch(
+      `${BASE_URL}/public/device/share-subscription/status/${routerId}/${encodeURIComponent(phone)}`,
+      { headers: this.getHeaders(false) }
+    );
+    return this.handleResponse<ShareOwnerStatusResponse>(response, true);
   }
 
   async activateEmergencyMode(data: ActivateEmergencyRequest): Promise<EmergencyModeResponse> {
