@@ -71,3 +71,98 @@ test.describe('responsive: no horizontal overflow', () => {
     test(`public ${path} @ ${w}`, async ({ page }) => checkPage(page, null, path, w));
   }
 });
+
+test('admin desktop sidebar stays available after navigating to routers', async ({ page }) => {
+  await page.addInitScript(`
+    localStorage.removeItem('demo_mode');
+    localStorage.setItem('auth_token','test-admin-token');
+    localStorage.setItem('auth_user', ${JSON.stringify(JSON.stringify({
+      id: 1,
+      email: 'admin@bitwave.test',
+      role: 'admin',
+      organization_name: 'Bitwave Admin',
+      subscription_status: 'active',
+    }))});
+  `);
+  await page.route('**/api/**', async (route) => {
+    const url = new URL(route.request().url());
+    if (url.pathname === '/api/admin/resellers/stats') {
+      await route.fulfill({
+        contentType: 'application/json',
+        body: JSON.stringify({
+          period: '30d',
+          revenue_over_time: [],
+          signups_over_time: [],
+          totals: { revenue: 0, mpesa_revenue: 0, new_resellers: 0 },
+        }),
+      });
+      return;
+    }
+    if (url.pathname === '/api/admin/resellers') {
+      await route.fulfill({
+        contentType: 'application/json',
+        body: JSON.stringify({
+          total: 1,
+          filters_applied: { sort_by: 'created_at', sort_order: 'desc', filter: null, search: null },
+          resellers: [{
+            id: 1,
+            email: 'demo@isp.test',
+            organization_name: 'Demo ISP',
+            business_name: 'Demo ISP',
+            support_phone: '+254700000000',
+            mpesa_shortcode: '123456',
+            created_at: '2026-06-01T00:00:00Z',
+            last_login_at: '2026-06-18T00:00:00Z',
+            total_revenue: 1000,
+            mpesa_revenue: 800,
+            total_customers: 10,
+            active_customers: 8,
+            last_payment_date: '2026-06-18T00:00:00Z',
+            router_count: 1,
+            unpaid_balance: 0,
+          }],
+        }),
+      });
+      return;
+    }
+    if (url.pathname === '/api/routers') {
+      await route.fulfill({
+        contentType: 'application/json',
+        body: JSON.stringify([{
+          id: 1,
+          name: 'Core Router',
+          identity: 'core-router',
+          ip_address: '10.0.0.1',
+          port: 8728,
+          auth_method: 'DIRECT_API',
+          payment_methods: ['mpesa'],
+          status: 'online',
+          status_is_stale: false,
+          emergency_active: false,
+          owner_name: 'Demo ISP',
+          owner_user_id: 1,
+          owner_role: 'reseller',
+          owner_subscription_status: 'active',
+        }]),
+      });
+      return;
+    }
+    await route.fulfill({ contentType: 'application/json', body: JSON.stringify({}) });
+  });
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto('/admin/resellers', { waitUntil: 'domcontentloaded' });
+  await page.waitForSelector('main', { state: 'attached', timeout: 15_000 });
+
+  const sidebar = page.locator('aside');
+  await expect(sidebar).toBeVisible();
+
+  await sidebar.getByRole('link', { name: 'Routers' }).click();
+  await expect(page).toHaveURL(/\/routers$/);
+  await expect(page.getByRole('heading', { name: 'Routers' })).toBeVisible();
+  await expect(page.getByText('Manage your MikroTik routers and hotspot users')).toBeVisible();
+  await expect(sidebar).toBeVisible();
+  await expect(sidebar.getByRole('link', { name: 'Dashboard' })).toBeVisible();
+
+  await sidebar.getByRole('link', { name: 'Dashboard' }).click();
+  await expect(page).toHaveURL(/\/admin$/);
+});

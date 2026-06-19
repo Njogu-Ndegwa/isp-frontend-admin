@@ -7,10 +7,15 @@ import { useAuth } from '../context/AuthContext';
 import CollapsibleSidebar from './CollapsibleSidebar';
 import MobileBottomNav from './MobileBottomNav';
 import SubscriptionBlockedModal from './SubscriptionBlockedModal';
+import ErrorBoundary from './ErrorBoundary';
 
 const PUBLIC_PATHS = ['/', '/login', '/landing', '/signup'];
-const PUBLIC_PREFIXES = ['/store'];
+const PUBLIC_PREFIXES = ['/store', '/r'];
 const FULLSCREEN_AUTH_PATHS = ['/setup'];
+
+function matchesPathPrefix(pathname: string, prefix: string): boolean {
+  return pathname === prefix || pathname.startsWith(`${prefix}/`);
+}
 
 function DemoBanner() {
   const { logout } = useAuth();
@@ -45,7 +50,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   const router = useRouter();
   const { isAuthenticated, isLoading, isDemo, user } = useAuth();
 
-  const isPublicPage = PUBLIC_PATHS.includes(pathname) || PUBLIC_PREFIXES.some(p => pathname.startsWith(p));
+  const isPublicPage = PUBLIC_PATHS.includes(pathname) || PUBLIC_PREFIXES.some(p => matchesPathPrefix(pathname, p));
 
   const isAdmin = user?.role === 'admin';
   const isOnAdminPage = pathname.startsWith('/admin');
@@ -105,7 +110,9 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
         className="min-h-screen p-4 md:p-8 pb-24 md:pb-8 transition-[margin] duration-300 ease-in-out"
         style={{ marginLeft: 'var(--app-sidebar-w, 0px)' }}
       >
-        {children}
+        <ErrorBoundary key={pathname}>
+          {children}
+        </ErrorBoundary>
       </main>
     </>
   );

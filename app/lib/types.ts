@@ -526,6 +526,8 @@ export interface Plan {
   badge_text?: string | null;
   original_price?: number | null;
   valid_until?: string | null;
+  max_shared_users?: number;
+  sharing_enabled?: boolean;
   // FUP / per-period data cap
   data_cap_mb?: number | null;
   fup_action?: FupAction | null;
@@ -546,9 +548,89 @@ export interface CreatePlanRequest {
   badge_text?: string | null;
   original_price?: number | null;
   valid_until?: string | null;
+  max_shared_users?: number;
   data_cap_mb?: number | null;
   fup_action?: FupAction | null;
   fup_throttle_profile?: string | null;
+}
+
+export interface PublicPortalSettings {
+  color_theme?: PortalColorTheme;
+  header_style?: PortalHeaderStyle;
+  show_ads?: boolean;
+  show_welcome_banner?: boolean;
+  welcome_title?: string | null;
+  welcome_subtitle?: string | null;
+  company_logo_url?: string | null;
+  header_bg_image_url?: string | null;
+  footer_text?: string | null;
+  portal_support_phone?: string | null;
+  portal_support_whatsapp?: string | null;
+  show_ratings?: boolean;
+  show_reconnect_button?: boolean;
+  show_social_links?: boolean;
+  facebook_url?: string | null;
+  whatsapp_group_url?: string | null;
+  instagram_url?: string | null;
+  show_announcement?: boolean;
+  announcement_type?: PortalAnnouncementType;
+  announcement_text?: string | null;
+  portal_language?: PortalLanguage;
+  plans_section_title?: string | null;
+  featured_plan_ids?: string | null;
+  show_plan_speed?: boolean;
+}
+
+export interface PublicPortalResponse {
+  router: {
+    router_id: number;
+    name: string;
+    identity: string;
+    user_id: number;
+    auth_method?: string;
+    business_name?: string | null;
+    payment_methods?: string[];
+    support_phone?: string | null;
+  };
+  plans: Plan[];
+  ads?: unknown[];
+  plan_flags?: {
+    has_emergency_plans?: boolean;
+    has_special_offers?: boolean;
+    emergency_mode_active?: boolean;
+    emergency_message?: string | null;
+    sharing_enabled?: boolean;
+    max_shared_users?: number;
+  };
+  portal_settings?: PublicPortalSettings;
+}
+
+export interface ShareSubscriptionRequest {
+  owner_phone: string;
+  router_id: number;
+  device_mac: string;
+  owner_mac?: string | null;
+  device_name?: string | null;
+  device_type?: 'tv' | 'console' | 'laptop' | 'iot' | 'other';
+  device_owner_phone?: string | null;
+  device_owner_name?: string | null;
+}
+
+export interface ShareSubscriptionResponse {
+  success: boolean;
+  customer_id: number;
+  owner_customer_id: number;
+  pairing_id: number;
+  device_mac: string;
+  device_type: string;
+  auth_method: 'DIRECT_API' | 'RADIUS' | string;
+  radius_username?: string;
+  radius_password?: string;
+  expiry?: string | null;
+  max_shared_users: number;
+  active_shared_devices: number;
+  attempt_id?: number;
+  message: string;
 }
 
 export interface UpdatePlanRequest extends Partial<CreatePlanRequest> {

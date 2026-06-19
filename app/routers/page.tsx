@@ -606,6 +606,30 @@ function RoutersTab({
     }
   };
 
+  const getShareLink = (router: Router) => {
+    if (!router.identity || typeof window === 'undefined') return null;
+    return `${window.location.origin}/r/${encodeURIComponent(router.identity)}/share`;
+  };
+
+  const handleCopyShareLink = async (router: Router) => {
+    const link = getShareLink(router);
+    if (!link) {
+      showAlert('error', 'This router has no identity to build a share link');
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(link);
+    } catch {
+      const textarea = document.createElement('textarea');
+      textarea.value = link;
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textarea);
+    }
+    showAlert('success', 'Share link copied');
+  };
+
   const loadBatchPreview = async () => {
     try {
       setBatchLoading('preview');
@@ -757,6 +781,17 @@ function RoutersTab({
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
           </svg>
         )}
+      </button>
+      <button
+        onClick={(e) => { e.stopPropagation(); handleCopyShareLink(router); }}
+        disabled={!router.identity}
+        className="p-1.5 rounded-lg hover:bg-success/10 text-foreground-muted hover:text-success transition-colors active:opacity-70 disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-foreground-muted"
+        title="Copy subscription share link"
+      >
+        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342a3 3 0 010-4.243l4.243-4.242a3 3 0 114.243 4.242l-.707.707" />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.316 10.658a3 3 0 010 4.243l-4.243 4.242a3 3 0 11-4.243-4.242l.707-.707" />
+        </svg>
       </button>
       <button
         onClick={(e) => { e.stopPropagation(); setPortConfigRouter(router); }}
