@@ -9,6 +9,7 @@ import type {
   PublicDeviceStatusResponse,
   PublicPortalResponse,
   ShareOwnerStatusResponse,
+  ShareSubscriptionCodeResponse,
   ShareSubscriptionRequest,
   ShareSubscriptionResponse,
 } from '../../../lib/types';
@@ -81,6 +82,15 @@ function isValidMac(value: string): boolean {
   return /^[0-9A-F]{12}$/.test(cleanMac(value));
 }
 
+function cleanShareCode(value: string): string {
+  return value.replace(/[^0-9a-z]/gi, '').toUpperCase().slice(0, 6);
+}
+
+function formatShareCode(value: string): string {
+  const clean = cleanShareCode(value);
+  return clean.length > 3 ? `${clean.slice(0, 3)}-${clean.slice(3)}` : clean;
+}
+
 function deliveryText(delivery?: DeliveryAttemptStatus | null) {
   const status = delivery?.delivery_status;
   if (status === 'online') {
@@ -120,6 +130,7 @@ export default function RouterSharePage() {
   const params = useParams();
   const searchParams = useSearchParams();
   const identity = normalizeParam(params.identity);
+  const initialRedeemCode = formatShareCode(searchParams.get('code') || searchParams.get('share_code') || '');
   const [portal, setPortal] = useState<PublicPortalResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -127,6 +138,12 @@ export default function RouterSharePage() {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [result, setResult] = useState<ShareSubscriptionResponse | null>(null);
+  const [generatedCode, setGeneratedCode] = useState<ShareSubscriptionCodeResponse | null>(null);
+  const [generatingCode, setGeneratingCode] = useState(false);
+  const [shareCodeError, setShareCodeError] = useState<string | null>(null);
+  const [redeemCode, setRedeemCode] = useState(initialRedeemCode);
+  const [redeemingCode, setRedeemingCode] = useState(false);
+  const [redeemCodeError, setRedeemCodeError] = useState<string | null>(null);
   const [deviceStatus, setDeviceStatus] = useState<PublicDeviceStatusResponse | null>(null);
   const [statusLoading, setStatusLoading] = useState(false);
   const [statusError, setStatusError] = useState<string | null>(null);
@@ -251,6 +268,12 @@ export default function RouterSharePage() {
     }));
   }, [detectedDeviceMac]);
 
+  useEffect(() => {
+    if (initialRedeemCode && !redeemCode) {
+      setRedeemCode(initialRedeemCode);
+    }
+  }, [initialRedeemCode, redeemCode]);
+
   const palette = useMemo(() => {
     const theme = (portal?.portal_settings?.color_theme ?? 'sunset_orange') as PortalColorTheme;
     return getThemePalette(theme);
@@ -299,6 +322,9 @@ export default function RouterSharePage() {
   const ownerStatusMessage = !ownerStatusCurrent
     ? 'Enter the owner phone number and check it before adding another device.'
     : ownerStatus?.message || '';
+  const redeemCodeReady = cleanShareCode(redeemCode).length === 6;
+  const canEditDevice = ownerHasRoom || redeemCodeReady;
+  const generatedCodeExpiry = formatExpiry(generatedCode?.expires_at);
 
   const themeStyle = {
     '--primary': palette.primary,
@@ -336,6 +362,94 @@ export default function RouterSharePage() {
     return () => window.clearInterval(intervalId);
   }, [activeDelivery?.delivery_status, portal?.router.router_id, refreshDeviceStatus, trackedDeviceMac]);
 
+  const rememberShareResponse = useCallback((response: ShareSubscriptionResponse, ownerPhoneValue = '') => {
+    if (!portal?.router.router_id) return;
+
+    setResult(response);
+    setTrackedDeviceMac(response.device_mac);
+    setDeviceStatus(null);
+    const key = storageKey(portal.router.router_id, identity);
+    if (key) {
+      window.localStorage.setItem(
+        key,
+        JSON.stringify({
+          owner_phone: ownerPhoneValue,
+          device_mac: response.device_mac,
+          result: response,
+          saved_at: Date.now(),
+        } satisfies SavedShareState)
+      );
+    }
+    setFormData((prev) => ({
+      ...prev,
+      owner_phone: prev.owner_phone || ownerPhoneValue,
+      device_mac: detectedDeviceInUse ? response.device_mac : '',
+      device_name: '',
+    }));
+    void refreshDeviceStatus(response.device_mac);
+  }, [detectedDeviceInUse, identity, portal?.router.router_id, refreshDeviceStatus]);
+
+  const handleGenerateShareCode = async () => {
+    if (!portal || !sharingEnabled) return;
+
+    if (!ownerHasRoom) {
+      setShareCodeError('Check the owner subscription first.');
+      return;
+    }
+
+    setGeneratingCode(true);
+    setShareCodeError(null);
+    try {
+      const response = await api.createShareSubscriptionCode({
+        owner_phone: formData.owner_phone.trim(),
+        router_id: portal.router.router_id,
+      });
+      setGeneratedCode(response);
+    } catch (err) {
+      setGeneratedCode(null);
+      setShareCodeError(err instanceof Error ? err.message : 'Failed to create share code.');
+    } finally {
+      setGeneratingCode(false);
+    }
+  };
+
+  const handleRedeemShareCode = async () => {
+    if (!portal || !sharingEnabled) return;
+
+    const normalizedDeviceMac = formatMac(formData.device_mac);
+    if (!redeemCodeReady) {
+      setRedeemCodeError('Enter the 6-character share code.');
+      return;
+    }
+    if (!isValidMac(normalizedDeviceMac)) {
+      setRedeemCodeError('Enter a valid device MAC address.');
+      return;
+    }
+
+    setRedeemingCode(true);
+    setRedeemCodeError(null);
+    setSubmitError(null);
+    setStatusError(null);
+    try {
+      const response = await api.redeemShareSubscriptionCode({
+        code: redeemCode,
+        router_id: portal.router.router_id,
+        device_mac: normalizedDeviceMac,
+        device_name: formData.device_name.trim() || null,
+        device_type: formData.device_type,
+      });
+      rememberShareResponse(response, formData.owner_phone.trim());
+      setRedeemCode('');
+      if (formData.owner_phone.trim().length >= 9) {
+        void checkOwnerStatus();
+      }
+    } catch (err) {
+      setRedeemCodeError(err instanceof Error ? err.message : 'Failed to redeem this code.');
+    } finally {
+      setRedeemingCode(false);
+    }
+  };
+
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!portal || !sharingEnabled) return;
@@ -363,27 +477,7 @@ export default function RouterSharePage() {
         device_type: formData.device_type,
       };
       const response = await api.shareSubscriptionDevice(payload);
-      setResult(response);
-      setTrackedDeviceMac(response.device_mac);
-      setDeviceStatus(null);
-      const key = storageKey(portal.router.router_id, identity);
-      if (key) {
-        window.localStorage.setItem(
-          key,
-          JSON.stringify({
-            owner_phone: formData.owner_phone.trim(),
-            device_mac: response.device_mac,
-            result: response,
-            saved_at: Date.now(),
-          } satisfies SavedShareState)
-        );
-      }
-      setFormData((prev) => ({
-        ...prev,
-        device_mac: detectedDeviceInUse ? response.device_mac : '',
-        device_name: '',
-      }));
-      void refreshDeviceStatus(response.device_mac);
+      rememberShareResponse(response, formData.owner_phone.trim());
       void checkOwnerStatus();
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : 'Failed to add this device.');
@@ -557,6 +651,55 @@ export default function RouterSharePage() {
                   )}
 
                   <form onSubmit={handleSubmit} autoComplete="off">
+                    <div className={styles.shareCodePanel}>
+                      <h3 className={styles.deviceStepTitle}>Share Code</h3>
+                      <label htmlFor="share_code" className={styles.deviceLabel}>
+                        Code
+                      </label>
+                      <input
+                        id="share_code"
+                        type="text"
+                        value={redeemCode}
+                        onChange={(event) => {
+                          setRedeemCode(formatShareCode(event.target.value));
+                          setRedeemCodeError(null);
+                        }}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter') {
+                            event.preventDefault();
+                            void handleRedeemShareCode();
+                          }
+                        }}
+                        className={`${styles.deviceInput} ${styles.shareCodeInput}`}
+                        placeholder="ABC-123"
+                        autoCapitalize="characters"
+                        autoComplete="one-time-code"
+                        spellCheck={false}
+                        maxLength={7}
+                      />
+                      {redeemCodeError && <p className={styles.ownerStatusError}>{redeemCodeError}</p>}
+                      {redeemCodeReady && deviceMacCount !== 12 && (
+                        <p className={styles.ownerStatusText}>Add this device MAC below.</p>
+                      )}
+                      <button
+                        type="button"
+                        className={styles.shareCodeRedeemBtn}
+                        onClick={handleRedeemShareCode}
+                        disabled={redeemingCode || !redeemCodeReady || deviceMacCount !== 12}
+                      >
+                        {redeemingCode ? (
+                          <>
+                            <span className={styles.buttonSpinner} />
+                            Redeeming...
+                          </>
+                        ) : (
+                          'Redeem Code'
+                        )}
+                      </button>
+                    </div>
+
+                    <div className={styles.deviceDivider}><span>or</span></div>
+
                     <h3 className={styles.deviceStepTitle}>Subscription Owner</h3>
 
                     <label htmlFor="owner_phone" className={styles.deviceLabel}>
@@ -570,6 +713,8 @@ export default function RouterSharePage() {
                       onChange={(event) => {
                         setOwnerStatusError(null);
                         setSubmitError(null);
+                        setShareCodeError(null);
+                        setGeneratedCode(null);
                         setFormData({ ...formData, owner_phone: event.target.value });
                       }}
                       className={styles.deviceInput}
@@ -650,6 +795,31 @@ export default function RouterSharePage() {
                       )}
                     </div>
 
+                    {ownerStatusCurrent && ownerStatus?.has_active_subscription && ownerStatus.sharing_enabled && (
+                      <div className={styles.shareCodeGenerateCard}>
+                        <div>
+                          <div className={styles.shareCodeGenerateTitle}>Share by code</div>
+                          {generatedCode ? (
+                            <div className={styles.shareCodeValue}>{generatedCode.code}</div>
+                          ) : (
+                            <div className={styles.shareCodeGenerateText}>One-time code for another device</div>
+                          )}
+                          {generatedCodeExpiry && (
+                            <div className={styles.shareCodeExpiry}>Expires {generatedCodeExpiry}</div>
+                          )}
+                          {shareCodeError && <p className={styles.ownerStatusError}>{shareCodeError}</p>}
+                        </div>
+                        <button
+                          type="button"
+                          className={styles.shareCodeGenerateBtn}
+                          onClick={handleGenerateShareCode}
+                          disabled={generatingCode || !ownerHasRoom}
+                        >
+                          {generatingCode ? 'Generating...' : generatedCode ? 'New Code' : 'Generate'}
+                        </button>
+                      </div>
+                    )}
+
                     <h3 className={styles.deviceStepTitleAlt}>Device Info</h3>
 
                     {detectedDeviceMac && (
@@ -695,7 +865,7 @@ export default function RouterSharePage() {
                         autoComplete="off"
                         spellCheck={false}
                         maxLength={17}
-                        disabled={!ownerHasRoom}
+                        disabled={!canEditDevice}
                         required
                       />
                       {deviceMacCount === 12 && <span className={styles.deviceMacStatus}>OK</span>}
@@ -720,7 +890,7 @@ export default function RouterSharePage() {
                           key={type.value}
                           type="button"
                           onClick={() => setFormData({ ...formData, device_type: type.value })}
-                          disabled={!ownerHasRoom}
+                          disabled={!canEditDevice}
                           className={`${styles.deviceTypeBtn} ${formData.device_type === type.value ? styles.deviceTypeBtnActive : ''}`}
                         >
                           <span>{type.icon}</span>
@@ -740,7 +910,7 @@ export default function RouterSharePage() {
                       className={styles.deviceInput}
                       placeholder="e.g. Living Room TV"
                       maxLength={40}
-                      disabled={!ownerHasRoom}
+                      disabled={!canEditDevice}
                     />
 
                     <div className={styles.deviceSummaryCard}>

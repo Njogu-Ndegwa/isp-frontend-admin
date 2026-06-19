@@ -670,6 +670,68 @@
   cursor: not-allowed;
 }
 
+.shareCodePanel {
+  margin-bottom: var(--space-lg);
+  padding: var(--space-md);
+  border: 1px solid rgba(var(--primary-rgb), 0.18);
+  border-radius: var(--radius-md);
+  background: rgba(var(--primary-rgb), 0.06);
+}
+
+.shareCodeInput {
+  text-align: center;
+  font-family: "DM Sans", monospace;
+  font-size: 1.15rem;
+  font-weight: 900;
+  letter-spacing: 2px;
+}
+
+.shareCodeRedeemBtn,
+.shareCodeGenerateBtn {
+  min-height: 42px;
+  border: none;
+  border-radius: var(--radius-md);
+  font: inherit;
+  font-weight: 900;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+}
+
+.shareCodeRedeemBtn {
+  width: 100%;
+  margin-top: var(--space-sm);
+  background: var(--primary);
+  color: var(--text-inverse);
+}
+
+.shareCodeRedeemBtn:disabled,
+.shareCodeGenerateBtn:disabled {
+  opacity: 0.58;
+  cursor: not-allowed;
+}
+
+.deviceDivider {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin: 0 0 var(--space-lg);
+  color: var(--text-secondary);
+  font-size: 0.76rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.deviceDivider::before,
+.deviceDivider::after {
+  content: "";
+  height: 1px;
+  flex: 1;
+  background: rgba(0, 0, 0, 0.08);
+}
+
 .ownerCheckBtn {
   width: 100%;
   min-height: 44px;
@@ -755,6 +817,50 @@
   margin-top: var(--space-sm);
   padding-top: var(--space-sm);
   border-top: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.shareCodeGenerateCard {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  margin-top: var(--space-md);
+  padding: var(--space-md);
+  border: 1px solid rgba(var(--accent-rgb), 0.24);
+  border-radius: var(--radius-md);
+  background: rgba(var(--accent-rgb), 0.08);
+}
+
+.shareCodeGenerateTitle {
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.shareCodeGenerateText,
+.shareCodeExpiry {
+  margin-top: 2px;
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.shareCodeValue {
+  margin-top: 3px;
+  color: var(--text);
+  font-family: "DM Sans", monospace;
+  font-size: 1.35rem;
+  font-weight: 900;
+  letter-spacing: 2px;
+}
+
+.shareCodeGenerateBtn {
+  flex-shrink: 0;
+  min-width: 96px;
+  padding: 0 var(--space-md);
+  background: var(--accent);
+  color: var(--text-inverse);
 }
 
 .ownerDevicesList {
