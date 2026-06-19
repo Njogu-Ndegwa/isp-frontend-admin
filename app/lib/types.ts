@@ -616,6 +616,18 @@ export interface ShareSubscriptionRequest {
   device_owner_name?: string | null;
 }
 
+export interface DeliveryAttemptStatus {
+  attempt_id: number;
+  delivery_status?: 'activating' | 'online' | 'access_ready' | 'needs_attention' | string | null;
+  provisioning_state?: string | null;
+  online_state?: string | null;
+  attempt_count?: number;
+  last_error?: string | null;
+  last_attempt_at?: string | null;
+  last_online_at?: string | null;
+  external_reference?: string | null;
+}
+
 export interface ShareSubscriptionResponse {
   success: boolean;
   customer_id: number;
@@ -630,7 +642,36 @@ export interface ShareSubscriptionResponse {
   max_shared_users: number;
   active_shared_devices: number;
   attempt_id?: number;
+  delivery?: DeliveryAttemptStatus | null;
   message: string;
+}
+
+export interface PublicDeviceStatusResponse {
+  paired: boolean;
+  message?: string;
+  pairing?: {
+    id: number;
+    customer_id: number;
+    device_mac: string;
+    device_name?: string | null;
+    device_type?: string | null;
+    router_id: number;
+    plan_id?: number | null;
+    subscription_owner_customer_id?: number | null;
+    is_subscription_share?: boolean;
+    is_active?: boolean;
+    provisioned_at?: string | null;
+    expires_at?: string | null;
+    created_at?: string | null;
+  };
+  customer?: {
+    id: number;
+    name?: string | null;
+    status?: string;
+    expiry?: string | null;
+    plan_name?: string | null;
+  } | null;
+  delivery?: DeliveryAttemptStatus | null;
 }
 
 export interface UpdatePlanRequest extends Partial<CreatePlanRequest> {

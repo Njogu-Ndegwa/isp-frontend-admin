@@ -1,10 +1,16 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { CSSProperties, FormEvent } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
 import { api } from '../../../lib/api';
-import type { PublicPortalResponse, ShareSubscriptionRequest, ShareSubscriptionResponse } from '../../../lib/types';
+import type {
+  DeliveryAttemptStatus,
+  PublicDeviceStatusResponse,
+  PublicPortalResponse,
+  ShareSubscriptionRequest,
+  ShareSubscriptionResponse,
+} from '../../../lib/types';
 import { getThemePalette, type PortalColorTheme } from '../../../lib/portalThemes';
 import styles from './share.module.css';
 
@@ -20,10 +26,16 @@ const DEVICE_TYPES: Array<{ value: DeviceTypeValue; label: string; icon: string 
 
 const emptyForm = {
   owner_phone: '',
-  owner_mac: '',
   device_mac: '',
   device_name: '',
   device_type: 'tv' as DeviceTypeValue,
+};
+
+type SavedShareState = {
+  owner_phone: string;
+  device_mac: string;
+  result: ShareSubscriptionResponse | null;
+  saved_at: number;
 };
 
 function formatExpiry(value?: string | null) {
@@ -52,11 +64,60 @@ function hexToRgbParts(hex: string): string {
 }
 
 function macCharacterCount(value: string): number {
-  return value.replace(/[^0-9a-f]/gi, '').slice(0, 12).length;
+  return cleanMac(value).length;
+}
+
+function cleanMac(value: string): string {
+  return value.replace(/[^0-9a-f]/gi, '').toUpperCase().slice(0, 12);
+}
+
+function formatMac(value: string): string {
+  const hex = cleanMac(value);
+  return (hex.match(/.{1,2}/g) || []).join(':');
+}
+
+function isValidMac(value: string): boolean {
+  return /^[0-9A-F]{12}$/.test(cleanMac(value));
+}
+
+function deliveryText(delivery?: DeliveryAttemptStatus | null) {
+  const status = delivery?.delivery_status;
+  if (status === 'online') {
+    return {
+      tone: 'success' as const,
+      title: 'Device Online',
+      message: 'The shared device has been seen online on this hotspot.',
+    };
+  }
+  if (status === 'access_ready') {
+    return {
+      tone: 'success' as const,
+      title: 'Device Added',
+      message: 'Access is ready. Reconnect WiFi on the device if it does not start browsing.',
+    };
+  }
+  if (status === 'needs_attention') {
+    return {
+      tone: 'error' as const,
+      title: 'Needs Attention',
+      message: delivery?.last_error || 'The router could not finish adding this device. Try again or contact support.',
+    };
+  }
+  return {
+    tone: 'pending' as const,
+    title: 'Activating Device',
+    message: 'The router is adding this device. This usually finishes in a few seconds.',
+  };
+}
+
+function storageKey(routerId: number | undefined, identity: string): string | null {
+  if (!routerId) return null;
+  return `bitwave_share_status:${routerId}:${identity}`;
 }
 
 export default function RouterSharePage() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const identity = normalizeParam(params.identity);
   const [portal, setPortal] = useState<PublicPortalResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -65,6 +126,21 @@ export default function RouterSharePage() {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [result, setResult] = useState<ShareSubscriptionResponse | null>(null);
+  const [deviceStatus, setDeviceStatus] = useState<PublicDeviceStatusResponse | null>(null);
+  const [statusLoading, setStatusLoading] = useState(false);
+  const [statusError, setStatusError] = useState<string | null>(null);
+  const [trackedDeviceMac, setTrackedDeviceMac] = useState('');
+  const [useDetectedDevice, setUseDetectedDevice] = useState(false);
+
+  const detectedDeviceMac = useMemo(() => {
+    const raw =
+      searchParams.get('mac') ||
+      searchParams.get('device_mac') ||
+      searchParams.get('client_mac') ||
+      '';
+    const formatted = formatMac(raw);
+    return isValidMac(formatted) ? formatted : '';
+  }, [searchParams]);
 
   useEffect(() => {
     if (!identity) {
@@ -94,6 +170,58 @@ export default function RouterSharePage() {
     };
   }, [identity]);
 
+  const refreshDeviceStatus = useCallback(async (macAddress: string) => {
+    if (!portal?.router.router_id || !macAddress || !isValidMac(macAddress)) return;
+
+    setStatusLoading(true);
+    setStatusError(null);
+    try {
+      const status = await api.getPublicDeviceStatus(portal.router.router_id, formatMac(macAddress));
+      setDeviceStatus(status);
+    } catch (err) {
+      setStatusError(err instanceof Error ? err.message : 'Failed to check device status.');
+    } finally {
+      setStatusLoading(false);
+    }
+  }, [portal?.router.router_id]);
+
+  useEffect(() => {
+    if (!portal?.router.router_id || !identity) return;
+
+    const key = storageKey(portal.router.router_id, identity);
+    if (!key) return;
+
+    try {
+      const raw = window.localStorage.getItem(key);
+      if (!raw) return;
+
+      const saved = JSON.parse(raw) as SavedShareState;
+      const ageMs = Date.now() - Number(saved.saved_at || 0);
+      const savedMac = formatMac(saved.device_mac || '');
+      if (!isValidMac(savedMac) || ageMs > 24 * 60 * 60 * 1000) return;
+
+      setTrackedDeviceMac(savedMac);
+      setResult(saved.result);
+      setFormData((prev) => ({
+        ...prev,
+        owner_phone: prev.owner_phone || saved.owner_phone || '',
+      }));
+      void refreshDeviceStatus(savedMac);
+    } catch {
+      return;
+    }
+  }, [identity, portal?.router.router_id, refreshDeviceStatus]);
+
+  useEffect(() => {
+    if (!detectedDeviceMac) return;
+    setUseDetectedDevice(true);
+    setFormData((prev) => ({
+      ...prev,
+      device_mac: prev.device_mac || detectedDeviceMac,
+      device_type: prev.device_type === 'tv' ? 'other' : prev.device_type,
+    }));
+  }, [detectedDeviceMac]);
+
   const palette = useMemo(() => {
     const theme = (portal?.portal_settings?.color_theme ?? 'sunset_orange') as PortalColorTheme;
     return getThemePalette(theme);
@@ -109,10 +237,18 @@ export default function RouterSharePage() {
   }, [portal?.plan_flags?.max_shared_users, portal?.plans]);
   const sharingEnabled = Boolean(portal?.plan_flags?.sharing_enabled) || shareLimit > 1;
   const companionSlots = Math.max(0, shareLimit - 1);
-  const expiry = formatExpiry(result?.expiry);
   const deviceMacCount = macCharacterCount(formData.device_mac);
-  const ownerMacCount = macCharacterCount(formData.owner_mac);
   const backgroundImage = portal?.portal_settings?.header_bg_image_url;
+  const activeDelivery = deviceStatus?.delivery ?? result?.delivery ?? null;
+  const visibleDeviceMac = deviceStatus?.pairing?.device_mac || result?.device_mac || trackedDeviceMac;
+  const visibleExpiry = formatExpiry(deviceStatus?.customer?.expiry || result?.expiry);
+  const statusCopy = visibleDeviceMac ? deliveryText(activeDelivery) : null;
+  const statusToneClass = statusCopy?.tone === 'error'
+    ? styles.deviceStatusError
+    : statusCopy?.tone === 'success'
+      ? styles.deviceStatusSuccess
+      : styles.deviceStatusPending;
+  const detectedDeviceInUse = Boolean(detectedDeviceMac && useDetectedDevice && formData.device_mac === detectedDeviceMac);
 
   const themeStyle = {
     '--primary': palette.primary,
@@ -137,30 +273,62 @@ export default function RouterSharePage() {
       }
     : undefined;
 
+  useEffect(() => {
+    if (!trackedDeviceMac || !portal?.router.router_id) return;
+
+    const status = activeDelivery?.delivery_status;
+    if (status && status !== 'activating') return;
+
+    const intervalId = window.setInterval(() => {
+      void refreshDeviceStatus(trackedDeviceMac);
+    }, 4000);
+
+    return () => window.clearInterval(intervalId);
+  }, [activeDelivery?.delivery_status, portal?.router.router_id, refreshDeviceStatus, trackedDeviceMac]);
+
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!portal || !sharingEnabled) return;
 
+    const normalizedDeviceMac = formatMac(formData.device_mac);
+    if (!isValidMac(normalizedDeviceMac)) {
+      setSubmitError('Enter a valid device MAC address.');
+      return;
+    }
+
     setSubmitting(true);
     setSubmitError(null);
-    setResult(null);
+    setStatusError(null);
     try {
       const payload: ShareSubscriptionRequest = {
         owner_phone: formData.owner_phone.trim(),
         router_id: portal.router.router_id,
-        device_mac: formData.device_mac.trim(),
-        owner_mac: formData.owner_mac.trim() || null,
+        device_mac: normalizedDeviceMac,
         device_name: formData.device_name.trim() || null,
         device_type: formData.device_type,
       };
       const response = await api.shareSubscriptionDevice(payload);
       setResult(response);
+      setTrackedDeviceMac(response.device_mac);
+      setDeviceStatus(null);
+      const key = storageKey(portal.router.router_id, identity);
+      if (key) {
+        window.localStorage.setItem(
+          key,
+          JSON.stringify({
+            owner_phone: formData.owner_phone.trim(),
+            device_mac: response.device_mac,
+            result: response,
+            saved_at: Date.now(),
+          } satisfies SavedShareState)
+        );
+      }
       setFormData((prev) => ({
         ...prev,
-        owner_mac: '',
-        device_mac: '',
+        device_mac: detectedDeviceInUse ? response.device_mac : '',
         device_name: '',
       }));
+      void refreshDeviceStatus(response.device_mac);
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : 'Failed to add this device.');
     } finally {
@@ -274,42 +442,60 @@ export default function RouterSharePage() {
                     <span className={`${styles.deviceStepDot} ${styles.deviceStepActive}`}>3</span>
                   </div>
 
-                  {result && (
-                    <div className={styles.deviceSuccessWrap}>
-                      <div className={styles.deviceSuccessIcon}>OK</div>
-                      <h3 className={styles.deviceSuccessTitle}>
-                        {result.auth_method === 'RADIUS' ? 'Device Connected!' : 'Device Queued!'}
-                      </h3>
+                  {statusCopy && visibleDeviceMac && (
+                    <div className={`${styles.deviceStatusWrap} ${statusToneClass}`}>
+                      <div className={styles.deviceStatusHeader}>
+                        <div className={styles.deviceSuccessIcon}>
+                          {statusCopy.tone === 'error' ? '!' : statusCopy.tone === 'pending' ? '...' : 'OK'}
+                        </div>
+                        <div>
+                          <h3 className={styles.deviceSuccessTitle}>{statusCopy.title}</h3>
+                          <p className={styles.deviceSuccessTip}>{statusCopy.message}</p>
+                        </div>
+                      </div>
                       <div className={styles.deviceSuccessDetails}>
                         <div className={styles.deviceSummaryRow}>
                           <span className={styles.deviceSummaryLabel}>Device</span>
-                          <span className={styles.deviceSummaryValue}>{result.device_mac}</span>
+                          <span className={styles.deviceSummaryValue}>{visibleDeviceMac}</span>
                         </div>
-                        <div className={styles.deviceSummaryRow}>
-                          <span className={styles.deviceSummaryLabel}>Shared slots</span>
-                          <span className={styles.deviceSummaryValue}>
-                            {result.active_shared_devices}/{Math.max(1, result.max_shared_users - 1)} used
-                          </span>
-                        </div>
-                        {expiry && (
+                        {result && (
+                          <div className={styles.deviceSummaryRow}>
+                            <span className={styles.deviceSummaryLabel}>Shared slots</span>
+                            <span className={styles.deviceSummaryValue}>
+                              {result.active_shared_devices}/{Math.max(1, result.max_shared_users - 1)} used
+                            </span>
+                          </div>
+                        )}
+                        {activeDelivery?.provisioning_state && (
+                          <div className={styles.deviceSummaryRow}>
+                            <span className={styles.deviceSummaryLabel}>Router status</span>
+                            <span className={styles.deviceSummaryValue}>{activeDelivery.provisioning_state}</span>
+                          </div>
+                        )}
+                        {visibleExpiry && (
                           <div className={styles.deviceSummaryRow}>
                             <span className={styles.deviceSummaryLabel}>Active until</span>
-                            <span className={styles.deviceSummaryValue}>{expiry}</span>
+                            <span className={styles.deviceSummaryValue}>{visibleExpiry}</span>
                           </div>
                         )}
                       </div>
-                      <p className={styles.deviceSuccessTip}>
-                        If the device does not connect automatically, restart its WiFi connection.
-                      </p>
+                      <button
+                        type="button"
+                        className={styles.deviceStatusBtn}
+                        onClick={() => refreshDeviceStatus(visibleDeviceMac)}
+                        disabled={statusLoading}
+                      >
+                        {statusLoading ? 'Checking...' : 'Check status'}
+                      </button>
                     </div>
                   )}
 
-                  {submitError && (
+                  {(submitError || statusError) && (
                     <div className={styles.deviceErrorWrap}>
                       <div className={styles.deviceErrorIcon}>X</div>
                       <div>
                         <h3 className={styles.deviceErrorTitle}>Something went wrong</h3>
-                        <p className={styles.deviceErrorMsg}>{submitError}</p>
+                        <p className={styles.deviceErrorMsg}>{submitError || statusError}</p>
                       </div>
                     </div>
                   )}
@@ -331,27 +517,30 @@ export default function RouterSharePage() {
                       required
                     />
 
-                    <label htmlFor="owner_mac" className={styles.deviceLabel}>
-                      Current device MAC <span className={styles.optional}>(optional)</span>
-                    </label>
-                    <div className={styles.deviceMacWrap}>
-                      <input
-                        id="owner_mac"
-                        type="text"
-                        value={formData.owner_mac}
-                        onChange={(event) => setFormData({ ...formData, owner_mac: event.target.value })}
-                        className={`${styles.deviceInput} ${styles.mono}`}
-                        placeholder="XX:XX:XX:XX:XX:XX"
-                        inputMode="text"
-                        autoCapitalize="characters"
-                        autoComplete="off"
-                        spellCheck={false}
-                        maxLength={17}
-                      />
-                      {ownerMacCount === 12 && <span className={styles.deviceMacStatus}>OK</span>}
-                    </div>
-
                     <h3 className={styles.deviceStepTitleAlt}>Device Info</h3>
+
+                    {detectedDeviceMac && (
+                      <div className={styles.detectedDeviceCard}>
+                        <div>
+                          <div className={styles.detectedDeviceLabel}>This device detected</div>
+                          <div className={styles.detectedDeviceMac}>{detectedDeviceMac}</div>
+                        </div>
+                        <button
+                          type="button"
+                          className={styles.detectedDeviceBtn}
+                          onClick={() => {
+                            const nextUseDetected = !useDetectedDevice;
+                            setUseDetectedDevice(nextUseDetected);
+                            setFormData((prev) => ({
+                              ...prev,
+                              device_mac: nextUseDetected ? detectedDeviceMac : '',
+                            }));
+                          }}
+                        >
+                          {useDetectedDevice ? 'Enter MAC' : 'Use this'}
+                        </button>
+                      </div>
+                    )}
 
                     <label htmlFor="device_mac" className={styles.deviceLabel}>
                       MAC Address <span className={styles.required}>*</span>
@@ -361,7 +550,11 @@ export default function RouterSharePage() {
                         id="device_mac"
                         type="text"
                         value={formData.device_mac}
-                        onChange={(event) => setFormData({ ...formData, device_mac: event.target.value })}
+                        onChange={(event) => {
+                          const nextMac = formatMac(event.target.value);
+                          setUseDetectedDevice(Boolean(detectedDeviceMac && nextMac === detectedDeviceMac));
+                          setFormData({ ...formData, device_mac: nextMac });
+                        }}
                         className={`${styles.deviceInput} ${styles.mono}`}
                         placeholder="XX:XX:XX:XX:XX:XX"
                         inputMode="text"
@@ -380,6 +573,7 @@ export default function RouterSharePage() {
                       <div className={styles.macHelpList}>
                         <div className={styles.macHelpItem}><strong>Samsung TV</strong> - Settings &gt; General &gt; Network</div>
                         <div className={styles.macHelpItem}><strong>Android TV</strong> - Settings &gt; Device Preferences &gt; About &gt; Status</div>
+                        <div className={styles.macHelpItem}><strong>Phone or laptop</strong> - Open this page from that device on the hotspot. If the router provides the device MAC, it fills in automatically.</div>
                         <div className={styles.macHelpItem}><strong>PlayStation</strong> - Settings &gt; Network &gt; View Connection Status</div>
                         <div className={styles.macHelpItem}><strong>Other</strong> - Check WiFi or Network settings for MAC Address.</div>
                       </div>
@@ -424,7 +618,7 @@ export default function RouterSharePage() {
                       </div>
                     </div>
 
-                    <button type="submit" disabled={submitting} className={styles.devicePayBtn}>
+                    <button type="submit" disabled={submitting || deviceMacCount !== 12} className={styles.devicePayBtn}>
                       {submitting ? (
                         <>
                           <span className={styles.buttonSpinner} />

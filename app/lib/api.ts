@@ -192,6 +192,7 @@ import {
   ResellerTopUsageEntry,
   PortalSettingsResponse,
   PublicPortalResponse,
+  PublicDeviceStatusResponse,
   ShareSubscriptionRequest,
   ShareSubscriptionResponse,
   UpdatePortalSettingsRequest,
@@ -680,6 +681,14 @@ class ApiClient {
       body: JSON.stringify(data),
     });
     return this.handleResponse<ShareSubscriptionResponse>(response, true);
+  }
+
+  async getPublicDeviceStatus(routerId: number, macAddress: string): Promise<PublicDeviceStatusResponse> {
+    const response = await fetch(
+      `${BASE_URL}/public/device/status/${routerId}/${encodeURIComponent(macAddress)}`,
+      { headers: this.getHeaders(false) }
+    );
+    return this.handleResponse<PublicDeviceStatusResponse>(response, true);
   }
 
   async activateEmergencyMode(data: ActivateEmergencyRequest): Promise<EmergencyModeResponse> {

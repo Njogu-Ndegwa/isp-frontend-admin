@@ -590,6 +590,75 @@
   animation: fadeSlideIn 0.25s ease;
 }
 
+.deviceStatusWrap {
+  margin-bottom: var(--space-md);
+  padding: var(--space-md);
+  border-radius: var(--radius-md);
+  border: 2px solid #d1fae5;
+  background: #f0fdf4;
+  animation: fadeSlideIn 0.25s ease;
+}
+
+.deviceStatusHeader {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-md);
+}
+
+.deviceStatusHeader .deviceSuccessIcon {
+  margin: 0;
+  flex-shrink: 0;
+}
+
+.deviceStatusPending {
+  border-color: #fed7aa;
+  background: #fff7ed;
+}
+
+.deviceStatusPending .deviceSuccessIcon {
+  background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%);
+}
+
+.deviceStatusSuccess {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+}
+
+.deviceStatusError {
+  border-color: #fecaca;
+  background: #fef2f2;
+}
+
+.deviceStatusError .deviceSuccessIcon {
+  background: var(--error);
+}
+
+.deviceStatusBtn,
+.detectedDeviceBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.deviceStatusBtn {
+  width: 100%;
+  min-height: 40px;
+  margin-top: var(--space-md);
+}
+
+.deviceStatusBtn:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
 .statePanel {
   min-height: 280px;
   display: flex;
@@ -654,6 +723,47 @@
   background: #f0fdf4;
   border-radius: var(--radius-md);
   padding: var(--space-sm);
+}
+
+.deviceStatusHeader .deviceSuccessTip {
+  margin-top: 4px;
+  background: transparent;
+  padding: 0;
+}
+
+.detectedDeviceCard {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  margin: 0 0 var(--space-md);
+  padding: var(--space-md);
+  border: 1px solid rgba(var(--primary-rgb), 0.22);
+  border-radius: var(--radius-md);
+  background: rgba(var(--primary-rgb), 0.07);
+}
+
+.detectedDeviceLabel {
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.detectedDeviceMac {
+  margin-top: 2px;
+  color: var(--text);
+  font-family: "DM Sans", monospace;
+  font-size: 0.9rem;
+  font-weight: 900;
+  letter-spacing: 1px;
+}
+
+.detectedDeviceBtn {
+  flex-shrink: 0;
+  min-height: 36px;
+  padding: 0 var(--space-md);
+  color: var(--primary);
 }
 
 .deviceErrorWrap {
