@@ -265,7 +265,7 @@ export default function RouterSharePage() {
     return Math.max(1, Number(portal?.plan_flags?.max_shared_users) || 1, ...planLimits);
   }, [portal?.plan_flags?.max_shared_users, portal?.plans]);
   const sharingEnabled = Boolean(portal?.plan_flags?.sharing_enabled) || shareLimit > 1;
-  const companionSlots = Math.max(0, shareLimit - 1);
+  const sharedDeviceLimit = sharingEnabled ? shareLimit : 0;
   const deviceMacCount = macCharacterCount(formData.device_mac);
   const backgroundImage = portal?.portal_settings?.header_bg_image_url;
   const activeDelivery = deviceStatus?.delivery ?? result?.delivery ?? null;
@@ -450,7 +450,7 @@ export default function RouterSharePage() {
                 <div className={styles.deviceEntryTitle}>Share subscription</div>
                 <div className={styles.deviceEntrySubtitle}>
                   {sharingEnabled
-                    ? `This plan can allow up to ${shareLimit} total devices`
+                    ? `This plan can allow up to ${sharedDeviceLimit} shared devices`
                     : 'Smart TVs, consoles and other browserless devices'}
                 </div>
               </div>
@@ -518,7 +518,7 @@ export default function RouterSharePage() {
                           <div className={styles.deviceSummaryRow}>
                             <span className={styles.deviceSummaryLabel}>Shared slots</span>
                             <span className={styles.deviceSummaryValue}>
-                              {result.active_shared_devices}/{Math.max(1, result.max_shared_users - 1)} used
+                              {result.active_shared_devices}/{Math.max(0, Number(result.max_shared_users) || 0)} used
                             </span>
                           </div>
                         )}
@@ -745,12 +745,18 @@ export default function RouterSharePage() {
 
                     <div className={styles.deviceSummaryCard}>
                       <div className={styles.deviceSummaryRow}>
-                        <span className={styles.deviceSummaryLabel}>Subscription limit</span>
-                        <span className={styles.deviceSummaryValue}>{shareLimit} total devices</span>
+                        <span className={styles.deviceSummaryLabel}>Sharing allowance</span>
+                        <span className={styles.deviceSummaryValue}>
+                          {sharedDeviceLimit} shared device{sharedDeviceLimit === 1 ? '' : 's'}
+                        </span>
                       </div>
                       <div className={styles.deviceSummaryRow}>
-                        <span className={styles.deviceSummaryLabel}>Extra devices</span>
-                        <span className={styles.deviceSummaryValue}>{companionSlots}</span>
+                        <span className={styles.deviceSummaryLabel}>Already shared</span>
+                        <span className={styles.deviceSummaryValue}>
+                          {ownerStatusCurrent && ownerStatus?.has_active_subscription
+                            ? ownerStatus.active_shared_devices ?? 0
+                            : '-'}
+                        </span>
                       </div>
                     </div>
 
