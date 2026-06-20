@@ -713,25 +713,6 @@
   cursor: not-allowed;
 }
 
-.deviceDivider {
-  display: flex;
-  align-items: center;
-  gap: var(--space-sm);
-  margin: 0 0 var(--space-lg);
-  color: var(--text-secondary);
-  font-size: 0.76rem;
-  font-weight: 900;
-  text-transform: uppercase;
-}
-
-.deviceDivider::before,
-.deviceDivider::after {
-  content: "";
-  height: 1px;
-  flex: 1;
-  background: rgba(0, 0, 0, 0.08);
-}
-
 .ownerCheckBtn {
   width: 100%;
   min-height: 44px;

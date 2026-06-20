@@ -207,6 +207,25 @@ export default function RouterSharePage() {
     }
   }, [portal?.router.router_id]);
 
+  const generateShareCodeForPhone = useCallback(async (phone: string) => {
+    if (!portal?.router.router_id) return;
+
+    setGeneratingCode(true);
+    setShareCodeError(null);
+    try {
+      const response = await api.createShareSubscriptionCode({
+        owner_phone: phone,
+        router_id: portal.router.router_id,
+      });
+      setGeneratedCode(response);
+    } catch (err) {
+      setGeneratedCode(null);
+      setShareCodeError(err instanceof Error ? err.message : 'Failed to prepare share code.');
+    } finally {
+      setGeneratingCode(false);
+    }
+  }, [portal?.router.router_id]);
+
   const checkOwnerStatus = useCallback(async () => {
     if (!portal?.router.router_id) return;
 
@@ -219,17 +238,26 @@ export default function RouterSharePage() {
 
     setOwnerChecking(true);
     setOwnerStatusError(null);
+    setShareCodeError(null);
+    setGeneratedCode(null);
     try {
       const status = await api.getShareSubscriptionOwnerStatus(portal.router.router_id, phone);
       setOwnerStatus(status);
       setCheckedOwnerPhone(phone);
+      if (
+        status.has_active_subscription &&
+        status.sharing_enabled &&
+        Number(status.available_shared_devices ?? 0) > 0
+      ) {
+        await generateShareCodeForPhone(phone);
+      }
     } catch (err) {
       setOwnerStatus(null);
       setOwnerStatusError(err instanceof Error ? err.message : 'Failed to check this subscription.');
     } finally {
       setOwnerChecking(false);
     }
-  }, [formData.owner_phone, portal?.router.router_id]);
+  }, [formData.owner_phone, generateShareCodeForPhone, portal?.router.router_id]);
 
   useEffect(() => {
     if (!portal?.router.router_id || !identity) return;
@@ -392,25 +420,13 @@ export default function RouterSharePage() {
   const handleGenerateShareCode = async () => {
     if (!portal || !sharingEnabled) return;
 
-    if (!ownerHasRoom) {
+    const phone = formData.owner_phone.trim();
+    if (phone.length < 9 || !ownerHasRoom) {
       setShareCodeError('Check the owner subscription first.');
       return;
     }
 
-    setGeneratingCode(true);
-    setShareCodeError(null);
-    try {
-      const response = await api.createShareSubscriptionCode({
-        owner_phone: formData.owner_phone.trim(),
-        router_id: portal.router.router_id,
-      });
-      setGeneratedCode(response);
-    } catch (err) {
-      setGeneratedCode(null);
-      setShareCodeError(err instanceof Error ? err.message : 'Failed to create share code.');
-    } finally {
-      setGeneratingCode(false);
-    }
+    await generateShareCodeForPhone(phone);
   };
 
   const handleRedeemShareCode = async () => {
@@ -651,55 +667,6 @@ export default function RouterSharePage() {
                   )}
 
                   <form onSubmit={handleSubmit} autoComplete="off">
-                    <div className={styles.shareCodePanel}>
-                      <h3 className={styles.deviceStepTitle}>Share Code</h3>
-                      <label htmlFor="share_code" className={styles.deviceLabel}>
-                        Code
-                      </label>
-                      <input
-                        id="share_code"
-                        type="text"
-                        value={redeemCode}
-                        onChange={(event) => {
-                          setRedeemCode(formatShareCode(event.target.value));
-                          setRedeemCodeError(null);
-                        }}
-                        onKeyDown={(event) => {
-                          if (event.key === 'Enter') {
-                            event.preventDefault();
-                            void handleRedeemShareCode();
-                          }
-                        }}
-                        className={`${styles.deviceInput} ${styles.shareCodeInput}`}
-                        placeholder="ABC-123"
-                        autoCapitalize="characters"
-                        autoComplete="one-time-code"
-                        spellCheck={false}
-                        maxLength={7}
-                      />
-                      {redeemCodeError && <p className={styles.ownerStatusError}>{redeemCodeError}</p>}
-                      {redeemCodeReady && deviceMacCount !== 12 && (
-                        <p className={styles.ownerStatusText}>Add this device MAC below.</p>
-                      )}
-                      <button
-                        type="button"
-                        className={styles.shareCodeRedeemBtn}
-                        onClick={handleRedeemShareCode}
-                        disabled={redeemingCode || !redeemCodeReady || deviceMacCount !== 12}
-                      >
-                        {redeemingCode ? (
-                          <>
-                            <span className={styles.buttonSpinner} />
-                            Redeeming...
-                          </>
-                        ) : (
-                          'Redeem Code'
-                        )}
-                      </button>
-                    </div>
-
-                    <div className={styles.deviceDivider}><span>or</span></div>
-
                     <h3 className={styles.deviceStepTitle}>Subscription Owner</h3>
 
                     <label htmlFor="owner_phone" className={styles.deviceLabel}>
@@ -801,8 +768,10 @@ export default function RouterSharePage() {
                           <div className={styles.shareCodeGenerateTitle}>Share by code</div>
                           {generatedCode ? (
                             <div className={styles.shareCodeValue}>{generatedCode.code}</div>
+                          ) : generatingCode ? (
+                            <div className={styles.shareCodeGenerateText}>Preparing code...</div>
                           ) : (
-                            <div className={styles.shareCodeGenerateText}>One-time code for another device</div>
+                            <div className={styles.shareCodeGenerateText}>Code appears after the fresh subscription check.</div>
                           )}
                           {generatedCodeExpiry && (
                             <div className={styles.shareCodeExpiry}>Expires {generatedCodeExpiry}</div>
@@ -815,10 +784,57 @@ export default function RouterSharePage() {
                           onClick={handleGenerateShareCode}
                           disabled={generatingCode || !ownerHasRoom}
                         >
-                          {generatingCode ? 'Generating...' : generatedCode ? 'New Code' : 'Generate'}
+                          {generatingCode ? 'Checking...' : generatedCode ? 'Refresh' : 'Retry'}
                         </button>
                       </div>
                     )}
+
+                    <div className={styles.shareCodePanel}>
+                      <h3 className={styles.deviceStepTitleAlt}>Use Share Code</h3>
+                      <label htmlFor="share_code" className={styles.deviceLabel}>
+                        Code
+                      </label>
+                      <input
+                        id="share_code"
+                        type="text"
+                        value={redeemCode}
+                        onChange={(event) => {
+                          setRedeemCode(formatShareCode(event.target.value));
+                          setRedeemCodeError(null);
+                        }}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter') {
+                            event.preventDefault();
+                            void handleRedeemShareCode();
+                          }
+                        }}
+                        className={`${styles.deviceInput} ${styles.shareCodeInput}`}
+                        placeholder="ABC-123"
+                        autoCapitalize="characters"
+                        autoComplete="one-time-code"
+                        spellCheck={false}
+                        maxLength={7}
+                      />
+                      {redeemCodeError && <p className={styles.ownerStatusError}>{redeemCodeError}</p>}
+                      {redeemCodeReady && deviceMacCount !== 12 && (
+                        <p className={styles.ownerStatusText}>Add this device MAC below.</p>
+                      )}
+                      <button
+                        type="button"
+                        className={styles.shareCodeRedeemBtn}
+                        onClick={handleRedeemShareCode}
+                        disabled={redeemingCode || !redeemCodeReady || deviceMacCount !== 12}
+                      >
+                        {redeemingCode ? (
+                          <>
+                            <span className={styles.buttonSpinner} />
+                            Redeeming...
+                          </>
+                        ) : (
+                          'Redeem Code'
+                        )}
+                      </button>
+                    </div>
 
                     <h3 className={styles.deviceStepTitleAlt}>Device Info</h3>
 
