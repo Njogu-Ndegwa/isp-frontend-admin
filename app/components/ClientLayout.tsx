@@ -1,13 +1,15 @@
 'use client';
 
 import { useEffect } from 'react';
+import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '../context/AuthContext';
-import CollapsibleSidebar from './CollapsibleSidebar';
-import MobileBottomNav from './MobileBottomNav';
-import SubscriptionBlockedModal from './SubscriptionBlockedModal';
 import ErrorBoundary from './ErrorBoundary';
+
+const CollapsibleSidebar = dynamic(() => import('./CollapsibleSidebar'), { ssr: false });
+const MobileBottomNav = dynamic(() => import('./MobileBottomNav'), { ssr: false });
+const SubscriptionBlockedModal = dynamic(() => import('./SubscriptionBlockedModal'), { ssr: false });
 
 const PUBLIC_PATHS = ['/', '/login', '/landing', '/signup'];
 const PUBLIC_PREFIXES = ['/store', '/r'];
@@ -80,17 +82,6 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     return <main className="min-h-screen">{children}</main>;
   }
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-10 h-10 border-3 border-amber-500/30 border-t-amber-500 rounded-full animate-spin" />
-          <p className="text-sm text-foreground-muted">Loading...</p>
-        </div>
-      </div>
-    );
-  }
-
   if (needsRedirect) {
     return null;
   }
@@ -102,10 +93,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
 
   return (
     <>
-      {isDemo && <DemoBanner />}
-      <CollapsibleSidebar />
-      <MobileBottomNav />
-      <SubscriptionBlockedModal />
+      {!isLoading && isDemo && <DemoBanner />}
       <main
         className="min-h-screen p-4 md:p-8 pb-24 md:pb-8 transition-[margin] duration-300 ease-in-out"
         style={{ marginLeft: 'var(--app-sidebar-w, 0px)' }}
@@ -114,6 +102,9 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
           {children}
         </ErrorBoundary>
       </main>
+      <CollapsibleSidebar />
+      <MobileBottomNav />
+      <SubscriptionBlockedModal />
     </>
   );
 }

@@ -1,4 +1,4 @@
-.app {
+.share_app {
   --bg-warm: #fff8e8;
   --text-light: #8a8a8a;
   --device: #7c3aed;
@@ -27,7 +27,7 @@
   line-height: 1.5;
 }
 
-.header {
+.share_header {
   position: sticky;
   top: 0;
   z-index: 20;
@@ -36,7 +36,7 @@
   backdrop-filter: blur(12px);
 }
 
-.headerInner {
+.share_headerInner {
   max-width: 600px;
   margin: 0 auto;
   padding: var(--space-md);
@@ -46,22 +46,22 @@
   gap: var(--space-md);
 }
 
-.brand {
+.share_brand {
   min-width: 0;
   display: flex;
   align-items: center;
   gap: var(--space-sm);
 }
 
-.brandIcon,
-.brandLogo {
+.share_brandIcon,
+.share_brandLogo {
   width: 40px;
   height: 40px;
   flex-shrink: 0;
   border-radius: var(--radius-md);
 }
 
-.brandIcon {
+.share_brandIcon {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -72,18 +72,18 @@
   font-weight: 800;
 }
 
-.brandLogo {
+.share_brandLogo {
   object-fit: cover;
   background: #fff;
   box-shadow: var(--shadow-sm);
 }
 
-.brandText {
+.share_brandText {
   min-width: 0;
   line-height: 1.2;
 }
 
-.logo {
+.share_logo {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -94,7 +94,7 @@
   margin: 0;
 }
 
-.tagline {
+.share_tagline {
   display: block;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -106,7 +106,7 @@
   font-weight: 600;
 }
 
-.helpBtn {
+.share_helpBtn {
   flex-shrink: 0;
   display: inline-flex;
   align-items: center;
@@ -121,25 +121,25 @@
   transition: all 0.2s ease;
 }
 
-.helpBtn:active {
+.share_helpBtn:active {
   transform: scale(0.95);
   background: var(--accent);
 }
 
-.helpIcon {
+.share_helpIcon {
   font-size: 0.7rem;
   color: var(--primary);
   text-transform: uppercase;
 }
 
-.main {
+.share_main {
   max-width: 600px;
   margin: 0 auto;
   width: 100%;
   padding: 0 var(--space-md) var(--space-lg);
 }
 
-.welcomeBanner {
+.share_welcomeBanner {
   margin: var(--space-md) 0;
   padding: var(--space-lg);
   min-height: 132px;
@@ -152,7 +152,7 @@
   box-shadow: 0 4px 20px rgba(var(--primary-rgb), 0.25);
 }
 
-.welcomeKicker {
+.share_welcomeKicker {
   display: inline-flex;
   margin-bottom: var(--space-sm);
   padding: 4px 10px;
@@ -165,7 +165,7 @@
   letter-spacing: 0.5px;
 }
 
-.welcomeTitle {
+.share_welcomeTitle {
   margin: 0;
   font-family: "Outfit", sans-serif;
   font-size: 1.65rem;
@@ -173,14 +173,14 @@
   font-weight: 800;
 }
 
-.welcomeSub {
+.share_welcomeSub {
   margin: var(--space-sm) 0 0;
   max-width: 34rem;
   color: rgba(255, 255, 255, 0.9);
   font-size: 0.9rem;
 }
 
-.quickSteps {
+.share_quickSteps {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -192,13 +192,13 @@
   box-shadow: var(--shadow-sm);
 }
 
-.step {
+.share_step {
   display: flex;
   align-items: center;
   gap: 4px;
 }
 
-.stepNum {
+.share_stepNum {
   width: 22px;
   height: 22px;
   border-radius: 50%;
@@ -211,22 +211,22 @@
   font-weight: 800;
 }
 
-.stepText {
+.share_stepText {
   color: var(--text-secondary);
   font-size: 0.74rem;
   font-weight: 700;
 }
 
-.stepArrow {
+.share_stepArrow {
   color: var(--text-light);
   font-size: 0.8rem;
 }
 
-.deviceSection {
+.share_deviceSection {
   margin-bottom: var(--space-lg);
 }
 
-.deviceEntry {
+.share_deviceEntry {
   background: var(--surface);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-md);
@@ -234,7 +234,7 @@
   border: 2px solid var(--device);
 }
 
-.deviceEntryHeader {
+.share_deviceEntryHeader {
   display: flex;
   align-items: center;
   gap: var(--space-md);
@@ -243,7 +243,7 @@
   border-bottom: 1px solid rgba(124, 58, 237, 0.15);
 }
 
-.deviceEntryIcon {
+.share_deviceEntryIcon {
   width: 42px;
   height: 42px;
   flex-shrink: 0;
@@ -258,24 +258,24 @@
   font-weight: 900;
 }
 
-.deviceEntryText {
+.share_deviceEntryText {
   flex: 1;
   min-width: 0;
 }
 
-.deviceEntryTitle {
+.share_deviceEntryTitle {
   font-family: "Outfit", sans-serif;
   font-size: 1.05rem;
   font-weight: 800;
   color: var(--text);
 }
 
-.deviceEntrySubtitle {
+.share_deviceEntrySubtitle {
   font-size: 0.8rem;
   color: var(--text-secondary);
 }
 
-.deviceEntryChevron {
+.share_deviceEntryChevron {
   font-size: 1.7rem;
   color: var(--device);
   transform: rotate(90deg);
@@ -283,11 +283,11 @@
   line-height: 1;
 }
 
-.deviceEntryBody {
+.share_deviceEntryBody {
   padding: var(--space-md);
 }
 
-.deviceTabs {
+.share_deviceTabs {
   display: flex;
   gap: var(--space-xs);
   margin-bottom: var(--space-md);
@@ -296,7 +296,7 @@
   padding: 4px;
 }
 
-.deviceTab {
+.share_deviceTab {
   flex: 1;
   padding: var(--space-sm) var(--space-md);
   border-radius: var(--radius-sm);
@@ -306,20 +306,20 @@
   text-align: center;
 }
 
-.deviceTabActive {
+.share_deviceTabActive {
   background: var(--device);
   color: #fff;
   box-shadow: 0 2px 8px rgba(124, 58, 237, 0.3);
 }
 
-.deviceStepsBar {
+.share_deviceStepsBar {
   display: flex;
   align-items: center;
   justify-content: center;
   margin-bottom: var(--space-lg);
 }
 
-.deviceStepDot {
+.share_deviceStepDot {
   width: 28px;
   height: 28px;
   border-radius: 50%;
@@ -333,28 +333,28 @@
   flex-shrink: 0;
 }
 
-.deviceStepActive {
+.share_deviceStepActive {
   background: var(--device);
   color: #fff;
 }
 
-.deviceStepDone {
+.share_deviceStepDone {
   background: var(--success);
   color: #fff;
 }
 
-.deviceStepLine {
+.share_deviceStepLine {
   width: 40px;
   height: 2px;
   background: #e5e5e5;
 }
 
-.deviceStepLineDone {
+.share_deviceStepLineDone {
   background: var(--success);
 }
 
-.deviceStepTitle,
-.deviceStepTitleAlt {
+.share_deviceStepTitle,
+.share_deviceStepTitleAlt {
   font-family: "Outfit", sans-serif;
   font-size: 1.1rem;
   font-weight: 800;
@@ -362,11 +362,11 @@
   margin: 0 0 var(--space-md);
 }
 
-.deviceStepTitleAlt {
+.share_deviceStepTitleAlt {
   margin-top: var(--space-lg);
 }
 
-.deviceLabel {
+.share_deviceLabel {
   display: block;
   font-size: 0.85rem;
   font-weight: 700;
@@ -375,17 +375,17 @@
   margin-top: var(--space-md);
 }
 
-.required {
+.share_required {
   color: var(--error);
 }
 
-.optional {
+.share_optional {
   color: var(--text-light);
   font-weight: 400;
   font-size: 0.75rem;
 }
 
-.deviceInput {
+.share_deviceInput {
   width: 100%;
   padding: var(--space-md);
   font-size: 1rem;
@@ -400,33 +400,33 @@
   color: var(--text);
 }
 
-.deviceInput::placeholder {
+.share_deviceInput::placeholder {
   color: #ccc;
   font-weight: 400;
 }
 
-.deviceInput:focus {
+.share_deviceInput:focus {
   border-color: var(--device);
   box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.1);
 }
 
-.deviceInput:disabled {
+.share_deviceInput:disabled {
   background: #f3f4f6;
   color: var(--text-light);
   cursor: not-allowed;
 }
 
-.mono {
+.share_mono {
   font-family: "DM Sans", monospace;
   letter-spacing: 1.5px;
   text-transform: uppercase;
 }
 
-.deviceMacWrap {
+.share_deviceMacWrap {
   position: relative;
 }
 
-.deviceMacStatus {
+.share_deviceMacStatus {
   position: absolute;
   right: 14px;
   top: 50%;
@@ -436,51 +436,51 @@
   font-weight: 900;
 }
 
-.deviceMacCounter {
+.share_deviceMacCounter {
   font-size: 0.7rem;
   color: var(--text-light);
   margin-top: 4px;
   text-align: right;
 }
 
-.deviceMacHelp {
+.share_deviceMacHelp {
   margin-top: var(--space-sm);
   font-size: 0.85rem;
 }
 
-.deviceMacHelp summary {
+.share_deviceMacHelp summary {
   color: var(--device);
   font-weight: 700;
   cursor: pointer;
   padding: var(--space-sm) 0;
 }
 
-.macHelpList {
+.share_macHelpList {
   padding: var(--space-sm) 0;
 }
 
-.macHelpItem {
+.share_macHelpItem {
   padding: 6px 0;
   font-size: 0.8rem;
   color: var(--text-secondary);
   border-bottom: 1px solid rgba(0, 0, 0, 0.04);
 }
 
-.macHelpItem:last-child {
+.share_macHelpItem:last-child {
   border-bottom: none;
 }
 
-.macHelpItem strong {
+.share_macHelpItem strong {
   color: var(--text);
 }
 
-.deviceTypeGrid {
+.share_deviceTypeGrid {
   display: flex;
   gap: var(--space-sm);
   flex-wrap: wrap;
 }
 
-.deviceTypeBtn {
+.share_deviceTypeBtn {
   flex: 1;
   min-width: 70px;
   padding: var(--space-sm) var(--space-xs);
@@ -496,7 +496,7 @@
   text-align: center;
 }
 
-.deviceTypeBtn span {
+.share_deviceTypeBtn span {
   display: block;
   font-size: 0.72rem;
   margin-bottom: 3px;
@@ -504,13 +504,13 @@
   color: inherit;
 }
 
-.deviceTypeBtnActive {
+.share_deviceTypeBtnActive {
   border-color: var(--device);
   background: var(--device-soft);
   color: var(--device);
 }
 
-.deviceSummaryCard {
+.share_deviceSummaryCard {
   background: linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%);
   border: 1px solid #c4b5fd;
   border-radius: var(--radius-md);
@@ -518,7 +518,7 @@
   margin-top: var(--space-md);
 }
 
-.deviceSummaryRow {
+.share_deviceSummaryRow {
   display: flex;
   justify-content: space-between;
   gap: var(--space-sm);
@@ -526,18 +526,18 @@
   font-size: 0.85rem;
 }
 
-.deviceSummaryLabel {
+.share_deviceSummaryLabel {
   color: var(--device-dark);
 }
 
-.deviceSummaryValue {
+.share_deviceSummaryValue {
   font-weight: 800;
   color: var(--text);
   text-align: right;
 }
 
-.devicePayBtn,
-.deviceNextBtn {
+.share_devicePayBtn,
+.share_deviceNextBtn {
   width: 100%;
   padding: var(--space-md);
   margin-top: var(--space-lg);
@@ -559,21 +559,21 @@
   text-decoration: none;
 }
 
-.devicePayBtn:hover:not(:disabled),
-.deviceNextBtn:hover {
+.share_devicePayBtn:hover:not(:disabled),
+.share_deviceNextBtn:hover {
   transform: translateY(-2px);
   box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);
 }
 
-.devicePayBtn:disabled {
+.share_devicePayBtn:disabled {
   background: #ccc;
   cursor: not-allowed;
   transform: none;
   box-shadow: none;
 }
 
-.buttonSpinner,
-.spinner {
+.share_buttonSpinner,
+.share_spinner {
   width: 18px;
   height: 18px;
   border: 2px solid rgba(255, 255, 255, 0.45);
@@ -582,21 +582,21 @@
   animation: spin 0.8s linear infinite;
 }
 
-.spinner {
+.share_spinner {
   width: 34px;
   height: 34px;
   border-color: rgba(124, 58, 237, 0.18);
   border-top-color: var(--device);
 }
 
-.deviceSuccessWrap,
-.statePanel {
+.share_deviceSuccessWrap,
+.share_statePanel {
   text-align: center;
   padding: var(--space-lg) var(--space-md);
   animation: fadeSlideIn 0.25s ease;
 }
 
-.deviceStatusWrap {
+.share_deviceStatusWrap {
   margin-bottom: var(--space-md);
   padding: var(--space-md);
   border-radius: var(--radius-md);
@@ -605,42 +605,42 @@
   animation: fadeSlideIn 0.25s ease;
 }
 
-.deviceStatusHeader {
+.share_deviceStatusHeader {
   display: flex;
   align-items: flex-start;
   gap: var(--space-md);
 }
 
-.deviceStatusHeader .deviceSuccessIcon {
+.share_deviceStatusHeader .share_deviceSuccessIcon {
   margin: 0;
   flex-shrink: 0;
 }
 
-.deviceStatusPending {
+.share_deviceStatusPending {
   border-color: #fed7aa;
   background: #fff7ed;
 }
 
-.deviceStatusPending .deviceSuccessIcon {
+.share_deviceStatusPending .share_deviceSuccessIcon {
   background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%);
 }
 
-.deviceStatusSuccess {
+.share_deviceStatusSuccess {
   border-color: #bbf7d0;
   background: #f0fdf4;
 }
 
-.deviceStatusError {
+.share_deviceStatusError {
   border-color: #fecaca;
   background: #fef2f2;
 }
 
-.deviceStatusError .deviceSuccessIcon {
+.share_deviceStatusError .share_deviceSuccessIcon {
   background: var(--error);
 }
 
-.deviceStatusBtn,
-.detectedDeviceBtn {
+.share_deviceStatusBtn,
+.share_detectedDeviceBtn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -654,23 +654,23 @@
   cursor: pointer;
 }
 
-.deviceStatusBtn {
+.share_deviceStatusBtn {
   width: 100%;
   min-height: 40px;
   margin-top: var(--space-md);
 }
 
-.deviceStatusBtn:disabled {
+.share_deviceStatusBtn:disabled {
   opacity: 0.65;
   cursor: not-allowed;
 }
 
-.deviceTypeBtn:disabled {
+.share_deviceTypeBtn:disabled {
   opacity: 0.58;
   cursor: not-allowed;
 }
 
-.ownerCheckBtn {
+.share_ownerCheckBtn {
   width: 100%;
   min-height: 44px;
   margin-top: var(--space-sm);
@@ -688,12 +688,12 @@
   cursor: pointer;
 }
 
-.ownerCheckBtn:disabled {
+.share_ownerCheckBtn:disabled {
   opacity: 0.62;
   cursor: not-allowed;
 }
 
-.ownerStatusCard {
+.share_ownerStatusCard {
   margin-top: var(--space-md);
   padding: var(--space-md);
   border-radius: var(--radius-md);
@@ -701,24 +701,24 @@
   background: var(--bg-warm);
 }
 
-.ownerStatusOk {
+.share_ownerStatusOk {
   border-color: #bbf7d0;
   background: #f0fdf4;
 }
 
-.ownerStatusWarn {
+.share_ownerStatusWarn {
   border-color: #fed7aa;
   background: #fff7ed;
 }
 
-.ownerStatusHeader {
+.share_ownerStatusHeader {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: var(--space-md);
 }
 
-.ownerStatusTitle {
+.share_ownerStatusTitle {
   margin: 0;
   font-family: "Outfit", sans-serif;
   font-size: 1rem;
@@ -726,19 +726,19 @@
   color: var(--text);
 }
 
-.ownerStatusText,
-.ownerStatusError {
+.share_ownerStatusText,
+.share_ownerStatusError {
   margin: 4px 0 0;
   color: var(--text-secondary);
   font-size: 0.84rem;
 }
 
-.ownerStatusError {
+.share_ownerStatusError {
   color: var(--error);
   font-weight: 700;
 }
 
-.ownerStatusBadge {
+.share_ownerStatusBadge {
   flex-shrink: 0;
   min-width: 42px;
   min-height: 28px;
@@ -751,26 +751,26 @@
   text-align: center;
 }
 
-.ownerStatusDetails {
+.share_ownerStatusDetails {
   margin-top: var(--space-sm);
   padding-top: var(--space-sm);
   border-top: 1px solid rgba(0, 0, 0, 0.06);
 }
 
-.ownerDevicesList {
+.share_ownerDevicesList {
   margin-top: var(--space-sm);
   padding-top: var(--space-sm);
   border-top: 1px solid rgba(0, 0, 0, 0.06);
 }
 
-.ownerDevicesTitle {
+.share_ownerDevicesTitle {
   color: var(--text-secondary);
   font-size: 0.75rem;
   font-weight: 800;
   text-transform: uppercase;
 }
 
-.ownerDeviceRow {
+.share_ownerDeviceRow {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -779,12 +779,12 @@
   border-bottom: 1px solid rgba(0, 0, 0, 0.04);
 }
 
-.ownerDeviceRow:last-child {
+.share_ownerDeviceRow:last-child {
   border-bottom: none;
   padding-bottom: 0;
 }
 
-.ownerDeviceMac {
+.share_ownerDeviceMac {
   font-family: "DM Sans", monospace;
   color: var(--text);
   font-size: 0.84rem;
@@ -792,13 +792,13 @@
   letter-spacing: 1px;
 }
 
-.ownerDeviceMeta {
+.share_ownerDeviceMeta {
   margin-top: 2px;
   color: var(--text-secondary);
   font-size: 0.75rem;
 }
 
-.ownerDeviceStatus {
+.share_ownerDeviceStatus {
   flex-shrink: 0;
   max-width: 120px;
   overflow: hidden;
@@ -812,7 +812,7 @@
   font-weight: 800;
 }
 
-.statePanel {
+.share_statePanel {
   min-height: 280px;
   display: flex;
   flex-direction: column;
@@ -820,8 +820,8 @@
   justify-content: center;
 }
 
-.stateIcon,
-.deviceSuccessIcon {
+.share_stateIcon,
+.share_deviceSuccessIcon {
   width: 52px;
   height: 52px;
   border-radius: 50%;
@@ -834,21 +834,21 @@
   font-weight: 900;
 }
 
-.deviceSuccessIcon {
+.share_deviceSuccessIcon {
   background: linear-gradient(135deg, var(--success) 0%, #059669 100%);
 }
 
-.stateIconError {
+.share_stateIconError {
   background: var(--error);
 }
 
-.stateIconWarning {
+.share_stateIconWarning {
   background: var(--primary);
 }
 
-.stateTitle,
-.deviceSuccessTitle,
-.deviceErrorTitle {
+.share_stateTitle,
+.share_deviceSuccessTitle,
+.share_deviceErrorTitle {
   margin: 0;
   font-family: "Outfit", sans-serif;
   font-size: 1.2rem;
@@ -856,15 +856,15 @@
   color: var(--text);
 }
 
-.stateText,
-.deviceSuccessTip,
-.deviceErrorMsg {
+.share_stateText,
+.share_deviceSuccessTip,
+.share_deviceErrorMsg {
   margin: var(--space-sm) 0 0;
   color: var(--text-secondary);
   font-size: 0.9rem;
 }
 
-.deviceSuccessDetails {
+.share_deviceSuccessDetails {
   margin-top: var(--space-md);
   background: var(--surface);
   border: 1px solid #d1fae5;
@@ -872,19 +872,19 @@
   padding: var(--space-md);
 }
 
-.deviceSuccessTip {
+.share_deviceSuccessTip {
   background: #f0fdf4;
   border-radius: var(--radius-md);
   padding: var(--space-sm);
 }
 
-.deviceStatusHeader .deviceSuccessTip {
+.share_deviceStatusHeader .share_deviceSuccessTip {
   margin-top: 4px;
   background: transparent;
   padding: 0;
 }
 
-.detectedDeviceCard {
+.share_detectedDeviceCard {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -896,14 +896,14 @@
   background: rgba(var(--primary-rgb), 0.07);
 }
 
-.detectedDeviceLabel {
+.share_detectedDeviceLabel {
   color: var(--text-secondary);
   font-size: 0.75rem;
   font-weight: 800;
   text-transform: uppercase;
 }
 
-.detectedDeviceMac {
+.share_detectedDeviceMac {
   margin-top: 2px;
   color: var(--text);
   font-family: "DM Sans", monospace;
@@ -912,14 +912,14 @@
   letter-spacing: 1px;
 }
 
-.detectedDeviceBtn {
+.share_detectedDeviceBtn {
   flex-shrink: 0;
   min-height: 36px;
   padding: 0 var(--space-md);
   color: var(--primary);
 }
 
-.deviceErrorWrap {
+.share_deviceErrorWrap {
   margin-bottom: var(--space-md);
   padding: var(--space-md);
   border: 2px solid var(--error);
@@ -931,7 +931,7 @@
   animation: fadeSlideIn 0.25s ease;
 }
 
-.deviceErrorIcon {
+.share_deviceErrorIcon {
   width: 34px;
   height: 34px;
   border-radius: 50%;
@@ -944,7 +944,7 @@
   font-weight: 900;
 }
 
-.portalFooter {
+.share_portalFooter {
   text-align: center;
   color: var(--text-light);
   font-size: 0.75rem;
@@ -969,25 +969,25 @@
 }
 
 @media (max-width: 420px) {
-  .headerInner,
-  .main {
+  .share_headerInner,
+  .share_main {
     padding-left: 0.75rem;
     padding-right: 0.75rem;
   }
 
-  .quickSteps {
+  .share_quickSteps {
     gap: 2px;
   }
 
-  .stepText {
+  .share_stepText {
     font-size: 0.66rem;
   }
 
-  .welcomeTitle {
+  .share_welcomeTitle {
     font-size: 1.45rem;
   }
 
-  .deviceTypeBtn {
+  .share_deviceTypeBtn {
     min-width: 64px;
     font-size: 0.68rem;
   }

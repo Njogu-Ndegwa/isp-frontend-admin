@@ -1,17 +1,34 @@
 'use client';
 
-import { useTheme } from 'next-themes';
 import { useEffect, useState } from 'react';
 
 interface ThemeToggleProps {
   collapsed?: boolean;
 }
 
+type Theme = 'light' | 'dark';
+
+function applyTheme(theme: Theme) {
+  document.documentElement.classList.toggle('dark', theme === 'dark');
+  document.documentElement.style.colorScheme = theme;
+}
+
 export default function ThemeToggle({ collapsed = false }: ThemeToggleProps) {
-  const { theme, setTheme } = useTheme();
+  const [theme, setThemeState] = useState<Theme>('dark');
   const [mounted, setMounted] = useState(false);
 
-  useEffect(() => setMounted(true), []);
+  useEffect(() => {
+    const stored = localStorage.getItem('theme') === 'light' ? 'light' : 'dark';
+    setThemeState(stored);
+    applyTheme(stored);
+    setMounted(true);
+  }, []);
+
+  const setTheme = (nextTheme: Theme) => {
+    localStorage.setItem('theme', nextTheme);
+    setThemeState(nextTheme);
+    applyTheme(nextTheme);
+  };
 
   if (!mounted) {
     return (

@@ -260,11 +260,28 @@ const backendUrl = (path: string): string => {
 };
 
 class ApiClient {
+  private getCookie(name: string): string | null {
+    if (typeof document === 'undefined') return null;
+    const prefix = `${name}=`;
+    const match = document.cookie
+      .split(';')
+      .map((part) => part.trim())
+      .find((part) => part.startsWith(prefix));
+    if (!match) return null;
+    const raw = match.slice(prefix.length);
+    try {
+      return decodeURIComponent(raw);
+    } catch {
+      return raw;
+    }
+  }
+
   isDemoMode(): boolean {
     if (typeof window === 'undefined') return false;
-    if (localStorage.getItem('demo_mode') !== 'true') return false;
+    const demoMode = localStorage.getItem('demo_mode') ?? this.getCookie('demo_mode');
+    if (demoMode !== 'true') return false;
     try {
-      const rawUser = localStorage.getItem('auth_user');
+      const rawUser = localStorage.getItem('auth_user') ?? this.getCookie('auth_user');
       if (!rawUser) return true;
       const parsed = JSON.parse(rawUser) as { role?: string };
       return parsed.role !== 'admin';
@@ -279,21 +296,21 @@ class ApiClient {
 
   private getToken(): string | null {
     if (typeof window === 'undefined') return null;
-    return localStorage.getItem('auth_token');
+    return localStorage.getItem('auth_token') ?? this.getCookie('auth_token');
   }
 
   private getHeaders(authenticated = true): HeadersInit {
     const headers: HeadersInit = {
       'Content-Type': 'application/json',
     };
-    
+
     if (authenticated) {
       const token = this.getToken();
       if (token) {
         headers['Authorization'] = `Bearer ${token}`;
       }
     }
-    
+
     return headers;
   }
 
@@ -336,11 +353,11 @@ class ApiClient {
     if (this.isDemoMode()) return (await loadDemo()).demoDashboardAnalytics;
     const params = new URLSearchParams();
     params.append('user_id', userId.toString());
-    
+
     if (options.routerId) {
       params.append('router_id', options.routerId.toString());
     }
-    
+
     if (options.preset) {
       params.append('preset', options.preset);
     } else if (options.startDate && options.endDate) {
@@ -349,7 +366,7 @@ class ApiClient {
     } else if (options.days) {
       params.append('days', options.days.toString());
     }
-    
+
     const response = await fetch(
       `${BASE_URL}/dashboard/analytics?${params.toString()}`,
       { headers: this.getHeaders() }
@@ -631,7 +648,7 @@ class ApiClient {
     const params = new URLSearchParams();
     if (userId) params.append('user_id', userId.toString());
     if (connectionType) params.append('connection_type', connectionType);
-    
+
     const response = await fetch(
       `${BASE_URL}/plans?${params.toString()}`,
       { headers: this.getHeaders() }
@@ -750,7 +767,7 @@ class ApiClient {
     if (userId) params.append('user_id', userId.toString());
     if (startDate) params.append('start_date', startDate);
     if (endDate) params.append('end_date', endDate);
-    
+
     const response = await fetch(
       `${BASE_URL}/plans/performance?${params.toString()}`,
       { headers: this.getHeaders() }
@@ -3097,4 +3114,3 @@ class ApiClient {
 }
 
 export const api = new ApiClient();
-
