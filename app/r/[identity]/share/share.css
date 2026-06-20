@@ -670,6 +670,49 @@
   cursor: not-allowed;
 }
 
+.share_shareCodePanel {
+  margin-bottom: var(--space-lg);
+  padding: var(--space-md);
+  border: 1px solid rgba(var(--primary-rgb), 0.18);
+  border-radius: var(--radius-md);
+  background: rgba(var(--primary-rgb), 0.06);
+}
+
+.share_shareCodeInput {
+  text-align: center;
+  font-family: "DM Sans", monospace;
+  font-size: 1.15rem;
+  font-weight: 900;
+  letter-spacing: 2px;
+}
+
+.share_shareCodeRedeemBtn,
+.share_shareCodeGenerateBtn {
+  min-height: 42px;
+  border: none;
+  border-radius: var(--radius-md);
+  font: inherit;
+  font-weight: 900;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+}
+
+.share_shareCodeRedeemBtn {
+  width: 100%;
+  margin-top: var(--space-sm);
+  background: var(--primary);
+  color: var(--text-inverse);
+}
+
+.share_shareCodeRedeemBtn:disabled,
+.share_shareCodeGenerateBtn:disabled {
+  opacity: 0.58;
+  cursor: not-allowed;
+}
+
 .share_ownerCheckBtn {
   width: 100%;
   min-height: 44px;
@@ -755,6 +798,50 @@
   margin-top: var(--space-sm);
   padding-top: var(--space-sm);
   border-top: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.share_shareCodeGenerateCard {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  margin-top: var(--space-md);
+  padding: var(--space-md);
+  border: 1px solid rgba(var(--accent-rgb), 0.24);
+  border-radius: var(--radius-md);
+  background: rgba(var(--accent-rgb), 0.08);
+}
+
+.share_shareCodeGenerateTitle {
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.share_shareCodeGenerateText,
+.share_shareCodeExpiry {
+  margin-top: 2px;
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.share_shareCodeValue {
+  margin-top: 3px;
+  color: var(--text);
+  font-family: "DM Sans", monospace;
+  font-size: 1.35rem;
+  font-weight: 900;
+  letter-spacing: 2px;
+}
+
+.share_shareCodeGenerateBtn {
+  flex-shrink: 0;
+  min-width: 96px;
+  padding: 0 var(--space-md);
+  background: var(--accent);
+  color: var(--text-inverse);
 }
 
 .share_ownerDevicesList {

@@ -194,6 +194,9 @@ import {
   PublicPortalResponse,
   PublicDeviceStatusResponse,
   ShareOwnerStatusResponse,
+  ShareSubscriptionCodeCreateRequest,
+  ShareSubscriptionCodeRedeemRequest,
+  ShareSubscriptionCodeResponse,
   ShareSubscriptionRequest,
   ShareSubscriptionResponse,
   UpdatePortalSettingsRequest,
@@ -694,6 +697,24 @@ class ApiClient {
 
   async shareSubscriptionDevice(data: ShareSubscriptionRequest): Promise<ShareSubscriptionResponse> {
     const response = await fetch(`${BASE_URL}/public/device/share-subscription`, {
+      method: 'POST',
+      headers: this.getHeaders(false),
+      body: JSON.stringify(data),
+    });
+    return this.handleResponse<ShareSubscriptionResponse>(response, true);
+  }
+
+  async createShareSubscriptionCode(data: ShareSubscriptionCodeCreateRequest): Promise<ShareSubscriptionCodeResponse> {
+    const response = await fetch(`${BASE_URL}/public/device/share-subscription/code`, {
+      method: 'POST',
+      headers: this.getHeaders(false),
+      body: JSON.stringify(data),
+    });
+    return this.handleResponse<ShareSubscriptionCodeResponse>(response, true);
+  }
+
+  async redeemShareSubscriptionCode(data: ShareSubscriptionCodeRedeemRequest): Promise<ShareSubscriptionResponse> {
+    const response = await fetch(`${BASE_URL}/public/device/share-subscription/code/redeem`, {
       method: 'POST',
       headers: this.getHeaders(false),
       body: JSON.stringify(data),

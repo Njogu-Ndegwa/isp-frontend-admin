@@ -616,6 +616,36 @@ export interface ShareSubscriptionRequest {
   device_owner_name?: string | null;
 }
 
+export interface ShareSubscriptionCodeCreateRequest {
+  owner_phone: string;
+  router_id: number;
+  owner_mac?: string | null;
+}
+
+export interface ShareSubscriptionCodeResponse {
+  success: boolean;
+  code: string;
+  raw_code: string;
+  status: string;
+  router_id: number;
+  owner_customer_id: number;
+  expires_at?: string | null;
+  active_shared_devices: number;
+  max_companion_devices: number;
+  available_shared_devices: number;
+  message?: string;
+}
+
+export interface ShareSubscriptionCodeRedeemRequest {
+  code: string;
+  router_id: number;
+  device_mac: string;
+  device_name?: string | null;
+  device_type?: 'tv' | 'console' | 'laptop' | 'iot' | 'other';
+  device_owner_phone?: string | null;
+  device_owner_name?: string | null;
+}
+
 export interface DeliveryAttemptStatus {
   attempt_id: number;
   delivery_status?: 'activating' | 'online' | 'access_ready' | 'needs_attention' | string | null;
