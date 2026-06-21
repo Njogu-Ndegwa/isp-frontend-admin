@@ -13,6 +13,7 @@ import SearchInput from '../components/SearchInput';
 import FilterSelect from '../components/FilterSelect';
 import DateTimePicker from '../components/DateTimePicker';
 import { formatDateGMT3, utcToGMT3Input, gmt3InputToISO } from '../lib/dateUtils';
+import { DataCapUnit, dataCapInputToMb, splitDataCapMb } from './dataCap';
 
 type FilterTab = 'all' | 'regular' | 'emergency';
 type ConnectionFilter = 'all' | 'hotspot' | 'pppoe';
@@ -655,6 +656,7 @@ function EditPlanModal({
 }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const initialDataCap = splitDataCapMb(plan.data_cap_mb);
   const [formData, setFormData] = useState<UpdatePlanRequest>({
     name: plan.name,
     speed: plan.speed || `${plan.download_speed}/${plan.upload_speed}`,
@@ -673,9 +675,12 @@ function EditPlanModal({
     fup_action: plan.fup_action ?? null,
     fup_throttle_profile: plan.fup_throttle_profile ?? null,
   });
+  const [dataCapValue, setDataCapValue] = useState(initialDataCap.value);
+  const [dataCapUnit, setDataCapUnit] = useState<DataCapUnit>(initialDataCap.unit);
 
   const isPPPoE = formData.connection_type === 'pppoe';
-  const hasDataCap = (formData.data_cap_mb ?? 0) > 0;
+  const dataCapMb = dataCapInputToMb(dataCapValue, dataCapUnit);
+  const hasDataCap = dataCapMb !== null;
   const throttleSelected = !formData.fup_action || formData.fup_action === 'throttle';
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -688,6 +693,7 @@ function EditPlanModal({
       if (!payload.original_price) payload.original_price = null;
       payload.valid_until = payload.valid_until ? gmt3InputToISO(payload.valid_until) : null;
       payload.max_shared_users = isPPPoE ? 1 : Math.max(1, Math.min(50, Number(payload.max_shared_users) || 1));
+      payload.data_cap_mb = dataCapMb;
       if (!payload.data_cap_mb) {
         payload.data_cap_mb = null;
         payload.fup_action = null;
@@ -904,15 +910,28 @@ function EditPlanModal({
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
                   <div>
-                    <label className="block text-sm font-medium text-foreground mb-2">Data Cap (MB)</label>
-                    <input
-                      type="number"
-                      value={formData.data_cap_mb ?? ''}
-                      onChange={(e) => setFormData({ ...formData, data_cap_mb: e.target.value ? parseInt(e.target.value) : null })}
-                      className="input"
-                      placeholder="e.g. 100000 (100 GB)"
-                      min={0}
-                    />
+                    <label className="block text-sm font-medium text-foreground mb-2">Data Cap</label>
+                    <div className="grid grid-cols-[minmax(0,1fr)_88px] gap-2">
+                      <input
+                        type="number"
+                        value={dataCapValue}
+                        onChange={(e) => setDataCapValue(e.target.value)}
+                        className="input"
+                        placeholder={dataCapUnit === 'GB' ? 'e.g. 100' : 'e.g. 500'}
+                        min={0}
+                        step={dataCapUnit === 'GB' ? '0.1' : '1'}
+                      />
+                      <select
+                        aria-label="Data cap unit"
+                        value={dataCapUnit}
+                        onChange={(e) => setDataCapUnit(e.target.value as DataCapUnit)}
+                        className="select"
+                      >
+                        <option value="MB">MB</option>
+                        <option value="GB">GB</option>
+                      </select>
+                    </div>
+                    <p className="mt-1 text-xs text-foreground-muted">Leave empty or 0 for unlimited</p>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-foreground mb-2">Action on Exceed</label>

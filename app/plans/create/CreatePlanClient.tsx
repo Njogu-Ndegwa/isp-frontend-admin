@@ -9,6 +9,7 @@ import { useAlert } from '../../context/AlertContext';
 import Header from '../../components/Header';
 import DateTimePicker from '../../components/DateTimePicker';
 import { gmt3InputToISO } from '../../lib/dateUtils';
+import { DataCapUnit, dataCapInputToMb } from '../dataCap';
 
 export default function CreatePlanPage() {
   const router = useRouter();
@@ -32,9 +33,12 @@ export default function CreatePlanPage() {
     fup_action: null,
     fup_throttle_profile: null,
   });
+  const [dataCapValue, setDataCapValue] = useState('');
+  const [dataCapUnit, setDataCapUnit] = useState<DataCapUnit>('GB');
 
   const isPPPoE = formData.connection_type === 'pppoe';
-  const hasDataCap = (formData.data_cap_mb ?? 0) > 0;
+  const dataCapMb = dataCapInputToMb(dataCapValue, dataCapUnit);
+  const hasDataCap = dataCapMb !== null;
   const throttleSelected = !formData.fup_action || formData.fup_action === 'throttle';
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -46,6 +50,7 @@ export default function CreatePlanPage() {
       if (!payload.original_price) payload.original_price = null;
       payload.valid_until = payload.valid_until ? gmt3InputToISO(payload.valid_until) : null;
       payload.max_shared_users = isPPPoE ? 1 : Math.max(1, Math.min(50, Number(payload.max_shared_users) || 1));
+      payload.data_cap_mb = dataCapMb;
       // Clear FUP fields when the plan is uncapped.
       if (!payload.data_cap_mb) {
         payload.data_cap_mb = null;
@@ -286,18 +291,30 @@ export default function CreatePlanPage() {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
                   <div>
-                    <label htmlFor="data_cap_mb" className="block text-sm font-medium text-foreground-muted mb-1.5">
-                      Data Cap (MB)
+                    <label htmlFor="data_cap_value" className="block text-sm font-medium text-foreground-muted mb-1.5">
+                      Data Cap
                     </label>
-                    <input
-                      id="data_cap_mb"
-                      type="number"
-                      value={formData.data_cap_mb ?? ''}
-                      onChange={(e) => setFormData({ ...formData, data_cap_mb: e.target.value ? parseInt(e.target.value) : null })}
-                      className="input"
-                      placeholder="e.g. 100000 (100 GB)"
-                      min={0}
-                    />
+                    <div className="grid grid-cols-[minmax(0,1fr)_88px] gap-2">
+                      <input
+                        id="data_cap_value"
+                        type="number"
+                        value={dataCapValue}
+                        onChange={(e) => setDataCapValue(e.target.value)}
+                        className="input"
+                        placeholder={dataCapUnit === 'GB' ? 'e.g. 100' : 'e.g. 500'}
+                        min={0}
+                        step={dataCapUnit === 'GB' ? '0.1' : '1'}
+                      />
+                      <select
+                        aria-label="Data cap unit"
+                        value={dataCapUnit}
+                        onChange={(e) => setDataCapUnit(e.target.value as DataCapUnit)}
+                        className="select"
+                      >
+                        <option value="MB">MB</option>
+                        <option value="GB">GB</option>
+                      </select>
+                    </div>
                     <p className="mt-1 text-xs text-foreground-muted">Leave empty or 0 for unlimited</p>
                   </div>
                   <div>
