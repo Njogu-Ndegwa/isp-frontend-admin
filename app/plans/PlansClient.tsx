@@ -11,7 +11,6 @@ import DataTable, { DataTableColumn } from '../components/DataTable';
 import MobileDataCard from '../components/MobileDataCard';
 import SearchInput from '../components/SearchInput';
 import FilterSelect from '../components/FilterSelect';
-import DateTimePicker from '../components/DateTimePicker';
 import { formatDateGMT3, utcToGMT3Input, gmt3InputToISO } from '../lib/dateUtils';
 import { DataCapUnit, dataCapInputToMb, splitDataCapMb } from './dataCap';
 
@@ -677,10 +676,15 @@ function EditPlanModal({
   });
   const [dataCapValue, setDataCapValue] = useState(initialDataCap.value);
   const [dataCapUnit, setDataCapUnit] = useState<DataCapUnit>(initialDataCap.unit);
+  const [showFup, setShowFup] = useState(
+    Boolean(plan.data_cap_mb && plan.data_cap_mb > 0)
+    || Boolean(plan.fup_action)
+    || Boolean(plan.fup_throttle_profile)
+  );
 
   const isPPPoE = formData.connection_type === 'pppoe';
   const dataCapMb = dataCapInputToMb(dataCapValue, dataCapUnit);
-  const hasDataCap = dataCapMb !== null;
+  const hasDataCap = showFup && dataCapMb !== null;
   const throttleSelected = !formData.fup_action || formData.fup_action === 'throttle';
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -693,7 +697,7 @@ function EditPlanModal({
       if (!payload.original_price) payload.original_price = null;
       payload.valid_until = payload.valid_until ? gmt3InputToISO(payload.valid_until) : null;
       payload.max_shared_users = isPPPoE ? 1 : Math.max(1, Math.min(50, Number(payload.max_shared_users) || 1));
-      payload.data_cap_mb = dataCapMb;
+      payload.data_cap_mb = showFup ? dataCapMb : null;
       if (!payload.data_cap_mb) {
         payload.data_cap_mb = null;
         payload.fup_action = null;
@@ -845,64 +849,18 @@ function EditPlanModal({
             )}
 
             <div className="pt-4 border-t border-border">
-              <h3 className="text-sm font-semibold text-foreground-muted uppercase tracking-wider mb-4">Advanced Options</h3>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-                <div>
-                  <label className="block text-sm font-medium text-foreground mb-2">Plan Type</label>
-                  <select
-                    value={formData.plan_type || 'regular'}
-                    onChange={(e) => setFormData({ ...formData, plan_type: e.target.value as 'regular' | 'emergency' })}
-                    className="select"
-                  >
-                    <option value="regular">Regular</option>
-                    <option value="emergency">Emergency</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-foreground mb-2">Original Price</label>
-                  <input
-                    type="number"
-                    value={formData.original_price ?? ''}
-                    onChange={(e) => setFormData({ ...formData, original_price: e.target.value ? parseInt(e.target.value) : null })}
-                    className="input"
-                    placeholder="For strikethrough"
-                    min={0}
-                  />
-                </div>
-              </div>
-
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-foreground mb-2">Badge Text</label>
-                <input
-                  type="text"
-                  value={formData.badge_text || ''}
-                  onChange={(e) => setFormData({ ...formData, badge_text: e.target.value || null })}
-                  className="input"
-                  placeholder='e.g., "Hot Deal", "New"'
-                />
-              </div>
-
-              <div className="mb-4">
-                <DateTimePicker
-                  label="Valid Until"
-                  value={formData.valid_until || ''}
-                  onChange={(v) => setFormData({ ...formData, valid_until: v || null })}
-                />
-              </div>
-
               <label className="flex items-center gap-3 cursor-pointer">
                 <input
                   type="checkbox"
-                  checked={formData.is_hidden || false}
-                  onChange={(e) => setFormData({ ...formData, is_hidden: e.target.checked })}
+                  checked={showFup}
+                  onChange={(e) => setShowFup(e.target.checked)}
                   className="w-4 h-4 rounded border-border text-accent-primary focus:ring-accent-primary"
                 />
-                <span className="text-sm text-foreground">Hidden from public portal</span>
+                <span className="text-sm font-medium text-foreground">Show Fair Usage Policy</span>
               </label>
-            </div>
 
-            <div className="pt-4 border-t border-border">
+              {showFup && (
+                <div className="mt-4">
                 <h3 className="text-sm font-semibold text-foreground-muted uppercase tracking-wider mb-1">Fair Usage Policy</h3>
                 <p className="text-xs text-foreground-muted mb-4">
                   Optional data cap for each paid plan period. Hotspot throttling uses a queue rate; PPPoE throttling uses a profile.
@@ -959,13 +917,15 @@ function EditPlanModal({
                       value={formData.fup_throttle_profile || ''}
                       onChange={(e) => setFormData({ ...formData, fup_throttle_profile: e.target.value || null })}
                       className="input"
-                      placeholder={isPPPoE ? 'e.g. throttled-1m' : 'e.g. 512K/512K'}
+                      placeholder={isPPPoE ? 'e.g. throttled-1m' : 'e.g., 5M/2M'}
                     />
                     <p className="mt-1 text-xs text-foreground-muted">
                       {isPPPoE ? 'MikroTik PPP profile to switch user to when throttled' : 'MikroTik queue max-limit when throttled; blank uses 1M/1M'}
                     </p>
                   </div>
                 )}
+                </div>
+              )}
             </div>
           </form>
         </div>
