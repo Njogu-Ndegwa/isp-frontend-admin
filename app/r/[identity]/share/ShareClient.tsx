@@ -79,8 +79,7 @@ function cleanShareCode(value: string): string {
 }
 
 function formatShareCode(value: string): string {
-  const clean = cleanShareCode(value);
-  return clean.length > 3 ? `${clean.slice(0, 3)}-${clean.slice(3)}` : clean;
+  return cleanShareCode(value);
 }
 
 function addedDeviceCopy() {
@@ -744,7 +743,7 @@ export default function RouterSharePage() {
                         <div>
                           <div className={'share_shareCodeGenerateTitle'}>Share by code</div>
                           {generatedCode ? (
-                            <div className={'share_shareCodeValue'}>{generatedCode.code}</div>
+                            <div className={'share_shareCodeValue'}>{generatedCode.raw_code || formatShareCode(generatedCode.code)}</div>
                           ) : generatingCode ? (
                             <div className={'share_shareCodeGenerateText'}>Preparing code...</div>
                           ) : (
@@ -787,11 +786,11 @@ export default function RouterSharePage() {
                           }
                         }}
                         className={`${'share_deviceInput'} ${'share_shareCodeInput'}`}
-                        placeholder="ABC-123"
+                        placeholder="ABC543"
                         autoCapitalize="characters"
                         autoComplete="one-time-code"
                         spellCheck={false}
-                        maxLength={7}
+                        maxLength={6}
                       />
                       {redeemCodeError && <p className={'share_ownerStatusError'}>{redeemCodeError}</p>}
                       {redeemCodeReady && deviceMacCount !== 12 && (
