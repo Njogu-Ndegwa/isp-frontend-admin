@@ -38,7 +38,6 @@ export default function CreatePlanPage() {
 
   const isPPPoE = formData.connection_type === 'pppoe';
   const dataCapMb = dataCapInputToMb(dataCapValue, dataCapUnit);
-  const hasDataCap = showFup && dataCapMb !== null;
   const throttleSelected = !formData.fup_action || formData.fup_action === 'throttle';
   const selectedFupAction: FupAction = formData.fup_action === 'block' ? 'block' : 'throttle';
 
@@ -294,10 +293,10 @@ export default function CreatePlanPage() {
                   </div>
                 </div>
 
-                {hasDataCap && throttleSelected && (
+                {throttleSelected && (
                   <div>
                     <label htmlFor="fup_throttle_profile" className="block text-sm font-medium text-foreground-muted mb-1.5">
-                      {isPPPoE ? 'Throttle PPP Profile' : 'Throttle Rate'}
+                      {isPPPoE ? 'Slow PPP Profile' : 'Slow Speed (Down/Up)'}
                     </label>
                     <input
                       id="fup_throttle_profile"
@@ -308,7 +307,7 @@ export default function CreatePlanPage() {
                       placeholder={isPPPoE ? 'e.g. throttled-1m' : 'e.g., 5M/2M'}
                     />
                     <p className="mt-1 text-xs text-foreground-muted">
-                      {isPPPoE ? 'MikroTik PPP profile to switch user to when throttled' : 'MikroTik queue max-limit when throttled; blank uses 1M/1M'}
+                      {isPPPoE ? 'PPP profile to use after the data cap is reached' : 'Speed to apply after the data cap is reached; blank uses 1M/1M'}
                     </p>
                   </div>
                 )}
