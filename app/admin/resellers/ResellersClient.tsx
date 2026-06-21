@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { api } from '../../lib/api';
 import { AdminReseller, AdminResellerFilter, AdminResellerSortBy, AdminSortOrder } from '../../lib/types';
@@ -94,6 +94,7 @@ export default function ResellersListPage() {
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const requestSeqRef = useRef(0);
 
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<AdminResellerFilter | ''>('');
@@ -104,8 +105,22 @@ export default function ResellersListPage() {
 
   const [desktopPage, setDesktopPage] = useState(1);
   const [mobileDisplayCount, setMobileDisplayCount] = useState(20);
+  const [loadedQueryKey, setLoadedQueryKey] = useState<string | null>(null);
+
+  const queryKey = useMemo(() => JSON.stringify({
+    search,
+    filter,
+    sortBy,
+    sortOrder,
+    startDate,
+    endDate,
+  }), [search, filter, sortBy, sortOrder, startDate, endDate]);
 
   const fetchResellers = useCallback(async () => {
+    const requestSeq = requestSeqRef.current + 1;
+    requestSeqRef.current = requestSeq;
+    const requestQueryKey = queryKey;
+
     try {
       setLoading(true);
       setError(null);
@@ -117,14 +132,20 @@ export default function ResellersListPage() {
         start_date: startDate || undefined,
         end_date: endDate || undefined,
       });
-      setResellers(result.resellers);
-      setTotal(result.total);
+      if (requestSeqRef.current !== requestSeq) return;
+      setResellers(result.resellers ?? []);
+      setTotal(result.total ?? result.resellers?.length ?? 0);
+      setLoadedQueryKey(requestQueryKey);
     } catch (err) {
+      if (requestSeqRef.current !== requestSeq) return;
+      setLoadedQueryKey(requestQueryKey);
       setError(err instanceof Error ? err.message : 'Failed to load resellers');
     } finally {
-      setLoading(false);
+      if (requestSeqRef.current === requestSeq) {
+        setLoading(false);
+      }
     }
-  }, [search, filter, sortBy, sortOrder, startDate, endDate]);
+  }, [queryKey, search, filter, sortBy, sortOrder, startDate, endDate]);
 
   useEffect(() => {
     setDesktopPage(1);
@@ -134,6 +155,7 @@ export default function ResellersListPage() {
   }, [fetchResellers, search]);
 
   const hasActiveFilters = filter !== '' || sortBy !== 'created_at' || sortOrder !== 'desc' || startDate !== '' || endDate !== '';
+  const showLoadingState = loading || loadedQueryKey !== queryKey;
 
   const clearAllFilters = () => {
     setFilter('');
@@ -181,7 +203,7 @@ export default function ResellersListPage() {
       <Header title="Resellers" subtitle={`Manage ${total} registered resellers`} backHref="/admin" />
 
       {/* Summary Stats */}
-      {resellers.length > 0 && (
+      {!showLoadingState && resellers.length > 0 && (
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6 mb-6">
           <div className="animate-fade-in delay-1" style={{ opacity: 0 }}>
             <StatCard title="Total Resellers" value={total} accent="primary"
@@ -325,7 +347,7 @@ export default function ResellersListPage() {
         )}
       </div>
 
-      {loading ? (
+      {showLoadingState ? (
         <PageLoader />
       ) : (() => {
         const desktopTotalPages = Math.ceil(resellers.length / DESKTOP_PAGE_SIZE);

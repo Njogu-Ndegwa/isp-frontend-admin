@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { api } from '../../../lib/api';
 import {
@@ -65,6 +65,7 @@ export default function ResellerDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<Tab>('payments');
+  const detailRequestSeqRef = useRef(0);
 
   // Delete reseller state
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -88,11 +89,14 @@ export default function ResellerDetailPage() {
   const [paymentDate, setPaymentDate] = useState('');
   const [showAllPayments, setShowAllPayments] = useState(false);
   const [paymentsSummary, setPaymentsSummary] = useState<{ total_transactions: number; total_amount: number; mpesa_amount: number } | null>(null);
+  const [paymentsLoadedQueryKey, setPaymentsLoadedQueryKey] = useState<string | null>(null);
+  const paymentsRequestSeqRef = useRef(0);
 
   // Routers tab state
   const [routers, setRouters] = useState<AdminRouterDetail[]>([]);
   const [routersLoading, setRoutersLoading] = useState(false);
   const [routersLoaded, setRoutersLoaded] = useState(false);
+  const routersRequestSeqRef = useRef(0);
 
   // Payouts tab state
   const [payouts, setPayouts] = useState<AdminPayout[]>([]);
@@ -104,6 +108,7 @@ export default function ResellerDetailPage() {
   const [payoutsLoaded, setPayoutsLoaded] = useState(false);
   const [payoutStartDate, setPayoutStartDate] = useState('');
   const [payoutEndDate, setPayoutEndDate] = useState('');
+  const payoutsRequestSeqRef = useRef(0);
 
   // Payout modal state
   const [showPayoutModal, setShowPayoutModal] = useState(false);
@@ -129,6 +134,7 @@ export default function ResellerDetailPage() {
   const [chargeStartDate, setChargeStartDate] = useState('');
   const [chargeEndDate, setChargeEndDate] = useState('');
   const [chargesSummary, setChargesSummary] = useState<{ total_charges: number; total_amount: number } | null>(null);
+  const chargesRequestSeqRef = useRef(0);
 
   // Charge modal state
   const [showChargeModal, setShowChargeModal] = useState(false);
@@ -150,7 +156,22 @@ export default function ResellerDetailPage() {
   const [b2bSubmitting, setB2bSubmitting] = useState(false);
   const [b2bError, setB2bError] = useState('');
 
+  const paymentsQueryKey = useMemo(() => JSON.stringify({
+    resellerId,
+    page: paymentsPage,
+    perPage: paymentsPerPage,
+    date: paymentDate,
+  }), [resellerId, paymentsPage, paymentsPerPage, paymentDate]);
+
+  const showPaymentsLoading = paymentsLoading || (showAllPayments && paymentsLoadedQueryKey !== paymentsQueryKey);
+  const showRoutersLoading = routersLoading || (activeTab === 'routers' && !routersLoaded);
+  const showPayoutsLoading = payoutsLoading || (activeTab === 'payouts' && !payoutsLoaded);
+  const showChargesLoading = chargesLoading || (activeTab === 'charges' && !chargesLoaded);
+
   const fetchDetail = useCallback(async (dateParams?: { start_date?: string; end_date?: string }) => {
+    const requestSeq = detailRequestSeqRef.current + 1;
+    detailRequestSeqRef.current = requestSeq;
+
     try {
       if (dateParams) {
         setRevenueFilterLoading(true);
@@ -162,49 +183,74 @@ export default function ResellerDetailPage() {
         start_date: dateParams?.start_date || undefined,
         end_date: dateParams?.end_date || undefined,
       });
+      if (detailRequestSeqRef.current !== requestSeq) return;
       setDetail(result);
     } catch (err) {
+      if (detailRequestSeqRef.current !== requestSeq) return;
       setError(err instanceof Error ? err.message : 'Failed to load reseller');
     } finally {
-      setLoading(false);
-      setRevenueFilterLoading(false);
+      if (detailRequestSeqRef.current === requestSeq) {
+        setLoading(false);
+        setRevenueFilterLoading(false);
+      }
     }
   }, [resellerId]);
 
-  const fetchPayments = useCallback(async (page = 1, pp = paymentsPerPage) => {
+  const fetchPayments = useCallback(async () => {
+    const requestSeq = paymentsRequestSeqRef.current + 1;
+    paymentsRequestSeqRef.current = requestSeq;
+    const requestQueryKey = paymentsQueryKey;
+
     try {
       setPaymentsLoading(true);
       const result = await api.getAdminResellerPayments(resellerId, {
-        page,
-        per_page: pp,
+        page: paymentsPage,
+        per_page: paymentsPerPage,
         date: paymentDate || undefined,
       });
+      if (paymentsRequestSeqRef.current !== requestSeq) return;
       setAllPayments(result.payments);
       setPaymentsPage(result.page);
       setPaymentsTotalPages(result.total_pages);
       setPaymentsTotalCount(result.total_count);
       setPaymentsSummary(result.summary);
+      setPaymentsLoadedQueryKey(requestQueryKey);
     } catch {
+      if (paymentsRequestSeqRef.current !== requestSeq) return;
+      setPaymentsLoadedQueryKey(requestQueryKey);
       // silently fail, user can retry
     } finally {
-      setPaymentsLoading(false);
+      if (paymentsRequestSeqRef.current === requestSeq) {
+        setPaymentsLoading(false);
+      }
     }
-  }, [resellerId, paymentDate, paymentsPerPage]);
+  }, [resellerId, paymentDate, paymentsPage, paymentsPerPage, paymentsQueryKey]);
 
   const fetchRouters = useCallback(async () => {
+    const requestSeq = routersRequestSeqRef.current + 1;
+    routersRequestSeqRef.current = requestSeq;
+
     try {
       setRoutersLoading(true);
       const result = await api.getAdminResellerRouters(resellerId);
+      if (routersRequestSeqRef.current !== requestSeq) return;
       setRouters(result.routers);
       setRoutersLoaded(true);
     } catch {
+      if (routersRequestSeqRef.current !== requestSeq) return;
+      setRoutersLoaded(true);
       // silently fail
     } finally {
-      setRoutersLoading(false);
+      if (routersRequestSeqRef.current === requestSeq) {
+        setRoutersLoading(false);
+      }
     }
   }, [resellerId]);
 
   const fetchPayouts = useCallback(async (page = 1, pp = payoutsPerPage) => {
+    const requestSeq = payoutsRequestSeqRef.current + 1;
+    payoutsRequestSeqRef.current = requestSeq;
+
     try {
       setPayoutsLoading(true);
       const result = await api.getAdminPayouts(resellerId, {
@@ -213,19 +259,27 @@ export default function ResellerDetailPage() {
         start_date: payoutStartDate || undefined,
         end_date: payoutEndDate || undefined,
       });
+      if (payoutsRequestSeqRef.current !== requestSeq) return;
       setPayouts(result.payouts);
       setPayoutsPage(result.page);
       setPayoutsTotalPages(result.total_pages);
       setPayoutsTotalCount(result.total_count);
       setPayoutsLoaded(true);
     } catch {
+      if (payoutsRequestSeqRef.current !== requestSeq) return;
+      setPayoutsLoaded(true);
       // silently fail
     } finally {
-      setPayoutsLoading(false);
+      if (payoutsRequestSeqRef.current === requestSeq) {
+        setPayoutsLoading(false);
+      }
     }
   }, [resellerId, payoutStartDate, payoutEndDate, payoutsPerPage]);
 
   const fetchCharges = useCallback(async (page = 1, pp = chargesPerPage) => {
+    const requestSeq = chargesRequestSeqRef.current + 1;
+    chargesRequestSeqRef.current = requestSeq;
+
     try {
       setChargesLoading(true);
       const result = await api.getAdminTransactionCharges(resellerId, {
@@ -234,6 +288,7 @@ export default function ResellerDetailPage() {
         start_date: chargeStartDate || undefined,
         end_date: chargeEndDate || undefined,
       });
+      if (chargesRequestSeqRef.current !== requestSeq) return;
       setCharges(result.charges);
       setChargesPage(result.page);
       setChargesTotalPages(result.total_pages);
@@ -241,9 +296,13 @@ export default function ResellerDetailPage() {
       setChargesSummary(result.summary);
       setChargesLoaded(true);
     } catch {
+      if (chargesRequestSeqRef.current !== requestSeq) return;
+      setChargesLoaded(true);
       // silently fail
     } finally {
-      setChargesLoading(false);
+      if (chargesRequestSeqRef.current === requestSeq) {
+        setChargesLoading(false);
+      }
     }
   }, [resellerId, chargeStartDate, chargeEndDate, chargesPerPage]);
 
@@ -262,7 +321,7 @@ export default function ResellerDetailPage() {
   }, [activeTab, chargesLoaded, fetchCharges]);
 
   useEffect(() => {
-    if (showAllPayments) fetchPayments(1);
+    if (showAllPayments) fetchPayments();
   }, [showAllPayments, fetchPayments]);
 
   const handleSubmitCharge = async () => {
@@ -600,27 +659,27 @@ export default function ResellerDetailPage() {
           recentPayments={detail.recent_payments}
           allPayments={allPayments}
           showAll={showAllPayments}
-          onShowAll={() => setShowAllPayments(true)}
-          loading={paymentsLoading}
+          onShowAll={() => { setPaymentsPage(1); setShowAllPayments(true); }}
+          loading={showPaymentsLoading}
           page={paymentsPage}
           perPage={paymentsPerPage}
           total={paymentsTotalCount}
-          onPageChange={(p) => fetchPayments(p)}
-          onPerPageChange={(pp) => { setPaymentsPerPage(pp); setPaymentsPage(1); fetchPayments(1, pp); }}
+          onPageChange={setPaymentsPage}
+          onPerPageChange={(pp) => { setPaymentsPerPage(pp); setPaymentsPage(1); }}
           dateFilter={paymentDate}
-          onDateChange={(d) => { setPaymentDate(d); if (showAllPayments) fetchPayments(1); }}
+          onDateChange={(d) => { setPaymentDate(d); setPaymentsPage(1); }}
           summary={paymentsSummary}
         />
       )}
 
       {activeTab === 'routers' && (
-        <RoutersTab routers={routers} loading={routersLoading} />
+        <RoutersTab routers={routers} loading={showRoutersLoading} />
       )}
 
       {activeTab === 'payouts' && (
         <PayoutsTab
           payouts={payouts}
-          loading={payoutsLoading}
+          loading={showPayoutsLoading}
           page={payoutsPage}
           perPage={payoutsPerPage}
           total={payoutsTotalCount}
@@ -641,7 +700,7 @@ export default function ResellerDetailPage() {
           allCharges={charges}
           showAll={chargesLoaded}
           onShowAll={() => fetchCharges(1)}
-          loading={chargesLoading}
+          loading={showChargesLoading}
           page={chargesPage}
           perPage={chargesPerPage}
           total={chargesTotalCount}

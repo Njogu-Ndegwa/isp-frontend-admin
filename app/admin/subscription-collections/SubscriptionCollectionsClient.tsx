@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { api } from '../../lib/api';
 import {
   AdminSubscriptionCollectionsSummary,
@@ -102,11 +102,23 @@ export default function SubscriptionCollectionsPage() {
   const [sendStatusFilter, setSendStatusFilter] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const paymentsRequestSeqRef = useRef(0);
+  const [loadedPaymentsQueryKey, setLoadedPaymentsQueryKey] = useState<string | null>(null);
+
+  const paymentsQueryKey = useMemo(() => JSON.stringify({
+    paymentsPage,
+    paymentStatusFilter,
+    sendStatusFilter,
+    startDate,
+    endDate,
+  }), [paymentsPage, paymentStatusFilter, sendStatusFilter, startDate, endDate]);
 
   // Bank destinations
   const [destinations, setDestinations] = useState<OwnerBankDestination[]>([]);
   const [destinationsLoading, setDestinationsLoading] = useState(false);
   const [destinationsError, setDestinationsError] = useState<string | null>(null);
+  const [destinationsLoaded, setDestinationsLoaded] = useState(false);
+  const destinationsRequestSeqRef = useRef(0);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [createLoading, setCreateLoading] = useState(false);
   const [formMethodType, setFormMethodType] = useState<'bank_account' | 'mpesa_paybill'>('bank_account');
@@ -119,6 +131,8 @@ export default function SubscriptionCollectionsPage() {
   const [b2bTransactions, setB2bTransactions] = useState<B2BTransaction[]>([]);
   const [b2bLoading, setB2bLoading] = useState(false);
   const [b2bError, setB2bError] = useState<string | null>(null);
+  const [b2bLoaded, setB2bLoaded] = useState(false);
+  const b2bRequestSeqRef = useRef(0);
 
   // Send to bank
   const [showSendDialog, setShowSendDialog] = useState(false);
@@ -144,6 +158,10 @@ export default function SubscriptionCollectionsPage() {
   }, []);
 
   const fetchPayments = useCallback(async () => {
+    const requestSeq = paymentsRequestSeqRef.current + 1;
+    paymentsRequestSeqRef.current = requestSeq;
+    const requestQueryKey = paymentsQueryKey;
+
     try {
       setPaymentsLoading(true);
       setPaymentsError(null);
@@ -155,29 +173,49 @@ export default function SubscriptionCollectionsPage() {
         start_date: startDate || undefined,
         end_date: endDate || undefined,
       });
+      if (paymentsRequestSeqRef.current !== requestSeq) return;
       setPayments(result.payments);
       setPaymentsResponse(result);
+      setLoadedPaymentsQueryKey(requestQueryKey);
     } catch (err) {
+      if (paymentsRequestSeqRef.current !== requestSeq) return;
+      setLoadedPaymentsQueryKey(requestQueryKey);
       setPaymentsError(err instanceof Error ? err.message : 'Failed to load payments');
     } finally {
-      setPaymentsLoading(false);
+      if (paymentsRequestSeqRef.current === requestSeq) {
+        setPaymentsLoading(false);
+      }
     }
-  }, [paymentsPage, paymentStatusFilter, sendStatusFilter, startDate, endDate]);
+  }, [paymentsQueryKey, paymentsPage, paymentStatusFilter, sendStatusFilter, startDate, endDate]);
 
   const fetchDestinations = useCallback(async () => {
+    const requestSeq = destinationsRequestSeqRef.current + 1;
+    destinationsRequestSeqRef.current = requestSeq;
+
     try {
       setDestinationsLoading(true);
       setDestinationsError(null);
       const result = await api.getAdminBankDestinations();
+      if (destinationsRequestSeqRef.current !== requestSeq) return undefined;
       setDestinations(result.destinations);
+      setDestinationsLoaded(true);
+      return result.destinations;
     } catch (err) {
+      if (destinationsRequestSeqRef.current !== requestSeq) return undefined;
+      setDestinationsLoaded(true);
       setDestinationsError(err instanceof Error ? err.message : 'Failed to load bank destinations');
+      return undefined;
     } finally {
-      setDestinationsLoading(false);
+      if (destinationsRequestSeqRef.current === requestSeq) {
+        setDestinationsLoading(false);
+      }
     }
   }, []);
 
   const fetchB2BTransactions = useCallback(async () => {
+    const requestSeq = b2bRequestSeqRef.current + 1;
+    b2bRequestSeqRef.current = requestSeq;
+
     try {
       setB2bLoading(true);
       setB2bError(null);
@@ -185,11 +223,17 @@ export default function SubscriptionCollectionsPage() {
       const result = await api.getAdminB2BTransactions({
         reseller_id: adminUser?.id,
       });
+      if (b2bRequestSeqRef.current !== requestSeq) return;
       setB2bTransactions(result.transactions);
+      setB2bLoaded(true);
     } catch (err) {
+      if (b2bRequestSeqRef.current !== requestSeq) return;
+      setB2bLoaded(true);
       setB2bError(err instanceof Error ? err.message : 'Failed to load transfer history');
     } finally {
-      setB2bLoading(false);
+      if (b2bRequestSeqRef.current === requestSeq) {
+        setB2bLoading(false);
+      }
     }
   }, [user]);
 
@@ -255,14 +299,19 @@ export default function SubscriptionCollectionsPage() {
   };
 
   const handleOpenSendDialog = async () => {
-    await fetchDestinations();
-    if (destinations.length > 0) {
-      setSelectedDestination(destinations.find(d => d.is_active) || destinations[0]);
+    const latestDestinations = await fetchDestinations();
+    const availableDestinations = latestDestinations ?? destinations;
+    if (availableDestinations.length > 0) {
+      setSelectedDestination(availableDestinations.find(d => d.is_active) || availableDestinations[0]);
     }
     setSendError(null);
     setSendResult(null);
     setShowSendDialog(true);
   };
+
+  const showPaymentsLoading = paymentsLoading || (activeTab === 'transactions' && loadedPaymentsQueryKey !== paymentsQueryKey);
+  const showDestinationsLoading = destinationsLoading || (activeTab === 'bank-destination' && !destinationsLoaded);
+  const showB2BLoading = b2bLoading || (activeTab === 'transfer-history' && !b2bLoaded);
 
   if (user?.role !== 'admin') {
     return (
@@ -317,7 +366,7 @@ export default function SubscriptionCollectionsPage() {
         <TransactionsTab
           payments={payments}
           response={paymentsResponse}
-          loading={paymentsLoading}
+          loading={showPaymentsLoading}
           error={paymentsError}
           page={paymentsPage}
           onPageChange={setPaymentsPage}
@@ -336,7 +385,7 @@ export default function SubscriptionCollectionsPage() {
       {activeTab === 'bank-destination' && (
         <BankDestinationTab
           destinations={destinations}
-          loading={destinationsLoading}
+          loading={showDestinationsLoading}
           error={destinationsError}
           showCreateForm={showCreateForm}
           onToggleForm={() => setShowCreateForm(!showCreateForm)}
@@ -359,7 +408,7 @@ export default function SubscriptionCollectionsPage() {
       {activeTab === 'transfer-history' && (
         <TransferHistoryTab
           transactions={b2bTransactions}
-          loading={b2bLoading}
+          loading={showB2BLoading}
           error={b2bError}
           onRetry={fetchB2BTransactions}
         />

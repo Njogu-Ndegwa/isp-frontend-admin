@@ -134,6 +134,7 @@ function ChartCard({
   showCompare,
   compareEnabled,
   onCompareToggle,
+  loading,
   isEmpty,
 }: {
   title: string;
@@ -143,6 +144,7 @@ function ChartCard({
   showCompare?: boolean;
   compareEnabled?: boolean;
   onCompareToggle?: () => void;
+  loading?: boolean;
   isEmpty?: boolean;
 }) {
   return (
@@ -167,7 +169,9 @@ function ChartCard({
           )}
         </div>
       </div>
-      {isEmpty ? (
+      {loading ? (
+        <div className="h-[200px] rounded-xl bg-background-tertiary/60 animate-pulse" />
+      ) : isEmpty ? (
         <div className="flex items-center justify-center h-[200px] text-foreground-muted text-xs">
           No data for this period
         </div>
@@ -377,6 +381,10 @@ export default function AdminDashboardPage() {
   const [signupsSummary, setSignupsSummary] = useState<AdminSignupsSummary | null>(null);
   const [customerSignups, setCustomerSignups] = useState<AdminCustomerSignupsTimeSeries | null>(null);
   const [subRevenueHistory, setSubRevenueHistory] = useState<AdminSubscriptionRevenueHistory | null>(null);
+  const [customerSignupsLoading, setCustomerSignupsLoading] = useState(true);
+  const [subRevenueLoading, setSubRevenueLoading] = useState(true);
+  const [customerSignupsLoadedPeriod, setCustomerSignupsLoadedPeriod] = useState<PeriodFilter | null>(null);
+  const [subRevenueLoadedPeriod, setSubRevenueLoadedPeriod] = useState<PeriodFilter | null>(null);
   const [arpu, setArpu] = useState<AdminARPUMetrics | null>(null);
   const [trialConversion, setTrialConversion] = useState<AdminTrialConversion | null>(null);
   const [activationFunnel, setActivationFunnel] = useState<AdminActivationFunnel | null>(null);
@@ -386,10 +394,16 @@ export default function AdminDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const loadSeqRef = useRef(0);
+  const customerSignupsSeqRef = useRef(0);
+  const subRevenueSeqRef = useRef(0);
 
   const fetchDashboard = useCallback(async (period: PeriodFilter) => {
     const loadSeq = loadSeqRef.current + 1;
     loadSeqRef.current = loadSeq;
+    const customerSignupsSeq = customerSignupsSeqRef.current + 1;
+    customerSignupsSeqRef.current = customerSignupsSeq;
+    const subRevenueSeq = subRevenueSeqRef.current + 1;
+    subRevenueSeqRef.current = subRevenueSeq;
 
     try {
       setLoading(true);
@@ -397,6 +411,10 @@ export default function AdminDashboardPage() {
       setSignupsSummary(null);
       setCustomerSignups(null);
       setSubRevenueHistory(null);
+      setCustomerSignupsLoading(true);
+      setSubRevenueLoading(true);
+      setCustomerSignupsLoadedPeriod(null);
+      setSubRevenueLoadedPeriod(null);
 
       const statsPeriod = period as AdminResellerStatsPeriod;
 
@@ -422,11 +440,11 @@ export default function AdminDashboardPage() {
         const wait = (ms: number) => new Promise<void>((resolve) => window.setTimeout(resolve, ms));
 
         const [mrrRes, churnRes, arpuRes, trialRes, signupsRes] = await Promise.all([
-          api.getAdminMRR(),
-          api.getAdminChurn(),
-          api.getAdminARPU(),
-          api.getAdminTrialConversion(),
-          api.getAdminSignupsSummary(period),
+          api.getAdminMRR().catch(() => null),
+          api.getAdminChurn().catch(() => null),
+          api.getAdminARPU().catch(() => null),
+          api.getAdminTrialConversion().catch(() => null),
+          api.getAdminSignupsSummary(period).catch(() => null),
         ]);
         if (!isCurrent()) return;
         setMrr(mrrRes);
@@ -437,18 +455,26 @@ export default function AdminDashboardPage() {
 
         await wait(250);
         const [custSignupsRes, subRevHistRes] = await Promise.all([
-          api.getAdminCustomerSignups(period),
-          api.getAdminSubscriptionRevenueHistory(period),
+          api.getAdminCustomerSignups(period).catch(() => null),
+          api.getAdminSubscriptionRevenueHistory(period).catch(() => null),
         ]);
         if (!isCurrent()) return;
-        setCustomerSignups(custSignupsRes);
-        setSubRevenueHistory(subRevHistRes);
+        if (customerSignupsSeqRef.current === customerSignupsSeq) {
+          setCustomerSignups(custSignupsRes);
+          setCustomerSignupsLoadedPeriod(period);
+          setCustomerSignupsLoading(false);
+        }
+        if (subRevenueSeqRef.current === subRevenueSeq) {
+          setSubRevenueHistory(subRevHistRes);
+          setSubRevenueLoadedPeriod(period);
+          setSubRevenueLoading(false);
+        }
 
         await wait(350);
         const [funnelRes, concRes, targetsRes] = await Promise.all([
-          api.getAdminActivationFunnel(),
-          api.getAdminRevenueConcentration(),
-          api.getAdminGrowthTargets(),
+          api.getAdminActivationFunnel().catch(() => null),
+          api.getAdminRevenueConcentration().catch(() => null),
+          api.getAdminGrowthTargets().catch(() => null),
         ]);
         if (!isCurrent()) return;
         setActivationFunnel(funnelRes);
@@ -458,6 +484,8 @@ export default function AdminDashboardPage() {
     } catch (err) {
       if (loadSeqRef.current !== loadSeq) return;
       setError(err instanceof Error ? err.message : 'Failed to load dashboard');
+      setCustomerSignupsLoading(false);
+      setSubRevenueLoading(false);
     } finally {
       if (loadSeqRef.current === loadSeq) {
         setLoading(false);
@@ -488,16 +516,54 @@ export default function AdminDashboardPage() {
   }, [resellerSignupsChartPeriod, globalPeriod]);
 
   useEffect(() => {
-    if (subRevChartPeriod && subRevChartPeriod !== globalPeriod) {
-      api.getAdminSubscriptionRevenueHistory(subRevChartPeriod).then((r) => r && setSubRevenueHistory(r)).catch(() => {});
-    }
-  }, [subRevChartPeriod, globalPeriod]);
+    if (!data || loading || subRevenueLoading || subRevenueLoadedPeriod === effectiveSubRevPeriod) return;
+
+    const requestPeriod = effectiveSubRevPeriod;
+    const requestSeq = subRevenueSeqRef.current + 1;
+    subRevenueSeqRef.current = requestSeq;
+    setSubRevenueLoading(true);
+    api.getAdminSubscriptionRevenueHistory(requestPeriod)
+      .then((result) => {
+        if (subRevenueSeqRef.current !== requestSeq) return;
+        setSubRevenueHistory(result);
+        setSubRevenueLoadedPeriod(requestPeriod);
+      })
+      .catch(() => {
+        if (subRevenueSeqRef.current !== requestSeq) return;
+        setSubRevenueHistory(null);
+        setSubRevenueLoadedPeriod(requestPeriod);
+      })
+      .finally(() => {
+        if (subRevenueSeqRef.current === requestSeq) {
+          setSubRevenueLoading(false);
+        }
+      });
+  }, [data, loading, subRevenueLoading, subRevenueLoadedPeriod, effectiveSubRevPeriod]);
 
   useEffect(() => {
-    if (customerSignupsChartPeriod && customerSignupsChartPeriod !== globalPeriod) {
-      api.getAdminCustomerSignups(customerSignupsChartPeriod).then((r) => r && setCustomerSignups(r)).catch(() => {});
-    }
-  }, [customerSignupsChartPeriod, globalPeriod]);
+    if (!data || loading || customerSignupsLoading || customerSignupsLoadedPeriod === effectiveCustomerSignupsPeriod) return;
+
+    const requestPeriod = effectiveCustomerSignupsPeriod;
+    const requestSeq = customerSignupsSeqRef.current + 1;
+    customerSignupsSeqRef.current = requestSeq;
+    setCustomerSignupsLoading(true);
+    api.getAdminCustomerSignups(requestPeriod)
+      .then((result) => {
+        if (customerSignupsSeqRef.current !== requestSeq) return;
+        setCustomerSignups(result);
+        setCustomerSignupsLoadedPeriod(requestPeriod);
+      })
+      .catch(() => {
+        if (customerSignupsSeqRef.current !== requestSeq) return;
+        setCustomerSignups(null);
+        setCustomerSignupsLoadedPeriod(requestPeriod);
+      })
+      .finally(() => {
+        if (customerSignupsSeqRef.current === requestSeq) {
+          setCustomerSignupsLoading(false);
+        }
+      });
+  }, [data, loading, customerSignupsLoading, customerSignupsLoadedPeriod, effectiveCustomerSignupsPeriod]);
 
   // Chart data helpers
   const mpesaRevenueData = useMemo(() => {
@@ -735,7 +801,8 @@ export default function AdminDashboardPage() {
               showCompare
               compareEnabled={subRevCompare}
               onCompareToggle={() => setSubRevCompare(!subRevCompare)}
-              isEmpty={subRevenueData.length === 0}
+              loading={subRevenueLoading || subRevenueLoadedPeriod !== effectiveSubRevPeriod}
+              isEmpty={!subRevenueLoading && subRevenueLoadedPeriod === effectiveSubRevPeriod && subRevenueData.length === 0}
             >
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4 text-xs">
                 <div>
@@ -778,7 +845,8 @@ export default function AdminDashboardPage() {
               showCompare
               compareEnabled={customerSignupsCompare}
               onCompareToggle={() => setCustomerSignupsCompare(!customerSignupsCompare)}
-              isEmpty={customerSignupsData.length === 0}
+              loading={customerSignupsLoading || customerSignupsLoadedPeriod !== effectiveCustomerSignupsPeriod}
+              isEmpty={!customerSignupsLoading && customerSignupsLoadedPeriod === effectiveCustomerSignupsPeriod && customerSignupsData.length === 0}
             >
               <CustomerSignupsChart data={customerSignupsCompareData} showCompare={customerSignupsCompare} />
             </ChartCard>

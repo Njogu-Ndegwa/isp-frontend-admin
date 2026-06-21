@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import Link from 'next/link';
 import { api } from '../../lib/api';
 import { AdminSubscription } from '../../lib/types';
@@ -42,6 +42,13 @@ export default function AdminSubscriptionsPage() {
   const [statusFilter, setStatusFilter] = useState('');
   const [search, setSearch] = useState('');
   const [total, setTotal] = useState(0);
+  const requestSeqRef = useRef(0);
+  const [loadedQueryKey, setLoadedQueryKey] = useState<string | null>(null);
+
+  const queryKey = useMemo(() => JSON.stringify({
+    statusFilter,
+    search,
+  }), [statusFilter, search]);
 
   // Action state
   const [actionTarget, setActionTarget] = useState<AdminSubscription | null>(null);
@@ -52,6 +59,10 @@ export default function AdminSubscriptionsPage() {
   const [actionLoading, setActionLoading] = useState(false);
 
   const fetchSubscriptions = useCallback(async () => {
+    const requestSeq = requestSeqRef.current + 1;
+    requestSeqRef.current = requestSeq;
+    const requestQueryKey = queryKey;
+
     try {
       setLoading(true);
       setError(null);
@@ -59,18 +70,26 @@ export default function AdminSubscriptionsPage() {
         status: statusFilter || undefined,
         search: search || undefined,
       });
-      setSubscriptions(result.subscriptions);
-      setTotal(result.total);
+      if (requestSeqRef.current !== requestSeq) return;
+      setSubscriptions(result.subscriptions ?? []);
+      setTotal(result.total ?? result.subscriptions?.length ?? 0);
+      setLoadedQueryKey(requestQueryKey);
     } catch (err) {
+      if (requestSeqRef.current !== requestSeq) return;
+      setLoadedQueryKey(requestQueryKey);
       setError(err instanceof Error ? err.message : 'Failed to load subscriptions');
     } finally {
-      setLoading(false);
+      if (requestSeqRef.current === requestSeq) {
+        setLoading(false);
+      }
     }
-  }, [statusFilter, search]);
+  }, [queryKey, statusFilter, search]);
 
   useEffect(() => {
     fetchSubscriptions();
   }, [fetchSubscriptions]);
+
+  const showLoadingState = loading || loadedQueryKey !== queryKey;
 
   const handleActivate = async () => {
     if (!actionTarget) return;
@@ -152,7 +171,7 @@ export default function AdminSubscriptionsPage() {
         </div>
       </div>
 
-      {loading ? (
+      {showLoadingState ? (
         <div className="space-y-3">
           {Array.from({ length: 4 }).map((_, i) => <SkeletonCard key={i} />)}
         </div>
