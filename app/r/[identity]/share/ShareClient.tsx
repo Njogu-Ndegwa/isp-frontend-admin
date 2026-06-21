@@ -32,13 +32,6 @@ const emptyForm = {
   device_type: 'tv' as DeviceTypeValue,
 };
 
-type SavedShareState = {
-  owner_phone: string;
-  device_mac: string;
-  result: ShareSubscriptionResponse | null;
-  saved_at: number;
-};
-
 function formatExpiry(value?: string | null) {
   if (!value) return null;
   try {
@@ -90,8 +83,24 @@ function formatShareCode(value: string): string {
   return clean.length > 3 ? `${clean.slice(0, 3)}-${clean.slice(3)}` : clean;
 }
 
-function deliveryText(delivery?: DeliveryAttemptStatus | null) {
+function addedDeviceCopy() {
+  return {
+    tone: 'success' as const,
+    title: 'Device Added',
+    message: 'Access is ready. Reconnect WiFi on the device if it does not start browsing.',
+  };
+}
+
+function deliveryText(delivery?: DeliveryAttemptStatus | null, fallbackSuccess = false) {
+  if (!delivery) {
+    return fallbackSuccess ? addedDeviceCopy() : null;
+  }
+
   const status = delivery?.delivery_status;
+  if (!status) {
+    return fallbackSuccess ? addedDeviceCopy() : null;
+  }
+
   if (status === 'online') {
     return {
       tone: 'success' as const,
@@ -113,16 +122,15 @@ function deliveryText(delivery?: DeliveryAttemptStatus | null) {
       message: delivery?.last_error || 'The router could not finish adding this device. Try again or contact support.',
     };
   }
+  if (status !== 'activating') {
+    return fallbackSuccess ? addedDeviceCopy() : null;
+  }
+
   return {
     tone: 'pending' as const,
     title: 'Activating Device',
     message: 'The router is adding this device. This usually finishes in a few seconds.',
   };
-}
-
-function storageKey(routerId: number | undefined, identity: string): string | null {
-  if (!routerId) return null;
-  return `bitwave_share_status:${routerId}:${identity}`;
 }
 
 export default function RouterSharePage() {
@@ -162,6 +170,13 @@ export default function RouterSharePage() {
     const formatted = formatMac(raw);
     return isValidMac(formatted) ? formatted : '';
   }, [searchParams]);
+
+  const clearTransientDeviceStatus = useCallback(() => {
+    setResult(null);
+    setDeviceStatus(null);
+    setTrackedDeviceMac('');
+    setStatusError(null);
+  }, []);
 
   useEffect(() => {
     if (!identity) {
@@ -225,7 +240,7 @@ export default function RouterSharePage() {
     }
   }, [portal?.router.router_id]);
 
-  const checkOwnerStatus = useCallback(async () => {
+  const checkOwnerStatus = useCallback(async (options?: { preserveAttempt?: boolean }) => {
     if (!portal?.router.router_id) return;
 
     const phone = formData.owner_phone.trim();
@@ -239,6 +254,9 @@ export default function RouterSharePage() {
     setOwnerStatusError(null);
     setShareCodeError(null);
     setGeneratedCode(null);
+    if (!options?.preserveAttempt) {
+      clearTransientDeviceStatus();
+    }
     try {
       const status = await api.getShareSubscriptionOwnerStatus(portal.router.router_id, phone);
       setOwnerStatus(status);
@@ -256,34 +274,7 @@ export default function RouterSharePage() {
     } finally {
       setOwnerChecking(false);
     }
-  }, [formData.owner_phone, generateShareCodeForPhone, portal?.router.router_id]);
-
-  useEffect(() => {
-    if (!portal?.router.router_id || !identity) return;
-
-    const key = storageKey(portal.router.router_id, identity);
-    if (!key) return;
-
-    try {
-      const raw = window.localStorage.getItem(key);
-      if (!raw) return;
-
-      const saved = JSON.parse(raw) as SavedShareState;
-      const ageMs = Date.now() - Number(saved.saved_at || 0);
-      const savedMac = formatMac(saved.device_mac || '');
-      if (!isValidMac(savedMac) || ageMs > 24 * 60 * 60 * 1000) return;
-
-      setTrackedDeviceMac(savedMac);
-      setResult(saved.result);
-      setFormData((prev) => ({
-        ...prev,
-        owner_phone: prev.owner_phone || saved.owner_phone || '',
-      }));
-      void refreshDeviceStatus(savedMac);
-    } catch {
-      return;
-    }
-  }, [identity, portal?.router.router_id, refreshDeviceStatus]);
+  }, [clearTransientDeviceStatus, formData.owner_phone, generateShareCodeForPhone, portal?.router.router_id]);
 
   useEffect(() => {
     if (!detectedDeviceMac) return;
@@ -318,10 +309,10 @@ export default function RouterSharePage() {
   const sharedDeviceLimit = sharingEnabled ? shareLimit : 0;
   const deviceMacCount = macCharacterCount(formData.device_mac);
   const backgroundImage = portal?.portal_settings?.header_bg_image_url;
-  const activeDelivery = deviceStatus?.delivery ?? result?.delivery ?? null;
+  const activeDelivery = deviceStatus ? deviceStatus.delivery ?? null : result?.delivery ?? null;
   const visibleDeviceMac = deviceStatus?.pairing?.device_mac || result?.device_mac || trackedDeviceMac;
   const visibleExpiry = formatExpiry(deviceStatus?.customer?.expiry || result?.expiry);
-  const statusCopy = visibleDeviceMac ? deliveryText(activeDelivery) : null;
+  const statusCopy = visibleDeviceMac ? deliveryText(activeDelivery, Boolean(result && !result.delivery)) : null;
   const statusToneClass = statusCopy?.tone === 'error'
     ? 'share_deviceStatusError'
     : statusCopy?.tone === 'success'
@@ -390,23 +381,9 @@ export default function RouterSharePage() {
   }, [activeDelivery?.delivery_status, portal?.router.router_id, refreshDeviceStatus, trackedDeviceMac]);
 
   const rememberShareResponse = useCallback((response: ShareSubscriptionResponse, ownerPhoneValue = '') => {
-    if (!portal?.router.router_id) return;
-
     setResult(response);
     setTrackedDeviceMac(response.device_mac);
     setDeviceStatus(null);
-    const key = storageKey(portal.router.router_id, identity);
-    if (key) {
-      window.localStorage.setItem(
-        key,
-        JSON.stringify({
-          owner_phone: ownerPhoneValue,
-          device_mac: response.device_mac,
-          result: response,
-          saved_at: Date.now(),
-        } satisfies SavedShareState)
-      );
-    }
     setFormData((prev) => ({
       ...prev,
       owner_phone: prev.owner_phone || ownerPhoneValue,
@@ -414,7 +391,7 @@ export default function RouterSharePage() {
       device_name: '',
     }));
     void refreshDeviceStatus(response.device_mac);
-  }, [detectedDeviceInUse, identity, portal?.router.router_id, refreshDeviceStatus]);
+  }, [detectedDeviceInUse, refreshDeviceStatus]);
 
   const handleGenerateShareCode = async () => {
     if (!portal || !sharingEnabled) return;
@@ -456,7 +433,7 @@ export default function RouterSharePage() {
       rememberShareResponse(response, formData.owner_phone.trim());
       setRedeemCode('');
       if (formData.owner_phone.trim().length >= 9) {
-        void checkOwnerStatus();
+        void checkOwnerStatus({ preserveAttempt: true });
       }
     } catch (err) {
       setRedeemCodeError(err instanceof Error ? err.message : 'Failed to redeem this code.');
@@ -493,7 +470,7 @@ export default function RouterSharePage() {
       };
       const response = await api.shareSubscriptionDevice(payload);
       rememberShareResponse(response, formData.owner_phone.trim());
-      void checkOwnerStatus();
+      void checkOwnerStatus({ preserveAttempt: true });
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : 'Failed to add this device.');
     } finally {
@@ -681,6 +658,7 @@ export default function RouterSharePage() {
                         setSubmitError(null);
                         setShareCodeError(null);
                         setGeneratedCode(null);
+                        clearTransientDeviceStatus();
                         setFormData({ ...formData, owner_phone: event.target.value });
                       }}
                       className={'share_deviceInput'}
@@ -691,7 +669,7 @@ export default function RouterSharePage() {
                     <button
                       type="button"
                       className={'share_ownerCheckBtn'}
-                      onClick={checkOwnerStatus}
+                      onClick={() => void checkOwnerStatus()}
                       disabled={ownerChecking || ownerPhone.length < 9}
                     >
                       {ownerChecking ? (
@@ -800,6 +778,7 @@ export default function RouterSharePage() {
                         onChange={(event) => {
                           setRedeemCode(formatShareCode(event.target.value));
                           setRedeemCodeError(null);
+                          clearTransientDeviceStatus();
                         }}
                         onKeyDown={(event) => {
                           if (event.key === 'Enter') {
@@ -871,6 +850,9 @@ export default function RouterSharePage() {
                         onChange={(event) => {
                           const nextMac = formatMac(event.target.value);
                           setUseDetectedDevice(Boolean(detectedDeviceMac && nextMac === detectedDeviceMac));
+                          if (trackedDeviceMac && nextMac !== trackedDeviceMac) {
+                            clearTransientDeviceStatus();
+                          }
                           setFormData({ ...formData, device_mac: nextMac });
                         }}
                         className={`${'share_deviceInput'} ${'share_mono'}`}
