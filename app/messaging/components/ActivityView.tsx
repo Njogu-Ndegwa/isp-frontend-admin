@@ -170,7 +170,7 @@ export function ActivityView({ focusCampaignId }: { focusCampaignId?: number }) 
           />
         </svg>
         <p className="text-sm text-foreground-muted">
-          No campaigns yet. Send your first message from the Send tab.
+          No campaigns yet. Send your first message from the Compose tab.
         </p>
       </div>
     );

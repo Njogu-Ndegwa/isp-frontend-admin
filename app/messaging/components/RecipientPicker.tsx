@@ -3,72 +3,20 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { api } from '../../lib/api';
 import { SmsRecipient, Plan } from '../../lib/types';
+import {
+  AudienceMode,
+  RecipientSelection,
+  MODE_LABELS,
+  buildRecipientSelection,
+} from '../lib/recipientSelection';
 
-// ─── Public types ─────────────────────────────────────────────────────────────
-export type AudienceMode = 'all' | 'active' | 'expiring' | 'by_plan' | 'specific';
-
-export interface RecipientSelection {
-  mode: AudienceMode;
-  planId?: number;
-  // resolved send descriptor for the API:
-  filter?: string;
-  customer_ids?: number[];
-  exclude_customer_ids?: number[];
-  count: number;
-  summaryLabel: string; // e.g. "Active · 60 of 62"
-}
+// Re-export shared types so existing importers keep working.
+export type { AudienceMode, RecipientSelection };
 
 interface RecipientPickerProps {
   plans: Plan[];
   value: RecipientSelection;
   onChange: (sel: RecipientSelection) => void;
-}
-
-// ─── Mode pill labels ─────────────────────────────────────────────────────────
-const MODE_LABELS: Record<AudienceMode, string> = {
-  all: 'All',
-  active: 'Active',
-  expiring: 'Expiring (7d)',
-  by_plan: 'By plan',
-  specific: 'Specific people',
-};
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-function buildSelection(
-  mode: AudienceMode,
-  planId: number | undefined,
-  totalCount: number,
-  checked: Set<number>,
-  allIds: number[],
-): RecipientSelection {
-  if (mode === 'specific') {
-    const ids = Array.from(checked);
-    return {
-      mode,
-      planId,
-      customer_ids: ids,
-      count: ids.length,
-      summaryLabel: `Specific · ${ids.length} selected`,
-    };
-  }
-
-  // Segment modes: tracked as excludes
-  const excluded = allIds.filter((id) => !checked.has(id));
-  const effectiveCount = totalCount - excluded.length;
-  const filter = mode === 'by_plan' ? 'by_plan' : mode;
-  const label =
-    excluded.length === 0
-      ? `${MODE_LABELS[mode]} · ${totalCount.toLocaleString()}`
-      : `${MODE_LABELS[mode]} · ${effectiveCount.toLocaleString()} of ${totalCount.toLocaleString()}`;
-
-  return {
-    mode,
-    planId,
-    filter,
-    exclude_customer_ids: excluded.length > 0 ? excluded : undefined,
-    count: effectiveCount,
-    summaryLabel: label,
-  };
 }
 
 // ─── Main component ───────────────────────────────────────────────────────────
@@ -82,16 +30,34 @@ export function RecipientPicker({ plans, value, onChange }: RecipientPickerProps
   const [loadingMore, setLoadingMore] = useState(false);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
-  const [checkedIds, setCheckedIds] = useState<Set<number>>(new Set());
-  const [allPageIds, setAllPageIds] = useState<number[]>([]);
+  // ── Mode-stable selection model ───────────────────────────────────────────
+  // `baseAll` + `overrides` are reset ONLY on mode/plan change (see effect
+  // below) — never on search or pagination — so deselections survive a search
+  // and "select none" is honored across unloaded pages.
+  //   baseAll === true  → overrides means "excluded"
+  //   baseAll === false → overrides means "included"
+  const [baseAll, setBaseAll] = useState<boolean>(value.mode !== 'specific');
+  const [overrides, setOverrides] = useState<Set<number>>(new Set());
   const offsetRef = useRef(0);
   const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Read mode/planId via a ref inside the fetch callback so it stays stable
+  // (no identity churn) while still seeing the latest values.
+  const ctxRef = useRef({ mode, planId });
+  ctxRef.current = { mode, planId };
   const PAGE_SIZE = 50;
 
-  // Fetch recipients list (resets on mode/plan/search change)
+  // A row is ticked iff: baseAll ? !overrides.has(id) : overrides.has(id)
+  const isChecked = useCallback(
+    (id: number) => (baseAll ? !overrides.has(id) : overrides.has(id)),
+    [baseAll, overrides],
+  );
+
+  // Fetch recipients list. Stable identity: reads mode/planId from a ref and
+  // never touches the selection model (baseAll/overrides).
   const fetchRecipients = useCallback(
     async (searchVal: string, reset: boolean) => {
-      if (mode === 'by_plan' && !planId) {
+      const { mode: m, planId: pid } = ctxRef.current;
+      if (m === 'by_plan' && !pid) {
         setRecipients([]);
         setTotalCount(0);
         setHasMore(false);
@@ -103,8 +69,8 @@ export function RecipientPicker({ plans, value, onChange }: RecipientPickerProps
       try {
         const offset = reset ? 0 : offsetRef.current;
         const res = await api.getSmsRecipients({
-          filter: mode === 'specific' ? 'all' : mode,
-          planId: mode === 'by_plan' ? planId : undefined,
+          filter: m === 'specific' ? 'all' : m,
+          planId: m === 'by_plan' ? pid : undefined,
           search: searchVal || undefined,
           limit: PAGE_SIZE,
           offset,
@@ -116,35 +82,10 @@ export function RecipientPicker({ plans, value, onChange }: RecipientPickerProps
         if (reset) {
           setRecipients(res.recipients);
           offsetRef.current = res.recipients.length;
-          // Default-tick behavior: segment modes = all ticked; specific = none
-          const ids = res.recipients.map((r) => r.customer_id);
-          setAllPageIds(ids);
-          if (mode !== 'specific') {
-            // Keep previously-unchecked items unchecked (on refresh), or default all checked
-            setCheckedIds((prev) => {
-              if (prev.size === 0) return new Set(ids);
-              // preserve intentional deselections
-              const unchecked = allPageIds.filter((id) => !prev.has(id));
-              const uncheckedSet = new Set(unchecked);
-              return new Set(ids.filter((id) => !uncheckedSet.has(id)));
-            });
-          } else {
-            // specific mode: keep selection
-          }
         } else {
           setRecipients((prev) => {
             const merged = [...prev, ...res.recipients];
             offsetRef.current = merged.length;
-            const newIds = res.recipients.map((r) => r.customer_id);
-            setAllPageIds((prevIds) => [...prevIds, ...newIds]);
-            if (mode !== 'specific') {
-              // Auto-tick newly loaded rows
-              setCheckedIds((prevChecked) => {
-                const updated = new Set(prevChecked);
-                newIds.forEach((id) => updated.add(id));
-                return updated;
-              });
-            }
             return merged;
           });
         }
@@ -155,20 +96,20 @@ export function RecipientPicker({ plans, value, onChange }: RecipientPickerProps
         setLoadingMore(false);
       }
     },
-    [mode, planId, allPageIds],
+    [],
   );
 
-  // Re-fetch when mode or planId changes
+  // Re-fetch AND reset the selection model when mode or planId changes.
   useEffect(() => {
     offsetRef.current = 0;
     setSearch('');
-    setCheckedIds(new Set());
-    setAllPageIds([]);
+    setBaseAll(mode !== 'specific');
+    setOverrides(new Set());
     fetchRecipients('', true);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, planId]);
 
-  // Debounced search
+  // Debounced search — does NOT touch the selection model.
   useEffect(() => {
     if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
     searchTimerRef.current = setTimeout(() => {
@@ -181,12 +122,18 @@ export function RecipientPicker({ plans, value, onChange }: RecipientPickerProps
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search]);
 
-  // Emit selection upward whenever checked / mode / count changes
+  // Emit selection upward whenever the model or count changes.
   useEffect(() => {
-    const sel = buildSelection(mode, planId, totalCount, checkedIds, allPageIds);
+    const sel = buildRecipientSelection({
+      mode,
+      planId,
+      baseAll,
+      overrides: Array.from(overrides),
+      totalCount,
+    });
     onChange(sel);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [checkedIds, mode, planId, totalCount]);
+  }, [baseAll, overrides, mode, planId, totalCount]);
 
   // ── Interaction handlers ──────────────────────────────────────────────────
   const handleModeChange = (m: AudienceMode) => {
@@ -194,17 +141,35 @@ export function RecipientPicker({ plans, value, onChange }: RecipientPickerProps
     if (m !== 'by_plan') setPlanId(undefined);
   };
 
+  // Toggle a single row. When baseAll, unticking adds to overrides (exclude)
+  // and ticking removes; when !baseAll, ticking adds (include) and unticking
+  // removes.
   const toggleCheck = (id: number) => {
-    setCheckedIds((prev) => {
+    setOverrides((prev) => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
+      const currentlyChecked = baseAll ? !next.has(id) : next.has(id);
+      const wantChecked = !currentlyChecked;
+      if (baseAll) {
+        // override = excluded
+        if (wantChecked) next.delete(id);
+        else next.add(id);
+      } else {
+        // override = included
+        if (wantChecked) next.add(id);
+        else next.delete(id);
+      }
       return next;
     });
   };
 
-  const selectAll = () => setCheckedIds(new Set(allPageIds));
-  const selectNone = () => setCheckedIds(new Set());
+  const selectAll = () => {
+    setBaseAll(true);
+    setOverrides(new Set());
+  };
+  const selectNone = () => {
+    setBaseAll(false);
+    setOverrides(new Set());
+  };
 
   const loadMore = () => {
     if (!hasMore || loadingMore) return;
@@ -222,9 +187,9 @@ export function RecipientPicker({ plans, value, onChange }: RecipientPickerProps
     setOpen(false);
   };
 
-  // Chips for specific-mode selected recipients
+  // Chips for specific-mode selected recipients (specific mode: overrides = included)
   const selectedRecipients = mode === 'specific'
-    ? recipients.filter((r) => checkedIds.has(r.customer_id))
+    ? recipients.filter((r) => overrides.has(r.customer_id))
     : [];
 
   // ── Inner list ─────────────────────────────────────────────────────────────
@@ -250,7 +215,7 @@ export function RecipientPicker({ plans, value, onChange }: RecipientPickerProps
           <button type="button" onClick={selectNone} className="text-accent-primary hover:underline">
             Select none
           </button>
-          <span className="ml-auto">{checkedIds.size} selected</span>
+          <span className="ml-auto">{value.count.toLocaleString()} selected</span>
         </div>
       )}
 
@@ -272,7 +237,7 @@ export function RecipientPicker({ plans, value, onChange }: RecipientPickerProps
                   <input
                     type="checkbox"
                     className="accent-amber-500 w-4 h-4 shrink-0"
-                    checked={checkedIds.has(r.customer_id)}
+                    checked={isChecked(r.customer_id)}
                     onChange={() => toggleCheck(r.customer_id)}
                   />
                   <div className="flex-1 min-w-0">
@@ -433,7 +398,7 @@ export function RecipientPicker({ plans, value, onChange }: RecipientPickerProps
                 onClick={closeSheet}
                 className="w-full btn-primary py-2.5 text-sm font-semibold"
               >
-                Done · {checkedIds.size.toLocaleString()} selected
+                Done · {value.count.toLocaleString()} selected
               </button>
             </div>
           </div>
