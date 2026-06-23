@@ -15,6 +15,7 @@ import { useAlert } from '../../context/AlertContext';
 import Header from '../../components/Header';
 import Tabs, { TabItem } from '../../components/Tabs';
 import { SkeletonCard } from '../../components/LoadingSpinner';
+import { ResellerLedgerSheet } from './components/ResellerLedgerSheet';
 
 // ── Tab type ─────────────────────────────────────────────────────────────────
 
@@ -288,9 +289,10 @@ function SettingsTab({ settings, loading, onRefetch }: SettingsTabProps) {
 interface OrdersTableProps {
   orders: SmsCreditOrder[];
   resellerMap: Map<number, string>;
+  onResellerClick: (id: number, name: string) => void;
 }
 
-function OrdersTable({ orders, resellerMap }: OrdersTableProps) {
+function OrdersTable({ orders, resellerMap, onResellerClick }: OrdersTableProps) {
   const formatDate = (d: string | null) => {
     if (!d) return '-';
     try {
@@ -336,7 +338,16 @@ function OrdersTable({ orders, resellerMap }: OrdersTableProps) {
               <tr key={order.id} className="hover:bg-background-secondary/50 transition-colors">
                 <td className="px-4 py-3 text-foreground-muted font-mono text-xs">{order.id}</td>
                 <td className="px-4 py-3 text-foreground">
-                  {resellerMap.get(order.user_id) ?? `#${order.user_id}`}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const name = resellerMap.get(order.user_id) ?? `#${order.user_id}`;
+                      onResellerClick(order.user_id, name);
+                    }}
+                    className="text-accent-primary hover:underline text-left"
+                  >
+                    {resellerMap.get(order.user_id) ?? `#${order.user_id}`}
+                  </button>
                 </td>
                 <td className="px-4 py-3 text-right font-medium">{order.quantity.toLocaleString()}</td>
                 <td className="px-4 py-3 text-right font-medium">{order.amount.toFixed(2)}</td>
@@ -360,9 +371,16 @@ function OrdersTable({ orders, resellerMap }: OrdersTableProps) {
         {orders.map((order) => (
           <div key={order.id} className="card p-4 space-y-1">
             <div className="flex items-center justify-between">
-              <span className="text-sm font-medium">
+              <button
+                type="button"
+                onClick={() => {
+                  const name = resellerMap.get(order.user_id) ?? `#${order.user_id}`;
+                  onResellerClick(order.user_id, name);
+                }}
+                className="text-sm font-medium text-accent-primary hover:underline text-left"
+              >
                 {resellerMap.get(order.user_id) ?? `#${order.user_id}`}
-              </span>
+              </button>
               <span className={`text-xs font-medium capitalize ${statusColor(order.status)}`}>
                 {order.status}
               </span>
@@ -394,6 +412,9 @@ function SalesTab({ resellers, resellerMap, loadingResellers }: SalesTabProps) {
   const { showAlert } = useAlert();
   const [orders, setOrders] = useState<SmsCreditOrder[]>([]);
   const [loadingOrders, setLoadingOrders] = useState(true);
+
+  // Ledger sheet
+  const [ledger, setLedger] = useState<{ id: number; name: string } | null>(null);
 
   // Adjust form
   const [adjustId, setAdjustId] = useState('');
@@ -512,9 +533,22 @@ function SalesTab({ resellers, resellerMap, loadingResellers }: SalesTabProps) {
             {Array.from({ length: 3 }).map((_, i) => <SkeletonCard key={i} />)}
           </div>
         ) : (
-          <OrdersTable orders={orders} resellerMap={resellerMap} />
+          <OrdersTable
+            orders={orders}
+            resellerMap={resellerMap}
+            onResellerClick={(id, name) => setLedger({ id, name })}
+          />
         )}
       </div>
+
+      {/* Reseller ledger sheet */}
+      {ledger && (
+        <ResellerLedgerSheet
+          resellerId={ledger.id}
+          resellerName={ledger.name}
+          onClose={() => setLedger(null)}
+        />
+      )}
     </div>
   );
 }
