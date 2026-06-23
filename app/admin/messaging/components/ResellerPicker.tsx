@@ -83,8 +83,8 @@ export function ResellerPicker({ resellers, loading, value, onChange }: Reseller
     ? []
     : resellers.filter((r) => (value.reseller_ids ?? []).includes(r.id));
 
-  // ── Inner list ─────────────────────────────────────────────────────────
-  const ResellerList = () => (
+  // ── Inner list JSX (inlined to avoid "component defined during render" lint) ──
+  const resellerListJsx = (
     <div className="flex flex-col h-full">
       {/* Search */}
       <div className="px-4 pt-3 pb-2 border-b border-border">
@@ -248,7 +248,7 @@ export function ResellerPicker({ resellers, loading, value, onChange }: Reseller
 
             {/* List */}
             <div className="flex-1 overflow-hidden">
-              <ResellerList />
+              {resellerListJsx}
             </div>
 
             {/* Sticky Done bar */}
