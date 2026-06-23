@@ -646,6 +646,25 @@ export interface ShareSubscriptionCodeRedeemRequest {
   device_owner_name?: string | null;
 }
 
+export interface ShareSubscriptionDisconnectRequest {
+  owner_phone: string;
+  router_id: number;
+  pairing_id: number;
+}
+
+export interface ShareSubscriptionDisconnectResponse {
+  success: boolean;
+  pairing_id: number;
+  customer_id?: number | null;
+  device_mac: string;
+  router_id: number;
+  owner_customer_id?: number | null;
+  active_shared_devices: number;
+  cleanup_status: 'removed' | 'pending' | string;
+  cleanup?: Record<string, unknown>;
+  message: string;
+}
+
 export interface DeliveryAttemptStatus {
   attempt_id: number;
   delivery_status?: 'activating' | 'online' | 'access_ready' | 'needs_attention' | string | null;

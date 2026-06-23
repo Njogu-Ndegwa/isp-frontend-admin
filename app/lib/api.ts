@@ -197,6 +197,8 @@ import {
   ShareSubscriptionCodeCreateRequest,
   ShareSubscriptionCodeRedeemRequest,
   ShareSubscriptionCodeResponse,
+  ShareSubscriptionDisconnectRequest,
+  ShareSubscriptionDisconnectResponse,
   ShareSubscriptionRequest,
   ShareSubscriptionResponse,
   UpdatePortalSettingsRequest,
@@ -720,6 +722,15 @@ class ApiClient {
       body: JSON.stringify(data),
     });
     return this.handleResponse<ShareSubscriptionResponse>(response, true);
+  }
+
+  async disconnectShareSubscriptionDevice(data: ShareSubscriptionDisconnectRequest): Promise<ShareSubscriptionDisconnectResponse> {
+    const response = await fetch(`${BASE_URL}/public/device/share-subscription/disconnect`, {
+      method: 'POST',
+      headers: this.getHeaders(false),
+      body: JSON.stringify(data),
+    });
+    return this.handleResponse<ShareSubscriptionDisconnectResponse>(response, true);
   }
 
   async getPublicDeviceStatus(routerId: number, macAddress: string): Promise<PublicDeviceStatusResponse> {
