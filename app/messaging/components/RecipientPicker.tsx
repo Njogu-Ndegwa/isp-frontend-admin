@@ -388,9 +388,11 @@ export function RecipientPicker({ plans, value, onChange }: RecipientPickerProps
               </button>
             </div>
 
-            {/* List */}
+            {/* List — call as a function (not <RecipientList/>) so it isn't a
+                fresh component type each render, which would remount the search
+                input and drop focus after every keystroke. */}
             <div className="flex-1 overflow-hidden">
-              <RecipientList />
+              {RecipientList()}
             </div>
 
             {/* Sticky Done bar */}
