@@ -3974,6 +3974,34 @@ export interface AdminInboxSendRequest {
   also_sms: boolean;
 }
 
+export interface AdminInboxSendResponse {
+  message: string;
+  recipients: number;
+  sms_queued: number;
+  sms_skipped_no_phone: number;
+}
+
+export interface AdminSmsMessage {
+  id: number;
+  reseller_id: number;
+  reseller_name: string;
+  phone: string;
+  body: string;
+  segments: number;
+  credits_charged: number;
+  provider: string | null;
+  provider_message_id: string | null;
+  status: string;
+  error: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface AdminSmsHistoryResponse {
+  summary: Record<string, number>;
+  messages: AdminSmsMessage[];
+}
+
 export interface CompensationLimitSetting {
   daily_limit: number;
   default: number;

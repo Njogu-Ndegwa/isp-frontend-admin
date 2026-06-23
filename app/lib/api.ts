@@ -235,6 +235,8 @@ import {
   MessagingSettingsUpdate,
   SmsCreditOrder,
   AdminInboxSendRequest,
+  AdminInboxSendResponse,
+  AdminSmsHistoryResponse,
   CompensationLimitSetting,
 } from './types';
 // Demo fixtures are ~2,200 lines; load them on demand so real users never
@@ -3135,13 +3137,20 @@ class ApiClient {
     return this.handleResponse<{ reseller_id: number; balance: number }>(response);
   }
 
-  async sendInboxMessage(payload: AdminInboxSendRequest): Promise<{ message: string; recipients: number }> {
+  async sendInboxMessage(payload: AdminInboxSendRequest): Promise<AdminInboxSendResponse> {
     const response = await fetch(`${BASE_URL}/admin/messaging/inbox`, {
       method: 'POST',
       headers: this.getHeaders(),
       body: JSON.stringify(payload),
     });
-    return this.handleResponse<{ message: string; recipients: number }>(response);
+    return this.handleResponse<AdminInboxSendResponse>(response);
+  }
+
+  async getAdminSmsHistory(limit = 100): Promise<AdminSmsHistoryResponse> {
+    const response = await fetch(`${BASE_URL}/admin/messaging/sms?limit=${limit}`, {
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<AdminSmsHistoryResponse>(response);
   }
 }
 

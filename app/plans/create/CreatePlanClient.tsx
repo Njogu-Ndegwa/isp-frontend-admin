@@ -38,8 +38,8 @@ export default function CreatePlanPage() {
 
   const isPPPoE = formData.connection_type === 'pppoe';
   const dataCapMb = dataCapInputToMb(dataCapValue, dataCapUnit);
-  const hasDataCap = showFup && dataCapMb !== null;
   const throttleSelected = !formData.fup_action || formData.fup_action === 'throttle';
+  const selectedFupAction: FupAction = formData.fup_action === 'block' ? 'block' : 'throttle';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -263,28 +263,40 @@ export default function CreatePlanPage() {
                     <p className="mt-1 text-xs text-foreground-muted">Leave empty or 0 for unlimited</p>
                   </div>
                   <div>
-                    <label htmlFor="fup_action" className="block text-sm font-medium text-foreground-muted mb-1.5">
-                      Action on Exceed
+                    <label className="block text-sm font-medium text-foreground-muted mb-1.5">
+                      When Cap Is Reached
                     </label>
-                    <select
-                      id="fup_action"
-                      value={formData.fup_action ?? ''}
-                      onChange={(e) => setFormData({ ...formData, fup_action: (e.target.value || null) as FupAction | null })}
-                      className="select"
-                      disabled={!hasDataCap}
-                    >
-                      <option value="">Default (throttle)</option>
-                      <option value="throttle">Throttle</option>
-                      <option value="block">Block</option>
-                      <option value="notify_only">Notify Only</option>
-                    </select>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setFormData({ ...formData, fup_action: 'throttle' })}
+                        className={`px-3 py-2 rounded-lg border text-sm font-medium transition-colors ${
+                          selectedFupAction === 'throttle'
+                            ? 'border-accent-primary bg-accent-primary/10 text-accent-primary'
+                            : 'border-border bg-background-tertiary text-foreground hover:border-accent-primary/50'
+                        }`}
+                      >
+                        Slow down internet
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setFormData({ ...formData, fup_action: 'block' })}
+                        className={`px-3 py-2 rounded-lg border text-sm font-medium transition-colors ${
+                          selectedFupAction === 'block'
+                            ? 'border-accent-primary bg-accent-primary/10 text-accent-primary'
+                            : 'border-border bg-background-tertiary text-foreground hover:border-accent-primary/50'
+                        }`}
+                      >
+                        Cut off internet
+                      </button>
+                    </div>
                   </div>
                 </div>
 
-                {hasDataCap && throttleSelected && (
+                {throttleSelected && (
                   <div>
                     <label htmlFor="fup_throttle_profile" className="block text-sm font-medium text-foreground-muted mb-1.5">
-                      {isPPPoE ? 'Throttle PPP Profile' : 'Throttle Rate'}
+                      {isPPPoE ? 'Slow PPP Profile' : 'Slow Speed (Down/Up)'}
                     </label>
                     <input
                       id="fup_throttle_profile"
@@ -295,7 +307,7 @@ export default function CreatePlanPage() {
                       placeholder={isPPPoE ? 'e.g. throttled-1m' : 'e.g., 5M/2M'}
                     />
                     <p className="mt-1 text-xs text-foreground-muted">
-                      {isPPPoE ? 'MikroTik PPP profile to switch user to when throttled' : 'MikroTik queue max-limit when throttled; blank uses 1M/1M'}
+                      {isPPPoE ? 'PPP profile to use after the data cap is reached' : 'Speed to apply after the data cap is reached; blank uses 1M/1M'}
                     </p>
                   </div>
                 )}

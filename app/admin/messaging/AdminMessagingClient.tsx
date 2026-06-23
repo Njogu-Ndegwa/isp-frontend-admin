@@ -7,6 +7,8 @@ import {
   SmsBundle,
   SmsCreditOrder,
   AdminReseller,
+  AdminSmsMessage,
+  AdminSmsHistoryResponse,
 } from '../../lib/types';
 import { useAuth } from '../../context/AuthContext';
 import { useAlert } from '../../context/AlertContext';
@@ -16,13 +18,45 @@ import { SkeletonCard } from '../../components/LoadingSpinner';
 
 // ── Tab type ─────────────────────────────────────────────────────────────────
 
-type TabValue = 'settings' | 'sales' | 'broadcast';
+type TabValue = 'settings' | 'sales' | 'broadcast' | 'sms-history';
 
 const TABS: TabItem<TabValue>[] = [
   { value: 'settings', label: 'Settings' },
   { value: 'sales',    label: 'Credit sales' },
   { value: 'broadcast', label: 'Message resellers' },
+  { value: 'sms-history', label: 'SMS history' },
 ];
+
+function formatDateTime(d: string | null) {
+  if (!d) return '-';
+  try {
+    return new Date(d).toLocaleString('en-KE', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  } catch {
+    return '-';
+  }
+}
+
+function SmsStatusBadge({ status }: { status: string }) {
+  const cls =
+    status === 'sent' || status === 'delivered'
+      ? 'text-success bg-emerald-500/10 border-emerald-500/20'
+      : status === 'failed'
+        ? 'text-danger bg-red-500/10 border-red-500/20'
+        : status === 'queued'
+          ? 'text-foreground-muted bg-background-tertiary border-border'
+          : 'text-amber-500 bg-amber-500/10 border-amber-500/20';
+  return (
+    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border capitalize ${cls}`}>
+      {status}
+    </span>
+  );
+}
 
 // ── Bundle editor ─────────────────────────────────────────────────────────────
 
@@ -511,7 +545,10 @@ function BroadcastTab({ resellers, loadingResellers }: BroadcastTabProps) {
         body: body.trim(),
         also_sms: alsoSms,
       });
-      showAlert('success', `Sent to ${result.recipients} reseller(s)`);
+      const smsNote = alsoSms
+        ? ` SMS queued: ${result.sms_queued}. No phone: ${result.sms_skipped_no_phone}.`
+        : '';
+      showAlert('success', `Inbox message sent to ${result.recipients} reseller(s).${smsNote}`);
       setSubject('');
       setBody('');
       setAlsoSms(false);
@@ -608,6 +645,131 @@ function BroadcastTab({ resellers, loadingResellers }: BroadcastTabProps) {
 
 // ── Main page ─────────────────────────────────────────────────────────────────
 
+function SmsHistoryTab() {
+  const [history, setHistory] = useState<AdminSmsHistoryResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await api.getAdminSmsHistory(200);
+      setHistory(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load SMS history');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const messages: AdminSmsMessage[] = history?.messages ?? [];
+  const summary = history?.summary ?? {};
+
+  if (loading) {
+    return (
+      <div className="space-y-3 pt-4">
+        {Array.from({ length: 4 }).map((_, i) => <SkeletonCard key={i} />)}
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="card p-6 text-center mt-4">
+        <p className="text-sm text-danger mb-3">{error}</p>
+        <button onClick={load} className="btn-primary px-4 py-2 text-sm">Retry</button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4 pt-4">
+      <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+        {(['sent', 'failed', 'queued', 'delivered'] as const).map((status) => (
+          <div key={status} className="card p-4">
+            <p className="text-xs text-foreground-muted capitalize">{status}</p>
+            <p className="text-2xl font-semibold text-foreground">{(summary[status] ?? 0).toLocaleString()}</p>
+          </div>
+        ))}
+      </div>
+
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-semibold text-foreground">Recent admin SMS</h3>
+        <button onClick={load} className="text-xs text-foreground-muted hover:text-foreground transition-colors">
+          Refresh
+        </button>
+      </div>
+
+      {messages.length === 0 ? (
+        <div className="card p-8 text-center">
+          <p className="text-sm text-foreground-muted">No admin SMS rows found.</p>
+        </div>
+      ) : (
+        <>
+          <div className="hidden lg:block card overflow-hidden">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border bg-background-secondary">
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-foreground-muted">Date</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-foreground-muted">Reseller</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-foreground-muted">Phone</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-foreground-muted">Status</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-foreground-muted">Provider ID</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-foreground-muted">Message</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {messages.map((msg) => (
+                  <tr key={msg.id} className="hover:bg-background-secondary/50 transition-colors align-top">
+                    <td className="px-4 py-3 text-xs text-foreground-muted whitespace-nowrap">{formatDateTime(msg.created_at)}</td>
+                    <td className="px-4 py-3 text-foreground">{msg.reseller_name}</td>
+                    <td className="px-4 py-3 text-xs font-mono text-foreground-muted">{msg.phone}</td>
+                    <td className="px-4 py-3">
+                      <div className="space-y-1">
+                        <SmsStatusBadge status={msg.status} />
+                        {msg.error && <p className="text-xs text-danger max-w-40 break-words">{msg.error}</p>}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-xs font-mono text-foreground-muted">
+                      {msg.provider_message_id ?? '-'}
+                    </td>
+                    <td className="px-4 py-3 text-xs text-foreground-muted max-w-sm">
+                      <p className="line-clamp-2">{msg.body}</p>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="lg:hidden space-y-2">
+            {messages.map((msg) => (
+              <div key={msg.id} className="card p-4 space-y-2">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-medium text-foreground">{msg.reseller_name}</p>
+                    <p className="text-xs font-mono text-foreground-muted">{msg.phone}</p>
+                  </div>
+                  <SmsStatusBadge status={msg.status} />
+                </div>
+                <p className="text-xs text-foreground-muted">{formatDateTime(msg.created_at)}</p>
+                <p className="text-sm text-foreground line-clamp-2">{msg.body}</p>
+                {msg.provider_message_id && (
+                  <p className="text-xs font-mono text-foreground-muted">{msg.provider_message_id}</p>
+                )}
+                {msg.error && <p className="text-xs text-danger">{msg.error}</p>}
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 export default function AdminMessagingPage() {
   const { user } = useAuth();
 
@@ -699,6 +861,8 @@ export default function AdminMessagingPage() {
           loadingResellers={loadingResellers}
         />
       )}
+
+      {tab === 'sms-history' && <SmsHistoryTab />}
     </div>
   );
 }
