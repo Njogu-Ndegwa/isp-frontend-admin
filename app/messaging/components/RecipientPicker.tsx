@@ -135,6 +135,11 @@ export function RecipientPicker({ plans, value, onChange }: RecipientPickerProps
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [baseAll, overrides, mode, planId, totalCount]);
 
+  // Safety: restore body scroll if this picker unmounts while the sheet is open.
+  useEffect(() => {
+    return () => { document.body.style.overflow = ''; };
+  }, []);
+
   // ── Interaction handlers ──────────────────────────────────────────────────
   const handleModeChange = (m: AudienceMode) => {
     setMode(m);
