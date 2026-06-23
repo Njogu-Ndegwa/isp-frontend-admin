@@ -228,6 +228,7 @@ import {
   SmsTemplate,
   SmsCampaign,
   SmsCampaignDetail,
+  SmsCreditTransaction,
   InboxResponse,
   MessagingSettings,
   MessagingSettingsUpdate,
@@ -3021,14 +3022,41 @@ class ApiClient {
     return this.handleResponse<SmsPurchaseResponse>(response);
   }
 
-  async getSmsRecipients(filter = 'all', planId?: number): Promise<SmsRecipientsResponse> {
+  async getSmsRecipients(opts: {
+    filter?: string;
+    planId?: number;
+    search?: string;
+    excludeIds?: number[];
+    limit?: number;
+    offset?: number;
+  } = {}): Promise<SmsRecipientsResponse> {
     const params = new URLSearchParams();
-    params.append('filter', filter);
-    if (planId) params.append('plan_id', planId.toString());
+    params.append('filter', opts.filter ?? 'all');
+    if (opts.planId) params.append('plan_id', opts.planId.toString());
+    if (opts.search) params.append('search', opts.search);
+    if (opts.excludeIds && opts.excludeIds.length > 0) params.append('exclude_customer_ids', opts.excludeIds.join(','));
+    if (opts.limit !== undefined) params.append('limit', opts.limit.toString());
+    if (opts.offset !== undefined) params.append('offset', opts.offset.toString());
     const response = await fetch(`${BASE_URL}/messaging/recipients?${params.toString()}`, {
       headers: this.getHeaders(),
     });
     return this.handleResponse<SmsRecipientsResponse>(response);
+  }
+
+  async getSmsCreditLedger(limit = 50, offset = 0): Promise<{ transactions: SmsCreditTransaction[] }> {
+    const params = new URLSearchParams({ limit: limit.toString(), offset: offset.toString() });
+    const response = await fetch(`${BASE_URL}/messaging/credits/ledger?${params.toString()}`, {
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<{ transactions: SmsCreditTransaction[] }>(response);
+  }
+
+  async getAdminResellerLedger(resellerId: number, limit = 50, offset = 0): Promise<{ transactions: SmsCreditTransaction[] }> {
+    const params = new URLSearchParams({ limit: limit.toString(), offset: offset.toString() });
+    const response = await fetch(`${BASE_URL}/admin/messaging/resellers/${resellerId}/ledger?${params.toString()}`, {
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<{ transactions: SmsCreditTransaction[] }>(response);
   }
 
   async sendSms(payload: SmsSendRequest): Promise<SmsSendResponse> {
