@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { AdminReseller } from '../../../lib/types';
 
 // ─── Descriptor emitted to parent ─────────────────────────────────────────────
@@ -35,6 +35,13 @@ export function ResellerPicker({ resellers, loading, value, onChange }: Reseller
     document.body.style.overflow = '';
     setOpen(false);
   };
+
+  // Restore scroll on unmount in case the component is removed while the sheet is open
+  useEffect(() => {
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, []);
 
   // ── All-resellers toggle ─────────────────────────────────────────────────
   const toggleAllResellers = useCallback(() => {
