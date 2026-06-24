@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { api } from '../../../lib/api';
 import { SmsCreditTransaction } from '../../../lib/types';
 import { LedgerList } from '../../../messaging/components/LedgerList';
@@ -59,7 +60,8 @@ export function ResellerLedgerSheet({ resellerId, resellerName, onClose }: Resel
     fetchTransactions(transactions.length, true);
   };
 
-  return (
+  if (typeof document === 'undefined') return null;
+  return createPortal(
     <div className="fixed inset-0 z-[10000] flex items-end sm:items-center justify-center">
       {/* Backdrop */}
       <div
@@ -149,7 +151,8 @@ export function ResellerLedgerSheet({ resellerId, resellerName, onClose }: Resel
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

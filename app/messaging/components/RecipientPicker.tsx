@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { api } from '../../lib/api';
 import { SmsRecipient, Plan } from '../../lib/types';
 import {
@@ -355,8 +356,11 @@ export function RecipientPicker({ plans, value, onChange }: RecipientPickerProps
         </div>
       )}
 
-      {/* ── Bottom sheet (mobile) / inline panel (desktop) ─────────────────── */}
-      {open && (
+      {/* ── Bottom sheet (mobile) / centered panel (desktop) ─────────────────
+          Portaled to <body> so an ancestor with a CSS transform (e.g. the
+          `.card` hover-lift) can't become the containing block and trap this
+          fixed overlay inside the card. */}
+      {open && typeof document !== 'undefined' && createPortal(
         <div className="fixed inset-0 z-[10000] flex flex-col items-end sm:items-center justify-end sm:justify-center p-0 sm:p-4">
           {/* Backdrop */}
           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={closeSheet} />
@@ -409,7 +413,8 @@ export function RecipientPicker({ plans, value, onChange }: RecipientPickerProps
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );

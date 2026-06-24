@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { AdminReseller } from '../../../lib/types';
 
 // ─── Descriptor emitted to parent ─────────────────────────────────────────────
@@ -220,8 +221,10 @@ export function ResellerPicker({ resellers, loading, value, onChange }: Reseller
         </div>
       )}
 
-      {/* ── Bottom sheet (mobile) / modal (desktop) ──────────────────────── */}
-      {open && (
+      {/* ── Bottom sheet (mobile) / modal (desktop) ──────────────────────────
+          Portaled to <body> so a transformed ancestor (e.g. a `.card`) can't
+          trap this fixed overlay. */}
+      {open && typeof document !== 'undefined' && createPortal(
         <div className="fixed inset-0 z-[10000] flex flex-col items-end sm:items-center justify-end sm:justify-center p-0 sm:p-4">
           {/* Backdrop */}
           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={closeSheet} />
@@ -272,7 +275,8 @@ export function ResellerPicker({ resellers, loading, value, onChange }: Reseller
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );

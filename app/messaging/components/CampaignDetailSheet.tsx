@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { api } from '../../lib/api';
 import { SmsCampaignDetail } from '../../lib/types';
 
@@ -132,7 +133,8 @@ export function CampaignDetailSheet({ campaignId, onClose }: { campaignId: numbe
     { value: 'failed', label: 'Failed' },
   ];
 
-  return (
+  if (typeof document === 'undefined') return null;
+  return createPortal(
     <div className="fixed inset-0 z-[10000] flex items-end sm:items-center justify-center">
       {/* Backdrop */}
       <div
@@ -257,7 +259,8 @@ export function CampaignDetailSheet({ campaignId, onClose }: { campaignId: numbe
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
