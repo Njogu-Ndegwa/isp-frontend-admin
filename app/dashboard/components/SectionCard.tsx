@@ -21,7 +21,7 @@ export default function SectionCard({
   title, accent = 'amber', meta, controls, loading, className = '', bodyClassName = '', children,
 }: SectionCardProps) {
   return (
-    <section className={`card p-4 sm:p-5 animate-fade-in min-w-0 ${className}`}>
+    <section className={`card p-4 sm:p-5 animate-fade-in min-w-0 h-full ${className}`}>
       <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
         <h3 className="font-semibold text-foreground flex items-center gap-2 text-sm sm:text-base min-w-0">
           <span className={`w-1.5 h-5 rounded-full flex-shrink-0 ${ACCENT[accent]}`} />

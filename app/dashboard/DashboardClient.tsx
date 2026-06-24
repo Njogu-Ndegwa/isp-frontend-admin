@@ -359,7 +359,7 @@ export default function DashboardPage() {
         : <KpiStrip data={data} loading={analyticsLoading} periodLabel={getPeriodLabel(dateFilter)} />)}
 
       {/* 12-col bento grid */}
-      <div className="grid grid-cols-1 xl:grid-cols-12 gap-4 sm:gap-6 items-start">
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-4 sm:gap-6 items-stretch">
         {/* Row 2 — Revenue 8 + Plans 4 */}
         {hasRouters !== false && <div className="xl:col-span-8 min-w-0"><RevenueSection routerId={selectedRouterId} enabled={selectedRouterId !== null} /></div>}
         {!analyticsError && data && <div className="xl:col-span-4 min-w-0"><PlanPerformance plans={data.planPerformance} totalRevenue={data.summary.totalRevenue} /></div>}
