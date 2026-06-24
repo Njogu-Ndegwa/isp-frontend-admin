@@ -15,6 +15,8 @@ import { useAlert } from '../../context/AlertContext';
 import Header from '../../components/Header';
 import Tabs, { TabItem } from '../../components/Tabs';
 import { SkeletonCard } from '../../components/LoadingSpinner';
+import { ResellerLedgerSheet } from './components/ResellerLedgerSheet';
+import BroadcastView from './components/BroadcastView';
 
 // ── Tab type ─────────────────────────────────────────────────────────────────
 
@@ -288,9 +290,10 @@ function SettingsTab({ settings, loading, onRefetch }: SettingsTabProps) {
 interface OrdersTableProps {
   orders: SmsCreditOrder[];
   resellerMap: Map<number, string>;
+  onResellerClick: (id: number, name: string) => void;
 }
 
-function OrdersTable({ orders, resellerMap }: OrdersTableProps) {
+function OrdersTable({ orders, resellerMap, onResellerClick }: OrdersTableProps) {
   const formatDate = (d: string | null) => {
     if (!d) return '-';
     try {
@@ -336,7 +339,16 @@ function OrdersTable({ orders, resellerMap }: OrdersTableProps) {
               <tr key={order.id} className="hover:bg-background-secondary/50 transition-colors">
                 <td className="px-4 py-3 text-foreground-muted font-mono text-xs">{order.id}</td>
                 <td className="px-4 py-3 text-foreground">
-                  {resellerMap.get(order.user_id) ?? `#${order.user_id}`}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const name = resellerMap.get(order.user_id) ?? `#${order.user_id}`;
+                      onResellerClick(order.user_id, name);
+                    }}
+                    className="text-accent-primary hover:underline text-left"
+                  >
+                    {resellerMap.get(order.user_id) ?? `#${order.user_id}`}
+                  </button>
                 </td>
                 <td className="px-4 py-3 text-right font-medium">{order.quantity.toLocaleString()}</td>
                 <td className="px-4 py-3 text-right font-medium">{order.amount.toFixed(2)}</td>
@@ -360,9 +372,16 @@ function OrdersTable({ orders, resellerMap }: OrdersTableProps) {
         {orders.map((order) => (
           <div key={order.id} className="card p-4 space-y-1">
             <div className="flex items-center justify-between">
-              <span className="text-sm font-medium">
+              <button
+                type="button"
+                onClick={() => {
+                  const name = resellerMap.get(order.user_id) ?? `#${order.user_id}`;
+                  onResellerClick(order.user_id, name);
+                }}
+                className="text-sm font-medium text-accent-primary hover:underline text-left"
+              >
                 {resellerMap.get(order.user_id) ?? `#${order.user_id}`}
-              </span>
+              </button>
               <span className={`text-xs font-medium capitalize ${statusColor(order.status)}`}>
                 {order.status}
               </span>
@@ -394,6 +413,9 @@ function SalesTab({ resellers, resellerMap, loadingResellers }: SalesTabProps) {
   const { showAlert } = useAlert();
   const [orders, setOrders] = useState<SmsCreditOrder[]>([]);
   const [loadingOrders, setLoadingOrders] = useState(true);
+
+  // Ledger sheet
+  const [ledger, setLedger] = useState<{ id: number; name: string } | null>(null);
 
   // Adjust form
   const [adjustId, setAdjustId] = useState('');
@@ -512,136 +534,27 @@ function SalesTab({ resellers, resellerMap, loadingResellers }: SalesTabProps) {
             {Array.from({ length: 3 }).map((_, i) => <SkeletonCard key={i} />)}
           </div>
         ) : (
-          <OrdersTable orders={orders} resellerMap={resellerMap} />
+          <OrdersTable
+            orders={orders}
+            resellerMap={resellerMap}
+            onResellerClick={(id, name) => setLedger({ id, name })}
+          />
         )}
       </div>
+
+      {/* Reseller ledger sheet */}
+      {ledger && (
+        <ResellerLedgerSheet
+          resellerId={ledger.id}
+          resellerName={ledger.name}
+          onClose={() => setLedger(null)}
+        />
+      )}
     </div>
   );
 }
 
-// ── Broadcast tab ─────────────────────────────────────────────────────────────
-
-interface BroadcastTabProps {
-  resellers: AdminReseller[];
-  loadingResellers: boolean;
-}
-
-function BroadcastTab({ resellers, loadingResellers }: BroadcastTabProps) {
-  const { showAlert } = useAlert();
-  const [recipient, setRecipient] = useState('all');
-  const [subject, setSubject] = useState('');
-  const [body, setBody] = useState('');
-  const [alsoSms, setAlsoSms] = useState(false);
-  const [sending, setSending] = useState(false);
-
-  const handleSend = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!body.trim()) { showAlert('error', 'Message body is required'); return; }
-    setSending(true);
-    try {
-      const result = await api.sendInboxMessage({
-        recipient,
-        subject: subject.trim() || undefined,
-        body: body.trim(),
-        also_sms: alsoSms,
-      });
-      const smsNote = alsoSms
-        ? ` SMS queued: ${result.sms_queued}. No phone: ${result.sms_skipped_no_phone}.`
-        : '';
-      showAlert('success', `Inbox message sent to ${result.recipients} reseller(s).${smsNote}`);
-      setSubject('');
-      setBody('');
-      setAlsoSms(false);
-      setRecipient('all');
-    } catch (err) {
-      showAlert('error', err instanceof Error ? err.message : 'Failed to send message');
-    } finally {
-      setSending(false);
-    }
-  };
-
-  return (
-    <form onSubmit={handleSend} className="space-y-4 pt-4">
-      <div className="card p-6 space-y-4">
-        <h3 className="text-sm font-semibold text-foreground">Compose message</h3>
-
-        <div>
-          <label className="block text-xs font-medium text-foreground-muted mb-1">Recipient</label>
-          <select
-            value={recipient}
-            onChange={(e) => setRecipient(e.target.value)}
-            className="select"
-            disabled={loadingResellers}
-          >
-            <option value="all">All resellers</option>
-            {resellers.map((r) => (
-              <option key={r.id} value={String(r.id)}>
-                {r.organization_name || r.email}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div>
-          <label className="block text-xs font-medium text-foreground-muted mb-1">
-            Subject <span className="font-normal">(optional)</span>
-          </label>
-          <input
-            type="text"
-            value={subject}
-            onChange={(e) => setSubject(e.target.value)}
-            className="input"
-            placeholder="Subject line…"
-          />
-        </div>
-
-        <div>
-          <label className="block text-xs font-medium text-foreground-muted mb-1">
-            Body <span className="text-danger">*</span>
-          </label>
-          <textarea
-            value={body}
-            onChange={(e) => setBody(e.target.value)}
-            className="input min-h-[120px] resize-y"
-            placeholder="Write your message here…"
-            required
-          />
-        </div>
-
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            role="switch"
-            aria-checked={alsoSms}
-            onClick={() => setAlsoSms((v) => !v)}
-            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-              alsoSms ? 'bg-success' : 'bg-background-tertiary border border-border'
-            }`}
-          >
-            <span
-              className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
-                alsoSms ? 'translate-x-6' : 'translate-x-1'
-              }`}
-            />
-          </button>
-          <span className="text-sm text-foreground">
-            Also send as SMS to support phone — billed to platform
-          </span>
-        </div>
-      </div>
-
-      <div className="flex justify-end">
-        <button
-          type="submit"
-          disabled={sending || loadingResellers}
-          className="btn-primary px-5 py-2 text-sm"
-        >
-          {sending ? 'Sending…' : 'Send message'}
-        </button>
-      </div>
-    </form>
-  );
-}
+// BroadcastTab is now BroadcastView (extracted to its own file for D1)
 
 // ── Main page ─────────────────────────────────────────────────────────────────
 
@@ -856,7 +769,7 @@ export default function AdminMessagingPage() {
       )}
 
       {tab === 'broadcast' && (
-        <BroadcastTab
+        <BroadcastView
           resellers={resellers}
           loadingResellers={loadingResellers}
         />

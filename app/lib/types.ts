@@ -646,6 +646,25 @@ export interface ShareSubscriptionCodeRedeemRequest {
   device_owner_name?: string | null;
 }
 
+export interface ShareSubscriptionDisconnectRequest {
+  owner_phone: string;
+  router_id: number;
+  pairing_id: number;
+}
+
+export interface ShareSubscriptionDisconnectResponse {
+  success: boolean;
+  pairing_id: number;
+  customer_id?: number | null;
+  device_mac: string;
+  router_id: number;
+  owner_customer_id?: number | null;
+  active_shared_devices: number;
+  cleanup_status: 'removed' | 'pending' | string;
+  cleanup?: Record<string, unknown>;
+  message: string;
+}
+
 export interface DeliveryAttemptStatus {
   attempt_id: number;
   delivery_status?: 'activating' | 'online' | 'access_ready' | 'needs_attention' | string | null;
@@ -3851,12 +3870,14 @@ export interface SmsPurchaseResponse {
 
 export interface SmsRecipient {
   customer_id: number;
+  name: string | null;
   phone: string;
 }
 
 export interface SmsRecipientsResponse {
   count: number;
   recipients: SmsRecipient[];
+  has_more: boolean;
 }
 
 export interface SmsSendRequest {
@@ -3864,7 +3885,20 @@ export interface SmsSendRequest {
   filter?: string;            // "all" | "by_plan" | "active" | "expiring"
   plan_id?: number;
   customer_ids?: number[];
+  exclude_customer_ids?: number[];
   template_id?: number;
+}
+
+export type SmsTxnKind = 'purchase' | 'send_debit' | 'refund' | 'admin_adjustment';
+
+export interface SmsCreditTransaction {
+  id: number;
+  kind: SmsTxnKind;
+  change: number;
+  balance_after: number;
+  reference: string | null;
+  note: string | null;
+  created_at: string | null;
 }
 
 export interface SmsSendResponse {
@@ -3894,8 +3928,17 @@ export interface SmsCampaign {
   created_at: string | null;
 }
 
+export interface SmsCampaignCounts {
+  total: number;
+  sent: number;
+  failed: number;
+  queued: number;
+  delivered: number;
+}
+
 export interface SmsCampaignMessage {
   phone: string;
+  name: string | null;
   status: string;             // queued|sent|delivered|failed
   error: string | null;
 }
@@ -3903,6 +3946,7 @@ export interface SmsCampaignMessage {
 export interface SmsCampaignDetail {
   id: number;
   status: string;
+  counts: SmsCampaignCounts;
   messages: SmsCampaignMessage[];
 }
 
@@ -3949,7 +3993,8 @@ export interface SmsCreditOrder {
 }
 
 export interface AdminInboxSendRequest {
-  recipient: string;          // reseller id as string, or "all"
+  reseller_ids: number[] | null;
+  all_resellers: boolean;
   subject?: string;
   body: string;
   also_sms: boolean;
