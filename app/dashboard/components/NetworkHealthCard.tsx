@@ -2,11 +2,15 @@
 import React from 'react';
 import SectionCard, { SectionError } from './SectionCard';
 import RadialGauge from './RadialGauge';
+import { LiveThroughputContent } from './LiveThroughputCard';
 import { CpuIcon, MemoryIcon, StorageIcon, RouterIcon } from './icons';
 import { formatBytes } from './InterfacesPanel';
 import type { MikroTikMetrics } from '../../lib/types';
 import { parseUTCToGMT3, formatGMT3Date } from '../../lib/dateUtils';
 
+// Combined "Router Health" card: device health radial dials (CPU/Memory/Storage)
+// alongside live throughput + online sessions. Both read the same MikroTik
+// metrics, so they share one card, header, and loading/error state.
 export default function NetworkHealthCard({
   data,
   loading,
@@ -21,7 +25,7 @@ export default function NetworkHealthCard({
   // Error state
   if (error) {
     return (
-      <SectionCard title="Device Health" accent="emerald">
+      <SectionCard title="Router Health" accent="emerald">
         <SectionError message={error} onRetry={onRetry} />
       </SectionCard>
     );
@@ -30,17 +34,20 @@ export default function NetworkHealthCard({
   // Loading skeleton (no data yet)
   if (loading && !data) {
     return (
-      <SectionCard title="Device Health" accent="emerald" loading>
-        <div className="grid grid-cols-3 gap-2 sm:gap-3">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="flex flex-col items-center p-3 sm:p-4 rounded-2xl bg-background-tertiary/40">
-              <div className="w-[80px] h-[80px] sm:w-[110px] sm:h-[110px] rounded-full skeleton" />
-              <div className="w-14 h-3 skeleton mt-2" />
-            </div>
-          ))}
-        </div>
-        <div className="mt-4 pt-3 border-t border-border/30">
-          <div className="w-48 h-3 skeleton" />
+      <SectionCard title="Router Health" accent="emerald" loading>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+          <div className="grid grid-cols-3 gap-2 sm:gap-3">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="flex flex-col items-center p-3 sm:p-4 rounded-2xl bg-background-tertiary/40">
+                <div className="w-[80px] h-[80px] sm:w-[110px] sm:h-[110px] rounded-full skeleton" />
+                <div className="w-14 h-3 skeleton mt-2" />
+              </div>
+            ))}
+          </div>
+          <div className="space-y-4">
+            <div className="h-40 rounded-2xl skeleton" />
+            <div className="h-24 rounded-2xl skeleton" />
+          </div>
         </div>
       </SectionCard>
     );
@@ -90,17 +97,10 @@ export default function NetworkHealthCard({
       })
     : null;
 
-  const metaNode = lastUpdated ? (
-    <span suppressHydrationWarning>{lastUpdated}</span>
-  ) : null;
+  const metaNode = lastUpdated ? <span suppressHydrationWarning>{lastUpdated}</span> : null;
 
   return (
-    <SectionCard
-      title="Device Health"
-      accent="emerald"
-      loading={loading}
-      meta={metaNode}
-    >
+    <SectionCard title="Router Health" accent="emerald" loading={loading} meta={metaNode}>
       {/* Router name + status badge */}
       <div className="flex items-center gap-2 flex-wrap mb-4">
         <div className="w-8 h-8 rounded-xl bg-emerald-500/10 flex items-center justify-center flex-shrink-0">
@@ -113,28 +113,32 @@ export default function NetworkHealthCard({
         )}
       </div>
 
-      {/* Radial dials */}
-      <div className="grid grid-cols-3 gap-2 sm:gap-3">
-        <RadialGauge
-          value={cpuLoad}
-          label="CPU Load"
-          icon={<CpuIcon className="w-5 h-5" />}
-          thresholds={{ warning: 50, danger: 80 }}
-        />
-        <RadialGauge
-          value={memory.usedPercent ?? 0}
-          label="Memory"
-          icon={<MemoryIcon className="w-5 h-5" />}
-          thresholds={{ warning: 60, danger: 80 }}
-          subtitle={`${formatBytes(memory.usedBytes ?? 0)} / ${formatBytes(memory.totalBytes ?? 0)}`}
-        />
-        <RadialGauge
-          value={storage.usedPercent ?? 0}
-          label="Storage"
-          icon={<StorageIcon className="w-5 h-5" />}
-          thresholds={{ warning: 70, danger: 90 }}
-          subtitle={`${formatBytes(storage.usedBytes ?? 0)} / ${formatBytes(storage.totalBytes ?? 0)}`}
-        />
+      {/* Device health (radial dials) | Live throughput + online */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+        <div className="grid grid-cols-3 gap-2 sm:gap-3 content-start">
+          <RadialGauge
+            value={cpuLoad}
+            label="CPU Load"
+            icon={<CpuIcon className="w-5 h-5" />}
+            thresholds={{ warning: 50, danger: 80 }}
+          />
+          <RadialGauge
+            value={memory.usedPercent ?? 0}
+            label="Memory"
+            icon={<MemoryIcon className="w-5 h-5" />}
+            thresholds={{ warning: 60, danger: 80 }}
+            subtitle={`${formatBytes(memory.usedBytes ?? 0)} / ${formatBytes(memory.totalBytes ?? 0)}`}
+          />
+          <RadialGauge
+            value={storage.usedPercent ?? 0}
+            label="Storage"
+            icon={<StorageIcon className="w-5 h-5" />}
+            thresholds={{ warning: 70, danger: 90 }}
+            subtitle={`${formatBytes(storage.usedBytes ?? 0)} / ${formatBytes(storage.totalBytes ?? 0)}`}
+          />
+        </div>
+
+        <LiveThroughputContent data={data} />
       </div>
 
       {/* System summary */}

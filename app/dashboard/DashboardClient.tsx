@@ -14,7 +14,6 @@ import KpiStrip from './components/KpiStrip';
 import RevenueSection from './components/RevenueSection';
 import PlanPerformance from './components/PlanPerformance';
 import NetworkHealthCard from './components/NetworkHealthCard';
-import LiveThroughputCard from './components/LiveThroughputCard';
 import DownloadUsageSection from './components/DownloadUsageSection';
 import BandwidthSection from './components/BandwidthSection';
 import TopDownloaders from './components/TopDownloaders';
@@ -364,9 +363,8 @@ export default function DashboardPage() {
         {hasRouters !== false && <div className="xl:col-span-8 min-w-0"><RevenueSection routerId={selectedRouterId} enabled={selectedRouterId !== null} /></div>}
         {!analyticsError && data && <div className="xl:col-span-4 min-w-0"><PlanPerformance plans={data.planPerformance} totalRevenue={data.summary.totalRevenue} /></div>}
 
-        {/* Row 3 — Network 6 + 6 */}
-        {selectedRouterId && <div className="xl:col-span-6 min-w-0"><NetworkHealthCard data={mikrotik} loading={mikrotikLoading} error={mikrotikError} onRetry={loadMikrotik} /></div>}
-        {selectedRouterId && <div className="xl:col-span-6 min-w-0"><LiveThroughputCard data={mikrotik} loading={mikrotikLoading} error={mikrotikError} onRetry={loadMikrotik} /></div>}
+        {/* Row 3 — Router Health (full width: dials + live throughput) */}
+        {selectedRouterId && <div className="xl:col-span-12 min-w-0"><NetworkHealthCard data={mikrotik} loading={mikrotikLoading} error={mikrotikError} onRetry={loadMikrotik} /></div>}
 
         {/* Row 4 — Traffic 6 + 6 */}
         {selectedRouterId && <div className="xl:col-span-6 min-w-0"><DownloadUsageSection data={bandwidth} loading={bandwidthLoading} error={bandwidthError} onRetry={loadBandwidth} hours={downloadUsageHours} onHoursChange={setDownloadUsageHours} service={downloadUsageService} onServiceChange={setDownloadUsageService} /></div>}

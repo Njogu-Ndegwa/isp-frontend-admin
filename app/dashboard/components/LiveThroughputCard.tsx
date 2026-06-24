@@ -1,65 +1,12 @@
 'use client';
 import React from 'react';
-import SectionCard, { SectionError } from './SectionCard';
 import { UsersIcon } from './icons';
 import type { MikroTikMetrics } from '../../lib/types';
 
-export default function LiveThroughputCard({
-  data,
-  loading,
-  error,
-  onRetry,
-}: {
-  data: MikroTikMetrics | null;
-  loading: boolean;
-  error: string | null;
-  onRetry: () => void;
-}): React.JSX.Element {
-  // Error state
-  if (error) {
-    return (
-      <SectionCard title="Live Throughput" accent="cyan">
-        <SectionError message={error} onRetry={onRetry} />
-      </SectionCard>
-    );
-  }
-
-  // Loading skeleton (no data yet)
-  if (loading && !data) {
-    return (
-      <SectionCard title="Live Throughput" accent="cyan" loading>
-        <div className="space-y-4">
-          <div className="p-3 rounded-2xl bg-background-tertiary">
-            <div className="w-24 h-3 skeleton mb-3" />
-            <div className="space-y-3">
-              <div>
-                <div className="flex justify-between mb-1.5">
-                  <div className="w-20 h-4 skeleton" />
-                  <div className="w-16 h-4 skeleton" />
-                </div>
-                <div className="h-3 rounded-full skeleton" />
-              </div>
-              <div>
-                <div className="flex justify-between mb-1.5">
-                  <div className="w-20 h-4 skeleton" />
-                  <div className="w-16 h-4 skeleton" />
-                </div>
-                <div className="h-3 rounded-full skeleton" />
-              </div>
-            </div>
-          </div>
-          <div className="p-3 rounded-2xl bg-background-tertiary flex items-center justify-center gap-6">
-            <div className="w-16 h-16 skeleton rounded-2xl" />
-            <div className="w-16 h-16 skeleton rounded-2xl" />
-          </div>
-        </div>
-      </SectionCard>
-    );
-  }
-
-  if (!data) return <></>;
-
-  // Derive values — mirror source lines 936–947
+// Live bandwidth meters + active hotspot/PPPoE "online now" counts.
+// Presentational only — rendered inside the combined Router Health card,
+// which owns the card chrome, loading and error states.
+export function LiveThroughputContent({ data }: { data: MikroTikMetrics }) {
   const bandwidth = data.bandwidth ?? { downloadMbps: 0, uploadMbps: 0 };
   const download = bandwidth.downloadMbps ?? 0;
   const upload = bandwidth.uploadMbps ?? 0;
@@ -67,7 +14,6 @@ export default function LiveThroughputCard({
   const downloadPercent = Math.min((download / maxSpeed) * 100, 100);
   const uploadPercent = Math.min((upload / maxSpeed) * 100, 100);
 
-  // Active users — mirror source lines 936–944
   const activeHotspot = data.activeHotspotUsers ?? data.activeSessionCount ?? 0;
   const activePppoe = data.activePppoeUsers ?? data.activePppoeCount ?? 0;
   const activeTotal = data.activeTotalUsers ?? activeHotspot + activePppoe;
@@ -79,9 +25,9 @@ export default function LiveThroughputCard({
     : 'snapshot';
 
   return (
-    <SectionCard title="Live Throughput" accent="cyan" loading={loading}>
-      {/* Bandwidth speedometer — from BandwidthSpeedometer (788–869) */}
-      <div className="p-3 sm:p-4 rounded-2xl bg-gradient-to-br from-background-tertiary to-background mb-4">
+    <div className="space-y-4 h-full flex flex-col">
+      {/* Bandwidth speedometer */}
+      <div className="p-3 sm:p-4 rounded-2xl bg-gradient-to-br from-background-tertiary to-background flex-1">
         <div className="flex items-center justify-between mb-3 sm:mb-4">
           <span className="text-[10px] sm:text-xs text-foreground-muted uppercase tracking-wide font-medium">
             Live Bandwidth
@@ -152,44 +98,26 @@ export default function LiveThroughputCard({
         </div>
       </div>
 
-      {/* Active Users block — from source lines 1027–1048 */}
+      {/* Active users "online now" */}
       <div className="p-3 sm:p-4 rounded-2xl bg-gradient-to-b from-amber-500/20 to-amber-500/5 flex flex-col items-center justify-center">
         <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-amber-500/20 flex items-center justify-center mb-2">
           <UsersIcon className="w-5 h-5 sm:w-6 sm:h-6 text-amber-500" />
         </div>
         <div className="flex items-stretch gap-3 sm:gap-4">
-          <div
-            className="flex flex-col items-center"
-            title={`Hotspot users — ${hotspotAgeLabel}`}
-          >
-            <span className="text-xl sm:text-2xl font-bold text-amber-500 stat-value leading-none">
-              {activeHotspot}
-            </span>
-            <span className="text-[9px] sm:text-[10px] font-medium text-foreground-muted uppercase tracking-wide mt-1">
-              Hotspot
-            </span>
-            <span className="text-[8px] sm:text-[9px] text-foreground-muted/70 mt-0.5">
-              {hotspotAgeLabel}
-            </span>
+          <div className="flex flex-col items-center" title={`Hotspot users — ${hotspotAgeLabel}`}>
+            <span className="text-xl sm:text-2xl font-bold text-amber-500 stat-value leading-none">{activeHotspot}</span>
+            <span className="text-[9px] sm:text-[10px] font-medium text-foreground-muted uppercase tracking-wide mt-1">Hotspot</span>
+            <span className="text-[8px] sm:text-[9px] text-foreground-muted/70 mt-0.5">{hotspotAgeLabel}</span>
           </div>
           <div className="w-px bg-amber-500/20" />
-          <div
-            className="flex flex-col items-center"
-            title="PPPoE users — live count"
-          >
-            <span className="text-xl sm:text-2xl font-bold text-sky-400 stat-value leading-none">
-              {activePppoe}
-            </span>
-            <span className="text-[9px] sm:text-[10px] font-medium text-foreground-muted uppercase tracking-wide mt-1">
-              PPPoE
-            </span>
+          <div className="flex flex-col items-center" title="PPPoE users — live count">
+            <span className="text-xl sm:text-2xl font-bold text-sky-400 stat-value leading-none">{activePppoe}</span>
+            <span className="text-[9px] sm:text-[10px] font-medium text-foreground-muted uppercase tracking-wide mt-1">PPPoE</span>
             <span className="text-[8px] sm:text-[9px] text-emerald-400/80 mt-0.5">live</span>
           </div>
         </div>
-        <span className="text-[9px] sm:text-[10px] text-foreground-muted mt-2">
-          {activeTotal} active • online
-        </span>
+        <span className="text-[9px] sm:text-[10px] text-foreground-muted mt-2">{activeTotal} active • online</span>
       </div>
-    </SectionCard>
+    </div>
   );
 }
