@@ -26,6 +26,31 @@ export function TopUsageBody({
     return <SectionEmpty message="No usage recorded this period" />;
   }
 
+  // For uncapped (no-FUP) plans, % of cap is meaningless, so the bar shows
+  // usage relative to the heaviest user instead of a misleading empty 0% bar.
+  const maxTotal = Math.max(1, ...data.map((e) => e.total_mb || 0));
+
+  // Derive per-row display values consistently for desktop + mobile.
+  const view = (entry: ResellerTopUsageEntry) => {
+    const hasCap = entry.cap_mb != null && entry.cap_mb > 0;
+    const percent = Math.min(100, Math.max(0, entry.percent_used || 0));
+    const barWidth = hasCap ? percent : Math.min(100, ((entry.total_mb || 0) / maxTotal) * 100);
+    const barColor = !hasCap
+      ? 'bg-cyan-500/70'
+      : entry.fup_active
+        ? 'bg-danger'
+        : percent >= 90
+          ? 'bg-warning'
+          : percent >= 75
+            ? 'bg-amber-500'
+            : 'bg-purple-500';
+    const connectionType = entry.connection_type ?? 'hotspot';
+    const serviceLabel = connectionType === 'pppoe' ? 'PPPoE' : 'Hotspot';
+    const identifier = entry.identifier || entry.pppoe_username || 'No identifier';
+    const usageText = `${formatMb(entry.total_mb)}${hasCap ? ` / ${formatMb(entry.cap_mb as number)}` : ''}`;
+    return { hasCap, percent, barWidth, barColor, connectionType, serviceLabel, identifier, usageText };
+  };
+
   return (
     <>
       {/* Desktop table */}
@@ -43,17 +68,7 @@ export function TopUsageBody({
           </thead>
           <tbody>
             {data.map((entry, i) => {
-              const percent = Math.min(100, Math.max(0, entry.percent_used || 0));
-              const barColor = entry.fup_active
-                ? 'bg-danger'
-                : percent >= 90
-                ? 'bg-warning'
-                : percent >= 75
-                ? 'bg-amber-500'
-                : 'bg-purple-500';
-              const connectionType = entry.connection_type ?? 'hotspot';
-              const serviceLabel = connectionType === 'pppoe' ? 'PPPoE' : 'Hotspot';
-              const identifier = entry.identifier || entry.pppoe_username || 'No identifier';
+              const v = view(entry);
               return (
                 <tr key={entry.customer_id} className="border-b border-border/50 hover:bg-background-tertiary/30 transition-colors">
                   <td className="py-3 text-foreground-muted">{i + 1}</td>
@@ -61,15 +76,15 @@ export function TopUsageBody({
                     <Link href={`/customers/${entry.customer_id}`} className="font-medium text-foreground hover:text-accent-primary transition-colors">
                       {entry.customer_name || 'Unnamed customer'}
                     </Link>
-                    <p className="text-xs font-mono text-foreground-muted">{identifier}</p>
+                    <p className="text-xs font-mono text-foreground-muted">{v.identifier}</p>
                   </td>
                   <td className="py-3">
                     <span className={`inline-flex px-2 py-1 rounded-md text-xs font-medium ${
-                      connectionType === 'pppoe'
+                      v.connectionType === 'pppoe'
                         ? 'bg-violet-500/10 text-violet-400'
                         : 'bg-amber-500/10 text-amber-400'
                     }`}>
-                      {serviceLabel}
+                      {v.serviceLabel}
                     </span>
                   </td>
                   <td className="py-3">
@@ -79,21 +94,27 @@ export function TopUsageBody({
                     <div className="flex items-center gap-2">
                       <div className="h-2 bg-background-tertiary rounded-full overflow-hidden flex-1">
                         <div
-                          className={`h-full ${barColor} rounded-full transition-all duration-500`}
-                          style={{ width: `${percent}%` }}
+                          className={`h-full ${v.barColor} rounded-full transition-all duration-500`}
+                          style={{ width: `${v.barWidth}%` }}
                         />
                       </div>
                       <span className="text-xs text-foreground-muted whitespace-nowrap font-mono">
-                        {formatMb(entry.total_mb)}{entry.cap_mb != null ? ` / ${formatMb(entry.cap_mb)}` : ''}
+                        {v.usageText}
                       </span>
                     </div>
                   </td>
                   <td className="py-3 text-right">
-                    <span className={`text-sm font-semibold ${entry.fup_active ? 'text-danger' : percent >= 90 ? 'text-warning' : 'text-foreground'}`}>
-                      {percent.toFixed(1)}%
-                    </span>
-                    {entry.fup_active && (
-                      <p className="text-[10px] text-danger uppercase tracking-wider mt-0.5">FUP</p>
+                    {v.hasCap ? (
+                      <>
+                        <span className={`text-sm font-semibold ${entry.fup_active ? 'text-danger' : v.percent >= 90 ? 'text-warning' : 'text-foreground'}`}>
+                          {v.percent.toFixed(1)}%
+                        </span>
+                        {entry.fup_active && (
+                          <p className="text-[10px] text-danger uppercase tracking-wider mt-0.5">FUP</p>
+                        )}
+                      </>
+                    ) : (
+                      <span className="text-xs text-foreground-muted">No cap</span>
                     )}
                   </td>
                 </tr>
@@ -106,17 +127,7 @@ export function TopUsageBody({
       {/* Mobile cards */}
       <div className="md:hidden space-y-2">
         {data.map((entry, i) => {
-          const percent = Math.min(100, Math.max(0, entry.percent_used || 0));
-          const barColor = entry.fup_active
-            ? 'bg-danger'
-            : percent >= 90
-            ? 'bg-warning'
-            : percent >= 75
-            ? 'bg-amber-500'
-            : 'bg-purple-500';
-          const connectionType = entry.connection_type ?? 'hotspot';
-          const serviceLabel = connectionType === 'pppoe' ? 'PPPoE' : 'Hotspot';
-          const identifier = entry.identifier || entry.pppoe_username || 'No identifier';
+          const v = view(entry);
           return (
             <Link
               key={entry.customer_id}
@@ -128,30 +139,32 @@ export function TopUsageBody({
                   <span className="text-xs text-foreground-muted w-5">{i + 1}.</span>
                   <div className="min-w-0">
                     <p className="text-sm font-medium text-foreground truncate">{entry.customer_name || 'Unnamed customer'}</p>
-                    <p className="text-[10px] font-mono text-foreground-muted truncate">{identifier}</p>
+                    <p className="text-[10px] font-mono text-foreground-muted truncate">{v.identifier}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0">
                   <span className={`px-1.5 py-0.5 rounded text-[9px] font-medium ${
-                    connectionType === 'pppoe'
+                    v.connectionType === 'pppoe'
                       ? 'bg-violet-500/10 text-violet-400'
                       : 'bg-amber-500/10 text-amber-400'
                   }`}>
-                    {serviceLabel}
+                    {v.serviceLabel}
                   </span>
-                  <span className={`text-sm font-semibold ${entry.fup_active ? 'text-danger' : percent >= 90 ? 'text-warning' : 'text-foreground'}`}>
-                    {percent.toFixed(0)}%
-                  </span>
+                  {v.hasCap ? (
+                    <span className={`text-sm font-semibold ${entry.fup_active ? 'text-danger' : v.percent >= 90 ? 'text-warning' : 'text-foreground'}`}>
+                      {v.percent.toFixed(0)}%
+                    </span>
+                  ) : (
+                    <span className="text-[10px] text-foreground-muted">No cap</span>
+                  )}
                 </div>
               </div>
               <div className="h-1.5 bg-background-tertiary rounded-full overflow-hidden mb-1">
-                <div className={`h-full ${barColor} rounded-full transition-all duration-500`} style={{ width: `${percent}%` }} />
+                <div className={`h-full ${v.barColor} rounded-full transition-all duration-500`} style={{ width: `${v.barWidth}%` }} />
               </div>
               <div className="flex items-center justify-between text-[10px] text-foreground-muted">
-                <span className="font-mono">
-                  {formatMb(entry.total_mb)}{entry.cap_mb != null ? ` / ${formatMb(entry.cap_mb)}` : ''}
-                </span>
-                {entry.fup_active && <span className="text-danger uppercase tracking-wider font-medium">FUP</span>}
+                <span className="font-mono">{v.usageText}</span>
+                {v.hasCap && entry.fup_active && <span className="text-danger uppercase tracking-wider font-medium">FUP</span>}
               </div>
             </Link>
           );
