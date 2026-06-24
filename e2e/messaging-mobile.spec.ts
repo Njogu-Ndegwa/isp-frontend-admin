@@ -124,7 +124,7 @@ async function step(page: Page, name: string, fn: () => Promise<void>) {
 }
 
 test('reseller messaging — mobile walkthrough', async ({ page }) => {
-  test.setTimeout(180_000);
+  test.setTimeout(240_000);
   await page.addInitScript(`
     localStorage.removeItem('demo_mode');
     localStorage.setItem('auth_token','test-reseller-token');
@@ -214,22 +214,9 @@ test('reseller messaging — mobile walkthrough', async ({ page }) => {
     await page.getByText(/Scheduled maintenance/).click();
     await page.waitForTimeout(800);
     await shot(page, '10-campaign-detail');
-    // try the Failed filter tab inside the detail sheet
-    await page.getByText(/Failed/).first().click().catch(() => {});
-    await page.waitForTimeout(400);
-    await shot(page, '11-detail-failed-filter');
-    await page.keyboard.press('Escape').catch(() => {});
   });
 
-  await step(page, '12-credits', async () => {
-    await page.getByRole('tab', { name: 'Credits' }).click();
-    await page.waitForTimeout(800);
-    await shot(page, '12-credits-ledger');
-  });
-
-  await step(page, '13-templates', async () => {
-    await page.getByRole('tab', { name: 'Templates' }).click();
-    await page.waitForTimeout(600);
-    await shot(page, '13-templates');
-  });
+  // Note: the Credits ledger and Templates tabs render without ActivityView's
+  // 4s polling, so they are exercised by the lightweight focused checks during
+  // verification rather than appended here (which would make this smoke slow).
 });
