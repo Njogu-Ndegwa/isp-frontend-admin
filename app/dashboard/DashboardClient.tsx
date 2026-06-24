@@ -363,16 +363,16 @@ export default function DashboardPage() {
         {hasRouters !== false && <div className="xl:col-span-8 min-w-0"><RevenueSection routerId={selectedRouterId} enabled={selectedRouterId !== null} /></div>}
         {!analyticsError && data && <div className="xl:col-span-4 min-w-0"><PlanPerformance plans={data.planPerformance} totalRevenue={data.summary.totalRevenue} /></div>}
 
-        {/* Row 3 — Router Health (full width: dials + live throughput) */}
-        {selectedRouterId && <div className="xl:col-span-12 min-w-0"><NetworkHealthCard data={mikrotik} loading={mikrotikLoading} error={mikrotikError} onRetry={loadMikrotik} /></div>}
-
-        {/* Row 4 — Traffic 6 + 6 */}
+        {/* Row 3 — Router Health (6) + Download Usage (6) */}
+        {selectedRouterId && <div className="xl:col-span-6 min-w-0"><NetworkHealthCard data={mikrotik} loading={mikrotikLoading} error={mikrotikError} onRetry={loadMikrotik} /></div>}
         {selectedRouterId && <div className="xl:col-span-6 min-w-0"><DownloadUsageSection data={bandwidth} loading={bandwidthLoading} error={bandwidthError} onRetry={loadBandwidth} hours={downloadUsageHours} onHoursChange={setDownloadUsageHours} service={downloadUsageService} onServiceChange={setDownloadUsageService} /></div>}
-        {selectedRouterId && <div className="xl:col-span-6 min-w-0"><BandwidthSection data={bandwidth} loading={bandwidthLoading} error={bandwidthError} onRetry={loadBandwidth} /></div>}
 
-        {/* Row 5 — Rankings 6 + 6 */}
+        {/* Row 4 — Bandwidth History (6) + Top Downloaders (6) */}
+        {selectedRouterId && <div className="xl:col-span-6 min-w-0"><BandwidthSection data={bandwidth} loading={bandwidthLoading} error={bandwidthError} onRetry={loadBandwidth} /></div>}
         {selectedRouterId && <div className="xl:col-span-6 min-w-0"><TopDownloaders data={topUsers} loading={topUsersLoading} error={topUsersError} onRetry={loadTopUsers} /></div>}
-        <div className="xl:col-span-6 min-w-0"><TopUsageThisPeriod data={topUsageThisMonth} loading={topUsageLoading} /></div>
+
+        {/* Row 5 — Top Users This Period (full width) */}
+        <div className="xl:col-span-12 min-w-0"><TopUsageThisPeriod data={topUsageThisMonth} loading={topUsageLoading} /></div>
 
         {/* Row 6 — collapsible detail (full width) */}
         {!analyticsError && !analyticsLoading && data && (
