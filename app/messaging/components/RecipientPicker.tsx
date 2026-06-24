@@ -199,8 +199,12 @@ export function RecipientPicker({ plans, value, onChange }: RecipientPickerProps
     : [];
 
   // ── Inner list ─────────────────────────────────────────────────────────────
-  const RecipientList = () => (
-    <div className="flex flex-col h-full">
+  // Rendered as a plain function (never `<RecipientList/>`) so it doesn't become
+  // a fresh component type each render — that would remount the search input and
+  // drop focus per keystroke. `inline` = desktop in-page panel (bounded, scrolls
+  // within itself); otherwise it fills the mobile sheet's height.
+  const renderList = (inline: boolean) => (
+    <div className={inline ? 'flex flex-col' : 'flex flex-col h-full'}>
       {/* Search */}
       <div className="px-4 pt-3 pb-2 border-b border-border">
         <input
@@ -225,8 +229,8 @@ export function RecipientPicker({ plans, value, onChange }: RecipientPickerProps
         </div>
       )}
 
-      {/* List */}
-      <div className="overflow-y-auto flex-1">
+      {/* List — bounded height inline (≈7 rows then scroll); fills the sheet otherwise */}
+      <div className={inline ? 'overflow-y-auto max-h-80' : 'overflow-y-auto flex-1'}>
         {loading ? (
           <div className="flex items-center justify-center py-10">
             <div className="w-6 h-6 border-[3px] border-amber-500/30 border-t-amber-500 rounded-full animate-spin" />
@@ -329,7 +333,7 @@ export function RecipientPicker({ plans, value, onChange }: RecipientPickerProps
         <button
           type="button"
           onClick={openSheet}
-          className="text-sm text-accent-primary hover:underline shrink-0"
+          className="text-sm text-accent-primary hover:underline shrink-0 lg:hidden"
         >
           {mode === 'specific' ? 'Pick people' : 'Edit recipients'}
         </button>
@@ -355,6 +359,14 @@ export function RecipientPicker({ plans, value, onChange }: RecipientPickerProps
           ))}
         </div>
       )}
+
+      {/* Inline list — desktop only. The in-page panel replaces the modal:
+          search, select-all/none and the scrollable checkable list live right
+          here so you tick people without opening anything. Mobile keeps the
+          sheet (the trigger above is lg:hidden). */}
+      <div className="hidden lg:block border border-border rounded-xl overflow-hidden">
+        {renderList(true)}
+      </div>
 
       {/* ── Bottom sheet (mobile) / centered panel (desktop) ─────────────────
           Portaled to <body> so an ancestor with a CSS transform (e.g. the
@@ -392,11 +404,9 @@ export function RecipientPicker({ plans, value, onChange }: RecipientPickerProps
               </button>
             </div>
 
-            {/* List — call as a function (not <RecipientList/>) so it isn't a
-                fresh component type each render, which would remount the search
-                input and drop focus after every keystroke. */}
+            {/* List fills the sheet height on mobile. */}
             <div className="flex-1 overflow-hidden">
-              {RecipientList()}
+              {renderList(false)}
             </div>
 
             {/* Sticky Done bar */}
