@@ -45,7 +45,7 @@ export default function DashboardToolbar(props: {
         <div className="flex items-center gap-3 flex-wrap">
           <h1 className="text-lg font-semibold text-foreground flex-none">Dashboard</h1>
 
-          <div className="flex items-center gap-3 sm:gap-4 flex-wrap flex-1 sm:justify-end">
+          <div className="flex items-center gap-3 sm:gap-4 flex-wrap flex-1 sm:justify-end min-w-0">
             <RouterSelector
               selectedRouterId={selectedRouterId}
               onRouterChange={onRouterChange}
@@ -54,7 +54,7 @@ export default function DashboardToolbar(props: {
             />
 
             {/* Period pills (scrollable on mobile) */}
-            <div className="flex gap-1 p-1 bg-background-tertiary rounded-lg overflow-x-auto no-scrollbar">
+            <div className="flex gap-1 p-1 bg-background-tertiary rounded-lg overflow-x-auto no-scrollbar min-w-0 max-w-full">
               {DATE_FILTER_OPTIONS.map(({ filter, label }) => (
                 <button
                   key={label}

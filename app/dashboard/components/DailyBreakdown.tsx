@@ -1,16 +1,12 @@
 'use client';
 import React from 'react';
 import { DashboardAnalytics, DayDetail } from '../../lib/types';
-import { parseUTCToGMT3, formatTimeGMT3, formatDateOnlyGMT3 } from '../../lib/dateUtils';
+import { formatTimeGMT3, formatDateOnlyGMT3 } from '../../lib/dateUtils';
 import { SectionEmpty } from './SectionCard';
 
 // ---------------------------------------------------------------------------
 // Date-helper wrappers (mirrors DashboardClient 1383–1399)
 // ---------------------------------------------------------------------------
-
-function parseUTCTimestamp(timestamp: string): Date {
-  return parseUTCToGMT3(timestamp);
-}
 
 function convertUTCTimeToLocal(utcTime: string, dateStr?: string): string {
   return formatTimeGMT3(utcTime, dateStr);
