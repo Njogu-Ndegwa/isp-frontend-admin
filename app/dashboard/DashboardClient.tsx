@@ -366,11 +366,10 @@ export default function DashboardPage() {
         {selectedRouterId && <div className="xl:col-span-6 min-w-0"><NetworkHealthCard data={mikrotik} loading={mikrotikLoading} error={mikrotikError} onRetry={loadMikrotik} /></div>}
         {selectedRouterId && <div className="xl:col-span-6 min-w-0"><DownloadUsageSection data={bandwidth} loading={bandwidthLoading} error={bandwidthError} onRetry={loadBandwidth} hours={downloadUsageHours} onHoursChange={setDownloadUsageHours} service={downloadUsageService} onServiceChange={setDownloadUsageService} /></div>}
 
-        {/* Row 4 — Bandwidth History (full width) */}
-        {selectedRouterId && <div className="xl:col-span-12 min-w-0"><BandwidthSection data={bandwidth} loading={bandwidthLoading} error={bandwidthError} onRetry={loadBandwidth} /></div>}
-
-        {/* Row 5 — Top Users: Live (per-router) | Period (account-wide FUP) toggle */}
-        <div className="xl:col-span-12 min-w-0"><TopUsers selectedRouterId={selectedRouterId} live={topUsers} liveLoading={topUsersLoading} liveError={topUsersError} onRetryLive={loadTopUsers} period={topUsageThisMonth} periodLoading={topUsageLoading} /></div>
+        {/* Row 4 — Bandwidth History (6) + Top Users (6) side by side.
+            Top Users spans full width only when there's no router (Bandwidth hidden). */}
+        {selectedRouterId && <div className="xl:col-span-6 min-w-0"><BandwidthSection data={bandwidth} loading={bandwidthLoading} error={bandwidthError} onRetry={loadBandwidth} /></div>}
+        <div className={`min-w-0 ${selectedRouterId ? 'xl:col-span-6' : 'xl:col-span-12'}`}><TopUsers selectedRouterId={selectedRouterId} live={topUsers} liveLoading={topUsersLoading} liveError={topUsersError} onRetryLive={loadTopUsers} period={topUsageThisMonth} periodLoading={topUsageLoading} /></div>
 
         {/* Row 6 — collapsible detail (full width) */}
         {!analyticsError && !analyticsLoading && data && (
