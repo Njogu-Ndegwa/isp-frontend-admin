@@ -1,7 +1,7 @@
 'use client';
 import React from 'react';
 import SectionCard, { SectionError } from './SectionCard';
-import BulletBar from './BulletBar';
+import RadialGauge from './RadialGauge';
 import { CpuIcon, MemoryIcon, StorageIcon, RouterIcon } from './icons';
 import { formatBytes } from './InterfacesPanel';
 import type { MikroTikMetrics } from '../../lib/types';
@@ -31,20 +31,16 @@ export default function NetworkHealthCard({
   if (loading && !data) {
     return (
       <SectionCard title="Device Health" accent="emerald" loading>
-        <div className="space-y-4">
+        <div className="grid grid-cols-3 gap-2 sm:gap-3">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="min-w-0">
-              <div className="flex items-center justify-between mb-1.5 gap-2">
-                <div className="w-20 h-3 skeleton" />
-                <div className="w-8 h-3 skeleton" />
-              </div>
-              <div className="h-2.5 rounded-full skeleton" />
-              <div className="w-32 h-2 skeleton mt-1" />
+            <div key={i} className="flex flex-col items-center p-3 sm:p-4 rounded-2xl bg-background-tertiary/40">
+              <div className="w-[80px] h-[80px] sm:w-[110px] sm:h-[110px] rounded-full skeleton" />
+              <div className="w-14 h-3 skeleton mt-2" />
             </div>
           ))}
-          <div className="pt-3 border-t border-border/30">
-            <div className="w-48 h-3 skeleton" />
-          </div>
+        </div>
+        <div className="mt-4 pt-3 border-t border-border/30">
+          <div className="w-48 h-3 skeleton" />
         </div>
       </SectionCard>
     );
@@ -117,30 +113,27 @@ export default function NetworkHealthCard({
         )}
       </div>
 
-      {/* Bullet bars */}
-      <div className="space-y-4">
-        <BulletBar
+      {/* Radial dials */}
+      <div className="grid grid-cols-3 gap-2 sm:gap-3">
+        <RadialGauge
+          value={cpuLoad}
           label="CPU Load"
-          percent={cpuLoad}
-          warning={50}
-          danger={80}
-          icon={<CpuIcon className="w-4 h-4" />}
+          icon={<CpuIcon className="w-5 h-5" />}
+          thresholds={{ warning: 50, danger: 80 }}
         />
-        <BulletBar
+        <RadialGauge
+          value={memory.usedPercent ?? 0}
           label="Memory"
-          percent={memory.usedPercent ?? 0}
-          warning={60}
-          danger={80}
+          icon={<MemoryIcon className="w-5 h-5" />}
+          thresholds={{ warning: 60, danger: 80 }}
           subtitle={`${formatBytes(memory.usedBytes ?? 0)} / ${formatBytes(memory.totalBytes ?? 0)}`}
-          icon={<MemoryIcon className="w-4 h-4" />}
         />
-        <BulletBar
+        <RadialGauge
+          value={storage.usedPercent ?? 0}
           label="Storage"
-          percent={storage.usedPercent ?? 0}
-          warning={70}
-          danger={90}
+          icon={<StorageIcon className="w-5 h-5" />}
+          thresholds={{ warning: 70, danger: 90 }}
           subtitle={`${formatBytes(storage.usedBytes ?? 0)} / ${formatBytes(storage.totalBytes ?? 0)}`}
-          icon={<StorageIcon className="w-4 h-4" />}
         />
       </div>
 
