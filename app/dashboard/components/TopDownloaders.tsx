@@ -1,9 +1,11 @@
 'use client';
 import React from 'react';
-import SectionCard, { SectionError, SectionEmpty } from './SectionCard';
+import { SectionError, SectionEmpty } from './SectionCard';
 import type { TopUsersResponse } from '../../lib/types';
 
-export default function TopDownloaders({
+// Live per-router top users (from MikroTik queue counters). Body only —
+// rendered inside the combined Top Users card, which owns the card chrome.
+export function TopDownloadersBody({
   data,
   loading,
   error,
@@ -27,42 +29,21 @@ export default function TopDownloaders({
   };
 
   if (error) {
-    return (
-      <SectionCard title="Top Downloaders" accent="violet">
-        <SectionError message={error} onRetry={onRetry} />
-      </SectionCard>
-    );
+    return <SectionError message={error} onRetry={onRetry} />;
   }
 
   if (loading && !data) {
-    return (
-      <SectionCard title="Top Downloaders" accent="violet" loading>
-        <div className="h-48 skeleton rounded-lg" />
-      </SectionCard>
-    );
+    return <div className="h-48 skeleton rounded-lg" />;
   }
 
   if (!data || data.topUsers.length === 0) {
-    return (
-      <SectionCard title="Top Downloaders" accent="violet">
-        <SectionEmpty message="No active users" />
-      </SectionCard>
-    );
+    return <SectionEmpty message="No active users on this router" />;
   }
 
   const maxDownload = Math.max(1, ...data.topUsers.map(u => u.downloadMB));
 
-  const meta = (
-    <span>{data.topUsers.length} users · {data.totalQueues} queues</span>
-  );
-
   return (
-    <SectionCard
-      title="Top Downloaders"
-      accent="violet"
-      loading={loading}
-      meta={meta}
-    >
+    <>
       {/* Mobile: Card layout */}
       <div className="md:hidden space-y-2">
         {data.topUsers.map((user, index) => {
@@ -206,7 +187,6 @@ export default function TopDownloaders({
           </tbody>
         </table>
       </div>
-    </SectionCard>
+    </>
   );
 }
-

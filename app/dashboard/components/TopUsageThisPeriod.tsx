@@ -1,36 +1,33 @@
 'use client';
 import React from 'react';
 import Link from 'next/link';
-import SectionCard from './SectionCard';
-import { SkeletonCard } from '../../components/LoadingSpinner';
+import { SectionEmpty } from './SectionCard';
 import type { ResellerTopUsageEntry } from '../../lib/types';
 
-export default function TopUsageThisPeriod({
+// Account-wide data-cap / FUP usage for the billing period. Body only —
+// rendered inside the combined Top Users card.
+export function TopUsageBody({
   data,
   loading,
 }: {
   data: ResellerTopUsageEntry[] | null;
   loading: boolean;
-}): React.ReactElement | null {
+}): React.ReactElement {
   const formatMb = (mb: number): string => {
     if (mb >= 1024) return `${(mb / 1024).toFixed(2)} GB`;
     return `${mb.toFixed(0)} MB`;
   };
 
-  if (loading) {
-    return <SkeletonCard />;
+  if (loading && !data) {
+    return <div className="h-48 skeleton rounded-lg" />;
   }
 
   if (!data || data.length === 0) {
-    return null;
+    return <SectionEmpty message="No usage recorded this period" />;
   }
 
   return (
-    <SectionCard
-      title="Top Users This Period"
-      accent="purple"
-      meta={<span>Hotspot + PPPoE</span>}
-    >
+    <>
       {/* Desktop table */}
       <div className="hidden md:block overflow-x-auto">
         <table className="w-full">
@@ -160,6 +157,6 @@ export default function TopUsageThisPeriod({
           );
         })}
       </div>
-    </SectionCard>
+    </>
   );
 }

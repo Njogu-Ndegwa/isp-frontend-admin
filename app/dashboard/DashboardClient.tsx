@@ -16,8 +16,7 @@ import PlanPerformance from './components/PlanPerformance';
 import NetworkHealthCard from './components/NetworkHealthCard';
 import DownloadUsageSection from './components/DownloadUsageSection';
 import BandwidthSection from './components/BandwidthSection';
-import TopDownloaders from './components/TopDownloaders';
-import TopUsageThisPeriod from './components/TopUsageThisPeriod';
+import TopUsers from './components/TopUsers';
 import DailyBreakdown from './components/DailyBreakdown';
 import InterfacesPanel from './components/InterfacesPanel';
 
@@ -367,12 +366,11 @@ export default function DashboardPage() {
         {selectedRouterId && <div className="xl:col-span-6 min-w-0"><NetworkHealthCard data={mikrotik} loading={mikrotikLoading} error={mikrotikError} onRetry={loadMikrotik} /></div>}
         {selectedRouterId && <div className="xl:col-span-6 min-w-0"><DownloadUsageSection data={bandwidth} loading={bandwidthLoading} error={bandwidthError} onRetry={loadBandwidth} hours={downloadUsageHours} onHoursChange={setDownloadUsageHours} service={downloadUsageService} onServiceChange={setDownloadUsageService} /></div>}
 
-        {/* Row 4 — Bandwidth History (6) + Top Downloaders (6) */}
-        {selectedRouterId && <div className="xl:col-span-6 min-w-0"><BandwidthSection data={bandwidth} loading={bandwidthLoading} error={bandwidthError} onRetry={loadBandwidth} /></div>}
-        {selectedRouterId && <div className="xl:col-span-6 min-w-0"><TopDownloaders data={topUsers} loading={topUsersLoading} error={topUsersError} onRetry={loadTopUsers} /></div>}
+        {/* Row 4 — Bandwidth History (full width) */}
+        {selectedRouterId && <div className="xl:col-span-12 min-w-0"><BandwidthSection data={bandwidth} loading={bandwidthLoading} error={bandwidthError} onRetry={loadBandwidth} /></div>}
 
-        {/* Row 5 — Top Users This Period (full width) */}
-        <div className="xl:col-span-12 min-w-0"><TopUsageThisPeriod data={topUsageThisMonth} loading={topUsageLoading} /></div>
+        {/* Row 5 — Top Users: Live (per-router) | Period (account-wide FUP) toggle */}
+        <div className="xl:col-span-12 min-w-0"><TopUsers selectedRouterId={selectedRouterId} live={topUsers} liveLoading={topUsersLoading} liveError={topUsersError} onRetryLive={loadTopUsers} period={topUsageThisMonth} periodLoading={topUsageLoading} /></div>
 
         {/* Row 6 — collapsible detail (full width) */}
         {!analyticsError && !analyticsLoading && data && (
