@@ -3135,8 +3135,11 @@ class ApiClient {
     return this.handleResponse<AdminInboxSendResponse>(response);
   }
 
-  async getAdminSmsHistory(limit = 100): Promise<AdminSmsHistoryResponse> {
-    const response = await fetch(`${BASE_URL}/admin/messaging/sms?limit=${limit}`, {
+  async getAdminSmsHistory(limit = 100, category?: string): Promise<AdminSmsHistoryResponse> {
+    const params = new URLSearchParams();
+    params.append('limit', limit.toString());
+    if (category) params.append('category', category);
+    const response = await fetch(`${BASE_URL}/admin/messaging/sms?${params.toString()}`, {
       headers: this.getHeaders(),
     });
     return this.handleResponse<AdminSmsHistoryResponse>(response);
