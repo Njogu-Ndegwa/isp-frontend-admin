@@ -141,6 +141,12 @@ function SettingsTab({ settings, loading, onRefetch }: SettingsTabProps) {
   const [bundles, setBundles] = useState<SmsBundle[]>([]);
   const [saving, setSaving] = useState(false);
 
+  // Welcome message state
+  const [welcomeEnabled, setWelcomeEnabled] = useState(false);
+  const [welcomeSubject, setWelcomeSubject] = useState('');
+  const [welcomeMessageBody, setWelcomeMessageBody] = useState('');
+  const [welcomeSupportPhone, setWelcomeSupportPhone] = useState('');
+
   // Sync form from loaded settings
   useEffect(() => {
     if (!settings) return;
@@ -150,6 +156,10 @@ function SettingsTab({ settings, loading, onRefetch }: SettingsTabProps) {
     setEnabled(settings.enabled);
     setRetentionDays(String(settings.message_retention_days));
     setBundles(settings.bundles ?? []);
+    setWelcomeEnabled(settings.welcome_enabled);
+    setWelcomeSubject(settings.welcome_subject ?? '');
+    setWelcomeMessageBody(settings.welcome_message_body ?? '');
+    setWelcomeSupportPhone(settings.welcome_support_phone ?? '');
   }, [settings]);
 
   const handleSave = async (e: React.FormEvent) => {
@@ -163,6 +173,10 @@ function SettingsTab({ settings, loading, onRefetch }: SettingsTabProps) {
         enabled,
         message_retention_days: parseInt(retentionDays, 10),
         bundles,
+        welcome_enabled: welcomeEnabled,
+        welcome_subject: welcomeSubject,
+        welcome_message_body: welcomeMessageBody,
+        welcome_support_phone: welcomeSupportPhone.trim() || null,
       });
       showAlert('success', 'Settings updated');
       onRefetch();
@@ -270,6 +284,73 @@ function SettingsTab({ settings, loading, onRefetch }: SettingsTabProps) {
 
       <div className="card p-6">
         <BundleEditor bundles={bundles} onChange={setBundles} />
+      </div>
+
+      <div className="card p-6 space-y-4">
+        <h3 className="text-sm font-semibold text-foreground">Reseller welcome message</h3>
+
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            role="switch"
+            aria-checked={welcomeEnabled}
+            onClick={() => setWelcomeEnabled((v) => !v)}
+            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+              welcomeEnabled ? 'bg-success' : 'bg-background-tertiary border border-border'
+            }`}
+          >
+            <span
+              className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+                welcomeEnabled ? 'translate-x-6' : 'translate-x-1'
+              }`}
+            />
+          </button>
+          <span className="text-sm text-foreground">
+            Send welcome message to new resellers
+          </span>
+        </div>
+
+        <div>
+          <label className="block text-xs font-medium text-foreground-muted mb-1">
+            Subject
+          </label>
+          <input
+            type="text"
+            value={welcomeSubject}
+            onChange={(e) => setWelcomeSubject(e.target.value)}
+            className="input"
+            placeholder="Welcome to our network!"
+          />
+        </div>
+
+        <div>
+          <label className="block text-xs font-medium text-foreground-muted mb-1">
+            Message body
+          </label>
+          <textarea
+            value={welcomeMessageBody}
+            onChange={(e) => setWelcomeMessageBody(e.target.value)}
+            className="input min-h-[120px] resize-y"
+            placeholder="Welcome message text…"
+          />
+          <p className="mt-1 text-xs text-foreground-muted">
+            Available placeholders: <code className="font-mono">{'{org}'}</code> (reseller organisation name),{' '}
+            <code className="font-mono">{'{support_phone}'}</code> (support phone number)
+          </p>
+        </div>
+
+        <div>
+          <label className="block text-xs font-medium text-foreground-muted mb-1">
+            Support phone <span className="font-normal">(optional)</span>
+          </label>
+          <input
+            type="text"
+            value={welcomeSupportPhone}
+            onChange={(e) => setWelcomeSupportPhone(e.target.value)}
+            className="input"
+            placeholder="e.g. +254700000000"
+          />
+        </div>
       </div>
 
       <div className="flex justify-end">
@@ -562,12 +643,13 @@ function SmsHistoryTab() {
   const [history, setHistory] = useState<AdminSmsHistoryResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [categoryFilter, setCategoryFilter] = useState<'all' | 'reseller_welcome'>('all');
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (category?: string) => {
     setLoading(true);
     setError(null);
     try {
-      const data = await api.getAdminSmsHistory(200);
+      const data = await api.getAdminSmsHistory(200, category);
       setHistory(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load SMS history');
@@ -576,7 +658,9 @@ function SmsHistoryTab() {
     }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load(categoryFilter === 'all' ? undefined : categoryFilter);
+  }, [load, categoryFilter]);
 
   const messages: AdminSmsMessage[] = history?.messages ?? [];
   const summary = history?.summary ?? {};
@@ -593,7 +677,7 @@ function SmsHistoryTab() {
     return (
       <div className="card p-6 text-center mt-4">
         <p className="text-sm text-danger mb-3">{error}</p>
-        <button onClick={load} className="btn-primary px-4 py-2 text-sm">Retry</button>
+        <button onClick={() => load(categoryFilter === 'all' ? undefined : categoryFilter)} className="btn-primary px-4 py-2 text-sm">Retry</button>
       </div>
     );
   }
@@ -609,11 +693,24 @@ function SmsHistoryTab() {
         ))}
       </div>
 
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
         <h3 className="text-sm font-semibold text-foreground">Recent admin SMS</h3>
-        <button onClick={load} className="text-xs text-foreground-muted hover:text-foreground transition-colors">
-          Refresh
-        </button>
+        <div className="flex items-center gap-3">
+          <select
+            value={categoryFilter}
+            onChange={(e) => setCategoryFilter(e.target.value as 'all' | 'reseller_welcome')}
+            className="select text-xs py-1"
+          >
+            <option value="all">All messages</option>
+            <option value="reseller_welcome">Welcome only</option>
+          </select>
+          <button
+            onClick={() => load(categoryFilter === 'all' ? undefined : categoryFilter)}
+            className="text-xs text-foreground-muted hover:text-foreground transition-colors"
+          >
+            Refresh
+          </button>
+        </div>
       </div>
 
       {messages.length === 0 ? (
@@ -643,6 +740,11 @@ function SmsHistoryTab() {
                     <td className="px-4 py-3">
                       <div className="space-y-1">
                         <SmsStatusBadge status={msg.status} />
+                        {msg.category === 'reseller_welcome' && (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border text-blue-500 bg-blue-500/10 border-blue-500/20">
+                            Welcome
+                          </span>
+                        )}
                         {msg.error && <p className="text-xs text-danger max-w-40 break-words">{msg.error}</p>}
                       </div>
                     </td>
@@ -666,7 +768,14 @@ function SmsHistoryTab() {
                     <p className="text-sm font-medium text-foreground">{msg.reseller_name}</p>
                     <p className="text-xs font-mono text-foreground-muted">{msg.phone}</p>
                   </div>
-                  <SmsStatusBadge status={msg.status} />
+                  <div className="flex flex-col items-end gap-1">
+                    <SmsStatusBadge status={msg.status} />
+                    {msg.category === 'reseller_welcome' && (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border text-blue-500 bg-blue-500/10 border-blue-500/20">
+                        Welcome
+                      </span>
+                    )}
+                  </div>
                 </div>
                 <p className="text-xs text-foreground-muted">{formatDateTime(msg.created_at)}</p>
                 <p className="text-sm text-foreground line-clamp-2">{msg.body}</p>

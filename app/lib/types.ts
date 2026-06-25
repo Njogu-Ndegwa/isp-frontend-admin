@@ -3971,6 +3971,10 @@ export interface MessagingSettings {
   enabled: boolean;
   message_retention_days: number;
   bundles: SmsBundle[];
+  welcome_enabled: boolean;
+  welcome_subject: string;
+  welcome_message_body: string;
+  welcome_support_phone: string | null;
 }
 
 export interface MessagingSettingsUpdate {
@@ -3980,6 +3984,10 @@ export interface MessagingSettingsUpdate {
   enabled?: boolean;
   message_retention_days?: number;
   bundles?: SmsBundle[];
+  welcome_enabled?: boolean;
+  welcome_subject?: string;
+  welcome_message_body?: string;
+  welcome_support_phone?: string | null;
 }
 
 export interface SmsCreditOrder {
@@ -4021,6 +4029,7 @@ export interface AdminSmsMessage {
   error: string | null;
   created_at: string | null;
   updated_at: string | null;
+  category: string | null;
 }
 
 export interface AdminSmsHistoryResponse {
