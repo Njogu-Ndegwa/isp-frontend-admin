@@ -1356,8 +1356,8 @@ export interface CreateRouterRequest {
 export interface UpdateRouterRequest {
   name?: string;
   ip_address?: string;
-  username?: string;
-  password?: string;
+  // Router login credentials (username/password) are provisioned and managed
+  // exclusively by the backend and are intentionally not editable here.
   port?: number;
   payment_methods?: PaymentMethod[];
   emergency_active?: boolean;
