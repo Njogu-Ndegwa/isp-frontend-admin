@@ -149,7 +149,7 @@ export default function RevenueOverTimeChart({ routerId, enabled = true }: Props
     : '';
 
   return (
-    <div className="card p-4 sm:p-5 animate-fade-in" style={{ animationDelay: '0.22s', opacity: 0 }}>
+    <div className="card p-4 sm:p-5 animate-fade-in h-full" style={{ animationDelay: '0.22s', opacity: 0 }}>
       {/* Header row */}
       <div className="flex items-start justify-between gap-3 mb-3 flex-wrap sm:flex-nowrap">
         <div>

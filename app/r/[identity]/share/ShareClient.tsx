@@ -8,6 +8,7 @@ import type {
   DeliveryAttemptStatus,
   PublicDeviceStatusResponse,
   PublicPortalResponse,
+  ShareOwnerStatusDevice,
   ShareOwnerStatusResponse,
   ShareSubscriptionCodeResponse,
   ShareSubscriptionRequest,
@@ -136,7 +137,6 @@ export default function RouterSharePage() {
   const params = useParams();
   const searchParams = useSearchParams();
   const identity = normalizeParam(params.identity);
-  const initialRedeemCode = formatShareCode(searchParams.get('code') || searchParams.get('share_code') || '');
   const [portal, setPortal] = useState<PublicPortalResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -147,9 +147,6 @@ export default function RouterSharePage() {
   const [generatedCode, setGeneratedCode] = useState<ShareSubscriptionCodeResponse | null>(null);
   const [generatingCode, setGeneratingCode] = useState(false);
   const [shareCodeError, setShareCodeError] = useState<string | null>(null);
-  const [redeemCode, setRedeemCode] = useState(initialRedeemCode);
-  const [redeemingCode, setRedeemingCode] = useState(false);
-  const [redeemCodeError, setRedeemCodeError] = useState<string | null>(null);
   const [deviceStatus, setDeviceStatus] = useState<PublicDeviceStatusResponse | null>(null);
   const [statusLoading, setStatusLoading] = useState(false);
   const [statusError, setStatusError] = useState<string | null>(null);
@@ -159,6 +156,9 @@ export default function RouterSharePage() {
   const [checkedOwnerPhone, setCheckedOwnerPhone] = useState('');
   const [ownerChecking, setOwnerChecking] = useState(false);
   const [ownerStatusError, setOwnerStatusError] = useState<string | null>(null);
+  const [disconnectingPairingId, setDisconnectingPairingId] = useState<number | null>(null);
+  const [disconnectError, setDisconnectError] = useState<string | null>(null);
+  const [disconnectMessage, setDisconnectMessage] = useState<string | null>(null);
 
   const detectedDeviceMac = useMemo(() => {
     const raw =
@@ -252,6 +252,8 @@ export default function RouterSharePage() {
     setOwnerChecking(true);
     setOwnerStatusError(null);
     setShareCodeError(null);
+    setDisconnectError(null);
+    setDisconnectMessage(null);
     setGeneratedCode(null);
     if (!options?.preserveAttempt) {
       clearTransientDeviceStatus();
@@ -285,12 +287,6 @@ export default function RouterSharePage() {
     }));
   }, [detectedDeviceMac]);
 
-  useEffect(() => {
-    if (initialRedeemCode && !redeemCode) {
-      setRedeemCode(initialRedeemCode);
-    }
-  }, [initialRedeemCode, redeemCode]);
-
   const palette = useMemo(() => {
     const theme = (portal?.portal_settings?.color_theme ?? 'sunset_orange') as PortalColorTheme;
     return getThemePalette(theme);
@@ -305,7 +301,7 @@ export default function RouterSharePage() {
     return Math.max(1, Number(portal?.plan_flags?.max_shared_users) || 1, ...planLimits);
   }, [portal?.plan_flags?.max_shared_users, portal?.plans]);
   const sharingEnabled = Boolean(portal?.plan_flags?.sharing_enabled) || shareLimit > 1;
-  const sharedDeviceLimit = sharingEnabled ? shareLimit : 0;
+  const subscriptionDeviceLimit = sharingEnabled ? shareLimit : 1;
   const deviceMacCount = macCharacterCount(formData.device_mac);
   const backgroundImage = portal?.portal_settings?.header_bg_image_url;
   const activeDelivery = deviceStatus ? deviceStatus.delivery ?? null : result?.delivery ?? null;
@@ -339,8 +335,21 @@ export default function RouterSharePage() {
   const ownerStatusMessage = !ownerStatusCurrent
     ? 'Enter the owner phone number and check it before adding another device.'
     : ownerStatus?.message || '';
-  const redeemCodeReady = cleanShareCode(redeemCode).length === 6;
-  const canEditDevice = ownerHasRoom || redeemCodeReady;
+  const ownerSharedCount = ownerStatusCurrent ? Math.max(0, Number(ownerStatus?.active_shared_devices) || 0) : 0;
+  const ownerDeviceLimit = ownerStatusCurrent
+    ? Math.max(1, Number(ownerStatus?.max_shared_users) || subscriptionDeviceLimit)
+    : subscriptionDeviceLimit;
+  const ownerConnectedDevices = ownerStatusCurrent && ownerStatus?.has_active_subscription
+    ? Math.min(ownerDeviceLimit, ownerSharedCount + 1)
+    : 0;
+  const ownerAvailableExtraSlots = ownerStatusCurrent
+    ? Math.max(0, Number(ownerStatus?.available_shared_devices) || 0)
+    : 0;
+  const resultDeviceLimit = Math.max(1, Number(result?.max_shared_users) || subscriptionDeviceLimit);
+  const resultConnectedDevices = result
+    ? Math.min(resultDeviceLimit, Math.max(0, Number(result.active_shared_devices) || 0) + 1)
+    : 0;
+  const canEditDevice = ownerHasRoom;
   const generatedCodeExpiry = formatExpiry(generatedCode?.expires_at);
 
   const themeStyle = {
@@ -404,40 +413,28 @@ export default function RouterSharePage() {
     await generateShareCodeForPhone(phone);
   };
 
-  const handleRedeemShareCode = async () => {
-    if (!portal || !sharingEnabled) return;
+  const handleDisconnectSharedDevice = async (device: ShareOwnerStatusDevice) => {
+    if (!portal?.router.router_id || !ownerStatusCurrent || disconnectingPairingId) return;
 
-    const normalizedDeviceMac = formatMac(formData.device_mac);
-    if (!redeemCodeReady) {
-      setRedeemCodeError('Enter the 6-character share code.');
-      return;
-    }
-    if (!isValidMac(normalizedDeviceMac)) {
-      setRedeemCodeError('Enter a valid device MAC address.');
-      return;
-    }
+    const label = device.device_name || device.customer?.name || device.device_mac;
+    const confirmed = window.confirm(`Disconnect ${label} from this subscription?`);
+    if (!confirmed) return;
 
-    setRedeemingCode(true);
-    setRedeemCodeError(null);
-    setSubmitError(null);
-    setStatusError(null);
+    setDisconnectingPairingId(device.id);
+    setDisconnectError(null);
+    setDisconnectMessage(null);
     try {
-      const response = await api.redeemShareSubscriptionCode({
-        code: redeemCode,
+      const response = await api.disconnectShareSubscriptionDevice({
+        owner_phone: formData.owner_phone.trim(),
         router_id: portal.router.router_id,
-        device_mac: normalizedDeviceMac,
-        device_name: formData.device_name.trim() || null,
-        device_type: formData.device_type,
+        pairing_id: device.id,
       });
-      rememberShareResponse(response, formData.owner_phone.trim());
-      setRedeemCode('');
-      if (formData.owner_phone.trim().length >= 9) {
-        void checkOwnerStatus({ preserveAttempt: true });
-      }
+      setDisconnectMessage(response.message || 'Shared device disconnected.');
+      await checkOwnerStatus({ preserveAttempt: true });
     } catch (err) {
-      setRedeemCodeError(err instanceof Error ? err.message : 'Failed to redeem this code.');
+      setDisconnectError(err instanceof Error ? err.message : 'Failed to disconnect this device.');
     } finally {
-      setRedeemingCode(false);
+      setDisconnectingPairingId(null);
     }
   };
 
@@ -535,7 +532,7 @@ export default function RouterSharePage() {
                 <div className={'share_deviceEntryTitle'}>Share subscription</div>
                 <div className={'share_deviceEntrySubtitle'}>
                   {sharingEnabled
-                    ? `This plan can allow up to ${sharedDeviceLimit} shared devices`
+                    ? `This subscription allows up to ${subscriptionDeviceLimit} total devices`
                     : 'Smart TVs, consoles and other browserless devices'}
                 </div>
               </div>
@@ -571,8 +568,8 @@ export default function RouterSharePage() {
               ) : (
                 <>
                   <div className={'share_deviceTabs'}>
-                    <span className={`${'share_deviceTab'} ${'share_deviceTabActive'}`}>Add Device</span>
-                    <span className={'share_deviceTab'}>Shared Plan</span>
+                    <span className={`${'share_deviceTab'} ${'share_deviceTabActive'}`}>Owner Lookup</span>
+                    <span className={'share_deviceTab'}>Share Code</span>
                   </div>
 
                   <div className={'share_deviceStepsBar'}>
@@ -601,9 +598,9 @@ export default function RouterSharePage() {
                         </div>
                         {result && (
                           <div className={'share_deviceSummaryRow'}>
-                            <span className={'share_deviceSummaryLabel'}>Shared slots</span>
+                            <span className={'share_deviceSummaryLabel'}>Slots used</span>
                             <span className={'share_deviceSummaryValue'}>
-                              {result.active_shared_devices}/{Math.max(0, Number(result.max_shared_users) || 0)} used
+                              {resultConnectedDevices}/{resultDeviceLimit} used
                             </span>
                           </div>
                         )}
@@ -690,7 +687,7 @@ export default function RouterSharePage() {
                         </div>
                         {ownerStatusCurrent && ownerStatus?.has_active_subscription && (
                           <span className={'share_ownerStatusBadge'}>
-                            {ownerStatus.active_shared_devices ?? 0}/{ownerStatus.max_companion_devices ?? 0}
+                            {ownerConnectedDevices}/{ownerDeviceLimit}
                           </span>
                         )}
                       </div>
@@ -706,8 +703,8 @@ export default function RouterSharePage() {
                             <span className={'share_deviceSummaryValue'}>{ownerStatus.plan?.name || '-'}</span>
                           </div>
                           <div className={'share_deviceSummaryRow'}>
-                            <span className={'share_deviceSummaryLabel'}>Available slots</span>
-                            <span className={'share_deviceSummaryValue'}>{ownerStatus.available_shared_devices ?? 0}</span>
+                            <span className={'share_deviceSummaryLabel'}>Extra slots available</span>
+                            <span className={'share_deviceSummaryValue'}>{ownerAvailableExtraSlots}</span>
                           </div>
                           {ownerStatus.owner_expiry && (
                             <div className={'share_deviceSummaryRow'}>
@@ -720,7 +717,7 @@ export default function RouterSharePage() {
 
                       {ownerStatusCurrent && ownerDeviceRows.length > 0 && (
                         <div className={'share_ownerDevicesList'}>
-                          <div className={'share_ownerDevicesTitle'}>Already shared</div>
+                          <div className={'share_ownerDevicesTitle'}>Shared devices</div>
                           {ownerDeviceRows.map((device) => (
                             <div key={device.id} className={'share_ownerDeviceRow'}>
                               <div>
@@ -729,13 +726,25 @@ export default function RouterSharePage() {
                                   {device.device_name || device.customer?.name || 'Shared device'}
                                 </div>
                               </div>
-                              <span className={'share_ownerDeviceStatus'}>
-                                {device.delivery?.delivery_status || device.customer?.status || 'active'}
-                              </span>
+                              <div className={'share_ownerDeviceActions'}>
+                                <span className={'share_ownerDeviceStatus'}>
+                                  {device.delivery?.delivery_status || device.customer?.status || 'active'}
+                                </span>
+                                <button
+                                  type="button"
+                                  className={'share_ownerDeviceDisconnect'}
+                                  onClick={() => void handleDisconnectSharedDevice(device)}
+                                  disabled={disconnectingPairingId === device.id}
+                                >
+                                  {disconnectingPairingId === device.id ? 'Disconnecting...' : 'Disconnect'}
+                                </button>
+                              </div>
                             </div>
                           ))}
                         </div>
                       )}
+                      {ownerStatusCurrent && disconnectMessage && <p className={'share_ownerStatusText'}>{disconnectMessage}</p>}
+                      {ownerStatusCurrent && disconnectError && <p className={'share_ownerStatusError'}>{disconnectError}</p>}
                     </div>
 
                     {ownerStatusCurrent && ownerStatus?.has_active_subscription && ownerStatus.sharing_enabled && (
@@ -765,55 +774,7 @@ export default function RouterSharePage() {
                       </div>
                     )}
 
-                    <div className={'share_shareCodePanel'}>
-                      <h3 className={'share_deviceStepTitleAlt'}>Use Share Code</h3>
-                      <label htmlFor="share_code" className={'share_deviceLabel'}>
-                        Code
-                      </label>
-                      <input
-                        id="share_code"
-                        type="text"
-                        value={redeemCode}
-                        onChange={(event) => {
-                          setRedeemCode(formatShareCode(event.target.value));
-                          setRedeemCodeError(null);
-                          clearTransientDeviceStatus();
-                        }}
-                        onKeyDown={(event) => {
-                          if (event.key === 'Enter') {
-                            event.preventDefault();
-                            void handleRedeemShareCode();
-                          }
-                        }}
-                        className={`${'share_deviceInput'} ${'share_shareCodeInput'}`}
-                        placeholder="ABC543"
-                        autoCapitalize="characters"
-                        autoComplete="one-time-code"
-                        spellCheck={false}
-                        maxLength={6}
-                      />
-                      {redeemCodeError && <p className={'share_ownerStatusError'}>{redeemCodeError}</p>}
-                      {redeemCodeReady && deviceMacCount !== 12 && (
-                        <p className={'share_ownerStatusText'}>Add this device MAC below.</p>
-                      )}
-                      <button
-                        type="button"
-                        className={'share_shareCodeRedeemBtn'}
-                        onClick={handleRedeemShareCode}
-                        disabled={redeemingCode || !redeemCodeReady || deviceMacCount !== 12}
-                      >
-                        {redeemingCode ? (
-                          <>
-                            <span className={'share_buttonSpinner'} />
-                            Redeeming...
-                          </>
-                        ) : (
-                          'Redeem Code'
-                        )}
-                      </button>
-                    </div>
-
-                    <h3 className={'share_deviceStepTitleAlt'}>Device Info</h3>
+                    <h3 className={'share_deviceStepTitleAlt'}>Device MAC Address</h3>
 
                     {detectedDeviceMac && (
                       <div className={'share_detectedDeviceCard'}>
@@ -911,16 +872,16 @@ export default function RouterSharePage() {
 
                     <div className={'share_deviceSummaryCard'}>
                       <div className={'share_deviceSummaryRow'}>
-                        <span className={'share_deviceSummaryLabel'}>Sharing allowance</span>
+                        <span className={'share_deviceSummaryLabel'}>Subscription devices</span>
                         <span className={'share_deviceSummaryValue'}>
-                          {sharedDeviceLimit} shared device{sharedDeviceLimit === 1 ? '' : 's'}
+                          {subscriptionDeviceLimit} total device{subscriptionDeviceLimit === 1 ? '' : 's'}
                         </span>
                       </div>
                       <div className={'share_deviceSummaryRow'}>
-                        <span className={'share_deviceSummaryLabel'}>Already shared</span>
+                        <span className={'share_deviceSummaryLabel'}>Slots used</span>
                         <span className={'share_deviceSummaryValue'}>
                           {ownerStatusCurrent && ownerStatus?.has_active_subscription
-                            ? ownerStatus.active_shared_devices ?? 0
+                            ? `${ownerConnectedDevices}/${ownerDeviceLimit}`
                             : '-'}
                         </span>
                       </div>

@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { api } from '../../lib/api';
-import { CreatePlanRequest, FupAction } from '../../lib/types';
+import { CreatePlanRequest } from '../../lib/types';
 import { useAlert } from '../../context/AlertContext';
 import Header from '../../components/Header';
 import { gmt3InputToISO } from '../../lib/dateUtils';
@@ -38,8 +38,6 @@ export default function CreatePlanPage() {
 
   const isPPPoE = formData.connection_type === 'pppoe';
   const dataCapMb = dataCapInputToMb(dataCapValue, dataCapUnit);
-  const throttleSelected = !formData.fup_action || formData.fup_action === 'throttle';
-  const selectedFupAction: FupAction = formData.fup_action === 'block' ? 'block' : 'throttle';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -57,8 +55,8 @@ export default function CreatePlanPage() {
         payload.fup_action = null;
         payload.fup_throttle_profile = null;
       } else {
-        if (!payload.fup_action) payload.fup_action = null;
-        if (!throttleSelected || !payload.fup_throttle_profile) payload.fup_throttle_profile = null;
+        payload.fup_action = 'throttle';
+        if (!payload.fup_throttle_profile) payload.fup_throttle_profile = null;
       }
       await api.createPlan(payload);
       showAlert('success', `Plan "${formData.name}" created successfully!`);
@@ -231,7 +229,7 @@ export default function CreatePlanPage() {
                 <div className="mt-4">
                 <h3 className="text-sm font-semibold text-foreground-muted uppercase tracking-wider mb-1">Fair Usage Policy</h3>
                 <p className="text-xs text-foreground-muted mb-4">
-                  Optional data cap for each paid plan period. Hotspot throttling uses a queue rate; PPPoE throttling uses a profile.
+                  Optional data cap for each paid plan period. When the cap is reached, the connection is slowed to a lesser speed.
                 </p>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
@@ -263,40 +261,8 @@ export default function CreatePlanPage() {
                     <p className="mt-1 text-xs text-foreground-muted">Leave empty or 0 for unlimited</p>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-foreground-muted mb-1.5">
-                      When Cap Is Reached
-                    </label>
-                    <div className="grid grid-cols-2 gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setFormData({ ...formData, fup_action: 'throttle' })}
-                        className={`px-3 py-2 rounded-lg border text-sm font-medium transition-colors ${
-                          selectedFupAction === 'throttle'
-                            ? 'border-accent-primary bg-accent-primary/10 text-accent-primary'
-                            : 'border-border bg-background-tertiary text-foreground hover:border-accent-primary/50'
-                        }`}
-                      >
-                        Slow down internet
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setFormData({ ...formData, fup_action: 'block' })}
-                        className={`px-3 py-2 rounded-lg border text-sm font-medium transition-colors ${
-                          selectedFupAction === 'block'
-                            ? 'border-accent-primary bg-accent-primary/10 text-accent-primary'
-                            : 'border-border bg-background-tertiary text-foreground hover:border-accent-primary/50'
-                        }`}
-                      >
-                        Cut off internet
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                {throttleSelected && (
-                  <div>
                     <label htmlFor="fup_throttle_profile" className="block text-sm font-medium text-foreground-muted mb-1.5">
-                      {isPPPoE ? 'Slow PPP Profile' : 'Slow Speed (Down/Up)'}
+                      Slow Speed (Down/Up)
                     </label>
                     <input
                       id="fup_throttle_profile"
@@ -304,13 +270,13 @@ export default function CreatePlanPage() {
                       value={formData.fup_throttle_profile || ''}
                       onChange={(e) => setFormData({ ...formData, fup_throttle_profile: e.target.value || null })}
                       className="input"
-                      placeholder={isPPPoE ? 'e.g. throttled-1m' : 'e.g., 5M/2M'}
+                      placeholder="e.g., 5M/2M"
                     />
                     <p className="mt-1 text-xs text-foreground-muted">
-                      {isPPPoE ? 'PPP profile to use after the data cap is reached' : 'Speed to apply after the data cap is reached; blank uses 1M/1M'}
+                      Speed to apply after the data cap is reached; blank uses 1M/1M
                     </p>
                   </div>
-                )}
+                </div>
                 </div>
               )}
             </div>
