@@ -13,6 +13,7 @@ import SearchInput from '../components/SearchInput';
 import FilterSelect from '../components/FilterSelect';
 import { formatDateGMT3, utcToGMT3Input, gmt3InputToISO } from '../lib/dateUtils';
 import { DataCapUnit, dataCapInputToMb, splitDataCapMb } from './dataCap';
+import { normalizeDuration, describeDuration } from './duration';
 
 type FilterTab = 'all' | 'regular' | 'emergency';
 type ConnectionFilter = 'all' | 'hotspot' | 'pppoe';
@@ -687,9 +688,21 @@ function EditPlanModal({
     || Boolean(plan.fup_action)
     || Boolean(plan.fup_throttle_profile)
   );
+  const [durationInput, setDurationInput] = useState(String(plan.duration_value));
 
   const isPPPoE = formData.connection_type === 'pppoe';
   const dataCapMb = dataCapInputToMb(dataCapValue, dataCapUnit);
+
+  const durationUnit = formData.duration_unit || 'HOURS';
+  const parsedDuration = parseFloat(durationInput);
+  const normalizedDuration = Number.isFinite(parsedDuration)
+    ? normalizeDuration(parsedDuration, durationUnit)
+    : null;
+  const durationHint =
+    normalizedDuration &&
+    !(normalizedDuration.value === parsedDuration && normalizedDuration.unit === durationUnit)
+      ? `Will be saved as ${describeDuration(normalizedDuration.value, normalizedDuration.unit)}`
+      : null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -697,6 +710,13 @@ function EditPlanModal({
       setLoading(true);
       setError(null);
       const payload = { ...formData };
+      const normalized = normalizeDuration(parseFloat(durationInput), durationUnit);
+      if (!normalized) {
+        setError('Please enter a valid duration of at least 1 minute.');
+        return;
+      }
+      payload.duration_value = normalized.value;
+      payload.duration_unit = normalized.unit;
       if (!payload.badge_text) payload.badge_text = null;
       if (!payload.original_price) payload.original_price = null;
       payload.valid_until = payload.valid_until ? gmt3InputToISO(payload.valid_until) : null;
@@ -784,12 +804,17 @@ function EditPlanModal({
                 <label className="block text-sm font-medium text-foreground mb-2">Duration Value</label>
                 <input
                   type="number"
-                  value={formData.duration_value || ''}
-                  onChange={(e) => setFormData({ ...formData, duration_value: e.target.value === '' ? 0 : (parseInt(e.target.value) || 1) })}
-                  onBlur={() => { if (!formData.duration_value) setFormData(prev => ({ ...prev, duration_value: 1 })); }}
+                  inputMode="decimal"
+                  value={durationInput}
+                  onChange={(e) => setDurationInput(e.target.value)}
+                  onBlur={() => { if (!durationInput.trim()) setDurationInput('1'); }}
                   className="input"
-                  min={1}
+                  min={0}
+                  step="any"
                 />
+                {durationHint && (
+                  <p className="mt-1 text-xs text-foreground-muted">{durationHint}</p>
+                )}
               </div>
               <div>
                 <label className="block text-sm font-medium text-foreground mb-2">Duration Unit</label>

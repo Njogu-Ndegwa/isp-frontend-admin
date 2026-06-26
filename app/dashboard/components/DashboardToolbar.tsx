@@ -1,7 +1,9 @@
 'use client';
 
-import React, { JSX } from 'react';
+import React, { JSX, useState } from 'react';
 import RouterSelector from '../../components/RouterSelector';
+import MobileSidebar from '../../components/MobileSidebar';
+import AccountMenu from '../../components/AccountMenu';
 import type { Router } from '../../lib/types';
 import { DateFilter, DATE_FILTER_OPTIONS, isFilterEqual } from '../dateFilter';
 
@@ -38,23 +40,42 @@ export default function DashboardToolbar(props: {
     refreshing,
   } = props;
 
+  const [showSidebar, setShowSidebar] = useState(false);
+
   return (
     <div className="sticky top-0 z-20 bg-background/80 backdrop-blur border-b border-border">
       <div className="px-4 sm:px-6 py-3 space-y-2">
-        {/* Top row: title (left) + router + refresh (right on sm+) */}
-        <div className="flex items-center gap-3 flex-wrap">
+        <div className="flex items-center gap-2 sm:gap-3 md:gap-4 flex-wrap">
+          {/* Hamburger — only below `md`, where the desktop sidebar is hidden */}
+          <button
+            onClick={() => setShowSidebar(true)}
+            aria-label="Open navigation menu"
+            className="md:hidden -ml-1 p-1.5 rounded-lg text-foreground-muted hover:text-foreground hover:bg-background-tertiary transition-colors active:opacity-70 touch-manipulation flex-none"
+          >
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+            </svg>
+          </button>
+
           <h1 className="text-lg font-semibold text-foreground flex-none">Dashboard</h1>
 
-          <div className="flex items-center gap-3 sm:gap-4 flex-wrap flex-1 sm:justify-end min-w-0">
+          {/* Account — top-right on mobile, far-right on desktop */}
+          <div className="order-1 md:order-last ml-auto md:ml-0 flex-none">
+            <AccountMenu />
+          </div>
+
+          {/* Controls — own full-width row on mobile, inline (pushed right) on desktop */}
+          <div className="order-2 md:order-none w-full md:w-auto md:ml-auto flex items-center gap-2 sm:gap-3 flex-wrap md:flex-nowrap min-w-0">
             <RouterSelector
               selectedRouterId={selectedRouterId}
               onRouterChange={onRouterChange}
               onRoutersLoaded={onRoutersLoaded as (r: Router[]) => void}
               userId={1}
+              fullWidthOnMobile
             />
 
-            {/* Period pills (scrollable on mobile) */}
-            <div className="flex gap-1 p-1 bg-background-tertiary rounded-lg overflow-x-auto no-scrollbar min-w-0 max-w-full">
+            {/* Period pills (scrollable when cramped) */}
+            <div className="flex gap-1 p-1 bg-background-tertiary rounded-lg overflow-x-auto no-scrollbar min-w-0 flex-1 md:flex-none">
               {DATE_FILTER_OPTIONS.map(({ filter, label }) => (
                 <button
                   key={label}
@@ -85,8 +106,9 @@ export default function DashboardToolbar(props: {
 
             <button
               onClick={onRefresh}
-              className="btn-secondary flex items-center gap-2 flex-shrink-0"
+              className="btn-secondary flex items-center gap-2 flex-none"
               disabled={refreshing}
+              aria-label="Refresh dashboard"
             >
               <svg
                 className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`}
@@ -101,7 +123,7 @@ export default function DashboardToolbar(props: {
                   d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
                 />
               </svg>
-              Refresh
+              <span className="hidden md:inline">Refresh</span>
             </button>
           </div>
         </div>
@@ -132,6 +154,8 @@ export default function DashboardToolbar(props: {
           </div>
         )}
       </div>
+
+      <MobileSidebar isOpen={showSidebar} onClose={() => setShowSidebar(false)} />
     </div>
   );
 }

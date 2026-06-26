@@ -9,6 +9,7 @@ import { useAlert } from '../../context/AlertContext';
 import Header from '../../components/Header';
 import { gmt3InputToISO } from '../../lib/dateUtils';
 import { DataCapUnit, dataCapInputToMb } from '../dataCap';
+import { normalizeDuration, describeDuration } from '../duration';
 
 export default function CreatePlanPage() {
   const router = useRouter();
@@ -35,15 +36,33 @@ export default function CreatePlanPage() {
   const [dataCapValue, setDataCapValue] = useState('');
   const [dataCapUnit, setDataCapUnit] = useState<DataCapUnit>('GB');
   const [showFup, setShowFup] = useState(false);
+  const [durationInput, setDurationInput] = useState(String(formData.duration_value));
 
   const isPPPoE = formData.connection_type === 'pppoe';
   const dataCapMb = dataCapInputToMb(dataCapValue, dataCapUnit);
+
+  const parsedDuration = parseFloat(durationInput);
+  const normalizedDuration = Number.isFinite(parsedDuration)
+    ? normalizeDuration(parsedDuration, formData.duration_unit)
+    : null;
+  const durationHint =
+    normalizedDuration &&
+    !(normalizedDuration.value === parsedDuration && normalizedDuration.unit === formData.duration_unit)
+      ? `Will be saved as ${describeDuration(normalizedDuration.value, normalizedDuration.unit)}`
+      : null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       setLoading(true);
       const payload = { ...formData };
+      const normalized = normalizeDuration(parseFloat(durationInput), formData.duration_unit);
+      if (!normalized) {
+        showAlert('error', 'Please enter a valid duration of at least 1 minute.');
+        return;
+      }
+      payload.duration_value = normalized.value;
+      payload.duration_unit = normalized.unit;
       if (!payload.badge_text) payload.badge_text = null;
       if (!payload.original_price) payload.original_price = null;
       payload.valid_until = payload.valid_until ? gmt3InputToISO(payload.valid_until) : null;
@@ -133,13 +152,18 @@ export default function CreatePlanPage() {
                 <input
                   id="duration_value"
                   type="number"
-                  value={formData.duration_value || ''}
-                  onChange={(e) => setFormData({ ...formData, duration_value: e.target.value === '' ? 0 : (parseInt(e.target.value) || 1) })}
-                  onBlur={() => { if (!formData.duration_value) setFormData(prev => ({ ...prev, duration_value: 1 })); }}
+                  inputMode="decimal"
+                  value={durationInput}
+                  onChange={(e) => setDurationInput(e.target.value)}
+                  onBlur={() => { if (!durationInput.trim()) setDurationInput('1'); }}
                   className="input"
-                  min={1}
+                  min={0}
+                  step="any"
                   required
                 />
+                {durationHint && (
+                  <p className="mt-1 text-xs text-foreground-muted">{durationHint}</p>
+                )}
               </div>
               <div>
                 <label htmlFor="duration_unit" className="block text-sm font-medium text-foreground-muted mb-1.5">

@@ -26,6 +26,11 @@ import Tabs from '../components/Tabs';
 import DataTable, { DataTableColumn } from '../components/DataTable';
 import Pagination from '../components/Pagination';
 
+const TransferPPPoEModal = dynamic(() => import('../components/TransferPPPoEModal'), {
+  ssr: false,
+  loading: () => null,
+});
+
 const PPPoEImportModal = dynamic(() => import('../components/PPPoEImportModal'), {
   ssr: false,
   loading: () => null,
@@ -123,6 +128,7 @@ export default function CustomersPage() {
   const [allCustomersCache, setAllCustomersCache] = useState<Customer[]>([]);
   const [refreshKey, setRefreshKey] = useState(0);
   const [showImportModal, setShowImportModal] = useState(false);
+  const [showTransferModal, setShowTransferModal] = useState(false);
 
   // Live PPPoE monitoring — composed silently across ALL the user's routers
   // by polling /pppoe/{router}/users in parallel; per-router failures are
@@ -693,6 +699,17 @@ export default function CustomersPage() {
         subtitle={`Manage your ${totalItems || customers.length} registered customers`}
         action={
           <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setShowTransferModal(true)}
+              className="btn-secondary flex items-center gap-2 whitespace-nowrap shrink-0"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4m4 6H4m0 0l4 4m-4-4l4-4" />
+              </svg>
+              <span className="hidden sm:inline">Move PPPoE</span>
+              <span className="sm:hidden">Move</span>
+            </button>
             <button
               type="button"
               onClick={() => setShowImportModal(true)}
@@ -1276,6 +1293,14 @@ export default function CustomersPage() {
 
             <Pagination page={page} perPage={perPage} total={effectiveTotal} onPageChange={handlePageChange} onPerPageChange={handlePerPageChange} loading={loading} noun="customers" />
           </div>
+
+      {/* PPPoE Transfer Modal */}
+      {showTransferModal && (
+        <TransferPPPoEModal
+          onClose={() => setShowTransferModal(false)}
+          onTransferred={refreshData}
+        />
+      )}
 
       {/* PPPoE Import Modal */}
       {showImportModal && (

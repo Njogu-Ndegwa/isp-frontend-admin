@@ -12,8 +12,12 @@ import {
 import { useAlert } from '../context/AlertContext';
 
 interface TransferPPPoEModalProps {
-  /** The router whose PPPoE customers are being moved (source, locked). */
-  sourceRouter: Router;
+  /**
+   * The router whose PPPoE customers are being moved. When provided the source
+   * is locked (e.g. launched from a specific router). When omitted, the user
+   * picks the source from a selector (e.g. launched from the Customers page).
+   */
+  sourceRouter?: Router;
   onClose: () => void;
   /** Called after a successful (applied) transfer so the parent can refresh. */
   onTransferred: () => void;
@@ -32,8 +36,11 @@ export default function TransferPPPoEModal({
 }: TransferPPPoEModalProps) {
   const { showAlert } = useAlert();
 
-  const [routers, setRouters] = useState<Router[]>([]);
+  const lockedSource = !!sourceRouter;
+
+  const [routers, setRouters] = useState<Router[]>(sourceRouter ? [sourceRouter] : []);
   const [routersLoading, setRoutersLoading] = useState(true);
+  const [sourceRouterId, setSourceRouterId] = useState(sourceRouter ? String(sourceRouter.id) : '');
   const [targetRouterId, setTargetRouterId] = useState('');
   const [activeOnly, setActiveOnly] = useState(false);
   const [skipTargetProvision, setSkipTargetProvision] = useState(false);
@@ -42,10 +49,21 @@ export default function TransferPPPoEModal({
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<TransferPPPoEResponse | null>(null);
 
-  const targets = eligibleTargetRouters(routers, sourceRouter);
+  // The source router object — either the locked prop or the user's selection.
+  const source = sourceRouter ?? routers.find((r) => String(r.id) === sourceRouterId) ?? null;
+  const sourceId = source?.id ?? null;
+  const targets = source ? eligibleTargetRouters(routers, source) : [];
   const report = result?.report ?? null;
   const previewReady = result ? transferPreviewReady(result) : false;
   const applied = result ? transferApplied(result) : false;
+
+  // Picking a new source invalidates the current target/preview.
+  const handleSourceChange = (value: string) => {
+    setSourceRouterId(value);
+    setTargetRouterId('');
+    setResult(null);
+    setError(null);
+  };
 
   // Load routers once on mount (fresh mount === clean slate).
   useEffect(() => {
@@ -70,7 +88,7 @@ export default function TransferPPPoEModal({
   // selection, call preview with apply: false"). A per-run cancel flag drops
   // stale responses if the user changes the selection mid-flight.
   useEffect(() => {
-    if (!targetRouterId) {
+    if (!sourceId || !targetRouterId) {
       setResult(null);
       setError(null);
       return;
@@ -81,7 +99,7 @@ export default function TransferPPPoEModal({
     setBusy(true);
     (async () => {
       try {
-        const res = await api.transferPPPoECustomers(sourceRouter.id, {
+        const res = await api.transferPPPoECustomers(sourceId, {
           targetRouterId: Number(targetRouterId),
           apply: false,
           activeOnly,
@@ -101,15 +119,16 @@ export default function TransferPPPoEModal({
       }
     })();
     return () => { cancelled = true; };
-  }, [targetRouterId, activeOnly, skipTargetProvision, sourceRouter.id]);
+  }, [sourceId, targetRouterId, activeOnly, skipTargetProvision]);
 
   const handleApply = useCallback(async () => {
     const targetId = Number(targetRouterId);
+    if (!sourceId) { showAlert('error', 'Select a source router'); return; }
     if (!targetId) { showAlert('error', 'Select a target router'); return; }
     setBusy(true);
     setError(null);
     try {
-      const res = await api.transferPPPoECustomers(sourceRouter.id, {
+      const res = await api.transferPPPoECustomers(sourceId, {
         targetRouterId: targetId,
         apply: true,
         activeOnly,
@@ -132,7 +151,7 @@ export default function TransferPPPoEModal({
     } finally {
       setBusy(false);
     }
-  }, [targetRouterId, activeOnly, skipTargetProvision, sourceRouter.id, onTransferred, showAlert]);
+  }, [sourceId, targetRouterId, activeOnly, skipTargetProvision, onTransferred, showAlert]);
 
   const closeIfIdle = useCallback(() => {
     if (!busy) onClose();
@@ -148,7 +167,7 @@ export default function TransferPPPoEModal({
       onClick={closeIfIdle}
     >
       <div
-        className="card p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto space-y-5"
+        className="bg-background-secondary border border-border rounded-2xl shadow-xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto overscroll-contain space-y-5"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -156,8 +175,14 @@ export default function TransferPPPoEModal({
           <div>
             <h3 className="text-lg font-semibold text-foreground">Move PPPoE Customers</h3>
             <p className="text-sm text-foreground-muted">
-              From <span className="font-medium text-foreground">{sourceRouter.name}</span>
-              {targetRouterName ? <> to <span className="font-medium text-foreground">{targetRouterName}</span></> : ' to a replacement router'}
+              {source ? (
+                <>
+                  From <span className="font-medium text-foreground">{source.name}</span>
+                  {targetRouterName ? <> to <span className="font-medium text-foreground">{targetRouterName}</span></> : ' to a replacement router'}
+                </>
+              ) : (
+                'Move all PPPoE customers from one router to a replacement'
+              )}
             </p>
           </div>
           <button
@@ -203,7 +228,27 @@ export default function TransferPPPoEModal({
             <div className="grid sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-foreground-muted mb-1.5">Source router</label>
-                <input className="input opacity-80 cursor-not-allowed" value={sourceRouter.name} disabled readOnly />
+                {lockedSource ? (
+                  <input className="input opacity-80 cursor-not-allowed" value={source?.name ?? ''} disabled readOnly />
+                ) : (
+                  <select
+                    value={sourceRouterId}
+                    onChange={(e) => handleSourceChange(e.target.value)}
+                    className="select"
+                    disabled={busy || routersLoading}
+                  >
+                    {routersLoading ? (
+                      <option value="">Loading routers…</option>
+                    ) : (
+                      <>
+                        <option value="">Select source router</option>
+                        {routers.map((router) => (
+                          <option key={router.id} value={router.id}>{router.name}</option>
+                        ))}
+                      </>
+                    )}
+                  </select>
+                )}
               </div>
               <div>
                 <label className="block text-sm font-medium text-foreground-muted mb-1.5">Target router</label>
@@ -211,10 +256,12 @@ export default function TransferPPPoEModal({
                   value={targetRouterId}
                   onChange={(e) => setTargetRouterId(e.target.value)}
                   className="select"
-                  disabled={busy || routersLoading}
+                  disabled={busy || routersLoading || !source}
                 >
                   {routersLoading ? (
                     <option value="">Loading routers…</option>
+                  ) : !source ? (
+                    <option value="">Select a source router first</option>
                   ) : targets.length === 0 ? (
                     <option value="">No eligible target routers</option>
                   ) : (
@@ -289,7 +336,13 @@ export default function TransferPPPoEModal({
               </>
             )}
 
-            {!targetRouterId && !routersLoading && targets.length > 0 && (
+            {!routersLoading && !source && (
+              <p className="text-sm text-foreground-muted">
+                Select a source router to begin.
+              </p>
+            )}
+
+            {!targetRouterId && !routersLoading && source && targets.length > 0 && (
               <p className="text-sm text-foreground-muted">
                 Select a target router to preview which customers will move.
               </p>
