@@ -167,7 +167,7 @@ export default function TransferPPPoEModal({
       onClick={closeIfIdle}
     >
       <div
-        className="card p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto space-y-5"
+        className="bg-background-secondary border border-border rounded-2xl shadow-xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto overscroll-contain space-y-5"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
