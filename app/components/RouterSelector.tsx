@@ -9,6 +9,8 @@ interface RouterSelectorProps {
   onRouterChange: (routerId: number | null) => void;
   onRoutersLoaded?: (routers: Router[]) => void;
   userId?: number;
+  /** Stretch the control to fill its container below the `md` breakpoint (used in the dashboard toolbar). */
+  fullWidthOnMobile?: boolean;
 }
 
 export default function RouterSelector({
@@ -16,10 +18,13 @@ export default function RouterSelector({
   onRouterChange,
   onRoutersLoaded,
   userId = 1,
+  fullWidthOnMobile = false,
 }: RouterSelectorProps) {
   const [routers, setRouters] = useState<Router[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const rootClass = `flex items-center gap-2${fullWidthOnMobile ? ' w-full md:w-auto' : ''}`;
 
   useEffect(() => {
     const loadRouters = async () => {
@@ -46,42 +51,42 @@ export default function RouterSelector({
 
   if (loading) {
     return (
-      <div className="flex items-center gap-2">
-        <span className="text-foreground-muted text-sm">Router:</span>
-        <div className="h-9 w-40 skeleton rounded-lg" />
+      <div className={rootClass}>
+        <span className="text-foreground-muted text-sm flex-none">Router:</span>
+        <div className={`h-9 skeleton rounded-lg ${fullWidthOnMobile ? 'flex-1 md:flex-none md:w-40' : 'w-40'}`} />
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="flex items-center gap-2">
-        <span className="text-foreground-muted text-sm">Router:</span>
-        <span className="text-xs text-red-400">{error}</span>
+      <div className={rootClass}>
+        <span className="text-foreground-muted text-sm flex-none">Router:</span>
+        <span className="text-xs text-red-400 truncate">{error}</span>
       </div>
     );
   }
 
   if (routers.length === 0) {
     return (
-      <div className="flex items-center gap-2">
-        <span className="text-foreground-muted text-sm">Router:</span>
-        <span className="text-xs text-foreground-muted">No routers configured</span>
+      <div className={rootClass}>
+        <span className="text-foreground-muted text-sm flex-none">Router:</span>
+        <span className="text-xs text-foreground-muted truncate">No routers configured</span>
       </div>
     );
   }
 
   return (
-    <div className="flex items-center gap-2">
-      <span className="text-foreground-muted text-sm">Router:</span>
-      <div className="relative">
+    <div className={rootClass}>
+      <span className="text-foreground-muted text-sm flex-none">Router:</span>
+      <div className={`relative ${fullWidthOnMobile ? 'flex-1 md:flex-none' : ''}`}>
         <select
           value={selectedRouterId ?? ''}
           onChange={(e) => {
             const value = e.target.value;
             if (value) onRouterChange(parseInt(value, 10));
           }}
-          className="appearance-none px-3 py-2 pr-8 text-sm bg-background-tertiary border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-amber-500 cursor-pointer min-w-[160px]"
+          className={`appearance-none px-3 py-2 pr-8 text-sm bg-background-tertiary border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-amber-500 cursor-pointer min-w-[160px] ${fullWidthOnMobile ? 'w-full md:w-auto' : ''}`}
         >
           {routers.map((router) => (
             <option key={router.id} value={router.id}>

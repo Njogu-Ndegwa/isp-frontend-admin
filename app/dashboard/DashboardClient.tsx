@@ -10,6 +10,7 @@ import type { DownloadUsageServiceFilter } from './DownloadUsageChart';
 import { DateFilter, getPeriodLabel } from './dateFilter';
 import SectionCard, { SectionError } from './components/SectionCard';
 import DashboardToolbar from './components/DashboardToolbar';
+import DashboardEmptyState from './components/DashboardEmptyState';
 import KpiStrip from './components/KpiStrip';
 import RevenueSection from './components/RevenueSection';
 import PlanPerformance from './components/PlanPerformance';
@@ -351,34 +352,42 @@ export default function DashboardPage() {
 
       <OnboardingChecklist delayMs={DASHBOARD_LOAD_DELAYS_MS.onboarding} />
 
-      {/* Row 1 — KPIs */}
-      {hasRouters !== false && (analyticsError
-        ? <SectionCard title="Analytics"><SectionError message={analyticsError} onRetry={loadAnalytics} /></SectionCard>
-        : <KpiStrip data={data} loading={analyticsLoading} periodLabel={getPeriodLabel(dateFilter)} />)}
+      {hasRouters === false ? (
+        /* New account — no routers yet: preview the analytics and guide setup
+           instead of leaving the KPI skeletons spinning forever. */
+        <DashboardEmptyState />
+      ) : (
+        <>
+          {/* Row 1 — KPIs */}
+          {analyticsError
+            ? <SectionCard title="Analytics"><SectionError message={analyticsError} onRetry={loadAnalytics} /></SectionCard>
+            : <KpiStrip data={data} loading={analyticsLoading} periodLabel={getPeriodLabel(dateFilter)} />}
 
-      {/* 12-col bento grid */}
-      <div className="grid grid-cols-1 xl:grid-cols-12 gap-4 sm:gap-6 items-stretch">
-        {/* Row 2 — Revenue 8 + Plans 4 */}
-        {hasRouters !== false && <div className="xl:col-span-8 min-w-0"><RevenueSection routerId={selectedRouterId} enabled={selectedRouterId !== null} /></div>}
-        {!analyticsError && data && <div className="xl:col-span-4 min-w-0"><PlanPerformance plans={data.planPerformance} totalRevenue={data.summary.totalRevenue} /></div>}
+          {/* 12-col bento grid */}
+          <div className="grid grid-cols-1 xl:grid-cols-12 gap-4 sm:gap-6 items-stretch">
+            {/* Row 2 — Revenue 8 + Plans 4 */}
+            <div className="xl:col-span-8 min-w-0"><RevenueSection routerId={selectedRouterId} enabled={selectedRouterId !== null} /></div>
+            {!analyticsError && data && <div className="xl:col-span-4 min-w-0"><PlanPerformance plans={data.planPerformance} totalRevenue={data.summary.totalRevenue} /></div>}
 
-        {/* Row 3 — Router Health (6) + Download Usage (6) */}
-        {selectedRouterId && <div className="xl:col-span-6 min-w-0"><NetworkHealthCard data={mikrotik} loading={mikrotikLoading} error={mikrotikError} onRetry={loadMikrotik} /></div>}
-        {selectedRouterId && <div className="xl:col-span-6 min-w-0"><DownloadUsageSection data={bandwidth} loading={bandwidthLoading} error={bandwidthError} onRetry={loadBandwidth} hours={downloadUsageHours} onHoursChange={setDownloadUsageHours} service={downloadUsageService} onServiceChange={setDownloadUsageService} /></div>}
+            {/* Row 3 — Router Health (6) + Download Usage (6) */}
+            {selectedRouterId && <div className="xl:col-span-6 min-w-0"><NetworkHealthCard data={mikrotik} loading={mikrotikLoading} error={mikrotikError} onRetry={loadMikrotik} /></div>}
+            {selectedRouterId && <div className="xl:col-span-6 min-w-0"><DownloadUsageSection data={bandwidth} loading={bandwidthLoading} error={bandwidthError} onRetry={loadBandwidth} hours={downloadUsageHours} onHoursChange={setDownloadUsageHours} service={downloadUsageService} onServiceChange={setDownloadUsageService} /></div>}
 
-        {/* Row 4 — Bandwidth History (6) + Top Users (6) side by side.
-            Top Users spans full width only when there's no router (Bandwidth hidden). */}
-        {selectedRouterId && <div className="xl:col-span-6 min-w-0"><BandwidthSection data={bandwidth} loading={bandwidthLoading} error={bandwidthError} onRetry={loadBandwidth} /></div>}
-        <div className={`min-w-0 ${selectedRouterId ? 'xl:col-span-6' : 'xl:col-span-12'}`}><TopUsers selectedRouterId={selectedRouterId} live={topUsers} liveLoading={topUsersLoading} liveError={topUsersError} onRetryLive={loadTopUsers} period={topUsageThisMonth} periodLoading={topUsageLoading} /></div>
+            {/* Row 4 — Bandwidth History (6) + Top Users (6) side by side.
+                Top Users spans full width only when there's no router (Bandwidth hidden). */}
+            {selectedRouterId && <div className="xl:col-span-6 min-w-0"><BandwidthSection data={bandwidth} loading={bandwidthLoading} error={bandwidthError} onRetry={loadBandwidth} /></div>}
+            <div className={`min-w-0 ${selectedRouterId ? 'xl:col-span-6' : 'xl:col-span-12'}`}><TopUsers selectedRouterId={selectedRouterId} live={topUsers} liveLoading={topUsersLoading} liveError={topUsersError} onRetryLive={loadTopUsers} period={topUsageThisMonth} periodLoading={topUsageLoading} /></div>
 
-        {/* Row 6 — collapsible detail (full width) */}
-        {!analyticsError && !analyticsLoading && data && (
-          <div className="xl:col-span-12 min-w-0"><DailyBreakdown data={data} selectedDate={selectedDate} onDateSelect={setSelectedDate} /></div>
-        )}
-        {selectedRouterId && mikrotik?.interfaces?.length ? (
-          <div className="xl:col-span-12 min-w-0"><InterfacesPanel interfaces={mikrotik.interfaces} /></div>
-        ) : null}
-      </div>
+            {/* Row 6 — collapsible detail (full width) */}
+            {!analyticsError && !analyticsLoading && data && (
+              <div className="xl:col-span-12 min-w-0"><DailyBreakdown data={data} selectedDate={selectedDate} onDateSelect={setSelectedDate} /></div>
+            )}
+            {selectedRouterId && mikrotik?.interfaces?.length ? (
+              <div className="xl:col-span-12 min-w-0"><InterfacesPanel interfaces={mikrotik.interfaces} /></div>
+            ) : null}
+          </div>
+        </>
+      )}
     </div>
   );
 }
