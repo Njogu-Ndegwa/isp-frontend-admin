@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { api } from '../lib/api';
 import { MpesaTransaction, TransactionSummary } from '../lib/types';
-import { formatDateGMT3 } from '../lib/dateUtils';
+import { formatDateGMT3, getCurrentTimeGMT3 } from '../lib/dateUtils';
 import { useAlert } from '../context/AlertContext';
 import Header from '../components/Header';
 import { PageLoader } from '../components/LoadingSpinner';
@@ -15,6 +15,7 @@ import FilterDatePicker from '../components/FilterDatePicker';
 import DataTable, { DataTableColumn } from '../components/DataTable';
 import Pagination from '../components/Pagination';
 import { formatKES } from '../lib/format';
+import { scopedSummaryDates, thisMonthCardTitle, scopeCaption } from './summaryScope';
 
 type StatusFilter = 'all' | 'completed' | 'pending' | 'failed' | 'expired';
 type PaymentMethodFilter = 'all' | 'mobile_money' | 'cash';
@@ -88,6 +89,7 @@ export default function TransactionsPage() {
   const [transactions, setTransactions] = useState<MpesaTransaction[]>([]);
   const [totalItems, setTotalItems] = useState(0);
   const [summary, setSummary] = useState<TransactionSummary | null>(null);
+  const [allTimeSummary, setAllTimeSummary] = useState<TransactionSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
@@ -124,9 +126,10 @@ export default function TransactionsPage() {
         const status = statusFilter === 'all' ? undefined : statusFilter;
         const method = methodFilter === 'all' ? undefined : methodFilter;
         const exactDate = dateFilter || undefined;
+        const { startDate, endDate, date } = scopedSummaryDates(dateFilter, getCurrentTimeGMT3());
         const [txResult, summaryData] = await Promise.all([
           api.getTransactions(1, undefined, undefined, undefined, status, controller.signal, method, exactDate, page, perPage),
-          api.getTransactionSummary(1, undefined, undefined, undefined, controller.signal, method, exactDate),
+          api.getTransactionSummary(1, undefined, startDate, endDate, controller.signal, method, date),
         ]);
         if (!controller.signal.aborted) {
           setTransactions(txResult.data || []);
@@ -154,9 +157,10 @@ export default function TransactionsPage() {
         const status = statusFilter === 'all' ? undefined : statusFilter;
         const method = methodFilter === 'all' ? undefined : methodFilter;
         const exactDate = dateFilter || undefined;
+        const { startDate, endDate, date } = scopedSummaryDates(dateFilter, getCurrentTimeGMT3());
         const [txResult, summaryData] = await Promise.all([
           api.getTransactions(1, undefined, undefined, undefined, status, controller.signal, method, exactDate, 1, 10000),
-          api.getTransactionSummary(1, undefined, undefined, undefined, controller.signal, method, exactDate),
+          api.getTransactionSummary(1, undefined, startDate, endDate, controller.signal, method, date),
         ]);
         if (!controller.signal.aborted) {
           setAllTransactionsCache(txResult.data || []);
@@ -172,6 +176,15 @@ export default function TransactionsPage() {
     load();
     return () => controller.abort();
   }, [statusFilter, methodFilter, dateFilter, hasSearchFilter, refreshKey]);
+
+  // All-time revenue card: unfiltered, fetched once (and on manual refresh).
+  useEffect(() => {
+    const controller = new AbortController();
+    api.getTransactionSummary(1, undefined, undefined, undefined, controller.signal)
+      .then((s) => { if (!controller.signal.aborted) setAllTimeSummary(s); })
+      .catch(() => { /* non-blocking: card falls back to KES 0 */ });
+    return () => controller.abort();
+  }, [refreshKey]);
 
   const handleManualProvision = useCallback(async (tx: MpesaTransaction) => {
     if (provisioningId) return;
@@ -222,8 +235,6 @@ export default function TransactionsPage() {
 
   const effectiveTotal = hasSearchFilter ? filteredTransactions.length : totalItems;
 
-  const failedTransactions = (transactions || []).filter((tx) => tx.status === 'failed');
-
   const getStatusBadge = (status: MpesaTransaction['status']) => {
     const badges = {
       completed: 'badge-success',
@@ -270,61 +281,66 @@ export default function TransactionsPage() {
     <div>
       <Header title="Transactions" subtitle="View and manage all payment transactions" />
 
-      {/* Summary Stats */}
+      {/* Summary Stats — money only; This Month/Hotspot/PPPoE follow filters, All Time is fixed */}
       {summary && (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6 mb-6">
-          <div className="animate-fade-in delay-1">
-            <StatCard
-              title="Total Transactions"
-              value={summary.total_transactions}
-              icon={
-                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                </svg>
-              }
-              accent="primary"
-            />
-          </div>
-          <div className="animate-fade-in delay-2">
-            <StatCard
-              title="Total Amount"
-              value={`KES ${(summary.status_breakdown.completed?.amount || 0).toLocaleString()}`}
-              subtitle={summary.compensation_total && summary.compensation_total > 0
-                ? `+ ${formatKES(summary.compensation_total)} free comp`
-                : undefined}
-              icon={
-                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              }
-              accent="success"
-            />
-          </div>
-          <div className="animate-fade-in delay-3">
-            <StatCard
-              title="Completed"
-              value={summary.status_breakdown.completed?.count || 0}
-              subtitle={`KES ${(summary.status_breakdown.completed?.amount || 0).toLocaleString()}`}
-              icon={
-                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              }
-              accent="success"
-            />
-          </div>
-          <div className="animate-fade-in delay-4">
-            <StatCard
-              title="Failed"
-              value={summary.status_breakdown.failed?.count || 0}
-              subtitle="Transaction failures"
-              icon={
-                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              }
-              accent="danger"
-            />
+        <div className="mb-6">
+          <p className="text-xs text-foreground-muted mb-2 sm:mb-3">
+            <span className="font-medium text-foreground">Revenue</span>
+            {' · '}{scopeCaption(dateFilter, getCurrentTimeGMT3())}
+            {methodFilter !== 'all' ? ` · ${PAYMENT_METHOD_LABELS[methodFilter]?.label || methodFilter}` : ''}
+          </p>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
+            <div className="animate-fade-in delay-1">
+              <StatCard
+                title={thisMonthCardTitle(dateFilter)}
+                value={formatKES(summary.status_breakdown.completed?.amount || 0)}
+                subtitle={summary.compensation_total && summary.compensation_total > 0
+                  ? `+ ${formatKES(summary.compensation_total)} free comp`
+                  : undefined}
+                icon={
+                  <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                }
+                accent="primary"
+              />
+            </div>
+            <div className="animate-fade-in delay-2">
+              <StatCard
+                title="Hotspot"
+                value={formatKES(summary.connection_type_breakdown?.hotspot?.amount || 0)}
+                icon={
+                  <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.111 16.404a5.5 5.5 0 017.778 0M5.636 13.929a9 9 0 0112.728 0M3.161 11.455a12.5 12.5 0 0117.678 0M12 20h.01" />
+                  </svg>
+                }
+                accent="success"
+              />
+            </div>
+            <div className="animate-fade-in delay-3">
+              <StatCard
+                title="PPPoE"
+                value={formatKES(summary.connection_type_breakdown?.pppoe?.amount || 0)}
+                icon={
+                  <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                  </svg>
+                }
+                accent="info"
+              />
+            </div>
+            <div className="animate-fade-in delay-4">
+              <StatCard
+                title="All Time"
+                value={formatKES(allTimeSummary?.status_breakdown.completed?.amount || 0)}
+                icon={
+                  <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+                  </svg>
+                }
+                accent="secondary"
+              />
+            </div>
           </div>
         </div>
       )}
