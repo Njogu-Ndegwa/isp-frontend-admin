@@ -488,6 +488,75 @@ export interface PPPoECustomerImportResponse {
   parse_report?: PPPoECustomerImportReport;
 }
 
+// PPPoE Router Transfer — move PPPoE customers from one router to a replacement.
+// Mirrors POST /routers/{source_router_id}/pppoe-customers/transfer.
+export interface TransferPPPoERequest {
+  target_router_id: number;
+  apply?: boolean; // default false (preview)
+  active_only?: boolean; // default false
+  skip_target_provision?: boolean; // default false
+  sample_limit?: number; // backend caps at 100
+}
+
+export interface TransferPPPoEProvisionFailure {
+  customer_id: number | null;
+  pppoe_username: string | null;
+  error: string;
+}
+
+export interface TransferPPPoEReportSample {
+  customer_id: number;
+  name: string | null;
+  phone: string;
+  pppoe_username: string;
+  status: 'active' | 'inactive' | 'pending' | string;
+  expiry: string | null;
+  plan_id: number | null;
+  plan_name: string | null;
+  plan_speed: string | null;
+  password_present: boolean;
+}
+
+export interface TransferPPPoEReport {
+  source_router_id: number;
+  target_router_id: number;
+  dry_run: boolean;
+  active_only: boolean;
+  source_router_name: string | null;
+  target_router_name: string | null;
+  selected: number;
+  moved: number;
+  active: number;
+  inactive: number;
+  pending: number;
+  missing_passwords: number;
+  missing_active_passwords: number;
+  target_provision: boolean;
+  target_provision_required: number;
+  target_provisioned: number;
+  target_provision_failed: number;
+  target_provision_skipped: number;
+  target_provision_failures: TransferPPPoEProvisionFailure[];
+  usage_watch_states_updated: number;
+  provisioning_attempts_updated: number;
+  samples: TransferPPPoEReportSample[];
+  warnings: string[];
+  errors: string[];
+  success: boolean;
+  has_errors: boolean;
+}
+
+export interface TransferPPPoEResponse {
+  success: boolean;
+  stage: 'transfer';
+  source_router_id: number;
+  source_router_name: string;
+  target_router_id: number;
+  target_router_name: string;
+  dry_run: boolean;
+  report: TransferPPPoEReport;
+}
+
 export interface RebootRouterRequest {
   confirm: boolean;
   reason?: string | null;

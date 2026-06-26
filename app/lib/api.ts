@@ -239,7 +239,9 @@ import {
   AdminInboxSendResponse,
   AdminSmsHistoryResponse,
   CompensationLimitSetting,
+  TransferPPPoEResponse,
 } from './types';
+import { buildTransferRequest, type BuildTransferRequestOptions } from './pppoeTransfer';
 // Demo fixtures are ~2,200 lines; load them on demand so real users never
 // download them as part of the baseline bundle.
 type DemoModule = typeof import('./demoData');
@@ -1533,6 +1535,22 @@ class ApiClient {
       body: formData,
     });
     return this.handleResponse<PPPoECustomerImportResponse>(response);
+  }
+
+  // Move PPPoE customers from a source router to a replacement router. With
+  // apply=false (default) the backend returns a dry-run preview; apply=true
+  // commits the move. See docs/pppoe-router-transfer-frontend-guide.md.
+  async transferPPPoECustomers(
+    sourceRouterId: number,
+    options: BuildTransferRequestOptions,
+  ): Promise<TransferPPPoEResponse> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(`${BASE_URL}/routers/${sourceRouterId}/pppoe-customers/transfer`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify(buildTransferRequest(options)),
+    });
+    return this.handleResponse<TransferPPPoEResponse>(response);
   }
 
   async rebootRouter(routerId: number, data: RebootRouterRequest): Promise<RebootRouterResponse> {

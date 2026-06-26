@@ -32,6 +32,7 @@ import { formatDateGMT3 } from '../lib/dateUtils';
 import DeviceModeTroubleshoot from '../components/DeviceModeTroubleshoot';
 import HotspotPackageTroubleshoot from '../components/HotspotPackageTroubleshoot';
 import InsuranceTunnelBadge from '../components/InsuranceTunnelBadge';
+import TransferPPPoEModal from '../components/TransferPPPoEModal';
 
 const formatSafeDate = (dateStr: string | null | undefined): string => {
   try {
@@ -186,6 +187,7 @@ export default function RoutersPage() {
 
   // Port configuration state (unified PPPoE + Plain)
   const [portConfigRouter, setPortConfigRouter] = useState<Router | null>(null);
+  const [transferRouter, setTransferRouter] = useState<Router | null>(null);
 
   // Uptime state
   const [uptimeRouter, setUptimeRouter] = useState<number | null>(null);
@@ -354,6 +356,7 @@ export default function RoutersPage() {
         setDeleteConfirm={setDeleteConfirm}
         setEditingRouter={setEditingRouter}
         setPortConfigRouter={setPortConfigRouter}
+        setTransferRouter={setTransferRouter}
         formatBytes={formatBytes}
         pppoeData={pppoeData}
         pppoeLoading={pppoeLoading}
@@ -411,6 +414,17 @@ export default function RoutersPage() {
           onClose={() => setPortConfigRouter(null)}
         />
       )}
+
+      {transferRouter && (
+        <TransferPPPoEModal
+          sourceRouter={transferRouter}
+          onClose={() => setTransferRouter(null)}
+          onTransferred={() => {
+            setTransferRouter(null);
+            loadRouters();
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -434,6 +448,7 @@ function RoutersTab({
   setDeleteConfirm,
   setEditingRouter,
   setPortConfigRouter,
+  setTransferRouter,
   formatBytes,
   pppoeData,
   pppoeLoading,
@@ -464,6 +479,7 @@ function RoutersTab({
   setDeleteConfirm: (v: number | null) => void;
   setEditingRouter: (r: Router | null) => void;
   setPortConfigRouter: (r: Router | null) => void;
+  setTransferRouter: (r: Router | null) => void;
   formatBytes: (b: string) => string;
   pppoeData: PPPoEActiveResponse | null;
   pppoeLoading: boolean;
@@ -800,6 +816,15 @@ function RoutersTab({
       >
         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+        </svg>
+      </button>
+      <button
+        onClick={(e) => { e.stopPropagation(); setTransferRouter(router); }}
+        className="p-1.5 rounded-lg hover:bg-accent-primary/10 text-foreground-muted hover:text-accent-primary transition-colors active:opacity-70"
+        title="Move PPPoE customers to another router"
+      >
+        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m4 6H4m0 0l4 4m-4-4l4-4" />
         </svg>
       </button>
       <button
