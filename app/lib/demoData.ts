@@ -187,6 +187,10 @@ export const demoTransactionSummary: TransactionSummary = {
     mobile_money: { count: 20, amount: 35000 },
     cash: { count: 4, amount: 4800 },
   },
+  connection_type_breakdown: {
+    hotspot: { count: 14, amount: 26500 },
+    pppoe: { count: 5, amount: 12000 },
+  },
   router_breakdown: {
     'Kilimani Tower': { count: 12, amount: 18500, router_id: 1 },
     'Westlands Hub': { count: 8, amount: 14000, router_id: 2 },

@@ -1080,6 +1080,10 @@ export interface TransactionSummary {
     expired?: StatusBreakdown;
   };
   method_breakdown?: Record<string, StatusBreakdown>;
+  connection_type_breakdown?: {
+    hotspot?: StatusBreakdown;
+    pppoe?: StatusBreakdown;
+  };
   router_breakdown: Record<string, RouterBreakdown>;
   compensation_total?: number;
   period: {
