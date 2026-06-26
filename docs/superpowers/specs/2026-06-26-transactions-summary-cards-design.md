@@ -8,61 +8,55 @@
 ## Problem
 
 The Transactions page top cards currently show: **Total Transactions**, **Total Amount**,
-**Completed**, **Failed**. Two of these are low-value:
-
-- **Total Transactions** — an all-time count nobody acts on.
-- **Failed** — a standalone failure count that isn't actionable here.
-
-What's missing is the **Hotspot vs PPPoE revenue split** and a sense of **current-month
-activity**. The cards should also clearly reflect the active filters.
+**Completed**, **Failed**. These over-emphasize transaction *counts*, which aren't what the
+operator cares about — they care about **money**. There's also no **Hotspot vs PPPoE**
+revenue split and no sense of **current-month** earnings.
 
 ## Goals
 
-1. Remove the **Total Transactions** and **Failed** cards.
-2. Add a **Hotspot vs PPPoE** revenue split.
-3. Replace the removed cards with a **This Month** activity card.
-4. All four cards **default to the current calendar month** and **respond to filters**
-   (method + date). The transactions **table stays all-time** (unchanged).
+1. Remove the **Total Transactions**, **Completed**, and **Failed** cards.
+2. Make every card a **money (KES) figure** — no transaction counts anywhere.
+3. Show a **Hotspot vs PPPoE** revenue split.
+4. Show **This Month** earnings, defaulting to the current calendar month and responding to
+   the **method + date** filters. Keep an **All Time** lifetime reference.
+5. The transactions **table stays all-time** (unchanged).
 
 Non-goals: changing the transactions table, the bottom "Revenue by Payment Type / Router"
 sections, or the C2B transaction source (the summary endpoint already excludes C2B).
 
 ## Final card lineup
 
-Grid stays `grid-cols-2 lg:grid-cols-4` (2×2 mobile/tablet, 1×4 desktop).
+Grid stays `grid-cols-2 lg:grid-cols-4` (2×2 mobile/tablet, 1×4 desktop). **No counts** —
+each card is a single KES figure. `Hotspot + PPPoE = This Month`.
 
-| Card | Primary value | Subtitle | Accent |
-|------|---------------|----------|--------|
-| **Revenue** | Completed revenue (KES) for the scoped/filtered set | `+ X free comp` when `compensation_total > 0` (kept from today) | success |
-| **Hotspot** | Completed hotspot revenue (KES) | `N transactions` | primary |
-| **PPPoE** | Completed PPPoE revenue (KES) | `N transactions` | info |
-| **This Month** | Transaction count (all statuses) in scope | `N completed · M failed` (reclaims the removed Failed card) | secondary |
+| Card | Value | Subtitle | Scope | Accent |
+|------|-------|----------|-------|--------|
+| **This Month** | Completed revenue (KES) for the current month | `+ X free comp` only when `compensation_total > 0` | month; follows date+method filters | primary |
+| **Hotspot** | Completed hotspot revenue (KES) | — | month; follows date+method filters | success |
+| **PPPoE** | Completed PPPoE revenue (KES) | — | month; follows date+method filters | info |
+| **All Time** | Completed lifetime revenue (KES) | — | fixed; ignores all filters | secondary |
 
-> **Note (design wrinkle):** because all four cards now default to the current month, the
-> originally-previewed "This Month" subtitle (revenue in KES) would duplicate the Revenue
-> card's value. To satisfy the user's request for "useful info on this card" and avoid
-> redundancy, the subtitle instead shows completed-vs-failed counts derived from
-> `status_breakdown` (no extra backend work). Alternative considered: a single "N% completed"
-> success rate — see spec-review note.
-
-- **Revenue** is the source-of-truth total. **Hotspot + PPPoE** are a split highlight; they
-  may not sum exactly to Revenue when a plan's `connection_type` is `static_ip`/`null`. That
-  is expected and acceptable.
-- Icons: Hotspot = wifi, PPPoE = ethernet/cable, This Month = calendar.
+- **This Month** is the headline; **Hotspot + PPPoE** are its split (they may not sum exactly
+  to This Month when a plan's `connection_type` is `static_ip`/`null` — expected/acceptable).
+- **All Time** is a stable lifetime KPI; it does not change with filters.
+- Icons: This Month = calendar, Hotspot = wifi, PPPoE = ethernet/cable, All Time = coins/stack.
+- A small **scope caption** above the grid states the active period for the filtered cards
+  (e.g. "June 2026", or the selected date), making clear the cards are month-scoped while the
+  table is all-time.
 
 ## Scope & filter behavior
 
-- **Default scope = current calendar month** for all four cards. Achieved purely on the
-  frontend by passing `start_date`/`end_date` (month bounds) to the summary call when no date
-  filter is set.
-- **Method filter** → passed to the summary (already supported today).
-- **Date filter** (single day via `FilterDatePicker`) → passed as `date`; overrides the
-  month default. The **This Month** card label then flips from `This Month` to the selected
-  date (e.g. `26 Jun 2026`).
-- **Status filter** stays **table-only** (existing behavior). A revenue figure filtered to
-  "failed" isn't meaningful, so the cards intentionally ignore status.
-- A small **scope caption** above the card grid states the active period (e.g. "June 2026"
-  or the selected date) so it's clear the cards are month-scoped while the table is all-time.
+- **Default scope = current calendar month** for This Month / Hotspot / PPPoE. Achieved on
+  the frontend by passing `start_date`/`end_date` (month bounds) to the scoped summary call
+  when no date filter is set.
+- **Method filter** → passed to the scoped summary call (already supported).
+- **Date filter** (single day via `FilterDatePicker`) → passed as `date`; overrides the month
+  default for the three scoped cards. The **This Month** label then flips to the selected date
+  (e.g. `26 Jun 2026`), and the scope caption matches.
+- **Status filter** stays **table-only** (existing behavior); the money cards intentionally
+  ignore it.
+- **All Time** is driven by a separate, unfiltered summary call and never changes with the
+  filters.
 
 ## Backend change — `isp-billing`
 
@@ -81,22 +75,22 @@ new block to the response:
 }
 ```
 
-Rules (consistent with the existing `status_breakdown.completed` used by the Revenue card):
+Rules (consistent with the existing `status_breakdown.completed` the cards read):
 - `amount` = sum of `amount` for rows where `status == "completed"` **and**
   `counts_as_revenue` is true, grouped by `connection_type`.
-- `count` = number of those completed revenue rows per type.
+- `count` is included for completeness/consistency but the UI uses only `amount`.
 - Only `hotspot` and `pppoe` keys are emitted; `static_ip`/`null` rows are excluded from the
   split (still included in the overall `total_amount` / `status_breakdown`).
 
-No `current_month` block is needed — the frontend scopes the request to the month, so the
-existing `total_transactions` (count) and `status_breakdown.completed.amount` (revenue)
-already describe the month for the **This Month** card.
+No `current_month` or all-time fields are needed server-side: the frontend scopes one call to
+the month and makes a second unfiltered call for All Time, both reusing
+`status_breakdown.completed.amount`.
 
 ### Backend test (TDD)
 
 Add a test mirroring `tests/test_compensation_transaction_totals.py` style:
 - Seed completed transactions across hotspot and pppoe plans (+ one `static_ip`/`null`).
-- Assert `connection_type_breakdown.hotspot` and `.pppoe` counts/amounts are correct.
+- Assert `connection_type_breakdown.hotspot` and `.pppoe` amounts are correct.
 - Assert the `static_ip`/`null` row is excluded from the split but present in `total_amount`.
 - Assert non-completed (pending/failed) rows are excluded from the split amounts.
 
@@ -112,17 +106,19 @@ Add a test mirroring `tests/test_compensation_transaction_totals.py` style:
    Optional, so the UI degrades gracefully (treat missing as `0`).
 
 2. **`app/transactions/TransactionsClient.tsx`**:
-   - Compute the current-month `start_date`/`end_date` (helper) and pass them to
-     `getTransactionSummary` when `dateFilter` is empty; pass `exactDate` (as `date`) when
-     set. Apply in **both** load effects (search and non-search paths). The `getTransactions`
-     call for the table is **unchanged** (still all-time / `exactDate` only).
-   - Replace the four `StatCard`s with **Revenue / Hotspot / PPPoE / This Month**.
-   - Add a month-label helper (`This Month` by default; formatted date when `dateFilter` set).
-   - Add the scope caption above the grid.
-   - Add wifi / ethernet / calendar icons.
+   - Add an `allTimeSummary` state, fetched once via `getTransactionSummary` with **no**
+     date/method args (refetched only on manual refresh, not on filter change) → feeds the
+     **All Time** card.
+   - For the scoped summary call (both the search and non-search effects): when `dateFilter`
+     is empty pass current-month `start_date`/`end_date`; when set, pass `exactDate` as
+     `date`. The `getTransactions` call for the table is **unchanged** (all-time / `exactDate`).
+   - Replace the four `StatCard`s with **This Month / Hotspot / PPPoE / All Time** (money
+     only).
+   - Add a month-label + scope-caption helper (`This Month` / formatted date).
+   - Add calendar / wifi / ethernet / coins icons.
 
-3. **`app/lib/demoData.ts`** — add `connection_type_breakdown` to `demoTransactionSummary`
-   so demo mode renders the new cards.
+3. **`app/lib/demoData.ts`** — add `connection_type_breakdown` to `demoTransactionSummary` so
+   demo mode renders the split.
 
 4. Leave the desktop table, mobile cards, pagination, and the bottom breakdown sections
    untouched.
@@ -131,20 +127,22 @@ Add a test mirroring `tests/test_compensation_transaction_totals.py` style:
 
 ```
 TransactionsClient
-  ├─ getTransactions(... exactDate ...)      → table (all-time, unchanged)
-  └─ getTransactionSummary(... startDate/endDate=month OR date=exactDate, method ...)
-        → Revenue      = status_breakdown.completed.amount
-        → Hotspot      = connection_type_breakdown.hotspot.{amount,count}
-        → PPPoE        = connection_type_breakdown.pppoe.{amount,count}
-        → This Month   = total_transactions (count)
-                         + status_breakdown.completed.count / status_breakdown.failed.count
+  ├─ getTransactions(... exactDate ...)                       → table (all-time, unchanged)
+  ├─ getTransactionSummary(startDate/endDate=month OR date=exactDate, method)   [scoped]
+  │      → This Month = status_breakdown.completed.amount
+  │      → Hotspot    = connection_type_breakdown.hotspot.amount
+  │      → PPPoE      = connection_type_breakdown.pppoe.amount
+  └─ getTransactionSummary(no date, no method)                                  [unfiltered]
+         → All Time   = status_breakdown.completed.amount
 ```
 
 ## Error / edge handling
 
-- Missing `connection_type_breakdown` (older backend / demo not updated) → cards show `KES 0`
-  / `0 transactions`, no crash.
-- No transactions in the month → cards show zeros; existing empty states on table unchanged.
+- Missing `connection_type_breakdown` (older backend / demo not updated) → Hotspot/PPPoE show
+  `KES 0`, no crash.
+- No revenue in the month → cards show `KES 0`; table empty states unchanged.
+- Failed/aborted All-Time call → that card shows `KES 0` (or a dash); does not block the
+  scoped cards.
 - Month boundary computation uses local time consistent with the app's date handling
   (`dateUtils` / GMT+3); verify against `FilterDatePicker`'s `YYYY-MM-DD` format during
   implementation.
@@ -154,12 +152,13 @@ TransactionsClient
 - Frontend: worktree `worktree-transactions-summary-cards` off `origin/master` in
   `isp-billing-admin` (created; local `master` was 57 commits behind origin, so the worktree
   bases off the up-to-date `origin/master`).
-- Backend: a new worktree off its main branch in `isp-billing` (to be created at
-  implementation time).
+- Backend: a new worktree off its main branch in `isp-billing` (created at implementation
+  time).
 - Coordinated FE+BE change, per the project's worktree-isolation preference.
 
 ## Verification
 
 - Backend: new unit test passes; existing summary tests still pass.
-- Frontend: typecheck + lint clean; demo-mode visual check of all four cards and filter
-  responsiveness (method change, date pick, clear).
+- Frontend: typecheck + lint clean; demo-mode visual check of all four money cards and filter
+  responsiveness (method change, date pick, clear) — confirming Hotspot + PPPoE ≈ This Month
+  and All Time stays fixed.
