@@ -19,6 +19,11 @@ const securityHeaders = [
       "script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://www.google-analytics.com https://*.contentsquare.net https://va.vercel-scripts.com",
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: blob: https:",
+      // Tutorial videos (e.g. the router setup walkthrough) are served from
+      // Cloudinary. Without an explicit media-src, <video>/<audio> fall back to
+      // default-src 'self' and the cross-origin clip is blocked — the poster
+      // (an image) still shows, so it looks like a video that never plays.
+      "media-src 'self' blob: https://res.cloudinary.com",
       "font-src 'self' data:",
       `connect-src 'self' ${apiOrigin} https://www.google-analytics.com https://*.google-analytics.com https://*.googletagmanager.com https://*.contentsquare.net https://va.vercel-scripts.com`,
       "frame-ancestors 'none'",
