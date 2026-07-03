@@ -791,125 +791,129 @@ function GenerateVouchersModal({
   };
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center sm:p-4">
+    <div className="fixed inset-0 z-[10000] flex items-end sm:items-center justify-center sm:p-4">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-      <div
-        className="relative w-full sm:max-w-lg bg-[var(--background-secondary)] border border-[var(--border)] rounded-t-2xl sm:rounded-2xl p-5 sm:p-6 animate-slide-up sm:animate-fade-in max-h-[92vh] overflow-y-auto"
-        style={{ paddingBottom: 'max(1.25rem, env(safe-area-inset-bottom, 0px))' }}
-      >
-        {/* Drag handle on mobile */}
-        <div className="sm:hidden w-10 h-1 rounded-full bg-foreground-muted/30 mx-auto mb-4" />
+      <div className="relative w-full sm:max-w-lg bg-[var(--background-secondary)] border border-[var(--border)] rounded-t-2xl sm:rounded-2xl animate-slide-up sm:animate-fade-in max-h-[90dvh] flex flex-col">
+        <div className="p-5 sm:p-6 pb-0 sm:pb-0">
+          {/* Drag handle on mobile */}
+          <div className="sm:hidden w-10 h-1 rounded-full bg-foreground-muted/30 mx-auto mb-4" />
 
-        <div className="flex items-center justify-between mb-5">
-          <h2 className="text-lg sm:text-xl font-bold text-foreground">Generate Vouchers</h2>
-          <button onClick={onClose} className="p-2 -mr-1 rounded-lg hover:bg-background-tertiary transition-colors touch-manipulation">
-            <svg className="w-5 h-5 text-foreground-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
+          <div className="flex items-center justify-between mb-5">
+            <h2 className="text-lg sm:text-xl font-bold text-foreground">Generate Vouchers</h2>
+            <button onClick={onClose} className="p-2 -mr-1 rounded-lg hover:bg-background-tertiary transition-colors touch-manipulation">
+              <svg className="w-5 h-5 text-foreground-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+
+          {error && (
+            <div className="mb-4 p-3 rounded-lg bg-danger/10 border border-danger/30 text-danger text-sm">
+              {error}
+            </div>
+          )}
         </div>
 
-        {error && (
-          <div className="mb-4 p-3 rounded-lg bg-danger/10 border border-danger/30 text-danger text-sm">
-            {error}
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit} className="space-y-5" autoComplete="off">
-          <div>
-            <label className="block text-sm font-medium text-foreground mb-1.5">Purpose</label>
-            <select
-              value={formData.voucher_type}
-              onChange={(e) => setFormData({ ...formData, voucher_type: e.target.value as 'sale' | 'compensation' })}
-              className="select text-base"
-            >
-              <option value="sale">Sale — counts as revenue</option>
-              <option value="compensation">Compensation — free, does not count as revenue</option>
-            </select>
-            {formData.voucher_type === 'compensation' && allowance && (
-              <p className="text-[11px] text-foreground-muted mt-1">
-                {allowance.remaining} of {allowance.daily_limit} compensation vouchers left today
-              </p>
-            )}
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-foreground mb-1.5">Plan *</label>
-            <select
-              value={formData.plan_id}
-              onChange={(e) => setFormData({ ...formData, plan_id: parseInt(e.target.value) })}
-              className="select text-base"
-              required
-            >
-              <option value={0} disabled>Select a plan</option>
-              {plans.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name} — KES {p.price}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0" autoComplete="off">
+          <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-5 sm:p-6 pt-0 sm:pt-0 space-y-5">
             <div>
-              <label className="block text-sm font-medium text-foreground mb-1.5">
-                Quantity
-              </label>
-              <input
-                type="number"
-                value={formData.quantity || ''}
-                onChange={(e) => {
-                  const cap = formData.voucher_type === 'compensation' && allowance
-                    ? Math.max(1, allowance.remaining)
-                    : 100;
-                  setFormData({ ...formData, quantity: e.target.value === '' ? 0 : Math.min(cap, Math.max(1, parseInt(e.target.value) || 1)) });
-                }}
-                onBlur={() => { if (!formData.quantity) setFormData(prev => ({ ...prev, quantity: 1 })); }}
-                className="input text-base"
-                min={1}
-                max={formData.voucher_type === 'compensation' && allowance ? Math.max(1, allowance.remaining) : 100}
-                required
-              />
-              <p className="text-[11px] text-foreground-muted mt-1">
-                {formData.voucher_type === 'compensation' && allowance
-                  ? (allowance.remaining > 0
-                      ? `Up to ${allowance.remaining} today`
-                      : 'No compensation vouchers left today')
-                  : '1–100 vouchers'}
-              </p>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-1.5">
-                Router
-              </label>
+              <label className="block text-sm font-medium text-foreground mb-1.5">Purpose</label>
               <select
-                value={formData.router_id ?? ''}
-                onChange={(e) => setFormData({ ...formData, router_id: e.target.value ? parseInt(e.target.value) : null })}
+                value={formData.voucher_type}
+                onChange={(e) => setFormData({ ...formData, voucher_type: e.target.value as 'sale' | 'compensation' })}
                 className="select text-base"
               >
-                <option value="">Any Router</option>
-                {routers.map((r) => (
-                  <option key={r.id} value={r.id}>{r.name}</option>
+                <option value="sale">Sale — counts as revenue</option>
+                <option value="compensation">Compensation — free, does not count as revenue</option>
+              </select>
+              {formData.voucher_type === 'compensation' && allowance && (
+                <p className="text-[11px] text-foreground-muted mt-1">
+                  {allowance.remaining} of {allowance.daily_limit} compensation vouchers left today
+                </p>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-1.5">Plan *</label>
+              <select
+                value={formData.plan_id}
+                onChange={(e) => setFormData({ ...formData, plan_id: parseInt(e.target.value) })}
+                className="select text-base"
+                required
+              >
+                <option value={0} disabled>Select a plan</option>
+                {plans.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name} — KES {p.price}
+                  </option>
                 ))}
               </select>
-              <p className="text-[11px] text-foreground-muted mt-1">Optional</p>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-1.5">
+                  Quantity
+                </label>
+                <input
+                  type="number"
+                  value={formData.quantity || ''}
+                  onChange={(e) => {
+                    const cap = formData.voucher_type === 'compensation' && allowance
+                      ? Math.max(1, allowance.remaining)
+                      : 100;
+                    setFormData({ ...formData, quantity: e.target.value === '' ? 0 : Math.min(cap, Math.max(1, parseInt(e.target.value) || 1)) });
+                  }}
+                  onBlur={() => { if (!formData.quantity) setFormData(prev => ({ ...prev, quantity: 1 })); }}
+                  className="input text-base"
+                  min={1}
+                  max={formData.voucher_type === 'compensation' && allowance ? Math.max(1, allowance.remaining) : 100}
+                  required
+                />
+                <p className="text-[11px] text-foreground-muted mt-1">
+                  {formData.voucher_type === 'compensation' && allowance
+                    ? (allowance.remaining > 0
+                        ? `Up to ${allowance.remaining} today`
+                        : 'No compensation vouchers left today')
+                    : '1–100 vouchers'}
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-1.5">
+                  Router
+                </label>
+                <select
+                  value={formData.router_id ?? ''}
+                  onChange={(e) => setFormData({ ...formData, router_id: e.target.value ? parseInt(e.target.value) : null })}
+                  className="select text-base"
+                >
+                  <option value="">Any Router</option>
+                  {routers.map((r) => (
+                    <option key={r.id} value={r.id}>{r.name}</option>
+                  ))}
+                </select>
+                <p className="text-[11px] text-foreground-muted mt-1">Optional</p>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-1.5">
+                Expires At <span className="text-foreground-muted font-normal">(optional)</span>
+              </label>
+              <input
+                type="datetime-local"
+                value={formData.expires_at ?? ''}
+                onChange={(e) => setFormData({ ...formData, expires_at: e.target.value || null })}
+                className="input text-base"
+              />
             </div>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-foreground mb-1.5">
-              Expires At <span className="text-foreground-muted font-normal">(optional)</span>
-            </label>
-            <input
-              type="datetime-local"
-              value={formData.expires_at ?? ''}
-              onChange={(e) => setFormData({ ...formData, expires_at: e.target.value || null })}
-              className="input text-base"
-            />
-          </div>
-
-          <div className="flex gap-3 pt-1">
+          <div
+            className="flex gap-3 p-5 sm:p-6 pt-3 sm:pt-4 border-t border-[var(--border)]"
+            style={{ paddingBottom: 'max(1.25rem, env(safe-area-inset-bottom, 0px))' }}
+          >
             <button type="button" onClick={onClose} className="btn-secondary flex-1 py-3 touch-manipulation">
               Cancel
             </button>
