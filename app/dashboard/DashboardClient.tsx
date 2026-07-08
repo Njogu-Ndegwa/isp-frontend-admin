@@ -410,13 +410,10 @@ export default function DashboardPage() {
             <div className="xl:col-span-8 min-w-0"><RevenueSection routerId={selectedRouterId} enabled={selectedRouterId !== null} /></div>
             {!analyticsError && data && <div className="xl:col-span-4 min-w-0"><PlanPerformance plans={data.planPerformance} totalRevenue={data.summary.totalRevenue} /></div>}
 
-            {/* Row 3 — Router Health (6) + Download Usage (6) */}
+            {/* Row 3 — Router Health (6) + Port Map (6): the two router-level MikroTik views */}
             {selectedRouterId && <div className="xl:col-span-6 min-w-0"><NetworkHealthCard data={mikrotik} loading={mikrotikLoading} error={mikrotikError} onRetry={loadMikrotik} /></div>}
-            {selectedRouterId && <div className="xl:col-span-6 min-w-0"><DownloadUsageSection data={bandwidth} loading={bandwidthLoading} error={bandwidthError} onRetry={loadBandwidth} hours={downloadUsageHours} onHoursChange={setDownloadUsageHours} service={downloadUsageService} onServiceChange={setDownloadUsageService} /></div>}
-
-            {/* Row 3.5 — Port Map board (full width): what's behind each physical port */}
             {selectedRouterId && (
-              <div className="xl:col-span-12 min-w-0">
+              <div className="xl:col-span-6 min-w-0">
                 <PortMapCard
                   data={portMap && portMap.router.id === selectedRouterId ? portMap : null}
                   loading={portMapLoading}
@@ -427,10 +424,12 @@ export default function DashboardPage() {
               </div>
             )}
 
-            {/* Row 4 — Bandwidth History (6) + Top Users (6) side by side.
-                Top Users spans full width only when there's no router (Bandwidth hidden). */}
+            {/* Row 4 — the two bandwidth chart cards: Download Usage (6) + Bandwidth History (6) */}
+            {selectedRouterId && <div className="xl:col-span-6 min-w-0"><DownloadUsageSection data={bandwidth} loading={bandwidthLoading} error={bandwidthError} onRetry={loadBandwidth} hours={downloadUsageHours} onHoursChange={setDownloadUsageHours} service={downloadUsageService} onServiceChange={setDownloadUsageService} /></div>}
             {selectedRouterId && <div className="xl:col-span-6 min-w-0"><BandwidthSection data={bandwidth} loading={bandwidthLoading} error={bandwidthError} onRetry={loadBandwidth} /></div>}
-            <div className={`min-w-0 ${selectedRouterId ? 'xl:col-span-6' : 'xl:col-span-12'}`}><TopUsers selectedRouterId={selectedRouterId} live={topUsers} liveLoading={topUsersLoading} liveError={topUsersError} onRetryLive={loadTopUsers} period={topUsageThisMonth} periodLoading={topUsageLoading} /></div>
+
+            {/* Row 5 — Top Users (full width) */}
+            <div className="xl:col-span-12 min-w-0"><TopUsers selectedRouterId={selectedRouterId} live={topUsers} liveLoading={topUsersLoading} liveError={topUsersError} onRetryLive={loadTopUsers} period={topUsageThisMonth} periodLoading={topUsageLoading} /></div>
 
             {/* Row 6 — collapsible detail (full width) */}
             {!analyticsError && !analyticsLoading && data && (

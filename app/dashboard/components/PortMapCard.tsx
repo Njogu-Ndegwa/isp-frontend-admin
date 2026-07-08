@@ -73,8 +73,8 @@ export default function PortMapCard({
   if (!data) {
     return (
       <SectionCard title="Port Map" accent="purple" loading={loading} controls={detailsLink}>
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2">
-          {[1, 2, 3, 4, 5].map((i) => (
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-3 2xl:grid-cols-4 gap-2">
+          {[1, 2, 3, 4, 5, 6].map((i) => (
             <div key={i} className="h-20 skeleton rounded-lg" />
           ))}
         </div>
@@ -125,7 +125,7 @@ export default function PortMapCard({
       {data.ports.length === 0 ? (
         <SectionEmpty message="No bridge ports found on this router" />
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-3 2xl:grid-cols-4 gap-2">
           {data.ports.map((port) => (
             <PortTile key={port.port} port={port} />
           ))}
