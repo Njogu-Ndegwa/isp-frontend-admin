@@ -30,11 +30,27 @@ import { formatDateGMT3 } from '../lib/dateUtils';
 
 type Tab = 'pppoe' | 'hotspot' | 'ports' | 'analytics';
 
+const TABS: Tab[] = ['ports', 'analytics', 'pppoe', 'hotspot'];
+
+// This component is rendered with ssr:false, so window is always available;
+// the guard only satisfies type-safety and non-browser test environments.
+function getQueryParam(name: string): string | null {
+  if (typeof window === 'undefined') return null;
+  return new URLSearchParams(window.location.search).get(name);
+}
+
 export default function DiagnosticsPage() {
   const { isAuthenticated } = useAuth();
   const { showAlert } = useAlert();
-  const [selectedRouterId, setSelectedRouterId] = useState<number | null>(null);
-  const [activeTab, setActiveTab] = useState<Tab>('ports');
+  // Support deep links like /diagnostics?tab=analytics&router=3 (used by the dashboard Port Map board)
+  const [selectedRouterId, setSelectedRouterId] = useState<number | null>(() => {
+    const id = parseInt(getQueryParam('router') ?? '', 10);
+    return Number.isFinite(id) && id > 0 ? id : null;
+  });
+  const [activeTab, setActiveTab] = useState<Tab>(() => {
+    const tab = getQueryParam('tab') as Tab | null;
+    return tab && TABS.includes(tab) ? tab : 'ports';
+  });
 
   // PPPoE state
   const [pppoeOverview, setPppoeOverview] = useState<PPPoEOverviewResponse | null>(null);
@@ -278,7 +294,7 @@ export default function DiagnosticsPage() {
           <>
             {/* Tab bar */}
             <div className="flex gap-2 mb-5 overflow-x-auto">
-              {(['ports', 'analytics', 'pppoe', 'hotspot'] as Tab[]).map((tab) => (
+              {TABS.map((tab) => (
                 <button
                   key={tab}
                   onClick={() => setActiveTab(tab)}

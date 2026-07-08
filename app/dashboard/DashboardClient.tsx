@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { api } from '../lib/api';
-import { DashboardAnalytics, MikroTikMetrics, BandwidthHistory, TopUsersResponse, SubscriptionAlert, ResellerTopUsageEntry, SubscriptionOverview } from '../lib/types';
+import { DashboardAnalytics, MikroTikMetrics, BandwidthHistory, TopUsersResponse, SubscriptionAlert, ResellerTopUsageEntry, SubscriptionOverview, PortAnalyticsResponse } from '../lib/types';
 import { useAuth } from '../context/AuthContext';
 import SubscriptionAlertBanner from '../components/SubscriptionAlertBanner';
 import OnboardingChecklist from '../components/OnboardingChecklist';
@@ -20,6 +20,7 @@ import BandwidthSection from './components/BandwidthSection';
 import TopUsers from './components/TopUsers';
 import DailyBreakdown from './components/DailyBreakdown';
 import InterfacesPanel from './components/InterfacesPanel';
+import PortMapCard from './components/PortMapCard';
 
 const DASHBOARD_LOAD_DELAYS_MS = {
   mikrotik: 1500,
@@ -27,10 +28,13 @@ const DASHBOARD_LOAD_DELAYS_MS = {
   topUsers: 4500,
   usage: 5500,
   bandwidth: 6500,
+  portMap: 7500,
   onboarding: 8000,
 } as const;
 
 const MIKROTIK_REFRESH_INTERVAL_MS = 60_000;
+// Port analytics does heavy live RouterOS reads (60s backend cache) — refresh slowly.
+const PORT_MAP_REFRESH_INTERVAL_MS = 120_000;
 const TOP_USERS_REFRESH_INTERVAL_MS = 60_000;
 const BANDWIDTH_REFRESH_INTERVAL_MS = 120_000;
 const STALE_HEALTH_RETRY_MIN_SECONDS = 20;
@@ -97,6 +101,11 @@ export default function DashboardPage() {
   const [topUsers, setTopUsers] = useState<TopUsersResponse | null>(null);
   const [topUsersLoading, setTopUsersLoading] = useState(true);
   const [topUsersError, setTopUsersError] = useState<string | null>(null);
+
+  // Port map (port analytics) state
+  const [portMap, setPortMap] = useState<PortAnalyticsResponse | null>(null);
+  const [portMapLoading, setPortMapLoading] = useState(true);
+  const [portMapError, setPortMapError] = useState<string | null>(null);
 
   // Top FUP usage state (reseller-wide, monthly)
   const [topUsageThisMonth, setTopUsageThisMonth] = useState<ResellerTopUsageEntry[] | null>(null);
@@ -195,6 +204,21 @@ export default function DashboardPage() {
       setTopUsersError(err instanceof Error ? err.message : 'Failed to load top users');
     } finally {
       setTopUsersLoading(false);
+    }
+  }, [selectedRouterId]);
+
+  // Fetch port analytics (non-blocking) — only when a router is selected
+  const loadPortMap = useCallback(async () => {
+    if (!selectedRouterId) return;
+    try {
+      setPortMapLoading(true);
+      setPortMapError(null);
+      const analytics = await api.getPortAnalytics(selectedRouterId);
+      setPortMap(analytics);
+    } catch (err) {
+      setPortMapError(err instanceof Error ? err.message : 'Failed to load port analytics');
+    } finally {
+      setPortMapLoading(false);
     }
   }, [selectedRouterId]);
 
@@ -300,6 +324,22 @@ export default function DashboardPage() {
     };
   }, [loadTopUsers, selectedRouterId]);
 
+  // Port map — staggered load, slow refresh while the dashboard is visible.
+  useEffect(() => {
+    if (!selectedRouterId) return;
+
+    const refresh = () => {
+      if (isDashboardVisible()) void loadPortMap();
+    };
+
+    const timeout = window.setTimeout(refresh, DASHBOARD_LOAD_DELAYS_MS.portMap);
+    const interval = window.setInterval(refresh, PORT_MAP_REFRESH_INTERVAL_MS);
+    return () => {
+      window.clearTimeout(timeout);
+      window.clearInterval(interval);
+    };
+  }, [loadPortMap, selectedRouterId]);
+
   // Load monthly top FUP usage (reseller-wide)
   useEffect(() => {
     let cancelled = false;
@@ -325,6 +365,7 @@ export default function DashboardPage() {
     loadMikrotik();
     loadBandwidth();
     loadTopUsers();
+    loadPortMap();
   };
 
   // Handle custom date range submission
@@ -372,6 +413,19 @@ export default function DashboardPage() {
             {/* Row 3 — Router Health (6) + Download Usage (6) */}
             {selectedRouterId && <div className="xl:col-span-6 min-w-0"><NetworkHealthCard data={mikrotik} loading={mikrotikLoading} error={mikrotikError} onRetry={loadMikrotik} /></div>}
             {selectedRouterId && <div className="xl:col-span-6 min-w-0"><DownloadUsageSection data={bandwidth} loading={bandwidthLoading} error={bandwidthError} onRetry={loadBandwidth} hours={downloadUsageHours} onHoursChange={setDownloadUsageHours} service={downloadUsageService} onServiceChange={setDownloadUsageService} /></div>}
+
+            {/* Row 3.5 — Port Map board (full width): what's behind each physical port */}
+            {selectedRouterId && (
+              <div className="xl:col-span-12 min-w-0">
+                <PortMapCard
+                  data={portMap && portMap.router.id === selectedRouterId ? portMap : null}
+                  loading={portMapLoading}
+                  error={portMapError}
+                  onRetry={loadPortMap}
+                  routerId={selectedRouterId}
+                />
+              </div>
+            )}
 
             {/* Row 4 — Bandwidth History (6) + Top Users (6) side by side.
                 Top Users spans full width only when there's no router (Bandwidth hidden). */}
