@@ -51,6 +51,8 @@ export default function DiagnosticsPage() {
     const tab = getQueryParam('tab') as Tab | null;
     return tab && TABS.includes(tab) ? tab : 'ports';
   });
+  // Port to preselect on the analytics tab (e.g. dashboard "Details →" link)
+  const [initialPort] = useState<string | null>(() => getQueryParam('port'));
 
   // PPPoE state
   const [pppoeOverview, setPppoeOverview] = useState<PPPoEOverviewResponse | null>(null);
@@ -371,6 +373,7 @@ export default function DiagnosticsPage() {
                 loading={portAnalyticsLoading}
                 error={portAnalyticsError}
                 onRefresh={() => loadPortAnalytics(true)}
+                initialPort={initialPort}
               />
             )}
           </>

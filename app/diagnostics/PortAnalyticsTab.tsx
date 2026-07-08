@@ -7,6 +7,7 @@ import {
   InfrastructureDevice,
   DownstreamDeviceSample,
 } from '../lib/types';
+import PortFaceplate, { isUplinkPort, portVisualStatus } from '../components/PortFaceplate';
 
 function formatBytes(bytes: number): string {
   if (!bytes) return '0 B';
@@ -29,30 +30,32 @@ const SKIP_REASON_LABELS: Record<string, string> = {
   timeout: 'router timed out',
 };
 
-const HEALTH_CONFIG: Record<PortAnalyticsPort['health']['status'], { label: string; badge: string; icon: string }> = {
-  active: { label: 'Active', badge: 'badge-success', icon: '●' },
-  silent_link: { label: 'Silent Link', badge: 'bg-amber-500/20 text-amber-400', icon: '◐' },
-  down: { label: 'Down', badge: 'bg-foreground-muted/20 text-foreground-muted', icon: '○' },
+const STATUS_BADGES: Record<string, { label: string; badge: string }> = {
+  uplink: { label: 'Uplink', badge: 'bg-sky-500/20 text-sky-500' },
+  active: { label: 'Active', badge: 'badge-success' },
+  silent_link: { label: 'Silent Link', badge: 'bg-amber-500/20 text-amber-400' },
+  down: { label: 'Down', badge: 'bg-foreground-muted/20 text-foreground-muted' },
 };
 
+// Pick the most interesting port to preselect: busiest access port first.
+function defaultPortSelection(ports: PortAnalyticsPort[]): string | null {
+  if (ports.length === 0) return null;
+  const busiest = [...ports]
+    .filter((p) => portVisualStatus(p) === 'active')
+    .sort((a, b) => b.counts.learned_macs - a.counts.learned_macs)[0];
+  return (busiest ?? ports[0]).port;
+}
+
 export default function PortAnalyticsTab({
-  data, loading, error, onRefresh,
+  data, loading, error, onRefresh, initialPort = null,
 }: {
   data: PortAnalyticsResponse | null;
   loading: boolean;
   error: string | null;
   onRefresh: () => void;
+  initialPort?: string | null;
 }) {
-  const [expandedPorts, setExpandedPorts] = useState<Set<string>>(new Set());
-
-  const togglePort = (port: string) => {
-    setExpandedPorts((prev) => {
-      const next = new Set(prev);
-      if (next.has(port)) next.delete(port);
-      else next.add(port);
-      return next;
-    });
-  };
+  const [selectedPort, setSelectedPort] = useState<string | null>(initialPort);
 
   if (error) {
     return (
@@ -87,10 +90,9 @@ export default function PortAnalyticsTab({
             <div key={i} className="h-16 skeleton rounded-lg" />
           ))}
         </div>
-        <div className="space-y-2">
-          {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="h-20 skeleton rounded-lg" />
-          ))}
+        <div className="card p-5">
+          <div className="h-20 skeleton rounded-xl mb-3" />
+          <div className="h-48 skeleton rounded-xl" />
         </div>
       </div>
     );
@@ -101,6 +103,15 @@ export default function PortAnalyticsTab({
   const memoryUsedPct = data.system.total_memory > 0
     ? Math.round(((data.system.total_memory - data.system.free_memory) / data.system.total_memory) * 100)
     : null;
+
+  // Uplink ports legitimately have no downstream MACs — drop their warnings.
+  const uplinkNames = new Set(data.ports.filter(isUplinkPort).map((p) => p.port));
+  const visibleWarnings = data.warnings.filter((w) => !uplinkNames.has(w.port));
+
+  const effectiveSelected = selectedPort && data.ports.some((p) => p.port === selectedPort)
+    ? selectedPort
+    : defaultPortSelection(data.ports);
+  const selected = data.ports.find((p) => p.port === effectiveSelected) ?? null;
 
   return (
     <div className="space-y-4">
@@ -168,7 +179,7 @@ export default function PortAnalyticsTab({
       </div>
 
       {/* Warnings strip */}
-      {data.warnings.length > 0 && (
+      {visibleWarnings.length > 0 && (
         <div className="card p-4 border-amber-500/30 animate-fade-in">
           <div className="flex items-center gap-2 mb-2">
             <svg className="w-4 h-4 text-amber-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -177,11 +188,15 @@ export default function PortAnalyticsTab({
             <p className="text-sm font-medium text-foreground">Port Warnings</p>
           </div>
           <div className="space-y-1">
-            {data.warnings.map((w) => (
+            {visibleWarnings.map((w) => (
               w.warnings.map((text, i) => (
-                <p key={`${w.port}-${i}`} className="text-xs text-foreground-muted">
+                <button
+                  key={`${w.port}-${i}`}
+                  onClick={() => setSelectedPort(w.port)}
+                  className="block text-left text-xs text-foreground-muted hover:text-foreground transition-colors"
+                >
                   <span className="font-mono text-amber-400">{w.port}</span> — {text}
-                </p>
+                </button>
               ))
             ))}
           </div>
@@ -203,24 +218,25 @@ export default function PortAnalyticsTab({
         </div>
       )}
 
-      {/* Ports */}
-      <div className="space-y-2 animate-fade-in">
-        <p className="text-sm font-medium text-foreground">
+      {/* Ports — faceplate + selected-port detail */}
+      <div className="card p-4 sm:p-5 animate-fade-in">
+        <p className="text-sm font-medium text-foreground mb-1">
           Ports <span className="text-foreground-muted font-normal">({data.ports.length})</span>
         </p>
+        <p className="text-xs text-foreground-muted mb-3">
+          Select a port to see the devices connected behind it
+        </p>
         {data.ports.length === 0 ? (
-          <div className="card p-6 text-center">
-            <p className="text-sm text-foreground-muted">No bridge ports found on this router</p>
-          </div>
+          <p className="text-sm text-foreground-muted text-center py-6">No bridge ports found on this router</p>
         ) : (
-          data.ports.map((port) => (
-            <PortCard
-              key={port.port}
-              port={port}
-              expanded={expandedPorts.has(port.port)}
-              onToggle={() => togglePort(port.port)}
+          <>
+            <PortFaceplate
+              ports={data.ports}
+              selectedPort={effectiveSelected}
+              onSelect={setSelectedPort}
             />
-          ))
+            {selected && <PortDetail key={selected.port} port={selected} />}
+          </>
         )}
       </div>
     </div>
@@ -237,172 +253,119 @@ function StatTile({ label, value, hint }: { label: string; value: number; hint?:
   );
 }
 
-function PortCard({
-  port, expanded, onToggle,
-}: {
-  port: PortAnalyticsPort;
-  expanded: boolean;
-  onToggle: () => void;
-}) {
-  const health = HEALTH_CONFIG[port.health.status] ?? HEALTH_CONFIG.down;
-  const hasErrors = port.traffic.rx_error > 0 || port.traffic.tx_error > 0;
-  const isDown = port.health.status === 'down';
-  const infraNames = port.infrastructure.map((d) => d.name || d.board || d.mac).filter(Boolean);
+function PortDetail({ port }: { port: PortAnalyticsPort }) {
+  const status = portVisualStatus(port);
+  const badge = STATUS_BADGES[status] ?? STATUS_BADGES.down;
+  const isUplink = status === 'uplink';
 
   return (
-    <div
-      className={`card overflow-hidden ${
-        isDown ? 'opacity-60' : port.health.status === 'silent_link' || hasErrors ? 'border-amber-500/30' : ''
-      }`}
-    >
-      {/* Header row (click to expand) */}
-      <button
-        onClick={onToggle}
-        className="w-full text-left p-3 sm:p-4 hover:bg-background-tertiary/50 transition-colors"
-        aria-expanded={expanded}
-      >
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2 flex-wrap min-w-0">
-            <span className="font-mono font-medium text-foreground text-sm">{port.port}</span>
-            <span className={`badge text-[10px] ${health.badge}`}>{health.label}</span>
-            {port.link.up && port.link.rate && (
-              <span className="text-xs text-foreground-muted">
-                {port.link.rate}{port.link.full_duplex ? ' FD' : ''}
-              </span>
-            )}
-            {port.bridge && (
-              <span className="text-xs text-foreground-muted hidden sm:inline">· {port.bridge}</span>
-            )}
-            {hasErrors && (
-              <span className="badge bg-red-500/20 text-red-400 text-[10px]">Errors</span>
-            )}
-            {port.link.link_downs > 0 && (
-              <span className="text-[10px] text-foreground-muted">{port.link.link_downs} flaps</span>
-            )}
-          </div>
-          <svg
-            className={`w-4 h-4 text-foreground-muted flex-shrink-0 transition-transform ${expanded ? 'rotate-180' : ''}`}
-            fill="none" viewBox="0 0 24 24" stroke="currentColor"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-          </svg>
-        </div>
-
-        {/* Summary line */}
-        {!isDown && (
-          <div className="flex items-center gap-x-3 gap-y-1 flex-wrap mt-2 text-xs text-foreground-muted">
-            {infraNames.length > 0 && (
-              <span className="inline-flex items-center gap-1 text-purple-400">
-                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0" />
-                </svg>
-                {infraNames.join(', ')}
-              </span>
-            )}
-            <span>
-              <span className="text-foreground font-medium">{port.counts.known_customers_seen}</span> customers seen
-            </span>
-            <span>
-              <span className="text-foreground font-medium">{port.counts.known_customers_connected}</span> connected
-            </span>
-            {port.counts.hotspot_hosts_seen > 0 && (
-              <span>
-                <span className="text-foreground font-medium">{port.counts.hotspot_hosts_seen}</span> hotspot
-              </span>
-            )}
-            {port.counts.unknown_devices > 0 && (
-              <span>
-                <span className="text-foreground font-medium">{port.counts.unknown_devices}</span> unknown
-              </span>
-            )}
-            {port.health.status === 'silent_link' && (
-              <span className="text-amber-400">No downstream devices talking</span>
-            )}
-          </div>
+    <div className="mt-4 pt-4 border-t border-border space-y-4 animate-fade-in">
+      {/* Header */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <span className="font-mono font-semibold text-foreground">{port.port}</span>
+        <span className={`badge text-[10px] ${badge.badge}`}>{badge.label}</span>
+        {port.link.up && port.link.rate && (
+          <span className="text-xs text-foreground-muted">
+            {port.link.rate}{port.link.full_duplex ? ' full duplex' : ''}
+          </span>
         )}
-      </button>
+        {port.bridge && <span className="text-xs text-foreground-muted">· {port.bridge}</span>}
+        {port.link.link_downs > 0 && (
+          <span className="text-[10px] text-foreground-muted">{port.link.link_downs} link flap{port.link.link_downs !== 1 ? 's' : ''}</span>
+        )}
+      </div>
 
-      {/* Expanded detail */}
-      {expanded && (
-        <div className="border-t border-border p-3 sm:p-4 space-y-4">
-          {/* Warnings */}
-          {port.health.warnings.length > 0 && (
-            <div className="space-y-1">
-              {port.health.warnings.map((warning, i) => (
-                <div key={i} className="flex items-start gap-2 p-2.5 rounded-lg bg-amber-500/5 text-xs text-amber-400">
-                  <svg className="w-3.5 h-3.5 flex-shrink-0 mt-px" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                  </svg>
-                  {warning}
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Counts grid */}
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
-            <DetailStat label="Learned MACs" value={port.counts.learned_macs} />
-            <DetailStat label="Customers Seen" value={port.counts.known_customers_seen} />
-            <DetailStat label="Connected" value={port.counts.known_customers_connected} />
-            <DetailStat label="Hotspot Auth" value={port.counts.hotspot_authorized} />
-            <DetailStat label="Unknown" value={port.counts.unknown_devices} />
+      {/* Uplink explainer instead of access-port warnings */}
+      {isUplink ? (
+        <div className="flex items-start gap-2 p-2.5 rounded-lg bg-sky-500/5 text-xs text-sky-500">
+          <svg className="w-3.5 h-3.5 flex-shrink-0 mt-px" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          WAN uplink — this port brings the internet into the router, so downstream device tracking does not apply here.
+        </div>
+      ) : (
+        port.health.warnings.length > 0 && (
+          <div className="space-y-1">
+            {port.health.warnings.map((warning, i) => (
+              <div key={i} className="flex items-start gap-2 p-2.5 rounded-lg bg-amber-500/5 text-xs text-amber-400">
+                <svg className="w-3.5 h-3.5 flex-shrink-0 mt-px" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                </svg>
+                {warning}
+              </div>
+            ))}
           </div>
+        )
+      )}
 
-          {/* Infrastructure on this port */}
-          {port.infrastructure.length > 0 && (
-            <div>
-              <p className="text-xs font-medium text-foreground-muted uppercase tracking-wide mb-2">Infrastructure</p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {port.infrastructure.map((device) => (
-                  <InfrastructureCard key={device.mac} device={device} />
-                ))}
-              </div>
-            </div>
-          )}
+      {/* Counts grid */}
+      {!isUplink && (
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+          <DetailStat label="Devices" value={port.counts.learned_macs} />
+          <DetailStat label="Customers Seen" value={port.counts.known_customers_seen} />
+          <DetailStat label="Connected" value={port.counts.known_customers_connected} />
+          <DetailStat label="Hotspot Hosts" value={port.counts.hotspot_hosts_seen} />
+          <DetailStat label="Unknown" value={port.counts.unknown_devices} />
+        </div>
+      )}
 
-          {/* Downstream devices */}
-          {port.downstream_devices_sample.length > 0 && (
-            <div>
-              <p className="text-xs font-medium text-foreground-muted uppercase tracking-wide mb-2">
-                Downstream Devices <span className="normal-case">(sample of {port.downstream_devices_sample.length})</span>
-              </p>
-              <div className="overflow-x-auto -mx-3 sm:mx-0 px-3 sm:px-0">
-                <table className="w-full text-sm min-w-[560px]">
-                  <thead>
-                    <tr className="border-b border-border">
-                      <th className="text-left py-2 pr-3 text-xs font-medium text-foreground-muted">Device</th>
-                      <th className="text-left py-2 pr-3 text-xs font-medium text-foreground-muted">Type</th>
-                      <th className="text-left py-2 pr-3 text-xs font-medium text-foreground-muted">IP</th>
-                      <th className="text-left py-2 pr-3 text-xs font-medium text-foreground-muted">Activity</th>
-                      <th className="text-left py-2 text-xs font-medium text-foreground-muted">Last Seen</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {port.downstream_devices_sample.map((device) => (
-                      <DownstreamDeviceRow key={device.mac} device={device} />
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-
-          {/* Traffic counters */}
-          <div>
-            <p className="text-xs font-medium text-foreground-muted uppercase tracking-wide mb-2">Traffic</p>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-              <DetailStat label="RX" value={formatBytes(port.traffic.rx_byte)} />
-              <DetailStat label="TX" value={formatBytes(port.traffic.tx_byte)} />
-              <DetailStat label="RX Errors" value={port.traffic.rx_error} alert={port.traffic.rx_error > 0} />
-              <DetailStat label="TX Errors" value={port.traffic.tx_error} alert={port.traffic.tx_error > 0} />
-              <DetailStat label="RX Drops" value={port.traffic.rx_drop} />
-              <DetailStat label="TX Drops" value={port.traffic.tx_drop} />
-              <DetailStat label="Link Flaps" value={port.link.link_downs} />
-              <DetailStat label="Last Link Up" value={port.link.last_link_up_time || '—'} small />
-            </div>
+      {/* Infrastructure on this port */}
+      {port.infrastructure.length > 0 && (
+        <div>
+          <p className="text-xs font-medium text-foreground-muted uppercase tracking-wide mb-2">Infrastructure</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {port.infrastructure.map((device) => (
+              <InfrastructureCard key={device.mac} device={device} />
+            ))}
           </div>
         </div>
       )}
+
+      {/* Downstream devices */}
+      {port.downstream_devices_sample.length > 0 && (
+        <div>
+          <p className="text-xs font-medium text-foreground-muted uppercase tracking-wide mb-2">
+            Connected Devices <span className="normal-case">(sample of {port.downstream_devices_sample.length})</span>
+          </p>
+          <div className="overflow-x-auto -mx-3 sm:mx-0 px-3 sm:px-0">
+            <table className="w-full text-sm min-w-[560px]">
+              <thead>
+                <tr className="border-b border-border">
+                  <th className="text-left py-2 pr-3 text-xs font-medium text-foreground-muted">Device</th>
+                  <th className="text-left py-2 pr-3 text-xs font-medium text-foreground-muted">Type</th>
+                  <th className="text-left py-2 pr-3 text-xs font-medium text-foreground-muted">IP</th>
+                  <th className="text-left py-2 pr-3 text-xs font-medium text-foreground-muted">Activity</th>
+                  <th className="text-left py-2 text-xs font-medium text-foreground-muted">Last Seen</th>
+                </tr>
+              </thead>
+              <tbody>
+                {port.downstream_devices_sample.map((device) => (
+                  <DownstreamDeviceRow key={device.mac} device={device} />
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {!isUplink && port.health.status === 'active' && port.downstream_devices_sample.length === 0 && (
+        <p className="text-xs text-foreground-muted">No downstream device samples were captured for this port.</p>
+      )}
+
+      {/* Traffic counters */}
+      <div>
+        <p className="text-xs font-medium text-foreground-muted uppercase tracking-wide mb-2">Traffic</p>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          <DetailStat label="RX" value={formatBytes(port.traffic.rx_byte)} />
+          <DetailStat label="TX" value={formatBytes(port.traffic.tx_byte)} />
+          <DetailStat label="RX Errors" value={port.traffic.rx_error} alert={port.traffic.rx_error > 0} />
+          <DetailStat label="TX Errors" value={port.traffic.tx_error} alert={port.traffic.tx_error > 0} />
+          <DetailStat label="RX Drops" value={port.traffic.rx_drop} />
+          <DetailStat label="TX Drops" value={port.traffic.tx_drop} />
+          <DetailStat label="Link Flaps" value={port.link.link_downs} />
+          <DetailStat label="Last Link Up" value={port.link.last_link_up_time || '—'} small />
+        </div>
+      </div>
     </div>
   );
 }

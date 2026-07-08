@@ -15,12 +15,11 @@ import KpiStrip from './components/KpiStrip';
 import RevenueSection from './components/RevenueSection';
 import PlanPerformance from './components/PlanPerformance';
 import NetworkHealthCard from './components/NetworkHealthCard';
-import DownloadUsageSection from './components/DownloadUsageSection';
 import BandwidthSection from './components/BandwidthSection';
 import TopUsers from './components/TopUsers';
 import DailyBreakdown from './components/DailyBreakdown';
 import InterfacesPanel from './components/InterfacesPanel';
-import PortMapCard from './components/PortMapCard';
+import PortsUsageCard from './components/PortsUsageCard';
 
 const DASHBOARD_LOAD_DELAYS_MS = {
   mikrotik: 1500,
@@ -410,26 +409,32 @@ export default function DashboardPage() {
             <div className="xl:col-span-8 min-w-0"><RevenueSection routerId={selectedRouterId} enabled={selectedRouterId !== null} /></div>
             {!analyticsError && data && <div className="xl:col-span-4 min-w-0"><PlanPerformance plans={data.planPerformance} totalRevenue={data.summary.totalRevenue} /></div>}
 
-            {/* Row 3 — Router Health (6) + Port Map (6): the two router-level MikroTik views */}
+            {/* Row 3 — Router Health (6) + Ports & Usage (6): the two router-level MikroTik views */}
             {selectedRouterId && <div className="xl:col-span-6 min-w-0"><NetworkHealthCard data={mikrotik} loading={mikrotikLoading} error={mikrotikError} onRetry={loadMikrotik} /></div>}
             {selectedRouterId && (
               <div className="xl:col-span-6 min-w-0">
-                <PortMapCard
-                  data={portMap && portMap.router.id === selectedRouterId ? portMap : null}
-                  loading={portMapLoading}
-                  error={portMapError}
-                  onRetry={loadPortMap}
+                <PortsUsageCard
                   routerId={selectedRouterId}
+                  portMap={portMap && portMap.router.id === selectedRouterId ? portMap : null}
+                  portMapLoading={portMapLoading}
+                  portMapError={portMapError}
+                  onRetryPortMap={loadPortMap}
+                  usage={bandwidth}
+                  usageLoading={bandwidthLoading}
+                  usageError={bandwidthError}
+                  onRetryUsage={loadBandwidth}
+                  hours={downloadUsageHours}
+                  onHoursChange={setDownloadUsageHours}
+                  service={downloadUsageService}
+                  onServiceChange={setDownloadUsageService}
                 />
               </div>
             )}
 
-            {/* Row 4 — the two bandwidth chart cards: Download Usage (6) + Bandwidth History (6) */}
-            {selectedRouterId && <div className="xl:col-span-6 min-w-0"><DownloadUsageSection data={bandwidth} loading={bandwidthLoading} error={bandwidthError} onRetry={loadBandwidth} hours={downloadUsageHours} onHoursChange={setDownloadUsageHours} service={downloadUsageService} onServiceChange={setDownloadUsageService} /></div>}
+            {/* Row 4 — Bandwidth History (6) + Top Users (6) side by side.
+                Top Users spans full width only when there's no router (Bandwidth hidden). */}
             {selectedRouterId && <div className="xl:col-span-6 min-w-0"><BandwidthSection data={bandwidth} loading={bandwidthLoading} error={bandwidthError} onRetry={loadBandwidth} /></div>}
-
-            {/* Row 5 — Top Users (full width) */}
-            <div className="xl:col-span-12 min-w-0"><TopUsers selectedRouterId={selectedRouterId} live={topUsers} liveLoading={topUsersLoading} liveError={topUsersError} onRetryLive={loadTopUsers} period={topUsageThisMonth} periodLoading={topUsageLoading} /></div>
+            <div className={`min-w-0 ${selectedRouterId ? 'xl:col-span-6' : 'xl:col-span-12'}`}><TopUsers selectedRouterId={selectedRouterId} live={topUsers} liveLoading={topUsersLoading} liveError={topUsersError} onRetryLive={loadTopUsers} period={topUsageThisMonth} periodLoading={topUsageLoading} /></div>
 
             {/* Row 6 — collapsible detail (full width) */}
             {!analyticsError && !analyticsLoading && data && (

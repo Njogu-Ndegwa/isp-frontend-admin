@@ -706,12 +706,19 @@ export function demoPortAnalytics(routerId: number): PortAnalyticsResponse {
         : [],
     };
   };
+  // ether1 is the WAN uplink: up, unbridged, no downstream MACs. The backend
+  // still flags it as silent_link — the frontend renders it as Uplink instead.
   const ports = [
-    mkPort('ether1', 'down', { bridge: '' }),
+    mkPort('ether1', 'silent_link', { bridge: '' }),
     mkPort('ether2', 'active', { infra: [infraAp], known: 19, connected: 12, hotspot: 22, unknown: 5 }),
     mkPort('ether3', 'active', { infra: [infraSwitch], known: 8, connected: 6, hotspot: 9, unknown: 2, errors: 3, downs: 2 }),
     mkPort('ether4', 'active', { bridge: 'bridge-pppoe', known: 4, connected: 3, unknown: 1 }),
     mkPort('ether5', 'silent_link', { bridge: 'bridge-pppoe' }),
+    mkPort('ether6', 'active', { known: 3, connected: 2, hotspot: 4 }),
+    mkPort('ether7', 'down', {}),
+    mkPort('ether8', 'active', { bridge: 'bridge-pppoe', known: 5, connected: 4, unknown: 1 }),
+    mkPort('ether9', 'down', { bridge: 'bridge-pppoe' }),
+    mkPort('ether10', 'active', { known: 2, connected: 1, hotspot: 3, unknown: 2, downs: 1 }),
   ];
   return {
     success: true,
@@ -725,11 +732,12 @@ export function demoPortAnalytics(routerId: number): PortAnalyticsResponse {
       free_hdd_space: 380_000_000, total_hdd_space: 512_000_000,
     },
     totals: {
-      interfaces: 11, bridges: 2, bridge_ports: 4, bridge_hosts: 61, neighbors: 2,
+      interfaces: 13, bridges: 2, bridge_ports: 9, bridge_hosts: 61, neighbors: 2,
       dhcp_leases: 48, arp_entries: 57, hotspot_hosts: 31, hotspot_authorized: 21,
       hotspot_bypassed: 2, hotspot_active: 21, ppp_active: 3, db_customers_with_mac: 15,
     },
     warnings: [
+      { port: 'ether1', warnings: ['Link is up but the router has received 0 packets and learned no downstream MACs'] },
       { port: 'ether5', warnings: ['Link is up but the router has received 0 packets and learned no downstream MACs'] },
       { port: 'ether3', warnings: ['Interface errors are present'] },
     ],
