@@ -31,6 +31,10 @@ import type {
   HotspotOverviewResponse,
   HotspotLogsResponse,
   PortStatusResponse,
+  PortAnalyticsResponse,
+  PortAnalyticsPort,
+  InfrastructureDevice,
+  DownstreamDeviceSample,
   WalledGardenResponse,
   RouterInterfacesResponse,
   PPPoECredentials,
@@ -633,6 +637,104 @@ export function demoPortStatus(routerId: number): PortStatusResponse {
       { name: 'bridge-hotspot', running: true, disabled: false, port_count: 2 },
       { name: 'bridge-pppoe', running: true, disabled: false, port_count: 2 },
     ],
+  };
+}
+
+// ─── Port Analytics ─────────────────────────────────────────────────
+export function demoPortAnalytics(routerId: number): PortAnalyticsResponse {
+  const router = demoRouters.find(r => r.id === routerId) ?? demoRouters[0];
+  const infraAp: InfrastructureDevice = {
+    port: 'ether2', mac: '2C:C8:1B:AA:10:01', name: 'Ruijie-AP-Block-A', ip: '10.10.0.2',
+    board: 'RG-EW1200G', platform: 'Ruijie', version: '11.9', source: 'neighbor', last_seen: '2m',
+  };
+  const infraSwitch: InfrastructureDevice = {
+    port: 'ether3', mac: '48:8F:5A:BB:20:02', name: 'CRS326-Relay', ip: '10.10.0.3',
+    board: 'CRS326-24G-2S+', platform: 'MikroTik', version: '7.14.2', source: 'neighbor', last_seen: '1m',
+  };
+  const sample = (i: number, kind: DownstreamDeviceSample['kind']): DownstreamDeviceSample => ({
+    mac: macs[i % macs.length],
+    kind,
+    name: kind === 'known_customer' ? ['John Kamau', 'Grace Wanjiku', 'Peter Ochieng'][i % 3] : kind === 'infrastructure' ? infraAp.name : '',
+    ip: `10.10.1.${100 + i}`,
+    last_seen: `${(i % 9) + 1}m`,
+    hotspot_authorized: kind === 'known_customer',
+    hotspot_bypassed: false,
+    hotspot_active: kind === 'known_customer' && i % 2 === 0,
+    ppp_active: false,
+    ...(kind === 'known_customer' ? { customer_id: (i % 15) + 1, customer_status: i % 4 === 0 ? 'expired' : 'active' } : {}),
+  });
+  const mkPort = (port: string, health: 'active' | 'silent_link' | 'down', opts: {
+    bridge?: string; infra?: InfrastructureDevice[]; known?: number; connected?: number;
+    hotspot?: number; unknown?: number; errors?: number; downs?: number;
+  } = {}): PortAnalyticsPort => {
+    const up = health !== 'down';
+    const learned = health === 'active' ? (opts.known ?? 0) + (opts.unknown ?? 0) + (opts.infra?.length ?? 0) : 0;
+    const warnings = health === 'silent_link'
+      ? ['Link is up but the router has received 0 packets and learned no downstream MACs']
+      : (opts.errors ? ['Interface errors are present'] : []);
+    return {
+      port, bridge: opts.bridge ?? 'bridge-hotspot', bridge_status: up ? 'in-bridge' : '',
+      link: {
+        up, status: up ? 'link-ok' : 'no-link', rate: up ? (port === 'ether5' ? '100Mbps' : '1Gbps') : '',
+        full_duplex: up, last_link_up_time: up ? iso(2) : '', link_downs: opts.downs ?? 0,
+      },
+      traffic: {
+        rx_byte: up ? 48_000_000_000 : 0, tx_byte: up ? 83_000_000_000 : 0,
+        rx_packet: health === 'active' ? 52_000_000 : 0, tx_packet: health === 'active' ? 61_000_000 : 0,
+        rx_error: opts.errors ?? 0, tx_error: 0, rx_drop: 0, tx_drop: 0,
+      },
+      counts: {
+        learned_macs: learned,
+        known_customers_seen: opts.known ?? 0,
+        known_customers_connected: opts.connected ?? 0,
+        hotspot_hosts_seen: opts.hotspot ?? 0,
+        hotspot_authorized: opts.connected ?? 0,
+        hotspot_bypassed: 0,
+        active_hotspot_sessions: opts.connected ?? 0,
+        active_ppp_sessions: 0,
+        unknown_devices: opts.unknown ?? 0,
+        infrastructure_devices: opts.infra?.length ?? 0,
+      },
+      health: { status: health, warnings },
+      infrastructure: opts.infra ?? [],
+      downstream_devices_sample: health === 'active'
+        ? [
+            ...Array.from({ length: Math.min(opts.known ?? 0, 5) }, (_, i) => sample(i, 'known_customer')),
+            ...(opts.infra ?? []).map((d, i) => ({ ...sample(i + 5, 'infrastructure'), mac: d.mac, name: d.name, ip: d.ip })),
+            ...Array.from({ length: Math.min(opts.unknown ?? 0, 3) }, (_, i) => sample(i + 8, 'unknown_device')),
+          ]
+        : [],
+    };
+  };
+  const ports = [
+    mkPort('ether1', 'down', { bridge: '' }),
+    mkPort('ether2', 'active', { infra: [infraAp], known: 19, connected: 12, hotspot: 22, unknown: 5 }),
+    mkPort('ether3', 'active', { infra: [infraSwitch], known: 8, connected: 6, hotspot: 9, unknown: 2, errors: 3, downs: 2 }),
+    mkPort('ether4', 'active', { bridge: 'bridge-pppoe', known: 4, connected: 3, unknown: 1 }),
+    mkPort('ether5', 'silent_link', { bridge: 'bridge-pppoe' }),
+  ];
+  return {
+    success: true,
+    router: { id: router.id, name: router.name, identity_db: router.identity, identity_live: router.identity ?? router.name, ip: router.ip_address },
+    generated_at: iso(),
+    cached: true,
+    cache_age_seconds: 42,
+    system: {
+      version: '7.14.2 (stable)', board_name: 'RB4011iGS+', architecture: 'arm64', uptime: '3w2d10h',
+      cpu_load: 8, free_memory: 812_000_000, total_memory: 1_073_741_824,
+      free_hdd_space: 380_000_000, total_hdd_space: 512_000_000,
+    },
+    totals: {
+      interfaces: 11, bridges: 2, bridge_ports: 4, bridge_hosts: 61, neighbors: 2,
+      dhcp_leases: 48, arp_entries: 57, hotspot_hosts: 31, hotspot_authorized: 21,
+      hotspot_bypassed: 2, hotspot_active: 21, ppp_active: 3, db_customers_with_mac: 15,
+    },
+    warnings: [
+      { port: 'ether5', warnings: ['Link is up but the router has received 0 packets and learned no downstream MACs'] },
+      { port: 'ether3', warnings: ['Interface errors are present'] },
+    ],
+    infrastructure_candidates: [infraAp, infraSwitch],
+    ports,
   };
 }
 

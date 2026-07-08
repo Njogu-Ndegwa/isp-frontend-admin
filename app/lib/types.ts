@@ -2373,6 +2373,131 @@ export interface PortStatusResponse {
   bridges: BridgeEntry[];
 }
 
+// Port Analytics (GET /routers/{id}/port-analytics)
+export interface RouterSystemSummary {
+  version: string;
+  board_name: string;
+  architecture: string;
+  uptime: string;
+  cpu_load: number;
+  free_memory: number;
+  total_memory: number;
+  free_hdd_space: number;
+  total_hdd_space: number;
+}
+
+export interface PortAnalyticsTotals {
+  interfaces: number;
+  bridges: number;
+  bridge_ports: number;
+  bridge_hosts: number;
+  neighbors: number;
+  dhcp_leases: number;
+  arp_entries: number;
+  hotspot_hosts: number;
+  hotspot_authorized: number;
+  hotspot_bypassed: number;
+  hotspot_active: number;
+  ppp_active: number;
+  db_customers_with_mac: number;
+}
+
+export interface InfrastructureDevice {
+  port?: string;
+  mac: string;
+  name: string;
+  ip: string;
+  board: string;
+  platform: string;
+  version: string;
+  source: 'neighbor' | 'dhcp/arp';
+  last_seen: string;
+}
+
+export interface DownstreamDeviceSample {
+  mac: string;
+  kind: 'known_customer' | 'unknown_device' | 'infrastructure';
+  name: string;
+  ip: string;
+  last_seen: string;
+  hotspot_authorized: boolean;
+  hotspot_bypassed: boolean;
+  hotspot_active: boolean;
+  ppp_active: boolean;
+  customer_id?: number;
+  customer_status?: string;
+}
+
+export interface PortWarning {
+  port: string;
+  warnings: string[];
+}
+
+export interface PortAnalyticsPort {
+  port: string;
+  bridge: string;
+  bridge_status: string;
+  link: {
+    up: boolean;
+    status: string;
+    rate: string;
+    full_duplex: boolean;
+    last_link_up_time: string;
+    link_downs: number;
+  };
+  traffic: {
+    rx_byte: number;
+    tx_byte: number;
+    rx_packet: number;
+    tx_packet: number;
+    rx_error: number;
+    tx_error: number;
+    rx_drop: number;
+    tx_drop: number;
+  };
+  counts: {
+    learned_macs: number;
+    known_customers_seen: number;
+    known_customers_connected: number;
+    hotspot_hosts_seen: number;
+    hotspot_authorized: number;
+    hotspot_bypassed: number;
+    active_hotspot_sessions: number;
+    active_ppp_sessions: number;
+    unknown_devices: number;
+    infrastructure_devices: number;
+  };
+  health: {
+    status: 'active' | 'silent_link' | 'down';
+    warnings: string[];
+  };
+  infrastructure: InfrastructureDevice[];
+  downstream_devices_sample: DownstreamDeviceSample[];
+}
+
+export interface PortAnalyticsResponse {
+  success: boolean;
+  router: {
+    id: number;
+    name: string;
+    identity_db?: string | null;
+    identity_live?: string;
+    ip: string;
+  };
+  generated_at: string;
+  cached: boolean;
+  cache_age_seconds?: number;
+  stale?: boolean;
+  refresh_pending?: boolean;
+  refresh_skipped?: boolean;
+  refresh_skip_reason?: 'recent_cache' | 'db_pool_pressure' | 'refresh_already_running' | 'busy' | 'timeout';
+  system: RouterSystemSummary;
+  totals: PortAnalyticsTotals;
+  warnings: PortWarning[];
+  infrastructure_candidates: InfrastructureDevice[];
+  ports: PortAnalyticsPort[];
+}
+
 // Walled Garden
 export interface WalledGardenDomainEntry {
   '.id': string;

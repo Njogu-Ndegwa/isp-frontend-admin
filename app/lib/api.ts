@@ -84,6 +84,7 @@ import {
   HotspotOverviewResponse,
   HotspotLogsResponse,
   PortStatusResponse,
+  PortAnalyticsResponse,
   MacDiagnoseResponse,
   RouterUptimeResponse,
   InsuranceWireGuardStatus,
@@ -1737,6 +1738,15 @@ class ApiClient {
       headers: this.getHeaders(),
     });
     return this.handleResponse<PortStatusResponse>(response);
+  }
+
+  async getPortAnalytics(routerId: number, refresh = false): Promise<PortAnalyticsResponse> {
+    if (this.isDemoMode()) return (await loadDemo()).demoPortAnalytics(routerId);
+    const params = refresh ? '?refresh=true' : '';
+    const response = await fetch(`${BASE_URL}/routers/${routerId}/port-analytics${params}`, {
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<PortAnalyticsResponse>(response);
   }
 
   async diagnoseMac(routerId: number, macAddress: string): Promise<MacDiagnoseResponse> {

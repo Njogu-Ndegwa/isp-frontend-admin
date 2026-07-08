@@ -11,6 +11,7 @@ import {
   HotspotOverviewResponse,
   HotspotLogsResponse,
   PortStatusResponse,
+  PortAnalyticsResponse,
   MacDiagnoseResponse,
   HealthCheck,
   DiagnosticIssue,
@@ -19,6 +20,7 @@ import {
   BridgeEntry,
 } from '../lib/types';
 import Header from '../components/Header';
+import PortAnalyticsTab from './PortAnalyticsTab';
 import { PageLoader } from '../components/LoadingSpinner';
 import RouterSelector from '../components/RouterSelector';
 import PullToRefresh from '../components/PullToRefresh';
@@ -26,7 +28,7 @@ import { useAuth } from '../context/AuthContext';
 import { useAlert } from '../context/AlertContext';
 import { formatDateGMT3 } from '../lib/dateUtils';
 
-type Tab = 'pppoe' | 'hotspot' | 'ports';
+type Tab = 'pppoe' | 'hotspot' | 'ports' | 'analytics';
 
 export default function DiagnosticsPage() {
   const { isAuthenticated } = useAuth();
@@ -67,6 +69,11 @@ export default function DiagnosticsPage() {
   const [portStatus, setPortStatus] = useState<PortStatusResponse | null>(null);
   const [portStatusLoading, setPortStatusLoading] = useState(false);
   const [portStatusError, setPortStatusError] = useState<string | null>(null);
+
+  // Port analytics state
+  const [portAnalytics, setPortAnalytics] = useState<PortAnalyticsResponse | null>(null);
+  const [portAnalyticsLoading, setPortAnalyticsLoading] = useState(false);
+  const [portAnalyticsError, setPortAnalyticsError] = useState<string | null>(null);
 
   // PPPoE sub-tab
   const [pppoeSection, setPppoeSection] = useState<'overview' | 'logs' | 'secrets'>('overview');
@@ -113,6 +120,20 @@ export default function DiagnosticsPage() {
       setPortStatusError(err instanceof Error ? err.message : 'Failed to load port status');
     } finally {
       setPortStatusLoading(false);
+    }
+  }, [selectedRouterId]);
+
+  const loadPortAnalytics = useCallback(async (refresh = false) => {
+    if (!selectedRouterId) return;
+    try {
+      setPortAnalyticsLoading(true);
+      setPortAnalyticsError(null);
+      const data = await api.getPortAnalytics(selectedRouterId, refresh);
+      setPortAnalytics(data);
+    } catch (err) {
+      setPortAnalyticsError(err instanceof Error ? err.message : 'Failed to load port analytics');
+    } finally {
+      setPortAnalyticsLoading(false);
     }
   }, [selectedRouterId]);
 
@@ -189,7 +210,8 @@ export default function DiagnosticsPage() {
     if (activeTab === 'pppoe') loadPppoeOverview();
     if (activeTab === 'hotspot') loadHotspotOverview();
     if (activeTab === 'ports') loadPortStatus();
-  }, [selectedRouterId, activeTab, loadPppoeOverview, loadHotspotOverview, loadPortStatus]);
+    if (activeTab === 'analytics') loadPortAnalytics();
+  }, [selectedRouterId, activeTab, loadPppoeOverview, loadHotspotOverview, loadPortStatus, loadPortAnalytics]);
 
   // Auto-refresh overview every 60s
   useEffect(() => {
@@ -199,9 +221,10 @@ export default function DiagnosticsPage() {
       if (activeTab === 'pppoe') loadPppoeOverview();
       else if (activeTab === 'hotspot') loadHotspotOverview();
       else if (activeTab === 'ports') loadPortStatus();
+      else if (activeTab === 'analytics') loadPortAnalytics();
     }, 60000);
     return () => clearInterval(interval);
-  }, [selectedRouterId, activeTab, loadPppoeOverview, loadHotspotOverview, loadPortStatus]);
+  }, [selectedRouterId, activeTab, loadPppoeOverview, loadHotspotOverview, loadPortStatus, loadPortAnalytics]);
 
   // Reset data on router change
   useEffect(() => {
@@ -213,12 +236,14 @@ export default function DiagnosticsPage() {
     setMacDiagnose(null);
     setHotspotLogs(null);
     setPortStatus(null);
+    setPortAnalytics(null);
   }, [selectedRouterId]);
 
   const handleRefresh = async () => {
     if (activeTab === 'pppoe') await loadPppoeOverview(true);
     else if (activeTab === 'hotspot') await loadHotspotOverview(true);
     else if (activeTab === 'ports') await loadPortStatus(true);
+    else if (activeTab === 'analytics') await loadPortAnalytics(true);
   };
 
   if (!isAuthenticated) {
@@ -253,7 +278,7 @@ export default function DiagnosticsPage() {
           <>
             {/* Tab bar */}
             <div className="flex gap-2 mb-5 overflow-x-auto">
-              {(['ports', 'pppoe', 'hotspot'] as Tab[]).map((tab) => (
+              {(['ports', 'analytics', 'pppoe', 'hotspot'] as Tab[]).map((tab) => (
                 <button
                   key={tab}
                   onClick={() => setActiveTab(tab)}
@@ -263,7 +288,7 @@ export default function DiagnosticsPage() {
                       : 'text-foreground-muted hover:text-foreground'
                   }`}
                 >
-                  {tab === 'pppoe' ? 'PPPoE' : tab === 'hotspot' ? 'Hotspot' : 'Ports'}
+                  {tab === 'pppoe' ? 'PPPoE' : tab === 'hotspot' ? 'Hotspot' : tab === 'analytics' ? 'Port Map' : 'Ports'}
                 </button>
               ))}
             </div>
@@ -320,6 +345,16 @@ export default function DiagnosticsPage() {
                 loading={portStatusLoading}
                 error={portStatusError}
                 onRefresh={() => loadPortStatus(true)}
+              />
+            )}
+
+            {activeTab === 'analytics' && (
+              <PortAnalyticsTab
+                key={selectedRouterId}
+                data={portAnalytics}
+                loading={portAnalyticsLoading}
+                error={portAnalyticsError}
+                onRefresh={() => loadPortAnalytics(true)}
               />
             )}
           </>
