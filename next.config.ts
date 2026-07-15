@@ -48,6 +48,17 @@ const nextConfig: NextConfig = {
   async headers() {
     return [{ source: "/(.*)", headers: securityHeaders }];
   },
+  async redirects() {
+    // Canonical host is the apex; www carries no history worth keeping.
+    return [
+      {
+        source: "/:path*",
+        has: [{ type: "host", value: "www.bitwavetechnologies.com" }],
+        destination: "https://bitwavetechnologies.com/:path*",
+        permanent: true,
+      },
+    ];
+  },
 };
 
 export default nextConfig;

@@ -12,7 +12,7 @@ const MobileBottomNav = dynamic(() => import('./MobileBottomNav'), { ssr: false 
 const SubscriptionBlockedModal = dynamic(() => import('./SubscriptionBlockedModal'), { ssr: false });
 
 const PUBLIC_PATHS = ['/', '/login', '/landing', '/signup'];
-const PUBLIC_PREFIXES = ['/store', '/r'];
+const PUBLIC_PREFIXES = ['/store', '/r', '/blog'];
 const FULLSCREEN_AUTH_PATHS = ['/setup'];
 
 function matchesPathPrefix(pathname: string, prefix: string): boolean {

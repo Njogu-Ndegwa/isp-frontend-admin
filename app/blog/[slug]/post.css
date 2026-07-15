@@ -1,0 +1,85 @@
+/* Markdown body styles for blog posts (dark theme to match the app). */
+.blog-prose {
+  line-height: 1.75;
+  color: rgba(255, 255, 255, 0.75);
+}
+.blog-prose h2 {
+  margin: 2.25rem 0 0.75rem;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.95);
+}
+.blog-prose h3 {
+  margin: 1.75rem 0 0.5rem;
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+}
+.blog-prose p {
+  margin: 1rem 0;
+}
+.blog-prose ul,
+.blog-prose ol {
+  margin: 1rem 0;
+  padding-left: 1.5rem;
+}
+.blog-prose ul {
+  list-style: disc;
+}
+.blog-prose ol {
+  list-style: decimal;
+}
+.blog-prose li {
+  margin: 0.35rem 0;
+}
+.blog-prose a {
+  color: #f59e0b;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.blog-prose a:hover {
+  color: #fbbf24;
+}
+.blog-prose strong {
+  color: rgba(255, 255, 255, 0.92);
+}
+.blog-prose code {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 4px;
+  padding: 0.15em 0.4em;
+  font-size: 0.9em;
+}
+.blog-prose pre {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 1rem;
+  overflow-x: auto;
+  margin: 1.25rem 0;
+}
+.blog-prose pre code {
+  background: none;
+  padding: 0;
+}
+.blog-prose blockquote {
+  border-left: 3px solid #f59e0b;
+  padding-left: 1rem;
+  margin: 1.25rem 0;
+  color: rgba(255, 255, 255, 0.6);
+}
+.blog-prose table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1.25rem 0;
+  font-size: 0.95em;
+}
+.blog-prose th,
+.blog-prose td {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+}
+.blog-prose img {
+  max-width: 100%;
+  border-radius: 8px;
+}
