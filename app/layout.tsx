@@ -15,6 +15,7 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://bitwavetechnologies.com"),
   title: "ISP Billing Admin | Bitwave Technologies",
   description: "Manage your ISP billing, customers, plans, and transactions",
 };
