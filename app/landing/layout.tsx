@@ -1,9 +1,9 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Bitwave ISP Billing — Hotspot & PPPoE Billing for Kenyan ISPs',
+  title: 'Bitwave Technologies — ISP Billing for Hotspots & PPPoE in Kenya',
   description:
-    'Automate your ISP billing: M-Pesa payments, hotspot vouchers, PPPoE management, MikroTik integration and customer analytics. Start free.',
+    'Bitwave Technologies automates ISP billing: M-Pesa payments, hotspot vouchers, PPPoE management, MikroTik integration and customer analytics. Start free.',
   // /landing duplicates the root route; consolidate ranking signals on /.
   alternates: { canonical: '/' },
 };
