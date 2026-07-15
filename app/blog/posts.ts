@@ -54,3 +54,30 @@ export function getAllPosts(): BlogPost[] {
 export function getPost(slug: string): BlogPost | undefined {
   return getAllPosts().find((post) => post.slug === slug);
 }
+
+export interface FaqEntry {
+  question: string;
+  answer: string;
+}
+
+// Pull Q&A pairs out of a post's `## FAQ` section (bold question line followed
+// by answer paragraphs) so pages can emit FAQPage JSON-LD — the format AI
+// Overviews and answer engines quote from.
+export function extractFaq(content: string): FaqEntry[] {
+  const start = content.search(/^## FAQ[ \t]*\r?$/m);
+  if (start === -1) return [];
+  const after = content.slice(start).replace(/^## FAQ[^\n]*\n/, '');
+  const nextHeading = after.search(/^## /m);
+  const body = (nextHeading === -1 ? after : after.slice(0, nextHeading)).replace(
+    /<!--[\s\S]*?-->/g,
+    '',
+  );
+  const entries: FaqEntry[] = [];
+  const pair = /\*\*(.+?)\*\*\s*\r?\n+([\s\S]*?)(?=\r?\n\s*\*\*|$)/g;
+  let match;
+  while ((match = pair.exec(body)) !== null) {
+    const answer = match[2].replace(/\s+/g, ' ').trim();
+    if (answer) entries.push({ question: match[1].trim(), answer });
+  }
+  return entries;
+}

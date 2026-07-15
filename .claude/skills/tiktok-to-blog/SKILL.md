@@ -46,6 +46,15 @@ not to transcribe it prettily:
 - Structure: short intro answering the query → H2 sections → a table or list
   where it helps → FAQ section with 2–3 long-tail questions → closing CTA
   linking to `/signup`.
+- **Write for AI answer engines too** (ChatGPT search, Perplexity, Google AI
+  Overviews) — they quote self-contained passages, so: answer each H2's
+  question in its first 40–60 words before elaborating; phrase H2s as the
+  questions people ask; keep the FAQ format exact (`## FAQ`, bold question
+  line, answer paragraph) — it is auto-converted to FAQPage JSON-LD; use
+  consistent entity names every time (Bitwave Technologies, M-Pesa, MikroTik,
+  RouterOS — never abbreviations an engine can't link); include concrete,
+  citable facts (KES prices, timeframes, model numbers) since engines prefer
+  passages with specifics.
 - Meta `description:` ≤ 155 chars, contains the keyword, reads like an answer.
 - Link to at least one existing post in `content/blog/` when related.
 - Keep Dennis's voice/claims from the video; do not invent numbers or

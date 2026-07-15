@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { marked } from 'marked';
-import { getAllPosts, getPost } from '../posts';
+import { extractFaq, getAllPosts, getPost } from '../posts';
 import './post.css';
 
 export const dynamic = 'force-static';
@@ -60,6 +60,18 @@ export default async function BlogPostPage({
     publisher: { '@type': 'Organization', name: 'Bitwave Technologies' },
     mainEntityOfPage: `https://bitwavetechnologies.com/blog/${post.slug}`,
   };
+  const faq = extractFaq(post.content);
+  const faqJsonLd = faq.length
+    ? {
+        '@context': 'https://schema.org',
+        '@type': 'FAQPage',
+        mainEntity: faq.map((entry) => ({
+          '@type': 'Question',
+          name: entry.question,
+          acceptedAnswer: { '@type': 'Answer', text: entry.answer },
+        })),
+      }
+    : null;
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -68,6 +80,12 @@ export default async function BlogPostPage({
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
         />
+        {faqJsonLd && (
+          <script
+            type="application/ld+json"
+            dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
+          />
+        )}
         <Link href="/blog" className="text-sm text-white/50 hover:text-white/80 transition-colors">
           ← All posts
         </Link>
