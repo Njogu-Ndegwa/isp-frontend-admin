@@ -32,22 +32,23 @@ export function getAllPosts(): BlogPost[] {
   return fs
     .readdirSync(CONTENT_DIR)
     .filter((file) => file.endsWith('.md'))
-    .map((file) => {
+    .flatMap((file): BlogPost[] => {
       const raw = fs.readFileSync(path.join(CONTENT_DIR, file), 'utf8');
       const { meta, body } = parseFrontmatter(raw);
-      return {
-        slug: file.replace(/\.md$/, ''),
-        title: meta.title || file.replace(/\.md$/, ''),
-        description: meta.description || '',
-        date: meta.date || '1970-01-01',
-        tags: meta.tags ? meta.tags.split(',').map((t) => t.trim()) : [],
-        content: body,
-        published: meta.published !== 'false',
-      };
+      // Files without frontmatter (e.g. README.md) are not posts.
+      if (!meta.title || meta.published === 'false') return [];
+      return [
+        {
+          slug: file.replace(/\.md$/, ''),
+          title: meta.title,
+          description: meta.description || '',
+          date: meta.date || '1970-01-01',
+          tags: meta.tags ? meta.tags.split(',').map((t) => t.trim()) : [],
+          content: body,
+        },
+      ];
     })
-    .filter((post) => post.published)
-    .sort((a, b) => (a.date < b.date ? 1 : -1))
-    .map(({ published: _published, ...post }) => post);
+    .sort((a, b) => (a.date < b.date ? 1 : -1));
 }
 
 export function getPost(slug: string): BlogPost | undefined {
