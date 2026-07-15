@@ -24,9 +24,13 @@ python .claude/skills/tiktok-to-blog/fetch_transcript.py <tiktok-url-or-file>
 
 It prints JSON: `{"title", "description", "hashtags", "transcript"}`. It tries
 TikTok's own captions first and falls back to local Whisper transcription
-(small model, CPU). If TikTok blocks the download (403/login wall), ask Dennis
-to save the video to disk (TikTok app → Save, or screen record) and rerun with
-the file path.
+(small model, CPU). The script installs the PRE-RELEASE yt-dlp — the stable
+build's TikTok extractor is frequently broken ("Unable to extract universal
+data for rehydration", seen 2026-07-15). If a fetch still fails (403/login
+wall), ask Dennis to save the video to disk (TikTok app → Save, or screen
+record) and rerun with the file path; adding yt-dlp's `--cookies-from-browser
+chrome` is another option but reads the browser's cookie store, so only with
+Dennis's explicit go-ahead per run.
 
 ## Step 2 — Write the draft
 
@@ -47,6 +51,11 @@ not to transcribe it prettily:
 - Keep Dennis's voice/claims from the video; do not invent numbers or
   testimonials. Anything uncertain gets a `<!-- VERIFY: ... -->` comment for
   him to check.
+- Whisper mis-hears domain terms — correct against this glossary (verified on a
+  real transcript 2026-07-15): "microtik"→MikroTik, "PBOE"→PPPoE,
+  "haplight"→hAP lite, "hexiris"→hEX lite, "in drought hours"→RouterOS,
+  "B12/BitWave platform"→Bitwave, "utwebtechnologies.com"/"B12 site"→
+  bitwavetechnologies.com, "Winbox" spellings, "MPesa"→M-Pesa, "STK"→STK push.
 - Frontmatter `date:` = today, `published: true` (the PR is the gate).
 
 ## Step 3 — Branch, PR, review

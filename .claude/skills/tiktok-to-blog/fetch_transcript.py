@@ -20,12 +20,15 @@ import tempfile
 from pathlib import Path
 
 
-def ensure(package: str, import_name: str | None = None) -> None:
+def ensure(package: str, import_name: str | None = None, pre: bool = False) -> None:
     try:
         __import__(import_name or package)
     except ImportError:
         print(f"[setup] installing {package}...", file=sys.stderr)
-        subprocess.check_call([sys.executable, "-m", "pip", "install", "--quiet", package])
+        cmd = [sys.executable, "-m", "pip", "install", "--quiet", package]
+        if pre:
+            cmd.insert(4, "--pre")
+        subprocess.check_call(cmd)
 
 
 def vtt_to_text(vtt: str) -> str:
