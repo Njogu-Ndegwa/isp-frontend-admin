@@ -2426,6 +2426,34 @@ export interface DownstreamDeviceSample {
   ppp_active: boolean;
   customer_id?: number;
   customer_status?: string;
+  /** All-time revenue from this customer (counts_as_revenue payments only). */
+  revenue_total?: number;
+}
+
+/** Revenue attributed to one port (customers whose device is currently seen there). */
+export interface PortRevenue {
+  total: number;
+  today: number;
+  this_week: number;
+  this_month: number;
+  paying_customers_seen: number;
+}
+
+/**
+ * Router-wide revenue context. attributed_* sums the per-port revenue;
+ * unattributed_total is revenue from customers who are offline right now
+ * (or have no MAC on file) and therefore can't be placed on a port.
+ */
+export interface PortAnalyticsRevenue {
+  attributed_total: number;
+  attributed_today: number;
+  attributed_this_week: number;
+  attributed_this_month: number;
+  router_total: number;
+  router_today: number;
+  router_this_week: number;
+  router_this_month: number;
+  unattributed_total: number;
 }
 
 export interface PortWarning {
@@ -2455,6 +2483,8 @@ export interface PortAnalyticsPort {
     rx_drop: number;
     tx_drop: number;
   };
+  // Optional: absent from cached responses generated before the backend added it
+  revenue?: PortRevenue;
   counts: {
     learned_macs: number;
     known_customers_seen: number;
@@ -2495,6 +2525,8 @@ export interface PortAnalyticsResponse {
   totals: PortAnalyticsTotals;
   warnings: PortWarning[];
   infrastructure_candidates: InfrastructureDevice[];
+  // Optional: absent from cached responses generated before the backend added it
+  revenue?: PortAnalyticsRevenue;
   ports: PortAnalyticsPort[];
 }
 

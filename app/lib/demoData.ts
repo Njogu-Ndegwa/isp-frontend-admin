@@ -661,7 +661,13 @@ export function demoPortAnalytics(routerId: number): PortAnalyticsResponse {
     hotspot_bypassed: false,
     hotspot_active: kind === 'known_customer' && i % 2 === 0,
     ppp_active: false,
-    ...(kind === 'known_customer' ? { customer_id: (i % 15) + 1, customer_status: i % 4 === 0 ? 'expired' : 'active' } : {}),
+    ...(kind === 'known_customer'
+      ? {
+          customer_id: (i % 15) + 1,
+          customer_status: i % 4 === 0 ? 'expired' : 'active',
+          revenue_total: 1200 + (i % 5) * 850,
+        }
+      : {}),
   });
   const mkPort = (port: string, health: 'active' | 'silent_link' | 'down', opts: {
     bridge?: string; infra?: InfrastructureDevice[]; known?: number; connected?: number;
@@ -696,6 +702,13 @@ export function demoPortAnalytics(routerId: number): PortAnalyticsResponse {
         infrastructure_devices: opts.infra?.length ?? 0,
       },
       health: { status: health, warnings },
+      revenue: {
+        total: (opts.known ?? 0) * 2400,
+        today: (opts.connected ?? 0) * 50,
+        this_week: (opts.connected ?? 0) * 320,
+        this_month: (opts.known ?? 0) * 1100,
+        paying_customers_seen: opts.known ?? 0,
+      },
       infrastructure: opts.infra ?? [],
       downstream_devices_sample: health === 'active'
         ? [
@@ -742,6 +755,23 @@ export function demoPortAnalytics(routerId: number): PortAnalyticsResponse {
       { port: 'ether3', warnings: ['Interface errors are present'] },
     ],
     infrastructure_candidates: [infraAp, infraSwitch],
+    revenue: (() => {
+      const sum = (pick: (p: PortAnalyticsPort) => number) => ports.reduce((acc, p) => acc + pick(p), 0);
+      const attributedTotal = sum(p => p.revenue?.total ?? 0);
+      // Router-wide totals run higher: offline customers can't be placed on a port.
+      const unattributed = 14_200;
+      return {
+        attributed_total: attributedTotal,
+        attributed_today: sum(p => p.revenue?.today ?? 0),
+        attributed_this_week: sum(p => p.revenue?.this_week ?? 0),
+        attributed_this_month: sum(p => p.revenue?.this_month ?? 0),
+        router_total: attributedTotal + unattributed,
+        router_today: sum(p => p.revenue?.today ?? 0) + 200,
+        router_this_week: sum(p => p.revenue?.this_week ?? 0) + 1_800,
+        router_this_month: sum(p => p.revenue?.this_month ?? 0) + 6_500,
+        unattributed_total: unattributed,
+      };
+    })(),
     ports,
   };
 }
