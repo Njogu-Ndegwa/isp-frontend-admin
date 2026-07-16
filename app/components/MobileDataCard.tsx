@@ -96,11 +96,25 @@ export default function MobileDataCard({
   highlightColor = 'danger',
   layout = 'fields',
 }: MobileDataCardProps) {
-  const CardWrapper = href ? Link : onClick ? 'button' : 'div';
+  // Clickable cards render as a div with button semantics rather than a real
+  // <button>: rightAction/expandableContent often contain their own buttons,
+  // and nesting <button> inside <button> is invalid HTML (hydration errors).
+  const CardWrapper = href ? Link : 'div';
   const wrapperProps = href
     ? { href, className: 'block' }
     : onClick
-    ? { onClick, className: 'w-full text-left' }
+    ? {
+        onClick,
+        role: 'button',
+        tabIndex: 0,
+        onKeyDown: (e: React.KeyboardEvent) => {
+          if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) {
+            e.preventDefault();
+            onClick();
+          }
+        },
+        className: 'w-full text-left cursor-pointer',
+      }
     : { className: '' };
 
   const highlightBorder = highlight
