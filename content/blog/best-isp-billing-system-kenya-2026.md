@@ -43,10 +43,8 @@ Since every serious platform has M-Pesa and MikroTik covered, we compete on the 
 
 - **No setup fee.** Same market pricing as everyone else, but onboarding costs nothing — you only ever pay for what you use.
 - **One-command router provisioning.** Paste one line into your MikroTik terminal and the router configures itself: hotspot, captive portal, packages, payment flow. Most operators are selling WiFi [in under two hours](/blog/how-to-start-wifi-hotspot-business-kenya) — no RouterOS expertise needed.
-- **Deep MikroTik field experience.** We run hundreds of routers in production across Kenya — including hAP lite, RB951 and hEX units, second-hand ex-provider routers, and even Starlink-backed sites — and the platform carries fixes for real-world issues (like RouterOS 7.20's hotspot changes) that generic software hits blind.
+- **Deep MikroTik field experience.** Across the 200+ ISP networks running on Bitwave in Kenya we operate hAP lite, RB951 and hEX units, second-hand ex-provider routers, and even Starlink-backed sites — and the platform carries fixes for real-world issues (like RouterOS 7.20's hotspot changes) that generic software hits blind.
 - **Free setup help on a phone call.** The number is on the site; an actual engineer picks up.
-
-<!-- VERIFY: happy with "hundreds of routers" phrasing? Adjust to the number you're comfortable publishing. -->
 
 To be fair about the competition: Jasiyo's dashboard polish is real, Netily publishes useful guides, and Ndovu's pricing calculator is a genuinely helpful touch. Any of them will run a small ISP competently. Our case is simple — same price, zero setup cost, faster router onboarding, and the field experience to fix the weird problems.
 

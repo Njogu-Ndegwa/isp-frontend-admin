@@ -3,7 +3,7 @@ title: MikroTik Hotspot Setup in Under 10 Minutes (Works on hAP lite)
 description: Set up a MikroTik router for hotspot or PPPoE billing in under 10 minutes — reset, Winbox, one provisioning command. Works on RB951, hAP lite and hEX.
 date: 2026-07-15
 tags: mikrotik, hotspot, winbox, setup
-published: false
+published: true
 ---
 
 Setting up a MikroTik router for a hotspot business sounds intimidating — RouterOS has hundreds of menus, and one wrong firewall rule can lock you out. But with the right flow it takes less than 10 minutes, and it works on everything from a hAP lite to an RB951 or a hEX. This is the exact process we use, step by step.
@@ -54,7 +54,7 @@ After about 20 seconds the download completes and the router asks to reboot — 
 ## FAQ
 
 **Does this work on a hAP lite?**
-Yes — hAP lite, RB951, hEX, and any MikroTik running RouterOS. <!-- VERIFY: RouterOS 7.20+ on smips devices (hAP lite) may need the hotspot package installed separately — worth a caveat here? -->
+Yes — hAP lite, RB951, hEX, and any MikroTik running RouterOS. One caveat from the field: on RouterOS 7.20 and newer, small models like the hAP lite ship the hotspot feature as a separate package that must be installed once before setup. If the import stops with a script error at a hotspot line, that's the cause — install the hotspot package for your exact RouterOS version, reboot, and rerun the command (or call us and we'll do it with you, free).
 
 **Do I need to know RouterOS commands?**
 No. The reset and one pasted command are all the terminal work; the platform configures the rest.
