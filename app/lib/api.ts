@@ -391,6 +391,7 @@ class ApiClient {
     endDate?: string;
     routerId?: number;
   } = {}): Promise<RevenueOverTimeResponse> {
+    if (this.isDemoMode()) return (await loadDemo()).demoRevenueOverTime(options);
     const params = new URLSearchParams();
     if (options.startDate && options.endDate) {
       params.append('start_date', options.startDate);
@@ -418,6 +419,7 @@ class ApiClient {
     status?: TransactionStatusFilter;
     byPort?: boolean;
   } = {}): Promise<DailyTransactionsResponse> {
+    if (this.isDemoMode()) return (await loadDemo()).demoTransactionsDaily(options);
     const params = new URLSearchParams();
     if (options.startDate && options.endDate) {
       params.append('start_date', options.startDate);
@@ -1568,6 +1570,7 @@ class ApiClient {
 
   // PPPoE User Monitoring (bandwidth & online status)
   async getPPPoEUsers(routerId: number, refresh = false): Promise<PPPoEMonitorResponse> {
+    if (this.isDemoMode()) return (await loadDemo()).demoPPPoEMonitor(routerId);
     const params = refresh ? '?refresh=true' : '';
     const response = await fetch(`${BASE_URL}/pppoe/${routerId}/users${params}`, {
       headers: this.getHeaders(),
@@ -1577,6 +1580,7 @@ class ApiClient {
 
   // Hotspot User Monitoring (bandwidth & online status)
   async getHotspotUsers(routerId: number, refresh = false): Promise<HotspotMonitorResponse> {
+    if (this.isDemoMode()) return (await loadDemo()).demoHotspotMonitor(routerId);
     const params = refresh ? '?refresh=true' : '';
     const response = await fetch(`${BASE_URL}/hotspot/${routerId}/users${params}`, {
       headers: this.getHeaders(),
@@ -2142,6 +2146,7 @@ class ApiClient {
 
   // Reseller Subscription
   async getSubscription(): Promise<SubscriptionOverview> {
+    if (this.isDemoMode()) return (await loadDemo()).demoSubscriptionOverview;
     const response = await fetch(`${BASE_URL}/subscription`, {
       headers: this.getHeaders(),
     });
@@ -2149,6 +2154,7 @@ class ApiClient {
   }
 
   async getCurrentInvoice(): Promise<{ current_invoice: SubscriptionInvoice | null }> {
+    if (this.isDemoMode()) return { current_invoice: (await loadDemo()).demoSubscriptionInvoices[0] };
     const response = await fetch(`${BASE_URL}/subscription/current-invoice`, {
       headers: this.getHeaders(),
     });
@@ -2156,6 +2162,7 @@ class ApiClient {
   }
 
   async getSubscriptionInvoices(page = 1, perPage = 20, status?: string): Promise<SubscriptionInvoicesResponse> {
+    if (this.isDemoMode()) return (await loadDemo()).demoSubscriptionInvoicesResponse(page, perPage, status);
     const params = new URLSearchParams({ page: page.toString(), per_page: perPage.toString() });
     if (status) params.set('status', status);
     const response = await fetch(`${BASE_URL}/subscription/invoices?${params.toString()}`, {
@@ -2165,6 +2172,10 @@ class ApiClient {
   }
 
   async getSubscriptionInvoice(invoiceId: number): Promise<SubscriptionInvoice> {
+    if (this.isDemoMode()) {
+      const { demoSubscriptionInvoices } = await loadDemo();
+      return demoSubscriptionInvoices.find(inv => inv.id === invoiceId) ?? demoSubscriptionInvoices[0];
+    }
     const response = await fetch(`${BASE_URL}/subscription/invoices/${invoiceId}`, {
       headers: this.getHeaders(),
     });
@@ -2172,6 +2183,7 @@ class ApiClient {
   }
 
   async paySubscriptionInvoice(data: SubscriptionPayRequest): Promise<SubscriptionPayResponse> {
+    if (this.isDemoMode()) this.demoBlock();
     const response = await fetch(`${BASE_URL}/subscription/pay`, {
       method: 'POST',
       headers: this.getHeaders(),
@@ -2181,6 +2193,7 @@ class ApiClient {
   }
 
   async requestInvoice(): Promise<RequestInvoiceResponse> {
+    if (this.isDemoMode()) this.demoBlock();
     const response = await fetch(`${BASE_URL}/subscription/request-invoice`, {
       method: 'POST',
       headers: this.getHeaders(),
@@ -2189,6 +2202,7 @@ class ApiClient {
   }
 
   async getSubscriptionPayments(page = 1, perPage = 20): Promise<SubscriptionPaymentsResponse> {
+    if (this.isDemoMode()) return (await loadDemo()).demoSubscriptionPaymentsResponse(page, perPage);
     const params = new URLSearchParams({ page: page.toString(), per_page: perPage.toString() });
     const response = await fetch(`${BASE_URL}/subscription/payments?${params.toString()}`, {
       headers: this.getHeaders(),
@@ -2551,6 +2565,7 @@ class ApiClient {
   // ─── Access Credentials (perpetual hotspot logins) ────────────────
 
   async getAccessCredentials(filters: AccessCredentialFilters = {}): Promise<AccessCredentialsListResponse> {
+    if (this.isDemoMode()) return (await loadDemo()).demoAccessCredentialsList(filters);
     const params = new URLSearchParams();
     if (filters.status) params.append('status', filters.status);
     if (filters.router_id) params.append('router_id', filters.router_id.toString());
@@ -2565,6 +2580,7 @@ class ApiClient {
   }
 
   async getAccessCredential(id: number, reveal = false): Promise<AccessCredential> {
+    if (this.isDemoMode()) return (await loadDemo()).demoAccessCredential(id, reveal);
     const params = reveal ? '?reveal=true' : '';
     const response = await fetch(`${BASE_URL}/access-credentials/${id}${params}`, {
       headers: this.getHeaders(),
@@ -2573,6 +2589,7 @@ class ApiClient {
   }
 
   async createAccessCredential(data: CreateAccessCredentialRequest): Promise<CreateAccessCredentialResponse> {
+    if (this.isDemoMode()) this.demoBlock();
     const response = await fetch(`${BASE_URL}/access-credentials`, {
       method: 'POST',
       headers: this.getHeaders(),
@@ -2582,6 +2599,7 @@ class ApiClient {
   }
 
   async updateAccessCredential(id: number, data: UpdateAccessCredentialRequest): Promise<AccessCredential> {
+    if (this.isDemoMode()) this.demoBlock();
     const response = await fetch(`${BASE_URL}/access-credentials/${id}`, {
       method: 'PATCH',
       headers: this.getHeaders(),
@@ -2591,6 +2609,7 @@ class ApiClient {
   }
 
   async rotateAccessCredentialPassword(id: number): Promise<AccessCredential> {
+    if (this.isDemoMode()) this.demoBlock();
     const response = await fetch(`${BASE_URL}/access-credentials/${id}/rotate-password`, {
       method: 'POST',
       headers: this.getHeaders(),
@@ -2599,6 +2618,7 @@ class ApiClient {
   }
 
   async revokeAccessCredential(id: number): Promise<AccessCredential> {
+    if (this.isDemoMode()) this.demoBlock();
     const response = await fetch(`${BASE_URL}/access-credentials/${id}/revoke`, {
       method: 'POST',
       headers: this.getHeaders(),
@@ -2607,6 +2627,7 @@ class ApiClient {
   }
 
   async restoreAccessCredential(id: number): Promise<AccessCredential> {
+    if (this.isDemoMode()) this.demoBlock();
     const response = await fetch(`${BASE_URL}/access-credentials/${id}/restore`, {
       method: 'POST',
       headers: this.getHeaders(),
@@ -2615,6 +2636,7 @@ class ApiClient {
   }
 
   async forceLogoutAccessCredential(id: number): Promise<AccessCredential> {
+    if (this.isDemoMode()) this.demoBlock();
     const response = await fetch(`${BASE_URL}/access-credentials/${id}/force-logout`, {
       method: 'POST',
       headers: this.getHeaders(),
@@ -2623,6 +2645,7 @@ class ApiClient {
   }
 
   async deleteAccessCredential(id: number): Promise<{ message: string }> {
+    if (this.isDemoMode()) this.demoBlock();
     const response = await fetch(`${BASE_URL}/access-credentials/${id}`, {
       method: 'DELETE',
       headers: this.getHeaders(),
@@ -2633,6 +2656,7 @@ class ApiClient {
   // ─── FUP / Per-Customer Usage Tracking ─────────────────────────────
 
   async getCustomerUsage(customerId: number): Promise<CustomerUsageResponse> {
+    if (this.isDemoMode()) return (await loadDemo()).demoCustomerUsage(customerId);
     const response = await fetch(`${BASE_URL}/customers/${customerId}/usage`, {
       headers: this.getHeaders(),
     });
@@ -2640,6 +2664,7 @@ class ApiClient {
   }
 
   async getCustomerUsageHistory(customerId: number, limit = 6): Promise<CustomerUsagePeriod[]> {
+    if (this.isDemoMode()) return (await loadDemo()).demoCustomerUsageHistory(customerId, limit);
     const response = await fetch(
       `${BASE_URL}/customers/${customerId}/usage/history?limit=${limit}`,
       { headers: this.getHeaders() }
@@ -3048,6 +3073,7 @@ class ApiClient {
   // ── Messaging / SMS ──────────────────────────────────────────────────────
 
   async getSmsCredits(): Promise<SmsCreditInfo> {
+    if (this.isDemoMode()) return (await loadDemo()).demoSmsCredits;
     const response = await fetch(`${BASE_URL}/messaging/credits`, {
       headers: this.getHeaders(),
     });
@@ -3055,6 +3081,7 @@ class ApiClient {
   }
 
   async purchaseSmsCredits(quantity: number, phone_number: string): Promise<SmsPurchaseResponse> {
+    if (this.isDemoMode()) this.demoBlock();
     const response = await fetch(`${BASE_URL}/messaging/credits/purchase`, {
       method: 'POST',
       headers: this.getHeaders(),
@@ -3071,6 +3098,7 @@ class ApiClient {
     limit?: number;
     offset?: number;
   } = {}): Promise<SmsRecipientsResponse> {
+    if (this.isDemoMode()) return (await loadDemo()).demoSmsRecipients(opts);
     const params = new URLSearchParams();
     params.append('filter', opts.filter ?? 'all');
     if (opts.planId) params.append('plan_id', opts.planId.toString());
@@ -3085,6 +3113,7 @@ class ApiClient {
   }
 
   async getSmsCreditLedger(limit = 50, offset = 0): Promise<{ transactions: SmsCreditTransaction[] }> {
+    if (this.isDemoMode()) return { transactions: (await loadDemo()).demoSmsCreditLedger.slice(offset, offset + limit) };
     const params = new URLSearchParams({ limit: limit.toString(), offset: offset.toString() });
     const response = await fetch(`${BASE_URL}/messaging/credits/ledger?${params.toString()}`, {
       headers: this.getHeaders(),
@@ -3101,6 +3130,7 @@ class ApiClient {
   }
 
   async sendSms(payload: SmsSendRequest): Promise<SmsSendResponse> {
+    if (this.isDemoMode()) this.demoBlock();
     const response = await fetch(`${BASE_URL}/messaging/send`, {
       method: 'POST',
       headers: this.getHeaders(),
@@ -3110,6 +3140,7 @@ class ApiClient {
   }
 
   async getSmsTemplates(): Promise<{ templates: SmsTemplate[] }> {
+    if (this.isDemoMode()) return { templates: (await loadDemo()).demoSmsTemplates };
     const response = await fetch(`${BASE_URL}/messaging/templates`, {
       headers: this.getHeaders(),
     });
@@ -3117,6 +3148,7 @@ class ApiClient {
   }
 
   async createSmsTemplate(name: string, body: string): Promise<SmsTemplate> {
+    if (this.isDemoMode()) this.demoBlock();
     const response = await fetch(`${BASE_URL}/messaging/templates`, {
       method: 'POST',
       headers: this.getHeaders(),
@@ -3126,6 +3158,7 @@ class ApiClient {
   }
 
   async deleteSmsTemplate(id: number): Promise<{ deleted: number }> {
+    if (this.isDemoMode()) this.demoBlock();
     const response = await fetch(`${BASE_URL}/messaging/templates/${id}`, {
       method: 'DELETE',
       headers: this.getHeaders(),
@@ -3134,6 +3167,7 @@ class ApiClient {
   }
 
   async getSmsCampaigns(): Promise<{ campaigns: SmsCampaign[] }> {
+    if (this.isDemoMode()) return { campaigns: (await loadDemo()).demoSmsCampaigns };
     const response = await fetch(`${BASE_URL}/messaging/campaigns`, {
       headers: this.getHeaders(),
     });
@@ -3141,6 +3175,7 @@ class ApiClient {
   }
 
   async getSmsCampaign(id: number): Promise<SmsCampaignDetail> {
+    if (this.isDemoMode()) return (await loadDemo()).demoSmsCampaignDetail(id);
     const response = await fetch(`${BASE_URL}/messaging/campaigns/${id}`, {
       headers: this.getHeaders(),
     });
@@ -3148,6 +3183,7 @@ class ApiClient {
   }
 
   async getInbox(): Promise<InboxResponse> {
+    if (this.isDemoMode()) return (await loadDemo()).demoInbox;
     const response = await fetch(`${BASE_URL}/messaging/inbox`, {
       headers: this.getHeaders(),
     });
@@ -3155,6 +3191,8 @@ class ApiClient {
   }
 
   async markInboxRead(id: number): Promise<{ id: number; is_read: boolean }> {
+    // Demo: pretend the mark-read succeeded so the bell UI updates locally.
+    if (this.isDemoMode()) return { id, is_read: true };
     const response = await fetch(`${BASE_URL}/messaging/inbox/${id}/read`, {
       method: 'POST',
       headers: this.getHeaders(),

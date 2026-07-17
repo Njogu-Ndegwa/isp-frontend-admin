@@ -40,14 +40,22 @@ export default function RatingsMap({ ratings, mapData, onSelectRating, selectedR
   useEffect(() => {
     if (!mapContainerRef.current || mapRef.current) return;
 
+    // The leaflet import is async, so under StrictMode's double-mount two
+    // initMap calls can be in flight at once. Track cancellation so the
+    // unmounted effect's call bails instead of initializing the same
+    // container twice ("Map container is already initialized").
+    let cancelled = false;
+
     // Dynamically import leaflet to avoid SSR issues
     const initMap = async () => {
       const L = await import('leaflet');
-      
+
+      if (cancelled || mapRef.current || !mapContainerRef.current) return;
+
       leafletRef.current = L;
 
       // Initialize map centered on Kenya (Nairobi area)
-      mapRef.current = L.map(mapContainerRef.current!, {
+      mapRef.current = L.map(mapContainerRef.current, {
         center: [-1.2864, 36.8172],
         zoom: 12,
         zoomControl: true,
@@ -66,6 +74,7 @@ export default function RatingsMap({ ratings, mapData, onSelectRating, selectedR
     initMap();
 
     return () => {
+      cancelled = true;
       if (mapRef.current) {
         mapRef.current.remove();
         mapRef.current = null;
