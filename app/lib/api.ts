@@ -416,6 +416,7 @@ class ApiClient {
     routerId?: number;
     paymentMethod?: TransactionPaymentMethod;
     status?: TransactionStatusFilter;
+    byPort?: boolean;
   } = {}): Promise<DailyTransactionsResponse> {
     const params = new URLSearchParams();
     if (options.startDate && options.endDate) {
@@ -427,6 +428,7 @@ class ApiClient {
     if (options.routerId) params.append('router_id', options.routerId.toString());
     if (options.paymentMethod) params.append('payment_method', options.paymentMethod);
     if (options.status) params.append('status', options.status);
+    if (options.byPort && options.routerId) params.append('by_port', 'true');
 
     const response = await fetch(
       `${BASE_URL}/dashboard/transactions-daily?${params.toString()}`,

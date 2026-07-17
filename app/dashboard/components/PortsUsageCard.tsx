@@ -228,8 +228,8 @@ function SelectedPortPanel({ port, detailsHref }: { port: PortAnalyticsPort; det
             {port.counts.unknown_devices > 0 && (
               <> · <span className="font-medium text-foreground">{port.counts.unknown_devices}</span> unknown</>
             )}
-            {port.revenue && port.revenue.total > 0 && (
-              <> · <span className="font-medium text-foreground">{formatKESCompact(port.revenue.total)}</span> revenue</>
+            {port.revenue && port.revenue.this_month > 0 && (
+              <> · <span className="font-medium text-foreground">{formatKESCompact(port.revenue.this_month)}</span> this month</>
             )}
           </p>
 

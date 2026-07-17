@@ -45,6 +45,15 @@ const STATUS_OPTIONS: { value: TransactionStatusFilter; label: string }[] = [
   { value: 'all', label: 'All' },
 ];
 
+// Stable, distinguishable stack colors for ports; unattributed is always gray.
+const PORT_COLORS = ['#818cf8', '#34d399', '#f59e0b', '#f472b6', '#22d3ee', '#a78bfa', '#fb7185', '#84cc16'];
+const UNATTRIBUTED_COLOR = '#6b7280';
+
+function portColor(port: string, index: number): string {
+  if (port === 'unattributed') return UNATTRIBUTED_COLOR;
+  return PORT_COLORS[index % PORT_COLORS.length];
+}
+
 
 
 function TxTooltip({
@@ -70,6 +79,42 @@ function TxTooltip({
         <span className="w-2 h-2 rounded-full bg-emerald-500" />
         <span className="text-foreground-muted text-xs">Revenue:</span>
         <span className="font-semibold text-foreground text-xs ml-auto">{formatKES(row.revenue)}</span>
+      </div>
+    </div>
+  );
+}
+
+function PortRevenueTooltip({
+  active,
+  payload,
+  label,
+  portKeys,
+}: {
+  active?: boolean;
+  payload?: Array<{ value: number; dataKey: string; color?: string }>;
+  label?: string;
+  portKeys: string[];
+}) {
+  if (!active || !payload || payload.length === 0) return null;
+  const byKey = new Map(payload.map((p) => [p.dataKey, p]));
+  const total = payload.reduce((acc, p) => acc + (p.value || 0), 0);
+  return (
+    <div className="bg-background border border-border rounded-lg p-3 shadow-lg text-sm min-w-[170px]">
+      <p className="text-foreground-muted text-xs mb-2">{label}</p>
+      {portKeys.map((port) => {
+        const row = byKey.get(port);
+        if (!row || !row.value) return null;
+        return (
+          <div key={port} className="flex items-center gap-2 mb-1">
+            <span className="w-2 h-2 rounded-full" style={{ background: row.color }} />
+            <span className="text-foreground-muted text-xs font-mono">{port}:</span>
+            <span className="font-semibold text-foreground text-xs ml-auto">{formatKES(row.value)}</span>
+          </div>
+        );
+      })}
+      <div className="flex items-center gap-2 pt-1 mt-1 border-t border-border/50">
+        <span className="text-foreground-muted text-xs">Total:</span>
+        <span className="font-semibold text-foreground text-xs ml-auto">{formatKES(total)}</span>
       </div>
     </div>
   );
@@ -111,6 +156,7 @@ export default function DailyTransactionsChart({ routerId, enabled = true }: Pro
   const [paymentMethod, setPaymentMethod] = useState<'' | TransactionPaymentMethod>('');
   const [status, setStatus] = useState<TransactionStatusFilter>('completed');
   const [showFilters, setShowFilters] = useState(false);
+  const [byPort, setByPort] = useState(false);
 
   const fetchData = useCallback(
     async (opts: { period?: DailyTransactionsPeriod; startDate?: string; endDate?: string }) => {
@@ -122,6 +168,7 @@ export default function DailyTransactionsChart({ routerId, enabled = true }: Pro
           routerId: routerId ?? undefined,
           paymentMethod: paymentMethod || undefined,
           status,
+          byPort: byPort && !!routerId,
         });
         setData(result);
       } catch (err) {
@@ -130,7 +177,7 @@ export default function DailyTransactionsChart({ routerId, enabled = true }: Pro
         setLoading(false);
       }
     },
-    [routerId, paymentMethod, status]
+    [routerId, paymentMethod, status, byPort]
   );
 
   useEffect(() => {
@@ -148,7 +195,7 @@ export default function DailyTransactionsChart({ routerId, enabled = true }: Pro
       fetchData({ period });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [enabled, period, isCustomActive, paymentMethod, status, routerId]);
+  }, [enabled, period, isCustomActive, paymentMethod, status, routerId, byPort]);
 
   const handlePeriodClick = (p: DailyTransactionsPeriod) => {
     setPeriod(p);
@@ -181,6 +228,17 @@ export default function DailyTransactionsChart({ routerId, enabled = true }: Pro
         </div>
 
         <div className="flex items-center gap-2 flex-shrink-0">
+          {routerId != null && (
+            <button
+              onClick={() => setByPort((v) => !v)}
+              className={`period-pill whitespace-nowrap flex-shrink-0 ${
+                byPort ? 'period-pill-active' : 'period-pill-inactive'
+              }`}
+              title="Split revenue by the router port it was earned on"
+            >
+              By port
+            </button>
+          )}
           <button
             onClick={() => setShowFilters((v) => !v)}
             className={`p-1.5 rounded-lg transition-colors ${
@@ -332,6 +390,44 @@ export default function DailyTransactionsChart({ routerId, enabled = true }: Pro
                 </svg>
                 <p className="text-foreground-muted text-sm">No transactions in this period</p>
               </div>
+            ) : data.by_port && data.port_keys && data.port_keys.length > 0 ? (
+              /* Stacked revenue by recorded port */
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  data={data.data.map((d) => ({ label: d.label, ...(d.by_port ?? {}) }))}
+                  margin={{ top: 5, right: 10, left: 0, bottom: 0 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+                  <XAxis
+                    dataKey="label"
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fill: 'var(--foreground-muted)', fontSize: 10 }}
+                    interval="preserveStartEnd"
+                    minTickGap={40}
+                  />
+                  <YAxis
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fill: 'var(--foreground-muted)', fontSize: 10 }}
+                    tickFormatter={(v: number) => formatKESCompact(v).replace('KES ', '')}
+                    width={44}
+                  />
+                  <Tooltip
+                    content={<PortRevenueTooltip portKeys={data.port_keys} />}
+                    cursor={{ fill: 'var(--background-tertiary)', opacity: 0.4 }}
+                  />
+                  {data.port_keys.map((port, i) => (
+                    <Bar
+                      key={port}
+                      dataKey={port}
+                      stackId="revenue"
+                      fill={portColor(port, i)}
+                      radius={i === data.port_keys!.length - 1 ? [4, 4, 0, 0] : [0, 0, 0, 0]}
+                    />
+                  ))}
+                </BarChart>
+              </ResponsiveContainer>
             ) : (
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={data.data} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
@@ -370,14 +466,25 @@ export default function DailyTransactionsChart({ routerId, enabled = true }: Pro
 
           {/* Footer line */}
           <div className="flex items-center justify-between mt-2 gap-3 flex-wrap">
-            <div className="flex items-center gap-3 text-[10px] text-foreground-muted">
-              <span className="flex items-center gap-1">
-                <span className="w-2.5 h-2.5 rounded-sm bg-indigo-400" /> Transactions
-              </span>
-              <span className="flex items-center gap-1">
-                <span className="w-2.5 h-2.5 rounded-sm bg-border" /> Zero days
-              </span>
-            </div>
+            {data.by_port && data.port_keys && data.port_keys.length > 0 ? (
+              <div className="flex items-center gap-3 text-[10px] text-foreground-muted flex-wrap">
+                {data.port_keys.map((port, i) => (
+                  <span key={port} className="flex items-center gap-1">
+                    <span className="w-2.5 h-2.5 rounded-sm" style={{ background: portColor(port, i) }} />
+                    <span className={port === 'unattributed' ? '' : 'font-mono'}>{port}</span>
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <div className="flex items-center gap-3 text-[10px] text-foreground-muted">
+                <span className="flex items-center gap-1">
+                  <span className="w-2.5 h-2.5 rounded-sm bg-indigo-400" /> Transactions
+                </span>
+                <span className="flex items-center gap-1">
+                  <span className="w-2.5 h-2.5 rounded-sm bg-border" /> Zero days
+                </span>
+              </div>
+            )}
             <p className="text-[10px] text-foreground-muted">
               {data.totals.active_days} active / {data.data.length} days &middot; avg {data.totals.avg_transactions_per_day.toFixed(1)}/day
             </p>

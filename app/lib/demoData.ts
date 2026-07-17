@@ -707,7 +707,7 @@ export function demoPortAnalytics(routerId: number): PortAnalyticsResponse {
         today: (opts.connected ?? 0) * 50,
         this_week: (opts.connected ?? 0) * 320,
         this_month: (opts.known ?? 0) * 1100,
-        paying_customers_seen: opts.known ?? 0,
+        paying_customers: opts.known ?? 0,
       },
       infrastructure: opts.infra ?? [],
       downstream_devices_sample: health === 'active'
@@ -758,9 +758,10 @@ export function demoPortAnalytics(routerId: number): PortAnalyticsResponse {
     revenue: (() => {
       const sum = (pick: (p: PortAnalyticsPort) => number) => ports.reduce((acc, p) => acc + pick(p), 0);
       const attributedTotal = sum(p => p.revenue?.total ?? 0);
-      // Router-wide totals run higher: offline customers can't be placed on a port.
+      // Pre-tracking history and offline-at-payment customers stay unattributed.
       const unattributed = 14_200;
       return {
+        attribution: 'recorded' as const,
         attributed_total: attributedTotal,
         attributed_today: sum(p => p.revenue?.today ?? 0),
         attributed_this_week: sum(p => p.revenue?.this_week ?? 0),
@@ -770,6 +771,7 @@ export function demoPortAnalytics(routerId: number): PortAnalyticsResponse {
         router_this_week: sum(p => p.revenue?.this_week ?? 0) + 1_800,
         router_this_month: sum(p => p.revenue?.this_month ?? 0) + 6_500,
         unattributed_total: unattributed,
+        unattributed_this_month: 6_500,
       };
     })(),
     ports,

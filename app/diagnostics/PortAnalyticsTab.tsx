@@ -182,16 +182,22 @@ export default function PortAnalyticsTab({
       {/* Revenue summary */}
       {data.revenue && (
         <div className="card p-4 sm:p-5 animate-fade-in">
-          <p className="text-sm font-medium text-foreground mb-1">Revenue</p>
+          <div className="flex items-center gap-2 mb-1">
+            <p className="text-sm font-medium text-foreground">Revenue</p>
+            <span className="badge bg-emerald-500/15 text-emerald-500 text-[10px]">
+              recorded at payment time
+            </span>
+          </div>
           <p className="text-xs text-foreground-muted mb-3">
-            Attributed to the port where each paying customer&apos;s device is currently seen.
-            Customers offline right now count as unattributed.
+            Each payment is stamped with the port the customer was on when they paid, so these
+            numbers stay put. &quot;Unattributed&quot; is mostly history from before port tracking
+            started, plus customers who paid while offline or have no MAC on file.
           </p>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-            <DetailStat label="Router Total" value={formatKES(data.revenue.router_total)} />
             <DetailStat label="This Month" value={formatKES(data.revenue.router_this_month)} />
-            <DetailStat label="On Ports Now" value={formatKES(data.revenue.attributed_total)} />
-            <DetailStat label="Unattributed" value={formatKES(data.revenue.unattributed_total)} />
+            <DetailStat label="Today" value={formatKES(data.revenue.router_today)} />
+            <DetailStat label="On Ports (All Time)" value={formatKES(data.revenue.attributed_total)} />
+            <DetailStat label="Unattributed (All Time)" value={formatKES(data.revenue.unattributed_total)} />
           </div>
         </div>
       )}
@@ -327,17 +333,20 @@ function PortDetail({ port }: { port: PortAnalyticsPort }) {
         </div>
       )}
 
-      {/* Revenue from customers currently on this port */}
+      {/* Revenue recorded against this port at payment time */}
       {!isUplink && port.revenue && (
         <div>
           <p className="text-xs font-medium text-foreground-muted uppercase tracking-wide mb-2">
-            Revenue <span className="normal-case">({port.revenue.paying_customers_seen} paying customer{port.revenue.paying_customers_seen !== 1 ? 's' : ''} seen)</span>
+            Revenue Earned Here{' '}
+            <span className="normal-case">
+              ({port.revenue.paying_customers} paying customer{port.revenue.paying_customers !== 1 ? 's' : ''})
+            </span>
           </p>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-            <DetailStat label="Total" value={formatKES(port.revenue.total)} />
             <DetailStat label="This Month" value={formatKES(port.revenue.this_month)} />
             <DetailStat label="This Week" value={formatKES(port.revenue.this_week)} />
             <DetailStat label="Today" value={formatKES(port.revenue.today)} />
+            <DetailStat label="All Time" value={formatKES(port.revenue.total)} small />
           </div>
         </div>
       )}

@@ -146,6 +146,8 @@ export interface DailyTransactionPoint {
   label: string;
   transactions: number;
   revenue: number;
+  /** Present when by_port=true: revenue split by recorded router port. */
+  by_port?: Record<string, number>;
 }
 
 export interface DailyTransactionsResponse {
@@ -155,6 +157,9 @@ export interface DailyTransactionsResponse {
   router_id: number | null;
   payment_method: TransactionPaymentMethod | null;
   status: TransactionStatusFilter;
+  by_port?: boolean;
+  /** Ordered stacking keys ("unattributed" last) when by_port=true. */
+  port_keys?: string[];
   data: DailyTransactionPoint[];
   totals: {
     transactions: number;
@@ -2430,21 +2435,26 @@ export interface DownstreamDeviceSample {
   revenue_total?: number;
 }
 
-/** Revenue attributed to one port (customers whose device is currently seen there). */
+/**
+ * Revenue recorded against one port. Attribution is stamped at payment time
+ * (the port the paying customer's device was on when they paid), so these
+ * numbers are stable — they do not move when devices roam.
+ */
 export interface PortRevenue {
   total: number;
   today: number;
   this_week: number;
   this_month: number;
-  paying_customers_seen: number;
+  paying_customers: number;
 }
 
 /**
- * Router-wide revenue context. attributed_* sums the per-port revenue;
- * unattributed_total is revenue from customers who are offline right now
- * (or have no MAC on file) and therefore can't be placed on a port.
+ * Router-wide revenue context. attributed_* sums payments stamped with a
+ * port; unattributed covers customers offline at stamping time, customers
+ * with no MAC on file, and payments made before port tracking existed.
  */
 export interface PortAnalyticsRevenue {
+  attribution?: 'recorded';
   attributed_total: number;
   attributed_today: number;
   attributed_this_week: number;
@@ -2454,6 +2464,7 @@ export interface PortAnalyticsRevenue {
   router_this_week: number;
   router_this_month: number;
   unattributed_total: number;
+  unattributed_this_month?: number;
 }
 
 export interface PortWarning {
