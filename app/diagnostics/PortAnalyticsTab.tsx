@@ -8,6 +8,7 @@ import {
   DownstreamDeviceSample,
 } from '../lib/types';
 import PortFaceplate, { isUplinkPort, portVisualStatus } from '../components/PortFaceplate';
+import { formatKES } from '../lib/format';
 
 function formatBytes(bytes: number): string {
   if (!bytes) return '0 B';
@@ -178,6 +179,23 @@ export default function PortAnalyticsTab({
         <StatTile label="Customers w/ MAC" value={data.totals.db_customers_with_mac} hint="in database" />
       </div>
 
+      {/* Revenue summary */}
+      {data.revenue && (
+        <div className="card p-4 sm:p-5 animate-fade-in">
+          <p className="text-sm font-medium text-foreground mb-1">Revenue</p>
+          <p className="text-xs text-foreground-muted mb-3">
+            Attributed to the port where each paying customer&apos;s device is currently seen.
+            Customers offline right now count as unattributed.
+          </p>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <DetailStat label="Router Total" value={formatKES(data.revenue.router_total)} />
+            <DetailStat label="This Month" value={formatKES(data.revenue.router_this_month)} />
+            <DetailStat label="On Ports Now" value={formatKES(data.revenue.attributed_total)} />
+            <DetailStat label="Unattributed" value={formatKES(data.revenue.unattributed_total)} />
+          </div>
+        </div>
+      )}
+
       {/* Warnings strip */}
       {visibleWarnings.length > 0 && (
         <div className="card p-4 border-amber-500/30 animate-fade-in">
@@ -309,6 +327,21 @@ function PortDetail({ port }: { port: PortAnalyticsPort }) {
         </div>
       )}
 
+      {/* Revenue from customers currently on this port */}
+      {!isUplink && port.revenue && (
+        <div>
+          <p className="text-xs font-medium text-foreground-muted uppercase tracking-wide mb-2">
+            Revenue <span className="normal-case">({port.revenue.paying_customers_seen} paying customer{port.revenue.paying_customers_seen !== 1 ? 's' : ''} seen)</span>
+          </p>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <DetailStat label="Total" value={formatKES(port.revenue.total)} />
+            <DetailStat label="This Month" value={formatKES(port.revenue.this_month)} />
+            <DetailStat label="This Week" value={formatKES(port.revenue.this_week)} />
+            <DetailStat label="Today" value={formatKES(port.revenue.today)} />
+          </div>
+        </div>
+      )}
+
       {/* Infrastructure on this port */}
       {port.infrastructure.length > 0 && (
         <div>
@@ -328,13 +361,14 @@ function PortDetail({ port }: { port: PortAnalyticsPort }) {
             Connected Devices <span className="normal-case">(sample of {port.downstream_devices_sample.length})</span>
           </p>
           <div className="overflow-x-auto -mx-3 sm:mx-0 px-3 sm:px-0">
-            <table className="w-full text-sm min-w-[560px]">
+            <table className="w-full text-sm min-w-[640px]">
               <thead>
                 <tr className="border-b border-border">
                   <th className="text-left py-2 pr-3 text-xs font-medium text-foreground-muted">Device</th>
                   <th className="text-left py-2 pr-3 text-xs font-medium text-foreground-muted">Type</th>
                   <th className="text-left py-2 pr-3 text-xs font-medium text-foreground-muted">IP</th>
                   <th className="text-left py-2 pr-3 text-xs font-medium text-foreground-muted">Activity</th>
+                  <th className="text-right py-2 pr-3 text-xs font-medium text-foreground-muted">Revenue</th>
                   <th className="text-left py-2 text-xs font-medium text-foreground-muted">Last Seen</th>
                 </tr>
               </thead>
@@ -459,6 +493,15 @@ function DownstreamDeviceRow({ device }: { device: DownstreamDeviceSample }) {
               <span key={a.label} className={`badge text-[10px] ${a.className}`}>{a.label}</span>
             ))}
           </div>
+        )}
+      </td>
+      <td className="py-2 pr-3 text-right font-mono text-xs whitespace-nowrap">
+        {device.kind === 'known_customer' && device.revenue_total != null ? (
+          <span className={device.revenue_total > 0 ? 'text-foreground' : 'text-foreground-muted'}>
+            {formatKES(device.revenue_total)}
+          </span>
+        ) : (
+          <span className="text-foreground-muted">—</span>
         )}
       </td>
       <td className="py-2 font-mono text-xs text-foreground-muted whitespace-nowrap">{device.last_seen || '—'}</td>

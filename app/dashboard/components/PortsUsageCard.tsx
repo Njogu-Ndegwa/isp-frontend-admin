@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import SectionCard, { SectionError } from './SectionCard';
 import PortFaceplate, { isUplinkPort, portVisualStatus } from '../../components/PortFaceplate';
+import { formatKESCompact } from '../../lib/format';
 import { DownloadUsageBody } from './DownloadUsageSection';
 import type { PortAnalyticsResponse, PortAnalyticsPort, DownstreamDeviceSample, BandwidthHistory } from '../../lib/types';
 import type { DownloadUsageServiceFilter } from '../DownloadUsageChart';
@@ -226,6 +227,9 @@ function SelectedPortPanel({ port, detailsHref }: { port: PortAnalyticsPort; det
             <span className="font-medium text-foreground">{port.counts.hotspot_hosts_seen}</span> hotspot
             {port.counts.unknown_devices > 0 && (
               <> · <span className="font-medium text-foreground">{port.counts.unknown_devices}</span> unknown</>
+            )}
+            {port.revenue && port.revenue.total > 0 && (
+              <> · <span className="font-medium text-foreground">{formatKESCompact(port.revenue.total)}</span> revenue</>
             )}
           </p>
 
