@@ -68,10 +68,17 @@
   color: rgba(255, 255, 255, 0.6);
 }
 .blog-prose table {
+  /* display:block lets wide tables scroll inside themselves on small phones
+     instead of stretching the page sideways. */
+  display: block;
+  overflow-x: auto;
   width: 100%;
   border-collapse: collapse;
   margin: 1.25rem 0;
   font-size: 0.95em;
+}
+.blog-prose th {
+  white-space: nowrap;
 }
 .blog-prose th,
 .blog-prose td {
