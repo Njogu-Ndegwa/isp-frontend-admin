@@ -27,6 +27,8 @@ You want a fresh router with no leftover configuration — especially if the rou
 
 In Winbox: **System → Reset Configuration**, then confirm.
 
+![Winbox reset configuration confirmation dialog during MikroTik hotspot setup](/blog-images/mikrotik-hotspot-setup-10-minutes/winbox-reset-confirmation.webp)
+
 After the reboot, log in with the default password printed on the sticker at the back of the router. RouterOS may ask you to change the password — that's normal, go ahead.
 
 ## Step 3: Open the terminal
@@ -36,6 +38,8 @@ Inside Winbox, open **New Terminal**. Everything else happens with a single comm
 ## Step 4: Get your provisioning command from Bitwave
 
 On your laptop, go to [bitwavetechnologies.com](https://bitwavetechnologies.com) and sign up. You're redirected straight into the setup flow, and the first step is **token provisioning**: the platform generates a one-line command tied to your account.
+
+![Bitwave setup page showing the generated MikroTik provisioning command ready to copy](/blog-images/mikrotik-hotspot-setup-10-minutes/bitwave-provisioning-token.webp)
 
 Copy that command and paste it into the Winbox terminal, then hit Enter.
 
