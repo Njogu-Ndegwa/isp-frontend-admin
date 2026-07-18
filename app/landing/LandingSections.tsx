@@ -272,7 +272,10 @@ export default function LandingSections() {
               </div>
               <span className="text-lg font-bold gradient-text">Bitwave</span>
             </div>
-            <p className="text-sm text-foreground-muted">&copy; 2026 Bitwave Technologies. All rights reserved.</p>
+            <div className="flex items-center gap-6">
+              <a href="/blog" className="text-sm text-foreground-muted hover:text-foreground transition-colors">Blog</a>
+              <p className="text-sm text-foreground-muted">&copy; 2026 Bitwave Technologies. All rights reserved.</p>
+            </div>
           </div>
         </div>
       </footer>
