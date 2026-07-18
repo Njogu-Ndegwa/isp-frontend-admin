@@ -49,7 +49,10 @@ export default async function BlogPostPage({
   const post = getPost(slug);
   if (!post) notFound();
 
-  const html = await marked.parse(post.content);
+  const html = (await marked.parse(post.content)).replace(
+    /<img /g,
+    '<img loading="lazy" decoding="async" ',
+  );
   const jsonLd = {
     '@context': 'https://schema.org',
     '@type': 'BlogPosting',

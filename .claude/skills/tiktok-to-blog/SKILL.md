@@ -67,7 +67,31 @@ not to transcribe it prettily:
   bitwavetechnologies.com, "Winbox" spellings, "MPesa"→M-Pesa, "STK"→STK push.
 - Frontmatter `date:` = today, `published: true` (the PR is the gate).
 
-## Step 3 — Branch, PR, review
+## Step 3 — Images (required, in-context only)
+
+Every post ships with 1–3 images, and each must show something the post is
+actually about — never stock photos, never AI-generated decoration. Priority
+order for sourcing:
+
+1. **Frames from the source TikTok video.** Keep the downloaded media
+   (`fetch_transcript.py <url> --keep-media <dir>`), then
+   `python .claude/skills/tiktok-to-blog/extract_frames.py <video> <outdir> [seconds...]`
+   to pull stills (defaults to 5 evenly spaced frames; pick the ones showing
+   the router, Winbox, or the step being described).
+2. **Real UI screenshots** taken with the browser/Playwright against the
+   Bitwave dashboard, captive portal, or landing page at the exact step the
+   text describes. Use demo/test data only — never a real customer's name,
+   number, or payment; crop or blur anything doubtful.
+3. **Field photos from Dennis** (router installs, antennas, shops) when he
+   provides them.
+
+Rules: save to `public/blog-images/<slug>/descriptive-name.webp` (WebP,
+target under ~150 KB — readers pay for data); embed with markdown
+`![alt text](/blog-images/<slug>/name.webp)` where the alt text describes the
+image and works the post's keyword in naturally; check every image reads at
+360 px width. Images lazy-load automatically.
+
+## Step 4 — Branch, PR, review
 
 ```
 git checkout -b blog/<slug>

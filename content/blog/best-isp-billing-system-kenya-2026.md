@@ -3,7 +3,7 @@ title: Best ISP Billing System in Kenya (2026) — An Honest Comparison
 description: We compared Kenya's top ISP billing systems on M-Pesa integration, MikroTik support and real KES pricing — Bitwave, Jasiyo, Netily, Ndovu Connect and the free options.
 date: 2026-07-16
 tags: isp billing, mpesa, mikrotik, comparison
-published: false
+published: true
 ---
 
 If you run a WiFi hotspot or PPPoE internet business in Kenya, your billing system is the difference between collecting every shilling automatically and chasing payments on WhatsApp at midnight. The good news: Kenya now has several capable, locally-built billing platforms. The honest news: they are more alike than their marketing suggests, so the details — setup fees, router provisioning, support — are what should decide your choice.
@@ -27,7 +27,7 @@ Kenya's billing market has converged on almost identical pricing — roughly KES
 | Netily (Internetily) | KES 25/user | 3% of revenue | KES 500 | KES 500 |
 | Ndovu Connect | KES 25/user (min 30 users = KES 1,500) | 3% of revenue | KES 500 | Not listed |
 | Centipid | Not published | Not published | Not published | Not published |
-| "Free" platforms | Free below caps | Free below caps | Paid tiers from ~KES 500 up to KES 30,000 as you grow | Varies |
+| "Free" platforms | Capped free tier | Capped free tier | Paid tiers that rise as you grow | Varies |
 
 <!-- VERIFY: competitor prices pulled from their public sites on 16 July 2026 — spot-check before publishing, and re-check quarterly. -->
 
@@ -35,7 +35,7 @@ Three things stand out. First, if anyone quotes you a very different price for t
 
 ## What about the free billing systems?
 
-Searches for "free ISP billing system Kenya" are everywhere, and platforms like isp.co.ke, Freeispradius and SmartPay Radius answer that demand. Here is how free actually works: the free tier is capped — one popular platform is free only while your sales stay under KES 8,000 a month — and once you cross the cap you move to paid tiers that can reach KES 30,000 a month at scale. That is not a scam; it is a freemium model. But do the maths for *your* size: a hotspot doing KES 50,000 a month pays KES 1,500 on a 3%-of-revenue model. Compare that against the paid tier the "free" platform will move you to, and check what support you get at each level before choosing based on the word "free".
+Searches for "free ISP billing system Kenya" are everywhere, and several platforms answer that demand. Here is how free actually works: the free tier is capped, and once your business grows past the cap you are moved onto paid tiers — which at scale can cost far more than the standard 3%-of-revenue model. Free also usually means queue-based support: when your hotspot is down on a Saturday night, nobody is picking up a phone. Do the maths for *your* size — a hotspot doing KES 50,000 a month pays KES 1,500 on a 3% model, support included — and read the fine print on caps and support before choosing anything based on the word "free".
 
 ## Where Bitwave is different
 
