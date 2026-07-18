@@ -3,7 +3,7 @@ title: Best ISP Billing System in Kenya (2026) — An Honest Comparison
 description: We compared Kenya's top ISP billing systems on M-Pesa integration, MikroTik support and real KES pricing — Bitwave, Jasiyo, Netily, Ndovu Connect and the free options.
 date: 2026-07-16
 tags: isp billing, mpesa, mikrotik, comparison
-published: false
+published: true
 ---
 
 If you run a WiFi hotspot or PPPoE internet business in Kenya, your billing system is the difference between collecting every shilling automatically and chasing payments on WhatsApp at midnight. The good news: Kenya now has several capable, locally-built billing platforms. The honest news: they are more alike than their marketing suggests, so the details — setup fees, router provisioning, support — are what should decide your choice.
