@@ -1965,6 +1965,7 @@ class ApiClient {
         available_frequencies: ['daily', 'weekly', 'monthly', 'manual'],
         unpaid_balance: 0,
         minimum_withdrawal: 2,
+        cooldown_seconds_remaining: 0,
         fee_preview: { safaricom_fee: 0, kadogo_surcharge: 0, total_fee: 0, net_payout: 0 },
         payment_method: null,
         can_withdraw: false,

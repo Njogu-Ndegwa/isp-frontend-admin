@@ -157,6 +157,11 @@ export default function WithdrawCard({ onWithdrawn }: { onWithdrawn?: () => void
             <p className="text-xs text-foreground-muted">
               Withdrawals are available once your balance reaches {formatKES(settings.minimum_withdrawal)}.
             </p>
+          ) : settings.blocked_reason === 'cooldown' ? (
+            <p className="text-xs text-foreground-muted">
+              You withdrew recently — you can withdraw again in about{' '}
+              {Math.max(1, Math.ceil(settings.cooldown_seconds_remaining / 60))} min.
+            </p>
           ) : (
             <button
               onClick={() => setConfirmOpen(true)}

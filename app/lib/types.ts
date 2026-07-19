@@ -2710,6 +2710,7 @@ export interface ResellerPayoutSettings {
   available_frequencies: PayoutFrequency[];
   unpaid_balance: number;
   minimum_withdrawal: number;
+  cooldown_seconds_remaining: number;
   fee_preview: {
     safaricom_fee: number;
     kadogo_surcharge: number;
@@ -2723,7 +2724,7 @@ export interface ResellerPayoutSettings {
     destination: string | null;
   } | null;
   can_withdraw: boolean;
-  blocked_reason: 'pending_withdrawal' | 'no_payment_method' | 'balance_too_low' | null;
+  blocked_reason: 'pending_withdrawal' | 'no_payment_method' | 'balance_too_low' | 'cooldown' | null;
   pending_withdrawal: ResellerWithdrawalTxn | null;
 }
 
