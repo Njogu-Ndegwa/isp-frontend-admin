@@ -2690,6 +2690,51 @@ export interface ResellerAccountStatement {
   entries: AccountStatementEntry[];
 }
 
+// Reseller self-service withdrawals / payout schedule
+
+export type PayoutFrequency = 'daily' | 'weekly' | 'monthly' | 'manual';
+
+export interface ResellerWithdrawalTxn {
+  id: number;
+  amount: number;
+  fee: number;
+  net_amount: number;
+  status: string;
+  transaction_id: string | null;
+  created_at: string | null;
+  completed_at: string | null;
+}
+
+export interface ResellerPayoutSettings {
+  payout_frequency: PayoutFrequency;
+  available_frequencies: PayoutFrequency[];
+  unpaid_balance: number;
+  minimum_withdrawal: number;
+  fee_preview: {
+    safaricom_fee: number;
+    kadogo_surcharge: number;
+    total_fee: number;
+    net_payout: number;
+  };
+  payment_method: {
+    id: number;
+    label: string;
+    method_type: string;
+    destination: string | null;
+  } | null;
+  can_withdraw: boolean;
+  blocked_reason: 'pending_withdrawal' | 'no_payment_method' | 'balance_too_low' | null;
+  pending_withdrawal: ResellerWithdrawalTxn | null;
+}
+
+export interface ResellerWithdrawResponse {
+  transaction: ResellerWithdrawalTxn;
+  balance_before: number;
+  fee: number;
+  net_payout: number;
+  destination_label: string;
+}
+
 // Admin Reseller Stats (Charts)
 
 export type AdminResellerStatsPeriod = '7d' | '30d' | '90d' | '1y' | 'all';

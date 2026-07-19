@@ -116,6 +116,8 @@ import {
   AdminTransactionChargeResponse,
   AdminTransactionChargesResponse,
   ResellerAccountStatement,
+  ResellerPayoutSettings,
+  ResellerWithdrawResponse,
   DeleteResellerPreview,
   DeleteResellerResponse,
   AdminResellerStats,
@@ -1952,6 +1954,47 @@ class ApiClient {
       headers: this.getHeaders(),
     });
     return this.handleResponse<ResellerAccountStatement>(response);
+  }
+
+  // Reseller self-service withdrawals / payout schedule
+
+  async getResellerPayoutSettings(): Promise<ResellerPayoutSettings> {
+    if (this.isDemoMode()) {
+      return {
+        payout_frequency: 'daily',
+        available_frequencies: ['daily', 'weekly', 'monthly', 'manual'],
+        unpaid_balance: 0,
+        minimum_withdrawal: 2,
+        fee_preview: { safaricom_fee: 0, kadogo_surcharge: 0, total_fee: 0, net_payout: 0 },
+        payment_method: null,
+        can_withdraw: false,
+        blocked_reason: 'balance_too_low',
+        pending_withdrawal: null,
+      };
+    }
+    const response = await fetch(`${BASE_URL}/reseller/payout-settings`, {
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<ResellerPayoutSettings>(response);
+  }
+
+  async updateResellerPayoutSettings(payoutFrequency: string): Promise<{ payout_frequency: string }> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(`${BASE_URL}/reseller/payout-settings`, {
+      method: 'PUT',
+      headers: this.getHeaders(),
+      body: JSON.stringify({ payout_frequency: payoutFrequency }),
+    });
+    return this.handleResponse<{ payout_frequency: string }>(response);
+  }
+
+  async resellerWithdraw(): Promise<ResellerWithdrawResponse> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(`${BASE_URL}/reseller/withdraw`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<ResellerWithdrawResponse>(response);
   }
 
   async previewDeleteAdminReseller(resellerId: number): Promise<DeleteResellerPreview> {
