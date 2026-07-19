@@ -16,6 +16,7 @@ import { formatKES, formatKESCompact } from '../lib/format';
 import {
   DailyTransactionsPeriod,
   DailyTransactionsResponse,
+  Router,
   TransactionPaymentMethod,
   TransactionStatusFilter,
 } from '../lib/types';
@@ -158,6 +159,35 @@ export default function DailyTransactionsChart({ routerId, enabled = true }: Pro
   const [showFilters, setShowFilters] = useState(false);
   const [byPort, setByPort] = useState(false);
 
+  // When no routerId prop is given, the chart offers its own router filter so
+  // the per-port revenue split is reachable from the dashboard.
+  const hasExternalRouter = routerId != null;
+  const [routers, setRouters] = useState<Router[]>([]);
+  const [selectedRouterId, setSelectedRouterId] = useState<number | ''>('');
+  const effectiveRouterId = hasExternalRouter
+    ? routerId
+    : selectedRouterId === ''
+      ? undefined
+      : selectedRouterId;
+  const selectedRouterName =
+    !hasExternalRouter && effectiveRouterId != null
+      ? routers.find((r) => r.id === effectiveRouterId)?.name
+      : undefined;
+
+  useEffect(() => {
+    if (hasExternalRouter || !enabled) return;
+    let cancelled = false;
+    api
+      .getRouters()
+      .then((list) => {
+        if (!cancelled) setRouters([...list].sort((a, b) => a.name.localeCompare(b.name)));
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [hasExternalRouter, enabled]);
+
   const fetchData = useCallback(
     async (opts: { period?: DailyTransactionsPeriod; startDate?: string; endDate?: string }) => {
       try {
@@ -165,10 +195,10 @@ export default function DailyTransactionsChart({ routerId, enabled = true }: Pro
         setError(null);
         const result = await api.getTransactionsDaily({
           ...opts,
-          routerId: routerId ?? undefined,
+          routerId: effectiveRouterId ?? undefined,
           paymentMethod: paymentMethod || undefined,
           status,
-          byPort: byPort && !!routerId,
+          byPort: byPort && effectiveRouterId != null,
         });
         setData(result);
       } catch (err) {
@@ -177,7 +207,7 @@ export default function DailyTransactionsChart({ routerId, enabled = true }: Pro
         setLoading(false);
       }
     },
-    [routerId, paymentMethod, status, byPort]
+    [effectiveRouterId, paymentMethod, status, byPort]
   );
 
   useEffect(() => {
@@ -195,7 +225,7 @@ export default function DailyTransactionsChart({ routerId, enabled = true }: Pro
       fetchData({ period });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [enabled, period, isCustomActive, paymentMethod, status, routerId, byPort]);
+  }, [enabled, period, isCustomActive, paymentMethod, status, effectiveRouterId, byPort]);
 
   const handlePeriodClick = (p: DailyTransactionsPeriod) => {
     setPeriod(p);
@@ -221,28 +251,37 @@ export default function DailyTransactionsChart({ routerId, enabled = true }: Pro
           </h3>
           {data && (
             <p className="text-[10px] text-foreground-muted mt-0.5 ml-3.5 truncate">
-              {data.start_date} → {data.end_date} &middot; {data.status}
-              {data.payment_method ? ` &middot; ${data.payment_method.replace('_', ' ')}` : ''}
+              {data.start_date} → {data.end_date} · {data.status}
+              {data.payment_method ? ` · ${data.payment_method.replace('_', ' ')}` : ''}
+              {selectedRouterName ? ` · ${selectedRouterName}` : ''}
             </p>
           )}
         </div>
 
         <div className="flex items-center gap-2 flex-shrink-0">
-          {routerId != null && (
-            <button
-              onClick={() => setByPort((v) => !v)}
-              className={`period-pill whitespace-nowrap flex-shrink-0 ${
-                byPort ? 'period-pill-active' : 'period-pill-inactive'
-              }`}
-              title="Split revenue by the router port it was earned on"
-            >
-              By port
-            </button>
-          )}
+          <button
+            onClick={() => {
+              if (effectiveRouterId == null) {
+                setShowFilters(true);
+                return;
+              }
+              setByPort((v) => !v);
+            }}
+            className={`period-pill whitespace-nowrap flex-shrink-0 ${
+              byPort && effectiveRouterId != null ? 'period-pill-active' : 'period-pill-inactive'
+            }`}
+            title={
+              effectiveRouterId == null
+                ? 'Pick a router in the filters to split revenue by port'
+                : 'Split revenue by the router port it was earned on'
+            }
+          >
+            By port
+          </button>
           <button
             onClick={() => setShowFilters((v) => !v)}
             className={`p-1.5 rounded-lg transition-colors ${
-              showFilters || paymentMethod || status !== 'completed'
+              showFilters || paymentMethod || status !== 'completed' || (!hasExternalRouter && selectedRouterId !== '')
                 ? 'bg-indigo-400/10 text-indigo-400'
                 : 'text-foreground-muted hover:bg-background-tertiary'
             }`}
@@ -313,6 +352,26 @@ export default function DailyTransactionsChart({ routerId, enabled = true }: Pro
       {/* Filters */}
       {showFilters && (
         <div className="flex items-center gap-2 p-2 bg-background-tertiary rounded-lg animate-fade-in flex-wrap mb-3">
+          {!hasExternalRouter && (
+            <select
+              value={selectedRouterId === '' ? '' : String(selectedRouterId)}
+              onChange={(e) => {
+                const value = e.target.value;
+                if (value === '') {
+                  setSelectedRouterId('');
+                  setByPort(false);
+                } else {
+                  setSelectedRouterId(Number(value));
+                }
+              }}
+              className="px-2 py-1.5 text-sm bg-background border border-border rounded-md text-foreground focus:outline-none focus:ring-1 focus:ring-indigo-400 flex-1 min-w-[140px]"
+            >
+              <option value="">All routers</option>
+              {routers.map((r) => (
+                <option key={r.id} value={r.id}>{r.name}</option>
+              ))}
+            </select>
+          )}
           <select
             value={paymentMethod}
             onChange={(e) => setPaymentMethod(e.target.value as '' | TransactionPaymentMethod)}
@@ -331,9 +390,16 @@ export default function DailyTransactionsChart({ routerId, enabled = true }: Pro
               <option key={opt.value} value={opt.value}>{opt.label}</option>
             ))}
           </select>
-          {(paymentMethod || status !== 'completed') && (
+          {(paymentMethod || status !== 'completed' || (!hasExternalRouter && selectedRouterId !== '')) && (
             <button
-              onClick={() => { setPaymentMethod(''); setStatus('completed'); }}
+              onClick={() => {
+                setPaymentMethod('');
+                setStatus('completed');
+                if (!hasExternalRouter) {
+                  setSelectedRouterId('');
+                  setByPort(false);
+                }
+              }}
               className="text-xs text-foreground-muted hover:text-foreground transition-colors px-2 py-1.5 flex-shrink-0"
             >
               Reset

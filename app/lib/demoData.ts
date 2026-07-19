@@ -2501,20 +2501,36 @@ export function demoTransactionsDaily(options: {
   routerId?: number;
   paymentMethod?: TransactionPaymentMethod;
   status?: TransactionStatusFilter;
+  byPort?: boolean;
 } = {}): DailyTransactionsResponse {
   const period = options.period && options.period !== 'custom' ? options.period : '30d';
   const days = Math.min(periodToDays[period] ?? 30, 90);
   const scale = (options.routerId ? 0.45 : 1) * (options.paymentMethod === 'cash' ? 0.15 : 1);
+  const portKeys = options.byPort && options.routerId ? ['ether2', 'ether3', 'ether4', 'unattributed'] : null;
+  const portWeights = [0.45, 0.3, 0.15, 0.1];
   const data: DailyTransactionPoint[] = Array.from({ length: days }, (_, i) => {
     const d = new Date(now);
     d.setDate(d.getDate() - (days - 1 - i));
     const tx = Math.round((Math.random() * 15 + 18) * scale);
-    return {
+    const revenue = tx * Math.floor(Math.random() * 300 + 550);
+    const point: DailyTransactionPoint = {
       date: d.toISOString().split('T')[0],
       label: d.toLocaleDateString('en-GB', { month: 'short', day: 'numeric' }),
       transactions: tx,
-      revenue: tx * Math.floor(Math.random() * 300 + 550),
+      revenue,
     };
+    if (portKeys) {
+      // Split each day's revenue across the ports so the stack sums to the total.
+      let remaining = revenue;
+      const split: Record<string, number> = {};
+      portKeys.forEach((port, idx) => {
+        const amount = idx === portKeys.length - 1 ? remaining : Math.round(revenue * portWeights[idx]);
+        split[port] = amount;
+        remaining -= amount;
+      });
+      point.by_port = split;
+    }
+    return point;
   });
   const transactions = data.reduce((s, p) => s + p.transactions, 0);
   const activeDays = data.filter(p => p.transactions > 0).length;
@@ -2525,6 +2541,8 @@ export function demoTransactionsDaily(options: {
     router_id: options.routerId ?? null,
     payment_method: options.paymentMethod ?? null,
     status: options.status ?? 'completed',
+    by_port: !!portKeys,
+    port_keys: portKeys ?? [],
     data,
     totals: {
       transactions,
