@@ -4,6 +4,8 @@ import { useEffect, useState, useCallback } from 'react';
 import {
   AreaChart,
   Area,
+  BarChart,
+  Bar,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -11,8 +13,13 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 import { api } from '../lib/api';
-import { RevenueOverTimePeriod, RevenueOverTimeResponse } from '../lib/types';
+import {
+  DailyTransactionsResponse,
+  RevenueOverTimePeriod,
+  RevenueOverTimeResponse,
+} from '../lib/types';
 import { formatKES, formatKESCompact } from '../lib/format';
+import { portColor, PortRevenueTooltip } from './DailyTransactionsChart';
 
 // ─── Period options ────────────────────────────────────────────────────────────
 
@@ -90,6 +97,7 @@ interface Props {
 
 export default function RevenueOverTimeChart({ routerId, enabled = true }: Props) {
   const [data, setData] = useState<RevenueOverTimeResponse | null>(null);
+  const [portData, setPortData] = useState<DailyTransactionsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -98,24 +106,38 @@ export default function RevenueOverTimeChart({ routerId, enabled = true }: Props
   const [customStart, setCustomStart] = useState('');
   const [customEnd, setCustomEnd] = useState('');
   const [isCustomActive, setIsCustomActive] = useState(false);
+  const [byPort, setByPort] = useState(false);
+
+  // Per-port revenue comes from the transactions-daily endpoint (always daily
+  // buckets); the plain view keeps the adaptive daily/weekly/monthly grouping.
+  const showByPort = byPort && routerId != null;
 
   const fetchData = useCallback(
     async (opts: { period?: RevenueOverTimePeriod; startDate?: string; endDate?: string }) => {
       try {
         setLoading(true);
         setError(null);
-        const result = await api.getRevenueOverTime({
-          ...opts,
-          routerId: routerId ?? undefined,
-        });
-        setData(result);
+        if (byPort && routerId != null) {
+          const result = await api.getTransactionsDaily({
+            ...opts,
+            routerId,
+            byPort: true,
+          });
+          setPortData(result);
+        } else {
+          const result = await api.getRevenueOverTime({
+            ...opts,
+            routerId: routerId ?? undefined,
+          });
+          setData(result);
+        }
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load revenue data');
       } finally {
         setLoading(false);
       }
     },
-    [routerId]
+    [routerId, byPort]
   );
 
   useEffect(() => {
@@ -123,13 +145,18 @@ export default function RevenueOverTimeChart({ routerId, enabled = true }: Props
       setLoading(true);
       setError(null);
       setData(null);
+      setPortData(null);
       return;
     }
-
-    if (!isCustomActive) {
+    if (isCustomActive) {
+      if (customStart && customEnd) {
+        fetchData({ startDate: customStart, endDate: customEnd });
+      }
+    } else {
       fetchData({ period });
     }
-  }, [enabled, fetchData, period, isCustomActive]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [enabled, period, isCustomActive, routerId, byPort]);
 
   const handlePeriodClick = (p: RevenueOverTimePeriod) => {
     setPeriod(p);
@@ -157,39 +184,59 @@ export default function RevenueOverTimeChart({ routerId, enabled = true }: Props
             <span className="w-1.5 h-5 rounded-full bg-emerald-500 flex-shrink-0" />
             Revenue Over Time
           </h3>
-          {data && (
+          {showByPort && portData ? (
+            <p className="text-[10px] text-foreground-muted mt-0.5 ml-3.5">
+              {portData.start_date} → {portData.end_date} &middot; by port &middot; daily
+            </p>
+          ) : data ? (
             <p className="text-[10px] text-foreground-muted mt-0.5 ml-3.5">
               {data.start_date} → {data.end_date} &middot; grouped {groupLabel}
             </p>
-          )}
+          ) : null}
         </div>
 
-        {/* Period selector */}
-        <div className="flex gap-1 p-1 bg-background-tertiary rounded-lg overflow-x-auto no-scrollbar flex-shrink-0">
-          {PERIOD_OPTIONS.map(({ value, label }) => (
+        {/* min-w-0 (not flex-shrink-0) so the period pills scroll on narrow phones
+            instead of the added By-port pill pushing the row past the card edge */}
+        <div className="flex items-center gap-2 min-w-0 max-w-full">
+          {routerId != null && (
             <button
-              key={value}
-              onClick={() => handlePeriodClick(value)}
+              onClick={() => setByPort((v) => !v)}
               className={`period-pill whitespace-nowrap flex-shrink-0 ${
-                period === value && !isCustomActive && !showCustom
-                  ? 'period-pill-active'
-                  : 'period-pill-inactive'
+                byPort ? 'period-pill-active' : 'period-pill-inactive'
+              }`}
+              title="Split revenue by the router port it was earned on"
+            >
+              By port
+            </button>
+          )}
+
+          {/* Period selector */}
+          <div className="flex gap-1 p-1 bg-background-tertiary rounded-lg overflow-x-auto no-scrollbar min-w-0">
+            {PERIOD_OPTIONS.map(({ value, label }) => (
+              <button
+                key={value}
+                onClick={() => handlePeriodClick(value)}
+                className={`period-pill whitespace-nowrap flex-shrink-0 ${
+                  period === value && !isCustomActive && !showCustom
+                    ? 'period-pill-active'
+                    : 'period-pill-inactive'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+            <button
+              onClick={() => {
+                setShowCustom((v) => !v);
+                if (!showCustom) setIsCustomActive(false);
+              }}
+              className={`period-pill whitespace-nowrap flex-shrink-0 ${
+                isCustomActive || showCustom ? 'period-pill-active' : 'period-pill-inactive'
               }`}
             >
-              {label}
+              Custom
             </button>
-          ))}
-          <button
-            onClick={() => {
-              setShowCustom((v) => !v);
-              if (!showCustom) setIsCustomActive(false);
-            }}
-            className={`period-pill whitespace-nowrap flex-shrink-0 ${
-              isCustomActive || showCustom ? 'period-pill-active' : 'period-pill-inactive'
-            }`}
-          >
-            Custom
-          </button>
+          </div>
         </div>
       </div>
 
@@ -236,6 +283,85 @@ export default function RevenueOverTimeChart({ routerId, enabled = true }: Props
         </div>
       ) : loading ? (
         <ChartSkeleton />
+      ) : showByPort && portData ? (
+        <>
+          {/* Summary stat chips (per-port mode) */}
+          <div className="grid grid-cols-3 gap-2 sm:gap-3 mb-4">
+            <div className="rounded-xl bg-emerald-500/8 border border-emerald-500/15 p-2.5 sm:p-3">
+              <p className="text-[10px] text-foreground-muted uppercase tracking-wider mb-0.5">Total Revenue</p>
+              <p className="text-sm sm:text-base font-bold text-emerald-500">{formatKESCompact(portData.totals.revenue)}</p>
+            </div>
+            <div className="rounded-xl bg-amber-500/8 border border-amber-500/15 p-2.5 sm:p-3">
+              <p className="text-[10px] text-foreground-muted uppercase tracking-wider mb-0.5">Avg / Day</p>
+              <p className="text-sm sm:text-base font-bold text-amber-500">
+                {formatKESCompact(portData.totals.revenue / (portData.data.length || 1))}
+              </p>
+            </div>
+            <div className="rounded-xl bg-indigo-500/8 border border-indigo-500/15 p-2.5 sm:p-3">
+              <p className="text-[10px] text-foreground-muted uppercase tracking-wider mb-0.5">Transactions</p>
+              <p className="text-sm sm:text-base font-bold text-indigo-400">{portData.totals.transactions.toLocaleString()}</p>
+            </div>
+          </div>
+
+          {/* Stacked per-port revenue bars — each day's stack sums to that day's total */}
+          <div className="h-56 sm:h-64 w-full">
+            {portData.data.length === 0 || portData.totals.revenue === 0 ? (
+              <div className="flex flex-col items-center justify-center h-full gap-2">
+                <svg className="w-8 h-8 text-foreground-muted/40" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                </svg>
+                <p className="text-foreground-muted text-sm">No revenue data for this period</p>
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  data={portData.data.map((d) => ({ label: d.label, ...(d.by_port ?? {}) }))}
+                  margin={{ top: 5, right: 10, left: 0, bottom: 0 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+                  <XAxis
+                    dataKey="label"
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fill: 'var(--foreground-muted)', fontSize: 10 }}
+                    interval="preserveStartEnd"
+                    minTickGap={40}
+                  />
+                  <YAxis
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fill: 'var(--foreground-muted)', fontSize: 10 }}
+                    tickFormatter={(v: number) => formatKESCompact(v)}
+                    width={58}
+                  />
+                  <Tooltip
+                    content={<PortRevenueTooltip portKeys={portData.port_keys ?? []} />}
+                    cursor={{ fill: 'var(--background-tertiary)', opacity: 0.4 }}
+                  />
+                  {(portData.port_keys ?? []).map((port, i) => (
+                    <Bar
+                      key={port}
+                      dataKey={port}
+                      stackId="revenue"
+                      fill={portColor(port, i)}
+                      radius={i === (portData.port_keys?.length ?? 0) - 1 ? [4, 4, 0, 0] : [0, 0, 0, 0]}
+                    />
+                  ))}
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+          </div>
+
+          {/* Port legend */}
+          <div className="flex items-center gap-3 mt-2 text-[10px] text-foreground-muted flex-wrap">
+            {(portData.port_keys ?? []).map((port, i) => (
+              <span key={port} className="flex items-center gap-1">
+                <span className="w-2.5 h-2.5 rounded-sm" style={{ background: portColor(port, i) }} />
+                <span className={port === 'unattributed' ? '' : 'font-mono'}>{port}</span>
+              </span>
+            ))}
+          </div>
+        </>
       ) : data ? (
         <>
           {/* Summary stat chips */}
