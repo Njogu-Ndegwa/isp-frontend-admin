@@ -2952,7 +2952,7 @@ export interface ResellerAccountStatement {
 
 // Reseller self-service withdrawals / payout schedule
 
-export type PayoutFrequency = 'daily' | 'weekly' | 'monthly' | 'manual';
+export type PayoutFrequency = 'daily' | 'weekly' | 'monthly' | 'custom' | 'manual';
 
 export interface ResellerWithdrawalTxn {
   id: number;
@@ -2967,6 +2967,9 @@ export interface ResellerWithdrawalTxn {
 
 export interface ResellerPayoutSettings {
   payout_frequency: PayoutFrequency;
+  payout_interval_days: number | null;
+  custom_interval_min_days: number;
+  custom_interval_max_days: number;
   available_frequencies: PayoutFrequency[];
   unpaid_balance: number;
   minimum_withdrawal: number;

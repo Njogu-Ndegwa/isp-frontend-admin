@@ -12,6 +12,7 @@ const FREQUENCY_OPTIONS: { value: PayoutFrequency; label: string; hint: string }
   { value: 'daily', label: 'Daily', hint: 'Your balance is paid out automatically every night.' },
   { value: 'weekly', label: 'Weekly', hint: 'Paid out automatically about once a week.' },
   { value: 'monthly', label: 'Monthly', hint: 'Paid out automatically about once a month.' },
+  { value: 'custom', label: 'Custom', hint: 'Paid out automatically every N days — you pick N.' },
   { value: 'manual', label: 'Manual only', hint: 'No automatic payouts — money only moves when you withdraw here.' },
 ];
 
@@ -23,6 +24,8 @@ export default function WithdrawCard({ onWithdrawn }: { onWithdrawn?: () => void
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [withdrawing, setWithdrawing] = useState(false);
   const [savingFrequency, setSavingFrequency] = useState(false);
+  const [customOpen, setCustomOpen] = useState(false);
+  const [customDays, setCustomDays] = useState<string>('');
 
   const load = useCallback(async () => {
     try {
@@ -59,7 +62,15 @@ export default function WithdrawCard({ onWithdrawn }: { onWithdrawn?: () => void
   };
 
   const handleFrequencyChange = async (freq: PayoutFrequency) => {
-    if (!settings || savingFrequency || freq === settings.payout_frequency) return;
+    if (!settings || savingFrequency) return;
+    if (freq === 'custom') {
+      // Custom needs a day count first — open the input, save on Apply.
+      setCustomOpen(true);
+      setCustomDays(String(settings.payout_interval_days ?? 3));
+      return;
+    }
+    setCustomOpen(false);
+    if (freq === settings.payout_frequency) return;
     const prev = settings.payout_frequency;
     setSettings({ ...settings, payout_frequency: freq });
     try {
@@ -67,6 +78,28 @@ export default function WithdrawCard({ onWithdrawn }: { onWithdrawn?: () => void
       await api.updateResellerPayoutSettings(freq);
     } catch (err) {
       setSettings((s) => (s ? { ...s, payout_frequency: prev } : s));
+      setError(err instanceof Error ? err.message : 'Failed to update payout schedule');
+    } finally {
+      setSavingFrequency(false);
+    }
+  };
+
+  const applyCustomInterval = async () => {
+    if (!settings || savingFrequency) return;
+    const days = parseInt(customDays, 10);
+    const min = settings.custom_interval_min_days || 1;
+    const max = settings.custom_interval_max_days || 90;
+    if (isNaN(days) || days < min || days > max) {
+      setError(`Choose between ${min} and ${max} days`);
+      return;
+    }
+    setError(null);
+    try {
+      setSavingFrequency(true);
+      await api.updateResellerPayoutSettings('custom', days);
+      setSettings({ ...settings, payout_frequency: 'custom', payout_interval_days: days });
+      setCustomOpen(false);
+    } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to update payout schedule');
     } finally {
       setSavingFrequency(false);
@@ -177,23 +210,56 @@ export default function WithdrawCard({ onWithdrawn }: { onWithdrawn?: () => void
         <div className="md:border-l md:border-border md:pl-5">
           <h3 className="text-sm font-semibold text-foreground mb-3">Automatic Payout Schedule</h3>
           <div className="grid grid-cols-2 gap-2 mb-2">
-            {FREQUENCY_OPTIONS.map((opt) => (
-              <button
-                key={opt.value}
-                onClick={() => handleFrequencyChange(opt.value)}
-                disabled={savingFrequency}
-                className={`px-3 py-2 rounded-xl border text-sm font-medium transition-colors disabled:opacity-60 ${
-                  settings.payout_frequency === opt.value
-                    ? 'border-accent-primary bg-accent-primary/10 text-accent-primary'
-                    : 'border-border text-foreground-muted hover:bg-background-tertiary'
-                }`}
-              >
-                {opt.label}
-              </button>
-            ))}
+            {FREQUENCY_OPTIONS.map((opt) => {
+              const isActive = opt.value === 'custom'
+                ? customOpen || settings.payout_frequency === 'custom'
+                : !customOpen && settings.payout_frequency === opt.value;
+              const label = opt.value === 'custom' && settings.payout_frequency === 'custom' && settings.payout_interval_days
+                ? `Custom (${settings.payout_interval_days}d)`
+                : opt.label;
+              return (
+                <button
+                  key={opt.value}
+                  onClick={() => handleFrequencyChange(opt.value)}
+                  disabled={savingFrequency}
+                  className={`px-3 py-2 rounded-xl border text-sm font-medium transition-colors disabled:opacity-60 ${
+                    isActive
+                      ? 'border-accent-primary bg-accent-primary/10 text-accent-primary'
+                      : 'border-border text-foreground-muted hover:bg-background-tertiary'
+                  }`}
+                >
+                  {label}
+                </button>
+              );
+            })}
           </div>
+          {customOpen && (
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-xs text-foreground-muted">Every</span>
+              <input
+                type="number"
+                min={settings.custom_interval_min_days || 1}
+                max={settings.custom_interval_max_days || 90}
+                value={customDays}
+                onChange={(e) => setCustomDays(e.target.value)}
+                className="w-20 px-2 py-1.5 rounded-lg border border-border bg-background text-sm"
+              />
+              <span className="text-xs text-foreground-muted">days</span>
+              <button
+                onClick={applyCustomInterval}
+                disabled={savingFrequency}
+                className="btn-primary text-xs px-3 py-1.5 disabled:opacity-50"
+              >
+                {savingFrequency ? 'Saving...' : 'Apply'}
+              </button>
+            </div>
+          )}
           <p className="text-xs text-foreground-muted">
-            {savingFrequency ? 'Saving...' : selectedOption?.hint}
+            {savingFrequency
+              ? 'Saving...'
+              : settings.payout_frequency === 'custom' && !customOpen && settings.payout_interval_days
+              ? `Paid out automatically every ${settings.payout_interval_days} days.`
+              : selectedOption?.hint}
           </p>
         </div>
       </div>

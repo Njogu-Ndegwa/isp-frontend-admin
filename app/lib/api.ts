@@ -2008,7 +2008,10 @@ class ApiClient {
     if (this.isDemoMode()) {
       return {
         payout_frequency: 'daily',
-        available_frequencies: ['daily', 'weekly', 'monthly', 'manual'],
+        payout_interval_days: null,
+        custom_interval_min_days: 1,
+        custom_interval_max_days: 90,
+        available_frequencies: ['daily', 'weekly', 'monthly', 'custom', 'manual'],
         unpaid_balance: 0,
         minimum_withdrawal: 2,
         cooldown_seconds_remaining: 0,
@@ -2025,14 +2028,20 @@ class ApiClient {
     return this.handleResponse<ResellerPayoutSettings>(response);
   }
 
-  async updateResellerPayoutSettings(payoutFrequency: string): Promise<{ payout_frequency: string }> {
+  async updateResellerPayoutSettings(
+    payoutFrequency: string,
+    payoutIntervalDays?: number,
+  ): Promise<{ payout_frequency: string; payout_interval_days: number | null }> {
     if (this.isDemoMode()) this.demoBlock();
     const response = await fetch(`${BASE_URL}/reseller/payout-settings`, {
       method: 'PUT',
       headers: this.getHeaders(),
-      body: JSON.stringify({ payout_frequency: payoutFrequency }),
+      body: JSON.stringify({
+        payout_frequency: payoutFrequency,
+        payout_interval_days: payoutIntervalDays ?? null,
+      }),
     });
-    return this.handleResponse<{ payout_frequency: string }>(response);
+    return this.handleResponse<{ payout_frequency: string; payout_interval_days: number | null }>(response);
   }
 
   async resellerWithdraw(): Promise<ResellerWithdrawResponse> {
