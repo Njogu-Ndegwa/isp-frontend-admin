@@ -1570,6 +1570,16 @@ class ApiClient {
     return this.handleResponse<RebootRouterResponse>(response);
   }
 
+  async setRouterStatusAlerts(routerId: number, enabled: boolean): Promise<{ router_id: number; status_alerts_enabled: boolean; message: string }> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(`${BASE_URL}/routers/${routerId}/status-alerts`, {
+      method: 'PUT',
+      headers: this.getHeaders(),
+      body: JSON.stringify({ enabled }),
+    });
+    return this.handleResponse<{ router_id: number; status_alerts_enabled: boolean; message: string }>(response);
+  }
+
   // PPPoE User Monitoring (bandwidth & online status)
   async getPPPoEUsers(routerId: number, refresh = false): Promise<PPPoEMonitorResponse> {
     if (this.isDemoMode()) return (await loadDemo()).demoPPPoEMonitor(routerId);

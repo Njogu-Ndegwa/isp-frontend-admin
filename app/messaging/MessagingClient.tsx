@@ -12,9 +12,10 @@ import { ComposeView } from './components/ComposeView';
 import { ActivityView } from './components/ActivityView';
 import CreditsView from './components/CreditsView';
 import { TemplatesView } from './components/TemplatesView';
+import { AlertsView } from './components/AlertsView';
 
 // ─── Tab type ─────────────────────────────────────────────────────────────────
-type TabValue = 'compose' | 'activity' | 'templates' | 'credits';
+type TabValue = 'compose' | 'activity' | 'templates' | 'credits' | 'alerts';
 
 // ─── MessagingClient ──────────────────────────────────────────────────────────
 export default function MessagingClient() {
@@ -104,6 +105,7 @@ export default function MessagingClient() {
     { value: 'activity', label: 'Activity' },
     { value: 'templates', label: 'Templates' },
     { value: 'credits', label: 'Credits' },
+    { value: 'alerts', label: 'Alerts' },
   ];
 
   // Wire ComposeView.onSent → switch to Activity with focusCampaignId + refresh credits
@@ -148,6 +150,7 @@ export default function MessagingClient() {
           {activeTab === 'credits' && credits && (
             <CreditsView credits={credits} onRefresh={loadCredits} />
           )}
+          {activeTab === 'alerts' && <AlertsView />}
         </div>
       </div>
     </div>

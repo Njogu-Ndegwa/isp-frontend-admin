@@ -485,6 +485,7 @@ function RoutersTab({
   const [emergencyModalRouter, setEmergencyModalRouter] = useState<Router | null>(null);
   const [emergencyMsg, setEmergencyMsg] = useState('');
   const [tetherLoading, setTetherLoading] = useState<number | null>(null);
+  const [notifyLoading, setNotifyLoading] = useState<number | null>(null);
   const [rebootLoading, setRebootLoading] = useState<number | null>(null);
   const [rebootModalRouter, setRebootModalRouter] = useState<Router | null>(null);
   const [rebootReason, setRebootReason] = useState('');
@@ -560,6 +561,20 @@ function RoutersTab({
       console.error('Anti-tethering toggle failed:', err);
     } finally {
       setTetherLoading(null);
+    }
+  };
+
+  const handleToggleStatusAlerts = async (router: Router) => {
+    try {
+      setNotifyLoading(router.id);
+      const result = await api.setRouterStatusAlerts(router.id, !router.status_alerts_enabled);
+      showAlert('success', `${router.name}: ${result.message}`);
+      await loadRouters();
+    } catch (err) {
+      console.error('Status-alerts toggle failed:', err);
+      showAlert('error', err instanceof Error ? err.message : 'Failed to update notification setting');
+    } finally {
+      setNotifyLoading(null);
     }
   };
 
@@ -866,6 +881,24 @@ function RoutersTab({
         ) : (
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+          </svg>
+        )}
+      </button>
+      <button
+        onClick={(e) => { e.stopPropagation(); handleToggleStatusAlerts(router); }}
+        disabled={notifyLoading === router.id}
+        className={`p-1.5 rounded-lg transition-colors active:opacity-70 ${
+          router.status_alerts_enabled
+            ? 'bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20'
+            : 'text-foreground-muted hover:bg-emerald-500/10 hover:text-emerald-500'
+        }`}
+        title={router.status_alerts_enabled ? 'Status alerts on — click to disable' : 'Alert me when this router goes offline or comes back online'}
+      >
+        {notifyLoading === router.id ? (
+          <div className="w-4 h-4 border-2 border-current/30 border-t-current rounded-full animate-spin" />
+        ) : (
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
           </svg>
         )}
       </button>

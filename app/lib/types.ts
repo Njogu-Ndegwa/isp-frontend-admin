@@ -1206,6 +1206,7 @@ export interface Router {
   emergency_active?: boolean;
   emergency_message?: string | null;
   hotspot_sharing_blocked?: boolean;
+  status_alerts_enabled?: boolean;
   token_vpn_type?: 'wireguard' | 'l2tp' | null;
   planned_insurance_tunnel_type?: 'wireguard' | 'l2tp' | 'auto';
   owner_user_id?: number | null;
