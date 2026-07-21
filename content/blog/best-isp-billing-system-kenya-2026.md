@@ -11,7 +11,7 @@ published: true
 
 If you run a WiFi hotspot or PPPoE internet business in Kenya, your billing system is the difference between collecting every shilling automatically and chasing payments on WhatsApp at midnight. The good news: Kenya now has several capable, locally-built billing platforms. The honest news: they are more alike than their marketing suggests, so the details — setup fees, router provisioning, support — are what should decide your choice.
 
-We build one of these systems, so read this as an informed insider's comparison, not a neutral review. Where a competitor does something well, we say so.
+We build one of these systems — [Bitwave](/) — so read this as an informed insider's comparison, not a neutral review. Where a competitor does something well, we say so.
 
 ## What should a billing system do for a Kenyan ISP?
 
@@ -34,7 +34,7 @@ Kenya's billing market has converged on almost identical pricing — roughly KES
 
 <!-- VERIFY: competitor prices pulled from their public sites on 16 July 2026 — spot-check before publishing, and re-check quarterly. -->
 
-Three things stand out. First, if anyone quotes you a very different price for the same service, ask why. Second, Ndovu's 30-user minimum means a small PPPoE operator pays KES 1,500 where others charge KES 750. Third, Centipid publishes no prices at all — you'll need a sales conversation to find out.
+Three things stand out. First, if anyone quotes you a very different price for the same service, ask why. Second, Ndovu's 30-user minimum means a small PPPoE operator pays KES 1,500 where others charge KES 750. Third, Centipid publishes no prices at all — you'll need a sales conversation to find out. If you want the exact number for your own network, [put your customer count into the pricing calculator](/#pricing) — it takes 30 seconds, in KES.
 
 ## What about the free billing systems?
 

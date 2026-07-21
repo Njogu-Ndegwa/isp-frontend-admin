@@ -20,7 +20,7 @@ You buy internet in bulk (a fibre or fixed-wireless link), then resell it over W
 - **An internet source.** A fibre connection from a provider in your area, or a fixed-wireless link. Aim for at least 20–50 Mbps dedicated for your first site.
 - **A MikroTik router.** The industry standard for hotspot billing. An entry-level hEX or hAP is enough for your first dozens of concurrent users.
 - **Access points.** One good outdoor AP can cover a courtyard, a stage, or a row of shops.
-- **A billing system.** This is what turns a router into a business: captive portal, M-Pesa integration, vouchers, customer limits, and reporting.
+- **A billing system.** This is what turns a router into a business: captive portal, M-Pesa integration, vouchers, customer limits, and reporting. [Bitwave](/signup) is ours — free to start, and you can [see what it would cost at your size](/#pricing) before committing.
 
 ## Step 1: Pick your first location
 
@@ -28,7 +28,7 @@ Density beats size. A plot with 30 households, a matatu stage, or a market row w
 
 ## Step 2: Set up the MikroTik hotspot
 
-The MikroTik hotspot feature handles user login, speed limits and session tracking. Configured manually it takes real RouterOS knowledge — profiles, walled gardens, user groups. A billing platform like Bitwave provisions all of this automatically: you plug in the router, run one command, and the captive portal, packages and M-Pesa flow are configured for you.
+The MikroTik hotspot feature handles user login, speed limits and session tracking. Configured manually it takes real RouterOS knowledge — profiles, walled gardens, user groups. A billing platform like [Bitwave](/signup) provisions all of this automatically: you plug in the router, run one command, and the captive portal, packages and M-Pesa flow are configured for you.
 
 ## Step 3: Connect M-Pesa payments
 
