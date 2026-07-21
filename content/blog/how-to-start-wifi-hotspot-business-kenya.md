@@ -3,6 +3,9 @@ title: How to Start a WiFi Hotspot Business in Kenya (2026 Guide)
 description: Step-by-step guide to starting a profitable WiFi hotspot business in Kenya — equipment, MikroTik setup, M-Pesa billing, pricing and how to grow past your first 100 customers.
 date: 2026-07-15
 tags: hotspot, mikrotik, mpesa, wisp
+category: hotspot
+image: /blog-images/how-to-start-wifi-hotspot-business-kenya/cover.webp
+imageAlt: Hotspot starter equipment on a desk - Tenda F3 router, MikroTik hAP lite and a 4G CPE
 published: true
 ---
 
