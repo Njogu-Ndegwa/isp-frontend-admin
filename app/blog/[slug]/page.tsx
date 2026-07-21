@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import Image from 'next/image';
 import { notFound } from 'next/navigation';
 import { marked } from 'marked';
 import { extractFaq, getAllPosts, getPost } from '../posts';
@@ -115,12 +116,14 @@ export default async function BlogPostPage({
         </Link>
       </nav>
       {post.image && (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
+        <Image
           src={post.image}
           alt={post.imageAlt || post.title}
+          width={720}
+          height={405}
           className="mt-5 aspect-video w-full object-cover rounded-xl border border-white/10"
-          decoding="async"
+          sizes="(min-width: 768px) 736px, 100vw"
+          priority
         />
       )}
       <div className="mt-5">

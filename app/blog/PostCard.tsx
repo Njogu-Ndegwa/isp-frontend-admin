@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import Image from 'next/image';
 import type { BlogPost } from './posts';
 import { categoryStyle } from './categories';
 
@@ -13,14 +14,17 @@ function CoverImage({ post, eager }: { post: BlogPost; eager?: boolean }) {
       </div>
     );
   }
+  // Covers are pre-cropped 16:9 WebP ≤720px; next/image adds responsive srcset
+  // + AVIF via Vercel's optimizer so phones never download more than they show.
   return (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img
+    <Image
       src={post.image}
       alt={post.imageAlt || post.title}
+      width={720}
+      height={405}
       className="aspect-video w-full object-cover"
-      loading={eager ? 'eager' : 'lazy'}
-      decoding="async"
+      sizes={eager ? '(min-width: 896px) 832px, 100vw' : '(min-width: 640px) 45vw, 100vw'}
+      priority={eager}
     />
   );
 }

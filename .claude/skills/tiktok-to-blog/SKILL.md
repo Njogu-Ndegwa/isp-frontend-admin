@@ -107,6 +107,19 @@ photos, never AI-generated decoration. Priority order for sourcing:
    number, or payment; crop or blur anything doubtful.
 4. **Field photos from Dennis** (router installs, antennas, shops) when he
    provides them.
+5. **Openly-licensed web images — last resort** (Dennis approved 2026-07-21):
+   when none of the above can show the subject (e.g. a device or setting we
+   don't own — fibre spools, a Starlink dish, a matatu stage), search
+   Unsplash / Pexels / Wikimedia Commons. Rules: verify the license allows
+   commercial use (Unsplash and Pexels licenses do; on Commons prefer CC0 /
+   CC-BY and add the required attribution in the image caption); **download
+   the file and run it through `make_cover.py`** into
+   `public/blog-images/<slug>/` — never hotlink, so pages stay self-hosted,
+   cacheable and license-frozen; record the source URL + license in an HTML
+   comment next to the embed; never use a competitor's screenshots or
+   branding; and never present a stock photo as our own network, customer,
+   or dashboard — anything claimed as Bitwave's must be a real Bitwave
+   image.
 
 **Make the cover** from the chosen frame:
 
@@ -127,6 +140,24 @@ Inline images: save to `public/blog-images/<slug>/descriptive-name.webp`
 `![alt text](/blog-images/<slug>/name.webp)` where the alt text describes the
 image and works the post's keyword in naturally; check every image reads at
 360 px width. Images lazy-load automatically.
+
+### Performance budget (readers are on cheap Androids paying $5–10/GB)
+
+- **Delivery setup, for the record:** blog images are pre-optimized local
+  WebP in `public/`, served from Vercel's edge CDN. There is NO Cloudinary
+  for blog images (Cloudinary is only used for tutorial *videos* elsewhere
+  in the app) and none is needed. Cover images render through `next/image`,
+  which adds responsive srcset + AVIF via Vercel's optimizer on top of the
+  already-small WebP. Inline markdown images bypass `next/image`, so their
+  on-disk size IS what readers download — size them right.
+- Covers: ≤ 720 px wide, aim under 30 KB (the current three are 6–19 KB);
+  hard cap 150 KB (make_cover.py warns).
+- Inline images: pre-size to the display width (~736 px max in the article
+  column) — never commit a full-resolution frame.
+- Whole-article target: all images combined under ~200 KB.
+- Never add web fonts, carousels, or third-party embeds to blog pages; the
+  blog ships one tiny client component (the share row) and should stay that
+  way.
 
 ## Step 4 — Branch, PR, review
 
