@@ -5,6 +5,7 @@ import { AlertProvider } from "./context/AlertContext";
 import ClientLayout from "./components/ClientLayout";
 import AlertContainer from "./components/AlertContainer";
 import ErrorBoundary from "./components/ErrorBoundary";
+import AnalyticsScripts from "./components/AnalyticsScripts";
 
 export const viewport: Viewport = {
   width: "device-width",
@@ -37,6 +38,7 @@ export default function RootLayout({
             <AuthProvider>
               <AlertContainer />
               <ClientLayout>{children}</ClientLayout>
+              <AnalyticsScripts />
             </AuthProvider>
           </AlertProvider>
         </ErrorBoundary>
