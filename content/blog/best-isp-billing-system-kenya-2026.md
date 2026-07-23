@@ -5,7 +5,7 @@ date: 2026-07-16
 tags: isp billing, mpesa, mikrotik, comparison
 category: comparison
 image: /blog-images/best-isp-billing-system-kenya-2026/cover.webp
-imageAlt: Dennis from Bitwave Technologies explaining ISP billing system options
+imageAlt: Comparison cover - Bitwave vs Jasiyo vs Netily vs Ndovu vs free options, best ISP billing system in Kenya 2026
 published: true
 ---
 
