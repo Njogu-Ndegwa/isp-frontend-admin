@@ -6,7 +6,15 @@ export interface BlogPost {
   title: string;
   description: string;
   date: string;
+  /** Optional `updated:` frontmatter — shown as a freshness signal when present. */
+  updated?: string;
   tags: string[];
+  /** Topic key driving the card color + category page (see categories.ts). */
+  category: string;
+  /** Root-absolute cover image path (e.g. /blog-images/<slug>/cover.webp). */
+  image?: string;
+  imageAlt?: string;
+  readMinutes: number;
   content: string;
 }
 
@@ -37,13 +45,20 @@ export function getAllPosts(): BlogPost[] {
       const { meta, body } = parseFrontmatter(raw);
       // Files without frontmatter (e.g. README.md) are not posts.
       if (!meta.title || meta.published === 'false') return [];
+      const tags = meta.tags ? meta.tags.split(',').map((t) => t.trim()) : [];
+      const words = body.split(/\s+/).filter(Boolean).length;
       return [
         {
           slug: file.replace(/\.md$/, ''),
           title: meta.title,
           description: meta.description || '',
           date: meta.date || '1970-01-01',
-          tags: meta.tags ? meta.tags.split(',').map((t) => t.trim()) : [],
+          updated: meta.updated || undefined,
+          tags,
+          category: (meta.category || tags[0] || 'guide').toLowerCase(),
+          image: meta.image || undefined,
+          imageAlt: meta.imageAlt || undefined,
+          readMinutes: Math.max(1, Math.round(words / 200)),
           content: body,
         },
       ];
