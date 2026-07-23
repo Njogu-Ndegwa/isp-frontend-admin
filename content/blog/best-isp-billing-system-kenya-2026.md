@@ -5,7 +5,7 @@ date: 2026-07-16
 tags: isp billing, mpesa, mikrotik, comparison
 category: comparison
 image: /blog-images/best-isp-billing-system-kenya-2026/cover.webp
-imageAlt: Bitwave admin dashboard showing router health cards and 26 hotspot users online
+imageAlt: Dennis from Bitwave Technologies explaining ISP billing system options
 published: true
 ---
 
