@@ -150,7 +150,9 @@ export default function MessagingClient() {
           {activeTab === 'credits' && credits && (
             <CreditsView credits={credits} onRefresh={loadCredits} />
           )}
-          {activeTab === 'alerts' && <AlertsView />}
+          {activeTab === 'alerts' && (
+            <AlertsView credits={credits} onBuyCredits={() => setActiveTab('credits')} />
+          )}
         </div>
       </div>
     </div>

@@ -1,17 +1,25 @@
 'use client';
 import { useEffect, useState, useCallback } from 'react';
+import Link from 'next/link';
 import { api } from '../../lib/api';
-import { Router } from '../../lib/types';
+import { Router, SmsCreditInfo } from '../../lib/types';
 import { useAlert } from '../../context/AlertContext';
 import { PageLoader } from '../../components/LoadingSpinner';
 
 // ─── Router status alerts ──────────────────────────────────────────────────
 // Per-router opt-in: an inbox message when the router stays offline past the
-// backend debounce threshold, and again when it comes back online. Inbox only —
-// no SMS, no credits.
-export function AlertsView() {
+// backend debounce threshold, and again when it comes back online. The same
+// toggle also sends the alert by SMS (1 credit) when the account has a phone
+// on file and credits to cover it; otherwise it degrades to inbox-only.
+interface AlertsViewProps {
+  credits: SmsCreditInfo | null;
+  onBuyCredits: () => void;
+}
+
+export function AlertsView({ credits, onBuyCredits }: AlertsViewProps) {
   const { showAlert } = useAlert();
   const [routers, setRouters] = useState<Router[]>([]);
+  const [supportPhone, setSupportPhone] = useState<string | null | undefined>(undefined);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [togglingId, setTogglingId] = useState<number | null>(null);
@@ -29,6 +37,13 @@ export function AlertsView() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  // Phone gate is informational only — don't block the tab if it fails.
+  useEffect(() => {
+    api.getProfile()
+      .then((p) => setSupportPhone(p.support_phone ?? null))
+      .catch(() => setSupportPhone(null));
+  }, []);
 
   const toggle = async (router: Router) => {
     try {
@@ -55,16 +70,50 @@ export function AlertsView() {
     );
   }
 
+  const balance = credits?.balance ?? 0;
+  const noCredits = balance === 0;
+  const noPhone = supportPhone === null || supportPhone === '';
+
   return (
     <div className="space-y-4">
       <div className="card p-4">
         <h3 className="text-sm font-medium text-foreground mb-1">Router status alerts</h3>
         <p className="text-xs text-foreground-muted">
-          Get a message in your inbox when a router stays offline for more than 15 minutes,
-          and again when it comes back online. Alerts are free — they are delivered to your
-          inbox here, not by SMS.
+          Get a message in your inbox — and an SMS to your phone — when a router stays
+          offline for more than 15 minutes, and again when it comes back online.
+          Inbox alerts are free; each SMS costs 1 credit from your messaging balance
+          (refunded automatically if delivery fails).
         </p>
       </div>
+
+      {noCredits && (
+        <div className="card p-4 border-warning/30 bg-warning/10 flex items-start justify-between gap-3">
+          <div>
+            <p className="text-sm font-medium text-foreground">You have 0 SMS credits</p>
+            <p className="text-xs text-foreground-muted mt-0.5">
+              Alerts will arrive in your inbox only — no SMS will be sent until you top up.
+            </p>
+          </div>
+          <button onClick={onBuyCredits} className="btn-primary text-xs shrink-0">
+            Buy credits
+          </button>
+        </div>
+      )}
+
+      {noPhone && (
+        <div className="card p-4 border-warning/30 bg-warning/10 flex items-start justify-between gap-3">
+          <div>
+            <p className="text-sm font-medium text-foreground">No phone number on your profile</p>
+            <p className="text-xs text-foreground-muted mt-0.5">
+              Add a support phone so alert SMS have somewhere to go. Until then, alerts are inbox-only.
+            </p>
+          </div>
+          <Link href="/settings/profile" className="btn-secondary text-xs shrink-0">
+            Add phone
+          </Link>
+        </div>
+      )}
+
       {routers.length === 0 ? (
         <div className="card p-8 text-center">
           <p className="text-sm text-foreground-muted">No routers yet. Add a router first to enable alerts.</p>

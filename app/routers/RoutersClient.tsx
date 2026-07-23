@@ -569,6 +569,18 @@ function RoutersTab({
       setNotifyLoading(router.id);
       const result = await api.setRouterStatusAlerts(router.id, !router.status_alerts_enabled);
       showAlert('success', `${router.name}: ${result.message}`);
+      if (result.status_alerts_enabled) {
+        // Alert SMS are charged per send — warn now if the balance can't cover any.
+        api.getSmsCredits()
+          .then((c) => {
+            if (c.balance === 0) {
+              showAlert('warning',
+                'You have 0 SMS credits, so this alert will arrive in your app inbox only. '
+                + 'Buy credits on the Messaging page to also get it by SMS.', 9000);
+            }
+          })
+          .catch(() => {});
+      }
       await loadRouters();
     } catch (err) {
       console.error('Status-alerts toggle failed:', err);
