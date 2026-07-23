@@ -5,7 +5,7 @@ date: 2026-07-16
 tags: isp billing, mpesa, mikrotik, comparison
 category: comparison
 image: /blog-images/best-isp-billing-system-kenya-2026/cover.webp
-imageAlt: Bitwave admin dashboard showing router health cards and 26 hotspot users online
+imageAlt: Comparison cover - Bitwave vs Jasiyo vs Netily vs Ndovu vs free options, best ISP billing system in Kenya 2026
 published: true
 ---
 
@@ -29,12 +29,12 @@ Kenya's billing market has converged on almost identical pricing — roughly KES
 | Jasiyo | KES 25/user | 3% of revenue | KES 500 | KES 500 |
 | Netily (Internetily) | KES 25/user | 3% of revenue | KES 500 | KES 500 |
 | Ndovu Connect | KES 25/user (min 30 users = KES 1,500) | 3% of revenue | KES 500 | Not listed |
-| Centipid | Not published | Not published | Not published | Not published |
+| Centipid | KES 25/user | 3% of revenue | KES 500 | Not listed |
 | "Free" platforms | Capped free tier | Capped free tier | Paid tiers that rise as you grow | Varies |
 
 <!-- VERIFY: competitor prices pulled from their public sites on 16 July 2026 — spot-check before publishing, and re-check quarterly. -->
 
-Three things stand out. First, if anyone quotes you a very different price for the same service, ask why. Second, Ndovu's 30-user minimum means a small PPPoE operator pays KES 1,500 where others charge KES 750. Third, Centipid publishes no prices at all — you'll need a sales conversation to find out. If you want the exact number for your own network, [put your customer count into the pricing calculator](/#pricing) — it takes 30 seconds, in KES.
+Three things stand out. First, if anyone quotes you a very different price for the same service, ask why. Second, Ndovu's 30-user minimum means a small PPPoE operator pays KES 1,500 where others charge KES 750. Third, with rates this identical the setup fee becomes the tiebreaker — Bitwave is the only one that doesn't charge one. If you want the exact number for your own network, [put your customer count into the pricing calculator](/#pricing) — it takes 30 seconds, in KES.
 
 ## What about the free billing systems?
 
