@@ -219,6 +219,22 @@ export default function CreatePlanPage() {
               </div>
             </div>
 
+            <div>
+              <label htmlFor="plan_type" className="block text-sm font-medium text-foreground-muted mb-1.5">
+                Plan Type
+              </label>
+              <select
+                id="plan_type"
+                value={formData.plan_type || 'regular'}
+                onChange={(e) => setFormData({ ...formData, plan_type: e.target.value as 'regular' | 'emergency' })}
+                className="select"
+              >
+                <option value="regular">Regular</option>
+                <option value="emergency">Emergency</option>
+              </select>
+              <p className="mt-1 text-xs text-foreground-muted">Emergency plans only appear on the portal while emergency mode is active on a router.</p>
+            </div>
+
             {!isPPPoE && (
               <div>
                 <label htmlFor="max_shared_users" className="block text-sm font-medium text-foreground-muted mb-1.5">

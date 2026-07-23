@@ -861,6 +861,19 @@ function EditPlanModal({
               </div>
             </div>
 
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-2">Plan Type</label>
+              <select
+                value={formData.plan_type || 'regular'}
+                onChange={(e) => setFormData({ ...formData, plan_type: e.target.value as 'regular' | 'emergency' })}
+                className="select"
+              >
+                <option value="regular">Regular</option>
+                <option value="emergency">Emergency</option>
+              </select>
+              <p className="mt-1 text-xs text-foreground-muted">Emergency plans only appear on the portal while emergency mode is active on a router.</p>
+            </div>
+
             {!isPPPoE && (
               <div>
                 <label className="block text-sm font-medium text-foreground mb-2">Subscription Devices</label>
