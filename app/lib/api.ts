@@ -1126,6 +1126,24 @@ class ApiClient {
     return this.handleResponse<{ message: string }>(response, true);
   }
 
+  async forgotPassword(email: string): Promise<{ message: string }> {
+    const response = await fetch(`${BASE_URL}/auth/forgot-password`, {
+      method: 'POST',
+      headers: this.getHeaders(false),
+      body: JSON.stringify({ email }),
+    });
+    return this.handleResponse<{ message: string }>(response, true);
+  }
+
+  async resetPassword(token: string, newPassword: string): Promise<{ message: string }> {
+    const response = await fetch(`${BASE_URL}/auth/reset-password`, {
+      method: 'POST',
+      headers: this.getHeaders(false),
+      body: JSON.stringify({ token, new_password: newPassword }),
+    });
+    return this.handleResponse<{ message: string }>(response, true);
+  }
+
   // Advertisers
   async getAdvertisers(): Promise<Advertiser[]> {
     if (this.isDemoMode()) return (await loadDemo()).demoAdvertisers;
