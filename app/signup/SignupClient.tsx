@@ -9,6 +9,7 @@ import { api } from '../lib/api';
 import type { RegisterRequest } from '../lib/types';
 import PhoneInput from '../components/PhoneInput';
 import { DEFAULT_COUNTRY, type Country } from '../lib/countries';
+import { trackEvent } from '../lib/analytics';
 
 export default function SignupPage() {
   const router = useRouter();
@@ -65,6 +66,7 @@ export default function SignupPage() {
         };
         await api.register(payload);
         setRegistered(true);
+        trackEvent('sign_up', { method: 'email' });
       }
 
       showAlert('success', 'Account created! Signing you in...');
