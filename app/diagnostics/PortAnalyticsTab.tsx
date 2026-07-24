@@ -10,7 +10,6 @@ import {
 import PortFaceplate, { isUplinkPort, portVisualStatus } from '../components/PortFaceplate';
 import { formatKES } from '../lib/format';
 import {
-  ROUTER_MODE_TOOLTIP,
   responseHasDeviceTiers,
   splitDeviceTiers,
   macTail,
@@ -244,7 +243,7 @@ export default function PortAnalyticsTab({
       {data.infrastructure_candidates.length > 0 && (
         <div className="card p-4 sm:p-5 animate-fade-in">
           <p className="text-sm font-medium text-foreground mb-1">
-            {tiered ? 'APs / Equipment' : 'Infrastructure Devices'}
+            {tiered ? 'Equipment' : 'Infrastructure Devices'}
           </p>
           <p className="text-xs text-foreground-muted mb-3">
             Access points, switches and other network gear detected behind this router
@@ -349,8 +348,8 @@ function PortDetail({ port, tiered }: { port: PortAnalyticsPort; tiered: boolean
         tiered ? (
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
             <DetailStat label="Devices" value={port.counts.learned_macs} />
-            <DetailStat label="APs / Equipment" value={equipment.length} />
-            <DetailStat label="Paying Customers" value={paying.length} />
+            <DetailStat label="Equipment" value={equipment.length} />
+            <DetailStat label="Customers" value={paying.length} />
             <DetailStat label="Hotspot Hosts" value={port.counts.hotspot_hosts_seen} />
           </div>
         ) : (
@@ -382,14 +381,51 @@ function PortDetail({ port, tiered }: { port: PortAnalyticsPort; tiered: boolean
         </div>
       )}
 
-      {/* APs / Equipment on this port (tiered view) — always-visible rows */}
-      {tiered && equipment.length > 0 && (
+      {/* Tiered view: the port's equipment, with its customers NESTED beneath
+          it — the containment reads "this port's equipment carries these
+          customers". Customer-class devices without a paying signal are
+          intentionally not rendered in any form. */}
+      {tiered && (equipment.length > 0 || paying.length > 0 || (!isUplink && port.downstream_devices_sample.length > 0)) && (
         <div>
-          <p className="text-xs font-medium text-foreground-muted uppercase tracking-wide mb-2">APs / Equipment</p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            {equipment.map((device) => (
-              <EquipmentRow key={device.mac} device={device} />
-            ))}
+          <p className="text-xs font-medium text-foreground-muted uppercase tracking-wide mb-2">Equipment</p>
+          {equipment.length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {equipment.map((device) => (
+                <EquipmentRow key={device.mac} device={device} />
+              ))}
+            </div>
+          ) : (
+            <p className="text-xs text-foreground-muted">No APs or equipment detected on this port.</p>
+          )}
+
+          {/* Customers behind this port's equipment */}
+          <div className="mt-3 ml-3 sm:ml-4 pl-3 sm:pl-4 border-l-2 border-border">
+            <p className="text-xs font-medium text-foreground-muted uppercase tracking-wide mb-2">
+              Customers on this port <span className="normal-case">({paying.length})</span>
+            </p>
+            {paying.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm min-w-[620px]">
+                  <thead>
+                    <tr className="border-b border-border">
+                      <th className="text-left py-2 pr-3 text-xs font-medium text-foreground-muted">Customer</th>
+                      <th className="text-left py-2 pr-3 text-xs font-medium text-foreground-muted">Status</th>
+                      <th className="text-left py-2 pr-3 text-xs font-medium text-foreground-muted">IP</th>
+                      <th className="text-left py-2 pr-3 text-xs font-medium text-foreground-muted">Activity</th>
+                      <th className="text-right py-2 pr-3 text-xs font-medium text-foreground-muted">Revenue</th>
+                      <th className="text-left py-2 text-xs font-medium text-foreground-muted">Last Seen</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {paying.map((device) => (
+                      <PayingCustomerRow key={device.mac} device={device} />
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <p className="text-xs text-foreground-muted">No paying customers are currently seen on this port.</p>
+            )}
           </div>
         </div>
       )}
@@ -404,38 +440,6 @@ function PortDetail({ port, tiered }: { port: PortAnalyticsPort; tiered: boolean
             ))}
           </div>
         </div>
-      )}
-
-      {/* Paying customers (tiered view). Customer-class devices without a
-          paying signal are intentionally not rendered here in any form. */}
-      {tiered && paying.length > 0 && (
-        <div>
-          <p className="text-xs font-medium text-foreground-muted uppercase tracking-wide mb-2">
-            Paying Customers <span className="normal-case">({paying.length})</span>
-          </p>
-          <div className="overflow-x-auto -mx-3 sm:mx-0 px-3 sm:px-0">
-            <table className="w-full text-sm min-w-[640px]">
-              <thead>
-                <tr className="border-b border-border">
-                  <th className="text-left py-2 pr-3 text-xs font-medium text-foreground-muted">Customer</th>
-                  <th className="text-left py-2 pr-3 text-xs font-medium text-foreground-muted">Status</th>
-                  <th className="text-left py-2 pr-3 text-xs font-medium text-foreground-muted">IP</th>
-                  <th className="text-left py-2 pr-3 text-xs font-medium text-foreground-muted">Activity</th>
-                  <th className="text-right py-2 pr-3 text-xs font-medium text-foreground-muted">Revenue</th>
-                  <th className="text-left py-2 text-xs font-medium text-foreground-muted">Last Seen</th>
-                </tr>
-              </thead>
-              <tbody>
-                {paying.map((device) => (
-                  <PayingCustomerRow key={device.mac} device={device} />
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-      {tiered && !isUplink && paying.length === 0 && port.downstream_devices_sample.length > 0 && (
-        <p className="text-xs text-foreground-muted">No paying customers are currently seen on this port.</p>
       )}
 
       {/* Downstream devices (legacy render — response without classification) */}
@@ -623,15 +627,13 @@ function MacChip({ mac }: { mac: string }) {
 }
 
 // Always-visible row for an AP / piece of network equipment. Neutral styling
-// throughout — router_mode_suspect renders as an informational "Router mode"
-// chip (same style family as the Equipment chip), never as an alarm.
+// throughout — nothing about router mode is surfaced to users.
 function EquipmentRow({
   device, showPort = false,
 }: {
   device: EquipmentEntry & { port?: string };
   showPort?: boolean;
 }) {
-  const routerMode = device.router_mode_suspect === true;
   const displayName = equipmentDisplayName(device);
   const hardware = [device.platform, device.board, device.version && `v${device.version}`]
     .filter(Boolean)
@@ -651,14 +653,6 @@ function EquipmentRow({
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2 flex-wrap">
           <p className="text-sm font-medium text-foreground truncate">{displayName}</p>
-          {routerMode && (
-            <span
-              className="badge bg-purple-500/15 text-purple-400 text-[10px] cursor-help flex-shrink-0"
-              title={ROUTER_MODE_TOOLTIP}
-            >
-              Router mode
-            </span>
-          )}
           {showPort && device.port && (
             <span className="badge bg-foreground-muted/20 text-foreground-muted text-[10px] font-mono">{device.port}</span>
           )}

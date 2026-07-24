@@ -9,7 +9,6 @@ import { DownloadUsageBody } from './DownloadUsageSection';
 import type { PortAnalyticsResponse, PortAnalyticsPort, DownstreamDeviceSample, BandwidthHistory } from '../../lib/types';
 import type { DownloadUsageServiceFilter } from '../DownloadUsageChart';
 import {
-  ROUTER_MODE_TOOLTIP,
   responseHasDeviceTiers,
   splitDeviceTiers,
   deviceDisplayName,
@@ -253,22 +252,28 @@ function SelectedPortPanel({
               per-tier counts never surface never-paid/unknown devices */}
           <p className="text-xs text-foreground-muted mb-2">
             <span className="font-medium text-foreground">{port.counts.learned_macs}</span> devices ·{' '}
-            <span className="font-medium text-foreground">{equipment.length}</span> APs/equipment ·{' '}
-            <span className="font-medium text-foreground">{paying.length}</span> paying
+            <span className="font-medium text-foreground">{equipment.length}</span> equipment ·{' '}
+            <span className="font-medium text-foreground">{paying.length}</span> customer{paying.length !== 1 ? 's' : ''}
             {port.revenue && port.revenue.this_month > 0 && (
               <> · <span className="font-medium text-foreground">{formatKESCompact(port.revenue.this_month)}</span> this month</>
             )}
           </p>
 
-          {/* Equipment first, then paying customers. Nothing else renders. */}
+          {/* Equipment, with the port's customers grouped beneath it — the
+              nesting reads: this port's equipment carries these customers. */}
           {tieredTotal > 0 ? (
             <div className="space-y-1">
               {tieredShownEquipment.map((device) => (
                 <EquipmentMiniRow key={device.mac} device={device} />
               ))}
-              {tieredShownPaying.map((device) => (
-                <PayingMiniRow key={device.mac} device={device} />
-              ))}
+              <div className="ml-3 pl-2 border-l-2 border-border space-y-1">
+                <p className="text-[10px] uppercase tracking-wide text-foreground-muted pt-0.5">
+                  {paying.length} customer{paying.length !== 1 ? 's' : ''} on this port
+                </p>
+                {tieredShownPaying.map((device) => (
+                  <PayingMiniRow key={device.mac} device={device} />
+                ))}
+              </div>
               {tieredMoreCount > 0 && (
                 <Link href={detailsHref} className="block text-[11px] text-foreground-muted hover:text-foreground transition-colors pt-1">
                   +{tieredMoreCount} more — see all in Port Map →
@@ -355,22 +360,12 @@ function DeviceRow({ device }: { device: DownstreamDeviceSample }) {
 // Labels come from deviceTiers identity resolution — never a raw full MAC.
 
 function EquipmentMiniRow({ device }: { device: EquipmentEntry }) {
-  // router_mode_suspect renders as a neutral informational chip, not an alarm.
-  const routerMode = device.router_mode_suspect === true;
   return (
     <div className="flex items-center gap-2 py-1 px-2 rounded-lg min-w-0 bg-background-tertiary/40">
       <svg className="w-3.5 h-3.5 flex-shrink-0 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0" />
       </svg>
       <span className="text-xs truncate min-w-0 flex-1 text-foreground">{equipmentDisplayName(device)}</span>
-      {routerMode && (
-        <span
-          className="badge text-[9px] flex-shrink-0 bg-purple-500/15 text-purple-400 cursor-help"
-          title={ROUTER_MODE_TOOLTIP}
-        >
-          Router mode
-        </span>
-      )}
       <span className="badge text-[9px] flex-shrink-0 bg-purple-500/20 text-purple-400">Equipment</span>
       {device.last_seen && (
         <span className="text-[10px] font-mono text-foreground-muted flex-shrink-0 hidden sm:inline">{device.last_seen}</span>
