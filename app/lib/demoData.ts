@@ -682,7 +682,8 @@ export function demoPortAnalytics(routerId: number): PortAnalyticsResponse {
     vendor: 'MikroTik', router_mode_suspect: false,
   };
   // An AP announcing its own router identity (192.168.0.1 while the hotspot
-  // subnet is 10.10.1.x) — drives the neutral "Router mode" info chip.
+  // subnet is 10.10.1.x). The router_mode_suspect API field is exercised here
+  // but is deliberately not rendered anywhere (product decision 2026-07-24).
   const infraRouterMode: InfrastructureDevice = {
     port: 'ether6', mac: 'B4:0F:3B:CC:30:03', name: '', ip: '192.168.0.1',
     board: '', platform: '', version: '', source: 'dhcp/arp', last_seen: '4m',

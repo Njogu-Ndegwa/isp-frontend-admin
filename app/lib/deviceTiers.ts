@@ -15,15 +15,6 @@ import type {
   PortAnalyticsResponse,
 } from './types';
 
-// Neutral, factual copy — NOT a fault verdict. Field data (Major1, router
-// 118, the platform's best-earning site) shows healthy sites legitimately
-// run APs that announce router identities with zero harm, so this renders
-// as an informational "Router mode" chip, never as an alarm.
-export const ROUTER_MODE_TOOLTIP =
-  'This AP is announcing its own router identity (192.168.x.1). Usually harmless. '
-  + "If customers on this AP report a missing portal or 'obtaining IP', this is the first "
-  + 'thing to check — factory-reset it and plug its cable into a LAN port.';
-
 // The backend gained computed device classification (device_class / vendor /
 // router_mode_suspect on device rows, hotspot_subnets_inferred at top level)
 // in 2026-07. Older backends and cached responses lack these fields — when
@@ -36,14 +27,15 @@ export function responseHasDeviceTiers(data: PortAnalyticsResponse): boolean {
   );
 }
 
-// One row in a per-port "APs / Equipment" group: union of the port's
+// One row in a per-port "Equipment" group: union of the port's
 // infrastructure[] entries and downstream samples classified as infrastructure.
+// The API's router_mode_suspect field is intentionally NOT carried here —
+// product decision 2026-07-24: nothing about router mode is shown to users.
 export interface EquipmentEntry {
   mac: string;
   name: string;
   ip: string;
   vendor?: string | null;
-  router_mode_suspect?: boolean;
   board?: string;
   platform?: string;
   version?: string;
@@ -67,7 +59,6 @@ export function splitDeviceTiers(port: PortAnalyticsPort): {
       name: device.name,
       ip: device.ip,
       vendor: device.vendor,
-      router_mode_suspect: device.router_mode_suspect,
       board: device.board,
       platform: device.platform,
       version: device.version,
@@ -86,14 +77,12 @@ export function splitDeviceTiers(port: PortAnalyticsPort): {
       if (existing) {
         // The sample row may carry classification the infrastructure[] entry lacks.
         if (existing.vendor == null && device.vendor != null) existing.vendor = device.vendor;
-        if (device.router_mode_suspect) existing.router_mode_suspect = true;
       } else {
         equipmentByMac.set(device.mac, {
           mac: device.mac,
           name: device.name,
           ip: device.ip,
           vendor: device.vendor,
-          router_mode_suspect: device.router_mode_suspect,
           last_seen: device.last_seen,
         });
       }
@@ -101,10 +90,12 @@ export function splitDeviceTiers(port: PortAnalyticsPort): {
       paying.push(device);
     }
   }
-  // Router-mode equipment first — useful ordering; visual treatment stays neutral.
-  const equipment = [...equipmentByMac.values()].sort(
-    (a, b) => Number(b.router_mode_suspect === true) - Number(a.router_mode_suspect === true),
-  );
+  // Simple, neutral ordering: vendor name, then MAC tail.
+  const equipment = [...equipmentByMac.values()].sort((a, b) => {
+    const byVendor = (a.vendor ?? '').localeCompare(b.vendor ?? '');
+    if (byVendor !== 0) return byVendor;
+    return macTail(a.mac, 6).localeCompare(macTail(b.mac, 6));
+  });
   return { equipment, paying };
 }
 
