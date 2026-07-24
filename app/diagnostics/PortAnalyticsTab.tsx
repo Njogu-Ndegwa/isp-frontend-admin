@@ -9,6 +9,15 @@ import {
 } from '../lib/types';
 import PortFaceplate, { isUplinkPort, portVisualStatus } from '../components/PortFaceplate';
 import { formatKES } from '../lib/format';
+import {
+  ROUTER_MODE_TOOLTIP,
+  responseHasDeviceTiers,
+  splitDeviceTiers,
+  macTail,
+  deviceDisplayName,
+  equipmentDisplayName,
+  type EquipmentEntry,
+} from '../lib/deviceTiers';
 
 function formatBytes(bytes: number): string {
   if (!bytes) return '0 B';
@@ -37,95 +46,6 @@ const STATUS_BADGES: Record<string, { label: string; badge: string }> = {
   silent_link: { label: 'Silent Link', badge: 'bg-amber-500/20 text-amber-400' },
   down: { label: 'Down', badge: 'bg-foreground-muted/20 text-foreground-muted' },
 };
-
-const ROUTER_MODE_TOOLTIP =
-  'This access point is running in router mode and may block customers from seeing the portal. '
-  + 'Reset it and plug its cable into a LAN port.';
-
-// The backend gained computed device classification (device_class / vendor /
-// router_mode_suspect on device rows, hotspot_subnets_inferred at top level)
-// in 2026-07. Older backends and cached responses lack these fields — when
-// they are absent this tab must render exactly as it did before the tiered
-// device view existed.
-function responseHasDeviceTiers(data: PortAnalyticsResponse): boolean {
-  return (
-    data.hotspot_subnets_inferred !== undefined
-    || data.ports.some((p) => p.downstream_devices_sample.some((d) => d.device_class !== undefined))
-  );
-}
-
-// One row in the per-port "APs / Equipment" group: union of the port's
-// infrastructure[] entries and downstream samples classified as infrastructure.
-interface EquipmentEntry {
-  mac: string;
-  name: string;
-  ip: string;
-  vendor?: string | null;
-  router_mode_suspect?: boolean;
-  board?: string;
-  platform?: string;
-  version?: string;
-  source?: string;
-  last_seen?: string;
-}
-
-// Split a port's devices into the tiers the redesigned view renders:
-//  - equipment: device_class=="infrastructure" or present in infrastructure[]
-//  - paying: devices that map to a billing customer with recorded revenue
-// Customer-class devices with no paying signal are deliberately NOT returned
-// and never rendered (product decision 2026-07-24: never-paid devices are
-// noise in this view and must not appear, not even as a count).
-function splitDeviceTiers(port: PortAnalyticsPort): {
-  equipment: EquipmentEntry[];
-  paying: DownstreamDeviceSample[];
-} {
-  const equipmentByMac = new Map<string, EquipmentEntry>();
-  for (const device of port.infrastructure) {
-    equipmentByMac.set(device.mac, {
-      mac: device.mac,
-      name: device.name,
-      ip: device.ip,
-      vendor: device.vendor,
-      router_mode_suspect: device.router_mode_suspect,
-      board: device.board,
-      platform: device.platform,
-      version: device.version,
-      source: device.source,
-      last_seen: device.last_seen,
-    });
-  }
-  const paying: DownstreamDeviceSample[] = [];
-  for (const device of port.downstream_devices_sample) {
-    const isEquipment =
-      device.device_class === 'infrastructure'
-      || device.kind === 'infrastructure'
-      || equipmentByMac.has(device.mac);
-    if (isEquipment) {
-      const existing = equipmentByMac.get(device.mac);
-      if (existing) {
-        // The sample row may carry classification the infrastructure[] entry lacks.
-        if (existing.vendor == null && device.vendor != null) existing.vendor = device.vendor;
-        if (device.router_mode_suspect) existing.router_mode_suspect = true;
-      } else {
-        equipmentByMac.set(device.mac, {
-          mac: device.mac,
-          name: device.name,
-          ip: device.ip,
-          vendor: device.vendor,
-          router_mode_suspect: device.router_mode_suspect,
-          last_seen: device.last_seen,
-        });
-      }
-    } else if (device.customer_id != null && (device.revenue_total ?? 0) > 0) {
-      paying.push(device);
-    }
-  }
-  // Suspect equipment first so "Needs attention" cannot be missed.
-  const equipment = [...equipmentByMac.values()].sort(
-    (a, b) => Number(b.router_mode_suspect === true) - Number(a.router_mode_suspect === true),
-  );
-  return { equipment, paying };
-}
 
 // Pick the most interesting port to preselect: busiest access port first.
 function defaultPortSelection(ports: PortAnalyticsPort[]): string | null {
@@ -674,30 +594,6 @@ function DownstreamDeviceRow({ device }: { device: DownstreamDeviceSample }) {
 }
 
 // ─── Tiered device view (new-backend responses only) ────────────────────────
-
-// Last N hex digits of a MAC, re-grouped in pairs ("DC:B0"). Used so raw full
-// MACs are never the visible label of a device row.
-function macTail(mac: string, hexDigits: number): string {
-  const hex = mac.replace(/[^0-9A-Fa-f]/g, '').toUpperCase();
-  const tail = hex.slice(-hexDigits);
-  return (tail.match(/.{1,2}/g) ?? [tail]).join(':');
-}
-
-// Identity resolution for device rows (product decision 2026-07-24):
-// billing customer name → customer phone (not carried by this endpoint yet) →
-// DHCP hostname/identity → vendor + last-4 (equipment) → shortened MAC.
-// The backend already folds steps 1 and 3 into `name` (customer name for
-// known customers, DHCP hostname / neighbor identity otherwise).
-function deviceDisplayName(device: DownstreamDeviceSample): string {
-  if (device.name) return device.name;
-  return `Device · …${macTail(device.mac, 6)}`;
-}
-
-function equipmentDisplayName(device: EquipmentEntry): string {
-  if (device.name) return device.name;
-  if (device.vendor) return `${device.vendor} AP · ${macTail(device.mac, 4)}`;
-  return `Equipment · …${macTail(device.mac, 6)}`;
-}
 
 // Shortened-MAC chip: shows the tail, full MAC in the tooltip, click copies
 // the full MAC for support lookups.

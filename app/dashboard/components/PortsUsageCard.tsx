@@ -8,6 +8,14 @@ import { formatKESCompact } from '../../lib/format';
 import { DownloadUsageBody } from './DownloadUsageSection';
 import type { PortAnalyticsResponse, PortAnalyticsPort, DownstreamDeviceSample, BandwidthHistory } from '../../lib/types';
 import type { DownloadUsageServiceFilter } from '../DownloadUsageChart';
+import {
+  ROUTER_MODE_TOOLTIP,
+  responseHasDeviceTiers,
+  splitDeviceTiers,
+  deviceDisplayName,
+  equipmentDisplayName,
+  type EquipmentEntry,
+} from '../../lib/deviceTiers';
 
 type Mode = 'ports' | 'usage';
 
@@ -160,6 +168,9 @@ function PortsBody({
     : defaultPortSelection(data.ports);
   const selected = data.ports.find((p) => p.port === effectiveSelected) ?? null;
   const detailsHref = `/diagnostics?tab=analytics&router=${routerId}${effectiveSelected ? `&port=${effectiveSelected}` : ''}`;
+  // New-backend responses carry device classification; without it the panel
+  // renders the pre-redesign (legacy) markup unchanged.
+  const tiered = responseHasDeviceTiers(data);
 
   const uplinkNames = new Set(data.ports.filter(isUplinkPort).map((p) => p.port));
   const warningPorts = data.warnings.map((w) => w.port).filter((p) => !uplinkNames.has(p));
@@ -184,16 +195,34 @@ function PortsBody({
         </div>
       )}
 
-      {selected && <SelectedPortPanel key={selected.port} port={selected} detailsHref={detailsHref} />}
+      {selected && <SelectedPortPanel key={selected.port} port={selected} detailsHref={detailsHref} tiered={tiered} />}
     </div>
   );
 }
 
-function SelectedPortPanel({ port, detailsHref }: { port: PortAnalyticsPort; detailsHref: string }) {
+function SelectedPortPanel({
+  port, detailsHref, tiered,
+}: {
+  port: PortAnalyticsPort;
+  detailsHref: string;
+  tiered: boolean;
+}) {
   const status = portVisualStatus(port);
   const badge = STATUS_BADGES[status] ?? STATUS_BADGES.down;
-  const devices = sortDevices(port.downstream_devices_sample).slice(0, 5);
-  const moreCount = Math.max(0, port.counts.learned_macs - devices.length);
+
+  // Tiered mode (classified response): only equipment + paying customers are
+  // rendered — never-paid/unknown devices are omitted entirely, rows AND
+  // counts. Legacy mode renders exactly the pre-redesign markup.
+  const { equipment, paying } = tiered
+    ? splitDeviceTiers(port)
+    : { equipment: [] as EquipmentEntry[], paying: [] as DownstreamDeviceSample[] };
+  const tieredTotal = equipment.length + paying.length;
+  const tieredShownEquipment = equipment.slice(0, 5);
+  const tieredShownPaying = paying.slice(0, Math.max(0, 5 - tieredShownEquipment.length));
+  const tieredMoreCount = Math.max(0, tieredTotal - tieredShownEquipment.length - tieredShownPaying.length);
+
+  const devices = tiered ? [] : sortDevices(port.downstream_devices_sample).slice(0, 5);
+  const moreCount = tiered ? 0 : Math.max(0, port.counts.learned_macs - devices.length);
 
   return (
     <div className="mt-3 pt-3 border-t border-border animate-fade-in">
@@ -218,6 +247,40 @@ function SelectedPortPanel({ port, detailsHref }: { port: PortAnalyticsPort; det
         <p className="text-xs text-foreground-muted">No physical link on this port.</p>
       ) : status === 'silent_link' ? (
         <p className="text-xs text-amber-400">Link is up but nothing downstream is talking.</p>
+      ) : tiered ? (
+        <>
+          {/* Counts line — total devices is an aggregate port figure; the
+              per-tier counts never surface never-paid/unknown devices */}
+          <p className="text-xs text-foreground-muted mb-2">
+            <span className="font-medium text-foreground">{port.counts.learned_macs}</span> devices ·{' '}
+            <span className="font-medium text-foreground">{equipment.length}</span> APs/equipment ·{' '}
+            <span className="font-medium text-foreground">{paying.length}</span> paying
+            {port.revenue && port.revenue.this_month > 0 && (
+              <> · <span className="font-medium text-foreground">{formatKESCompact(port.revenue.this_month)}</span> this month</>
+            )}
+          </p>
+
+          {/* Equipment first, then paying customers. Nothing else renders. */}
+          {tieredTotal > 0 ? (
+            <div className="space-y-1">
+              {tieredShownEquipment.map((device) => (
+                <EquipmentMiniRow key={device.mac} device={device} />
+              ))}
+              {tieredShownPaying.map((device) => (
+                <PayingMiniRow key={device.mac} device={device} />
+              ))}
+              {tieredMoreCount > 0 && (
+                <Link href={detailsHref} className="block text-[11px] text-foreground-muted hover:text-foreground transition-colors pt-1">
+                  +{tieredMoreCount} more — see all in Port Map →
+                </Link>
+              )}
+            </div>
+          ) : port.downstream_devices_sample.length > 0 ? (
+            <p className="text-xs text-foreground-muted">No paying customers are currently seen on this port.</p>
+          ) : (
+            <p className="text-xs text-foreground-muted">No device samples captured for this port.</p>
+          )}
+        </>
       ) : (
         <>
           {/* Counts line */}
@@ -281,6 +344,52 @@ function DeviceRow({ device }: { device: DownstreamDeviceSample }) {
       }`}>
         {isInfra ? 'Infra' : device.kind === 'known_customer' ? 'Customer' : 'Unknown'}
       </span>
+      {device.last_seen && (
+        <span className="text-[10px] font-mono text-foreground-muted flex-shrink-0 hidden sm:inline">{device.last_seen}</span>
+      )}
+    </div>
+  );
+}
+
+// ─── Tiered compact rows (new-backend responses only) ───────────────────────
+// Labels come from deviceTiers identity resolution — never a raw full MAC.
+
+function EquipmentMiniRow({ device }: { device: EquipmentEntry }) {
+  const suspect = device.router_mode_suspect === true;
+  return (
+    <div className={`flex items-center gap-2 py-1 px-2 rounded-lg min-w-0 ${
+      suspect ? 'bg-red-500/5 border border-red-500/30' : 'bg-background-tertiary/40'
+    }`}>
+      <svg className={`w-3.5 h-3.5 flex-shrink-0 ${suspect ? 'text-red-500' : 'text-purple-400'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0" />
+      </svg>
+      <span className="text-xs truncate min-w-0 flex-1 text-foreground">{equipmentDisplayName(device)}</span>
+      {suspect && (
+        <span
+          className="badge text-[9px] flex-shrink-0 bg-red-500/15 text-red-500 cursor-help"
+          title={ROUTER_MODE_TOOLTIP}
+        >
+          Needs attention
+        </span>
+      )}
+      <span className="badge text-[9px] flex-shrink-0 bg-purple-500/20 text-purple-400">Equipment</span>
+      {device.last_seen && (
+        <span className="text-[10px] font-mono text-foreground-muted flex-shrink-0 hidden sm:inline">{device.last_seen}</span>
+      )}
+    </div>
+  );
+}
+
+function PayingMiniRow({ device }: { device: DownstreamDeviceSample }) {
+  const online = device.hotspot_active || device.ppp_active;
+  return (
+    <div className="flex items-center gap-2 py-1 px-2 rounded-lg bg-background-tertiary/40 min-w-0">
+      <span
+        className={`w-2 h-2 rounded-full flex-shrink-0 ${online ? 'bg-emerald-500' : 'bg-foreground-muted/30'}`}
+        title={online ? 'Online now' : 'Not currently active'}
+      />
+      <span className="text-xs truncate min-w-0 flex-1 text-foreground">{deviceDisplayName(device)}</span>
+      <span className="badge text-[9px] flex-shrink-0 bg-blue-500/20 text-blue-400">Customer</span>
       {device.last_seen && (
         <span className="text-[10px] font-mono text-foreground-muted flex-shrink-0 hidden sm:inline">{device.last_seen}</span>
       )}
