@@ -355,21 +355,20 @@ function DeviceRow({ device }: { device: DownstreamDeviceSample }) {
 // Labels come from deviceTiers identity resolution — never a raw full MAC.
 
 function EquipmentMiniRow({ device }: { device: EquipmentEntry }) {
-  const suspect = device.router_mode_suspect === true;
+  // router_mode_suspect renders as a neutral informational chip, not an alarm.
+  const routerMode = device.router_mode_suspect === true;
   return (
-    <div className={`flex items-center gap-2 py-1 px-2 rounded-lg min-w-0 ${
-      suspect ? 'bg-red-500/5 border border-red-500/30' : 'bg-background-tertiary/40'
-    }`}>
-      <svg className={`w-3.5 h-3.5 flex-shrink-0 ${suspect ? 'text-red-500' : 'text-purple-400'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <div className="flex items-center gap-2 py-1 px-2 rounded-lg min-w-0 bg-background-tertiary/40">
+      <svg className="w-3.5 h-3.5 flex-shrink-0 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0" />
       </svg>
       <span className="text-xs truncate min-w-0 flex-1 text-foreground">{equipmentDisplayName(device)}</span>
-      {suspect && (
+      {routerMode && (
         <span
-          className="badge text-[9px] flex-shrink-0 bg-red-500/15 text-red-500 cursor-help"
+          className="badge text-[9px] flex-shrink-0 bg-purple-500/15 text-purple-400 cursor-help"
           title={ROUTER_MODE_TOOLTIP}
         >
-          Needs attention
+          Router mode
         </span>
       )}
       <span className="badge text-[9px] flex-shrink-0 bg-purple-500/20 text-purple-400">Equipment</span>

@@ -15,9 +15,14 @@ import type {
   PortAnalyticsResponse,
 } from './types';
 
+// Neutral, factual copy — NOT a fault verdict. Field data (Major1, router
+// 118, the platform's best-earning site) shows healthy sites legitimately
+// run APs that announce router identities with zero harm, so this renders
+// as an informational "Router mode" chip, never as an alarm.
 export const ROUTER_MODE_TOOLTIP =
-  'This access point is running in router mode and may block customers from seeing the portal. '
-  + 'Reset it and plug its cable into a LAN port.';
+  'This AP is announcing its own router identity (192.168.x.1). Usually harmless. '
+  + "If customers on this AP report a missing portal or 'obtaining IP', this is the first "
+  + 'thing to check — factory-reset it and plug its cable into a LAN port.';
 
 // The backend gained computed device classification (device_class / vendor /
 // router_mode_suspect on device rows, hotspot_subnets_inferred at top level)
@@ -96,7 +101,7 @@ export function splitDeviceTiers(port: PortAnalyticsPort): {
       paying.push(device);
     }
   }
-  // Suspect equipment first so "Needs attention" cannot be missed.
+  // Router-mode equipment first — useful ordering; visual treatment stays neutral.
   const equipment = [...equipmentByMac.values()].sort(
     (a, b) => Number(b.router_mode_suspect === true) - Number(a.router_mode_suspect === true),
   );
