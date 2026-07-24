@@ -674,10 +674,19 @@ export function demoPortAnalytics(routerId: number): PortAnalyticsResponse {
   const infraAp: InfrastructureDevice = {
     port: 'ether2', mac: '2C:C8:1B:AA:10:01', name: 'Ruijie-AP-Block-A', ip: '10.10.0.2',
     board: 'RG-EW1200G', platform: 'Ruijie', version: '11.9', source: 'neighbor', last_seen: '2m',
+    vendor: 'Ruijie', router_mode_suspect: false,
   };
   const infraSwitch: InfrastructureDevice = {
     port: 'ether3', mac: '48:8F:5A:BB:20:02', name: 'CRS326-Relay', ip: '10.10.0.3',
     board: 'CRS326-24G-2S+', platform: 'MikroTik', version: '7.14.2', source: 'neighbor', last_seen: '1m',
+    vendor: 'MikroTik', router_mode_suspect: false,
+  };
+  // An AP left in router mode: claims a foreign gateway IP (192.168.0.1 while
+  // the hotspot subnet is 10.10.1.x) — drives the "Needs attention" badge.
+  const infraSuspect: InfrastructureDevice = {
+    port: 'ether6', mac: 'B4:0F:3B:CC:30:03', name: '', ip: '192.168.0.1',
+    board: '', platform: '', version: '', source: 'dhcp/arp', last_seen: '4m',
+    vendor: 'Tenda', router_mode_suspect: true,
   };
   const sample = (i: number, kind: DownstreamDeviceSample['kind']): DownstreamDeviceSample => ({
     mac: macs[i % macs.length],
@@ -689,6 +698,9 @@ export function demoPortAnalytics(routerId: number): PortAnalyticsResponse {
     hotspot_bypassed: false,
     hotspot_active: kind === 'known_customer' && i % 2 === 0,
     ppp_active: false,
+    device_class: kind === 'infrastructure' ? 'infrastructure' : 'customer',
+    vendor: kind === 'infrastructure' ? infraAp.vendor : null,
+    router_mode_suspect: false,
     ...(kind === 'known_customer'
       ? {
           customer_id: (i % 15) + 1,
@@ -741,7 +753,11 @@ export function demoPortAnalytics(routerId: number): PortAnalyticsResponse {
       downstream_devices_sample: health === 'active'
         ? [
             ...Array.from({ length: Math.min(opts.known ?? 0, 5) }, (_, i) => sample(i, 'known_customer')),
-            ...(opts.infra ?? []).map((d, i) => ({ ...sample(i + 5, 'infrastructure'), mac: d.mac, name: d.name, ip: d.ip })),
+            ...(opts.infra ?? []).map((d, i) => ({
+              ...sample(i + 5, 'infrastructure'),
+              mac: d.mac, name: d.name, ip: d.ip,
+              vendor: d.vendor ?? null, router_mode_suspect: d.router_mode_suspect ?? false,
+            })),
             ...Array.from({ length: Math.min(opts.unknown ?? 0, 3) }, (_, i) => sample(i + 8, 'unknown_device')),
           ]
         : [],
@@ -755,7 +771,7 @@ export function demoPortAnalytics(routerId: number): PortAnalyticsResponse {
     mkPort('ether3', 'active', { infra: [infraSwitch], known: 8, connected: 6, hotspot: 9, unknown: 2, errors: 3, downs: 2 }),
     mkPort('ether4', 'active', { bridge: 'bridge-pppoe', known: 4, connected: 3, unknown: 1 }),
     mkPort('ether5', 'silent_link', { bridge: 'bridge-pppoe' }),
-    mkPort('ether6', 'active', { known: 3, connected: 2, hotspot: 4 }),
+    mkPort('ether6', 'active', { infra: [infraSuspect], known: 3, connected: 2, hotspot: 4 }),
     mkPort('ether7', 'down', {}),
     mkPort('ether8', 'active', { bridge: 'bridge-pppoe', known: 5, connected: 4, unknown: 1 }),
     mkPort('ether9', 'down', { bridge: 'bridge-pppoe' }),
@@ -782,7 +798,8 @@ export function demoPortAnalytics(routerId: number): PortAnalyticsResponse {
       { port: 'ether5', warnings: ['Link is up but the router has received 0 packets and learned no downstream MACs'] },
       { port: 'ether3', warnings: ['Interface errors are present'] },
     ],
-    infrastructure_candidates: [infraAp, infraSwitch],
+    infrastructure_candidates: [infraAp, infraSwitch, infraSuspect],
+    hotspot_subnets_inferred: ['10.10.1'],
     revenue: (() => {
       const sum = (pick: (p: PortAnalyticsPort) => number) => ports.reduce((acc, p) => acc + pick(p), 0);
       const attributedTotal = sum(p => p.revenue?.total ?? 0);

@@ -2418,6 +2418,10 @@ export interface InfrastructureDevice {
   version: string;
   source: 'neighbor' | 'dhcp/arp';
   last_seen: string;
+  /** Vendor short-name from OUI/hostname classification. Absent on responses from older backends. */
+  vendor?: string | null;
+  /** True when the device claims a foreign gateway IP — signature of an AP left in router mode. Absent on older backends. */
+  router_mode_suspect?: boolean;
 }
 
 export interface DownstreamDeviceSample {
@@ -2434,6 +2438,12 @@ export interface DownstreamDeviceSample {
   customer_status?: string;
   /** All-time revenue from this customer (counts_as_revenue payments only). */
   revenue_total?: number;
+  /** Computed classification (OUI + hostname + gateway-claim). Absent on responses from older backends. */
+  device_class?: 'infrastructure' | 'customer';
+  /** Vendor short-name from OUI/hostname classification. Absent on older backends. */
+  vendor?: string | null;
+  /** True when the device claims a foreign gateway IP — signature of an AP left in router mode. Absent on older backends. */
+  router_mode_suspect?: boolean;
 }
 
 /**
@@ -2536,6 +2546,12 @@ export interface PortAnalyticsResponse {
   system: RouterSystemSummary;
   totals: PortAnalyticsTotals;
   warnings: PortWarning[];
+  /**
+   * Inferred hotspot /24 prefixes (e.g. "192.168.88") used for the
+   * router-mode gateway-claim check. Absent on responses from older backends —
+   * its presence marks a response that carries device classification.
+   */
+  hotspot_subnets_inferred?: string[];
   infrastructure_candidates: InfrastructureDevice[];
   // Optional: absent from cached responses generated before the backend added it
   revenue?: PortAnalyticsRevenue;
