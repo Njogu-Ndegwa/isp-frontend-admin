@@ -118,7 +118,10 @@ export function deviceDisplayName(device: DownstreamDeviceSample): string {
 }
 
 export function equipmentDisplayName(device: EquipmentEntry): string {
-  if (device.name) return device.name;
+  // Hardware identity leads: with a known vendor, always the unambiguous
+  // "<Vendor> AP · <tail>" (hostnames like "Tenda" repeat across a fleet,
+  // and zone boxes may carry a billing-account name in `name`).
   if (device.vendor) return `${device.vendor} AP · ${macTail(device.mac, 4)}`;
+  if (device.name) return device.name;
   return `Equipment · …${macTail(device.mac, 6)}`;
 }
