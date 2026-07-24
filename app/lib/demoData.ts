@@ -681,9 +681,9 @@ export function demoPortAnalytics(routerId: number): PortAnalyticsResponse {
     board: 'CRS326-24G-2S+', platform: 'MikroTik', version: '7.14.2', source: 'neighbor', last_seen: '1m',
     vendor: 'MikroTik', router_mode_suspect: false,
   };
-  // An AP left in router mode: claims a foreign gateway IP (192.168.0.1 while
-  // the hotspot subnet is 10.10.1.x) — drives the "Needs attention" badge.
-  const infraSuspect: InfrastructureDevice = {
+  // An AP announcing its own router identity (192.168.0.1 while the hotspot
+  // subnet is 10.10.1.x) — drives the neutral "Router mode" info chip.
+  const infraRouterMode: InfrastructureDevice = {
     port: 'ether6', mac: 'B4:0F:3B:CC:30:03', name: '', ip: '192.168.0.1',
     board: '', platform: '', version: '', source: 'dhcp/arp', last_seen: '4m',
     vendor: 'Tenda', router_mode_suspect: true,
@@ -771,7 +771,7 @@ export function demoPortAnalytics(routerId: number): PortAnalyticsResponse {
     mkPort('ether3', 'active', { infra: [infraSwitch], known: 8, connected: 6, hotspot: 9, unknown: 2, errors: 3, downs: 2 }),
     mkPort('ether4', 'active', { bridge: 'bridge-pppoe', known: 4, connected: 3, unknown: 1 }),
     mkPort('ether5', 'silent_link', { bridge: 'bridge-pppoe' }),
-    mkPort('ether6', 'active', { infra: [infraSuspect], known: 3, connected: 2, hotspot: 4 }),
+    mkPort('ether6', 'active', { infra: [infraRouterMode], known: 3, connected: 2, hotspot: 4 }),
     mkPort('ether7', 'down', {}),
     mkPort('ether8', 'active', { bridge: 'bridge-pppoe', known: 5, connected: 4, unknown: 1 }),
     mkPort('ether9', 'down', { bridge: 'bridge-pppoe' }),
@@ -798,7 +798,7 @@ export function demoPortAnalytics(routerId: number): PortAnalyticsResponse {
       { port: 'ether5', warnings: ['Link is up but the router has received 0 packets and learned no downstream MACs'] },
       { port: 'ether3', warnings: ['Interface errors are present'] },
     ],
-    infrastructure_candidates: [infraAp, infraSwitch, infraSuspect],
+    infrastructure_candidates: [infraAp, infraSwitch, infraRouterMode],
     hotspot_subnets_inferred: ['10.10.1'],
     revenue: (() => {
       const sum = (pick: (p: PortAnalyticsPort) => number) => ports.reduce((acc, p) => acc + pick(p), 0);

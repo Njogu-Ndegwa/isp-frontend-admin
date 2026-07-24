@@ -623,14 +623,15 @@ function MacChip({ mac }: { mac: string }) {
 }
 
 // Always-visible row for an AP / piece of network equipment. Neutral styling
-// by default; red is reserved for router_mode_suspect ("Needs attention").
+// throughout — router_mode_suspect renders as an informational "Router mode"
+// chip (same style family as the Equipment chip), never as an alarm.
 function EquipmentRow({
   device, showPort = false,
 }: {
   device: EquipmentEntry & { port?: string };
   showPort?: boolean;
 }) {
-  const suspect = device.router_mode_suspect === true;
+  const routerMode = device.router_mode_suspect === true;
   const displayName = equipmentDisplayName(device);
   const hardware = [device.platform, device.board, device.version && `v${device.version}`]
     .filter(Boolean)
@@ -641,25 +642,21 @@ function EquipmentRow({
   ].filter(Boolean).join(' · ');
 
   return (
-    <div className={`p-2.5 rounded-lg flex items-start gap-2.5 ${
-      suspect ? 'bg-red-500/5 border border-red-500/30' : 'bg-background-tertiary/50'
-    }`}>
-      <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
-        suspect ? 'bg-red-500/10' : 'bg-purple-500/10'
-      }`}>
-        <svg className={`w-4 h-4 ${suspect ? 'text-red-500' : 'text-purple-400'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <div className="p-2.5 rounded-lg flex items-start gap-2.5 bg-background-tertiary/50">
+      <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 bg-purple-500/10">
+        <svg className="w-4 h-4 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0" />
         </svg>
       </div>
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2 flex-wrap">
           <p className="text-sm font-medium text-foreground truncate">{displayName}</p>
-          {suspect && (
+          {routerMode && (
             <span
-              className="badge bg-red-500/15 text-red-500 text-[10px] cursor-help flex-shrink-0"
+              className="badge bg-purple-500/15 text-purple-400 text-[10px] cursor-help flex-shrink-0"
               title={ROUTER_MODE_TOOLTIP}
             >
-              Needs attention
+              Router mode
             </span>
           )}
           {showPort && device.port && (
