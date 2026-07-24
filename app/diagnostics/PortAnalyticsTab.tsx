@@ -9,6 +9,15 @@ import {
 } from '../lib/types';
 import PortFaceplate, { isUplinkPort, portVisualStatus } from '../components/PortFaceplate';
 import { formatKES } from '../lib/format';
+import {
+  ROUTER_MODE_TOOLTIP,
+  responseHasDeviceTiers,
+  splitDeviceTiers,
+  macTail,
+  deviceDisplayName,
+  equipmentDisplayName,
+  type EquipmentEntry,
+} from '../lib/deviceTiers';
 
 function formatBytes(bytes: number): string {
   if (!bytes) return '0 B';
@@ -100,6 +109,10 @@ export default function PortAnalyticsTab({
   }
 
   if (!data) return null;
+
+  // New-backend responses carry computed device classification; without it
+  // every section renders the pre-redesign (legacy) markup unchanged.
+  const tiered = responseHasDeviceTiers(data);
 
   const memoryUsedPct = data.system.total_memory > 0
     ? Math.round(((data.system.total_memory - data.system.free_memory) / data.system.total_memory) * 100)
@@ -230,13 +243,19 @@ export default function PortAnalyticsTab({
       {/* Infrastructure candidates */}
       {data.infrastructure_candidates.length > 0 && (
         <div className="card p-4 sm:p-5 animate-fade-in">
-          <p className="text-sm font-medium text-foreground mb-1">Infrastructure Devices</p>
+          <p className="text-sm font-medium text-foreground mb-1">
+            {tiered ? 'APs / Equipment' : 'Infrastructure Devices'}
+          </p>
           <p className="text-xs text-foreground-muted mb-3">
             Access points, switches and other network gear detected behind this router
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             {data.infrastructure_candidates.map((device) => (
-              <InfrastructureCard key={`${device.port ?? ''}-${device.mac}`} device={device} showPort />
+              tiered ? (
+                <EquipmentRow key={`${device.port ?? ''}-${device.mac}`} device={device} showPort />
+              ) : (
+                <InfrastructureCard key={`${device.port ?? ''}-${device.mac}`} device={device} showPort />
+              )
             ))}
           </div>
         </div>
@@ -259,7 +278,7 @@ export default function PortAnalyticsTab({
               selectedPort={effectiveSelected}
               onSelect={setSelectedPort}
             />
-            {selected && <PortDetail key={selected.port} port={selected} />}
+            {selected && <PortDetail key={selected.port} port={selected} tiered={tiered} />}
           </>
         )}
       </div>
@@ -277,10 +296,13 @@ function StatTile({ label, value, hint }: { label: string; value: number; hint?:
   );
 }
 
-function PortDetail({ port }: { port: PortAnalyticsPort }) {
+function PortDetail({ port, tiered }: { port: PortAnalyticsPort; tiered: boolean }) {
   const status = portVisualStatus(port);
   const badge = STATUS_BADGES[status] ?? STATUS_BADGES.down;
   const isUplink = status === 'uplink';
+  const { equipment, paying } = tiered
+    ? splitDeviceTiers(port)
+    : { equipment: [] as EquipmentEntry[], paying: [] as DownstreamDeviceSample[] };
 
   return (
     <div className="mt-4 pt-4 border-t border-border space-y-4 animate-fade-in">
@@ -324,13 +346,22 @@ function PortDetail({ port }: { port: PortAnalyticsPort }) {
 
       {/* Counts grid */}
       {!isUplink && (
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
-          <DetailStat label="Devices" value={port.counts.learned_macs} />
-          <DetailStat label="Customers Seen" value={port.counts.known_customers_seen} />
-          <DetailStat label="Connected" value={port.counts.known_customers_connected} />
-          <DetailStat label="Hotspot Hosts" value={port.counts.hotspot_hosts_seen} />
-          <DetailStat label="Unknown" value={port.counts.unknown_devices} />
-        </div>
+        tiered ? (
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <DetailStat label="Devices" value={port.counts.learned_macs} />
+            <DetailStat label="APs / Equipment" value={equipment.length} />
+            <DetailStat label="Paying Customers" value={paying.length} />
+            <DetailStat label="Hotspot Hosts" value={port.counts.hotspot_hosts_seen} />
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+            <DetailStat label="Devices" value={port.counts.learned_macs} />
+            <DetailStat label="Customers Seen" value={port.counts.known_customers_seen} />
+            <DetailStat label="Connected" value={port.counts.known_customers_connected} />
+            <DetailStat label="Hotspot Hosts" value={port.counts.hotspot_hosts_seen} />
+            <DetailStat label="Unknown" value={port.counts.unknown_devices} />
+          </div>
+        )
       )}
 
       {/* Revenue recorded against this port at payment time */}
@@ -351,8 +382,20 @@ function PortDetail({ port }: { port: PortAnalyticsPort }) {
         </div>
       )}
 
-      {/* Infrastructure on this port */}
-      {port.infrastructure.length > 0 && (
+      {/* APs / Equipment on this port (tiered view) — always-visible rows */}
+      {tiered && equipment.length > 0 && (
+        <div>
+          <p className="text-xs font-medium text-foreground-muted uppercase tracking-wide mb-2">APs / Equipment</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {equipment.map((device) => (
+              <EquipmentRow key={device.mac} device={device} />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Infrastructure on this port (legacy render — response without classification) */}
+      {!tiered && port.infrastructure.length > 0 && (
         <div>
           <p className="text-xs font-medium text-foreground-muted uppercase tracking-wide mb-2">Infrastructure</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -363,8 +406,40 @@ function PortDetail({ port }: { port: PortAnalyticsPort }) {
         </div>
       )}
 
-      {/* Downstream devices */}
-      {port.downstream_devices_sample.length > 0 && (
+      {/* Paying customers (tiered view). Customer-class devices without a
+          paying signal are intentionally not rendered here in any form. */}
+      {tiered && paying.length > 0 && (
+        <div>
+          <p className="text-xs font-medium text-foreground-muted uppercase tracking-wide mb-2">
+            Paying Customers <span className="normal-case">({paying.length})</span>
+          </p>
+          <div className="overflow-x-auto -mx-3 sm:mx-0 px-3 sm:px-0">
+            <table className="w-full text-sm min-w-[640px]">
+              <thead>
+                <tr className="border-b border-border">
+                  <th className="text-left py-2 pr-3 text-xs font-medium text-foreground-muted">Customer</th>
+                  <th className="text-left py-2 pr-3 text-xs font-medium text-foreground-muted">Status</th>
+                  <th className="text-left py-2 pr-3 text-xs font-medium text-foreground-muted">IP</th>
+                  <th className="text-left py-2 pr-3 text-xs font-medium text-foreground-muted">Activity</th>
+                  <th className="text-right py-2 pr-3 text-xs font-medium text-foreground-muted">Revenue</th>
+                  <th className="text-left py-2 text-xs font-medium text-foreground-muted">Last Seen</th>
+                </tr>
+              </thead>
+              <tbody>
+                {paying.map((device) => (
+                  <PayingCustomerRow key={device.mac} device={device} />
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+      {tiered && !isUplink && paying.length === 0 && port.downstream_devices_sample.length > 0 && (
+        <p className="text-xs text-foreground-muted">No paying customers are currently seen on this port.</p>
+      )}
+
+      {/* Downstream devices (legacy render — response without classification) */}
+      {!tiered && port.downstream_devices_sample.length > 0 && (
         <div>
           <p className="text-xs font-medium text-foreground-muted uppercase tracking-wide mb-2">
             Connected Devices <span className="normal-case">(sample of {port.downstream_devices_sample.length})</span>
@@ -512,6 +587,135 @@ function DownstreamDeviceRow({ device }: { device: DownstreamDeviceSample }) {
         ) : (
           <span className="text-foreground-muted">—</span>
         )}
+      </td>
+      <td className="py-2 font-mono text-xs text-foreground-muted whitespace-nowrap">{device.last_seen || '—'}</td>
+    </tr>
+  );
+}
+
+// ─── Tiered device view (new-backend responses only) ────────────────────────
+
+// Shortened-MAC chip: shows the tail, full MAC in the tooltip, click copies
+// the full MAC for support lookups.
+function MacChip({ mac }: { mac: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      type="button"
+      title={`${mac} — click to copy`}
+      onClick={() => {
+        navigator.clipboard?.writeText(mac).then(
+          () => {
+            setCopied(true);
+            window.setTimeout(() => setCopied(false), 1200);
+          },
+          () => {},
+        );
+      }}
+      className="inline-flex items-center gap-1 text-[10px] font-mono text-foreground-muted hover:text-foreground transition-colors"
+    >
+      {copied ? 'Copied' : `…${macTail(mac, 6)}`}
+      <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+      </svg>
+    </button>
+  );
+}
+
+// Always-visible row for an AP / piece of network equipment. Neutral styling
+// by default; red is reserved for router_mode_suspect ("Needs attention").
+function EquipmentRow({
+  device, showPort = false,
+}: {
+  device: EquipmentEntry & { port?: string };
+  showPort?: boolean;
+}) {
+  const suspect = device.router_mode_suspect === true;
+  const displayName = equipmentDisplayName(device);
+  const hardware = [device.platform, device.board, device.version && `v${device.version}`]
+    .filter(Boolean)
+    .join(' · ');
+  const subLine = [
+    device.vendor && !displayName.startsWith(device.vendor) ? device.vendor : null,
+    hardware || null,
+  ].filter(Boolean).join(' · ');
+
+  return (
+    <div className={`p-2.5 rounded-lg flex items-start gap-2.5 ${
+      suspect ? 'bg-red-500/5 border border-red-500/30' : 'bg-background-tertiary/50'
+    }`}>
+      <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
+        suspect ? 'bg-red-500/10' : 'bg-purple-500/10'
+      }`}>
+        <svg className={`w-4 h-4 ${suspect ? 'text-red-500' : 'text-purple-400'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0" />
+        </svg>
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2 flex-wrap">
+          <p className="text-sm font-medium text-foreground truncate">{displayName}</p>
+          {suspect && (
+            <span
+              className="badge bg-red-500/15 text-red-500 text-[10px] cursor-help flex-shrink-0"
+              title={ROUTER_MODE_TOOLTIP}
+            >
+              Needs attention
+            </span>
+          )}
+          {showPort && device.port && (
+            <span className="badge bg-foreground-muted/20 text-foreground-muted text-[10px] font-mono">{device.port}</span>
+          )}
+        </div>
+        {subLine && <p className="text-xs text-foreground-muted truncate">{subLine}</p>}
+        <div className="flex items-center gap-2 mt-0.5 text-[10px] text-foreground-muted">
+          {device.ip && <span className="font-mono">{device.ip}</span>}
+          <MacChip mac={device.mac} />
+          {device.source && <span>({device.source})</span>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Table row for a device that maps to a paying billing customer.
+function PayingCustomerRow({ device }: { device: DownstreamDeviceSample }) {
+  const activity: { label: string; className: string }[] = [];
+  if (device.hotspot_active) activity.push({ label: 'Hotspot active', className: 'badge-success' });
+  if (device.ppp_active) activity.push({ label: 'PPPoE active', className: 'badge-success' });
+  if (!device.hotspot_active && device.hotspot_authorized) activity.push({ label: 'Authorized', className: 'bg-blue-500/20 text-blue-400' });
+  if (device.hotspot_bypassed) activity.push({ label: 'Bypassed', className: 'bg-amber-500/20 text-amber-400' });
+
+  return (
+    <tr className="border-b border-border/50">
+      <td className="py-2 pr-3">
+        <p className="text-xs font-medium text-foreground">{deviceDisplayName(device)}</p>
+        <MacChip mac={device.mac} />
+      </td>
+      <td className="py-2 pr-3">
+        {device.customer_status ? (
+          <span className={`badge text-[10px] ${
+            device.customer_status === 'active' ? 'badge-success' :
+            device.customer_status === 'expired' ? 'bg-red-500/20 text-red-400' :
+            'bg-foreground-muted/20 text-foreground-muted'
+          }`}>{device.customer_status}</span>
+        ) : (
+          <span className="text-xs text-foreground-muted">—</span>
+        )}
+      </td>
+      <td className="py-2 pr-3 font-mono text-xs text-foreground-muted">{device.ip || '—'}</td>
+      <td className="py-2 pr-3">
+        {activity.length === 0 ? (
+          <span className="text-xs text-foreground-muted">—</span>
+        ) : (
+          <div className="flex items-center gap-1 flex-wrap">
+            {activity.map((a) => (
+              <span key={a.label} className={`badge text-[10px] ${a.className}`}>{a.label}</span>
+            ))}
+          </div>
+        )}
+      </td>
+      <td className="py-2 pr-3 text-right font-mono text-xs whitespace-nowrap text-foreground">
+        {formatKES(device.revenue_total ?? 0)}
       </td>
       <td className="py-2 font-mono text-xs text-foreground-muted whitespace-nowrap">{device.last_seen || '—'}</td>
     </tr>
