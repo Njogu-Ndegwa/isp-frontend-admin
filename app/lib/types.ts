@@ -2810,7 +2810,11 @@ export interface AdminDashboardRevenue {
 export interface AdminDashboard {
   resellers: {
     total: number;
+    /** Login recency only — includes resellers signing in to suspended accounts. */
     active_last_30_days: number;
+    /** Resellers whose subscription is live right now (trials included). */
+    active_subscriptions?: number;
+    active_subscriptions_prev_month?: number;
     subscription_active?: number;
     subscription_trial?: number;
     subscription_suspended?: number;
@@ -2847,8 +2851,11 @@ export interface AdminDashboard {
   }[];
   growth_deltas?: {
     revenue_change_percent: number;
+    /** Tracks live subscriptions, matching the Active Resellers card value. */
     resellers_change_percent: number;
     customers_change_percent: number;
+    /** Cumulative registrations — only ever rises. */
+    registered_resellers_change_percent?: number;
     comparison_period: string;
   };
   signups_today?: number;
@@ -3276,20 +3283,38 @@ export interface AdminMRRMetrics {
   calculated_at: string;
 }
 
+export interface AdminChurnedReseller {
+  id: number;
+  organization_name: string;
+  churned_at: string | null;
+  signed_up_at?: string | null;
+  reason: string;
+}
+
 export interface AdminChurnMetrics {
+  /** Paying subscribers lost, over the paying cohort at period start. */
   churn_rate: number;
   churned_count: number;
   total_at_period_start: number;
   previous_period_churn_rate: number;
+  /** Percentage POINTS, not a percentage change — see change_unit. */
   change_percent: number;
+  change_unit?: string;
   net_reseller_growth: number;
-  churned_resellers: {
-    id: number;
-    organization_name: string;
-    churned_at: string | null;
-    reason: string;
-  }[];
+  new_resellers?: number;
+  paying_subscribers_now?: number;
+  /** Trials that lapsed without ever paying — failed conversions, not churn. */
+  trial_expiry_count?: number;
+  trial_expiry_rate?: number;
+  trials_at_period_start?: number;
+  trials_at_risk?: number;
+  subscribers_at_period_start?: number;
+  previous_period_trial_expiries?: number;
+  insufficient_data?: boolean;
+  churned_resellers: AdminChurnedReseller[];
+  trial_expiries?: AdminChurnedReseller[];
   period: string;
+  comparison_basis?: string;
   calculated_at: string;
 }
 
@@ -3336,9 +3361,18 @@ export interface AdminARPUMetrics {
   previous_period_arpu: number;
   change_percent: number;
   currency: string;
+  /** Resellers with a paid, live subscription (same definition both periods). */
   active_resellers: number;
+  paying_subscribers?: number;
+  previous_paying_subscribers?: number;
+  subscribers_including_trials?: number;
+  arpu_including_trials?: number;
   total_revenue: number;
+  transaction_charges?: number;
+  arpu_incl_transaction_charges?: number;
+  insufficient_data?: boolean;
   period: string;
+  comparison_basis?: string;
   calculated_at: string;
 }
 

@@ -712,13 +712,16 @@ export default function AdminDashboardPage() {
               <PlaceholderCard title="MRR" subtitle="Awaiting backend" />
             )}
 
-            {/* ARPU */}
+            {/* ARPU -- revenue per PAYING reseller; trials pay nothing so they
+                are reported separately rather than diluting the headline. */}
             {arpu ? (
               <StatCard
                 title="ARPU"
-                value={formatKES(arpu.current_arpu)}
-                subtitle={`${arpu.change_percent >= 0 ? '+' : ''}${arpu.change_percent.toFixed(1)}% vs last period`}
-                trend={{ value: Math.abs(arpu.change_percent), isPositive: arpu.change_percent >= 0 }}
+                value={arpu.insufficient_data ? '—' : formatKES(arpu.current_arpu)}
+                subtitle={arpu.insufficient_data
+                  ? 'No paying subscribers yet'
+                  : `${arpu.change_percent >= 0 ? '+' : ''}${arpu.change_percent.toFixed(1)}% vs same point last month · ${arpu.paying_subscribers ?? arpu.active_resellers} paying`}
+                trend={arpu.insufficient_data ? undefined : { value: Math.abs(arpu.change_percent), isPositive: arpu.change_percent >= 0 }}
                 accent="info"
                 icon={<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>}
               />
@@ -726,31 +729,50 @@ export default function AdminDashboardPage() {
               <PlaceholderCard title="ARPU" subtitle="Awaiting backend" />
             )}
 
-            {/* Active Resellers */}
+            {/* Active Resellers -- live subscriptions, so the trend below tracks
+                that same population rather than cumulative registrations. */}
             <StatCard
               title="Active Resellers"
-              value={data.resellers.active_last_30_days}
+              value={data.resellers.active_subscriptions ?? data.resellers.active_last_30_days}
               subtitle={data.growth_deltas
-                ? `${data.growth_deltas.resellers_change_percent >= 0 ? '+' : ''}${data.growth_deltas.resellers_change_percent.toFixed(1)}% ${data.growth_deltas.comparison_period}`
+                ? `${data.growth_deltas.resellers_change_percent >= 0 ? '+' : ''}${data.growth_deltas.resellers_change_percent.toFixed(1)}% ${data.growth_deltas.comparison_period} · ${data.resellers.total} registered`
                 : `${data.resellers.total} total registered`}
               trend={data.growth_deltas ? { value: Math.abs(data.growth_deltas.resellers_change_percent), isPositive: data.growth_deltas.resellers_change_percent >= 0 } : undefined}
               accent="primary"
               icon={<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>}
             />
 
-            {/* Churn Rate */}
+            {/* Churn Rate -- paying subscribers lost. Expired trials never paid,
+                so they are a conversion problem and are shown on their own card. */}
             {churn ? (
               <StatCard
                 title="Churn Rate"
-                value={`${churn.churn_rate.toFixed(1)}%`}
-                subtitle={`${churn.churned_count} churned this period`}
-                trend={{ value: Math.abs(churn.change_percent), isPositive: churn.change_percent <= 0 }}
+                value={churn.insufficient_data ? '—' : `${churn.churn_rate.toFixed(1)}%`}
+                subtitle={churn.insufficient_data
+                  ? 'No paying subscribers at period start'
+                  : `${churn.churned_count} of ${churn.total_at_period_start} paying resellers lost`}
+                trend={churn.insufficient_data ? undefined : { value: Math.abs(churn.change_percent), isPositive: churn.change_percent <= 0 }}
+                trendSuffix="pp"
                 accent="danger"
                 icon={<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6" /></svg>}
               />
             ) : (
               <PlaceholderCard title="Churn Rate" subtitle="Awaiting backend" />
             )}
+
+            {/* Expired Trials -- previously buried inside Churn Rate, where it
+                inflated churn roughly tenfold. */}
+            {churn && churn.trial_expiry_count != null ? (
+              <StatCard
+                title="Expired Trials"
+                value={churn.trial_expiry_count}
+                subtitle={churn.trials_at_risk
+                  ? `${churn.trial_expiry_rate?.toFixed(1)}% of ${churn.trials_at_risk} trials lapsed unconverted`
+                  : 'No trials in this period'}
+                accent="warning"
+                icon={<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
+              />
+            ) : null}
 
             {/* Trial Conversion */}
             {trialConversion ? (
