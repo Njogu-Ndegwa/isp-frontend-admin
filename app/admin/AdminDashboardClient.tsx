@@ -769,20 +769,6 @@ export default function AdminDashboardPage() {
               <PlaceholderCard title="Churn Rate" subtitle="Awaiting backend" />
             )}
 
-            {/* Expired Trials -- previously buried inside Churn Rate, where it
-                inflated churn roughly tenfold. */}
-            {churn && churn.trial_expiry_count != null ? (
-              <StatCard
-                title="Expired Trials"
-                value={churn.trial_expiry_count}
-                subtitle={churn.trials_at_risk
-                  ? `${churn.trial_expiry_rate?.toFixed(1)}% of ${churn.trials_at_risk} trials lapsed unconverted`
-                  : 'No trials in this period'}
-                accent="warning"
-                icon={<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
-              />
-            ) : null}
-
             {/* Trial Conversion */}
             {trialConversion ? (
               <StatCard
