@@ -659,6 +659,13 @@ export default function AdminDashboardPage() {
     );
   }
 
+  // Trials ride along as context on the Paying Resellers card instead of being
+  // folded into its value.
+  const trialsOnPlan =
+    data?.resellers.active_subscriptions != null && data?.resellers.paying_subscriptions != null
+      ? data.resellers.active_subscriptions - data.resellers.paying_subscriptions
+      : null;
+
   return (
     <div className="space-y-6 pb-24 md:pb-6">
       {/* Header + Global Period Filter */}
@@ -729,13 +736,15 @@ export default function AdminDashboardPage() {
               <PlaceholderCard title="ARPU" subtitle="Awaiting backend" />
             )}
 
-            {/* Active Resellers -- live subscriptions, so the trend below tracks
-                that same population rather than cumulative registrations. */}
+            {/* Paying Resellers -- the paying base, with its trend tracking that
+                same population. Trials sit in the subtitle: counting them in the
+                headline hides conversions, which just move a reseller from the
+                trial column to the paying one and leave the total flat. */}
             <StatCard
-              title="Active Resellers"
-              value={data.resellers.active_subscriptions ?? data.resellers.active_last_30_days}
+              title="Paying Resellers"
+              value={data.resellers.paying_subscriptions ?? data.resellers.active_subscriptions ?? data.resellers.active_last_30_days}
               subtitle={data.growth_deltas
-                ? `${data.growth_deltas.resellers_change_percent >= 0 ? '+' : ''}${data.growth_deltas.resellers_change_percent.toFixed(1)}% ${data.growth_deltas.comparison_period} · ${data.resellers.total} registered`
+                ? `${data.growth_deltas.resellers_change_percent >= 0 ? '+' : ''}${data.growth_deltas.resellers_change_percent.toFixed(1)}% ${data.growth_deltas.comparison_period}${trialsOnPlan != null ? ` · ${trialsOnPlan} on trial` : ''}`
                 : `${data.resellers.total} total registered`}
               trend={data.growth_deltas ? { value: Math.abs(data.growth_deltas.resellers_change_percent), isPositive: data.growth_deltas.resellers_change_percent >= 0 } : undefined}
               accent="primary"

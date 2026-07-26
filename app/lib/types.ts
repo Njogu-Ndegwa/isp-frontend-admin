@@ -2812,7 +2812,10 @@ export interface AdminDashboard {
     total: number;
     /** Login recency only — includes resellers signing in to suspended accounts. */
     active_last_30_days: number;
-    /** Resellers whose subscription is live right now (trials included). */
+    /** Resellers on a paid, live subscription — the headline card value. */
+    paying_subscriptions?: number;
+    paying_subscriptions_prev_month?: number;
+    /** All live subscriptions, trials included. */
     active_subscriptions?: number;
     active_subscriptions_prev_month?: number;
     subscription_active?: number;
@@ -2851,11 +2854,13 @@ export interface AdminDashboard {
   }[];
   growth_deltas?: {
     revenue_change_percent: number;
-    /** Tracks live subscriptions, matching the Active Resellers card value. */
+    /** Tracks the paying base, matching the Paying Resellers card value. */
     resellers_change_percent: number;
     customers_change_percent: number;
     /** Cumulative registrations — only ever rises. */
     registered_resellers_change_percent?: number;
+    /** All live subscriptions including trials. */
+    active_subscribers_change_percent?: number;
     comparison_period: string;
   };
   signups_today?: number;
