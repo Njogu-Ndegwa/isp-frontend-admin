@@ -6,8 +6,6 @@ import { api } from '../../lib/api';
 import {
   AdminEarnings,
   AdminEarningsAccount,
-  AdminEarningsStream,
-  AdminEarningsStreamKey,
   AdminReseller,
 } from '../../lib/types';
 import { useAuth } from '../../context/AuthContext';
@@ -15,7 +13,9 @@ import { useAlert } from '../../context/AlertContext';
 import Header from '../../components/Header';
 import { SkeletonCard } from '../../components/LoadingSpinner';
 import { formatKES } from '../../lib/format';
-import { streamSwatchStyle } from './EarningsCharts';
+import {
+  EarningsSourceKey, SOURCE_LABELS, sourceSwatchStyle, toChartPoints,
+} from './earningsChartData';
 
 const EarningsChart = dynamic(() => import('./EarningsCharts'), {
   ssr: false,
@@ -23,6 +23,7 @@ const EarningsChart = dynamic(() => import('./EarningsCharts'), {
 });
 
 type ViewMode = 'period' | 'cumulative';
+type LegendKey = EarningsSourceKey | 'total';
 
 const PERIOD_OPTIONS = [
   { value: '7d', label: '7 days' },
@@ -103,23 +104,23 @@ function RangeFilter({
   );
 }
 
-function StreamLegend({
-  streams,
+function SourceLegend({
+  entries,
   hidden,
   onToggle,
 }: {
-  streams: AdminEarningsStream[];
-  hidden: Set<AdminEarningsStreamKey>;
-  onToggle: (key: AdminEarningsStreamKey) => void;
+  entries: { key: LegendKey; label: string; total: number }[];
+  hidden: Set<LegendKey>;
+  onToggle: (key: LegendKey) => void;
 }) {
   return (
     <div className="flex items-center gap-2 flex-wrap">
-      {streams.map((stream) => {
-        const off = hidden.has(stream.key);
+      {entries.map((entry) => {
+        const off = hidden.has(entry.key);
         return (
           <button
-            key={stream.key}
-            onClick={() => onToggle(stream.key)}
+            key={entry.key}
+            onClick={() => onToggle(entry.key)}
             aria-pressed={!off}
             className={`flex items-center gap-2 rounded-lg border px-2.5 py-1.5 text-[11px] transition-all ${
               off
@@ -129,10 +130,12 @@ function StreamLegend({
           >
             <span
               className="w-2.5 h-2.5 rounded-sm shrink-0"
-              style={off ? { backgroundColor: 'var(--color-foreground-muted)', opacity: 0.35 } : streamSwatchStyle(stream.key)}
+              style={off
+                ? { backgroundColor: 'var(--color-foreground-muted)', opacity: 0.35 }
+                : sourceSwatchStyle(entry.key)}
             />
-            <span className="whitespace-nowrap">{stream.label}</span>
-            <span className="tabular-nums font-medium">{formatKES(stream.total)}</span>
+            <span className="whitespace-nowrap">{entry.label}</span>
+            <span className="tabular-nums font-medium">{formatKES(entry.total)}</span>
           </button>
         );
       })}
@@ -150,29 +153,48 @@ function BreakdownTable({ data }: { data: AdminEarnings }) {
         </caption>
         <thead>
           <tr className="text-left text-[10px] uppercase tracking-wider text-foreground-muted">
-            <th scope="col" className="py-2 pr-3 font-medium">Stream</th>
+            <th scope="col" className="py-2 pr-3 font-medium">Source</th>
             <th scope="col" className="py-2 px-3 font-medium text-right">This period</th>
             <th scope="col" className="py-2 px-3 font-medium text-right">Share</th>
             <th scope="col" className="py-2 pl-3 font-medium text-right">Previous period</th>
           </tr>
         </thead>
         <tbody>
-          {data.streams.map((stream) => (
-            <tr key={stream.key} className="border-t border-border">
-              <th scope="row" className="py-2.5 pr-3 font-normal">
+          {/* The chart compares two businesses; the table keeps the detail,
+              indenting the system sub-lines under their parent. */}
+          {[
+            { key: 'system' as const, label: SOURCE_LABELS.system, total: data.totals.system, prev: data.previous_totals.system, sub: false },
+            ...data.streams
+              .filter((s) => s.group === 'system')
+              .map((s) => ({ key: s.key, label: s.label, total: s.total, prev: data.previous_totals[s.key] ?? 0, sub: true })),
+            { key: 'reseller' as const, label: SOURCE_LABELS.reseller, total: data.totals.reseller, prev: data.previous_totals.reseller, sub: false },
+          ].map((row) => (
+            <tr key={row.key} className="border-t border-border">
+              <th scope="row" className={`py-2.5 pr-3 font-normal ${row.sub ? 'pl-5' : ''}`}>
                 <span className="flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 rounded-sm shrink-0" style={streamSwatchStyle(stream.key)} />
-                  <span className="text-foreground whitespace-nowrap">{stream.label}</span>
+                  {row.sub ? (
+                    <span className="w-2.5 shrink-0 text-foreground-muted/50 text-[10px] leading-none">└</span>
+                  ) : (
+                    <span
+                      className="w-2.5 h-2.5 rounded-sm shrink-0"
+                      style={sourceSwatchStyle(row.key === 'reseller' ? 'reseller' : 'system')}
+                    />
+                  )}
+                  <span className={`whitespace-nowrap ${row.sub ? 'text-foreground-muted' : 'text-foreground'}`}>
+                    {row.label}
+                  </span>
                 </span>
               </th>
-              <td className="py-2.5 px-3 text-right tabular-nums text-foreground font-medium whitespace-nowrap">
-                {formatKES(stream.total)}
+              <td className={`py-2.5 px-3 text-right tabular-nums whitespace-nowrap ${
+                row.sub ? 'text-foreground-muted' : 'text-foreground font-medium'
+              }`}>
+                {formatKES(row.total)}
               </td>
               <td className="py-2.5 px-3 text-right tabular-nums text-foreground-muted whitespace-nowrap">
-                {total > 0 ? `${((stream.total / total) * 100).toFixed(1)}%` : '—'}
+                {total > 0 ? `${((row.total / total) * 100).toFixed(1)}%` : '—'}
               </td>
               <td className="py-2.5 pl-3 text-right tabular-nums text-foreground-muted whitespace-nowrap">
-                {formatKES(data.previous_totals[stream.key] ?? 0)}
+                {formatKES(row.prev)}
               </td>
             </tr>
           ))}
@@ -355,7 +377,7 @@ export default function EarningsClient() {
   const [period, setPeriod] = useState<PeriodValue>('30d');
   const [customDays, setCustomDays] = useState<number | null>(null);
   const [mode, setMode] = useState<ViewMode>('period');
-  const [hidden, setHidden] = useState<Set<AdminEarningsStreamKey>>(new Set());
+  const [hidden, setHidden] = useState<Set<LegendKey>>(new Set());
 
   const [data, setData] = useState<AdminEarnings | null>(null);
   const [loading, setLoading] = useState(true);
@@ -380,21 +402,30 @@ export default function EarningsClient() {
 
   useEffect(() => { load(); }, [load]);
 
-  const toggleStream = (key: AdminEarningsStreamKey) => {
+  const toggleSource = (key: LegendKey) => {
     setHidden((prev) => {
       const next = new Set(prev);
       if (next.has(key)) next.delete(key);
       else next.add(key);
       // Never let the chart go completely empty.
-      if (data && next.size >= data.streams.length) return prev;
+      if (next.size >= 3) return prev;
       return next;
     });
   };
 
-  const visibleStreams = useMemo(
-    () => (data?.streams ?? []).filter((s) => !hidden.has(s.key)),
-    [data, hidden],
+  const chartPoints = useMemo(
+    () => toChartPoints(data?.series ?? [], mode === 'cumulative'),
+    [data, mode],
   );
+
+  const legendEntries = useMemo(() => {
+    if (!data) return [];
+    return [
+      { key: 'system' as const, label: SOURCE_LABELS.system, total: data.totals.system },
+      { key: 'reseller' as const, label: SOURCE_LABELS.reseller, total: data.totals.reseller },
+      { key: 'total' as const, label: 'Total', total: data.totals.combined },
+    ];
+  }, [data]);
 
   const rangeLabel = customDays
     ? `Last ${customDays} days`
@@ -459,7 +490,7 @@ export default function EarningsClient() {
             {([
               { label: `Combined · ${rangeLabel}`, value: data.totals.combined, change: data.change_percent.combined },
               { label: 'System sales', value: data.totals.system, change: data.change_percent.system },
-              { label: 'My reseller collections', value: data.totals.reseller, change: data.change_percent.reseller },
+              { label: SOURCE_LABELS.reseller, value: data.totals.reseller, change: data.change_percent.reseller },
             ]).map((tile) => (
               <div key={tile.label} className="card p-4 sm:p-5">
                 <p className="text-[10px] uppercase tracking-wider text-foreground-muted">{tile.label}</p>
@@ -512,7 +543,7 @@ export default function EarningsClient() {
             </div>
 
             <div className="mb-4">
-              <StreamLegend streams={data.streams} hidden={hidden} onToggle={toggleStream} />
+              <SourceLegend entries={legendEntries} hidden={hidden} onToggle={toggleSource} />
             </div>
 
             {loading ? (
@@ -522,7 +553,7 @@ export default function EarningsClient() {
                 No earnings recorded in this window
               </div>
             ) : (
-              <EarningsChart data={data.series} streams={visibleStreams} mode={mode} />
+              <EarningsChart data={chartPoints} hidden={hidden} />
             )}
           </div>
 
