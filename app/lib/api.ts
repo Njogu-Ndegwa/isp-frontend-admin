@@ -161,6 +161,8 @@ import {
   AdminSmartAlertsResponse,
   AdminRevenueForecast,
   AdminGrowthTargetsResponse,
+  AdminEarnings,
+  AdminEarningsAccount,
   GrowthTargetUpdatePayload,
   LeadSource,
   Lead,
@@ -2473,6 +2475,31 @@ class ApiClient {
       const response = await fetch(`${BASE_URL}/admin/metrics/growth-targets`, { headers: this.getHeaders() });
       return await this.handleResponse<AdminGrowthTargetsResponse>(response);
     } catch { return null; }
+  }
+
+  /**
+   * Combined earnings across every revenue stream. `days` overrides `period`
+   * when the user picks a custom window; unlike the other metrics helpers this
+   * one rethrows so the page can show a real error instead of an empty chart.
+   */
+  async getAdminEarnings(period: string = '30d', days?: number): Promise<AdminEarnings> {
+    const qs = new URLSearchParams({ period });
+    if (days) qs.set('days', String(days));
+    const response = await fetch(`${BASE_URL}/admin/metrics/earnings?${qs.toString()}`, {
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<AdminEarnings>(response);
+  }
+
+  async setAdminOwnResellerAccounts(
+    resellerIds: number[],
+  ): Promise<{ reseller_ids: number[]; accounts: AdminEarningsAccount[] }> {
+    const response = await fetch(`${BASE_URL}/admin/metrics/earnings/accounts`, {
+      method: 'PUT',
+      headers: this.getHeaders(),
+      body: JSON.stringify({ reseller_ids: resellerIds }),
+    });
+    return this.handleResponse<{ reseller_ids: number[]; accounts: AdminEarningsAccount[] }>(response);
   }
 
   async updateAdminGrowthTargets(targets: GrowthTargetUpdatePayload[]): Promise<AdminGrowthTargetsResponse | null> {

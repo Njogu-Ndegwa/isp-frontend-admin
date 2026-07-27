@@ -102,15 +102,17 @@ const adminNavItems: BottomNavItem[] = [
     ),
     activeMatch: (p) => p === '/admin/subscriptions' || p.startsWith('/admin/subscriptions/'),
   },
+  // Shop lives in the sidebar for admins — it's the reseller-facing storefront,
+  // so Earnings earns the tab instead.
   {
-    name: 'Shop',
-    href: '/shop',
+    name: 'Earnings',
+    href: '/admin/earnings',
     icon: (active: boolean) => (
       <svg className={`w-6 h-6 ${active ? 'text-accent-primary' : 'text-foreground-muted'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={active ? 2 : 1.5} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={active ? 2 : 1.5} d="M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 013 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 00-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 01-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 003 15h-.75M15 10.5a3 3 0 11-6 0 3 3 0 016 0zm3 0h.008v.008H18V10.5zm-12 0h.008v.008H6V10.5z" />
       </svg>
     ),
-    activeMatch: (p: string) => p === '/shop' || p.startsWith('/shop/'),
+    activeMatch: (p: string) => p === '/admin/earnings',
   },
 ];
 
