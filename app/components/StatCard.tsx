@@ -7,6 +7,9 @@ interface StatCardProps {
     value: number;
     isPositive: boolean;
   };
+  /** Unit for the trend badge. Rates that move in percentage points (churn,
+   *  conversion) must not be labelled "%" — that reads as a relative change. */
+  trendSuffix?: string;
   accent?: 'primary' | 'secondary' | 'success' | 'warning' | 'danger' | 'info';
   size?: 'default' | 'large';
 }
@@ -17,6 +20,7 @@ export default function StatCard({
   subtitle,
   icon,
   trend,
+  trendSuffix = '%',
   accent = 'primary',
   size = 'default',
 }: StatCardProps) {
@@ -83,7 +87,7 @@ export default function StatCard({
               >
                 <path strokeLinecap="round" strokeLinejoin="round" d="M5 10l7-7m0 0l7 7m-7-7v18" />
               </svg>
-              {Math.abs(trend.value).toFixed(1)}%
+              {Math.abs(trend.value).toFixed(1)}{trendSuffix}
             </div>
           )}
         </div>

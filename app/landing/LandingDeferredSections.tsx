@@ -20,11 +20,44 @@ const LandingSections = dynamic(() => import('./LandingSections'), {
   loading: LandingSectionsPlaceholder,
 });
 
+// Anchors that live inside the deferred bundle. Arriving at /#pricing (etc.)
+// must bypass the viewport gate, or the browser tries to scroll to an element
+// that doesn't exist yet and the visitor is left at the hero.
+const DEFERRED_SECTION_IDS = new Set([
+  'platform',
+  'features',
+  'shop',
+  'how-it-works',
+  'pricing',
+  'testimonials',
+  'contact',
+]);
+
+function scrollToWhenMounted(id: string) {
+  let tries = 0;
+  const tick = () => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      return;
+    }
+    if (tries++ < 300) requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
+}
+
 export default function LandingDeferredSections() {
   const [shouldLoad, setShouldLoad] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    const hash = window.location.hash.slice(1);
+    if (hash && DEFERRED_SECTION_IDS.has(hash)) {
+      setShouldLoad(true);
+      scrollToWhenMounted(hash);
+      return;
+    }
+
     const node = ref.current;
     if (!node) return;
 

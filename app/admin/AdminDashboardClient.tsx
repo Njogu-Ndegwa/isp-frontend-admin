@@ -659,6 +659,13 @@ export default function AdminDashboardPage() {
     );
   }
 
+  // Trials ride along as context on the Paying Resellers card instead of being
+  // folded into its value.
+  const trialsOnPlan =
+    data?.resellers.active_subscriptions != null && data?.resellers.paying_subscriptions != null
+      ? data.resellers.active_subscriptions - data.resellers.paying_subscriptions
+      : null;
+
   return (
     <div className="space-y-6 pb-24 md:pb-6">
       {/* Header + Global Period Filter */}
@@ -712,13 +719,16 @@ export default function AdminDashboardPage() {
               <PlaceholderCard title="MRR" subtitle="Awaiting backend" />
             )}
 
-            {/* ARPU */}
+            {/* ARPU -- revenue per PAYING reseller; trials pay nothing so they
+                are reported separately rather than diluting the headline. */}
             {arpu ? (
               <StatCard
                 title="ARPU"
-                value={formatKES(arpu.current_arpu)}
-                subtitle={`${arpu.change_percent >= 0 ? '+' : ''}${arpu.change_percent.toFixed(1)}% vs last period`}
-                trend={{ value: Math.abs(arpu.change_percent), isPositive: arpu.change_percent >= 0 }}
+                value={arpu.insufficient_data ? '—' : formatKES(arpu.current_arpu)}
+                subtitle={arpu.insufficient_data
+                  ? 'No paying subscribers yet'
+                  : `${arpu.change_percent >= 0 ? '+' : ''}${arpu.change_percent.toFixed(1)}% vs same point last month · ${arpu.paying_subscribers ?? arpu.active_resellers} paying`}
+                trend={arpu.insufficient_data ? undefined : { value: Math.abs(arpu.change_percent), isPositive: arpu.change_percent >= 0 }}
                 accent="info"
                 icon={<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>}
               />
@@ -726,25 +736,32 @@ export default function AdminDashboardPage() {
               <PlaceholderCard title="ARPU" subtitle="Awaiting backend" />
             )}
 
-            {/* Active Resellers */}
+            {/* Paying Resellers -- the paying base, with its trend tracking that
+                same population. Trials sit in the subtitle: counting them in the
+                headline hides conversions, which just move a reseller from the
+                trial column to the paying one and leave the total flat. */}
             <StatCard
-              title="Active Resellers"
-              value={data.resellers.active_last_30_days}
+              title="Paying Resellers"
+              value={data.resellers.paying_subscriptions ?? data.resellers.active_subscriptions ?? data.resellers.active_last_30_days}
               subtitle={data.growth_deltas
-                ? `${data.growth_deltas.resellers_change_percent >= 0 ? '+' : ''}${data.growth_deltas.resellers_change_percent.toFixed(1)}% ${data.growth_deltas.comparison_period}`
+                ? `${data.growth_deltas.resellers_change_percent >= 0 ? '+' : ''}${data.growth_deltas.resellers_change_percent.toFixed(1)}% ${data.growth_deltas.comparison_period}${trialsOnPlan != null ? ` · ${trialsOnPlan} on trial` : ''}`
                 : `${data.resellers.total} total registered`}
               trend={data.growth_deltas ? { value: Math.abs(data.growth_deltas.resellers_change_percent), isPositive: data.growth_deltas.resellers_change_percent >= 0 } : undefined}
               accent="primary"
               icon={<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>}
             />
 
-            {/* Churn Rate */}
+            {/* Churn Rate -- paying subscribers lost. Expired trials never paid,
+                so they are a conversion problem and are shown on their own card. */}
             {churn ? (
               <StatCard
                 title="Churn Rate"
-                value={`${churn.churn_rate.toFixed(1)}%`}
-                subtitle={`${churn.churned_count} churned this period`}
-                trend={{ value: Math.abs(churn.change_percent), isPositive: churn.change_percent <= 0 }}
+                value={churn.insufficient_data ? '—' : `${churn.churn_rate.toFixed(1)}%`}
+                subtitle={churn.insufficient_data
+                  ? 'No paying subscribers at period start'
+                  : `${churn.churned_count} of ${churn.total_at_period_start} paying resellers lost`}
+                trend={churn.insufficient_data ? undefined : { value: Math.abs(churn.change_percent), isPositive: churn.change_percent <= 0 }}
+                trendSuffix="pp"
                 accent="danger"
                 icon={<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6" /></svg>}
               />

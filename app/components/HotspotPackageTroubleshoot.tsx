@@ -5,16 +5,24 @@ import { CopyCmd } from './DeviceModeTroubleshoot';
 import { API_BASE_URL } from '../lib/api';
 
 /**
- * Troubleshooter for the provisioning import dying with
- * `Script Error: expected end of command (line ... column ...)`.
+ * Troubleshooter for the provisioning import failing because the router
+ * lacks the hotspot feature. Two signatures, same root cause:
+ *
+ * - Current scripts preflight-probe the hotspot menu and abort cleanly:
+ *   `Script Error: hotspot feature unavailable -- aborting before any
+ *   config is applied (see /log print)` (+ `PROVISION ABORTED: ...` in
+ *   /log print). Nothing is configured; fix the package and re-run.
+ * - Scripts generated before the preflight died mid-import with
+ *   `Script Error: expected end of command (line ... column ...)`,
+ *   leaving the router half-configured.
  *
  * Root cause (incident 2026-06-10, Router-0497 / hAP lite): small smips
  * devices (hAP lite, hAP mini) on RouterOS 7.20+ ship WITHOUT the hotspot
  * feature -- MikroTik moved it to a separate package to fit 16MB flash.
- * The /ip hotspot menus don't exist, so the provisioning script fails to
- * PARSE at its first /ip hotspot line and aborts mid-import, leaving the
- * router half-configured. Device-mode can show `hotspot: yes` and it will
- * STILL fail -- the package simply isn't installed.
+ * The /ip hotspot menus don't exist on the router. Device-mode can show
+ * `hotspot: yes` and it will STILL fail -- the package simply isn't
+ * installed. On RouterOS v6 the equivalent is the hotspot package being
+ * disabled/missing; on v7.13+ a device-mode lock can also block it.
  */
 export default function HotspotPackageTroubleshoot() {
   const [open, setOpen] = useState(false);
@@ -32,7 +40,7 @@ export default function HotspotPackageTroubleshoot() {
           </svg>
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium text-foreground">Getting &quot;Script Error: expected end of command&quot;?</p>
+          <p className="text-sm font-medium text-foreground">Getting &quot;hotspot feature unavailable&quot; or &quot;Script Error&quot;?</p>
           <p className="text-xs text-foreground-muted mt-0.5">Hotspot package missing (hAP lite/mini) &mdash; tap to see fix</p>
         </div>
         <svg
@@ -47,12 +55,19 @@ export default function HotspotPackageTroubleshoot() {
         <div className="px-3 pb-4 space-y-4 border-t border-border/50">
           {/* Why this happens */}
           <p className="text-xs text-foreground-muted pt-3 leading-relaxed">
-            If the provisioning command downloads fine (code 200) but the import dies with{' '}
-            <code className="px-1 py-0.5 rounded bg-background-tertiary text-[11px]">Script Error: expected end of command (line 112 column 51)</code>{' '}
-            (line number may vary), the router is missing the <span className="font-medium text-foreground">hotspot feature</span>.
+            If the provisioning command downloads fine (code 200) but the import stops with{' '}
+            <code className="px-1 py-0.5 rounded bg-background-tertiary text-[11px]">Script Error: hotspot feature unavailable &mdash; aborting before any config is applied</code>{' '}
+            (or, on scripts fetched before mid-2026,{' '}
+            <code className="px-1 py-0.5 rounded bg-background-tertiary text-[11px]">Script Error: expected end of command (line 112 column 51)</code>, line number may vary),
+            the router is missing the <span className="font-medium text-foreground">hotspot feature</span>.
             Small devices like the <span className="font-medium text-foreground">hAP lite / hAP mini</span> (smips) on RouterOS 7.20 and newer ship hotspot as a
             separate package that is NOT installed by default. Device-mode can show{' '}
             <code className="px-1 py-0.5 rounded bg-background-tertiary text-[11px]">hotspot: yes</code> and it will still fail.
+          </p>
+          <p className="text-xs text-foreground-muted leading-relaxed">
+            The &quot;aborting before any config is applied&quot; version is the safe one: the script checked first and changed{' '}
+            <span className="font-medium text-foreground">nothing</span> on the router. Install the package below, then simply re-run the same
+            provisioning command &mdash; no cleanup needed.
           </p>
 
           {/* Step 1 */}
@@ -93,8 +108,10 @@ export default function HotspotPackageTroubleshoot() {
               <span className="text-xs font-semibold text-foreground">Re-run the provisioning command above</span>
             </div>
             <p className="text-xs text-foreground-muted leading-relaxed">
-              If the re-run fails with <code className="px-1 py-0.5 rounded bg-background-tertiary text-[11px]">already have such name</code> at the WireGuard step
-              (leftovers from the first half-run), clean them up first, then re-run:
+              If the first attempt aborted with &quot;before any config is applied&quot;, just re-run &mdash; the router was left untouched.
+              Only if it died mid-import (the &quot;expected end of command&quot; error) and the re-run now fails with{' '}
+              <code className="px-1 py-0.5 rounded bg-background-tertiary text-[11px]">already have such name</code> at the WireGuard step
+              (leftovers from the half-run), clean them up first, then re-run:
             </p>
             <CopyCmd command={'/ip address remove [find where interface=wg-aws]\n/interface wireguard peers remove [find where interface=wg-aws]\n/interface wireguard remove [find where name=wg-aws]\n/ip firewall filter remove [find where comment="Allow WireGuard"]\n/ip firewall nat remove [find where comment="NAT for internet access"]'} />
           </div>

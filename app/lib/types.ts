@@ -146,6 +146,8 @@ export interface DailyTransactionPoint {
   label: string;
   transactions: number;
   revenue: number;
+  /** Present when by_port=true: revenue split by recorded router port. */
+  by_port?: Record<string, number>;
 }
 
 export interface DailyTransactionsResponse {
@@ -155,6 +157,9 @@ export interface DailyTransactionsResponse {
   router_id: number | null;
   payment_method: TransactionPaymentMethod | null;
   status: TransactionStatusFilter;
+  by_port?: boolean;
+  /** Ordered stacking keys ("unattributed" last) when by_port=true. */
+  port_keys?: string[];
   data: DailyTransactionPoint[];
   totals: {
     transactions: number;
@@ -488,6 +493,75 @@ export interface PPPoECustomerImportResponse {
   parse_report?: PPPoECustomerImportReport;
 }
 
+// PPPoE Router Transfer — move PPPoE customers from one router to a replacement.
+// Mirrors POST /routers/{source_router_id}/pppoe-customers/transfer.
+export interface TransferPPPoERequest {
+  target_router_id: number;
+  apply?: boolean; // default false (preview)
+  active_only?: boolean; // default false
+  skip_target_provision?: boolean; // default false
+  sample_limit?: number; // backend caps at 100
+}
+
+export interface TransferPPPoEProvisionFailure {
+  customer_id: number | null;
+  pppoe_username: string | null;
+  error: string;
+}
+
+export interface TransferPPPoEReportSample {
+  customer_id: number;
+  name: string | null;
+  phone: string;
+  pppoe_username: string;
+  status: 'active' | 'inactive' | 'pending' | string;
+  expiry: string | null;
+  plan_id: number | null;
+  plan_name: string | null;
+  plan_speed: string | null;
+  password_present: boolean;
+}
+
+export interface TransferPPPoEReport {
+  source_router_id: number;
+  target_router_id: number;
+  dry_run: boolean;
+  active_only: boolean;
+  source_router_name: string | null;
+  target_router_name: string | null;
+  selected: number;
+  moved: number;
+  active: number;
+  inactive: number;
+  pending: number;
+  missing_passwords: number;
+  missing_active_passwords: number;
+  target_provision: boolean;
+  target_provision_required: number;
+  target_provisioned: number;
+  target_provision_failed: number;
+  target_provision_skipped: number;
+  target_provision_failures: TransferPPPoEProvisionFailure[];
+  usage_watch_states_updated: number;
+  provisioning_attempts_updated: number;
+  samples: TransferPPPoEReportSample[];
+  warnings: string[];
+  errors: string[];
+  success: boolean;
+  has_errors: boolean;
+}
+
+export interface TransferPPPoEResponse {
+  success: boolean;
+  stage: 'transfer';
+  source_router_id: number;
+  source_router_name: string;
+  target_router_id: number;
+  target_router_name: string;
+  dry_run: boolean;
+  report: TransferPPPoEReport;
+}
+
 export interface RebootRouterRequest {
   confirm: boolean;
   reason?: string | null;
@@ -644,6 +718,25 @@ export interface ShareSubscriptionCodeRedeemRequest {
   device_type?: 'tv' | 'console' | 'laptop' | 'iot' | 'other';
   device_owner_phone?: string | null;
   device_owner_name?: string | null;
+}
+
+export interface ShareSubscriptionDisconnectRequest {
+  owner_phone: string;
+  router_id: number;
+  pairing_id: number;
+}
+
+export interface ShareSubscriptionDisconnectResponse {
+  success: boolean;
+  pairing_id: number;
+  customer_id?: number | null;
+  device_mac: string;
+  router_id: number;
+  owner_customer_id?: number | null;
+  active_shared_devices: number;
+  cleanup_status: 'removed' | 'pending' | string;
+  cleanup?: Record<string, unknown>;
+  message: string;
 }
 
 export interface DeliveryAttemptStatus {
@@ -992,6 +1085,10 @@ export interface TransactionSummary {
     expired?: StatusBreakdown;
   };
   method_breakdown?: Record<string, StatusBreakdown>;
+  connection_type_breakdown?: {
+    hotspot?: StatusBreakdown;
+    pppoe?: StatusBreakdown;
+  };
   router_breakdown: Record<string, RouterBreakdown>;
   compensation_total?: number;
   period: {
@@ -1109,6 +1206,7 @@ export interface Router {
   emergency_active?: boolean;
   emergency_message?: string | null;
   hotspot_sharing_blocked?: boolean;
+  status_alerts_enabled?: boolean;
   token_vpn_type?: 'wireguard' | 'l2tp' | null;
   planned_insurance_tunnel_type?: 'wireguard' | 'l2tp' | 'auto';
   owner_user_id?: number | null;
@@ -1337,8 +1435,8 @@ export interface CreateRouterRequest {
 export interface UpdateRouterRequest {
   name?: string;
   ip_address?: string;
-  username?: string;
-  password?: string;
+  // Router login credentials (username/password) are provisioned and managed
+  // exclusively by the backend and are intentionally not editable here.
   port?: number;
   payment_methods?: PaymentMethod[];
   emergency_active?: boolean;
@@ -2281,6 +2379,185 @@ export interface PortStatusResponse {
   bridges: BridgeEntry[];
 }
 
+// Port Analytics (GET /routers/{id}/port-analytics)
+export interface RouterSystemSummary {
+  version: string;
+  board_name: string;
+  architecture: string;
+  uptime: string;
+  cpu_load: number;
+  free_memory: number;
+  total_memory: number;
+  free_hdd_space: number;
+  total_hdd_space: number;
+}
+
+export interface PortAnalyticsTotals {
+  interfaces: number;
+  bridges: number;
+  bridge_ports: number;
+  bridge_hosts: number;
+  neighbors: number;
+  dhcp_leases: number;
+  arp_entries: number;
+  hotspot_hosts: number;
+  hotspot_authorized: number;
+  hotspot_bypassed: number;
+  hotspot_active: number;
+  ppp_active: number;
+  db_customers_with_mac: number;
+}
+
+export interface InfrastructureDevice {
+  port?: string;
+  mac: string;
+  name: string;
+  ip: string;
+  board: string;
+  platform: string;
+  version: string;
+  source: 'neighbor' | 'dhcp/arp';
+  last_seen: string;
+  /** Vendor short-name from OUI/hostname classification. Absent on responses from older backends. */
+  vendor?: string | null;
+  /** True when the device claims a foreign gateway IP — signature of an AP left in router mode. Absent on older backends. */
+  router_mode_suspect?: boolean;
+}
+
+export interface DownstreamDeviceSample {
+  mac: string;
+  kind: 'known_customer' | 'unknown_device' | 'infrastructure';
+  name: string;
+  ip: string;
+  last_seen: string;
+  hotspot_authorized: boolean;
+  hotspot_bypassed: boolean;
+  hotspot_active: boolean;
+  ppp_active: boolean;
+  customer_id?: number;
+  customer_status?: string;
+  /** All-time revenue from this customer (counts_as_revenue payments only). */
+  revenue_total?: number;
+  /** Computed classification (OUI + hostname + gateway-claim). Absent on responses from older backends. */
+  device_class?: 'infrastructure' | 'customer';
+  /** Vendor short-name from OUI/hostname classification. Absent on older backends. */
+  vendor?: string | null;
+  /** True when the device claims a foreign gateway IP — signature of an AP left in router mode. Absent on older backends. */
+  router_mode_suspect?: boolean;
+}
+
+/**
+ * Revenue recorded against one port. Attribution is stamped at payment time
+ * (the port the paying customer's device was on when they paid), so these
+ * numbers are stable — they do not move when devices roam.
+ */
+export interface PortRevenue {
+  total: number;
+  today: number;
+  this_week: number;
+  this_month: number;
+  paying_customers: number;
+}
+
+/**
+ * Router-wide revenue context. attributed_* sums payments stamped with a
+ * port; unattributed covers customers offline at stamping time, customers
+ * with no MAC on file, and payments made before port tracking existed.
+ */
+export interface PortAnalyticsRevenue {
+  attribution?: 'recorded';
+  attributed_total: number;
+  attributed_today: number;
+  attributed_this_week: number;
+  attributed_this_month: number;
+  router_total: number;
+  router_today: number;
+  router_this_week: number;
+  router_this_month: number;
+  unattributed_total: number;
+  unattributed_this_month?: number;
+}
+
+export interface PortWarning {
+  port: string;
+  warnings: string[];
+}
+
+export interface PortAnalyticsPort {
+  port: string;
+  bridge: string;
+  bridge_status: string;
+  link: {
+    up: boolean;
+    status: string;
+    rate: string;
+    full_duplex: boolean;
+    last_link_up_time: string;
+    link_downs: number;
+  };
+  traffic: {
+    rx_byte: number;
+    tx_byte: number;
+    rx_packet: number;
+    tx_packet: number;
+    rx_error: number;
+    tx_error: number;
+    rx_drop: number;
+    tx_drop: number;
+  };
+  // Optional: absent from cached responses generated before the backend added it
+  revenue?: PortRevenue;
+  counts: {
+    learned_macs: number;
+    known_customers_seen: number;
+    known_customers_connected: number;
+    hotspot_hosts_seen: number;
+    hotspot_authorized: number;
+    hotspot_bypassed: number;
+    active_hotspot_sessions: number;
+    active_ppp_sessions: number;
+    unknown_devices: number;
+    infrastructure_devices: number;
+  };
+  health: {
+    status: 'active' | 'silent_link' | 'down';
+    warnings: string[];
+  };
+  infrastructure: InfrastructureDevice[];
+  downstream_devices_sample: DownstreamDeviceSample[];
+}
+
+export interface PortAnalyticsResponse {
+  success: boolean;
+  router: {
+    id: number;
+    name: string;
+    identity_db?: string | null;
+    identity_live?: string;
+    ip: string;
+  };
+  generated_at: string;
+  cached: boolean;
+  cache_age_seconds?: number;
+  stale?: boolean;
+  refresh_pending?: boolean;
+  refresh_skipped?: boolean;
+  refresh_skip_reason?: 'recent_cache' | 'db_pool_pressure' | 'refresh_already_running' | 'busy' | 'timeout';
+  system: RouterSystemSummary;
+  totals: PortAnalyticsTotals;
+  warnings: PortWarning[];
+  /**
+   * Inferred hotspot /24 prefixes (e.g. "192.168.88") used for the
+   * router-mode gateway-claim check. Absent on responses from older backends —
+   * its presence marks a response that carries device classification.
+   */
+  hotspot_subnets_inferred?: string[];
+  infrastructure_candidates: InfrastructureDevice[];
+  // Optional: absent from cached responses generated before the backend added it
+  revenue?: PortAnalyticsRevenue;
+  ports: PortAnalyticsPort[];
+}
+
 // Walled Garden
 export interface WalledGardenDomainEntry {
   '.id': string;
@@ -2533,7 +2810,14 @@ export interface AdminDashboardRevenue {
 export interface AdminDashboard {
   resellers: {
     total: number;
+    /** Login recency only — includes resellers signing in to suspended accounts. */
     active_last_30_days: number;
+    /** Resellers on a paid, live subscription — the headline card value. */
+    paying_subscriptions?: number;
+    paying_subscriptions_prev_month?: number;
+    /** All live subscriptions, trials included. */
+    active_subscriptions?: number;
+    active_subscriptions_prev_month?: number;
     subscription_active?: number;
     subscription_trial?: number;
     subscription_suspended?: number;
@@ -2570,8 +2854,13 @@ export interface AdminDashboard {
   }[];
   growth_deltas?: {
     revenue_change_percent: number;
+    /** Tracks the paying base, matching the Paying Resellers card value. */
     resellers_change_percent: number;
     customers_change_percent: number;
+    /** Cumulative registrations — only ever rises. */
+    registered_resellers_change_percent?: number;
+    /** All live subscriptions including trials. */
+    active_subscribers_change_percent?: number;
     comparison_period: string;
   };
   signups_today?: number;
@@ -2688,6 +2977,55 @@ export interface ResellerAccountStatement {
   total_entries: number;
   total_pages: number;
   entries: AccountStatementEntry[];
+}
+
+// Reseller self-service withdrawals / payout schedule
+
+export type PayoutFrequency = 'daily' | 'weekly' | 'monthly' | 'custom' | 'manual';
+
+export interface ResellerWithdrawalTxn {
+  id: number;
+  amount: number;
+  fee: number;
+  net_amount: number;
+  status: string;
+  transaction_id: string | null;
+  created_at: string | null;
+  completed_at: string | null;
+}
+
+export interface ResellerPayoutSettings {
+  payout_frequency: PayoutFrequency;
+  payout_interval_days: number | null;
+  custom_interval_min_days: number;
+  custom_interval_max_days: number;
+  available_frequencies: PayoutFrequency[];
+  unpaid_balance: number;
+  minimum_withdrawal: number;
+  cooldown_seconds_remaining: number;
+  fee_preview: {
+    safaricom_fee: number;
+    kadogo_surcharge: number;
+    total_fee: number;
+    net_payout: number;
+  };
+  payment_method: {
+    id: number;
+    label: string;
+    method_type: string;
+    destination: string | null;
+  } | null;
+  can_withdraw: boolean;
+  blocked_reason: 'pending_withdrawal' | 'no_payment_method' | 'balance_too_low' | 'cooldown' | null;
+  pending_withdrawal: ResellerWithdrawalTxn | null;
+}
+
+export interface ResellerWithdrawResponse {
+  transaction: ResellerWithdrawalTxn;
+  balance_before: number;
+  fee: number;
+  net_payout: number;
+  destination_label: string;
 }
 
 // Admin Reseller Stats (Charts)
@@ -2950,20 +3288,38 @@ export interface AdminMRRMetrics {
   calculated_at: string;
 }
 
+export interface AdminChurnedReseller {
+  id: number;
+  organization_name: string;
+  churned_at: string | null;
+  signed_up_at?: string | null;
+  reason: string;
+}
+
 export interface AdminChurnMetrics {
+  /** Paying subscribers lost, over the paying cohort at period start. */
   churn_rate: number;
   churned_count: number;
   total_at_period_start: number;
   previous_period_churn_rate: number;
+  /** Percentage POINTS, not a percentage change — see change_unit. */
   change_percent: number;
+  change_unit?: string;
   net_reseller_growth: number;
-  churned_resellers: {
-    id: number;
-    organization_name: string;
-    churned_at: string | null;
-    reason: string;
-  }[];
+  new_resellers?: number;
+  paying_subscribers_now?: number;
+  /** Trials that lapsed without ever paying — failed conversions, not churn. */
+  trial_expiry_count?: number;
+  trial_expiry_rate?: number;
+  trials_at_period_start?: number;
+  trials_at_risk?: number;
+  subscribers_at_period_start?: number;
+  previous_period_trial_expiries?: number;
+  insufficient_data?: boolean;
+  churned_resellers: AdminChurnedReseller[];
+  trial_expiries?: AdminChurnedReseller[];
   period: string;
+  comparison_basis?: string;
   calculated_at: string;
 }
 
@@ -3057,9 +3413,18 @@ export interface AdminARPUMetrics {
   previous_period_arpu: number;
   change_percent: number;
   currency: string;
+  /** Resellers with a paid, live subscription (same definition both periods). */
   active_resellers: number;
+  paying_subscribers?: number;
+  previous_paying_subscribers?: number;
+  subscribers_including_trials?: number;
+  arpu_including_trials?: number;
   total_revenue: number;
+  transaction_charges?: number;
+  arpu_incl_transaction_charges?: number;
+  insufficient_data?: boolean;
   period: string;
+  comparison_basis?: string;
   calculated_at: string;
 }
 
@@ -3898,12 +4263,14 @@ export interface SmsPurchaseResponse {
 
 export interface SmsRecipient {
   customer_id: number;
+  name: string | null;
   phone: string;
 }
 
 export interface SmsRecipientsResponse {
   count: number;
   recipients: SmsRecipient[];
+  has_more: boolean;
 }
 
 export interface SmsSendRequest {
@@ -3911,7 +4278,20 @@ export interface SmsSendRequest {
   filter?: string;            // "all" | "by_plan" | "active" | "expiring"
   plan_id?: number;
   customer_ids?: number[];
+  exclude_customer_ids?: number[];
   template_id?: number;
+}
+
+export type SmsTxnKind = 'purchase' | 'send_debit' | 'refund' | 'admin_adjustment';
+
+export interface SmsCreditTransaction {
+  id: number;
+  kind: SmsTxnKind;
+  change: number;
+  balance_after: number;
+  reference: string | null;
+  note: string | null;
+  created_at: string | null;
 }
 
 export interface SmsSendResponse {
@@ -3941,8 +4321,17 @@ export interface SmsCampaign {
   created_at: string | null;
 }
 
+export interface SmsCampaignCounts {
+  total: number;
+  sent: number;
+  failed: number;
+  queued: number;
+  delivered: number;
+}
+
 export interface SmsCampaignMessage {
   phone: string;
+  name: string | null;
   status: string;             // queued|sent|delivered|failed
   error: string | null;
 }
@@ -3950,6 +4339,7 @@ export interface SmsCampaignMessage {
 export interface SmsCampaignDetail {
   id: number;
   status: string;
+  counts: SmsCampaignCounts;
   messages: SmsCampaignMessage[];
 }
 
@@ -3974,6 +4364,10 @@ export interface MessagingSettings {
   enabled: boolean;
   message_retention_days: number;
   bundles: SmsBundle[];
+  welcome_enabled: boolean;
+  welcome_subject: string;
+  welcome_message_body: string;
+  welcome_support_phone: string | null;
 }
 
 export interface MessagingSettingsUpdate {
@@ -3983,6 +4377,10 @@ export interface MessagingSettingsUpdate {
   enabled?: boolean;
   message_retention_days?: number;
   bundles?: SmsBundle[];
+  welcome_enabled?: boolean;
+  welcome_subject?: string;
+  welcome_message_body?: string;
+  welcome_support_phone?: string | null;
 }
 
 export interface SmsCreditOrder {
@@ -3996,7 +4394,8 @@ export interface SmsCreditOrder {
 }
 
 export interface AdminInboxSendRequest {
-  recipient: string;          // reseller id as string, or "all"
+  reseller_ids: number[] | null;
+  all_resellers: boolean;
   subject?: string;
   body: string;
   also_sms: boolean;
@@ -4023,6 +4422,7 @@ export interface AdminSmsMessage {
   error: string | null;
   created_at: string | null;
   updated_at: string | null;
+  category: string | null;
 }
 
 export interface AdminSmsHistoryResponse {

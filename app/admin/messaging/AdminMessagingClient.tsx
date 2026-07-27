@@ -15,6 +15,8 @@ import { useAlert } from '../../context/AlertContext';
 import Header from '../../components/Header';
 import Tabs, { TabItem } from '../../components/Tabs';
 import { SkeletonCard } from '../../components/LoadingSpinner';
+import { ResellerLedgerSheet } from './components/ResellerLedgerSheet';
+import BroadcastView from './components/BroadcastView';
 
 // ── Tab type ─────────────────────────────────────────────────────────────────
 
@@ -139,6 +141,12 @@ function SettingsTab({ settings, loading, onRefetch }: SettingsTabProps) {
   const [bundles, setBundles] = useState<SmsBundle[]>([]);
   const [saving, setSaving] = useState(false);
 
+  // Welcome message state
+  const [welcomeEnabled, setWelcomeEnabled] = useState(false);
+  const [welcomeSubject, setWelcomeSubject] = useState('');
+  const [welcomeMessageBody, setWelcomeMessageBody] = useState('');
+  const [welcomeSupportPhone, setWelcomeSupportPhone] = useState('');
+
   // Sync form from loaded settings
   useEffect(() => {
     if (!settings) return;
@@ -148,6 +156,10 @@ function SettingsTab({ settings, loading, onRefetch }: SettingsTabProps) {
     setEnabled(settings.enabled);
     setRetentionDays(String(settings.message_retention_days));
     setBundles(settings.bundles ?? []);
+    setWelcomeEnabled(settings.welcome_enabled);
+    setWelcomeSubject(settings.welcome_subject ?? '');
+    setWelcomeMessageBody(settings.welcome_message_body ?? '');
+    setWelcomeSupportPhone(settings.welcome_support_phone ?? '');
   }, [settings]);
 
   const handleSave = async (e: React.FormEvent) => {
@@ -161,6 +173,10 @@ function SettingsTab({ settings, loading, onRefetch }: SettingsTabProps) {
         enabled,
         message_retention_days: parseInt(retentionDays, 10),
         bundles,
+        welcome_enabled: welcomeEnabled,
+        welcome_subject: welcomeSubject,
+        welcome_message_body: welcomeMessageBody,
+        welcome_support_phone: welcomeSupportPhone.trim() || null,
       });
       showAlert('success', 'Settings updated');
       onRefetch();
@@ -270,6 +286,73 @@ function SettingsTab({ settings, loading, onRefetch }: SettingsTabProps) {
         <BundleEditor bundles={bundles} onChange={setBundles} />
       </div>
 
+      <div className="card p-6 space-y-4">
+        <h3 className="text-sm font-semibold text-foreground">Reseller welcome message</h3>
+
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            role="switch"
+            aria-checked={welcomeEnabled}
+            onClick={() => setWelcomeEnabled((v) => !v)}
+            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+              welcomeEnabled ? 'bg-success' : 'bg-background-tertiary border border-border'
+            }`}
+          >
+            <span
+              className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+                welcomeEnabled ? 'translate-x-6' : 'translate-x-1'
+              }`}
+            />
+          </button>
+          <span className="text-sm text-foreground">
+            Send welcome message to new resellers
+          </span>
+        </div>
+
+        <div>
+          <label className="block text-xs font-medium text-foreground-muted mb-1">
+            Subject
+          </label>
+          <input
+            type="text"
+            value={welcomeSubject}
+            onChange={(e) => setWelcomeSubject(e.target.value)}
+            className="input"
+            placeholder="Welcome to our network!"
+          />
+        </div>
+
+        <div>
+          <label className="block text-xs font-medium text-foreground-muted mb-1">
+            Message body
+          </label>
+          <textarea
+            value={welcomeMessageBody}
+            onChange={(e) => setWelcomeMessageBody(e.target.value)}
+            className="input min-h-[120px] resize-y"
+            placeholder="Welcome message text…"
+          />
+          <p className="mt-1 text-xs text-foreground-muted">
+            Available placeholders: <code className="font-mono">{'{org}'}</code> (reseller organisation name),{' '}
+            <code className="font-mono">{'{support_phone}'}</code> (support phone number)
+          </p>
+        </div>
+
+        <div>
+          <label className="block text-xs font-medium text-foreground-muted mb-1">
+            Support phone <span className="font-normal">(optional)</span>
+          </label>
+          <input
+            type="text"
+            value={welcomeSupportPhone}
+            onChange={(e) => setWelcomeSupportPhone(e.target.value)}
+            className="input"
+            placeholder="e.g. +254700000000"
+          />
+        </div>
+      </div>
+
       <div className="flex justify-end">
         <button
           type="submit"
@@ -288,9 +371,10 @@ function SettingsTab({ settings, loading, onRefetch }: SettingsTabProps) {
 interface OrdersTableProps {
   orders: SmsCreditOrder[];
   resellerMap: Map<number, string>;
+  onResellerClick: (id: number, name: string) => void;
 }
 
-function OrdersTable({ orders, resellerMap }: OrdersTableProps) {
+function OrdersTable({ orders, resellerMap, onResellerClick }: OrdersTableProps) {
   const formatDate = (d: string | null) => {
     if (!d) return '-';
     try {
@@ -336,7 +420,16 @@ function OrdersTable({ orders, resellerMap }: OrdersTableProps) {
               <tr key={order.id} className="hover:bg-background-secondary/50 transition-colors">
                 <td className="px-4 py-3 text-foreground-muted font-mono text-xs">{order.id}</td>
                 <td className="px-4 py-3 text-foreground">
-                  {resellerMap.get(order.user_id) ?? `#${order.user_id}`}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const name = resellerMap.get(order.user_id) ?? `#${order.user_id}`;
+                      onResellerClick(order.user_id, name);
+                    }}
+                    className="text-accent-primary hover:underline text-left"
+                  >
+                    {resellerMap.get(order.user_id) ?? `#${order.user_id}`}
+                  </button>
                 </td>
                 <td className="px-4 py-3 text-right font-medium">{order.quantity.toLocaleString()}</td>
                 <td className="px-4 py-3 text-right font-medium">{order.amount.toFixed(2)}</td>
@@ -360,9 +453,16 @@ function OrdersTable({ orders, resellerMap }: OrdersTableProps) {
         {orders.map((order) => (
           <div key={order.id} className="card p-4 space-y-1">
             <div className="flex items-center justify-between">
-              <span className="text-sm font-medium">
+              <button
+                type="button"
+                onClick={() => {
+                  const name = resellerMap.get(order.user_id) ?? `#${order.user_id}`;
+                  onResellerClick(order.user_id, name);
+                }}
+                className="text-sm font-medium text-accent-primary hover:underline text-left"
+              >
                 {resellerMap.get(order.user_id) ?? `#${order.user_id}`}
-              </span>
+              </button>
               <span className={`text-xs font-medium capitalize ${statusColor(order.status)}`}>
                 {order.status}
               </span>
@@ -394,6 +494,9 @@ function SalesTab({ resellers, resellerMap, loadingResellers }: SalesTabProps) {
   const { showAlert } = useAlert();
   const [orders, setOrders] = useState<SmsCreditOrder[]>([]);
   const [loadingOrders, setLoadingOrders] = useState(true);
+
+  // Ledger sheet
+  const [ledger, setLedger] = useState<{ id: number; name: string } | null>(null);
 
   // Adjust form
   const [adjustId, setAdjustId] = useState('');
@@ -512,136 +615,27 @@ function SalesTab({ resellers, resellerMap, loadingResellers }: SalesTabProps) {
             {Array.from({ length: 3 }).map((_, i) => <SkeletonCard key={i} />)}
           </div>
         ) : (
-          <OrdersTable orders={orders} resellerMap={resellerMap} />
+          <OrdersTable
+            orders={orders}
+            resellerMap={resellerMap}
+            onResellerClick={(id, name) => setLedger({ id, name })}
+          />
         )}
       </div>
+
+      {/* Reseller ledger sheet */}
+      {ledger && (
+        <ResellerLedgerSheet
+          resellerId={ledger.id}
+          resellerName={ledger.name}
+          onClose={() => setLedger(null)}
+        />
+      )}
     </div>
   );
 }
 
-// ── Broadcast tab ─────────────────────────────────────────────────────────────
-
-interface BroadcastTabProps {
-  resellers: AdminReseller[];
-  loadingResellers: boolean;
-}
-
-function BroadcastTab({ resellers, loadingResellers }: BroadcastTabProps) {
-  const { showAlert } = useAlert();
-  const [recipient, setRecipient] = useState('all');
-  const [subject, setSubject] = useState('');
-  const [body, setBody] = useState('');
-  const [alsoSms, setAlsoSms] = useState(false);
-  const [sending, setSending] = useState(false);
-
-  const handleSend = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!body.trim()) { showAlert('error', 'Message body is required'); return; }
-    setSending(true);
-    try {
-      const result = await api.sendInboxMessage({
-        recipient,
-        subject: subject.trim() || undefined,
-        body: body.trim(),
-        also_sms: alsoSms,
-      });
-      const smsNote = alsoSms
-        ? ` SMS queued: ${result.sms_queued}. No phone: ${result.sms_skipped_no_phone}.`
-        : '';
-      showAlert('success', `Inbox message sent to ${result.recipients} reseller(s).${smsNote}`);
-      setSubject('');
-      setBody('');
-      setAlsoSms(false);
-      setRecipient('all');
-    } catch (err) {
-      showAlert('error', err instanceof Error ? err.message : 'Failed to send message');
-    } finally {
-      setSending(false);
-    }
-  };
-
-  return (
-    <form onSubmit={handleSend} className="space-y-4 pt-4">
-      <div className="card p-6 space-y-4">
-        <h3 className="text-sm font-semibold text-foreground">Compose message</h3>
-
-        <div>
-          <label className="block text-xs font-medium text-foreground-muted mb-1">Recipient</label>
-          <select
-            value={recipient}
-            onChange={(e) => setRecipient(e.target.value)}
-            className="select"
-            disabled={loadingResellers}
-          >
-            <option value="all">All resellers</option>
-            {resellers.map((r) => (
-              <option key={r.id} value={String(r.id)}>
-                {r.organization_name || r.email}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div>
-          <label className="block text-xs font-medium text-foreground-muted mb-1">
-            Subject <span className="font-normal">(optional)</span>
-          </label>
-          <input
-            type="text"
-            value={subject}
-            onChange={(e) => setSubject(e.target.value)}
-            className="input"
-            placeholder="Subject line…"
-          />
-        </div>
-
-        <div>
-          <label className="block text-xs font-medium text-foreground-muted mb-1">
-            Body <span className="text-danger">*</span>
-          </label>
-          <textarea
-            value={body}
-            onChange={(e) => setBody(e.target.value)}
-            className="input min-h-[120px] resize-y"
-            placeholder="Write your message here…"
-            required
-          />
-        </div>
-
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            role="switch"
-            aria-checked={alsoSms}
-            onClick={() => setAlsoSms((v) => !v)}
-            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-              alsoSms ? 'bg-success' : 'bg-background-tertiary border border-border'
-            }`}
-          >
-            <span
-              className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
-                alsoSms ? 'translate-x-6' : 'translate-x-1'
-              }`}
-            />
-          </button>
-          <span className="text-sm text-foreground">
-            Also send as SMS to support phone — billed to platform
-          </span>
-        </div>
-      </div>
-
-      <div className="flex justify-end">
-        <button
-          type="submit"
-          disabled={sending || loadingResellers}
-          className="btn-primary px-5 py-2 text-sm"
-        >
-          {sending ? 'Sending…' : 'Send message'}
-        </button>
-      </div>
-    </form>
-  );
-}
+// BroadcastTab is now BroadcastView (extracted to its own file for D1)
 
 // ── Main page ─────────────────────────────────────────────────────────────────
 
@@ -649,12 +643,13 @@ function SmsHistoryTab() {
   const [history, setHistory] = useState<AdminSmsHistoryResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [categoryFilter, setCategoryFilter] = useState<'all' | 'reseller_welcome'>('all');
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (category?: string) => {
     setLoading(true);
     setError(null);
     try {
-      const data = await api.getAdminSmsHistory(200);
+      const data = await api.getAdminSmsHistory(200, category);
       setHistory(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load SMS history');
@@ -663,7 +658,9 @@ function SmsHistoryTab() {
     }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load(categoryFilter === 'all' ? undefined : categoryFilter);
+  }, [load, categoryFilter]);
 
   const messages: AdminSmsMessage[] = history?.messages ?? [];
   const summary = history?.summary ?? {};
@@ -680,7 +677,7 @@ function SmsHistoryTab() {
     return (
       <div className="card p-6 text-center mt-4">
         <p className="text-sm text-danger mb-3">{error}</p>
-        <button onClick={load} className="btn-primary px-4 py-2 text-sm">Retry</button>
+        <button onClick={() => load(categoryFilter === 'all' ? undefined : categoryFilter)} className="btn-primary px-4 py-2 text-sm">Retry</button>
       </div>
     );
   }
@@ -696,11 +693,24 @@ function SmsHistoryTab() {
         ))}
       </div>
 
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
         <h3 className="text-sm font-semibold text-foreground">Recent admin SMS</h3>
-        <button onClick={load} className="text-xs text-foreground-muted hover:text-foreground transition-colors">
-          Refresh
-        </button>
+        <div className="flex items-center gap-3">
+          <select
+            value={categoryFilter}
+            onChange={(e) => setCategoryFilter(e.target.value as 'all' | 'reseller_welcome')}
+            className="select text-xs py-1"
+          >
+            <option value="all">All messages</option>
+            <option value="reseller_welcome">Welcome only</option>
+          </select>
+          <button
+            onClick={() => load(categoryFilter === 'all' ? undefined : categoryFilter)}
+            className="text-xs text-foreground-muted hover:text-foreground transition-colors"
+          >
+            Refresh
+          </button>
+        </div>
       </div>
 
       {messages.length === 0 ? (
@@ -730,6 +740,11 @@ function SmsHistoryTab() {
                     <td className="px-4 py-3">
                       <div className="space-y-1">
                         <SmsStatusBadge status={msg.status} />
+                        {msg.category === 'reseller_welcome' && (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border text-blue-500 bg-blue-500/10 border-blue-500/20">
+                            Welcome
+                          </span>
+                        )}
                         {msg.error && <p className="text-xs text-danger max-w-40 break-words">{msg.error}</p>}
                       </div>
                     </td>
@@ -753,7 +768,14 @@ function SmsHistoryTab() {
                     <p className="text-sm font-medium text-foreground">{msg.reseller_name}</p>
                     <p className="text-xs font-mono text-foreground-muted">{msg.phone}</p>
                   </div>
-                  <SmsStatusBadge status={msg.status} />
+                  <div className="flex flex-col items-end gap-1">
+                    <SmsStatusBadge status={msg.status} />
+                    {msg.category === 'reseller_welcome' && (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border text-blue-500 bg-blue-500/10 border-blue-500/20">
+                        Welcome
+                      </span>
+                    )}
+                  </div>
                 </div>
                 <p className="text-xs text-foreground-muted">{formatDateTime(msg.created_at)}</p>
                 <p className="text-sm text-foreground line-clamp-2">{msg.body}</p>
@@ -856,7 +878,7 @@ export default function AdminMessagingPage() {
       )}
 
       {tab === 'broadcast' && (
-        <BroadcastTab
+        <BroadcastView
           resellers={resellers}
           loadingResellers={loadingResellers}
         />

@@ -49,3 +49,4 @@ perf-results/
 # Editor/artifact noise
 .cursor/
 nul
+.superpowers/

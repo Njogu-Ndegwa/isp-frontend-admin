@@ -33,6 +33,13 @@
   --card-glass-bg: rgba(255, 255, 255, 0.8);
   --grid-dot: rgba(0, 0, 0, 0.04);
   --hover-row: rgba(0, 0, 0, 0.03);
+
+  /* Chart series palette (additive — do not change existing tokens) */
+  --chart-1: #f59e0b; /* amber  (primary / revenue) */
+  --chart-2: #0891b2; /* cyan   (download) */
+  --chart-3: #059669; /* green  (upload / success) */
+  --chart-4: #7c3aed; /* violet (pppoe) */
+  --chart-5: #ea580c; /* orange (secondary) */
 }
 
 /* ============================================================
@@ -80,6 +87,13 @@
   --card-glass-bg: rgba(24, 24, 27, 0.8);
   --grid-dot: rgba(255, 255, 255, 0.03);
   --hover-row: rgba(39, 39, 42, 0.5);
+
+  /* Chart series palette — dark mode de-saturated/lightened variants */
+  --chart-1: #fbbf24;
+  --chart-2: #22d3ee;
+  --chart-3: #34d399;
+  --chart-4: #a78bfa;
+  --chart-5: #fb923c;
 }
 
 @theme inline {

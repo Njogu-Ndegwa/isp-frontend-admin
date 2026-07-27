@@ -670,23 +670,6 @@
   cursor: not-allowed;
 }
 
-.share_shareCodePanel {
-  margin-bottom: var(--space-lg);
-  padding: var(--space-md);
-  border: 1px solid rgba(var(--primary-rgb), 0.18);
-  border-radius: var(--radius-md);
-  background: rgba(var(--primary-rgb), 0.06);
-}
-
-.share_shareCodeInput {
-  text-align: center;
-  font-family: "DM Sans", monospace;
-  font-size: 1.15rem;
-  font-weight: 900;
-  letter-spacing: 2px;
-}
-
-.share_shareCodeRedeemBtn,
 .share_shareCodeGenerateBtn {
   min-height: 42px;
   border: none;
@@ -700,14 +683,6 @@
   gap: var(--space-sm);
 }
 
-.share_shareCodeRedeemBtn {
-  width: 100%;
-  margin-top: var(--space-sm);
-  background: var(--primary);
-  color: var(--text-inverse);
-}
-
-.share_shareCodeRedeemBtn:disabled,
 .share_shareCodeGenerateBtn:disabled {
   opacity: 0.58;
   cursor: not-allowed;
@@ -899,6 +874,30 @@
   font-weight: 800;
 }
 
+.share_ownerDeviceActions {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.share_ownerDeviceDisconnect {
+  min-height: 32px;
+  padding: 0 var(--space-sm);
+  border: 1px solid rgba(var(--primary-rgb), 0.22);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 0.72rem;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.share_ownerDeviceDisconnect:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
 .share_statePanel {
   min-height: 280px;
   display: flex;
@@ -1077,5 +1076,15 @@
   .share_deviceTypeBtn {
     min-width: 64px;
     font-size: 0.68rem;
+  }
+
+  .share_ownerDeviceRow {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .share_ownerDeviceActions {
+    width: 100%;
+    justify-content: space-between;
   }
 }

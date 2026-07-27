@@ -7,6 +7,7 @@ const NAV_LINKS = [
   { label: 'How It Works', href: '#how-it-works' },
   { label: 'Pricing', href: '#pricing' },
   { label: 'Testimonials', href: '#testimonials' },
+  { label: 'Blog', href: '/blog' },
 ];
 
 export default function LandingHeader() {

@@ -152,6 +152,32 @@ const formatSafeDate = (dateStr: string | undefined): string => {
 3. Test on actual mobile device
 4. Ask about specific behavior before implementing
 
+## SEO, Blog & Google Analytics
+
+This repo also serves the public marketing site: root `/` landing page and the `/blog`
+(markdown posts in `content/blog/`, covers in `public/blog-images/`). Key facts agents
+keep getting wrong — read before touching analytics or SEO:
+
+- **GA4 tag `G-XQQZTHB95N`** is mounted site-wide (landing, blog, admin app) via
+  `AnalyticsScripts.tsx` in the root `app/layout.tsx` (PR #16, live 2026-07-23). Do not
+  unmount it. It was dead code before that date, so GA history effectively starts
+  2026-07-23 — near-zero earlier data is expected, not a tracking bug.
+- **The GA property lives under Google account `snrnjogundegwa@gmail.com`** → GA account
+  "Software Consulting" (336516520) → property **"Bitwave Technologies"** (467273191).
+  It is NOT under `dnjogu118@gmail.com` — that account owns **Google Search Console**
+  (domain verified, sitemap submitted). The two are on different accounts and are NOT
+  linked in GA4; linking requires granting one account access to the other first.
+- Realtime view:
+  `https://analytics.google.com/analytics/web/#/a336516520p467273191/realtime/overview`
+- A GA4 `sign_up` event fires on successful registration (`SignupClient`). After it first
+  appears in GA, mark it as a key event in GA4 admin (Admin → Events) for conversion
+  reporting.
+- `sitemap.ts`, `robots.ts`, and `/llms.txt` are generated at build time — new posts and
+  category pages are picked up automatically on deploy; no manual sitemap resubmission
+  needed.
+- Blog publish gate: posts ship with `published: false` and flip to `true` only on
+  Dennis's explicit OK. Status changes deploy on master push (Vercel auto-deploy).
+
 ---
 
 **Last Updated:** After fixing nav height and transaction date crashes

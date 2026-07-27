@@ -145,7 +145,16 @@ function LoginContent() {
 
             {/* Password */}
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-foreground-muted mb-1.5">Password</label>
+              <div className="flex items-center justify-between mb-1.5">
+                <label htmlFor="password" className="block text-sm font-medium text-foreground-muted">Password</label>
+                <Link
+                  href="/forgot-password"
+                  className="text-xs text-amber-500 hover:text-amber-400 font-medium transition-colors"
+                  tabIndex={-1}
+                >
+                  Forgot password?
+                </Link>
+              </div>
               <div className="relative">
                 <input
                   ref={passwordRef}

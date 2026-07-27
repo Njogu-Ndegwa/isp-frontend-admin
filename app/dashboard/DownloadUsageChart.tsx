@@ -153,7 +153,7 @@ export default function DownloadUsageChart({
   return (
     <div className="h-64 sm:h-72 w-full">
       <ResponsiveContainer width="100%" height="100%">
-        <ComposedChart data={displayData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+        <ComposedChart accessibilityLayer data={displayData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
           <CartesianGrid
             strokeDasharray="3 3"
             stroke="var(--border)"
@@ -183,7 +183,7 @@ export default function DownloadUsageChart({
             <Bar
               dataKey="hotspotDownloadMB"
               stackId={service === 'all' ? 'download' : undefined}
-              fill="#f59e0b"
+              fill="var(--chart-1)"
               radius={[3, 3, 0, 0]}
               name="Hotspot"
             />
@@ -192,7 +192,7 @@ export default function DownloadUsageChart({
             <Bar
               dataKey="pppoeDownloadMB"
               stackId={service === 'all' ? 'download' : undefined}
-              fill="#8b5cf6"
+              fill="var(--chart-4)"
               radius={[3, 3, 0, 0]}
               name="PPPoE"
             />
@@ -201,10 +201,10 @@ export default function DownloadUsageChart({
             <Line
               type="monotone"
               dataKey="totalDownloadMB"
-              stroke="#06b6d4"
+              stroke="var(--chart-2)"
               strokeWidth={2}
               dot={false}
-              activeDot={{ r: 4, fill: '#06b6d4', stroke: '#fff', strokeWidth: 2 }}
+              activeDot={{ r: 4, fill: 'var(--chart-2)', stroke: '#fff', strokeWidth: 2 }}
               name="Total"
             />
           )}

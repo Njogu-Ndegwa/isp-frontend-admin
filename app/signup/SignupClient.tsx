@@ -7,6 +7,9 @@ import { useAlert } from '../context/AlertContext';
 import Link from 'next/link';
 import { api } from '../lib/api';
 import type { RegisterRequest } from '../lib/types';
+import PhoneInput from '../components/PhoneInput';
+import { DEFAULT_COUNTRY, type Country } from '../lib/countries';
+import { trackEvent } from '../lib/analytics';
 
 export default function SignupPage() {
   const router = useRouter();
@@ -23,8 +26,9 @@ export default function SignupPage() {
     password: '',
     organization_name: '',
     business_name: '',
-    support_phone: '',
   });
+  const [phoneCountry, setPhoneCountry] = useState<Country>(DEFAULT_COUNTRY);
+  const [phoneNational, setPhoneNational] = useState('');
 
   if (!submitting) {
     if (isAuthenticated && isDemo) {
@@ -46,6 +50,11 @@ export default function SignupPage() {
       return;
     }
 
+    if (!registered && !phoneNational) {
+      showAlert('error', 'Please enter a phone number.');
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -53,10 +62,11 @@ export default function SignupPage() {
         const payload: RegisterRequest = {
           ...formData,
           role: 'reseller',
-          support_phone: formData.support_phone || undefined,
+          support_phone: `+${phoneCountry.dialCode}${phoneNational}`,
         };
         await api.register(payload);
         setRegistered(true);
+        trackEvent('sign_up', { method: 'email' });
       }
 
       showAlert('success', 'Account created! Signing you in...');
@@ -221,14 +231,14 @@ export default function SignupPage() {
             </div>
 
             <div>
-              <label htmlFor="support_phone" className="block text-sm font-medium text-foreground-muted mb-1.5">Phone Number <span className="text-foreground-muted/50 font-normal">(optional)</span></label>
-              <input
+              <label htmlFor="support_phone" className="block text-sm font-medium text-foreground-muted mb-1.5">Phone Number</label>
+              <PhoneInput
                 id="support_phone"
-                type="tel"
-                value={formData.support_phone}
-                onChange={(e) => update('support_phone', e.target.value)}
-                className="input"
-                placeholder="e.g. 0712345678"
+                country={phoneCountry}
+                onCountryChange={setPhoneCountry}
+                nationalNumber={phoneNational}
+                onNationalNumberChange={setPhoneNational}
+                required
               />
             </div>
 

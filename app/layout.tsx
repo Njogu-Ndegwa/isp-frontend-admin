@@ -5,6 +5,7 @@ import { AlertProvider } from "./context/AlertContext";
 import ClientLayout from "./components/ClientLayout";
 import AlertContainer from "./components/AlertContainer";
 import ErrorBoundary from "./components/ErrorBoundary";
+import AnalyticsScripts from "./components/AnalyticsScripts";
 
 export const viewport: Viewport = {
   width: "device-width",
@@ -15,6 +16,7 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://bitwavetechnologies.com"),
   title: "ISP Billing Admin | Bitwave Technologies",
   description: "Manage your ISP billing, customers, plans, and transactions",
 };
@@ -36,6 +38,7 @@ export default function RootLayout({
             <AuthProvider>
               <AlertContainer />
               <ClientLayout>{children}</ClientLayout>
+              <AnalyticsScripts />
             </AuthProvider>
           </AlertProvider>
         </ErrorBoundary>

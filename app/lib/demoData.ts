@@ -31,6 +31,10 @@ import type {
   HotspotOverviewResponse,
   HotspotLogsResponse,
   PortStatusResponse,
+  PortAnalyticsResponse,
+  PortAnalyticsPort,
+  InfrastructureDevice,
+  DownstreamDeviceSample,
   WalledGardenResponse,
   RouterInterfacesResponse,
   PPPoECredentials,
@@ -65,6 +69,34 @@ import type {
   ShopOrder,
   ShopDashboard,
   ShopAnalytics,
+  RevenueOverTimeResponse,
+  RevenueOverTimePeriod,
+  RevenueDataPoint,
+  DailyTransactionsResponse,
+  DailyTransactionPoint,
+  TransactionPaymentMethod,
+  TransactionStatusFilter,
+  PPPoEMonitorResponse,
+  PPPoEMonitorUser,
+  HotspotMonitorResponse,
+  HotspotMonitorUser,
+  CustomerUsageResponse,
+  CustomerUsagePeriod,
+  AccessCredential,
+  AccessCredentialsListResponse,
+  AccessCredentialFilters,
+  SubscriptionOverview,
+  SubscriptionInvoice,
+  SubscriptionInvoicesResponse,
+  SubscriptionPayment,
+  SubscriptionPaymentsResponse,
+  SmsCreditInfo,
+  SmsRecipientsResponse,
+  SmsCreditTransaction,
+  SmsTemplate,
+  SmsCampaign,
+  SmsCampaignDetail,
+  InboxResponse,
 } from './types';
 
 const now = new Date();
@@ -186,6 +218,10 @@ export const demoTransactionSummary: TransactionSummary = {
   method_breakdown: {
     mobile_money: { count: 20, amount: 35000 },
     cash: { count: 4, amount: 4800 },
+  },
+  connection_type_breakdown: {
+    hotspot: { count: 14, amount: 26500 },
+    pppoe: { count: 5, amount: 12000 },
   },
   router_breakdown: {
     'Kilimani Tower': { count: 12, amount: 18500, router_id: 1 },
@@ -629,6 +665,162 @@ export function demoPortStatus(routerId: number): PortStatusResponse {
       { name: 'bridge-hotspot', running: true, disabled: false, port_count: 2 },
       { name: 'bridge-pppoe', running: true, disabled: false, port_count: 2 },
     ],
+  };
+}
+
+// ─── Port Analytics ─────────────────────────────────────────────────
+export function demoPortAnalytics(routerId: number): PortAnalyticsResponse {
+  const router = demoRouters.find(r => r.id === routerId) ?? demoRouters[0];
+  const infraAp: InfrastructureDevice = {
+    port: 'ether2', mac: '2C:C8:1B:AA:10:01', name: 'Ruijie-AP-Block-A', ip: '10.10.0.2',
+    board: 'RG-EW1200G', platform: 'Ruijie', version: '11.9', source: 'neighbor', last_seen: '2m',
+    vendor: 'Ruijie', router_mode_suspect: false,
+  };
+  const infraSwitch: InfrastructureDevice = {
+    port: 'ether3', mac: '48:8F:5A:BB:20:02', name: 'CRS326-Relay', ip: '10.10.0.3',
+    board: 'CRS326-24G-2S+', platform: 'MikroTik', version: '7.14.2', source: 'neighbor', last_seen: '1m',
+    vendor: 'MikroTik', router_mode_suspect: false,
+  };
+  // An AP announcing its own router identity (192.168.0.1 while the hotspot
+  // subnet is 10.10.1.x). The router_mode_suspect API field is exercised here
+  // but is deliberately not rendered anywhere (product decision 2026-07-24).
+  const infraRouterMode: InfrastructureDevice = {
+    port: 'ether6', mac: 'B4:0F:3B:CC:30:03', name: '', ip: '192.168.0.1',
+    board: '', platform: '', version: '', source: 'dhcp/arp', last_seen: '4m',
+    vendor: 'Tenda', router_mode_suspect: true,
+  };
+  const sample = (i: number, kind: DownstreamDeviceSample['kind']): DownstreamDeviceSample => ({
+    mac: macs[i % macs.length],
+    kind,
+    name: kind === 'known_customer' ? ['John Kamau', 'Grace Wanjiku', 'Peter Ochieng'][i % 3] : kind === 'infrastructure' ? infraAp.name : '',
+    ip: `10.10.1.${100 + i}`,
+    last_seen: `${(i % 9) + 1}m`,
+    hotspot_authorized: kind === 'known_customer',
+    hotspot_bypassed: false,
+    hotspot_active: kind === 'known_customer' && i % 2 === 0,
+    ppp_active: false,
+    device_class: kind === 'infrastructure' ? 'infrastructure' : 'customer',
+    vendor: kind === 'infrastructure' ? infraAp.vendor : null,
+    router_mode_suspect: false,
+    ...(kind === 'known_customer'
+      ? {
+          customer_id: (i % 15) + 1,
+          customer_status: i % 4 === 0 ? 'expired' : 'active',
+          revenue_total: 1200 + (i % 5) * 850,
+        }
+      : {}),
+  });
+  const mkPort = (port: string, health: 'active' | 'silent_link' | 'down', opts: {
+    bridge?: string; infra?: InfrastructureDevice[]; known?: number; connected?: number;
+    hotspot?: number; unknown?: number; errors?: number; downs?: number;
+  } = {}): PortAnalyticsPort => {
+    const up = health !== 'down';
+    const learned = health === 'active' ? (opts.known ?? 0) + (opts.unknown ?? 0) + (opts.infra?.length ?? 0) : 0;
+    const warnings = health === 'silent_link'
+      ? ['Link is up but the router has received 0 packets and learned no downstream MACs']
+      : (opts.errors ? ['Interface errors are present'] : []);
+    return {
+      port, bridge: opts.bridge ?? 'bridge-hotspot', bridge_status: up ? 'in-bridge' : '',
+      link: {
+        up, status: up ? 'link-ok' : 'no-link', rate: up ? (port === 'ether5' ? '100Mbps' : '1Gbps') : '',
+        full_duplex: up, last_link_up_time: up ? iso(2) : '', link_downs: opts.downs ?? 0,
+      },
+      traffic: {
+        rx_byte: up ? 48_000_000_000 : 0, tx_byte: up ? 83_000_000_000 : 0,
+        rx_packet: health === 'active' ? 52_000_000 : 0, tx_packet: health === 'active' ? 61_000_000 : 0,
+        rx_error: opts.errors ?? 0, tx_error: 0, rx_drop: 0, tx_drop: 0,
+      },
+      counts: {
+        learned_macs: learned,
+        known_customers_seen: opts.known ?? 0,
+        known_customers_connected: opts.connected ?? 0,
+        hotspot_hosts_seen: opts.hotspot ?? 0,
+        hotspot_authorized: opts.connected ?? 0,
+        hotspot_bypassed: 0,
+        active_hotspot_sessions: opts.connected ?? 0,
+        active_ppp_sessions: 0,
+        unknown_devices: opts.unknown ?? 0,
+        infrastructure_devices: opts.infra?.length ?? 0,
+      },
+      health: { status: health, warnings },
+      revenue: {
+        total: (opts.known ?? 0) * 2400,
+        today: (opts.connected ?? 0) * 50,
+        this_week: (opts.connected ?? 0) * 320,
+        this_month: (opts.known ?? 0) * 1100,
+        paying_customers: opts.known ?? 0,
+      },
+      infrastructure: opts.infra ?? [],
+      downstream_devices_sample: health === 'active'
+        ? [
+            ...Array.from({ length: Math.min(opts.known ?? 0, 5) }, (_, i) => sample(i, 'known_customer')),
+            ...(opts.infra ?? []).map((d, i) => ({
+              ...sample(i + 5, 'infrastructure'),
+              mac: d.mac, name: d.name, ip: d.ip,
+              vendor: d.vendor ?? null, router_mode_suspect: d.router_mode_suspect ?? false,
+            })),
+            ...Array.from({ length: Math.min(opts.unknown ?? 0, 3) }, (_, i) => sample(i + 8, 'unknown_device')),
+          ]
+        : [],
+    };
+  };
+  // ether1 is the WAN uplink: up, unbridged, no downstream MACs. The backend
+  // still flags it as silent_link — the frontend renders it as Uplink instead.
+  const ports = [
+    mkPort('ether1', 'silent_link', { bridge: '' }),
+    mkPort('ether2', 'active', { infra: [infraAp], known: 19, connected: 12, hotspot: 22, unknown: 5 }),
+    mkPort('ether3', 'active', { infra: [infraSwitch], known: 8, connected: 6, hotspot: 9, unknown: 2, errors: 3, downs: 2 }),
+    mkPort('ether4', 'active', { bridge: 'bridge-pppoe', known: 4, connected: 3, unknown: 1 }),
+    mkPort('ether5', 'silent_link', { bridge: 'bridge-pppoe' }),
+    mkPort('ether6', 'active', { infra: [infraRouterMode], known: 3, connected: 2, hotspot: 4 }),
+    mkPort('ether7', 'down', {}),
+    mkPort('ether8', 'active', { bridge: 'bridge-pppoe', known: 5, connected: 4, unknown: 1 }),
+    mkPort('ether9', 'down', { bridge: 'bridge-pppoe' }),
+    mkPort('ether10', 'active', { known: 2, connected: 1, hotspot: 3, unknown: 2, downs: 1 }),
+  ];
+  return {
+    success: true,
+    router: { id: router.id, name: router.name, identity_db: router.identity, identity_live: router.identity ?? router.name, ip: router.ip_address },
+    generated_at: iso(),
+    cached: true,
+    cache_age_seconds: 42,
+    system: {
+      version: '7.14.2 (stable)', board_name: 'RB4011iGS+', architecture: 'arm64', uptime: '3w2d10h',
+      cpu_load: 8, free_memory: 812_000_000, total_memory: 1_073_741_824,
+      free_hdd_space: 380_000_000, total_hdd_space: 512_000_000,
+    },
+    totals: {
+      interfaces: 13, bridges: 2, bridge_ports: 9, bridge_hosts: 61, neighbors: 2,
+      dhcp_leases: 48, arp_entries: 57, hotspot_hosts: 31, hotspot_authorized: 21,
+      hotspot_bypassed: 2, hotspot_active: 21, ppp_active: 3, db_customers_with_mac: 15,
+    },
+    warnings: [
+      { port: 'ether1', warnings: ['Link is up but the router has received 0 packets and learned no downstream MACs'] },
+      { port: 'ether5', warnings: ['Link is up but the router has received 0 packets and learned no downstream MACs'] },
+      { port: 'ether3', warnings: ['Interface errors are present'] },
+    ],
+    infrastructure_candidates: [infraAp, infraSwitch, infraRouterMode],
+    hotspot_subnets_inferred: ['10.10.1'],
+    revenue: (() => {
+      const sum = (pick: (p: PortAnalyticsPort) => number) => ports.reduce((acc, p) => acc + pick(p), 0);
+      const attributedTotal = sum(p => p.revenue?.total ?? 0);
+      // Pre-tracking history and offline-at-payment customers stay unattributed.
+      const unattributed = 14_200;
+      return {
+        attribution: 'recorded' as const,
+        attributed_total: attributedTotal,
+        attributed_today: sum(p => p.revenue?.today ?? 0),
+        attributed_this_week: sum(p => p.revenue?.this_week ?? 0),
+        attributed_this_month: sum(p => p.revenue?.this_month ?? 0),
+        router_total: attributedTotal + unattributed,
+        router_today: sum(p => p.revenue?.today ?? 0) + 200,
+        router_this_week: sum(p => p.revenue?.this_week ?? 0) + 1_800,
+        router_this_month: sum(p => p.revenue?.this_month ?? 0) + 6_500,
+        unattributed_total: unattributed,
+        unattributed_this_month: 6_500,
+      };
+    })(),
+    ports,
   };
 }
 
@@ -2273,6 +2465,463 @@ export const demoShopAnalytics: ShopAnalytics = {
     { status: 'cancelled', orders: 2, revenue: 9000.00 },
   ],
   generated_at: iso(),
+};
+
+// ─── Revenue Over Time / Daily Transactions ─────────────────────────
+const periodToDays: Record<string, number> = { '7d': 7, '30d': 30, '90d': 90, '6m': 180, '1y': 365 };
+
+function trendPoints(days: number): RevenueDataPoint[] {
+  // Group long ranges the same way the backend does so charts stay readable.
+  const groupDays = days > 200 ? 30 : days > 60 ? 7 : 1;
+  const points = Math.ceil(days / groupDays);
+  return Array.from({ length: points }, (_, i) => {
+    const d = new Date(now);
+    d.setDate(d.getDate() - (points - 1 - i) * groupDays);
+    const tx = Math.floor((Math.random() * 15 + 18) * groupDays);
+    return {
+      date: d.toISOString().split('T')[0],
+      label: d.toLocaleDateString('en-GB', groupDays >= 30 ? { month: 'short', year: '2-digit' } : { month: 'short', day: 'numeric' }),
+      transactions: tx,
+      revenue: tx * Math.floor(Math.random() * 300 + 550),
+    };
+  });
+}
+
+export function demoRevenueOverTime(options: {
+  period?: RevenueOverTimePeriod;
+  startDate?: string;
+  endDate?: string;
+  routerId?: number;
+} = {}): RevenueOverTimeResponse {
+  const period = options.period && options.period !== 'custom' ? options.period : '30d';
+  const days = periodToDays[period] ?? 30;
+  const data = trendPoints(days);
+  // A single router only contributes part of the network's revenue.
+  const scale = options.routerId ? 0.45 : 1;
+  const scaled = data.map(p => ({ ...p, revenue: Math.round(p.revenue * scale), transactions: Math.round(p.transactions * scale) }));
+  const revenue = scaled.reduce((s, p) => s + p.revenue, 0);
+  const transactions = scaled.reduce((s, p) => s + p.transactions, 0);
+  return {
+    period,
+    group_by: days > 200 ? 'monthly' : days > 60 ? 'weekly' : 'daily',
+    start_date: dateStr(days),
+    end_date: dateStr(0),
+    router_id: options.routerId ?? null,
+    data: scaled,
+    totals: { revenue, transactions, avg_per_period: Math.round(revenue / scaled.length) },
+  };
+}
+
+export function demoTransactionsDaily(options: {
+  period?: string;
+  startDate?: string;
+  endDate?: string;
+  routerId?: number;
+  paymentMethod?: TransactionPaymentMethod;
+  status?: TransactionStatusFilter;
+  byPort?: boolean;
+} = {}): DailyTransactionsResponse {
+  const period = options.period && options.period !== 'custom' ? options.period : '30d';
+  const days = Math.min(periodToDays[period] ?? 30, 90);
+  const scale = (options.routerId ? 0.45 : 1) * (options.paymentMethod === 'cash' ? 0.15 : 1);
+  const portKeys = options.byPort && options.routerId ? ['ether2', 'ether3', 'ether4', 'unattributed'] : null;
+  const portWeights = [0.45, 0.3, 0.15, 0.1];
+  const data: DailyTransactionPoint[] = Array.from({ length: days }, (_, i) => {
+    const d = new Date(now);
+    d.setDate(d.getDate() - (days - 1 - i));
+    const tx = Math.round((Math.random() * 15 + 18) * scale);
+    const revenue = tx * Math.floor(Math.random() * 300 + 550);
+    const point: DailyTransactionPoint = {
+      date: d.toISOString().split('T')[0],
+      label: d.toLocaleDateString('en-GB', { month: 'short', day: 'numeric' }),
+      transactions: tx,
+      revenue,
+    };
+    if (portKeys) {
+      // Split each day's revenue across the ports so the stack sums to the total.
+      let remaining = revenue;
+      const split: Record<string, number> = {};
+      portKeys.forEach((port, idx) => {
+        const amount = idx === portKeys.length - 1 ? remaining : Math.round(revenue * portWeights[idx]);
+        split[port] = amount;
+        remaining -= amount;
+      });
+      point.by_port = split;
+    }
+    return point;
+  });
+  const transactions = data.reduce((s, p) => s + p.transactions, 0);
+  const activeDays = data.filter(p => p.transactions > 0).length;
+  return {
+    period,
+    start_date: dateStr(days),
+    end_date: dateStr(0),
+    router_id: options.routerId ?? null,
+    payment_method: options.paymentMethod ?? null,
+    status: options.status ?? 'completed',
+    by_port: !!portKeys,
+    port_keys: portKeys ?? [],
+    data,
+    totals: {
+      transactions,
+      revenue: data.reduce((s, p) => s + p.revenue, 0),
+      active_days: activeDays,
+      avg_transactions_per_day: Math.round(transactions / days),
+      avg_transactions_per_active_day: activeDays ? Math.round(transactions / activeDays) : 0,
+    },
+    generated_at: iso(),
+  };
+}
+
+// ─── PPPoE / Hotspot User Monitoring ────────────────────────────────
+export function demoPPPoEMonitor(routerId: number): PPPoEMonitorResponse {
+  const router = demoRouters.find(r => r.id === routerId) ?? demoRouters[0];
+  const pppoeCustomers = demoCustomers.filter(c => c.connection_type === 'pppoe');
+  const users: PPPoEMonitorUser[] = pppoeCustomers.map((c, i) => {
+    const online = c.status === 'active';
+    return {
+      username: c.pppoe_username ?? `pppoe-${c.name.split(' ')[0].toLowerCase()}`,
+      service: 'pppoe',
+      profile: c.plan.name.includes('Business') ? 'pppoe-biz' : 'pppoe-home',
+      disabled: c.status !== 'active',
+      comment: c.name,
+      online,
+      address: online ? `10.20.${router.id}.${10 + i}` : null,
+      uptime: online ? `${Math.floor(Math.random() * 48 + 1)}h${Math.floor(Math.random() * 59)}m` : null,
+      caller_id: online ? c.mac_address : null,
+      upload_bytes: Math.floor(Math.random() * 2_000_000_000),
+      download_bytes: Math.floor(Math.random() * 9_000_000_000),
+      upload_rate: online ? String(Math.floor(Math.random() * 2_000_000 + 100_000)) : '0',
+      download_rate: online ? String(Math.floor(Math.random() * 12_000_000 + 500_000)) : '0',
+      max_limit: c.plan.name.includes('Business') ? '50M/25M' : '20M/10M',
+      last_logged_out: iso(Math.floor(Math.random() * 3)),
+      last_disconnect_reason: online ? '' : 'session-timeout',
+      last_caller_id: c.mac_address,
+      customer: {
+        id: c.id, name: c.name, phone: c.phone, status: c.status,
+        plan: c.plan.name, plan_speed: c.plan.name.includes('Business') ? '50M/25M' : '20M/10M',
+        expiry: c.expiry,
+      },
+    };
+  });
+  const online = users.filter(u => u.online).length;
+  return {
+    router_id: router.id, router_name: router.name, generated_at: iso(),
+    cached: false, cache_age_seconds: null, success: true,
+    summary: {
+      total: users.length, online, offline: users.length - online,
+      disabled: users.filter(u => u.disabled).length,
+      total_upload_rate_bps: 4_500_000, total_download_rate_bps: 28_000_000,
+    },
+    users,
+  };
+}
+
+export function demoHotspotMonitor(routerId: number): HotspotMonitorResponse {
+  const router = demoRouters.find(r => r.id === routerId) ?? demoRouters[0];
+  const hotspotCustomers = demoCustomers.filter(c => c.connection_type === 'hotspot' && c.router.id === router.id);
+  const list = hotspotCustomers.length > 0 ? hotspotCustomers : demoCustomers.filter(c => c.connection_type === 'hotspot').slice(0, 6);
+  const users: HotspotMonitorUser[] = list.map((c, i) => {
+    const online = c.status === 'active' && i % 3 !== 2;
+    return {
+      username: c.mac_address,
+      mac_address: c.mac_address,
+      profile: `plan_${c.plan.id}`,
+      disabled: c.status !== 'active',
+      comment: c.name,
+      online,
+      online_source: online ? 'active' : null,
+      address: online ? `10.10.${router.id}.${20 + i}` : null,
+      uptime: online ? `${Math.floor(Math.random() * 10 + 1)}h${Math.floor(Math.random() * 59)}m` : null,
+      idle_time: online ? `${Math.floor(Math.random() * 15)}m` : null,
+      login_by: 'mac',
+      upload_bytes: Math.floor(Math.random() * 800_000_000),
+      download_bytes: Math.floor(Math.random() * 4_000_000_000),
+      upload_rate: online ? String(Math.floor(Math.random() * 1_500_000 + 100_000)) : '0',
+      download_rate: online ? String(Math.floor(Math.random() * 8_000_000 + 500_000)) : '0',
+      max_limit: '15M/10M',
+      binding_type: 'regular',
+      bypassed: false,
+      authorized: c.status === 'active',
+      has_queue: online,
+      customer: {
+        id: c.id, name: c.name, phone: c.phone, status: c.status,
+        plan: c.plan.name, plan_speed: '15M/10M', expiry: c.expiry,
+      },
+    };
+  });
+  const online = users.filter(u => u.online).length;
+  return {
+    router_id: router.id, router_name: router.name, generated_at: iso(),
+    cached: false, cache_age_seconds: null, success: true,
+    summary: {
+      total: users.length, online, offline: users.length - online,
+      disabled: users.filter(u => u.disabled).length,
+      total_upload_rate_bps: 2_800_000, total_download_rate_bps: 19_000_000,
+    },
+    users,
+  };
+}
+
+// ─── Per-Customer Usage (FUP) ───────────────────────────────────────
+function usagePeriod(customerId: number, periodsAgo: number): CustomerUsagePeriod {
+  const capMB = customerId % 3 === 0 ? 51200 : null;
+  const downloadMB = Math.floor(Math.random() * 28000 + 4000);
+  const uploadMB = Math.floor(downloadMB * 0.2);
+  const totalMB = downloadMB + uploadMB;
+  return {
+    id: customerId * 10 + periodsAgo,
+    period_start: iso(30 * (periodsAgo + 1)),
+    period_end: iso(30 * periodsAgo),
+    upload_mb: uploadMB,
+    download_mb: downloadMB,
+    total_mb: totalMB,
+    cap_mb: capMB,
+    percent_used: capMB ? Math.min(Math.round((totalMB / capMB) * 100), 100) : 0,
+    fup_action: capMB ? 'throttle' : null,
+    fup_triggered_at: null,
+    fup_action_taken: null,
+    fup_reverted_at: null,
+    fup_active: false,
+    closed_at: periodsAgo === 0 ? null : iso(30 * periodsAgo),
+  };
+}
+
+export function demoCustomerUsage(customerId: number): CustomerUsageResponse {
+  const c = demoCustomers.find(cu => cu.id === customerId) ?? demoCustomers[0];
+  return {
+    customer_id: c.id,
+    connection_type: c.connection_type ?? 'hotspot',
+    pppoe_username: c.pppoe_username ?? null,
+    plan_name: c.plan.name,
+    plan_data_cap_mb: c.id % 3 === 0 ? 51200 : null,
+    plan_fup_action: c.id % 3 === 0 ? 'throttle' : null,
+    period: usagePeriod(c.id, 0),
+  };
+}
+
+export function demoCustomerUsageHistory(customerId: number, limit = 6): CustomerUsagePeriod[] {
+  return Array.from({ length: limit }, (_, i) => usagePeriod(customerId, i));
+}
+
+// ─── Access Credentials ─────────────────────────────────────────────
+const accessCredLabels = ['Front Office TV', 'Cyber Cafe PC 1', 'Cyber Cafe PC 2', 'Guest House Wing A', 'Barber Shop', 'Chemist Tablet', 'CCTV NVR', 'Airbnb Unit 4'];
+
+export const demoAccessCredentials: AccessCredential[] = accessCredLabels.map((label, i) => {
+  const revoked = i === 6;
+  const online = !revoked && i % 3 !== 1;
+  const router = demoRouters[i % 3];
+  return {
+    id: 500 + i,
+    router_id: router.id,
+    username: `acc-${label.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
+    rate_limit: i % 2 === 0 ? '10M/5M' : null,
+    data_cap_mb: i % 4 === 0 ? 102400 : null,
+    label,
+    status: revoked ? 'revoked' : 'active',
+    bound_mac_address: online ? macs[i % macs.length] : null,
+    bound_at: online ? iso(20) : null,
+    last_login_at: revoked ? iso(15) : iso(0, i + 1),
+    last_seen_at: revoked ? iso(15) : iso(0, i),
+    last_seen_ip: online ? `10.10.${router.id}.${40 + i}` : null,
+    total_bytes_in: Math.floor(Math.random() * 3_000_000_000),
+    total_bytes_out: Math.floor(Math.random() * 25_000_000_000),
+    created_at: iso(60 - i * 3),
+    updated_at: iso(1),
+    revoked_at: revoked ? iso(14) : null,
+    live: online
+      ? {
+          is_online: true,
+          bound_mac_address: macs[i % macs.length],
+          bound_ip_address: `10.10.${router.id}.${40 + i}`,
+          uptime_this_session: `${Math.floor(Math.random() * 9 + 1)}h${Math.floor(Math.random() * 59)}m`,
+          idle_time: `${Math.floor(Math.random() * 10)}m`,
+          current_rx_rate_bps: Math.floor(Math.random() * 6_000_000),
+          current_tx_rate_bps: Math.floor(Math.random() * 1_500_000),
+        }
+      : { is_online: false, bound_mac_address: null, bound_ip_address: null, uptime_this_session: null, idle_time: null, current_rx_rate_bps: null, current_tx_rate_bps: null },
+  };
+});
+
+export function demoAccessCredentialsList(filters: AccessCredentialFilters = {}): AccessCredentialsListResponse {
+  let items = [...demoAccessCredentials];
+  if (filters.status === 'active' || filters.status === 'revoked') {
+    items = items.filter(c => c.status === filters.status);
+  } else if (filters.status === 'in_use') {
+    items = items.filter(c => c.live?.is_online);
+  } else if (filters.status === 'idle') {
+    items = items.filter(c => c.status === 'active' && !c.live?.is_online);
+  }
+  if (filters.router_id) items = items.filter(c => c.router_id === filters.router_id);
+  if (filters.q) {
+    const q = filters.q.toLowerCase();
+    items = items.filter(c => c.username.toLowerCase().includes(q) || (c.label ?? '').toLowerCase().includes(q));
+  }
+  const perPage = filters.per_page ?? 50;
+  const page = filters.page ?? 1;
+  const paged = items.slice((page - 1) * perPage, page * perPage);
+  return { items: paged, total: items.length, page, per_page: perPage, pages: Math.max(Math.ceil(items.length / perPage), 1) };
+}
+
+export function demoAccessCredential(id: number, reveal = false): AccessCredential {
+  const cred = demoAccessCredentials.find(c => c.id === id) ?? demoAccessCredentials[0];
+  return reveal ? { ...cred, password: 'demo-pass-1234' } : cred;
+}
+
+// ─── Reseller Subscription ──────────────────────────────────────────
+export const demoSubscriptionInvoices: SubscriptionInvoice[] = Array.from({ length: 6 }, (_, i) => {
+  const pending = i === 0;
+  const start = new Date(now);
+  start.setMonth(start.getMonth() - i - 1, 1);
+  const end = new Date(start);
+  end.setMonth(end.getMonth() + 1, 0);
+  const due = new Date(end);
+  due.setDate(due.getDate() + 5);
+  const charge = 4200 + i * 150;
+  return {
+    id: 900 - i,
+    period_start: start.toISOString(),
+    period_end: end.toISOString(),
+    period_label: start.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }),
+    hotspot_revenue: charge * 18,
+    hotspot_charge: Math.round(charge * 0.7),
+    pppoe_user_count: 5,
+    pppoe_charge: Math.round(charge * 0.3),
+    gross_charge: charge,
+    final_charge: charge,
+    amount_paid: pending ? 0 : charge,
+    balance_remaining: pending ? charge : 0,
+    status: pending ? 'pending' : 'paid',
+    due_date: due.toISOString(),
+    paid_at: pending ? null : due.toISOString(),
+    days_until_due: pending ? Math.max(Math.ceil((due.getTime() - now.getTime()) / 86_400_000), 0) : undefined,
+    is_overdue: false,
+    is_due_soon: pending,
+    created_at: end.toISOString(),
+  };
+});
+
+export const demoSubscriptionPayments: SubscriptionPayment[] = demoSubscriptionInvoices
+  .filter(inv => inv.status === 'paid')
+  .map((inv, i) => ({
+    id: 700 + i,
+    invoice_id: inv.id,
+    amount: inv.final_charge,
+    payment_method: i % 3 === 2 ? 'bank_transfer' : 'mpesa',
+    payment_reference: i % 3 === 2 ? `BT-${9100 + i}` : `SJ${String(8100 + i).padStart(6, '0')}QW`,
+    phone_number: '254712345678',
+    status: 'completed',
+    created_at: inv.paid_at ?? iso(30 * (i + 1)),
+  }));
+
+export const demoSubscriptionOverview: SubscriptionOverview = {
+  status: 'active',
+  expires_at: iso(-21),
+  trial_ends_at: null,
+  current_period_start: iso(9),
+  current_period_end: iso(-21),
+  total_paid: demoSubscriptionPayments.reduce((s, p) => s + p.amount, 0),
+  invoice_count: demoSubscriptionInvoices.length,
+  pending_invoice: demoSubscriptionInvoices[0],
+};
+
+export function demoSubscriptionInvoicesResponse(page = 1, perPage = 20, status?: string): SubscriptionInvoicesResponse {
+  const filtered = status ? demoSubscriptionInvoices.filter(inv => inv.status === status) : demoSubscriptionInvoices;
+  const paged = filtered.slice((page - 1) * perPage, page * perPage);
+  return { page, per_page: perPage, total: filtered.length, total_pages: Math.max(Math.ceil(filtered.length / perPage), 1), invoices: paged };
+}
+
+export function demoSubscriptionPaymentsResponse(page = 1, perPage = 20): SubscriptionPaymentsResponse {
+  const paged = demoSubscriptionPayments.slice((page - 1) * perPage, page * perPage);
+  return { page, per_page: perPage, total: demoSubscriptionPayments.length, total_pages: Math.max(Math.ceil(demoSubscriptionPayments.length / perPage), 1), payments: paged };
+}
+
+// ─── Messaging / SMS ────────────────────────────────────────────────
+export const demoSmsCredits: SmsCreditInfo = {
+  balance: 340,
+  total_purchased: 1000,
+  total_spent: 660,
+  price_per_sms_kes: 1,
+  min_purchase_credits: 100,
+  bundles: [
+    { credits: 100, label: 'Starter' },
+    { credits: 500, label: 'Growth' },
+    { credits: 1000, label: 'Pro' },
+    { credits: 5000, label: 'Bulk' },
+  ],
+  enabled: true,
+};
+
+export function demoSmsRecipients(opts: { filter?: string; planId?: number; search?: string; excludeIds?: number[]; limit?: number; offset?: number } = {}): SmsRecipientsResponse {
+  let list = demoCustomers;
+  if (opts.filter === 'active') list = list.filter(c => c.status === 'active');
+  else if (opts.filter === 'expiring') list = list.filter(c => c.status === 'active').slice(0, 5);
+  if (opts.planId) list = list.filter(c => c.plan.id === opts.planId);
+  if (opts.search) {
+    const q = opts.search.toLowerCase();
+    list = list.filter(c => c.name.toLowerCase().includes(q) || c.phone.includes(q));
+  }
+  if (opts.excludeIds?.length) list = list.filter(c => !opts.excludeIds!.includes(c.id));
+  const offset = opts.offset ?? 0;
+  const limit = opts.limit ?? 100;
+  const pageItems = list.slice(offset, offset + limit);
+  return {
+    count: list.length,
+    recipients: pageItems.map(c => ({ customer_id: c.id, name: c.name, phone: c.phone })),
+    has_more: offset + limit < list.length,
+  };
+}
+
+export const demoSmsTemplates: SmsTemplate[] = [
+  { id: 1, name: 'Expiry Reminder', body: 'Hi {name}, your {plan} internet plan expires on {expiry}. Renew now to stay connected!' },
+  { id: 2, name: 'Payment Received', body: 'Hi {name}, we have received your payment. Your {plan} plan is now active. Thank you!' },
+  { id: 3, name: 'Maintenance Notice', body: 'Dear customer, we will carry out network maintenance tonight between 1-3 AM. Brief interruptions expected.' },
+];
+
+export const demoSmsCampaigns: SmsCampaign[] = [
+  { id: 1, body: 'Hi {name}, your internet plan expires soon. Renew today and stay connected!', recipient_count: 42, segments_per_message: 1, total_credits: 42, sent_count: 42, failed_count: 0, refunded_credits: 0, status: 'completed', created_at: iso(2) },
+  { id: 2, body: 'Dear customer, we will carry out network maintenance tonight between 1-3 AM. Brief interruptions expected.', recipient_count: 68, segments_per_message: 1, total_credits: 68, sent_count: 65, failed_count: 3, refunded_credits: 3, status: 'partial', created_at: iso(6) },
+  { id: 3, body: 'New offer! Get our Monthly Unlimited plan at KES 2,500 and enjoy 15Mbps speeds all month.', recipient_count: 55, segments_per_message: 1, total_credits: 55, sent_count: 55, failed_count: 0, refunded_credits: 0, status: 'completed', created_at: iso(12) },
+];
+
+export function demoSmsCampaignDetail(id: number): SmsCampaignDetail {
+  const campaign = demoSmsCampaigns.find(c => c.id === id) ?? demoSmsCampaigns[0];
+  const messages = demoCustomers.slice(0, Math.min(campaign.recipient_count, 12)).map((c, i) => ({
+    phone: c.phone,
+    name: c.name,
+    status: campaign.failed_count > 0 && i < campaign.failed_count ? 'failed' : 'delivered',
+    error: campaign.failed_count > 0 && i < campaign.failed_count ? 'Invalid number' : null,
+  }));
+  return {
+    id: campaign.id,
+    status: campaign.status,
+    counts: {
+      total: campaign.recipient_count,
+      sent: campaign.sent_count,
+      failed: campaign.failed_count,
+      queued: 0,
+      delivered: campaign.sent_count,
+    },
+    messages,
+  };
+}
+
+export const demoSmsCreditLedger: SmsCreditTransaction[] = [
+  { id: 1, kind: 'send_debit', change: -42, balance_after: 340, reference: 'campaign:1', note: 'Expiry reminder blast', created_at: iso(2) },
+  { id: 2, kind: 'send_debit', change: -68, balance_after: 382, reference: 'campaign:2', note: 'Maintenance notice', created_at: iso(6) },
+  { id: 3, kind: 'refund', change: 3, balance_after: 450, reference: 'campaign:2', note: 'Failed messages refunded', created_at: iso(6) },
+  { id: 4, kind: 'send_debit', change: -55, balance_after: 447, reference: 'campaign:3', note: 'Monthly plan promo', created_at: iso(12) },
+  { id: 5, kind: 'purchase', change: 500, balance_after: 502, reference: 'SJ008421QW', note: 'Growth bundle', created_at: iso(14) },
+  { id: 6, kind: 'purchase', change: 500, balance_after: 2, reference: 'SJ007918QW', note: 'Growth bundle', created_at: iso(45) },
+];
+
+export const demoInbox: InboxResponse = {
+  unread: 2,
+  messages: [
+    { id: 1, subject: 'Welcome to the demo!', body: 'This is a preview of your ISP admin inbox. System notices and billing alerts land here.', is_read: false, created_at: iso(0, 2) },
+    { id: 2, subject: 'Router back online', body: 'South-B Relay recovered after a 2-hour outage. All services restored.', is_read: false, created_at: iso(0, 6) },
+    { id: 3, subject: 'Invoice generated', body: 'Your subscription invoice for last month is ready. Head to Settings → Subscription to view it.', is_read: true, created_at: iso(3) },
+  ],
 };
 
 // ─── Error message for write operations ─────────────────────────────
