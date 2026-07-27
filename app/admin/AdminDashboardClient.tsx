@@ -31,6 +31,9 @@ import { SkeletonCard } from '../components/LoadingSpinner';
 import DbPoolMonitor from '../components/DbPoolMonitor';
 import dynamic from 'next/dynamic';
 import { formatKES } from '../lib/format';
+import PeriodSelector, {
+  PERIOD_OPTIONS, type PeriodFilter as SharedPeriodFilter,
+} from './PeriodSelector';
 
 // Recharts-based components are loaded dynamically (client-only) so recharts
 // stays out of this route's First Load JS bundle.
@@ -54,15 +57,12 @@ const CustomerSignupsChart = dynamic(() => import('./AdminCharts').then(m => m.C
   ssr: false,
   loading: () => <SkeletonCard />,
 });
+const EarningsSummaryCard = dynamic(() => import('./EarningsSummaryCard'), {
+  ssr: false,
+  loading: () => <SkeletonCard />,
+});
 
-type PeriodFilter = '7d' | '30d' | '90d' | '1y';
-
-const PERIOD_OPTIONS: { value: PeriodFilter; label: string }[] = [
-  { value: '7d', label: 'Week' },
-  { value: '30d', label: 'Month' },
-  { value: '90d', label: 'Quarter' },
-  { value: '1y', label: 'Year' },
-];
+type PeriodFilter = SharedPeriodFilter;
 
 const formatSafeDate = (dateStr: string | null | undefined): string => {
   try {
@@ -83,34 +83,6 @@ const formatPercentChange = (value: number | undefined | null): string => {
 };
 
 // ---------- Sub-components ----------
-
-function PeriodSelector({
-  value,
-  onChange,
-  options = PERIOD_OPTIONS,
-}: {
-  value: PeriodFilter;
-  onChange: (v: PeriodFilter) => void;
-  options?: { value: PeriodFilter; label: string }[];
-}) {
-  return (
-    <div className="flex items-center gap-1 bg-background-tertiary/50 rounded-xl p-1">
-      {options.map((opt) => (
-        <button
-          key={opt.value}
-          onClick={() => onChange(opt.value)}
-          className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all ${
-            value === opt.value
-              ? 'bg-accent-primary text-white shadow-sm'
-              : 'text-foreground-muted hover:text-foreground hover:bg-background-tertiary'
-          }`}
-        >
-          {opt.label}
-        </button>
-      ))}
-    </div>
-  );
-}
 
 function PlaceholderCard({ title, subtitle }: { title: string; subtitle?: string }) {
   return (
@@ -359,6 +331,7 @@ export default function AdminDashboardPage() {
   const [globalPeriod, setGlobalPeriod] = useState<PeriodFilter>('30d');
 
   // Per-chart period overrides (null = use global)
+  const [earningsChartPeriod, setEarningsChartPeriod] = useState<PeriodFilter | null>(null);
   const [mpesaChartPeriod, setMpesaChartPeriod] = useState<PeriodFilter | null>(null);
   const [subRevChartPeriod, setSubRevChartPeriod] = useState<PeriodFilter | null>(null);
   const [resellerSignupsChartPeriod, setResellerSignupsChartPeriod] = useState<PeriodFilter | null>(null);
@@ -498,6 +471,7 @@ export default function AdminDashboardPage() {
   }, [fetchDashboard, globalPeriod]);
 
   // Refetch chart-specific data when per-chart period overrides change
+  const effectiveEarningsPeriod = earningsChartPeriod ?? globalPeriod;
   const effectiveMpesaPeriod = mpesaChartPeriod ?? globalPeriod;
   const effectiveSubRevPeriod = subRevChartPeriod ?? globalPeriod;
   const effectiveResellerSignupsPeriod = resellerSignupsChartPeriod ?? globalPeriod;
@@ -798,6 +772,12 @@ export default function AdminDashboardPage() {
 
           {/* Charts Section — 2x2 grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
+            {/* Earnings — what we make, split by which business it came from */}
+            <EarningsSummaryCard
+              period={effectiveEarningsPeriod}
+              onPeriodChange={(p) => setEarningsChartPeriod(p === globalPeriod ? null : p)}
+            />
+
             {/* M-Pesa Transaction Revenue */}
             <ChartCard
               title="M-Pesa Transaction Revenue"
