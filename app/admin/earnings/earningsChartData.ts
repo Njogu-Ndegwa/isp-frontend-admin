@@ -27,10 +27,29 @@ export const TOTAL_COLOR = 'var(--color-foreground)';
 
 export interface EarningsChartPoint {
   label: string;
+  /** What each business brought in during this bucket — the stacked bars. */
   system: number;
   reseller: number;
-  total: number;
+  /** Combined earnings so far this period — the area behind the bars. */
+  runningTotal: number;
 }
+
+/** Range chips map to the API's calendar periods. */
+export type EarningsPeriod = 'week' | 'month' | 'quarter' | 'year';
+
+export const PERIOD_FOR_CHIP: Record<string, EarningsPeriod> = {
+  '7d': 'week',
+  '30d': 'month',
+  '90d': 'quarter',
+  '1y': 'year',
+};
+
+export const PERIOD_NOUN: Record<EarningsPeriod, string> = {
+  week: 'this week',
+  month: 'this month',
+  quarter: 'this quarter',
+  year: 'this year',
+};
 
 export function sourceSwatchStyle(key: EarningsSourceKey | 'total'): React.CSSProperties {
   if (key === 'total') return { backgroundColor: TOTAL_COLOR, opacity: 0.45 };
@@ -38,14 +57,12 @@ export function sourceSwatchStyle(key: EarningsSourceKey | 'total'): React.CSSPr
 }
 
 /**
- * Collapse the API's per-stream series into the two businesses.
+ * Collapse the API's per-stream series into the two businesses, and carry the
+ * running total alongside.
  *
  * The backend splits system revenue into the hotspot commission, the PPPoE fee
- * and anything unattributable; for comparing the two businesses those roll up
- * into one line. The breakdown table still shows the split.
- *
- * `cumulative` turns each series into a running total, so the chart answers
- * "how much have we made so far" rather than "what came in that day".
+ * and anything unattributable; comparing the two businesses rolls those into
+ * one. The breakdown table still shows the split.
  */
 export function toChartPoints(
   series: AdminEarningsPoint[],
@@ -55,17 +72,19 @@ export function toChartPoints(
   let resellerRun = 0;
 
   return series.map((point) => {
-    const system = (point.saas_hotspot ?? 0) + (point.saas_pppoe ?? 0) + (point.saas_other ?? 0);
-    const reseller = point.reseller ?? 0;
+    const daySystem = (point.saas_hotspot ?? 0) + (point.saas_pppoe ?? 0) + (point.saas_other ?? 0);
+    const dayReseller = point.reseller ?? 0;
+    systemRun += daySystem;
+    resellerRun += dayReseller;
 
-    if (cumulative) {
-      systemRun += system;
-      resellerRun += reseller;
-    }
+    const system = cumulative ? systemRun : daySystem;
+    const reseller = cumulative ? resellerRun : dayReseller;
 
-    const s = Math.round((cumulative ? systemRun : system) * 100) / 100;
-    const r = Math.round((cumulative ? resellerRun : reseller) * 100) / 100;
-
-    return { label: point.label, system: s, reseller: r, total: Math.round((s + r) * 100) / 100 };
+    return {
+      label: point.label,
+      system: Math.round(system * 100) / 100,
+      reseller: Math.round(reseller * 100) / 100,
+      runningTotal: Math.round((systemRun + resellerRun) * 100) / 100,
+    };
   });
 }

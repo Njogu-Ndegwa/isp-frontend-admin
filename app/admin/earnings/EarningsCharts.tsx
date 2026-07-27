@@ -1,12 +1,11 @@
 'use client';
 
 import {
-  CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis,
+  Area, AreaChart, Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from 'recharts';
 import { formatKES } from '../../lib/format';
 import {
-  EarningsChartPoint, EarningsSourceKey, SOURCE_COLORS, SOURCE_LABELS,
-  TOTAL_COLOR, sourceSwatchStyle,
+  EarningsChartPoint, SOURCE_COLORS, SOURCE_LABELS, TOTAL_COLOR, sourceSwatchStyle,
 } from './earningsChartData';
 
 const formatCompact = (amount: number): string => {
@@ -18,119 +17,153 @@ const formatCompact = (amount: number): string => {
 const axisTick = { fontSize: 10, fill: 'var(--color-foreground-muted)' };
 
 function EarningsTooltip({
-  active, payload, label, showTotal,
+  active, payload, label, cumulative,
 }: {
   active?: boolean;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   payload?: any[];
   label?: string;
-  showTotal: boolean;
+  cumulative?: boolean;
 }) {
   if (!active || !payload?.length) return null;
 
   const value = (key: string) => {
     const hit = payload.find((entry) => String(entry.dataKey) === key);
-    return hit ? Number(hit.value) || 0 : null;
+    return hit ? Number(hit.value) || 0 : 0;
   };
-  const rows: { key: EarningsSourceKey; value: number }[] = [];
-  for (const key of ['system', 'reseller'] as const) {
-    const v = value(key);
-    if (v !== null) rows.push({ key, value: v });
-  }
-  const total = value('total');
+  const system = value('system');
+  const reseller = value('reseller');
+  const runningTotal = value('runningTotal');
 
   return (
-    <div className="rounded-xl border border-border bg-background-secondary px-3 py-2 shadow-lg">
-      <p className="text-[10px] text-foreground-muted mb-1.5">{label}</p>
-      <div className="space-y-1">
-        {rows.map((row) => (
-          <div key={row.key} className="flex items-center gap-2 text-[11px]">
-            <span className="w-2.5 h-2.5 rounded-sm shrink-0" style={sourceSwatchStyle(row.key)} />
-            <span className="text-foreground-muted flex-1 whitespace-nowrap">{SOURCE_LABELS[row.key]}</span>
-            <span className="text-foreground font-medium tabular-nums">{formatKES(row.value)}</span>
-          </div>
-        ))}
-      </div>
-      {showTotal && total !== null && (
-        <div className="mt-1.5 pt-1.5 border-t border-border flex items-center justify-between gap-4 text-[11px]">
-          <span className="text-foreground-muted">Total</span>
-          <span className="text-foreground font-semibold tabular-nums">{formatKES(total)}</span>
+    <div className="rounded-lg border border-border bg-background-secondary px-2.5 py-2 shadow-lg text-[11px]">
+      <p className="text-[10px] text-foreground-muted mb-1">{label}</p>
+      <div className="space-y-0.5">
+        <div className="flex items-center gap-2">
+          <span className="w-2 h-2 rounded-sm shrink-0" style={sourceSwatchStyle('system')} />
+          <span className="text-foreground-muted flex-1">{SOURCE_LABELS.system}</span>
+          <span className="text-foreground tabular-nums">{formatKES(system)}</span>
         </div>
-      )}
+        <div className="flex items-center gap-2">
+          <span className="w-2 h-2 rounded-sm shrink-0" style={sourceSwatchStyle('reseller')} />
+          <span className="text-foreground-muted flex-1">{SOURCE_LABELS.reseller}</span>
+          <span className="text-foreground tabular-nums">{formatKES(reseller)}</span>
+        </div>
+      </div>
+      <div className="mt-1 pt-1 border-t border-border flex items-center justify-between gap-3">
+        <span className="text-foreground-muted">{cumulative ? 'Total' : 'Running total'}</span>
+        <span className="text-foreground font-semibold tabular-nums">
+          {formatKES(cumulative ? system + reseller : runningTotal)}
+        </span>
+      </div>
     </div>
   );
 }
 
 /**
- * System sales against our own reseller business over time, with the combined
- * total on top. `hidden` drops a line without repainting the survivors — a
- * business keeps its colour however the chart is filtered.
+ * Earnings over the period, split by which business brought the money in.
+ *
+ * Bars rather than lines because the income is lumpy — subscription payments
+ * arrive as discrete lumps, so most days are zero and a line plunges to the
+ * axis and back, producing a sawtooth that reads as noise. A quiet day should
+ * be an absent bar, not a spike.
+ *
+ * Per-bucket and running-total are separate views rather than a bar/area
+ * combination on one plot: over a month the running total reaches ~20x any
+ * single day, so sharing an axis squashes the bars to a few pixels. Two
+ * measures of that different a scale get their own axis, not a shared one.
  */
 export default function EarningsChart({
   data,
-  hidden,
-  showTotal = true,
+  mode = 'bucket',
   height = 300,
   compact = false,
 }: {
   data: EarningsChartPoint[];
-  hidden?: Set<EarningsSourceKey | 'total'>;
-  showTotal?: boolean;
+  mode?: 'bucket' | 'cumulative';
   height?: number;
   compact?: boolean;
 }) {
-  const off = hidden ?? new Set<EarningsSourceKey | 'total'>();
-  const totalVisible = showTotal && !off.has('total');
+  const cumulative = mode === 'cumulative';
 
-  return (
-    <ResponsiveContainer width="100%" height={height}>
-      <LineChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" vertical={false} />
-        <XAxis
-          dataKey="label"
-          tick={compact ? false : axisTick}
-          tickLine={false}
-          axisLine={false}
-          minTickGap={24}
-          height={compact ? 4 : undefined}
-        />
-        <YAxis
-          tick={compact ? false : axisTick}
-          tickLine={false}
-          axisLine={false}
-          tickFormatter={formatCompact}
-          width={compact ? 0 : 48}
-        />
-        <Tooltip
-          cursor={{ stroke: 'var(--color-border)', strokeWidth: 1 }}
-          content={<EarningsTooltip showTotal={totalVisible} />}
-        />
-        {/* Total sits underneath the two sources so the comparison stays on top. */}
-        {totalVisible && (
-          <Line
-            type="monotone"
-            dataKey="total"
-            stroke={TOTAL_COLOR}
-            strokeWidth={2.5}
-            strokeOpacity={0.35}
-            dot={false}
-            activeDot={{ r: 4 }}
-          />
-        )}
-        {(['system', 'reseller'] as const).map((key) => (
-          off.has(key) ? null : (
-            <Line
+  const axes = (
+    <>
+      <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" vertical={false} />
+      <XAxis
+        dataKey="label"
+        tick={compact ? false : axisTick}
+        tickLine={false}
+        axisLine={false}
+        minTickGap={compact ? 40 : 24}
+        height={compact ? 4 : undefined}
+      />
+      <YAxis
+        tick={compact ? false : axisTick}
+        tickLine={false}
+        axisLine={false}
+        tickFormatter={formatCompact}
+        width={compact ? 0 : 48}
+      />
+      <Tooltip
+        cursor={cumulative
+          ? { stroke: 'var(--color-border)', strokeWidth: 1 }
+          : { fill: 'var(--color-background-tertiary)', opacity: 0.4 }}
+        content={<EarningsTooltip cumulative={cumulative} />}
+      />
+    </>
+  );
+
+  if (cumulative) {
+    // Stacked running totals — the top edge is everything earned so far.
+    return (
+      <ResponsiveContainer width="100%" height={height}>
+        <AreaChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+          <defs>
+            {(['system', 'reseller'] as const).map((key) => (
+              <linearGradient key={key} id={`earningsGrad-${key}`} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor={SOURCE_COLORS[key]} stopOpacity={0.5} />
+                <stop offset="95%" stopColor={SOURCE_COLORS[key]} stopOpacity={0.12} />
+              </linearGradient>
+            ))}
+          </defs>
+          {axes}
+          {(['system', 'reseller'] as const).map((key) => (
+            <Area
               key={key}
               type="monotone"
               dataKey={key}
+              stackId="earnings"
               stroke={SOURCE_COLORS[key]}
               strokeWidth={2}
-              dot={false}
-              activeDot={{ r: 4, strokeWidth: 2, stroke: 'var(--color-background-secondary)' }}
+              fill={`url(#earningsGrad-${key})`}
             />
-          )
-        ))}
-      </LineChart>
+          ))}
+        </AreaChart>
+      </ResponsiveContainer>
+    );
+  }
+
+  return (
+    <ResponsiveContainer width="100%" height={height}>
+      <BarChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+        {axes}
+        {/* No seam stroke: bars are ~8px wide on a phone, and a 1px stroke on
+            each edge eats the fill entirely. The two hues sit ~30 CVD-ΔE apart,
+            so the boundary reads without one. */}
+        <Bar
+          dataKey="system"
+          stackId="earnings"
+          fill={SOURCE_COLORS.system}
+          maxBarSize={compact ? 18 : 28}
+        />
+        <Bar
+          dataKey="reseller"
+          stackId="earnings"
+          fill={SOURCE_COLORS.reseller}
+          radius={[3, 3, 0, 0]}
+          maxBarSize={compact ? 18 : 28}
+        />
+      </BarChart>
     </ResponsiveContainer>
   );
 }

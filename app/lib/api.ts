@@ -2478,14 +2478,12 @@ class ApiClient {
   }
 
   /**
-   * Combined earnings across every revenue stream. `days` overrides `period`
-   * when the user picks a custom window; unlike the other metrics helpers this
-   * one rethrows so the page can show a real error instead of an empty chart.
+   * Combined earnings across every revenue stream, for a calendar period-to-date.
+   * Unlike the other metrics helpers this one rethrows, so the page can show a
+   * real error instead of an empty chart.
    */
-  async getAdminEarnings(period: string = '30d', days?: number): Promise<AdminEarnings> {
-    const qs = new URLSearchParams({ period });
-    if (days) qs.set('days', String(days));
-    const response = await fetch(`${BASE_URL}/admin/metrics/earnings?${qs.toString()}`, {
+  async getAdminEarnings(period: string = 'month'): Promise<AdminEarnings> {
+    const response = await fetch(`${BASE_URL}/admin/metrics/earnings?period=${period}`, {
       headers: this.getHeaders(),
     });
     return this.handleResponse<AdminEarnings>(response);

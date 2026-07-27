@@ -7,7 +7,7 @@ import { api } from '../lib/api';
 import { AdminEarnings } from '../lib/types';
 import { formatKES } from '../lib/format';
 import {
-  SOURCE_LABELS, sourceSwatchStyle, toChartPoints,
+  PERIOD_FOR_CHIP, PERIOD_NOUN, SOURCE_LABELS, sourceSwatchStyle, toChartPoints,
 } from './earnings/earningsChartData';
 import PeriodSelector, { type PeriodFilter } from './PeriodSelector';
 
@@ -49,7 +49,7 @@ export default function EarningsSummaryCard({
   useEffect(() => {
     if (!armed) return;
     let live = true;
-    api.getAdminEarnings(period)
+    api.getAdminEarnings(PERIOD_FOR_CHIP[period] ?? 'month')
       .then((result) => { if (live) setLoaded({ period, data: result, failed: false }); })
       .catch(() => { if (live) setLoaded({ period, data: null, failed: true }); });
     return () => { live = false; };
@@ -102,7 +102,7 @@ export default function EarningsSummaryCard({
               {change >= 0 ? '+' : ''}{change.toFixed(1)}%
             </span>
             <span className="text-[11px] text-foreground-muted">
-              total, last {data.days} days
+              total {PERIOD_NOUN[data.period]}
             </span>
           </div>
 
@@ -121,7 +121,7 @@ export default function EarningsSummaryCard({
 
           {data.totals.combined === 0 ? (
             <div className="flex flex-col items-center justify-center h-[180px] text-center gap-1">
-              <p className="text-xs text-foreground-muted">Nothing recorded in this window</p>
+              <p className="text-xs text-foreground-muted">Nothing recorded {PERIOD_NOUN[data.period]} yet</p>
               {data.own_reseller_accounts.length === 0 && (
                 <Link href="/admin/earnings" className="text-[11px] text-accent-primary hover:underline">
                   Pick your reseller accounts to include their collections

@@ -14,25 +14,22 @@ import Header from '../../components/Header';
 import { SkeletonCard } from '../../components/LoadingSpinner';
 import { formatKES } from '../../lib/format';
 import {
-  EarningsSourceKey, SOURCE_LABELS, sourceSwatchStyle, toChartPoints,
+  EarningsPeriod, EarningsSourceKey, PERIOD_NOUN, SOURCE_LABELS,
+  sourceSwatchStyle, toChartPoints,
 } from './earningsChartData';
+import PeriodSelector, { type PeriodFilter } from '../PeriodSelector';
 
 const EarningsChart = dynamic(() => import('./EarningsCharts'), {
   ssr: false,
   loading: () => <div className="h-[300px] rounded-xl bg-background-tertiary/60 animate-pulse" />,
 });
 
-type ViewMode = 'period' | 'cumulative';
-type LegendKey = EarningsSourceKey | 'total';
+type LegendKey = EarningsSourceKey;
 
-const PERIOD_OPTIONS = [
-  { value: '7d', label: '7 days' },
-  { value: '30d', label: '30 days' },
-  { value: '90d', label: '90 days' },
-  { value: '1y', label: '1 year' },
-] as const;
-
-type PeriodValue = (typeof PERIOD_OPTIONS)[number]['value'];
+/** The shared chips speak '7d'|'30d'|…; the earnings API speaks calendar periods. */
+const PERIOD_FOR_CHIP: Record<PeriodFilter, EarningsPeriod> = {
+  '7d': 'week', '30d': 'month', '90d': 'quarter', '1y': 'year',
+};
 
 const formatSigned = (value: number): string => `${value >= 0 ? '+' : ''}${value.toFixed(1)}%`;
 
@@ -41,107 +38,32 @@ const accountLabel = (account: AdminEarningsAccount): string =>
 
 // ---------- Sub-components ----------
 
-function RangeFilter({
-  period,
-  customDays,
-  onPeriod,
-  onCustomDays,
-}: {
-  period: PeriodValue;
-  customDays: number | null;
-  onPeriod: (value: PeriodValue) => void;
-  onCustomDays: (value: number | null) => void;
-}) {
-  const [draft, setDraft] = useState('');
-
-  const commit = () => {
-    const parsed = Number.parseInt(draft, 10);
-    if (!Number.isFinite(parsed) || parsed < 1) {
-      setDraft('');
-      onCustomDays(null);
-      return;
-    }
-    const clamped = Math.min(parsed, 1095);
-    setDraft(String(clamped));
-    onCustomDays(clamped);
-  };
-
-  return (
-    <div className="flex items-center gap-2 flex-wrap">
-      <div className="flex items-center gap-1 bg-background-tertiary/50 rounded-xl p-1">
-        {PERIOD_OPTIONS.map((opt) => (
-          <button
-            key={opt.value}
-            onClick={() => { setDraft(''); onCustomDays(null); onPeriod(opt.value); }}
-            className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all ${
-              !customDays && period === opt.value
-                ? 'bg-accent-primary text-white shadow-sm'
-                : 'text-foreground-muted hover:text-foreground hover:bg-background-tertiary'
-            }`}
-          >
-            {opt.label}
-          </button>
-        ))}
-      </div>
-      <div className={`flex items-center gap-1.5 rounded-xl border px-2.5 py-1 transition-colors ${
-        customDays ? 'border-accent-primary/40 bg-accent-primary/5' : 'border-border'
-      }`}>
-        <input
-          type="number"
-          min={1}
-          max={1095}
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          onBlur={commit}
-          onKeyDown={(e) => { if (e.key === 'Enter') { e.currentTarget.blur(); } }}
-          placeholder="Custom"
-          aria-label="Custom range in days"
-          className="w-16 bg-transparent text-xs text-foreground placeholder:text-foreground-muted focus:outline-none"
-        />
-        <span className="text-[10px] text-foreground-muted">days</span>
-      </div>
-    </div>
-  );
-}
-
 function SourceLegend({
   entries,
-  hidden,
-  onToggle,
+  runningTotal,
 }: {
   entries: { key: LegendKey; label: string; total: number }[];
-  hidden: Set<LegendKey>;
-  onToggle: (key: LegendKey) => void;
+  runningTotal: number | null;
 }) {
   return (
-    <div className="flex items-center gap-2 flex-wrap">
-      {entries.map((entry) => {
-        const off = hidden.has(entry.key);
-        return (
-          <button
-            key={entry.key}
-            onClick={() => onToggle(entry.key)}
-            aria-pressed={!off}
-            className={`flex items-center gap-2 rounded-lg border px-2.5 py-1.5 text-[11px] transition-all ${
-              off
-                ? 'border-border text-foreground-muted/60 opacity-60'
-                : 'border-border-hover text-foreground hover:bg-background-tertiary/60'
-            }`}
-          >
-            <span
-              className="w-2.5 h-2.5 rounded-sm shrink-0"
-              style={off
-                ? { backgroundColor: 'var(--color-foreground-muted)', opacity: 0.35 }
-                : sourceSwatchStyle(entry.key)}
-            />
-            <span className="whitespace-nowrap">{entry.label}</span>
-            <span className="tabular-nums font-medium">{formatKES(entry.total)}</span>
-          </button>
-        );
-      })}
+    <div className="flex items-center gap-x-4 gap-y-1.5 flex-wrap text-[11px]">
+      {entries.map((entry) => (
+        <span key={entry.key} className="flex items-center gap-1.5">
+          <span className="w-2.5 h-2.5 rounded-sm shrink-0" style={sourceSwatchStyle(entry.key)} />
+          <span className="text-foreground-muted">{entry.label}</span>
+          <span className="text-foreground font-medium tabular-nums">{formatKES(entry.total)}</span>
+        </span>
+      ))}
+      {runningTotal !== null && (
+        <span className="flex items-center gap-1.5">
+          <span className="text-foreground-muted">Total so far</span>
+          <span className="text-foreground font-medium tabular-nums">{formatKES(runningTotal)}</span>
+        </span>
+      )}
     </div>
   );
 }
+
 
 function BreakdownTable({ data }: { data: AdminEarnings }) {
   const total = data.totals.combined;
@@ -374,10 +296,9 @@ function OwnAccountsCard({
 export default function EarningsClient() {
   const { user } = useAuth();
 
-  const [period, setPeriod] = useState<PeriodValue>('30d');
-  const [customDays, setCustomDays] = useState<number | null>(null);
-  const [mode, setMode] = useState<ViewMode>('period');
-  const [hidden, setHidden] = useState<Set<LegendKey>>(new Set());
+  const [chip, setChip] = useState<PeriodFilter>('30d');
+  const [mode, setMode] = useState<'bucket' | 'cumulative'>('bucket');
+  const period = PERIOD_FOR_CHIP[chip];
 
   const [data, setData] = useState<AdminEarnings | null>(null);
   const [loading, setLoading] = useState(true);
@@ -389,7 +310,7 @@ export default function EarningsClient() {
     setLoading(true);
     setError(null);
     try {
-      const result = await api.getAdminEarnings(period, customDays ?? undefined);
+      const result = await api.getAdminEarnings(period);
       if (loadSeq.current !== seq) return;
       setData(result);
     } catch (err) {
@@ -398,20 +319,9 @@ export default function EarningsClient() {
     } finally {
       if (loadSeq.current === seq) setLoading(false);
     }
-  }, [period, customDays]);
+  }, [period]);
 
   useEffect(() => { load(); }, [load]);
-
-  const toggleSource = (key: LegendKey) => {
-    setHidden((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      // Never let the chart go completely empty.
-      if (next.size >= 3) return prev;
-      return next;
-    });
-  };
 
   const chartPoints = useMemo(
     () => toChartPoints(data?.series ?? [], mode === 'cumulative'),
@@ -423,13 +333,10 @@ export default function EarningsClient() {
     return [
       { key: 'system' as const, label: SOURCE_LABELS.system, total: data.totals.system },
       { key: 'reseller' as const, label: SOURCE_LABELS.reseller, total: data.totals.reseller },
-      { key: 'total' as const, label: 'Total', total: data.totals.combined },
     ];
   }, [data]);
 
-  const rangeLabel = customDays
-    ? `Last ${customDays} days`
-    : PERIOD_OPTIONS.find((o) => o.value === period)?.label ?? period;
+  const rangeLabel = PERIOD_NOUN[period];
 
   if (user?.role !== 'admin') {
     return (
@@ -498,7 +405,8 @@ export default function EarningsClient() {
                   {formatKES(tile.value)}
                 </p>
                 <p className={`text-xs mt-1 ${tile.change >= 0 ? 'text-emerald-500' : 'text-red-400'}`}>
-                  {formatSigned(tile.change)} <span className="text-foreground-muted">vs previous {data.days} days</span>
+                  {formatSigned(tile.change)}{' '}
+                  <span className="text-foreground-muted">{data.comparison_label}</span>
                 </p>
               </div>
             ))}
@@ -517,7 +425,7 @@ export default function EarningsClient() {
               <div className="flex items-center gap-2 flex-wrap">
                 <div className="flex items-center gap-1 bg-background-tertiary/50 rounded-xl p-1">
                   {([
-                    { value: 'period' as const, label: 'Per bucket' },
+                    { value: 'bucket' as const, label: 'Per day' },
                     { value: 'cumulative' as const, label: 'Running total' },
                   ]).map((opt) => (
                     <button
@@ -533,27 +441,22 @@ export default function EarningsClient() {
                     </button>
                   ))}
                 </div>
-                <RangeFilter
-                  period={period}
-                  customDays={customDays}
-                  onPeriod={setPeriod}
-                  onCustomDays={setCustomDays}
-                />
+                <PeriodSelector value={chip} onChange={setChip} />
               </div>
             </div>
 
             <div className="mb-4">
-              <SourceLegend entries={legendEntries} hidden={hidden} onToggle={toggleSource} />
+              <SourceLegend entries={legendEntries} runningTotal={mode === 'bucket' ? data.totals.combined : null} />
             </div>
 
             {loading ? (
               <div className="h-[300px] rounded-xl bg-background-tertiary/60 animate-pulse" />
             ) : data.totals.combined === 0 ? (
               <div className="flex items-center justify-center h-[300px] text-foreground-muted text-xs">
-                No earnings recorded in this window
+                Nothing recorded {rangeLabel} yet
               </div>
             ) : (
-              <EarningsChart data={chartPoints} hidden={hidden} />
+              <EarningsChart data={chartPoints} mode={mode} />
             )}
           </div>
 
