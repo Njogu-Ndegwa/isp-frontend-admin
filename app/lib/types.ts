@@ -3005,6 +3005,53 @@ export interface AdminSubscriptionRevenueHistory {
   previous_period: { date: string; label: string; revenue: number; cumulative_revenue?: number }[];
 }
 
+/** Keys of the individual bands that stack into total earnings. */
+export type AdminEarningsStreamKey = 'saas_hotspot' | 'saas_pppoe' | 'saas_other' | 'reseller';
+
+export interface AdminEarningsStream {
+  key: AdminEarningsStreamKey;
+  label: string;
+  /** Which headline the stream rolls up into. */
+  group: 'system' | 'reseller';
+  total: number;
+}
+
+export type AdminEarningsPoint = {
+  date: string;
+  label: string;
+  total: number;
+  cumulative_total: number;
+} & Record<AdminEarningsStreamKey, number>;
+
+export type AdminEarningsTotals = Record<AdminEarningsStreamKey, number> & {
+  system: number;
+  reseller: number;
+  combined: number;
+};
+
+export interface AdminEarningsAccount {
+  id: number;
+  organization_name: string | null;
+  email: string;
+}
+
+export interface AdminEarnings {
+  period: string;
+  days: number;
+  granularity: 'day' | 'week' | 'month';
+  start_date: string;
+  end_date: string;
+  /** Only the bands with something to show — `saas_other` is omitted when zero. */
+  streams: AdminEarningsStream[];
+  totals: AdminEarningsTotals;
+  previous_totals: AdminEarningsTotals;
+  change_percent: { combined: number; system: number; reseller: number };
+  all_time: { system: number; reseller: number; combined: number };
+  average_per_bucket: number;
+  series: AdminEarningsPoint[];
+  own_reseller_accounts: AdminEarningsAccount[];
+}
+
 export interface AdminARPUMetrics {
   current_arpu: number;
   previous_period_arpu: number;

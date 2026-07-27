@@ -203,6 +203,15 @@ const adminGroups: NavGroup[] = [
         ),
       },
       {
+        name: 'Earnings',
+        href: '/admin/earnings',
+        icon: (
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 3v18h18M7 15l4-4 3 3 5-6" />
+          </svg>
+        ),
+      },
+      {
         name: 'Subscriptions',
         href: '/admin/subscriptions',
         icon: (

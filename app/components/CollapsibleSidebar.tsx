@@ -229,6 +229,9 @@ function isItemActive(pathname: string, href: string): boolean {
   if (href === '/admin/resellers') {
     return pathname === '/admin/resellers' || pathname.startsWith('/admin/resellers/');
   }
+  if (href === '/admin/earnings') {
+    return pathname === '/admin/earnings';
+  }
   if (href === '/admin/subscriptions') {
     return pathname === '/admin/subscriptions' || pathname.startsWith('/admin/subscriptions/');
   }
@@ -333,6 +336,15 @@ const adminNavGroups: NavGroup[] = [
         icon: (
           <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0" />
+          </svg>
+        ),
+      },
+      {
+        name: 'Earnings',
+        href: '/admin/earnings',
+        icon: (
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 3v18h18M7 15l4-4 3 3 5-6" />
           </svg>
         ),
       },
