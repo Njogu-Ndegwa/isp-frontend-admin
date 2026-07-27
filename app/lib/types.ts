@@ -3392,8 +3392,12 @@ export interface AdminEarningsAccount {
 }
 
 export interface AdminEarnings {
-  period: string;
+  /** Calendar period-to-date, matching the rest of the admin dashboard. */
+  period: 'week' | 'month' | 'quarter' | 'year';
+  /** Days elapsed in the current period so far. */
   days: number;
+  /** e.g. "vs same point last month" — the previous window is clipped to match. */
+  comparison_label: string;
   granularity: 'day' | 'week' | 'month';
   start_date: string;
   end_date: string;
