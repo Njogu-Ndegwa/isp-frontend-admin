@@ -27,13 +27,13 @@ function EarningsTooltip({
 }) {
   if (!active || !payload?.length) return null;
 
-  const value = (key: string) => {
-    const hit = payload.find((entry) => String(entry.dataKey) === key);
-    return hit ? Number(hit.value) || 0 : 0;
-  };
-  const system = value('system');
-  const reseller = value('reseller');
-  const runningTotal = value('runningTotal');
+  // Read the bucket off the datum, not the plotted series. The bar view plots
+  // no `runningTotal` series, so a dataKey lookup silently returned 0 and the
+  // tooltip claimed a running total of zero halfway through the month.
+  const point = (payload[0]?.payload ?? {}) as Partial<EarningsChartPoint>;
+  const system = Number(point.system) || 0;
+  const reseller = Number(point.reseller) || 0;
+  const runningTotal = Number(point.runningTotal) || 0;
 
   return (
     <div className="rounded-lg border border-border bg-background-secondary px-2.5 py-2 shadow-lg text-[11px]">
@@ -50,11 +50,21 @@ function EarningsTooltip({
           <span className="text-foreground tabular-nums">{formatKES(reseller)}</span>
         </div>
       </div>
-      <div className="mt-1 pt-1 border-t border-border flex items-center justify-between gap-3">
-        <span className="text-foreground-muted">{cumulative ? 'Total' : 'Running total'}</span>
-        <span className="text-foreground font-semibold tabular-nums">
-          {formatKES(cumulative ? system + reseller : runningTotal)}
-        </span>
+      <div className="mt-1 pt-1 border-t border-border space-y-0.5">
+        {/* The headline figure of the hover: both businesses combined. */}
+        <div className="flex items-center justify-between gap-3">
+          <span className="text-foreground-muted">{cumulative ? 'Total' : 'Both, this day'}</span>
+          <span className="text-foreground font-semibold tabular-nums">
+            {formatKES(system + reseller)}
+          </span>
+        </div>
+        {!cumulative && (
+          <div className="flex items-center justify-between gap-3">
+            {/* Period-agnostic: this tooltip also serves week/quarter/year. */}
+            <span className="text-foreground-muted">Running total</span>
+            <span className="text-foreground-muted tabular-nums">{formatKES(runningTotal)}</span>
+          </div>
+        )}
       </div>
     </div>
   );
