@@ -264,8 +264,8 @@ export default function ResellersListPage() {
         </div>
 
         {/* Filter chips */}
-        <div className="flex gap-2 flex-wrap">
-          <div className="flex rounded-lg border border-border overflow-hidden flex-shrink-0">
+        <div className="flex gap-2 overflow-x-auto no-scrollbar -mx-4 px-4 md:mx-0 md:px-0">
+          <div className="flex w-max rounded-lg border border-border overflow-hidden flex-shrink-0">
             <button
               onClick={() => setFilter('')}
               className={`px-3 py-1.5 text-xs font-medium transition-colors whitespace-nowrap ${
