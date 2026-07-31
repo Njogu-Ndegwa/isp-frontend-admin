@@ -3,14 +3,24 @@
 import React from 'react';
 import { PortalSettings, PortalThemePalette, PortalHeaderStyle } from '../lib/types';
 
+export interface PreviewPlan {
+  id: number;
+  price: number;
+  duration: string;
+  speed: string;
+  popular: boolean;
+}
+
 interface PortalPreviewProps {
   settings: PortalSettings;
   palette: PortalThemePalette;
+  /** The reseller's real plans; falls back to sample plans when absent or empty */
+  plans?: PreviewPlan[];
   /** When true, renders as a full-screen experience with no phone bezel or fake status bar */
   fullscreen?: boolean;
 }
 
-const MOCK_PLANS = [
+const MOCK_PLANS: PreviewPlan[] = [
   { id: 1, price: 50,   duration: '24 HOURS', speed: '5M/2M',   popular: false },
   { id: 2, price: 500,  duration: '7 DAYS',   speed: '10M/5M',  popular: true  },
   { id: 3, price: 2500, duration: '30 DAYS',  speed: '15M/10M', popular: false },
@@ -29,8 +39,9 @@ const BADGE_COLORS: Record<string, { bg: string; color: string }> = {
   SALE: { bg: '#D1FAE5', color: '#059669' },
 };
 
-export default function PortalPreview({ settings, palette, fullscreen = false }: PortalPreviewProps) {
+export default function PortalPreview({ settings, palette, plans, fullscreen = false }: PortalPreviewProps) {
   const isHero = settings.header_style === 'hero';
+  const planList = plans && plans.length > 0 ? plans : MOCK_PLANS;
 
   // In the phone bezel the sticky header must sit below the 36px fake status bar.
   // In fullscreen there's no status bar, so the header sticks at the top of the screen.
@@ -190,7 +201,7 @@ export default function PortalPreview({ settings, palette, fullscreen = false }:
     <div className="pp-plans">
       <h2 className="pp-plans-title">{settings.plans_section_title || 'Choose Your Plan'}</h2>
       <div className="pp-plans-grid">
-        {MOCK_PLANS.map((plan) => (
+        {planList.map((plan) => (
           <div key={plan.id} className={`pp-plan-card${plan.popular ? ' pp-plan-popular' : ''}`}>
             <div className="pp-plan-duration">{plan.duration}</div>
             <div className="pp-plan-price">
@@ -203,21 +214,6 @@ export default function PortalPreview({ settings, palette, fullscreen = false }:
             {plan.popular && <div className="pp-plan-value">Best Value ⭐</div>}
           </div>
         ))}
-      </div>
-    </div>
-  );
-
-  const renderPromo = () => (
-    <div className="pp-promo">
-      <div className="pp-promo-inner">
-        <div className="pp-promo-icon">🏠</div>
-        <div className="pp-promo-text">
-          <strong>Need Home WiFi?</strong>
-          <span>Professional installation from KSH 2,000/month</span>
-        </div>
-        <a href={settings.portal_support_phone ? `tel:${settings.portal_support_phone}` : '#'} className="pp-promo-btn">
-          Call Now
-        </a>
       </div>
     </div>
   );
@@ -748,45 +744,6 @@ export default function PortalPreview({ settings, palette, fullscreen = false }:
       white-space: nowrap;
     }
 
-    /* ── Inline promo ── */
-    .pp-promo {
-      margin-bottom: 16px;
-    }
-    .pp-promo-inner {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      padding: 14px;
-      background: linear-gradient(135deg, ${palette.primary}10 0%, ${palette.accent}08 100%);
-      border-radius: 14px;
-      border: 1px solid ${palette.primary}20;
-    }
-    .pp-promo-icon { font-size: 1.6rem; flex-shrink: 0; }
-    .pp-promo-text {
-      flex: 1;
-      min-width: 0;
-    }
-    .pp-promo-text strong {
-      display: block;
-      font-size: 0.85rem;
-      font-weight: 700;
-      color: ${palette.text};
-    }
-    .pp-promo-text span {
-      font-size: 0.68rem;
-      color: ${palette.textSecondary};
-    }
-    .pp-promo-btn {
-      flex-shrink: 0;
-      padding: 7px 14px;
-      background: ${palette.primary};
-      color: #fff;
-      border-radius: 9999px;
-      font-size: 0.75rem;
-      font-weight: 700;
-      text-decoration: none;
-    }
-
     /* ── Footer ── */
     .pp-footer {
       text-align: center;
@@ -824,7 +781,6 @@ export default function PortalPreview({ settings, palette, fullscreen = false }:
         <div style={{ marginBottom: 20 }}>
           {renderPlans()}
         </div>
-        {renderPromo()}
         {renderFooter()}
       </div>
     </div>

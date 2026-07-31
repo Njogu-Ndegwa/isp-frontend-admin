@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { api } from '../../lib/api';
 import {
+  Plan,
   PortalSettingsResponse,
   PortalColorTheme,
   PortalHeaderStyle,
@@ -10,7 +11,7 @@ import {
   UpdatePortalSettingsRequest,
 } from '../../lib/types';
 import { getThemePalette } from '../../lib/portalThemes';
-import PortalPreview from '../../components/PortalPreview';
+import PortalPreview, { PreviewPlan } from '../../components/PortalPreview';
 import { PageLoader } from '../../components/LoadingSpinner';
 import { useAlert } from '../../context/AlertContext';
 
@@ -77,6 +78,7 @@ export default function PortalCustomizationPage() {
   const [resetting, setResetting] = useState(false);
   const [changed, setChanged] = useState<UpdatePortalSettingsRequest>({});
   const [showPreviewModal, setShowPreviewModal] = useState(false);
+  const [plans, setPlans] = useState<Plan[]>([]);
 
   const loadSettings = useCallback(async () => {
     try {
@@ -88,6 +90,12 @@ export default function PortalCustomizationPage() {
       showAlert('error', err instanceof Error ? err.message : 'Failed to load portal settings');
     } finally {
       setLoading(false);
+    }
+    // Real plans feed the live preview; on failure it falls back to sample plans
+    try {
+      setPlans(await api.getPlans(undefined, 'hotspot'));
+    } catch {
+      setPlans([]);
     }
   }, [showAlert]);
 
@@ -169,6 +177,31 @@ export default function PortalCustomizationPage() {
   } as typeof s;
 
   const palette = getThemePalette(previewSettings.color_theme);
+
+  // Map the reseller's real hotspot plans into the preview's card shape,
+  // pinning featured plans first like the live portal does
+  const featuredIds = String(previewSettings.featured_plan_ids ?? '')
+    .split(',')
+    .map(Number)
+    .filter(Boolean);
+  const previewPlans: PreviewPlan[] = plans
+    .filter((p) => !p.is_hidden && p.plan_type !== 'emergency')
+    .sort(
+      (a, b) =>
+        Number(featuredIds.includes(b.id)) - Number(featuredIds.includes(a.id))
+    )
+    .map((p) => {
+      const unit = String(p.duration_unit || '').toLowerCase();
+      const label =
+        p.duration_value === 1 && unit.endsWith('s') ? unit.slice(0, -1) : unit;
+      return {
+        id: p.id,
+        price: p.price,
+        duration: `${p.duration_value} ${label}`.toUpperCase(),
+        speed: p.speed || `${p.download_speed}M/${p.upload_speed}M`,
+        popular: featuredIds.includes(p.id),
+      };
+    });
 
   const SettingsForm = (
     <div className="space-y-6">
@@ -470,7 +503,7 @@ export default function PortalCustomizationPage() {
             <h3 className="text-sm font-semibold text-foreground">Live Preview</h3>
             <span className="text-xs text-foreground-muted">Updates as you edit</span>
           </div>
-          <PortalPreview settings={previewSettings} palette={palette} />
+          <PortalPreview settings={previewSettings} palette={palette} plans={previewPlans} />
         </div>
       </div>
 
@@ -514,7 +547,7 @@ export default function PortalCustomizationPage() {
           className="xl:hidden fixed inset-0 z-[9997] overflow-y-auto overflow-x-hidden"
           style={{ background: palette.background, scrollbarWidth: 'none' }}
         >
-          <PortalPreview settings={previewSettings} palette={palette} fullscreen />
+          <PortalPreview settings={previewSettings} palette={palette} plans={previewPlans} fullscreen />
         </div>
       )}
     </div>
