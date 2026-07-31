@@ -11,7 +11,7 @@ const CollapsibleSidebar = dynamic(() => import('./CollapsibleSidebar'), { ssr: 
 const MobileBottomNav = dynamic(() => import('./MobileBottomNav'), { ssr: false });
 const SubscriptionBlockedModal = dynamic(() => import('./SubscriptionBlockedModal'), { ssr: false });
 
-const PUBLIC_PATHS = ['/', '/login', '/landing', '/signup'];
+const PUBLIC_PATHS = ['/', '/login', '/landing', '/signup', '/forgot-password', '/reset-password'];
 const PUBLIC_PREFIXES = ['/store', '/r', '/blog'];
 const FULLSCREEN_AUTH_PATHS = ['/setup'];
 
