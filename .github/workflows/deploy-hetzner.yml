@@ -1,0 +1,117 @@
+name: Deploy to Hetzner
+
+# Runs ALONGSIDE the existing Vercel git integration, which this workflow does
+# not touch. One push to master publishes the same commit to both origins, so
+# either one can serve traffic at any time and switching between them is never
+# a deploy.
+#
+# The image is built ON the box rather than in a registry: the build is ~45s on
+# 2 cores and this avoids putting Docker Hub credentials in a second repo. If
+# build contention with the software factory ever becomes a problem, move the
+# build into this job and push to Docker Hub instead.
+#
+# Required repo secrets:
+#   HETZNER_HOST     91.98.238.12
+#   HETZNER_USER     deploy
+#   HETZNER_SSH_KEY  private half of the github-actions-frontend-deploy keypair
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+concurrency:
+  group: hetzner-admin
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure SSH
+        run: |
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "${{ secrets.HETZNER_SSH_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H "${{ secrets.HETZNER_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Upload build context
+        run: |
+          git archive HEAD --format=tar.gz -o /tmp/admin.tgz
+          ls -lh /tmp/admin.tgz
+          scp -o BatchMode=yes /tmp/admin.tgz \
+            "${{ secrets.HETZNER_USER }}@${{ secrets.HETZNER_HOST }}:/tmp/admin-${{ github.sha }}.tgz"
+
+      - name: Build image
+        run: |
+          ssh -o BatchMode=yes "${{ secrets.HETZNER_USER }}@${{ secrets.HETZNER_HOST }}" \
+            "bash -s" <<'REMOTE'
+          set -euo pipefail
+          SHA="${{ github.sha }}"
+          SHORT="${SHA:0:7}"
+          CTX="/srv/admin/build-$SHORT"
+
+          rm -rf "$CTX"; mkdir -p "$CTX"
+          tar -xzf "/tmp/admin-$SHA.tgz" -C "$CTX"
+          rm -f "/tmp/admin-$SHA.tgz"
+
+          cd "$CTX"
+          # --memory caps the build so an OOM kills the build, not the box.
+          # This machine has no swap and also carries the wg-egress role.
+          docker build --memory=2g --memory-swap=2g \
+            -t "isp-admin:$SHORT" -t isp-admin:latest .
+
+          rm -rf "$CTX"
+          echo "built isp-admin:$SHORT"
+          REMOTE
+
+      - name: Restart container
+        run: |
+          ssh -o BatchMode=yes "${{ secrets.HETZNER_USER }}@${{ secrets.HETZNER_HOST }}" \
+            "bash -s" <<'REMOTE'
+          set -euo pipefail
+          SHORT="$(echo '${{ github.sha }}' | cut -c1-7)"
+
+          # ~3s of downtime on the admin origin during the swap. Acceptable
+          # while Vercel is still the origin users are pointed at; move to a
+          # blue/green pair behind two Caddy upstreams before cutting over.
+          docker rm -f isp-admin 2>/dev/null || true
+          docker run -d --name isp-admin \
+            --restart unless-stopped \
+            --memory=768m --memory-swap=768m \
+            --cpus=1.0 \
+            --log-opt max-size=10m --log-opt max-file=3 \
+            -e ORIGIN_SHA="${{ github.sha }}" \
+            -p 127.0.0.1:3001:3000 \
+            "isp-admin:$SHORT"
+
+          # Keep the 3 most recent images; drop dangling layers.
+          docker images 'isp-admin' --format '{{.Tag}} {{.ID}}' \
+            | grep -v '^latest ' | tail -n +4 | awk '{print $2}' \
+            | xargs -r docker rmi -f 2>/dev/null || true
+          docker image prune -f >/dev/null
+          echo "running isp-admin:$SHORT"
+          REMOTE
+
+      - name: Verify
+        run: |
+          ssh -o BatchMode=yes "${{ secrets.HETZNER_USER }}@${{ secrets.HETZNER_HOST }}" \
+            "bash -s" <<'REMOTE'
+          set -euo pipefail
+          for i in $(seq 1 20); do
+            code=$(curl -sS -o /dev/null -w '%{http_code}' http://127.0.0.1:8082/ || echo 000)
+            [ "$code" = "200" ] && break
+            sleep 2
+          done
+          echo "admin /: HTTP $code"
+          [ "$code" = "200" ] || { docker logs isp-admin --tail 30; exit 1; }
+          for p in /login /routers /transactions; do
+            c=$(curl -sS -o /dev/null -w '%{http_code}' "http://127.0.0.1:8082$p")
+            echo "  $p: HTTP $c"
+            [ "$c" = "200" ] || { echo "FAIL: $p"; exit 1; }
+          done
+          REMOTE
