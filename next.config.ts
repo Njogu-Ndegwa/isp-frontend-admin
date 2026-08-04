@@ -32,6 +32,10 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  // Opt-in standalone build, used only by the self-hosted Hetzner origin.
+  // Left unset on Vercel (which builds its own output format), so this is a
+  // no-op for the existing deployment.
+  output: process.env.BUILD_STANDALONE ? "standalone" : undefined,
   images: {
     qualities: [75, 80, 85],
     remotePatterns: [
