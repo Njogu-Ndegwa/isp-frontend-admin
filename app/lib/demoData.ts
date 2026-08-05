@@ -1123,7 +1123,27 @@ export function demoAdminPayouts(resellerId: number, page = 1, perPage = 50): Ad
 
 // ─── Admin Reseller Stats (Charts) ──────────────────────────────────
 
-function generateResellerStatsData(period: AdminResellerStatsPeriod): {
+/** Mirror of the backend's window metadata, so demo charts pan and label too. */
+function demoChartWindow(days: number, offset: number, maxOffset: number) {
+  const end = new Date(now);
+  end.setDate(end.getDate() - days * offset);
+  const start = new Date(end);
+  start.setDate(start.getDate() - (days - 1));
+  const short = (d: Date) => d.toLocaleDateString('en-GB', { month: 'short', day: '2-digit' });
+  const long = (d: Date) => d.toLocaleDateString('en-GB', { month: 'short', day: '2-digit', year: 'numeric' });
+  return {
+    offset,
+    window_start: start.toISOString().split('T')[0],
+    window_end: end.toISOString().split('T')[0],
+    window_label: start.getFullYear() === end.getFullYear()
+      ? `${short(start)} – ${long(end)}`
+      : `${long(start)} – ${long(end)}`,
+    period_days: days,
+    max_offset: maxOffset,
+  };
+}
+
+function generateResellerStatsData(period: AdminResellerStatsPeriod, offset = 0): {
   days: number;
   revenueData: ResellerRevenueDataPoint[];
   signupData: ResellerSignupDataPoint[];
@@ -1132,6 +1152,8 @@ function generateResellerStatsData(period: AdminResellerStatsPeriod): {
     '7d': 7, '30d': 30, '90d': 90, '1y': 365, 'all': 365,
   };
   const days = periodDays[period];
+  // `all` already spans everything, so it cannot be panned.
+  const shift = (period === 'all' ? 0 : Math.max(offset, 0)) * days;
   const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
   const revenueData: ResellerRevenueDataPoint[] = [];
@@ -1142,7 +1164,7 @@ function generateResellerStatsData(period: AdminResellerStatsPeriod): {
   const pointCount = Math.ceil(days / step);
 
   for (let i = pointCount - 1; i >= 0; i--) {
-    const daysAgo = i * step;
+    const daysAgo = i * step + shift;
     const d = new Date(now);
     d.setDate(d.getDate() - daysAgo);
     const dateKey = d.toISOString().split('T')[0];
@@ -1181,8 +1203,12 @@ function generateResellerStatsData(period: AdminResellerStatsPeriod): {
   return { days, revenueData, signupData };
 }
 
-export function demoAdminResellerStats(period: AdminResellerStatsPeriod = '30d'): AdminResellerStats {
-  const { revenueData, signupData } = generateResellerStatsData(period);
+export function demoAdminResellerStats(
+  period: AdminResellerStatsPeriod = '30d',
+  offset = 0,
+): AdminResellerStats {
+  const effectiveOffset = period === 'all' ? 0 : Math.max(offset, 0);
+  const { days, revenueData, signupData } = generateResellerStatsData(period, effectiveOffset);
 
   const totalRevenue = revenueData.reduce((sum, d) => sum + d.revenue, 0);
   const totalMpesa = revenueData.reduce((sum, d) => sum + d.mpesa_revenue, 0);
@@ -1190,6 +1216,7 @@ export function demoAdminResellerStats(period: AdminResellerStatsPeriod = '30d')
 
   return {
     period,
+    ...demoChartWindow(days, effectiveOffset, period === 'all' ? 0 : 36),
     revenue_over_time: revenueData,
     signups_over_time: signupData,
     totals: {

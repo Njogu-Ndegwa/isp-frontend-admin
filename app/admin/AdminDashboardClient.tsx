@@ -34,6 +34,11 @@ import { formatKES } from '../lib/format';
 import PeriodSelector, {
   PERIOD_OPTIONS, type PeriodFilter as SharedPeriodFilter,
 } from './PeriodSelector';
+import TimeTravelPane, { TimeTravelNav } from '../components/TimeTravelPane';
+import { usePannedSeries } from '../hooks/usePannedSeries';
+
+/** Mirrors MAX_PERIOD_OFFSET in app/services/admin_metrics.py. */
+const MAX_CHART_OFFSET = 36;
 
 // Recharts-based components are loaded dynamically (client-only) so recharts
 // stays out of this route's First Load JS bundle.
@@ -108,6 +113,10 @@ function ChartCard({
   onCompareToggle,
   loading,
   isEmpty,
+  offset,
+  maxOffset = MAX_CHART_OFFSET,
+  onOffsetChange,
+  windowLabel,
 }: {
   title: string;
   children: React.ReactNode;
@@ -118,12 +127,45 @@ function ChartCard({
   onCompareToggle?: () => void;
   loading?: boolean;
   isEmpty?: boolean;
+  /** Windows back from the present. Omit to leave the card fixed to today. */
+  offset?: number;
+  maxOffset?: number;
+  onOffsetChange?: (next: number) => void;
+  windowLabel?: string;
 }) {
+  const pannable = offset !== undefined && onOffsetChange !== undefined;
+
+  const body = loading ? (
+    <div className="h-[200px] rounded-xl bg-background-tertiary/60 animate-pulse" />
+  ) : isEmpty ? (
+    <div className="flex items-center justify-center h-[200px] text-foreground-muted text-xs">
+      No data for this period
+    </div>
+  ) : (
+    children
+  );
+
   return (
     <div className="card p-4 sm:p-5">
-      <div className="flex items-center justify-between mb-4 gap-2 flex-wrap">
-        <h3 className="text-sm font-semibold text-foreground">{title}</h3>
+      <div className="flex items-start justify-between mb-4 gap-2 flex-wrap">
+        <div className="min-w-0">
+          <h3 className="text-sm font-semibold text-foreground">{title}</h3>
+          {pannable && windowLabel && (
+            <p className={`text-[10px] mt-0.5 ${offset ? 'text-accent-primary' : 'text-foreground-muted'}`}>
+              {windowLabel}
+            </p>
+          )}
+        </div>
         <div className="flex items-center gap-2">
+          {pannable && (
+            <TimeTravelNav
+              offset={offset}
+              maxOffset={maxOffset}
+              windowLabel={windowLabel}
+              onOffsetChange={onOffsetChange}
+              disabled={loading}
+            />
+          )}
           {showCompare && (
             <button
               onClick={onCompareToggle}
@@ -141,15 +183,16 @@ function ChartCard({
           )}
         </div>
       </div>
-      {loading ? (
-        <div className="h-[200px] rounded-xl bg-background-tertiary/60 animate-pulse" />
-      ) : isEmpty ? (
-        <div className="flex items-center justify-center h-[200px] text-foreground-muted text-xs">
-          No data for this period
-        </div>
-      ) : (
-        children
-      )}
+      {pannable ? (
+        <TimeTravelPane
+          offset={offset}
+          maxOffset={maxOffset}
+          onOffsetChange={onOffsetChange}
+          disabled={loading}
+        >
+          {body}
+        </TimeTravelPane>
+      ) : body}
     </div>
   );
 }
@@ -343,21 +386,21 @@ export default function AdminDashboardPage() {
   const [resellerSignupsCompare, setResellerSignupsCompare] = useState(false);
   const [customerSignupsCompare, setCustomerSignupsCompare] = useState(false);
 
+  // How many whole windows back each chart is panned. 0 is the live window.
+  // Independent per chart, like the period overrides above.
+  const [mpesaOffset, setMpesaOffset] = useState(0);
+  const [subRevOffset, setSubRevOffset] = useState(0);
+  const [resellerSignupsOffset, setResellerSignupsOffset] = useState(0);
+  const [customerSignupsOffset, setCustomerSignupsOffset] = useState(0);
+
   // Existing endpoint data
   const [data, setData] = useState<AdminDashboard | null>(null);
-  const [stats, setStats] = useState<AdminResellerStats | null>(null);
   const [expiring, setExpiring] = useState<AdminExpiringSoon | null>(null);
 
   // New metric endpoint data (nullable until backend ready)
   const [mrr, setMrr] = useState<AdminMRRMetrics | null>(null);
   const [churn, setChurn] = useState<AdminChurnMetrics | null>(null);
   const [signupsSummary, setSignupsSummary] = useState<AdminSignupsSummary | null>(null);
-  const [customerSignups, setCustomerSignups] = useState<AdminCustomerSignupsTimeSeries | null>(null);
-  const [subRevenueHistory, setSubRevenueHistory] = useState<AdminSubscriptionRevenueHistory | null>(null);
-  const [customerSignupsLoading, setCustomerSignupsLoading] = useState(true);
-  const [subRevenueLoading, setSubRevenueLoading] = useState(true);
-  const [customerSignupsLoadedPeriod, setCustomerSignupsLoadedPeriod] = useState<PeriodFilter | null>(null);
-  const [subRevenueLoadedPeriod, setSubRevenueLoadedPeriod] = useState<PeriodFilter | null>(null);
   const [arpu, setArpu] = useState<AdminARPUMetrics | null>(null);
   const [trialConversion, setTrialConversion] = useState<AdminTrialConversion | null>(null);
   const [activationFunnel, setActivationFunnel] = useState<AdminActivationFunnel | null>(null);
@@ -367,43 +410,26 @@ export default function AdminDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const loadSeqRef = useRef(0);
-  const customerSignupsSeqRef = useRef(0);
-  const subRevenueSeqRef = useRef(0);
 
   const fetchDashboard = useCallback(async (period: PeriodFilter) => {
     const loadSeq = loadSeqRef.current + 1;
     loadSeqRef.current = loadSeq;
-    const customerSignupsSeq = customerSignupsSeqRef.current + 1;
-    customerSignupsSeqRef.current = customerSignupsSeq;
-    const subRevenueSeq = subRevenueSeqRef.current + 1;
-    subRevenueSeqRef.current = subRevenueSeq;
 
     try {
       setLoading(true);
       setError(null);
       setSignupsSummary(null);
-      setCustomerSignups(null);
-      setSubRevenueHistory(null);
-      setCustomerSignupsLoading(true);
-      setSubRevenueLoading(true);
-      setCustomerSignupsLoadedPeriod(null);
-      setSubRevenueLoadedPeriod(null);
-
-      const statsPeriod = period as AdminResellerStatsPeriod;
 
       const [
         dashResult,
-        statsResult,
         expiringResult,
       ] = await Promise.all([
         api.getAdminDashboard(),
-        api.getAdminResellerStats(statsPeriod),
         api.getAdminExpiringSoon(7).catch(() => null),
       ]);
 
       if (loadSeqRef.current !== loadSeq) return;
       setData(dashResult);
-      setStats(statsResult);
       setExpiring(expiringResult);
       setLoading(false);
 
@@ -426,24 +452,7 @@ export default function AdminDashboardPage() {
         setTrialConversion(trialRes);
         setSignupsSummary(signupsRes);
 
-        await wait(250);
-        const [custSignupsRes, subRevHistRes] = await Promise.all([
-          api.getAdminCustomerSignups(period).catch(() => null),
-          api.getAdminSubscriptionRevenueHistory(period).catch(() => null),
-        ]);
-        if (!isCurrent()) return;
-        if (customerSignupsSeqRef.current === customerSignupsSeq) {
-          setCustomerSignups(custSignupsRes);
-          setCustomerSignupsLoadedPeriod(period);
-          setCustomerSignupsLoading(false);
-        }
-        if (subRevenueSeqRef.current === subRevenueSeq) {
-          setSubRevenueHistory(subRevHistRes);
-          setSubRevenueLoadedPeriod(period);
-          setSubRevenueLoading(false);
-        }
-
-        await wait(350);
+        await wait(600);
         const [funnelRes, concRes, targetsRes] = await Promise.all([
           api.getAdminActivationFunnel().catch(() => null),
           api.getAdminRevenueConcentration().catch(() => null),
@@ -457,8 +466,6 @@ export default function AdminDashboardPage() {
     } catch (err) {
       if (loadSeqRef.current !== loadSeq) return;
       setError(err instanceof Error ? err.message : 'Failed to load dashboard');
-      setCustomerSignupsLoading(false);
-      setSubRevenueLoading(false);
     } finally {
       if (loadSeqRef.current === loadSeq) {
         setLoading(false);
@@ -477,83 +484,68 @@ export default function AdminDashboardPage() {
   const effectiveResellerSignupsPeriod = resellerSignupsChartPeriod ?? globalPeriod;
   const effectiveCustomerSignupsPeriod = customerSignupsChartPeriod ?? globalPeriod;
 
-  useEffect(() => {
-    if (mpesaChartPeriod && mpesaChartPeriod !== globalPeriod) {
-      api.getAdminResellerStats(mpesaChartPeriod as AdminResellerStatsPeriod).then(setStats).catch(() => {});
-    }
-  }, [mpesaChartPeriod, globalPeriod]);
+  // Changing the period changes what a window *is*, so "3 windows back" would
+  // silently mean something else. Snap every chart back to the present instead.
+  useEffect(() => { setMpesaOffset(0); }, [effectiveMpesaPeriod]);
+  useEffect(() => { setSubRevOffset(0); }, [effectiveSubRevPeriod]);
+  useEffect(() => { setResellerSignupsOffset(0); }, [effectiveResellerSignupsPeriod]);
+  useEffect(() => { setCustomerSignupsOffset(0); }, [effectiveCustomerSignupsPeriod]);
 
-  useEffect(() => {
-    if (resellerSignupsChartPeriod && resellerSignupsChartPeriod !== globalPeriod) {
-      api.getAdminResellerStats(resellerSignupsChartPeriod as AdminResellerStatsPeriod).then(setStats).catch(() => {});
-    }
-  }, [resellerSignupsChartPeriod, globalPeriod]);
+  // Chart series are windowed and independently pannable. They start only once
+  // the headline dashboard has painted, so four charts' worth of aggregate
+  // queries never race the page's own first load.
+  const chartsEnabled = !!data && !loading;
 
-  useEffect(() => {
-    if (!data || loading || subRevenueLoading || subRevenueLoadedPeriod === effectiveSubRevPeriod) return;
+  const fetchResellerStats = useCallback(
+    (p: string, o: number) => api.getAdminResellerStats(p as AdminResellerStatsPeriod, o),
+    [],
+  );
+  const fetchSubRevenue = useCallback(
+    (p: string, o: number) => api.getAdminSubscriptionRevenueHistory(p, o),
+    [],
+  );
+  const fetchCustomerSignups = useCallback(
+    (p: string, o: number) => api.getAdminCustomerSignups(p, o),
+    [],
+  );
 
-    const requestPeriod = effectiveSubRevPeriod;
-    const requestSeq = subRevenueSeqRef.current + 1;
-    subRevenueSeqRef.current = requestSeq;
-    setSubRevenueLoading(true);
-    api.getAdminSubscriptionRevenueHistory(requestPeriod)
-      .then((result) => {
-        if (subRevenueSeqRef.current !== requestSeq) return;
-        setSubRevenueHistory(result);
-        setSubRevenueLoadedPeriod(requestPeriod);
-      })
-      .catch(() => {
-        if (subRevenueSeqRef.current !== requestSeq) return;
-        setSubRevenueHistory(null);
-        setSubRevenueLoadedPeriod(requestPeriod);
-      })
-      .finally(() => {
-        if (subRevenueSeqRef.current === requestSeq) {
-          setSubRevenueLoading(false);
-        }
-      });
-  }, [data, loading, subRevenueLoading, subRevenueLoadedPeriod, effectiveSubRevPeriod]);
+  const mpesaSeries = usePannedSeries<AdminResellerStats>(
+    fetchResellerStats, effectiveMpesaPeriod, mpesaOffset, { enabled: chartsEnabled },
+  );
+  const resellerSignupsSeries = usePannedSeries<AdminResellerStats>(
+    fetchResellerStats, effectiveResellerSignupsPeriod, resellerSignupsOffset, { enabled: chartsEnabled },
+  );
+  const subRevenueSeries = usePannedSeries<AdminSubscriptionRevenueHistory>(
+    fetchSubRevenue, effectiveSubRevPeriod, subRevOffset, { enabled: chartsEnabled },
+  );
+  const customerSignupsSeries = usePannedSeries<AdminCustomerSignupsTimeSeries>(
+    fetchCustomerSignups, effectiveCustomerSignupsPeriod, customerSignupsOffset, { enabled: chartsEnabled },
+  );
 
-  useEffect(() => {
-    if (!data || loading || customerSignupsLoading || customerSignupsLoadedPeriod === effectiveCustomerSignupsPeriod) return;
+  const mpesaStats = mpesaSeries.data;
+  const signupStats = resellerSignupsSeries.data;
+  const subRevenueHistory = subRevenueSeries.data;
+  const customerSignups = customerSignupsSeries.data;
+  const subRevenueLoading = subRevenueSeries.loading;
+  const customerSignupsLoading = customerSignupsSeries.loading;
 
-    const requestPeriod = effectiveCustomerSignupsPeriod;
-    const requestSeq = customerSignupsSeqRef.current + 1;
-    customerSignupsSeqRef.current = requestSeq;
-    setCustomerSignupsLoading(true);
-    api.getAdminCustomerSignups(requestPeriod)
-      .then((result) => {
-        if (customerSignupsSeqRef.current !== requestSeq) return;
-        setCustomerSignups(result);
-        setCustomerSignupsLoadedPeriod(requestPeriod);
-      })
-      .catch(() => {
-        if (customerSignupsSeqRef.current !== requestSeq) return;
-        setCustomerSignups(null);
-        setCustomerSignupsLoadedPeriod(requestPeriod);
-      })
-      .finally(() => {
-        if (customerSignupsSeqRef.current === requestSeq) {
-          setCustomerSignupsLoading(false);
-        }
-      });
-  }, [data, loading, customerSignupsLoading, customerSignupsLoadedPeriod, effectiveCustomerSignupsPeriod]);
-
-  // Chart data helpers
+  // Chart data helpers. The M-Pesa and signup charts read from separate
+  // reseller-stats loads: they pan and filter independently, and sharing one
+  // response meant changing either chart's period silently redrew the other.
   const mpesaRevenueData = useMemo(() => {
-    return stats?.revenue_over_time?.map((d) => ({
+    return mpesaStats?.revenue_over_time?.map((d) => ({
       name: d.label,
       revenue: d.revenue,
       mpesa: d.mpesa_revenue,
     })) ?? [];
-  }, [stats]);
+  }, [mpesaStats]);
 
   const resellerSignupsData = useMemo(() => {
-    return stats?.signups_over_time?.map((d) => ({
+    return signupStats?.signups_over_time?.map((d) => ({
       name: d.label,
       count: d.count,
     })) ?? [];
-  }, [stats]);
+  }, [signupStats]);
 
   const subRevenueData = useMemo(() => {
     let runningTotal = 0;
@@ -786,6 +778,12 @@ export default function AdminDashboardPage() {
               showCompare
               compareEnabled={mpesaCompare}
               onCompareToggle={() => setMpesaCompare(!mpesaCompare)}
+              offset={mpesaOffset}
+              maxOffset={mpesaStats?.max_offset ?? MAX_CHART_OFFSET}
+              onOffsetChange={setMpesaOffset}
+              windowLabel={mpesaStats?.window_label}
+              loading={mpesaSeries.loading}
+              isEmpty={mpesaSeries.loaded && mpesaRevenueData.length === 0}
             >
               <MpesaRevenueChart data={mpesaRevenueData} />
             </ChartCard>
@@ -798,8 +796,12 @@ export default function AdminDashboardPage() {
               showCompare
               compareEnabled={subRevCompare}
               onCompareToggle={() => setSubRevCompare(!subRevCompare)}
-              loading={subRevenueLoading || subRevenueLoadedPeriod !== effectiveSubRevPeriod}
-              isEmpty={!subRevenueLoading && subRevenueLoadedPeriod === effectiveSubRevPeriod && subRevenueData.length === 0}
+              offset={subRevOffset}
+              maxOffset={subRevenueHistory?.max_offset ?? MAX_CHART_OFFSET}
+              onOffsetChange={setSubRevOffset}
+              windowLabel={subRevenueHistory?.window_label}
+              loading={subRevenueLoading}
+              isEmpty={subRevenueSeries.loaded && subRevenueData.length === 0}
             >
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4 text-xs">
                 <div>
@@ -830,6 +832,12 @@ export default function AdminDashboardPage() {
               showCompare
               compareEnabled={resellerSignupsCompare}
               onCompareToggle={() => setResellerSignupsCompare(!resellerSignupsCompare)}
+              offset={resellerSignupsOffset}
+              maxOffset={signupStats?.max_offset ?? MAX_CHART_OFFSET}
+              onOffsetChange={setResellerSignupsOffset}
+              windowLabel={signupStats?.window_label}
+              loading={resellerSignupsSeries.loading}
+              isEmpty={resellerSignupsSeries.loaded && resellerSignupsData.length === 0}
             >
               <ResellerSignupsChart data={resellerSignupsData} />
             </ChartCard>
@@ -842,8 +850,12 @@ export default function AdminDashboardPage() {
               showCompare
               compareEnabled={customerSignupsCompare}
               onCompareToggle={() => setCustomerSignupsCompare(!customerSignupsCompare)}
-              loading={customerSignupsLoading || customerSignupsLoadedPeriod !== effectiveCustomerSignupsPeriod}
-              isEmpty={!customerSignupsLoading && customerSignupsLoadedPeriod === effectiveCustomerSignupsPeriod && customerSignupsData.length === 0}
+              offset={customerSignupsOffset}
+              maxOffset={customerSignups?.max_offset ?? MAX_CHART_OFFSET}
+              onOffsetChange={setCustomerSignupsOffset}
+              windowLabel={customerSignups?.window_label}
+              loading={customerSignupsLoading}
+              isEmpty={customerSignupsSeries.loaded && customerSignupsData.length === 0}
             >
               <CustomerSignupsChart data={customerSignupsCompareData} showCompare={customerSignupsCompare} />
             </ChartCard>

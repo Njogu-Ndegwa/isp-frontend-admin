@@ -1874,9 +1874,10 @@ class ApiClient {
     return this.handleResponse<AdminResellersResponse>(response);
   }
 
-  async getAdminResellerStats(period: AdminResellerStatsPeriod = '30d'): Promise<AdminResellerStats> {
-    if (this.isDemoMode()) return (await loadDemo()).demoAdminResellerStats(period);
-    const response = await fetch(`${BASE_URL}/admin/resellers/stats?period=${period}`, {
+  /** `offset` pans the window back in whole periods; 0 is the live window. */
+  async getAdminResellerStats(period: AdminResellerStatsPeriod = '30d', offset = 0): Promise<AdminResellerStats> {
+    if (this.isDemoMode()) return (await loadDemo()).demoAdminResellerStats(period, offset);
+    const response = await fetch(`${BASE_URL}/admin/resellers/stats?period=${period}&offset=${offset}`, {
       headers: this.getHeaders(),
     });
     return this.handleResponse<AdminResellerStats>(response);
@@ -2414,16 +2415,18 @@ class ApiClient {
     } catch { return null; }
   }
 
-  async getAdminCustomerSignups(period: string = '30d'): Promise<AdminCustomerSignupsTimeSeries | null> {
+  /** `offset` pans the window back in whole periods; 0 is the live window. */
+  async getAdminCustomerSignups(period: string = '30d', offset = 0): Promise<AdminCustomerSignupsTimeSeries | null> {
     try {
-      const response = await fetch(`${BASE_URL}/admin/metrics/customer-signups?period=${period}`, { headers: this.getHeaders() });
+      const response = await fetch(`${BASE_URL}/admin/metrics/customer-signups?period=${period}&offset=${offset}`, { headers: this.getHeaders() });
       return await this.handleResponse<AdminCustomerSignupsTimeSeries>(response);
     } catch { return null; }
   }
 
-  async getAdminSubscriptionRevenueHistory(period: string = '30d'): Promise<AdminSubscriptionRevenueHistory | null> {
+  /** `offset` pans the window back in whole periods; 0 is the live window. */
+  async getAdminSubscriptionRevenueHistory(period: string = '30d', offset = 0): Promise<AdminSubscriptionRevenueHistory | null> {
     try {
-      const response = await fetch(`${BASE_URL}/admin/metrics/subscription-revenue-history?period=${period}`, { headers: this.getHeaders() });
+      const response = await fetch(`${BASE_URL}/admin/metrics/subscription-revenue-history?period=${period}&offset=${offset}`, { headers: this.getHeaders() });
       return await this.handleResponse<AdminSubscriptionRevenueHistory>(response);
     } catch { return null; }
   }
