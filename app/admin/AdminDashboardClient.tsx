@@ -497,15 +497,18 @@ export default function AdminDashboardPage() {
   const chartsEnabled = !!data && !loading;
 
   const fetchResellerStats = useCallback(
-    (p: string, o: number) => api.getAdminResellerStats(p as AdminResellerStatsPeriod, o),
+    (p: string, o: number, signal?: AbortSignal) =>
+      api.getAdminResellerStats(p as AdminResellerStatsPeriod, o, signal),
     [],
   );
   const fetchSubRevenue = useCallback(
-    (p: string, o: number) => api.getAdminSubscriptionRevenueHistory(p, o),
+    (p: string, o: number, signal?: AbortSignal) =>
+      api.getAdminSubscriptionRevenueHistory(p, o, signal),
     [],
   );
   const fetchCustomerSignups = useCallback(
-    (p: string, o: number) => api.getAdminCustomerSignups(p, o),
+    (p: string, o: number, signal?: AbortSignal) =>
+      api.getAdminCustomerSignups(p, o, signal),
     [],
   );
 

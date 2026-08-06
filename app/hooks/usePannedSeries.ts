@@ -25,6 +25,26 @@ import { useEffect, useRef, useState } from 'react';
 /** Quiet gap before warming the next window, to stay clear of the page load. */
 const PREFETCH_DELAY_MS = 1200;
 
+/**
+ * How long a window must be settled on before it is fetched.
+ *
+ * Each of these endpoints aggregates over an unindexed `created_at`, so every
+ * one is a full table scan -- cheap in isolation, but dragging through six
+ * windows must not leave six scans running on a 1 GB box. Cached windows still
+ * render instantly (no request at all); only an uncached window waits, and
+ * only for the length of one more drag.
+ */
+const SETTLE_MS = 180;
+
+/**
+ * Cached windows kept per hook instance.
+ *
+ * Bounded so a long session panning across periods cannot grow without limit.
+ * 48 covers more than a full pan to `max_offset` in one period, which is far
+ * more history than anyone reads in a sitting.
+ */
+const MAX_CACHED_WINDOWS = 48;
+
 export interface PannedSeriesState<T> {
   data: T | null;
   loading: boolean;
@@ -33,17 +53,21 @@ export interface PannedSeriesState<T> {
 }
 
 export function usePannedSeries<T>(
-  fetcher: (period: string, offset: number) => Promise<T | null>,
+  fetcher: (period: string, offset: number, signal?: AbortSignal) => Promise<T | null>,
   period: string,
   offset: number,
   options: { enabled?: boolean } = {},
 ): PannedSeriesState<T> {
   const { enabled = true } = options;
 
-  const [cache, setCache] = useState<Record<string, T | null>>({});
-  // Which keys have been requested, as opposed to which have landed. Kept in a
-  // ref so re-requesting is decided without re-running this effect.
-  const requestedRef = useRef(new Set<string>());
+  // The cache is the source of truth and lives in a ref, so the effect can
+  // consult it without listing it as a dependency (which would re-run the
+  // effect on every landed response). `version` exists only to re-render.
+  const cacheRef = useRef(new Map<string, T | null>());
+  const [, setVersion] = useState(0);
+  // Keys with a request currently in the air. Separate from the cache so an
+  // evicted window becomes refetchable rather than being remembered forever.
+  const inFlightRef = useRef(new Set<string>());
 
   // `fetcher` is a dependency, so callers must pass a stable reference
   // (useCallback); an inline arrow would refetch on every render.
@@ -51,43 +75,70 @@ export function usePannedSeries<T>(
     if (!enabled) return;
 
     const key = `${period}:${offset}`;
-    const requested = requestedRef.current;
+    const cache = cacheRef.current;
+    const inFlight = inFlightRef.current;
+    // Aborting matters more than the wasted bytes: an in-flight request is a
+    // held DB connection running a full scan, and dragging past a window is an
+    // explicit signal that nobody is waiting for it any more.
+    const controller = new AbortController();
     let cancelled = false;
     let warmTimer: number | undefined;
 
-    void (async () => {
-      // Closed windows are immutable; only the live one is worth re-reading.
-      if (offset === 0 || !requested.has(key)) {
-        requested.add(key);
-        const result = await fetcher(period, offset).catch(() => null);
-        if (cancelled) return;
-        setCache((prev) => ({ ...prev, [key]: result }));
+    const store = (k: string, value: T | null) => {
+      cache.set(k, value);
+      // Map iterates in insertion order, and the window in view was just
+      // written, so dropping from the front never evicts what is on screen.
+      while (cache.size > MAX_CACHED_WINDOWS) {
+        const oldest = cache.keys().next().value as string | undefined;
+        if (oldest === undefined) break;
+        cache.delete(oldest);
       }
+      setVersion((v) => v + 1);
+    };
 
-      // Deferred so four charts' prefetches never race the page's first load.
-      const nextKey = `${period}:${offset + 1}`;
-      if (requested.has(nextKey)) return;
-      warmTimer = window.setTimeout(() => {
-        requested.add(nextKey);
-        void fetcher(period, offset + 1)
-          .catch(() => null)
-          .then((warmed) => {
-            if (cancelled) return;
-            setCache((prev) => ({ ...prev, [nextKey]: warmed ?? null }));
-          });
-      }, PREFETCH_DELAY_MS);
-    })();
+    const fetchWindow = async (o: number, k: string) => {
+      if (inFlight.has(k)) return;
+      inFlight.add(k);
+      try {
+        const result = await fetcher(period, o, controller.signal);
+        if (cancelled) return;
+        store(k, result);
+      } catch {
+        // Swallowed: an abort is the user moving on, and a genuine failure
+        // leaves the window uncached so revisiting it simply tries again.
+      } finally {
+        inFlight.delete(k);
+      }
+    };
+
+    // Debounced so a multi-step drag queries only the window it settles on.
+    const settleTimer = window.setTimeout(() => {
+      void (async () => {
+        // Closed windows are immutable; only the live one is worth re-reading.
+        if (offset === 0 || !cache.has(key)) {
+          await fetchWindow(offset, key);
+          if (cancelled) return;
+        }
+
+        // Deferred so four charts' prefetches never race the page's first load.
+        const nextKey = `${period}:${offset + 1}`;
+        if (cache.has(nextKey)) return;
+        warmTimer = window.setTimeout(() => { void fetchWindow(offset + 1, nextKey); }, PREFETCH_DELAY_MS);
+      })();
+    }, SETTLE_MS);
 
     return () => {
       cancelled = true;
+      controller.abort();
+      window.clearTimeout(settleTimer);
       if (warmTimer !== undefined) window.clearTimeout(warmTimer);
     };
   }, [fetcher, period, offset, enabled]);
 
   const key = `${period}:${offset}`;
-  const landed = enabled && Object.prototype.hasOwnProperty.call(cache, key);
+  const landed = enabled && cacheRef.current.has(key);
   return {
-    data: landed ? cache[key] : null,
+    data: landed ? cacheRef.current.get(key) ?? null : null,
     loading: !landed,
     loaded: landed,
   };
