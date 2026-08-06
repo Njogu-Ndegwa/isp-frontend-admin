@@ -93,11 +93,16 @@ export function ActiveUsersBox({ data }: { data: MikroTikMetrics }) {
   const activePppoe = data.activePppoeUsers ?? data.activePppoeCount ?? 0;
   const activeTotal = data.activeTotalUsers ?? activeHotspot + activePppoe;
   const snapshotAgeSec = Math.round(data.snapshotAgeSeconds ?? 0);
-  const hotspotAgeLabel = snapshotAgeSec > 0
+  const staleLabel = snapshotAgeSec > 0
     ? snapshotAgeSec < 60
       ? `updated ${snapshotAgeSec}s ago`
       : `updated ${Math.round(snapshotAgeSec / 60)}m ago`
     : 'snapshot';
+  // Each count reports whether IT was read off the router on this refresh.
+  // The PPPoE caption used to be the hardcoded string 'live' regardless, while
+  // the number itself was a subtraction from a snapshot minutes old.
+  const hotspotAgeLabel = data.hotspotCountLive ? 'live' : staleLabel;
+  const pppoeAgeLabel = data.pppoeCountLive ? 'live' : staleLabel;
 
   return (
     <div className="p-3 sm:p-4 rounded-2xl bg-gradient-to-b from-amber-500/20 to-amber-500/5 flex flex-col items-center justify-center">
@@ -108,13 +113,13 @@ export function ActiveUsersBox({ data }: { data: MikroTikMetrics }) {
         <div className="flex flex-col items-center" title={`Hotspot users — ${hotspotAgeLabel}`}>
           <span className="text-xl sm:text-2xl font-bold text-amber-500 stat-value leading-none">{activeHotspot}</span>
           <span className="text-[9px] sm:text-[10px] font-medium text-foreground-muted uppercase tracking-wide mt-1">Hotspot</span>
-          <span className="text-[8px] sm:text-[9px] text-foreground-muted/70 mt-0.5">{hotspotAgeLabel}</span>
+          <span className={`text-[8px] sm:text-[9px] mt-0.5 ${data.hotspotCountLive ? 'text-emerald-400/80' : 'text-foreground-muted/70'}`}>{hotspotAgeLabel}</span>
         </div>
         <div className="w-px bg-amber-500/20" />
-        <div className="flex flex-col items-center" title="PPPoE users — live count">
+        <div className="flex flex-col items-center" title={`PPPoE users — ${pppoeAgeLabel}`}>
           <span className="text-xl sm:text-2xl font-bold text-sky-400 stat-value leading-none">{activePppoe}</span>
           <span className="text-[9px] sm:text-[10px] font-medium text-foreground-muted uppercase tracking-wide mt-1">PPPoE</span>
-          <span className="text-[8px] sm:text-[9px] text-emerald-400/80 mt-0.5">live</span>
+          <span className={`text-[8px] sm:text-[9px] mt-0.5 ${data.pppoeCountLive ? 'text-emerald-400/80' : 'text-foreground-muted/70'}`}>{pppoeAgeLabel}</span>
         </div>
       </div>
       <span className="text-[9px] sm:text-[10px] text-foreground-muted mt-2">{activeTotal} active • online</span>

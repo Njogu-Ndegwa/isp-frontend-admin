@@ -1691,6 +1691,10 @@ export interface MikroTikMetrics {
   activePppoeSessions: MikroTikPppoeSession[];
   /** Legacy alias of `activePppoeUsers`. */
   activePppoeCount: number;
+  /** True when this refresh read the hotspot host table off the router. */
+  hotspotCountLive: boolean;
+  /** True when this refresh read /ppp/active off the router. */
+  pppoeCountLive: boolean;
   /** True when `includeSessions=true` and the router had more than 50 PPPoE sessions. */
   sessionsTruncated?: boolean;
   interfaces: MikroTikInterface[];

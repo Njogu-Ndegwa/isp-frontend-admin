@@ -316,6 +316,8 @@ export const demoMikroTikMetrics: MikroTikMetrics = {
     sessionId: `0x8100001${i}`,
   })),
   activePppoeCount: 17,
+  hotspotCountLive: true,
+  pppoeCountLive: true,
   activePppoeUsers: 17,
   activeTotalUsers: 59,
   sessionsTruncated: false,

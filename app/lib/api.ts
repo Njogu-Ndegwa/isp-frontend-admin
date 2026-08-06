@@ -532,6 +532,8 @@ class ApiClient {
       activeHotspotUsers,
       activePppoeUsers,
       activeTotalUsers,
+      hotspotCountLive: (data.hotspot_count_live as boolean) ?? false,
+      pppoeCountLive: (data.pppoe_count_live as boolean) ?? false,
       activePppoeSessions: (data.active_pppoe_sessions as Array<unknown>) ?? [],
       activePppoeCount: activePppoeUsers,
       sessionsTruncated: (data.sessions_truncated as boolean) ?? false,
