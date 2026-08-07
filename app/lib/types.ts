@@ -3045,7 +3045,26 @@ export interface ResellerSignupDataPoint {
   count: number;
 }
 
-export interface AdminResellerStats {
+/**
+ * Bounds of the window a chart response actually covers.
+ *
+ * `period` alone cannot label a panned chart -- "30d" says nothing about
+ * *which* 30 days -- so every offsettable endpoint echoes back the resolved
+ * window. Optional throughout: a backend that predates the pan control simply
+ * omits them and the UI falls back to describing the live window.
+ */
+export interface ChartWindow {
+  /** Windows back from the present. 0 is the live window ending today. */
+  offset?: number;
+  window_start?: string;
+  window_end?: string;
+  /** Server-rendered human range, e.g. "Jul 01 – Jul 30, 2026". */
+  window_label?: string;
+  period_days?: number;
+  max_offset?: number;
+}
+
+export interface AdminResellerStats extends ChartWindow {
   period: AdminResellerStatsPeriod;
   revenue_over_time: ResellerRevenueDataPoint[];
   signups_over_time: ResellerSignupDataPoint[];
@@ -3344,13 +3363,13 @@ export interface AdminSignupsSummary {
   calculated_at: string;
 }
 
-export interface AdminCustomerSignupsTimeSeries {
+export interface AdminCustomerSignupsTimeSeries extends ChartWindow {
   period: string;
   customer_signups_over_time: { date: string; label: string; count: number }[];
   previous_period: { date: string; label: string; count: number }[];
 }
 
-export interface AdminSubscriptionRevenueHistory {
+export interface AdminSubscriptionRevenueHistory extends ChartWindow {
   period: string;
   granularity?: 'day' | 'week' | 'month';
   total_revenue?: number;

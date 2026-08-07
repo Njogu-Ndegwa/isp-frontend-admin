@@ -1874,10 +1874,16 @@ class ApiClient {
     return this.handleResponse<AdminResellersResponse>(response);
   }
 
-  async getAdminResellerStats(period: AdminResellerStatsPeriod = '30d'): Promise<AdminResellerStats> {
-    if (this.isDemoMode()) return (await loadDemo()).demoAdminResellerStats(period);
-    const response = await fetch(`${BASE_URL}/admin/resellers/stats?period=${period}`, {
+  /**
+   * `offset` pans the window back in whole periods; 0 is the live window.
+   * `signal` lets a superseded pan abort its request -- these aggregate over an
+   * unindexed `created_at`, so an abandoned one is a full scan nobody wants.
+   */
+  async getAdminResellerStats(period: AdminResellerStatsPeriod = '30d', offset = 0, signal?: AbortSignal): Promise<AdminResellerStats> {
+    if (this.isDemoMode()) return (await loadDemo()).demoAdminResellerStats(period, offset);
+    const response = await fetch(`${BASE_URL}/admin/resellers/stats?period=${period}&offset=${offset}`, {
       headers: this.getHeaders(),
+      signal,
     });
     return this.handleResponse<AdminResellerStats>(response);
   }
@@ -2414,18 +2420,28 @@ class ApiClient {
     } catch { return null; }
   }
 
-  async getAdminCustomerSignups(period: string = '30d'): Promise<AdminCustomerSignupsTimeSeries | null> {
+  /** See getAdminResellerStats for what `offset` and `signal` are for. */
+  async getAdminCustomerSignups(period: string = '30d', offset = 0, signal?: AbortSignal): Promise<AdminCustomerSignupsTimeSeries | null> {
     try {
-      const response = await fetch(`${BASE_URL}/admin/metrics/customer-signups?period=${period}`, { headers: this.getHeaders() });
+      const response = await fetch(`${BASE_URL}/admin/metrics/customer-signups?period=${period}&offset=${offset}`, { headers: this.getHeaders(), signal });
       return await this.handleResponse<AdminCustomerSignupsTimeSeries>(response);
-    } catch { return null; }
+    } catch (err) {
+      // An abort is the caller changing its mind, not a failed load; it must
+      // propagate so the window is not cached as "no data".
+      if (err instanceof DOMException && err.name === 'AbortError') throw err;
+      return null;
+    }
   }
 
-  async getAdminSubscriptionRevenueHistory(period: string = '30d'): Promise<AdminSubscriptionRevenueHistory | null> {
+  /** See getAdminResellerStats for what `offset` and `signal` are for. */
+  async getAdminSubscriptionRevenueHistory(period: string = '30d', offset = 0, signal?: AbortSignal): Promise<AdminSubscriptionRevenueHistory | null> {
     try {
-      const response = await fetch(`${BASE_URL}/admin/metrics/subscription-revenue-history?period=${period}`, { headers: this.getHeaders() });
+      const response = await fetch(`${BASE_URL}/admin/metrics/subscription-revenue-history?period=${period}&offset=${offset}`, { headers: this.getHeaders(), signal });
       return await this.handleResponse<AdminSubscriptionRevenueHistory>(response);
-    } catch { return null; }
+    } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') throw err;
+      return null;
+    }
   }
 
   async getAdminARPU(): Promise<AdminARPUMetrics | null> {
