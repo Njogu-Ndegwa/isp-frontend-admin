@@ -6,18 +6,12 @@ import { SkeletonCard } from '../../components/LoadingSpinner';
 import { SectionError } from './SectionCard';
 import type { BandwidthHistory } from '../../lib/types';
 import type { DownloadUsageServiceFilter } from '../DownloadUsageChart';
+import { DateFilter, USAGE_PERIOD_OPTIONS, isFilterEqual } from '../dateFilter';
 
 const DownloadUsageChart = dynamic(() => import('../DownloadUsageChart'), {
   ssr: false,
   loading: () => <SkeletonCard />,
 });
-
-const DOWNLOAD_USAGE_PERIOD_OPTIONS: { hours: number; label: string }[] = [
-  { hours: 24, label: '24h' },
-  { hours: 72, label: '3D' },
-  { hours: 168, label: '7D' },
-  { hours: 720, label: '30D' },
-];
 
 const DOWNLOAD_USAGE_SERVICE_OPTIONS: { value: DownloadUsageServiceFilter; label: string }[] = [
   { value: 'all', label: 'All' },
@@ -54,8 +48,8 @@ export function DownloadUsageBody({
   loading,
   error,
   onRetry,
-  hours,
-  onHoursChange,
+  period,
+  onPeriodChange,
   service,
   onServiceChange,
 }: {
@@ -63,12 +57,17 @@ export function DownloadUsageBody({
   loading: boolean;
   error: string | null;
   onRetry: () => void;
-  hours: number;
-  onHoursChange: (h: number) => void;
+  period: DateFilter;
+  onPeriodChange: (filter: DateFilter) => void;
   service: DownloadUsageServiceFilter;
   onServiceChange: (s: DownloadUsageServiceFilter) => void;
 }): React.JSX.Element {
   const totals = getDownloadUsageTotals(data);
+  const selectedLabel =
+    USAGE_PERIOD_OPTIONS.find((option) => isFilterEqual(option.filter, period))?.label ?? 'Selected period';
+  // Prefer the window the backend actually served, so the caption can never
+  // claim a period the numbers don't cover.
+  const periodCaption = data?.periodLabel ?? selectedLabel;
 
   if (error) {
     return <SectionError message={error} onRetry={onRetry} />;
@@ -97,12 +96,12 @@ export function DownloadUsageBody({
             ))}
           </div>
           <div className="flex gap-1 p-1 bg-background-tertiary rounded-lg overflow-x-auto no-scrollbar">
-            {DOWNLOAD_USAGE_PERIOD_OPTIONS.map((option) => (
+            {USAGE_PERIOD_OPTIONS.map((option) => (
               <button
-                key={option.hours}
-                onClick={() => onHoursChange(option.hours)}
+                key={option.label}
+                onClick={() => onPeriodChange(option.filter)}
                 className={`period-pill whitespace-nowrap flex-shrink-0 ${
-                  hours === option.hours ? 'period-pill-active' : 'period-pill-inactive'
+                  isFilterEqual(option.filter, period) ? 'period-pill-active' : 'period-pill-inactive'
                 }`}
               >
                 {option.label}
@@ -111,7 +110,8 @@ export function DownloadUsageBody({
           </div>
         </div>
         <span className="text-foreground-muted text-[10px] sm:text-xs">
-          Last {data?.periodHours ?? hours}h &bull; {data?.count ?? 0} points
+          {periodCaption} &bull; {data?.count ?? 0} points
+          {data?.periodTruncated ? ' • limited to the last 30 days' : ''}
         </span>
       </div>
 

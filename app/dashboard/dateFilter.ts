@@ -24,6 +24,31 @@ export function isFilterEqual(a: DateFilter, b: DateFilter): boolean {
   return false;
 }
 
+// Usage/bandwidth history is only kept for 30 days (backend prunes snapshots),
+// so the usage chart offers a narrower set than the dashboard-wide toolbar.
+// Every option is a whole local calendar day — "Today" is 00:00 EAT until now,
+// never a rolling 24h window that also shows part of yesterday evening.
+export const USAGE_PERIOD_OPTIONS: { filter: DateFilter; label: string }[] = [
+  { filter: { type: 'preset', preset: 'today' }, label: 'Today' },
+  { filter: { type: 'days', days: 3 }, label: '3D' },
+  { filter: { type: 'days', days: 7 }, label: '7D' },
+  { filter: { type: 'days', days: 30 }, label: '30D' },
+];
+
+export type UsageWindowParams = {
+  preset?: 'today' | 'this_month';
+  days?: number;
+  startDate?: string;
+  endDate?: string;
+};
+
+// Translate a dashboard date filter into bandwidth-history query params.
+export function toUsageWindowParams(filter: DateFilter): UsageWindowParams {
+  if (filter.type === 'preset') return { preset: filter.preset };
+  if (filter.type === 'days') return { days: filter.days };
+  return { startDate: filter.startDate, endDate: filter.endDate };
+}
+
 export function getPeriodLabel(filter: DateFilter): string {
   if (filter.type === 'preset') {
     if (filter.preset === 'today') return 'today';
