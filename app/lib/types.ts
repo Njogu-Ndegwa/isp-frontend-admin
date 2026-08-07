@@ -602,10 +602,22 @@ export interface Plan {
   valid_until?: string | null;
   max_shared_users?: number;
   sharing_enabled?: boolean;
+  // Routers this plan is offered on. null/undefined = every router you own.
+  router_ids?: number[] | null;
+  all_routers?: boolean;
   // FUP / per-period data cap
   data_cap_mb?: number | null;
   fup_action?: FupAction | null;
   fup_throttle_profile?: string | null;
+}
+
+export interface RouterPlansResponse {
+  router_id: number;
+  router_name: string;
+  emergency_active: boolean;
+  plans: (Plan & { scoped_to_this_router?: boolean })[];
+  total_plans: number;
+  offered_here: number;
 }
 
 export interface CreatePlanRequest {
@@ -623,6 +635,8 @@ export interface CreatePlanRequest {
   original_price?: number | null;
   valid_until?: string | null;
   max_shared_users?: number;
+  // Omit or send null to offer the plan on every router you own.
+  router_ids?: number[] | null;
   data_cap_mb?: number | null;
   fup_action?: FupAction | null;
   fup_throttle_profile?: string | null;

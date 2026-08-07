@@ -11,6 +11,10 @@ import DataTable, { DataTableColumn } from '../components/DataTable';
 import MobileDataCard from '../components/MobileDataCard';
 import SearchInput from '../components/SearchInput';
 import FilterSelect from '../components/FilterSelect';
+import PlanRouterScope, {
+  describeRouterScope,
+  isRouterScopeIncomplete,
+} from '../components/PlanRouterScope';
 import { formatDateGMT3, utcToGMT3Input, gmt3InputToISO } from '../lib/dateUtils';
 import { DataCapUnit, dataCapInputToMb, splitDataCapMb } from './dataCap';
 import { normalizeDuration, describeDuration } from './duration';
@@ -152,9 +156,13 @@ export default function PlansPage() {
     const sharing = plan.connection_type === 'hotspot'
       ? (getSharingLimit(plan) > 1 ? `${getSharingLimit(plan)} devices` : 'No sharing')
       : null;
+    const scope = plan.router_ids && plan.router_ids.length > 0
+      ? describeRouterScope(plan.router_ids, routers)
+      : null;
     return [
       cap ? `FUP ${cap}` : null,
       sharing,
+      scope,
       plan.plan_type === 'emergency' ? 'Emergency' : 'Regular',
     ].filter(Boolean).join(' - ');
   };
@@ -427,6 +435,16 @@ export default function PlansPage() {
                             FUP {formatDataCap(plan.data_cap_mb)} / {formatFupAction(plan.fup_action)}
                           </p>
                         )}
+                        {plan.router_ids && plan.router_ids.length > 0 && (
+                          <p
+                            className="text-xs text-info truncate"
+                            title={plan.router_ids
+                              .map((id) => routers.find((r) => r.id === id)?.name ?? `Router ${id}`)
+                              .join(', ')}
+                          >
+                            Only on {describeRouterScope(plan.router_ids, routers)}
+                          </p>
+                        )}
                       </div>
                     </div>
                   );
@@ -626,6 +644,7 @@ export default function PlansPage() {
       {editingPlan && (
         <EditPlanModal
           plan={editingPlan}
+          routers={routers}
           onClose={() => setEditingPlan(null)}
           onSuccess={() => {
             setEditingPlan(null);
@@ -653,15 +672,20 @@ function formatValidUntil(dateStr: string): string {
 
 function EditPlanModal({
   plan,
+  routers,
   onClose,
   onSuccess,
 }: {
   plan: Plan;
+  routers: Router[];
   onClose: () => void;
   onSuccess: () => void;
 }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [routerScope, setRouterScope] = useState<number[] | null>(
+    plan.router_ids && plan.router_ids.length > 0 ? plan.router_ids : null
+  );
   const initialDataCap = splitDataCapMb(plan.data_cap_mb);
   const [formData, setFormData] = useState<UpdatePlanRequest>({
     name: plan.name,
@@ -715,6 +739,11 @@ function EditPlanModal({
         setError('Please enter a valid duration of at least 1 minute.');
         return;
       }
+      if (isRouterScopeIncomplete(routerScope)) {
+        setError('Select at least one router, or set this plan to “All routers”.');
+        return;
+      }
+      payload.router_ids = routerScope;
       payload.duration_value = normalized.value;
       payload.duration_unit = normalized.unit;
       if (!payload.badge_text) payload.badge_text = null;
@@ -860,6 +889,13 @@ function EditPlanModal({
                 />
               </div>
             </div>
+
+            <PlanRouterScope
+              routers={routers}
+              value={routerScope}
+              onChange={setRouterScope}
+              disabled={loading}
+            />
 
             <div>
               <label className="block text-sm font-medium text-foreground mb-2">Plan Type</label>
