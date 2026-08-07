@@ -6,6 +6,7 @@ import SectionCard, { SectionError } from './SectionCard';
 import PortFaceplate, { isUplinkPort, portVisualStatus } from '../../components/PortFaceplate';
 import { formatKESCompact } from '../../lib/format';
 import { DownloadUsageBody } from './DownloadUsageSection';
+import type { DateFilter } from '../dateFilter';
 import type { PortAnalyticsResponse, PortAnalyticsPort, DownstreamDeviceSample, BandwidthHistory } from '../../lib/types';
 import type { DownloadUsageServiceFilter } from '../DownloadUsageChart';
 import {
@@ -53,8 +54,8 @@ export default function PortsUsageCard({
   usageLoading,
   usageError,
   onRetryUsage,
-  hours,
-  onHoursChange,
+  usagePeriod,
+  onUsagePeriodChange,
   service,
   onServiceChange,
 }: {
@@ -67,8 +68,8 @@ export default function PortsUsageCard({
   usageLoading: boolean;
   usageError: string | null;
   onRetryUsage: () => void;
-  hours: number;
-  onHoursChange: (h: number) => void;
+  usagePeriod: DateFilter;
+  onUsagePeriodChange: (filter: DateFilter) => void;
   service: DownloadUsageServiceFilter;
   onServiceChange: (s: DownloadUsageServiceFilter) => void;
 }): React.JSX.Element {
@@ -111,8 +112,8 @@ export default function PortsUsageCard({
           loading={usageLoading}
           error={usageError}
           onRetry={onRetryUsage}
-          hours={hours}
-          onHoursChange={onHoursChange}
+          period={usagePeriod}
+          onPeriodChange={onUsagePeriodChange}
           service={service}
           onServiceChange={onServiceChange}
         />

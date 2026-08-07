@@ -82,7 +82,7 @@ export default function BandwidthSection({
       meta={
         <div className="text-right">
           <p className="text-[10px] sm:text-xs text-foreground-muted">
-            Last {data.periodHours}h &bull; {data.count} points
+            {data.periodLabel ?? `Last ${data.periodHours}h`} &bull; {data.count} points
           </p>
           <p className="text-[10px] sm:text-xs text-foreground-muted">Current Avg</p>
           {currentAvgMeta}

@@ -557,12 +557,33 @@ class ApiClient {
   }
 
   // Bandwidth History
-  async getBandwidthHistory(hours = 24, routerId?: number): Promise<BandwidthHistory> {
+  // Calendar options (preset / days / startDate+endDate) make the backend cut
+  // the window at local midnight (EAT) so "Today" is the current day, not a
+  // rolling 24h that bleeds into yesterday. `hours` is the legacy fallback.
+  async getBandwidthHistory(
+    options: {
+      preset?: 'today' | 'yesterday' | 'this_month';
+      days?: number;
+      startDate?: string;
+      endDate?: string;
+      hours?: number;
+      routerId?: number;
+    } = {}
+  ): Promise<BandwidthHistory> {
     if (this.isDemoMode()) return (await loadDemo()).demoBandwidthHistory;
     const params = new URLSearchParams();
-    params.append('hours', hours.toString());
-    if (routerId) {
-      params.append('router_id', routerId.toString());
+    if (options.startDate && options.endDate) {
+      params.append('start_date', options.startDate);
+      params.append('end_date', options.endDate);
+    } else if (options.preset) {
+      params.append('preset', options.preset);
+    } else if (options.days) {
+      params.append('days', options.days.toString());
+    } else {
+      params.append('hours', (options.hours ?? 24).toString());
+    }
+    if (options.routerId) {
+      params.append('router_id', options.routerId.toString());
     }
     const response = await fetch(
       `${BASE_URL}/mikrotik/bandwidth-history?${params.toString()}`,

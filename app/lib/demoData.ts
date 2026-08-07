@@ -372,6 +372,10 @@ export const demoBandwidthHistory: BandwidthHistory = {
   }),
   count: 48,
   periodHours: 24,
+  periodMode: 'calendar',
+  periodLabel: 'Today',
+  periodDays: 1,
+  timezoneOffsetHours: 3,
   generatedAt: iso(),
 };
 
