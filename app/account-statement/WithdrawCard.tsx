@@ -47,10 +47,25 @@ export default function WithdrawCard({ onWithdrawn }: { onWithdrawn?: () => void
       setError(null);
       setNotice(null);
       const result = await api.resellerWithdraw();
-      setNotice(
-        `Withdrawal initiated: ${formatKES(result.net_payout)} to ${result.destination_label} ` +
-        `(${formatKES(result.fee)} transaction fee). It usually completes within a few minutes.`
-      );
+      // A reseller who points routers at different destinations is paid one
+      // transfer per router, so name each one rather than only the first.
+      const transfers = result.transfers ?? [];
+      if (transfers.length > 1) {
+        const breakdown = transfers
+          .map((t) => `${formatKES(t.net_amount)} to ${t.destination_label}`)
+          .join(', ');
+        setNotice(
+          `Withdrawal initiated as ${transfers.length} transfers — ${breakdown} ` +
+          `(${formatKES(result.fee)} total transaction fees). ` +
+          `Each router's earnings went to its own destination. ` +
+          `They usually complete within a few minutes.`
+        );
+      } else {
+        setNotice(
+          `Withdrawal initiated: ${formatKES(result.net_payout)} to ${result.destination_label} ` +
+          `(${formatKES(result.fee)} transaction fee). It usually completes within a few minutes.`
+        );
+      }
       onWithdrawn?.();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Withdrawal failed');
