@@ -3044,12 +3044,23 @@ export interface ResellerPayoutSettings {
   pending_withdrawal: ResellerWithdrawalTxn | null;
 }
 
+export interface ResellerWithdrawTransfer extends ResellerWithdrawalTxn {
+  router_id: number | null;
+  destination_label: string;
+}
+
 export interface ResellerWithdrawResponse {
   transaction: ResellerWithdrawalTxn;
   balance_before: number;
+  /** Totals across every transfer when the payout was split per router. */
   fee: number;
   net_payout: number;
   destination_label: string;
+  /** One entry per transfer. A reseller who points routers at different
+   *  destinations gets one per router; everyone else gets a single entry. */
+  transfers?: ResellerWithdrawTransfer[];
+  transfer_count?: number;
+  split_by_router?: boolean;
 }
 
 // Admin Reseller Stats (Charts)
