@@ -1751,6 +1751,16 @@ export interface BandwidthHistory {
   count: number;
   periodHours: number;
   generatedAt: string;
+  // Calendar-window metadata (backend >= usage calendar-day filtering).
+  // 'calendar' windows start at local midnight (EAT); 'rolling' is the legacy
+  // "now minus N hours" window. Optional so older responses still type-check.
+  periodMode?: 'calendar' | 'rolling';
+  periodLabel?: string;
+  periodDays?: number | null;
+  periodStart?: string;
+  periodEnd?: string;
+  periodTruncated?: boolean;
+  timezoneOffsetHours?: number;
 }
 
 // Top Users Types

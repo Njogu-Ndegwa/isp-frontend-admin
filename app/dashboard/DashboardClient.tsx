@@ -7,7 +7,7 @@ import { useAuth } from '../context/AuthContext';
 import SubscriptionAlertBanner from '../components/SubscriptionAlertBanner';
 import OnboardingChecklist from '../components/OnboardingChecklist';
 import type { DownloadUsageServiceFilter } from './DownloadUsageChart';
-import { DateFilter, getPeriodLabel } from './dateFilter';
+import { DateFilter, getPeriodLabel, toUsageWindowParams } from './dateFilter';
 import SectionCard, { SectionError } from './components/SectionCard';
 import DashboardToolbar from './components/DashboardToolbar';
 import DashboardEmptyState from './components/DashboardEmptyState';
@@ -113,7 +113,12 @@ export default function DashboardPage() {
   // UI state - use DateFilter type for flexibility
   const [dateFilter, setDateFilter] = useState<DateFilter>({ type: 'preset', preset: 'today' });
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
-  const [downloadUsageHours, setDownloadUsageHours] = useState(24);
+  // Usage windows are whole local calendar days: "Today" is 00:00 EAT -> now,
+  // not a rolling 24h window that also covers part of yesterday evening.
+  const [downloadUsagePeriod, setDownloadUsagePeriod] = useState<DateFilter>({
+    type: 'preset',
+    preset: 'today',
+  });
   const [downloadUsageService, setDownloadUsageService] = useState<DownloadUsageServiceFilter>('all');
   const bandwidthRequestKeyRef = useRef<string | null>(null);
 
@@ -182,14 +187,17 @@ export default function DashboardPage() {
     try {
       setBandwidthLoading(true);
       setBandwidthError(null);
-      const history = await api.getBandwidthHistory(downloadUsageHours, selectedRouterId);
+      const history = await api.getBandwidthHistory({
+        ...toUsageWindowParams(downloadUsagePeriod),
+        routerId: selectedRouterId,
+      });
       setBandwidth(history);
     } catch (err) {
       setBandwidthError(err instanceof Error ? err.message : 'Failed to load bandwidth data');
     } finally {
       setBandwidthLoading(false);
     }
-  }, [downloadUsageHours, selectedRouterId]);
+  }, [downloadUsagePeriod, selectedRouterId]);
 
   // Fetch top users (non-blocking) — only when a router is selected
   const loadTopUsers = useCallback(async () => {
@@ -291,7 +299,7 @@ export default function DashboardPage() {
       if (isDashboardVisible()) void loadBandwidth();
     };
 
-    const requestKey = `${selectedRouterId}:${downloadUsageHours}`;
+    const requestKey = `${selectedRouterId}:${JSON.stringify(downloadUsagePeriod)}`;
     const fetchImmediately = bandwidthRequestKeyRef.current !== null
       && bandwidthRequestKeyRef.current !== requestKey;
     bandwidthRequestKeyRef.current = requestKey;
@@ -306,7 +314,7 @@ export default function DashboardPage() {
       if (timeout !== undefined) window.clearTimeout(timeout);
       window.clearInterval(interval);
     };
-  }, [loadBandwidth, selectedRouterId, downloadUsageHours]);
+  }, [loadBandwidth, selectedRouterId, downloadUsagePeriod]);
 
   useEffect(() => {
     if (!selectedRouterId) return;
@@ -423,8 +431,8 @@ export default function DashboardPage() {
                   usageLoading={bandwidthLoading}
                   usageError={bandwidthError}
                   onRetryUsage={loadBandwidth}
-                  hours={downloadUsageHours}
-                  onHoursChange={setDownloadUsageHours}
+                  usagePeriod={downloadUsagePeriod}
+                  onUsagePeriodChange={setDownloadUsagePeriod}
                   service={downloadUsageService}
                   onServiceChange={setDownloadUsageService}
                 />
