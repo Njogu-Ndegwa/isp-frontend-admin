@@ -22,6 +22,7 @@ import {
   Plan,
   CreatePlanRequest,
   UpdatePlanRequest,
+  RouterPlansResponse,
   PlanPerformanceResponse,
   MpesaTransaction,
   ManualProvisionResponse,
@@ -694,6 +695,25 @@ class ApiClient {
       { headers: this.getHeaders() }
     );
     return this.handleResponse<Plan[]>(response);
+  }
+
+  async getPlansForRouter(routerId: number, connectionType?: string): Promise<RouterPlansResponse> {
+    if (this.isDemoMode()) {
+      const plans = (await loadDemo()).demoPlans;
+      return {
+        router_id: routerId,
+        router_name: 'Demo Router',
+        emergency_active: false,
+        plans: plans.map(p => ({ ...p, scoped_to_this_router: false })),
+        total_plans: plans.length,
+        offered_here: plans.length,
+      };
+    }
+    const params = connectionType ? `?connection_type=${encodeURIComponent(connectionType)}` : '';
+    const response = await fetch(`${BASE_URL}/plans/by-router/${routerId}${params}`, {
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<RouterPlansResponse>(response);
   }
 
   async createPlan(plan: CreatePlanRequest): Promise<Plan> {

@@ -19,6 +19,7 @@ import {
   InsuranceTunnelBatchJob,
   InsuranceTunnelBatchPreview,
   InsuranceWireGuardVerification,
+  RouterPlansResponse,
 } from '../lib/types';
 import Header from '../components/Header';
 import { PageLoader } from '../components/LoadingSpinner';
@@ -489,6 +490,7 @@ function RoutersTab({
   const [rebootLoading, setRebootLoading] = useState<number | null>(null);
   const [rebootModalRouter, setRebootModalRouter] = useState<Router | null>(null);
   const [rebootReason, setRebootReason] = useState('');
+  const [plansModalRouter, setPlansModalRouter] = useState<Router | null>(null);
   const [webfigLoading, setWebfigLoading] = useState<number | null>(null);
   const [batchPreview, setBatchPreview] = useState<InsuranceTunnelBatchPreview | null>(null);
   const [batchJob, setBatchJob] = useState<InsuranceTunnelBatchJob | null>(null);
@@ -827,6 +829,15 @@ function RoutersTab({
       >
         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+        </svg>
+      </button>
+      <button
+        onClick={(e) => { e.stopPropagation(); setPlansModalRouter(router); }}
+        className="p-1.5 rounded-lg hover:bg-accent-primary/10 text-foreground-muted hover:text-accent-primary transition-colors active:opacity-70"
+        title="Plans on this router"
+      >
+        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
         </svg>
       </button>
       <button
@@ -1619,6 +1630,13 @@ function RoutersTab({
       )}
 
       {/* Router Reboot Modal */}
+      {plansModalRouter && (
+        <RouterPlansModal
+          router={plansModalRouter}
+          onClose={() => setPlansModalRouter(null)}
+        />
+      )}
+
       {rebootModalRouter && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div
@@ -2959,6 +2977,129 @@ function UserCard({ user, formatBytes }: { user: HotspotUser; formatBytes: (byte
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+/**
+ * Read-only audit view: which plans a captive portal will actually offer on this
+ * router. Plans are edited on the Plans page — this answers "why is that plan not
+ * showing here?" without making the reseller cross-reference two screens.
+ */
+function RouterPlansModal({
+  router,
+  onClose,
+}: {
+  router: Router;
+  onClose: () => void;
+}) {
+  const [data, setData] = useState<RouterPlansResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    api.getPlansForRouter(router.id)
+      .then((res) => { if (!cancelled) { setData(res); setError(null); } })
+      .catch((err) => {
+        if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to load plans');
+      })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [router.id]);
+
+  const hiddenElsewhere = data ? data.total_plans - data.offered_here : 0;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative w-full max-w-lg card p-6 animate-fade-in">
+        <div className="flex items-start justify-between gap-3 mb-4">
+          <div>
+            <h3 className="text-lg font-bold text-foreground">Plans on this router</h3>
+            <p className="text-sm text-foreground-muted">{router.name}</p>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-1.5 rounded-lg text-foreground-muted hover:bg-background-muted transition-colors"
+            aria-label="Close"
+          >
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        {loading && (
+          <div className="py-8 text-center text-sm text-foreground-muted">Loading plans...</div>
+        )}
+
+        {error && !loading && (
+          <div className="rounded-lg bg-danger/10 border border-danger/30 p-3 text-sm text-danger">
+            {error}
+          </div>
+        )}
+
+        {data && !loading && !error && (
+          <>
+            {data.emergency_active && (
+              <div className="mb-3 rounded-lg bg-danger/10 border border-danger/30 p-3 text-xs text-danger">
+                Emergency mode is on for this router, so the portal is currently offering
+                only its emergency plans. Other routers are unaffected.
+              </div>
+            )}
+
+            {data.plans.length === 0 ? (
+              <p className="py-6 text-center text-sm text-foreground-muted">
+                No plans are offered on this router yet.
+              </p>
+            ) : (
+              <div className="max-h-80 space-y-2 overflow-y-auto">
+                {data.plans.map((plan) => (
+                  <div
+                    key={plan.id}
+                    className="flex items-center justify-between gap-3 rounded-lg border border-border px-3 py-2"
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium text-foreground">{plan.name}</p>
+                      <p className="text-xs text-foreground-muted">
+                        KES {plan.price} - {plan.duration_value} {plan.duration_unit.toLowerCase()}
+                      </p>
+                    </div>
+                    <div className="flex flex-shrink-0 items-center gap-1.5">
+                      {plan.is_hidden && (
+                        <span className="badge badge-neutral text-[10px]">Hidden</span>
+                      )}
+                      <span
+                        className={`text-[10px] font-medium uppercase tracking-wider px-1.5 py-0.5 rounded ${
+                          plan.scoped_to_this_router
+                            ? 'bg-info/10 text-info'
+                            : 'bg-background-muted text-foreground-muted'
+                        }`}
+                      >
+                        {plan.scoped_to_this_router ? 'Router only' : 'All routers'}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <p className="mt-4 text-xs text-foreground-muted">
+              {hiddenElsewhere > 0
+                ? `${hiddenElsewhere} other plan(s) are tied to different routers and will not show here.`
+                : 'Every plan you have is available on this router.'}
+              {' '}Change this on the Plans page.
+            </p>
+          </>
+        )}
+
+        <div className="mt-5 flex justify-end gap-2">
+          <Link href="/plans" className="btn btn-secondary text-sm">Manage plans</Link>
+          <button onClick={onClose} className="btn btn-primary text-sm">Close</button>
+        </div>
+      </div>
     </div>
   );
 }

@@ -1,10 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { api } from '../../lib/api';
-import { CreatePlanRequest } from '../../lib/types';
+import { CreatePlanRequest, Router as RouterDevice } from '../../lib/types';
+import PlanRouterScope, { isRouterScopeIncomplete } from '../../components/PlanRouterScope';
 import { useAlert } from '../../context/AlertContext';
 import Header from '../../components/Header';
 import { gmt3InputToISO } from '../../lib/dateUtils';
@@ -37,6 +38,14 @@ export default function CreatePlanPage() {
   const [dataCapUnit, setDataCapUnit] = useState<DataCapUnit>('GB');
   const [showFup, setShowFup] = useState(false);
   const [durationInput, setDurationInput] = useState(String(formData.duration_value));
+  const [routers, setRouters] = useState<RouterDevice[]>([]);
+  const [routerScope, setRouterScope] = useState<number[] | null>(null);
+
+  useEffect(() => {
+    api.getRouters()
+      .then(setRouters)
+      .catch(() => setRouters([]));
+  }, []);
 
   const isPPPoE = formData.connection_type === 'pppoe';
   const dataCapMb = dataCapInputToMb(dataCapValue, dataCapUnit);
@@ -61,6 +70,11 @@ export default function CreatePlanPage() {
         showAlert('error', 'Please enter a valid duration of at least 1 minute.');
         return;
       }
+      if (isRouterScopeIncomplete(routerScope)) {
+        showAlert('error', 'Select at least one router, or set this plan to “All routers”.');
+        return;
+      }
+      payload.router_ids = routerScope;
       payload.duration_value = normalized.value;
       payload.duration_unit = normalized.unit;
       if (!payload.badge_text) payload.badge_text = null;
@@ -218,6 +232,13 @@ export default function CreatePlanPage() {
                 />
               </div>
             </div>
+
+            <PlanRouterScope
+              routers={routers}
+              value={routerScope}
+              onChange={setRouterScope}
+              disabled={loading}
+            />
 
             <div>
               <label htmlFor="plan_type" className="block text-sm font-medium text-foreground-muted mb-1.5">
