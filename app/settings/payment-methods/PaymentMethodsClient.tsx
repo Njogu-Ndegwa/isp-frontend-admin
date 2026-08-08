@@ -541,7 +541,13 @@ export default function PaymentMethodsPage() {
       {routers.length > 0 && methods.length > 0 && (
         <div className="mt-10">
           <h2 className="text-lg font-semibold text-foreground mb-1">Router Assignments</h2>
-          <p className="text-sm text-foreground-muted mb-4">Assign payment methods to routers, or revert to legacy behavior</p>
+          <p className="text-sm text-foreground-muted mb-1">Assign payment methods to routers, or revert to legacy behavior</p>
+          <p className="text-xs text-foreground-muted mb-4">
+            This sets where each router&apos;s <span className="text-foreground">earnings are paid out</span>.
+            Customers always pay through the platform. If you point routers at different
+            destinations, each router&apos;s earnings are paid to its own — otherwise you keep
+            a single payout. Earnings from before a router was assigned stay on your default method.
+          </p>
 
           <DataTable<Router>
             columns={ROUTER_ASSIGNMENT_COLUMNS}
