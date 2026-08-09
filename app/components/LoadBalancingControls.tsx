@@ -29,6 +29,9 @@ type LoadingAction =
 
 const PRIMARY_WAN = 'ether1';
 const MAX_EXTRA_WANS = 3;
+// Backend validates WAN port names with a strict fullmatch — combo names
+// like "sfp-sfpplus1" are rejected, so keep them out of the selectable list.
+const WAN_NAME_RE = /^(ether|sfp)[0-9]+$/;
 
 interface LoadBalancingControlsProps {
   router: Router;
@@ -54,13 +57,17 @@ const formatSafeDate = (dateStr: string | null | undefined): string => {
   }
 };
 
-/** FastAPI HTTPException detail can be a structured dict; api.ts stringifies it. */
+/**
+ * FastAPI HTTPException detail can be a structured dict (e.g. enable's 422
+ * {"message","blockers","preflight"} or a 502 {"message","error"}); api.ts
+ * stringifies non-string details, so parse them back out here.
+ */
 function parseStructuredError(message: string): {
   blockers?: string[];
-  warnings?: string[];
-  steps?: LoadBalancingStep[];
   message?: string;
+  error?: string;
   detail?: string;
+  preflight?: unknown;
 } | null {
   try {
     const parsed = JSON.parse(message);
@@ -69,6 +76,13 @@ function parseStructuredError(message: string): {
     /* plain string error */
   }
   return null;
+}
+
+/** Best human-readable text for a caught API error. */
+function errorText(err: unknown, fallback: string): string {
+  const message = err instanceof Error ? err.message : fallback;
+  const structured = parseStructuredError(message);
+  return structured?.message || structured?.detail || structured?.error || message || fallback;
 }
 
 function formatDetail(detail: unknown): string {
@@ -283,14 +297,11 @@ export default function LoadBalancingControls({
         showAlert('warning', `Pre-check found ${result.blockers.length} blocker${result.blockers.length > 1 ? 's' : ''}`);
       }
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Pre-check failed';
-      const structured = parseStructuredError(message);
+      const structured = parseStructuredError(err instanceof Error ? err.message : '');
       if (structured?.blockers?.length) {
         setServerBlockers(structured.blockers);
-        showAlert('error', structured.message || structured.detail || 'Pre-check found blockers');
-      } else {
-        showAlert('error', structured?.message || structured?.detail || message);
       }
+      showAlert('error', errorText(err, 'Pre-check failed'));
     } finally {
       setLoading(null);
     }
@@ -306,13 +317,14 @@ export default function LoadBalancingControls({
       });
       setEnableResult(result);
       setPreflight(null);
-      const now = new Date().toISOString();
+      const appliedAtNow = result.applied_at ?? new Date().toISOString();
+      const appliedPorts = result.wan_ports ?? wanPorts;
       setStatus({
         success: true,
         router_id: routerId,
         enabled: true,
-        config: { wan_ports: wanPorts, applied_at: now },
-        applied_at: now,
+        config: { wan_ports: appliedPorts, applied_at: appliedAtNow },
+        applied_at: appliedAtNow,
       });
       if (result.success) {
         showAlert('success', result.message || `${routerName} load balancing enabled`);
@@ -321,16 +333,14 @@ export default function LoadBalancingControls({
       }
       onChanged?.();
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to enable load balancing';
-      const structured = parseStructuredError(message);
+      const structured = parseStructuredError(err instanceof Error ? err.message : '');
       if (structured?.blockers?.length) {
-        // Server-side preflight failed (422): surface blockers, force a new pre-check.
+        // Server-side preflight failed (422 {"message","blockers","preflight"}):
+        // surface blockers, force a new pre-check.
         setServerBlockers(structured.blockers);
         setPreflight(null);
-        showAlert('error', structured.message || structured.detail || 'Enable blocked by pre-check');
-      } else {
-        showAlert('error', structured?.message || structured?.detail || message);
       }
+      showAlert('error', errorText(err, 'Failed to enable load balancing'));
     } finally {
       setLoading(null);
     }
@@ -359,7 +369,7 @@ export default function LoadBalancingControls({
       loadInterfaces();
     } catch (err) {
       setConfirmDisable(false);
-      showAlert('error', err instanceof Error ? err.message : 'Failed to disable load balancing');
+      showAlert('error', errorText(err, 'Failed to disable load balancing'));
     } finally {
       setLoading(null);
     }
@@ -370,13 +380,14 @@ export default function LoadBalancingControls({
       setLoading('verify');
       const result = await api.verifyLoadBalancing(routerId);
       setVerifyResult(result);
-      if (result.warnings.length > 0) {
-        showAlert('warning', `Verification finished with ${result.warnings.length} warning${result.warnings.length > 1 ? 's' : ''}`);
+      const warnCount = result.verify?.warnings?.length ?? 0;
+      if (warnCount > 0) {
+        showAlert('warning', `Verification finished with ${warnCount} warning${warnCount > 1 ? 's' : ''}`);
       } else {
         showAlert('success', 'Load balancing verified');
       }
     } catch (err) {
-      showAlert('error', err instanceof Error ? err.message : 'Verification failed');
+      showAlert('error', errorText(err, 'Verification failed'));
     } finally {
       setLoading(null);
     }
@@ -392,6 +403,20 @@ export default function LoadBalancingControls({
     ...(interfacesData?.dual_ports ?? []),
   ]);
   const allBlockers = [...(preflight?.blockers ?? []), ...serverBlockers];
+  const perPortChecks = preflight?.preflight?.per_port ?? {};
+  // Enable steps live under apply.steps plus each convert[port].steps.
+  const enableSteps: LoadBalancingStep[] = enableResult
+    ? [
+        ...(enableResult.apply?.steps ?? []),
+        ...Object.values(enableResult.convert ?? {}).flatMap((r) => r?.steps ?? []),
+      ]
+    : [];
+  const enableWarnings = enableResult?.warnings ?? [];
+  const dormantPorts = enableResult?.dormant_ports ?? [];
+  const seedAdded = enableResult?.seed?.added;
+  const seededCount = Array.isArray(seedAdded) ? seedAdded.length : 0;
+  const rollbackSteps = disableResult?.rollback?.steps ?? [];
+  const verifyReport = verifyResult?.verify;
   const canEnable =
     Boolean(preflight) &&
     (preflight?.blockers.length ?? 0) === 0 &&
@@ -523,16 +548,21 @@ export default function LoadBalancingControls({
               {enabled && (
                 <>
                   {/* Steps from the enable run (if we just enabled) */}
-                  {enableResult && (
+                  {enableResult && (enableSteps.length > 0 || enableWarnings.length > 0 || seededCount > 0) && (
                     <div className="rounded-xl border border-border bg-background-tertiary/40 p-4">
                       <div className="flex items-center justify-between mb-3">
                         <p className="text-[11px] uppercase tracking-wider text-foreground-muted font-semibold">Setup steps</p>
-                        <span className="text-[10px] text-foreground-muted">{enableResult.steps.length} steps</span>
+                        <span className="text-[10px] text-foreground-muted">{enableSteps.length} steps</span>
                       </div>
-                      <StepList steps={enableResult.steps} />
-                      {enableResult.warnings.length > 0 && (
+                      {enableSteps.length > 0 && <StepList steps={enableSteps} />}
+                      {seededCount > 0 && (
+                        <p className="text-xs text-foreground-muted mt-3 pt-3 border-t border-border">
+                          Seeded {seededCount} paid customer{seededCount === 1 ? '' : 's'} onto the balancer.
+                        </p>
+                      )}
+                      {enableWarnings.length > 0 && (
                         <div className="mt-3 pt-3 border-t border-border space-y-1">
-                          {enableResult.warnings.map((w, i) => (
+                          {enableWarnings.map((w, i) => (
                             <p key={i} className="text-xs text-amber-500 break-words">{w}</p>
                           ))}
                         </div>
@@ -541,9 +571,9 @@ export default function LoadBalancingControls({
                   )}
 
                   {/* Dormant port note */}
-                  {enableResult && enableResult.dormant_ports.length > 0 && (
+                  {dormantPorts.length > 0 && (
                     <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4">
-                      {enableResult.dormant_ports.map((p) => (
+                      {dormantPorts.map((p) => (
                         <p key={p} className="text-xs text-foreground-muted">
                           <span className="font-mono text-amber-500">{p}</span> has no cable yet — traffic
                           fails over to the active line until it&apos;s plugged in.
@@ -562,11 +592,11 @@ export default function LoadBalancingControls({
                         </span>
                       </div>
 
-                      {verifyResult.wan_ips && Object.keys(verifyResult.wan_ips).length > 0 && (
+                      {verifyReport?.wan_ips && Object.keys(verifyReport.wan_ips).length > 0 && (
                         <div>
                           <p className="text-[10px] uppercase tracking-wider text-foreground-muted mb-1.5">WAN addresses</p>
                           <div className="space-y-1">
-                            {Object.entries(verifyResult.wan_ips).map(([wan, ip]) => (
+                            {Object.entries(verifyReport.wan_ips).map(([wan, ip]) => (
                               <div key={wan} className="flex items-center justify-between gap-3 text-xs">
                                 <span className="font-mono text-foreground-muted">{wan}</span>
                                 <span className="font-mono text-foreground">{ip}</span>
@@ -576,29 +606,29 @@ export default function LoadBalancingControls({
                         </div>
                       )}
 
-                      {verifyResult.flow_attribution && Object.keys(verifyResult.flow_attribution).length > 0 && (
+                      {verifyReport?.flow_attribution && Object.keys(verifyReport.flow_attribution).length > 0 && (
                         <div className="pt-2 border-t border-border">
                           <p className="text-[10px] uppercase tracking-wider text-foreground-muted mb-1.5">Flow attribution</p>
-                          <CompactKV data={verifyResult.flow_attribution} />
+                          <CompactKV data={verifyReport.flow_attribution} />
                         </div>
                       )}
 
-                      {verifyResult.counters && Object.keys(verifyResult.counters).length > 0 && (
+                      {verifyReport?.counters && Object.keys(verifyReport.counters).length > 0 && (
                         <div className="pt-2 border-t border-border">
                           <p className="text-[10px] uppercase tracking-wider text-foreground-muted mb-1.5">Counters</p>
-                          <CompactKV data={verifyResult.counters} />
+                          <CompactKV data={verifyReport.counters} />
                         </div>
                       )}
 
-                      {verifyResult.lb_paid && verifyResult.lb_paid.length > 0 && (
+                      {verifyReport?.lb_paid && verifyReport.lb_paid.length > 0 && (
                         <p className="text-xs text-foreground-muted pt-2 border-t border-border">
-                          {verifyResult.lb_paid.length} paid customer{verifyResult.lb_paid.length > 1 ? 's' : ''} tracked on the balancer.
+                          {verifyReport.lb_paid.length} paid customer{verifyReport.lb_paid.length > 1 ? 's' : ''} tracked on the balancer.
                         </p>
                       )}
 
-                      {verifyResult.warnings.length > 0 && (
+                      {(verifyReport?.warnings?.length ?? 0) > 0 && (
                         <div className="pt-2 border-t border-border space-y-1">
-                          {verifyResult.warnings.map((w, i) => (
+                          {verifyReport?.warnings?.map((w, i) => (
                             <p key={i} className="text-xs text-amber-500 break-words">{w}</p>
                           ))}
                         </div>
@@ -623,11 +653,11 @@ export default function LoadBalancingControls({
                     connections and failover is automatic — the hotspot login flow is not affected.
                   </p>
 
-                  {/* Steps from a disable run */}
-                  {disableResult && (
+                  {/* Steps from a disable run (rollback report) */}
+                  {disableResult && rollbackSteps.length > 0 && (
                     <div className="rounded-xl border border-border bg-background-tertiary/40 p-4">
                       <p className="text-[11px] uppercase tracking-wider text-foreground-muted font-semibold mb-3">Teardown steps</p>
-                      <StepList steps={disableResult.steps} />
+                      <StepList steps={rollbackSteps} />
                     </div>
                   )}
 
@@ -654,10 +684,13 @@ export default function LoadBalancingControls({
                       <ul className="space-y-1.5">
                         {etherPorts.map((port) => {
                           const isPrimary = port.name === PRIMARY_WAN;
+                          // Backend rejects names outside ^(ether|sfp)[0-9]+$
+                          // (e.g. combo ports like "sfp-sfpplus1").
+                          const unsupported = !WAN_NAME_RE.test(port.name);
                           const servesCustomers = customerPorts.has(port.name);
                           const isSelected = selected.includes(port.name);
                           const selectionFull = selected.length >= MAX_EXTRA_WANS && !isSelected;
-                          const disabledRow = isPrimary || servesCustomers || (selectionFull && !isSelected);
+                          const disabledRow = isPrimary || unsupported || servesCustomers || (selectionFull && !isSelected);
                           const wanIndex = isPrimary ? 1 : isSelected ? selected.indexOf(port.name) + 2 : null;
                           return (
                             <li key={port.name}>
@@ -667,7 +700,7 @@ export default function LoadBalancingControls({
                                     ? 'border-info/30 bg-info/5'
                                     : isSelected
                                     ? 'border-info/40 bg-info/10 cursor-pointer'
-                                    : servesCustomers
+                                    : unsupported || servesCustomers
                                     ? 'border-border bg-background-secondary/50 opacity-60'
                                     : selectionFull
                                     ? 'border-border opacity-60'
@@ -687,9 +720,11 @@ export default function LoadBalancingControls({
                                     WAN {wanIndex}{isPrimary ? ' · primary' : ''}
                                   </span>
                                 )}
-                                {servesCustomers && (
+                                {unsupported ? (
+                                  <span className="text-[10px] text-foreground-muted flex-shrink-0">not supported yet</span>
+                                ) : servesCustomers ? (
                                   <span className="text-[10px] text-foreground-muted flex-shrink-0">serves customers</span>
-                                )}
+                                ) : null}
                                 <span className="ml-auto">
                                   <LinkDot up={port.running} />
                                 </span>
@@ -738,8 +773,8 @@ export default function LoadBalancingControls({
                     </div>
                   )}
 
-                  {/* Per-port pre-check results */}
-                  {preflight && Object.keys(preflight.per_port).length > 0 && (
+                  {/* Per-port pre-check results (nested under preflight.preflight) */}
+                  {preflight && Object.keys(perPortChecks).length > 0 && (
                     <div className="rounded-xl border border-border bg-background-tertiary/40 p-4">
                       <div className="flex items-center justify-between mb-3">
                         <p className="text-[11px] uppercase tracking-wider text-foreground-muted font-semibold">Pre-check</p>
@@ -750,7 +785,7 @@ export default function LoadBalancingControls({
                         )}
                       </div>
                       <div className="space-y-2">
-                        {Object.entries(preflight.per_port).map(([name, check]) => (
+                        {Object.entries(perPortChecks).map(([name, check]) => (
                           <div key={name} className="flex flex-wrap items-center gap-1.5">
                             <span className="font-mono text-xs text-foreground w-16 flex-shrink-0">{name}</span>
                             {check.link !== undefined && (

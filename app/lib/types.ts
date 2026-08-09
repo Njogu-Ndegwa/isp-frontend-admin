@@ -494,13 +494,27 @@ export interface LoadBalancingStep {
   detail?: unknown;
 }
 
+/** Detailed preflight sub-report. Sub-fields can be partial — read defensively. */
+export interface LoadBalancingPreflightReport {
+  steps?: LoadBalancingStep[];
+  per_port?: Record<string, LoadBalancingPortCheck>;
+  version?: string;
+  hotspot?: unknown;
+  fasttrack?: unknown;
+  existing_pcc_rules?: unknown;
+  wg_peers?: unknown;
+  [key: string]: unknown;
+}
+
 export interface LoadBalancingPreflightResponse {
+  /** true when there are no blockers */
   success: boolean;
+  router_id?: number;
+  wan_ports?: string[];
   blockers: string[];
   warnings: string[];
-  per_port: Record<string, LoadBalancingPortCheck>;
   verdict: string;
-  steps?: LoadBalancingStep[];
+  preflight?: LoadBalancingPreflightReport;
 }
 
 export interface LoadBalancingEnableRequest {
@@ -508,31 +522,63 @@ export interface LoadBalancingEnableRequest {
   confirm: true;
 }
 
+/** Generic step report wrapper ({"steps": [...]}). */
+export interface LoadBalancingStepReport {
+  steps?: LoadBalancingStep[];
+  [key: string]: unknown;
+}
+
+export interface LoadBalancingSeedReport {
+  added?: unknown[];
+  skipped?: unknown[];
+  [key: string]: unknown;
+}
+
+export interface LoadBalancingVerifyReport {
+  counters?: Record<string, unknown>;
+  flow_attribution?: Record<string, unknown>;
+  lb_paid?: Array<Record<string, unknown>>;
+  hosts?: unknown;
+  active_managed_routes?: unknown;
+  wg?: unknown;
+  warnings?: string[];
+  wan_ips?: Record<string, string>;
+  [key: string]: unknown;
+}
+
 export interface LoadBalancingEnableResponse {
   success: boolean;
-  message: string;
-  warnings: string[];
-  steps: LoadBalancingStep[];
-  converted_ports: string[];
-  dormant_ports: string[];
-  seeded?: number;
-  verify?: Record<string, unknown>;
+  router_id?: number;
+  enabled?: boolean;
+  wan_ports?: string[];
+  converted_ports?: string[];
+  dormant_ports?: string[];
+  applied_at?: string | null;
+  warnings?: string[];
+  preflight?: LoadBalancingPreflightReport;
+  apply?: LoadBalancingStepReport;
+  convert?: Record<string, LoadBalancingStepReport>;
+  seed?: LoadBalancingSeedReport;
+  verify?: LoadBalancingVerifyReport;
+  message?: string;
 }
 
 export interface LoadBalancingDisableResponse {
   success: boolean;
-  message: string;
-  steps: LoadBalancingStep[];
+  router_id?: number;
+  enabled?: boolean;
+  config?: LoadBalancingConfig | null;
+  rollback?: LoadBalancingStepReport;
+  message?: string;
 }
 
 export interface LoadBalancingVerifyResponse {
   success: boolean;
+  router_id?: number;
   enabled: boolean;
-  counters?: Record<string, unknown>;
-  flow_attribution?: Record<string, unknown>;
-  warnings: string[];
-  lb_paid?: Array<Record<string, unknown>>;
-  wan_ips?: Record<string, string>;
+  config?: LoadBalancingConfig | null;
+  applied_at?: string | null;
+  verify?: LoadBalancingVerifyReport;
 }
 
 export interface PPPoECustomerImportReport {
