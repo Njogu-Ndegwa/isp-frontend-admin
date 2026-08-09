@@ -462,6 +462,79 @@ export interface UpdateDualPortsResponse {
   plain_ports?: string[] | null;
 }
 
+// Load Balancing (Multi-WAN) — combine 2+ internet lines on one router with
+// PCC balancing + automatic failover. Mirrors /routers/{id}/load-balancing/*.
+export interface LoadBalancingConfig {
+  wan_ports: string[];
+  applied_at?: string;
+}
+
+export interface LoadBalancingStatus {
+  success: boolean;
+  router_id: number;
+  enabled: boolean;
+  config: LoadBalancingConfig | null;
+  applied_at: string | null;
+}
+
+export interface LoadBalancingPreflightRequest {
+  wan_ports: string[];
+}
+
+export interface LoadBalancingPortCheck {
+  link?: boolean;
+  in_bridge?: boolean;
+  client_macs?: number;
+  dhcp_bound?: boolean;
+}
+
+export interface LoadBalancingStep {
+  step: string;
+  ok: boolean;
+  detail?: unknown;
+}
+
+export interface LoadBalancingPreflightResponse {
+  success: boolean;
+  blockers: string[];
+  warnings: string[];
+  per_port: Record<string, LoadBalancingPortCheck>;
+  verdict: string;
+  steps?: LoadBalancingStep[];
+}
+
+export interface LoadBalancingEnableRequest {
+  wan_ports: string[];
+  confirm: true;
+}
+
+export interface LoadBalancingEnableResponse {
+  success: boolean;
+  message: string;
+  warnings: string[];
+  steps: LoadBalancingStep[];
+  converted_ports: string[];
+  dormant_ports: string[];
+  seeded?: number;
+  verify?: Record<string, unknown>;
+}
+
+export interface LoadBalancingDisableResponse {
+  success: boolean;
+  message: string;
+  steps: LoadBalancingStep[];
+}
+
+export interface LoadBalancingVerifyResponse {
+  success: boolean;
+  enabled: boolean;
+  counters?: Record<string, unknown>;
+  flow_attribution?: Record<string, unknown>;
+  warnings: string[];
+  lb_paid?: Array<Record<string, unknown>>;
+  wan_ips?: Record<string, string>;
+}
+
 export interface PPPoECustomerImportReport {
   success: boolean;
   has_errors: boolean;
@@ -1236,6 +1309,9 @@ export interface Router {
   insurance_backup_error?: string | null;
   insurance_backup_job_id?: string | null;
   insurance_backup_verification?: InsuranceWireGuardVerification;
+  lb_enabled?: boolean;
+  lb_config?: { wan_ports: string[]; applied_at?: string } | null;
+  lb_applied_at?: string | null;
 }
 
 export interface UptimeCheck {

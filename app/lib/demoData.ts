@@ -37,6 +37,7 @@ import type {
   DownstreamDeviceSample,
   WalledGardenResponse,
   RouterInterfacesResponse,
+  LoadBalancingStatus,
   PPPoECredentials,
   ProvisionToken,
   AdminDashboard,
@@ -857,6 +858,17 @@ export function demoRouterInterfaces(routerId: number): RouterInterfacesResponse
     pppoe_ports: router.pppoe_ports ?? [],
     plain_ports: router.plain_ports ?? [],
     dual_ports: router.dual_ports ?? [],
+  };
+}
+
+// ─── Load Balancing (Multi-WAN) ─────────────────────────────────────
+export function demoLoadBalancingStatus(routerId: number): LoadBalancingStatus {
+  return {
+    success: true,
+    router_id: routerId,
+    enabled: false,
+    config: null,
+    applied_at: null,
   };
 }
 

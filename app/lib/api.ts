@@ -68,6 +68,13 @@ import {
   UpdatePlainPortsResponse,
   UpdateDualPortsRequest,
   UpdateDualPortsResponse,
+  LoadBalancingStatus,
+  LoadBalancingPreflightRequest,
+  LoadBalancingPreflightResponse,
+  LoadBalancingEnableRequest,
+  LoadBalancingEnableResponse,
+  LoadBalancingDisableResponse,
+  LoadBalancingVerifyResponse,
   RouterWebFigOpenResponse,
   RouterWebFigCloseResponse,
   PPPoECustomerImportResponse,
@@ -1567,6 +1574,60 @@ class ApiClient {
       body: JSON.stringify(data),
     });
     return this.handleResponse<UpdateDualPortsResponse>(response);
+  }
+
+  // Load Balancing (Multi-WAN) — per-router PCC balancing across 2+ uplinks.
+  async getLoadBalancing(routerId: number): Promise<LoadBalancingStatus> {
+    if (this.isDemoMode()) return (await loadDemo()).demoLoadBalancingStatus(routerId);
+    const response = await fetch(`${BASE_URL}/routers/${routerId}/load-balancing`, {
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<LoadBalancingStatus>(response);
+  }
+
+  async preflightLoadBalancing(
+    routerId: number,
+    data: LoadBalancingPreflightRequest
+  ): Promise<LoadBalancingPreflightResponse> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(`${BASE_URL}/routers/${routerId}/load-balancing/preflight`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify(data),
+    });
+    return this.handleResponse<LoadBalancingPreflightResponse>(response);
+  }
+
+  async enableLoadBalancing(
+    routerId: number,
+    data: LoadBalancingEnableRequest
+  ): Promise<LoadBalancingEnableResponse> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(`${BASE_URL}/routers/${routerId}/load-balancing/enable`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify(data),
+    });
+    return this.handleResponse<LoadBalancingEnableResponse>(response);
+  }
+
+  async disableLoadBalancing(routerId: number): Promise<LoadBalancingDisableResponse> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(`${BASE_URL}/routers/${routerId}/load-balancing/disable`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify({ confirm: true }),
+    });
+    return this.handleResponse<LoadBalancingDisableResponse>(response);
+  }
+
+  async verifyLoadBalancing(routerId: number): Promise<LoadBalancingVerifyResponse> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(`${BASE_URL}/routers/${routerId}/load-balancing/verify`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<LoadBalancingVerifyResponse>(response);
   }
 
   async importPPPoECustomers(
