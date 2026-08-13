@@ -462,6 +462,125 @@ export interface UpdateDualPortsResponse {
   plain_ports?: string[] | null;
 }
 
+// Load Balancing (Multi-WAN) — combine 2+ internet lines on one router with
+// PCC balancing + automatic failover. Mirrors /routers/{id}/load-balancing/*.
+export interface LoadBalancingConfig {
+  wan_ports: string[];
+  applied_at?: string;
+}
+
+export interface LoadBalancingStatus {
+  success: boolean;
+  router_id: number;
+  enabled: boolean;
+  config: LoadBalancingConfig | null;
+  applied_at: string | null;
+}
+
+export interface LoadBalancingPreflightRequest {
+  wan_ports: string[];
+}
+
+export interface LoadBalancingPortCheck {
+  link?: boolean;
+  in_bridge?: boolean;
+  client_macs?: number;
+  dhcp_bound?: boolean;
+}
+
+export interface LoadBalancingStep {
+  step: string;
+  ok: boolean;
+  detail?: unknown;
+}
+
+/** Detailed preflight sub-report. Sub-fields can be partial — read defensively. */
+export interface LoadBalancingPreflightReport {
+  steps?: LoadBalancingStep[];
+  per_port?: Record<string, LoadBalancingPortCheck>;
+  version?: string;
+  hotspot?: unknown;
+  fasttrack?: unknown;
+  existing_pcc_rules?: unknown;
+  wg_peers?: unknown;
+  [key: string]: unknown;
+}
+
+export interface LoadBalancingPreflightResponse {
+  /** true when there are no blockers */
+  success: boolean;
+  router_id?: number;
+  wan_ports?: string[];
+  blockers: string[];
+  warnings: string[];
+  verdict: string;
+  preflight?: LoadBalancingPreflightReport;
+}
+
+export interface LoadBalancingEnableRequest {
+  wan_ports: string[];
+  confirm: true;
+}
+
+/** Generic step report wrapper ({"steps": [...]}). */
+export interface LoadBalancingStepReport {
+  steps?: LoadBalancingStep[];
+  [key: string]: unknown;
+}
+
+export interface LoadBalancingSeedReport {
+  added?: unknown[];
+  skipped?: unknown[];
+  [key: string]: unknown;
+}
+
+export interface LoadBalancingVerifyReport {
+  counters?: Record<string, unknown>;
+  flow_attribution?: Record<string, unknown>;
+  lb_paid?: Array<Record<string, unknown>>;
+  hosts?: unknown;
+  active_managed_routes?: unknown;
+  wg?: unknown;
+  warnings?: string[];
+  wan_ips?: Record<string, string>;
+  [key: string]: unknown;
+}
+
+export interface LoadBalancingEnableResponse {
+  success: boolean;
+  router_id?: number;
+  enabled?: boolean;
+  wan_ports?: string[];
+  converted_ports?: string[];
+  dormant_ports?: string[];
+  applied_at?: string | null;
+  warnings?: string[];
+  preflight?: LoadBalancingPreflightReport;
+  apply?: LoadBalancingStepReport;
+  convert?: Record<string, LoadBalancingStepReport>;
+  seed?: LoadBalancingSeedReport;
+  verify?: LoadBalancingVerifyReport;
+  message?: string;
+}
+
+export interface LoadBalancingDisableResponse {
+  success: boolean;
+  router_id?: number;
+  enabled?: boolean;
+  config?: LoadBalancingConfig | null;
+  rollback?: LoadBalancingStepReport;
+  message?: string;
+}
+
+export interface LoadBalancingVerifyResponse {
+  success: boolean;
+  router_id?: number;
+  enabled: boolean;
+  config?: LoadBalancingConfig | null;
+  applied_at?: string | null;
+  verify?: LoadBalancingVerifyReport;
+}
+
 export interface PPPoECustomerImportReport {
   success: boolean;
   has_errors: boolean;
@@ -1236,6 +1355,9 @@ export interface Router {
   insurance_backup_error?: string | null;
   insurance_backup_job_id?: string | null;
   insurance_backup_verification?: InsuranceWireGuardVerification;
+  lb_enabled?: boolean;
+  lb_config?: { wan_ports: string[]; applied_at?: string } | null;
+  lb_applied_at?: string | null;
 }
 
 export interface UptimeCheck {

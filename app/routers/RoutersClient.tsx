@@ -33,6 +33,7 @@ import { formatDateGMT3 } from '../lib/dateUtils';
 import DeviceModeTroubleshoot from '../components/DeviceModeTroubleshoot';
 import HotspotPackageTroubleshoot from '../components/HotspotPackageTroubleshoot';
 import InsuranceTunnelBadge from '../components/InsuranceTunnelBadge';
+import LoadBalancingControls from '../components/LoadBalancingControls';
 
 const formatSafeDate = (dateStr: string | null | undefined): string => {
   try {
@@ -831,6 +832,7 @@ function RoutersTab({
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
         </svg>
       </button>
+      <LoadBalancingControls router={router} onChanged={loadRouters} />
       <button
         onClick={(e) => { e.stopPropagation(); setPlansModalRouter(router); }}
         className="p-1.5 rounded-lg hover:bg-accent-primary/10 text-foreground-muted hover:text-accent-primary transition-colors active:opacity-70"
@@ -1263,6 +1265,9 @@ function RoutersTab({
                         )}
                         {router.hotspot_sharing_blocked && (
                           <span className="text-[10px] font-medium leading-none px-1.5 py-0.5 rounded bg-accent-primary/10 text-accent-primary border border-accent-primary/30">no tether</span>
+                        )}
+                        {router.lb_enabled && (
+                          <span className="text-[10px] font-medium leading-none px-1.5 py-0.5 rounded bg-info/10 text-info border border-info/30">LB</span>
                         )}
                         {canManageBackupVpn && <InsuranceTunnelBadge type={router.planned_insurance_tunnel_type} />}
                         {canManageBackupVpn && <BackupStatusBadge router={router} />}
@@ -2619,6 +2624,7 @@ function PortConfigModal({
       const dual = data.dual_ports ?? (router.dual_ports ?? []);
       for (const iface of data.interfaces) {
         if (iface.type !== 'ether' || iface.name === 'ether1') continue;
+        if (lbWanPorts.includes(iface.name)) continue; // WAN uplinks are managed by load balancing
         if (dual.includes(iface.name)) modes[iface.name] = 'dual';
         else if (pppoe.includes(iface.name)) modes[iface.name] = 'pppoe';
         else if (plain.includes(iface.name)) modes[iface.name] = 'plain';
@@ -2632,6 +2638,10 @@ function PortConfigModal({
       setLoading(false);
     }
   };
+
+  // Ports currently used as WAN uplinks by load balancing must not be
+  // reassigned to hotspot/pppoe here — they are shown locked below.
+  const lbWanPorts = router.lb_config?.wan_ports ?? [];
 
   const etherPorts = interfaces.filter(
     (iface) => iface.type === 'ether' && iface.name !== 'ether1'
@@ -2802,6 +2812,25 @@ function PortConfigModal({
                 </thead>
                 <tbody>
                   {etherPorts.map((port) => {
+                    if (lbWanPorts.includes(port.name)) {
+                      return (
+                        <tr key={port.name} className="opacity-60">
+                          <td className="!py-2.5 !px-3">
+                            <span className="font-medium text-foreground text-sm">{port.name}</span>
+                          </td>
+                          <td className="!py-2.5 !px-3">
+                            <PortLinkIndicator running={port.running} />
+                          </td>
+                          <td className="!py-2.5 !px-3 hidden sm:table-cell">
+                            <span className="badge text-[11px] bg-info/12 text-info">WAN (load balancing)</span>
+                          </td>
+                          <td className="!py-2.5 !px-3">
+                            <span className="text-xs text-foreground-muted sm:hidden">WAN (load balancing)</span>
+                            <span className="text-xs text-foreground-muted hidden sm:inline">Locked</span>
+                          </td>
+                        </tr>
+                      );
+                    }
                     const mode = portModes[port.name] ?? 'hotspot';
                     const saved = savedModes[port.name] ?? 'hotspot';
                     const changed = mode !== saved;
