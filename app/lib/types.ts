@@ -4615,3 +4615,89 @@ export interface CompensationLimitSetting {
   default: number;
   is_overridden: boolean;
 }
+
+// Outage compensation (bulk expiry extension for power-cut windows)
+
+export interface OutageRouterRef {
+  id: number;
+  name: string;
+}
+
+export interface OutageCompensationCustomer {
+  customer_id: number;
+  name: string | null;
+  phone: string | null;
+  router_id: number | null;
+  plan_name: string | null;
+  connection_type: string | null;
+  expiry: string | null;
+  credited_seconds: number;
+  new_expiry: string | null;
+}
+
+export interface OutageSkippedCustomer {
+  customer_id: number;
+  name: string | null;
+  phone: string | null;
+  router_id: number | null;
+  expiry: string | null;
+}
+
+export interface OutagePreviousRun {
+  id: number;
+  outage_start: string;
+  outage_end: string;
+  customers_credited: number;
+  created_at: string | null;
+}
+
+export interface OutagePreviewResponse {
+  outage_start: string;
+  outage_end: string;
+  outage_seconds: number;
+  routers: OutageRouterRef[];
+  customers: OutageCompensationCustomer[];
+  total_customers: number;
+  total_seconds_credited: number;
+  skipped_expired: OutageSkippedCustomer[];
+  already_compensated: OutagePreviousRun[];
+}
+
+export interface OutageApplyResponse {
+  compensation_id: number;
+  outage_start: string;
+  outage_end: string;
+  routers: OutageRouterRef[];
+  customers_credited: number;
+  total_seconds_credited: number;
+  companion_devices_updated: number;
+  customers: OutageCompensationCustomer[];
+  skipped_expired: OutageSkippedCustomer[];
+}
+
+export interface OutageHistoryEntry {
+  id: number;
+  outage_start: string;
+  outage_end: string;
+  router_ids: number[] | null;
+  customers_credited: number;
+  total_seconds_credited: number;
+  note: string | null;
+  created_at: string | null;
+}
+
+export interface OutageHistoryResponse {
+  compensations: OutageHistoryEntry[];
+}
+
+export interface OutageWindowRequest {
+  outage_start: string;
+  outage_end: string;
+  router_ids?: number[];
+  exclude_customer_ids?: number[];
+}
+
+export interface OutageApplyRequest extends OutageWindowRequest {
+  note?: string;
+  allow_duplicate?: boolean;
+}
