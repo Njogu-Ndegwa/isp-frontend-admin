@@ -14,7 +14,7 @@ import {
   HotspotMonitorUser,
   CustomerUsagePeriod,
 } from '../lib/types';
-import { formatDateGMT3 } from '../lib/dateUtils';
+import { formatDateGMT3, formatTimeSinceUTC } from '../lib/dateUtils';
 import { useAlert } from '../context/AlertContext';
 import Header from '../components/Header';
 import { SkeletonCard } from '../components/LoadingSpinner';
@@ -45,6 +45,24 @@ const PPPOE_POLL_INTERVAL = 30_000;
 const USAGE_POLL_INTERVAL = 60_000;
 
 type LiveMonitorUser = PPPoEMonitorUser | HotspotMonitorUser;
+
+/**
+ * What the monitor endpoints told us about the router itself on the last poll.
+ *
+ * A router that has lost power keeps its customers' last live state in the
+ * backend's snapshot cache. The backend now clears that state and reports
+ * `router_reachable: false`; this is where the table picks it up, so a dark
+ * router reads as "Router offline" instead of a row of customers who look
+ * connected and are not.
+ */
+type RouterLiveness = {
+  reachable: boolean | null;
+  lastOnlineAt: string | null;
+};
+
+function isRouterDown(liveness: RouterLiveness | undefined): boolean {
+  return liveness?.reachable === false;
+}
 
 function getConnectionType(customer: Customer): 'hotspot' | 'pppoe' {
   return customer.connection_type ?? customer.plan?.connection_type ?? 'hotspot';
@@ -140,6 +158,9 @@ export default function CustomersPage() {
   // an empty dash while we're still loading.
   const [pppoeLiveLoaded, setPppoeLiveLoaded] = useState(false);
   const [hotspotLiveLoaded, setHotspotLiveLoaded] = useState(false);
+  // Per-router reachability from those same polls, so rows behind a router
+  // that has stopped answering say so instead of showing its last live state.
+  const [routerLiveness, setRouterLiveness] = useState<Map<number, RouterLiveness>>(new Map());
 
   // Period data usage (FUP) per customer. We use a single source of truth —
   // `api.getCustomerUsage` — for every visible hotspot/PPPoE customer, mirroring
@@ -384,6 +405,41 @@ export default function CustomersPage() {
     return Array.from(ids).sort((a, b) => a - b);
   }, [displayedCustomers]);
 
+  // Routers behind the visible rows that are not answering right now.
+  const offlineRouters = useMemo(() => {
+    const byId = new Map<number, string>();
+    for (const customer of displayedCustomers) {
+      const routerId = customer.router_id ?? customer.router?.id;
+      if (!routerId || byId.has(routerId)) continue;
+      if (isRouterDown(routerLiveness.get(routerId))) {
+        byId.set(routerId, customer.router?.name || `Router ${routerId}`);
+      }
+    }
+    return Array.from(byId, ([id, name]) => ({ id, name }));
+  }, [displayedCustomers, routerLiveness]);
+
+  // Record one router's freshness verdict from a monitor response. Only that
+  // router's entry is touched, so the hotspot and PPPoE polls can't clobber
+  // each other on a router that carries both. Unchanged verdicts return the
+  // same Map so a steady 30s poll doesn't re-render the table.
+  const recordRouterLiveness = useCallback((
+    routerId: number | undefined,
+    response: { router_reachable?: boolean | null; router_last_online_at?: string | null },
+  ) => {
+    if (!routerId) return;
+    const reachable = response.router_reachable ?? null;
+    const lastOnlineAt = response.router_last_online_at ?? null;
+    setRouterLiveness((prev) => {
+      const current = prev.get(routerId);
+      if (current && current.reachable === reachable && current.lastOnlineAt === lastOnlineAt) {
+        return prev;
+      }
+      const next = new Map(prev);
+      next.set(routerId, { reachable, lastOnlineAt });
+      return next;
+    });
+  }, []);
+
   // Live PPPoE composition for the visible customer rows only. Polling every
   // router in the account made the customer list behave like a fleet-wide live
   // diagnostic page and created avoidable RouterOS/DB pressure.
@@ -406,11 +462,11 @@ export default function CustomersPage() {
         );
         if (cancelled) return;
         const map = new Map<string, PPPoEMonitorUser>();
-        for (const result of results) {
-          if (result.status === 'fulfilled') {
-            result.value.users.forEach((u) => map.set(u.username, u));
-          }
-        }
+        results.forEach((result, index) => {
+          if (result.status !== 'fulfilled') return;
+          result.value.users.forEach((u) => map.set(u.username, u));
+          recordRouterLiveness(pppoeLiveRouterIds[index], result.value);
+        });
         setPppoeLive(map);
       } catch {
         // Leave prior live data intact and retry on the next tick.
@@ -422,7 +478,7 @@ export default function CustomersPage() {
     load();
     intervalId = window.setInterval(load, PPPOE_POLL_INTERVAL);
     return () => { cancelled = true; if (intervalId) clearInterval(intervalId); };
-  }, [pppoeLiveRouterIds]);
+  }, [pppoeLiveRouterIds, recordRouterLiveness]);
 
   // Live hotspot composition for the visible customer rows only. Hotspot
   // records are keyed by MAC address, with the backend customer id as a
@@ -446,14 +502,15 @@ export default function CustomersPage() {
         );
         if (cancelled) return;
         const map = new Map<string, HotspotMonitorUser>();
-        for (const result of results) {
-          if (result.status !== 'fulfilled') continue;
+        results.forEach((result, index) => {
+          if (result.status !== 'fulfilled') return;
           result.value.users.forEach((u) => {
             const macKey = normalizeMacForLookup(u.mac_address);
             if (macKey) map.set(macKey, u);
             if (u.customer?.id) map.set(`customer:${u.customer.id}`, u);
           });
-        }
+          recordRouterLiveness(hotspotLiveRouterIds[index], result.value);
+        });
         setHotspotLive(map);
       } catch {
         // Leave prior live data intact and retry on the next tick.
@@ -465,7 +522,7 @@ export default function CustomersPage() {
     load();
     intervalId = window.setInterval(load, PPPOE_POLL_INTERVAL);
     return () => { cancelled = true; if (intervalId) clearInterval(intervalId); };
-  }, [hotspotLiveRouterIds]);
+  }, [hotspotLiveRouterIds, recordRouterLiveness]);
 
   // Period data usage — single data source.
   //
@@ -838,6 +895,30 @@ export default function CustomersPage() {
 
       </div>
 
+      {/* Any router behind the visible rows that has stopped answering. Named
+          up front so the reseller reads one site-level fault instead of a
+          column of customers who look like they all went offline at once. */}
+      {offlineRouters.length > 0 && (
+        <div className="card border border-warning/40 bg-warning/5 p-3 mb-3 flex items-start gap-2.5">
+          <svg className="w-5 h-5 text-warning shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+          </svg>
+          <div>
+            <p className="text-sm font-medium text-warning">
+              {offlineRouters.length === 1
+                ? `${offlineRouters[0].name} is not reachable`
+                : `${offlineRouters.length} routers are not reachable`}
+            </p>
+            <p className="text-xs text-foreground-muted mt-0.5">
+              Live status and speeds for {offlineRouters.length === 1 ? 'its' : 'their'} customers are
+              unavailable until {offlineRouters.length === 1 ? 'it comes' : 'they come'} back — usually
+              power or the internet line at the site.
+              {offlineRouters.length > 1 && ` (${offlineRouters.map((r) => r.name).join(', ')})`}
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Desktop Table */}
           <DataTable<Customer>
             columns={CUSTOMER_COLUMNS}
@@ -853,6 +934,8 @@ export default function CustomersPage() {
               const liveLoaded = connectionType === 'pppoe' ? pppoeLiveLoaded : hotspotLiveLoaded;
               const liveMonitorable = canMonitorLive(customer);
               const usage = usageMap.get(customer.id);
+              const liveness = routerLiveness.get(customer.router_id ?? customer.router?.id ?? -1);
+              const routerDown = isRouterDown(liveness);
               switch (key) {
                 case 'name':
                   return (
@@ -912,6 +995,26 @@ export default function CustomersPage() {
                   if (!liveMonitorable) {
                     return <span className="text-foreground-muted text-xs">—</span>;
                   }
+                  // The router itself is not answering — usually a power cut at
+                  // the site. Nobody behind it is connected, and saying "Offline"
+                  // per customer would suggest they chose to disconnect.
+                  if (routerDown) {
+                    return (
+                      <div className="flex flex-col gap-0.5">
+                        <span
+                          className="inline-flex items-center gap-1.5 text-warning text-xs font-medium"
+                          title="The router is not reachable, so live status for its customers is unavailable"
+                        >
+                          <span className="w-2 h-2 rounded-full bg-warning" /> Router offline
+                        </span>
+                        {formatTimeSinceUTC(liveness?.lastOnlineAt) && (
+                          <span className="text-[11px] text-foreground-muted">
+                            last seen {formatTimeSinceUTC(liveness?.lastOnlineAt)}
+                          </span>
+                        )}
+                      </div>
+                    );
+                  }
                   if (!liveLoaded) {
                     return (
                       <div className="flex flex-col gap-1.5" aria-label="Loading online status">
@@ -952,6 +1055,7 @@ export default function CustomersPage() {
                   );
                 case 'bandwidth':
                   if (!liveMonitorable) return <span className="text-foreground-muted text-xs">—</span>;
+                  if (routerDown) return <span className="text-foreground-muted text-xs">—</span>;
                   if (!liveLoaded) {
                     return (
                       <div className="flex flex-col gap-1" aria-label="Loading bandwidth">
@@ -1124,7 +1228,9 @@ export default function CustomersPage() {
                 const liveLoadedCard = connectionTypeCard === 'pppoe' ? pppoeLiveLoaded : hotspotLiveLoaded;
                 const liveMonitorableCard = canMonitorLive(customer);
                 const usageCard = usageMap.get(customer.id);
-                const isOnline = liveCard?.online ?? false;
+                const livenessCard = routerLiveness.get(customer.router_id ?? customer.router?.id ?? -1);
+                const routerDownCard = isRouterDown(livenessCard);
+                const isOnline = !routerDownCard && (liveCard?.online ?? false);
                 // Show the secondary-row skeleton until we either have *some*
                 // data to display or both fetches have settled — prevents the
                 // brief "—" / router-name flash between fetches resolving.
@@ -1140,12 +1246,18 @@ export default function CustomersPage() {
                   subtitle={customer.account_number ? `4159825 — ${customer.account_number}` : (customer.pppoe_username || customer.phone || undefined)}
                   avatar={{
                     text: (customer.name || '?').charAt(0).toUpperCase(),
-                    color: liveCard
+                    color: routerDownCard
+                      ? 'warning'
+                      : liveCard
                       ? (liveCard.disabled ? 'warning' : isOnline ? 'success' : 'danger')
                       : connectionTypeCard === 'pppoe' ? 'info' : 'primary',
                   }}
                   badge={
-                    cardLoadingLive
+                    // A router that isn't answering outranks every per-customer
+                    // state: none of them can be connected through it.
+                    routerDownCard
+                      ? { label: 'Router offline', variant: 'warning' as const }
+                      : cardLoadingLive
                       ? undefined
                       : liveCard
                       ? liveCard.disabled

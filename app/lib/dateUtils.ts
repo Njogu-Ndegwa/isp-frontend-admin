@@ -22,6 +22,30 @@ export function parseUTCToGMT3(timestamp: string): Date {
 }
 
 /**
+ * How long ago a UTC timestamp was, in short form ("just now", "7m ago",
+ * "3h ago", "2d ago").
+ *
+ * Timezone-free: it compares two instants, so the GMT+3 display offset never
+ * enters into it. Used for "last seen" on a router that has gone dark.
+ */
+export function formatTimeSinceUTC(timestamp: string | null | undefined): string | null {
+  if (!timestamp) return null;
+  const ts = timestamp.endsWith('Z') || timestamp.includes('+') || timestamp.includes('-', 10)
+    ? timestamp
+    : timestamp + 'Z';
+  const then = new Date(ts).getTime();
+  if (Number.isNaN(then)) return null;
+
+  const seconds = Math.max(0, Math.floor((Date.now() - then) / 1000));
+  if (seconds < 60) return 'just now';
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  return `${Math.floor(hours / 24)}d ago`;
+}
+
+/**
  * Get current time in GMT+3.
  */
 export function getCurrentTimeGMT3(): Date {
