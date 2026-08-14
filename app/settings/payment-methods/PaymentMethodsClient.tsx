@@ -31,6 +31,7 @@ const ROUTER_ASSIGNMENT_COLUMNS: DataTableColumn[] = [
 const PAYMENT_METHOD_TYPES: { value: PaymentMethodType; label: string; description: string }[] = [
   { value: 'bank_account', label: 'Bank Account', description: 'Bank paybill and account number' },
   { value: 'mpesa_paybill', label: 'M-Pesa Paybill', description: 'System collects via paybill — admin pays you later' },
+  { value: 'mpesa_till', label: 'M-Pesa Till (Buy Goods)', description: 'System collects — payouts go to your Buy Goods till' },
   { value: 'mpesa_paybill_with_keys', label: 'M-Pesa Direct', description: 'Direct STK Push using your own M-Pesa API keys' },
   { value: 'zenopay', label: 'ZenoPay (Tanzania)', description: 'Tanzanian mobile money via ZenoPay' },
   { value: 'mtn_momo', label: 'MTN Mobile Money', description: 'MTN MoMo RequestToPay using your own API User credentials' },
@@ -42,6 +43,7 @@ interface FieldDef {
   type: 'text' | 'password' | 'select';
   required: boolean;
   placeholder?: string;
+  hint?: string;
   options?: { value: string; label: string }[];
 }
 
@@ -52,6 +54,18 @@ const FIELDS_BY_TYPE: Record<PaymentMethodType, FieldDef[]> = {
   ],
   mpesa_paybill: [
     { key: 'mpesa_paybill_number', label: 'M-Pesa Paybill Number', type: 'text', required: true },
+  ],
+  mpesa_till: [
+    {
+      key: 'mpesa_till_number',
+      label: 'M-Pesa Till Number',
+      type: 'text',
+      required: true,
+      placeholder: 'e.g. 5678901',
+      // Backend rejects anything that isn't 4-9 digits and non-zero-leading —
+      // resellers keep entering their phone number, which B2B can never pay.
+      hint: 'Your Buy Goods till — 4-9 digits, not your phone number.',
+    },
   ],
   mpesa_paybill_with_keys: [
     { key: 'mpesa_shortcode', label: 'Business Shortcode', type: 'text', required: true },
@@ -101,6 +115,18 @@ function isMasked(value: string): boolean {
   return /^\*{4,}/.test(value);
 }
 
+// Mirrors the backend rule in payment_method_routes.py: a Buy Goods till is
+// 4-9 digits and never starts with 0. Resellers keep typing their M-Pesa phone
+// number here, which B2B payouts can never reach — catch it before the round trip.
+function tillNumberError(value: string): string | null {
+  const till = value.trim().replace(/\s/g, '');
+  if (!till) return null;
+  if (!/^[1-9]\d{3,8}$/.test(till)) {
+    return 'Enter your Buy Goods till number (4-9 digits, not starting with 0). A phone number cannot receive payouts.';
+  }
+  return null;
+}
+
 function getVisibleFields(method: PaymentMethodConfig): { key: string; value: string }[] {
   const fields = FIELDS_BY_TYPE[method.method_type] ?? [];
   const result: { key: string; value: string }[] = [];
@@ -118,6 +144,8 @@ function getTypeColor(type: PaymentMethodType) {
     case 'mpesa_paybill':
     case 'mpesa_paybill_with_keys':
       return 'bg-green-500/10 text-green-500 border-green-500/20';
+    case 'mpesa_till':
+      return 'bg-teal-500/10 text-teal-500 border-teal-500/20';
     case 'bank_account':
       return 'bg-blue-500/10 text-blue-500 border-blue-500/20';
     case 'zenopay':
@@ -236,6 +264,16 @@ export default function PaymentMethodsPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    const effectiveType = editingMethod?.method_type ?? formType;
+    if (effectiveType === 'mpesa_till') {
+      const tillError = tillNumberError(formFields.mpesa_till_number || '');
+      if (tillError) {
+        showAlert('error', tillError);
+        return;
+      }
+    }
+
     setFormLoading(true);
 
     try {
@@ -744,6 +782,9 @@ export default function PaymentMethodsPage() {
                               </button>
                             )}
                           </div>
+                          {field.hint && (
+                            <p className="text-[11px] text-foreground-muted mt-1">{field.hint}</p>
+                          )}
                         </div>
                       );
                     })}

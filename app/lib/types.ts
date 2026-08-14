@@ -1232,7 +1232,7 @@ export interface TransactionSummary {
 }
 
 // Payment Method Configuration Types (Settings CRUD)
-export type PaymentMethodType = 'bank_account' | 'mpesa_paybill' | 'mpesa_paybill_with_keys' | 'zenopay' | 'mtn_momo';
+export type PaymentMethodType = 'bank_account' | 'mpesa_paybill' | 'mpesa_till' | 'mpesa_paybill_with_keys' | 'zenopay' | 'mtn_momo';
 
 export interface PaymentMethodConfig {
   id: number;
@@ -1247,6 +1247,8 @@ export interface PaymentMethodConfig {
   bank_account_number?: string;
   // mpesa_paybill fields
   mpesa_paybill_number?: string;
+  // mpesa_till fields (Buy Goods payout destination)
+  mpesa_till_number?: string;
   // mpesa_paybill_with_keys fields
   mpesa_shortcode?: string;
   mpesa_passkey?: string;
@@ -1272,6 +1274,7 @@ export interface CreatePaymentMethodRequest {
   bank_paybill_number?: string;
   bank_account_number?: string;
   mpesa_paybill_number?: string;
+  mpesa_till_number?: string;
   mpesa_shortcode?: string;
   mpesa_passkey?: string;
   mpesa_consumer_key?: string;
@@ -1292,6 +1295,7 @@ export interface UpdatePaymentMethodRequest {
   bank_paybill_number?: string;
   bank_account_number?: string;
   mpesa_paybill_number?: string;
+  mpesa_till_number?: string;
   mpesa_shortcode?: string;
   mpesa_passkey?: string;
   mpesa_consumer_key?: string;
@@ -2873,7 +2877,7 @@ export interface B2BPayoutResponse {
   [key: string]: unknown;
 }
 
-export type AdminPaymentMethodType = 'bank_account' | 'mpesa_paybill' | 'mpesa_paybill_with_keys' | 'zenopay' | 'mtn_momo';
+export type AdminPaymentMethodType = 'bank_account' | 'mpesa_paybill' | 'mpesa_till' | 'mpesa_paybill_with_keys' | 'zenopay' | 'mtn_momo';
 
 export interface AdminPaymentMethod {
   id: number;
@@ -2883,6 +2887,7 @@ export interface AdminPaymentMethod {
   bank_paybill_number?: string;
   bank_account_number?: string;
   mpesa_paybill_number?: string;
+  mpesa_till_number?: string;
   mpesa_shortcode?: string;
   zenopay_account_id?: string;
   mtn_api_user?: string;
