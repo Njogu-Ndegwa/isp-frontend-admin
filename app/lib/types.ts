@@ -2363,13 +2363,37 @@ export interface PPPoEMonitorSummary {
   total_download_rate_bps: number;
 }
 
-export interface PPPoEMonitorResponse {
+/** Why a monitor response is not a live reading, when it isn't one. */
+export type MonitorFallbackReason =
+  | 'connect_failed'
+  | 'timeout'
+  | 'router_recently_offline'
+  | 'db_pool_pressure'
+  | (string & {});
+
+/**
+ * Freshness contract shared by the hotspot and PPPoE monitor endpoints.
+ *
+ * `router_reachable` is the field that matters: `false` means the router did
+ * not answer, so every user in the payload has been forced offline server-side
+ * and the UI must say so rather than show a stale "Online". `null` means we
+ * did not check (the router is probably fine) and `live` is false only because
+ * the data has an age.
+ */
+export interface MonitorFreshness {
+  cached: boolean;
+  stale?: boolean;
+  live?: boolean;
+  router_reachable?: boolean | null;
+  cache_age_seconds: number | null;
+  fallback_reason?: MonitorFallbackReason | null;
+  router_last_online_at?: string | null;
+}
+
+export interface PPPoEMonitorResponse extends MonitorFreshness {
   router_id: number;
   router_name: string;
   generated_at: string;
-  cached: boolean;
-  stale?: boolean;
-  cache_age_seconds: number | null;
   success: boolean;
   summary: PPPoEMonitorSummary;
   users: PPPoEMonitorUser[];
@@ -2401,13 +2425,10 @@ export interface HotspotMonitorUser {
 
 export type HotspotMonitorSummary = PPPoEMonitorSummary;
 
-export interface HotspotMonitorResponse {
+export interface HotspotMonitorResponse extends MonitorFreshness {
   router_id: number;
   router_name: string;
   generated_at: string;
-  cached: boolean;
-  stale?: boolean;
-  cache_age_seconds: number | null;
   success: boolean;
   summary: HotspotMonitorSummary;
   users: HotspotMonitorUser[];
