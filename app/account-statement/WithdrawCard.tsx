@@ -195,7 +195,7 @@ export default function WithdrawCard({ onWithdrawn }: { onWithdrawn?: () => void
             </div>
           ) : settings.blocked_reason === 'no_payment_method' ? (
             <div className="p-3 rounded-xl bg-amber-500/10 text-amber-500 text-xs">
-              Add a bank account or M-Pesa paybill in{' '}
+              Add a bank account, M-Pesa paybill or till in{' '}
               <Link href="/settings/payment-methods" className="underline font-medium">
                 Payment Methods
               </Link>{' '}

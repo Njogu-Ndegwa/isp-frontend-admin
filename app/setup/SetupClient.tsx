@@ -736,13 +736,31 @@ function PlanStep({ onComplete }: { onComplete: () => void }) {
 // Step 3: Payment Method
 // ---------------------------------------------------------------------------
 
+// The three destinations a new reseller can set up during onboarding. The rest
+// (direct M-Pesa with own keys, ZenoPay, MTN MoMo) need credentials nobody has
+// to hand on day one, so they stay in Settings → Payment Methods.
+type SetupPaymentType = 'mpesa_paybill' | 'mpesa_till' | 'bank_account';
+
+const SETUP_PAYMENT_OPTIONS: { value: SetupPaymentType; title: string; subtitle: string }[] = [
+  { value: 'mpesa_paybill', title: 'M-Pesa Paybill', subtitle: 'Paybill number' },
+  { value: 'mpesa_till', title: 'M-Pesa Till', subtitle: 'Buy Goods number' },
+  { value: 'bank_account', title: 'Bank', subtitle: 'Account transfer' },
+];
+
+const SETUP_LABEL_PLACEHOLDERS: Record<SetupPaymentType, string> = {
+  mpesa_paybill: 'e.g. My M-Pesa',
+  mpesa_till: 'e.g. My Shop Till',
+  bank_account: 'e.g. My Bank Account',
+};
+
 function PaymentStep({ onComplete }: { onComplete: () => void }) {
   const { showAlert } = useAlert();
   const [loading, setLoading] = useState(false);
-  const [methodType, setMethodType] = useState<'mpesa_paybill' | 'bank_account'>('mpesa_paybill');
+  const [methodType, setMethodType] = useState<SetupPaymentType>('mpesa_paybill');
   const [form, setForm] = useState({
     label: '',
     mpesa_paybill_number: '',
+    mpesa_till_number: '',
     bank_paybill_number: '',
     bank_account_number: '',
   });
@@ -753,6 +771,16 @@ function PaymentStep({ onComplete }: { onComplete: () => void }) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    if (methodType === 'mpesa_till') {
+      const till = form.mpesa_till_number.trim().replace(/\s/g, '');
+      // Same rule the backend enforces: a Buy Goods till is 4-9 digits and
+      // never starts with 0. A phone number here can never receive a payout.
+      if (!/^[1-9]\d{3,8}$/.test(till)) {
+        showAlert('error', 'Enter your Buy Goods till number (4-9 digits, not starting with 0). A phone number cannot receive payouts.');
+        return;
+      }
+    }
+
     setLoading(true);
     try {
       const payload: CreatePaymentMethodRequest = {
@@ -760,6 +788,9 @@ function PaymentStep({ onComplete }: { onComplete: () => void }) {
         label: form.label,
         ...(methodType === 'mpesa_paybill' && {
           mpesa_paybill_number: form.mpesa_paybill_number,
+        }),
+        ...(methodType === 'mpesa_till' && {
+          mpesa_till_number: form.mpesa_till_number.trim().replace(/\s/g, ''),
         }),
         ...(methodType === 'bank_account' && {
           bank_paybill_number: form.bank_paybill_number,
@@ -791,33 +822,23 @@ function PaymentStep({ onComplete }: { onComplete: () => void }) {
       <div className="card p-4 space-y-4">
         <div>
           <label className="block text-sm font-medium text-foreground mb-2">Payment Type</label>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            <button
-              type="button"
-              onClick={() => setMethodType('mpesa_paybill')}
-              className={`px-4 py-3 rounded-xl text-sm font-medium transition-all border ${
-                methodType === 'mpesa_paybill'
-                  ? 'border-emerald-500 bg-emerald-500/10 text-emerald-500 ring-1 ring-emerald-500/30'
-                  : 'border-border bg-background-secondary text-foreground-muted hover:text-foreground'
-              }`}
-              style={{ touchAction: 'manipulation' }}
-            >
-              <span className="block font-semibold">M-Pesa</span>
-              <span className="block text-xs mt-0.5 opacity-70">Paybill number</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setMethodType('bank_account')}
-              className={`px-4 py-3 rounded-xl text-sm font-medium transition-all border ${
-                methodType === 'bank_account'
-                  ? 'border-emerald-500 bg-emerald-500/10 text-emerald-500 ring-1 ring-emerald-500/30'
-                  : 'border-border bg-background-secondary text-foreground-muted hover:text-foreground'
-              }`}
-              style={{ touchAction: 'manipulation' }}
-            >
-              <span className="block font-semibold">Bank</span>
-              <span className="block text-xs mt-0.5 opacity-70">Account transfer</span>
-            </button>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            {SETUP_PAYMENT_OPTIONS.map(opt => (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => setMethodType(opt.value)}
+                className={`px-4 py-3 rounded-xl text-sm font-medium transition-all border ${
+                  methodType === opt.value
+                    ? 'border-emerald-500 bg-emerald-500/10 text-emerald-500 ring-1 ring-emerald-500/30'
+                    : 'border-border bg-background-secondary text-foreground-muted hover:text-foreground'
+                }`}
+                style={{ touchAction: 'manipulation' }}
+              >
+                <span className="block font-semibold">{opt.title}</span>
+                <span className="block text-xs mt-0.5 opacity-70">{opt.subtitle}</span>
+              </button>
+            ))}
           </div>
         </div>
 
@@ -828,7 +849,7 @@ function PaymentStep({ onComplete }: { onComplete: () => void }) {
             value={form.label}
             onChange={e => update('label', e.target.value)}
             className="input"
-            placeholder={methodType === 'mpesa_paybill' ? 'e.g. My M-Pesa' : 'e.g. My Bank Account'}
+            placeholder={SETUP_LABEL_PLACEHOLDERS[methodType]}
             required
           />
         </div>
@@ -845,6 +866,23 @@ function PaymentStep({ onComplete }: { onComplete: () => void }) {
               placeholder="e.g. 174379"
               required
             />
+          </div>
+        ) : methodType === 'mpesa_till' ? (
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-1.5">Till Number</label>
+            <input
+              type="text"
+              inputMode="numeric"
+              value={form.mpesa_till_number}
+              onChange={e => update('mpesa_till_number', e.target.value)}
+              className="input"
+              placeholder="e.g. 5678901"
+              required
+            />
+            <p className="text-xs text-foreground-muted mt-1.5">
+              Your M-Pesa Buy Goods till — 4-9 digits, not your phone number. Payouts are
+              sent here.
+            </p>
           </div>
         ) : (
           <>

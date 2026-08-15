@@ -1684,6 +1684,12 @@ const METHOD_META: Record<string, { icon: React.ReactNode; color: string; bgColo
     bgColor: 'bg-emerald-500/10',
     borderColor: 'border-emerald-500/30',
   },
+  mpesa_till: {
+    icon: <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 9l1.5-4.5A2 2 0 016.4 3h11.2a2 2 0 011.9 1.5L21 9M3 9h18M3 9v10a2 2 0 002 2h14a2 2 0 002-2V9M3 9a2.5 2.5 0 005 0 2.5 2.5 0 005 0 2.5 2.5 0 005 0 2.5 2.5 0 005 0" /></svg>,
+    color: 'text-teal-500',
+    bgColor: 'bg-teal-500/10',
+    borderColor: 'border-teal-500/30',
+  },
   mpesa_paybill_with_keys: {
     icon: <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" /></svg>,
     color: 'text-emerald-600',
@@ -1707,7 +1713,8 @@ const METHOD_META: Record<string, { icon: React.ReactNode; color: string; bgColo
 const METHOD_TYPE_LABELS: Record<string, string> = {
   bank_account: 'Bank Account',
   mpesa_paybill: 'M-Pesa Paybill',
-  mpesa_paybill_with_keys: 'M-Pesa Till',
+  mpesa_till: 'M-Pesa Till (Buy Goods)',
+  mpesa_paybill_with_keys: 'M-Pesa Direct',
   zenopay: 'ZenoPay',
   mtn_momo: 'MTN MoMo',
 };
@@ -1717,6 +1724,7 @@ function getMethodDetails(m: AdminPaymentMethod): { label: string; value: string
   if (m.bank_paybill_number) details.push({ label: 'Paybill', value: m.bank_paybill_number });
   if (m.bank_account_number) details.push({ label: 'Account', value: m.bank_account_number });
   if (m.mpesa_paybill_number) details.push({ label: 'Paybill No.', value: m.mpesa_paybill_number });
+  if (m.mpesa_till_number) details.push({ label: 'Till No.', value: m.mpesa_till_number });
   if (m.mpesa_shortcode) details.push({ label: 'Shortcode', value: m.mpesa_shortcode });
   if (m.zenopay_account_id) details.push({ label: 'Account ID', value: m.zenopay_account_id });
   if (m.mtn_api_user) details.push({ label: 'API User', value: m.mtn_api_user });
