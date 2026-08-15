@@ -13,6 +13,7 @@ import { PageLoader } from '../../components/LoadingSpinner';
 import { useAlert } from '../../context/AlertContext';
 import FilterSelect from '../../components/FilterSelect';
 import DataTable, { DataTableColumn } from '../../components/DataTable';
+import MobileDataCard from '../../components/MobileDataCard';
 
 const PAYMENT_METHOD_COLUMNS: DataTableColumn[] = [
   { key: 'method', label: 'Method', className: 'max-w-[260px]' },
@@ -419,6 +420,107 @@ export default function PaymentMethodsPage() {
     return <PageLoader />;
   }
 
+  // Shared by the desktop table cell and the mobile card so the two can
+  // never drift apart.
+  const renderMethodActions = (method: PaymentMethodConfig) => (
+    <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+      {method.method_type === 'mpesa_paybill_with_keys' && (
+        method.c2b_registered_at ? (
+          <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-medium bg-success/10 text-success border border-success/20">
+            <span className="w-1.5 h-1.5 rounded-full bg-success" />
+            C2B Active
+          </span>
+        ) : (
+          <button
+            onClick={() => handleC2BRegister(method.id)}
+            disabled={c2bRegisterLoading || !method.is_active}
+            className="px-2 py-1 rounded-md text-xs font-medium bg-accent-primary/10 text-accent-primary hover:bg-accent-primary/20 transition-colors disabled:opacity-50"
+            title="Register for C2B Paybill"
+          >
+            {c2bRegisterLoading ? 'Registering...' : 'Register C2B'}
+          </button>
+        )
+      )}
+      {hasTestableCredentials(method.method_type) && (
+        <button
+          onClick={() => handleTest(method.id)}
+          disabled={testingId === method.id || !method.is_active}
+          className="p-1.5 rounded-md hover:bg-background-tertiary transition-colors text-foreground-muted hover:text-foreground disabled:opacity-50"
+          title="Test credentials"
+        >
+          {testingId === method.id ? (
+            <div className="w-4 h-4 border-2 border-current/30 border-t-current rounded-full animate-spin" />
+          ) : (
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          )}
+        </button>
+      )}
+      <button
+        onClick={() => openEditForm(method)}
+        className="p-1.5 rounded-md hover:bg-accent-primary/10 transition-colors text-foreground-muted hover:text-accent-primary"
+        title="Edit"
+      >
+        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+        </svg>
+      </button>
+      <button
+        onClick={() => handleDelete(method.id)}
+        disabled={deletingId === method.id}
+        className="p-1.5 rounded-md hover:bg-danger/10 transition-colors text-foreground-muted hover:text-danger disabled:opacity-50"
+        title="Delete"
+      >
+        {deletingId === method.id ? (
+          <div className="w-4 h-4 border-2 border-danger/30 border-t-danger rounded-full animate-spin" />
+        ) : (
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+          </svg>
+        )}
+      </button>
+    </div>
+  );
+
+  const renderRouterActions = (router: Router) => {
+    const assignedMethod = router.payment_method_id
+      ? methods.find(m => m.id === router.payment_method_id)
+      : null;
+    return (
+      <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+        <button
+          onClick={() => {
+            setAssignModalRouter(router);
+            setAssignMethodId(router.payment_method_id ?? null);
+          }}
+          className="p-1.5 rounded-md hover:bg-accent-primary/10 transition-colors text-foreground-muted hover:text-accent-primary"
+          title={assignedMethod ? 'Change method' : 'Assign method'}
+        >
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+          </svg>
+        </button>
+        {assignedMethod && (
+          <button
+            onClick={() => handleUnassign(router)}
+            disabled={unassigningRouterId === router.id}
+            className="p-1.5 rounded-md hover:bg-danger/10 transition-colors text-foreground-muted hover:text-danger disabled:opacity-50"
+            title="Remove assignment"
+          >
+            {unassigningRouterId === router.id ? (
+              <div className="w-4 h-4 border-2 border-danger/30 border-t-danger rounded-full animate-spin" />
+            ) : (
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+            )}
+          </button>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
@@ -476,7 +578,7 @@ export default function PaymentMethodsPage() {
           columns={PAYMENT_METHOD_COLUMNS}
           data={methods}
           rowKey={(m) => m.id}
-          className="card animate-fade-in"
+          className="hidden md:block card animate-fade-in"
           rowClassName={(m) => !m.is_active ? 'opacity-60' : ''}
           renderCell={(method, key) => {
             switch (key) {
@@ -507,72 +609,46 @@ export default function PaymentMethodsPage() {
                   </div>
                 );
               case 'actions':
-                return (
-                  <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
-                    {method.method_type === 'mpesa_paybill_with_keys' && (
-                      method.c2b_registered_at ? (
-                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-medium bg-success/10 text-success border border-success/20">
-                          <span className="w-1.5 h-1.5 rounded-full bg-success" />
-                          C2B Active
-                        </span>
-                      ) : (
-                        <button
-                          onClick={() => handleC2BRegister(method.id)}
-                          disabled={c2bRegisterLoading || !method.is_active}
-                          className="px-2 py-1 rounded-md text-xs font-medium bg-accent-primary/10 text-accent-primary hover:bg-accent-primary/20 transition-colors disabled:opacity-50"
-                          title="Register for C2B Paybill"
-                        >
-                          {c2bRegisterLoading ? 'Registering...' : 'Register C2B'}
-                        </button>
-                      )
-                    )}
-                    {hasTestableCredentials(method.method_type) && (
-                      <button
-                        onClick={() => handleTest(method.id)}
-                        disabled={testingId === method.id || !method.is_active}
-                        className="p-1.5 rounded-md hover:bg-background-tertiary transition-colors text-foreground-muted hover:text-foreground disabled:opacity-50"
-                        title="Test credentials"
-                      >
-                        {testingId === method.id ? (
-                          <div className="w-4 h-4 border-2 border-current/30 border-t-current rounded-full animate-spin" />
-                        ) : (
-                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                          </svg>
-                        )}
-                      </button>
-                    )}
-                    <button
-                      onClick={() => openEditForm(method)}
-                      className="p-1.5 rounded-md hover:bg-accent-primary/10 transition-colors text-foreground-muted hover:text-accent-primary"
-                      title="Edit"
-                    >
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                      </svg>
-                    </button>
-                    <button
-                      onClick={() => handleDelete(method.id)}
-                      disabled={deletingId === method.id}
-                      className="p-1.5 rounded-md hover:bg-danger/10 transition-colors text-foreground-muted hover:text-danger disabled:opacity-50"
-                      title="Delete"
-                    >
-                      {deletingId === method.id ? (
-                        <div className="w-4 h-4 border-2 border-danger/30 border-t-danger rounded-full animate-spin" />
-                      ) : (
-                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                        </svg>
-                      )}
-                    </button>
-                  </div>
-                );
+                return renderMethodActions(method);
               default:
                 return null;
             }
           }}
           emptyState={{ message: 'No payment methods configured' }}
         />
+      )}
+
+      {/* Phones get cards instead. The 4-column table overflows below md and
+          clipped the Actions column, so Edit sat off-screen unless you knew
+          to scroll the table sideways. */}
+      {methods.length > 0 && (
+        <div className="md:hidden space-y-3">
+          {methods.map((method) => (
+            <MobileDataCard
+              key={method.id}
+              id={method.id}
+              layout="compact"
+              className={method.is_active ? '' : 'opacity-60'}
+              title={method.label}
+              subtitle={getVisibleFields(method)[0]?.value}
+              status={{
+                label: method.is_active ? 'Active' : 'Inactive',
+                variant: method.is_active ? 'success' : 'danger',
+              }}
+              secondary={{
+                left: (
+                  <span className={`badge border ${getTypeColor(method.method_type)}`}>
+                    {getTypeLabel(method.method_type)}
+                  </span>
+                ),
+                right: method.c2b_registered_at ? (
+                  <span className="badge bg-success/10 text-success border border-success/20">C2B</span>
+                ) : null,
+              }}
+              rightAction={renderMethodActions(method)}
+            />
+          ))}
+        </div>
       )}
 
       {/* Router Assignment Section */}
@@ -591,7 +667,7 @@ export default function PaymentMethodsPage() {
             columns={ROUTER_ASSIGNMENT_COLUMNS}
             data={routers}
             rowKey={(r) => r.id}
-            className="card animate-fade-in"
+            className="hidden md:block card animate-fade-in"
             renderCell={(router, key) => {
               const assignedMethod = router.payment_method_id
                 ? methods.find(m => m.id === router.payment_method_id)
@@ -623,44 +699,49 @@ export default function PaymentMethodsPage() {
                     <span className="text-sm text-foreground-muted">Legacy (system default)</span>
                   );
                 case 'actions':
-                  return (
-                    <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
-                      <button
-                        onClick={() => {
-                          setAssignModalRouter(router);
-                          setAssignMethodId(router.payment_method_id ?? null);
-                        }}
-                        className="p-1.5 rounded-md hover:bg-accent-primary/10 transition-colors text-foreground-muted hover:text-accent-primary"
-                        title={assignedMethod ? 'Change method' : 'Assign method'}
-                      >
-                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                        </svg>
-                      </button>
-                      {assignedMethod && (
-                        <button
-                          onClick={() => handleUnassign(router)}
-                          disabled={unassigningRouterId === router.id}
-                          className="p-1.5 rounded-md hover:bg-danger/10 transition-colors text-foreground-muted hover:text-danger disabled:opacity-50"
-                          title="Remove assignment"
-                        >
-                          {unassigningRouterId === router.id ? (
-                            <div className="w-4 h-4 border-2 border-danger/30 border-t-danger rounded-full animate-spin" />
-                          ) : (
-                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                            </svg>
-                          )}
-                        </button>
-                      )}
-                    </div>
-                  );
+                  return renderRouterActions(router);
                 default:
                   return null;
               }
             }}
             emptyState={{ message: 'No routers configured' }}
           />
+
+          <div className="md:hidden space-y-3">
+            {routers.map((router) => {
+              const assignedMethod = router.payment_method_id
+                ? methods.find(m => m.id === router.payment_method_id)
+                : null;
+              return (
+                <MobileDataCard
+                  key={router.id}
+                  id={router.id}
+                  layout="compact"
+                  title={router.name}
+                  subtitle={`${router.ip_address}:${router.port}`}
+                  status={{
+                    label: router.status || 'unknown',
+                    variant: router.status === 'online'
+                      ? 'success'
+                      : router.status === 'offline'
+                      ? 'danger'
+                      : 'neutral',
+                  }}
+                  secondary={{
+                    left: assignedMethod ? (
+                      <span className="badge bg-accent-primary/10 text-accent-primary border border-accent-primary/20">
+                        {assignedMethod.label}
+                      </span>
+                    ) : (
+                      <span className="text-sm text-foreground-muted">Legacy (system default)</span>
+                    ),
+                    right: null,
+                  }}
+                  rightAction={renderRouterActions(router)}
+                />
+              );
+            })}
+          </div>
         </div>
       )}
 
