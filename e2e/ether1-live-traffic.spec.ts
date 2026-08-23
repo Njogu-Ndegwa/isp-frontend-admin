@@ -16,10 +16,14 @@ test.beforeEach(async ({ page }) => {
   }, demoUser);
 });
 
-test('uses the stored router report by default and samples live only on request', async ({ page }) => {
+test('shows only the stored router report when Ether1 is selected', async ({ page }) => {
+  let liveSamplingRequests = 0;
+  page.on('request', (request) => {
+    if (request.url().includes('/uplink-traffic')) liveSamplingRequests += 1;
+  });
   await page.goto('/dashboard');
 
-  const panel = page.getByLabel('Live Ether1 traffic');
+  const panel = page.getByLabel('Ether1 traffic');
   await expect(page.getByRole('button', { name: /ether1.*uplink/i })).toBeVisible({ timeout: 15_000 });
   await expect(panel).toBeHidden();
   await page.getByRole('button', { name: /ether1.*uplink/i }).click();
@@ -28,22 +32,14 @@ test('uses the stored router report by default and samples live only on request'
   await expect(panel.getByText(/Latest report/)).toBeVisible();
   await expect(page.getByTestId('ether1-incoming-rate')).toHaveText('45.2 Mbps');
   await expect(page.getByTestId('ether1-outgoing-rate')).toHaveText('12.8 Mbps');
-  await expect(panel.getByText(/latest stored router report/i)).toBeVisible();
-
-  await panel.getByRole('button', { name: 'Start live' }).click();
-  await expect(panel.getByText(/Live · ether1/)).toBeVisible();
-  await expect(page.getByTestId('ether1-incoming-rate')).toHaveText('18.6 Mbps');
-  await expect(page.getByTestId('ether1-outgoing-rate')).toHaveText('3.2 Mbps');
-  await expect(panel.getByText(/while Live is enabled/i)).toBeVisible();
-
-  await panel.getByRole('button', { name: 'Stop live' }).click();
-  await expect(panel.getByText(/Latest report/)).toBeVisible();
-  await expect(page.getByTestId('ether1-incoming-rate')).toHaveText('45.2 Mbps');
+  await expect(panel.getByText(/does not poll the router/i)).toBeVisible();
+  await expect(panel.getByRole('button')).toHaveCount(0);
 
   await page.getByRole('button', { name: 'Usage', exact: true }).click();
   await expect(panel).toBeHidden();
   await page.getByRole('button', { name: 'Ports', exact: true }).click();
   await expect(page.getByTestId('ether1-incoming-rate')).toHaveText('45.2 Mbps');
+  expect(liveSamplingRequests).toBe(0);
 });
 
 test('fits the reported Ether1 reading on a phone viewport', async ({ page }) => {
@@ -52,7 +48,7 @@ test('fits the reported Ether1 reading on a phone viewport', async ({ page }) =>
 
   await expect(page.getByRole('button', { name: /ether1.*uplink/i })).toBeVisible({ timeout: 15_000 });
   await page.getByRole('button', { name: /ether1.*uplink/i }).click();
-  await expect(page.getByLabel('Live Ether1 traffic')).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByLabel('Ether1 traffic')).toBeVisible({ timeout: 15_000 });
   const overflow = await page.evaluate(
     () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
   );

@@ -1,8 +1,7 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
-import { api } from '../../lib/api';
 import SectionCard, { SectionError } from './SectionCard';
 import PortFaceplate, { isUplinkPort, portVisualStatus } from '../../components/PortFaceplate';
 import { formatKESCompact } from '../../lib/format';
@@ -13,7 +12,6 @@ import type {
   PortAnalyticsPort,
   DownstreamDeviceSample,
   BandwidthHistory,
-  UplinkTrafficResponse,
 } from '../../lib/types';
 import type { DownloadUsageServiceFilter } from '../DownloadUsageChart';
 import {
@@ -96,39 +94,6 @@ export default function PortsUsageCard({
 }): React.JSX.Element {
   const [mode, setMode] = useState<Mode>('ports');
   const [selectedPort, setSelectedPort] = useState<string | null>(null);
-  const [uplinkTraffic, setUplinkTraffic] = useState<UplinkTrafficResponse | null>(null);
-  const [uplinkTrafficErrorRouterId, setUplinkTrafficErrorRouterId] = useState<number | null>(null);
-  const [liveRouterId, setLiveRouterId] = useState<number | null>(null);
-  const liveEnabled = liveRouterId === routerId;
-
-  useEffect(() => {
-    if (mode !== 'ports' || !routerId || !liveEnabled) return;
-
-    let cancelled = false;
-    let requestInFlight = false;
-    const loadUplinkTraffic = async () => {
-      if (document.visibilityState !== 'visible' || requestInFlight) return;
-      requestInFlight = true;
-      try {
-        const sample = await api.getUplinkTraffic(routerId);
-        if (!cancelled) {
-          setUplinkTraffic(sample);
-          setUplinkTrafficErrorRouterId(null);
-        }
-      } catch {
-        if (!cancelled) setUplinkTrafficErrorRouterId(routerId);
-      } finally {
-        requestInFlight = false;
-      }
-    };
-
-    void loadUplinkTraffic();
-    const timer = window.setInterval(loadUplinkTraffic, 5_000);
-    return () => {
-      cancelled = true;
-      window.clearInterval(timer);
-    };
-  }, [liveEnabled, mode, routerId]);
 
   const controls = (
     <div className="flex gap-1 p-1 bg-background-tertiary rounded-lg">
@@ -178,24 +143,8 @@ export default function PortsUsageCard({
           onRetry={onRetryPortMap}
           routerId={routerId}
           selectedPort={selectedPort}
-          onSelectPort={(port) => {
-            setSelectedPort(port);
-            const selected = portMap?.ports.find((candidate) => candidate.port === port);
-            if (!selected || !isUplinkPort(selected)) {
-              setUplinkTraffic(null);
-              setUplinkTrafficErrorRouterId(null);
-              setLiveRouterId(null);
-            }
-          }}
-          uplinkTraffic={uplinkTraffic?.router_id === routerId ? uplinkTraffic : null}
-          uplinkTrafficError={uplinkTrafficErrorRouterId === routerId}
+          onSelectPort={setSelectedPort}
           reportedTraffic={reportedTraffic}
-          liveEnabled={liveEnabled}
-          onToggleLive={() => {
-            setUplinkTraffic(null);
-            setUplinkTrafficErrorRouterId(null);
-            setLiveRouterId(liveEnabled ? null : routerId);
-          }}
         />
       )}
     </SectionCard>
@@ -209,11 +158,7 @@ function PortsBody({
   routerId,
   selectedPort,
   onSelectPort,
-  uplinkTraffic,
-  uplinkTrafficError,
   reportedTraffic,
-  liveEnabled,
-  onToggleLive,
 }: {
   data: PortAnalyticsResponse | null;
   error: string | null;
@@ -221,11 +166,7 @@ function PortsBody({
   routerId: number;
   selectedPort: string | null;
   onSelectPort: (port: string) => void;
-  uplinkTraffic: UplinkTrafficResponse | null;
-  uplinkTrafficError: boolean;
   reportedTraffic: ReportedTraffic | null;
-  liveEnabled: boolean;
-  onToggleLive: () => void;
 }) {
   if (error) {
     return <SectionError message={error} onRetry={onRetry} />;
@@ -282,67 +223,32 @@ function PortsBody({
           port={selected}
           detailsHref={detailsHref}
           tiered={tiered}
-          uplinkTraffic={uplinkTraffic}
-          uplinkTrafficError={uplinkTrafficError}
           reportedTraffic={reportedTraffic}
-          liveEnabled={liveEnabled}
-          onToggleLive={onToggleLive}
         />
       )}
     </div>
   );
 }
 
-function UplinkTrafficPanel({
-  liveData,
-  reportedData,
-  liveEnabled,
-  unavailable,
-  onToggleLive,
-}: {
-  liveData: UplinkTrafficResponse | null;
-  reportedData: ReportedTraffic | null;
-  liveEnabled: boolean;
-  unavailable: boolean;
-  onToggleLive: () => void;
-}) {
-  const showingLive = liveEnabled && liveData !== null;
-  const rxBps = showingLive ? liveData.rx_bps : reportedData?.rxBps;
-  const txBps = showingLive ? liveData.tx_bps : reportedData?.txBps;
+function UplinkTrafficPanel({ reportedData }: { reportedData: ReportedTraffic | null }) {
+  const rxBps = reportedData?.rxBps;
+  const txBps = reportedData?.txBps;
   const hasReading = rxBps != null && txBps != null;
   const reportAge = reportedData?.ageSeconds;
 
   return (
     <div
-      aria-label="Live Ether1 traffic"
+      aria-label="Ether1 traffic"
       className="mt-2 rounded-xl border border-sky-500/20 bg-sky-500/5 p-3"
     >
       <div className="mb-2 flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
-          <span className={`h-2 w-2 rounded-full ${showingLive && liveData.running ? 'bg-emerald-500 animate-pulse' : 'bg-sky-500'}`} />
+          <span className="h-2 w-2 rounded-full bg-sky-500" />
           <p className="text-xs font-medium text-foreground">Ether1 internet traffic</p>
         </div>
-        <div className="flex items-center gap-2">
-          <span className="text-[10px] text-foreground-muted">
-            {showingLive
-              ? `Live · ${liveData.interface}`
-              : liveEnabled
-                ? unavailable ? 'Live unavailable · retrying…' : 'Starting live…'
-                : reportAge != null ? `Latest report · ${Math.max(0, Math.round(reportAge))}s ago` : 'Latest report'}
-          </span>
-          <button
-            type="button"
-            onClick={onToggleLive}
-            aria-pressed={liveEnabled}
-            className={`rounded-md px-2 py-1 text-[10px] font-medium transition-colors ${
-              liveEnabled
-                ? 'bg-red-500/10 text-red-400 hover:bg-red-500/20'
-                : 'bg-sky-500/10 text-sky-500 hover:bg-sky-500/20'
-            }`}
-          >
-            {liveEnabled ? 'Stop live' : 'Start live'}
-          </button>
-        </div>
+        <span className="text-[10px] text-foreground-muted">
+          {reportAge != null ? `Latest report · ${Math.max(0, Math.round(reportAge))}s ago` : 'Latest report'}
+        </span>
       </div>
 
       {hasReading ? (
@@ -362,15 +268,21 @@ function UplinkTrafficPanel({
         </div>
       ) : (
         <div className="grid grid-cols-2 gap-2">
-          <div className="h-14 skeleton rounded-lg" />
-          <div className="h-14 skeleton rounded-lg" />
+          <div className="rounded-lg bg-background/60 p-2.5">
+            <p className="text-[10px] uppercase tracking-wide text-sky-500">Coming in ↓</p>
+            <p className="mt-0.5 font-mono text-lg font-semibold text-foreground-muted">—</p>
+          </div>
+          <div className="rounded-lg bg-background/60 p-2.5">
+            <p className="text-[10px] uppercase tracking-wide text-foreground-muted">Going out ↑</p>
+            <p className="mt-0.5 font-mono text-lg font-semibold text-foreground-muted">—</p>
+          </div>
         </div>
       )}
 
       <p className="mt-2 text-[10px] text-foreground-muted">
-        {showingLive
-          ? 'Instantaneous Ether1 speed, refreshed every 5 seconds while Live is enabled.'
-          : 'Recent average from the latest stored router report. Start Live only when you need an instantaneous reading.'}
+        {hasReading
+          ? 'Recent average from the latest stored router report. This panel does not poll the router.'
+          : 'No stored router report yet. The speed will appear after the router sends its next report.'}
       </p>
     </div>
   );
@@ -380,20 +292,12 @@ function SelectedPortPanel({
   port,
   detailsHref,
   tiered,
-  uplinkTraffic,
-  uplinkTrafficError,
   reportedTraffic,
-  liveEnabled,
-  onToggleLive,
 }: {
   port: PortAnalyticsPort;
   detailsHref: string;
   tiered: boolean;
-  uplinkTraffic: UplinkTrafficResponse | null;
-  uplinkTrafficError: boolean;
   reportedTraffic: ReportedTraffic | null;
-  liveEnabled: boolean;
-  onToggleLive: () => void;
 }) {
   const status = portVisualStatus(port);
   const badge = STATUS_BADGES[status] ?? STATUS_BADGES.down;
@@ -432,13 +336,7 @@ function SelectedPortPanel({
       {status === 'uplink' ? (
         <>
           <p className="text-xs text-sky-500">WAN uplink — brings the internet into this router.</p>
-          <UplinkTrafficPanel
-            liveData={uplinkTraffic}
-            reportedData={reportedTraffic}
-            liveEnabled={liveEnabled}
-            unavailable={uplinkTrafficError}
-            onToggleLive={onToggleLive}
-          />
+          <UplinkTrafficPanel reportedData={reportedTraffic} />
         </>
       ) : status === 'down' ? (
         <p className="text-xs text-foreground-muted">No physical link on this port.</p>

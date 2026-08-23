@@ -33,7 +33,6 @@ import type {
   PortStatusResponse,
   PortAnalyticsResponse,
   PortAnalyticsPort,
-  UplinkTrafficResponse,
   InfrastructureDevice,
   DownstreamDeviceSample,
   WalledGardenResponse,
@@ -827,24 +826,6 @@ export function demoPortAnalytics(routerId: number): PortAnalyticsResponse {
       };
     })(),
     ports,
-  };
-}
-
-export function demoUplinkTraffic(routerId: number): UplinkTrafficResponse {
-  return {
-    success: true,
-    router_id: routerId,
-    interface: 'ether1',
-    default_interface: 'ether1',
-    running: true,
-    disabled: false,
-    rx_bps: 18_600_000,
-    tx_bps: 3_200_000,
-    rx_pps: 1_540,
-    tx_pps: 610,
-    sampled_at: new Date().toISOString(),
-    cached: false,
-    cache_age_seconds: 0,
   };
 }
 
