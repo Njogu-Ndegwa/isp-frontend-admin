@@ -20,6 +20,9 @@ test('uses the stored router report by default and samples live only on request'
   await page.goto('/dashboard');
 
   const panel = page.getByLabel('Live Ether1 traffic');
+  await expect(page.getByRole('button', { name: /ether1.*uplink/i })).toBeVisible({ timeout: 15_000 });
+  await expect(panel).toBeHidden();
+  await page.getByRole('button', { name: /ether1.*uplink/i }).click();
   await expect(panel).toBeVisible({ timeout: 15_000 });
   await expect(panel.getByText('Ether1 internet traffic')).toBeVisible();
   await expect(panel.getByText(/Latest report/)).toBeVisible();
@@ -47,6 +50,8 @@ test('fits the reported Ether1 reading on a phone viewport', async ({ page }) =>
   await page.setViewportSize({ width: 375, height: 812 });
   await page.goto('/dashboard');
 
+  await expect(page.getByRole('button', { name: /ether1.*uplink/i })).toBeVisible({ timeout: 15_000 });
+  await page.getByRole('button', { name: /ether1.*uplink/i }).click();
   await expect(page.getByLabel('Live Ether1 traffic')).toBeVisible({ timeout: 15_000 });
   const overflow = await page.evaluate(
     () => document.documentElement.scrollWidth - document.documentElement.clientWidth,

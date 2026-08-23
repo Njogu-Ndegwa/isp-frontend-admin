@@ -178,7 +178,15 @@ export default function PortsUsageCard({
           onRetry={onRetryPortMap}
           routerId={routerId}
           selectedPort={selectedPort}
-          onSelectPort={setSelectedPort}
+          onSelectPort={(port) => {
+            setSelectedPort(port);
+            const selected = portMap?.ports.find((candidate) => candidate.port === port);
+            if (!selected || !isUplinkPort(selected)) {
+              setUplinkTraffic(null);
+              setUplinkTrafficErrorRouterId(null);
+              setLiveRouterId(null);
+            }
+          }}
           uplinkTraffic={uplinkTraffic?.router_id === routerId ? uplinkTraffic : null}
           uplinkTrafficError={uplinkTrafficErrorRouterId === routerId}
           reportedTraffic={reportedTraffic}
@@ -250,14 +258,6 @@ function PortsBody({
 
   return (
     <div>
-      <UplinkTrafficPanel
-        liveData={uplinkTraffic}
-        reportedData={reportedTraffic}
-        liveEnabled={liveEnabled}
-        unavailable={uplinkTrafficError}
-        onToggleLive={onToggleLive}
-      />
-
       <PortFaceplate
         ports={data.ports}
         selectedPort={effectiveSelected}
@@ -276,7 +276,19 @@ function PortsBody({
         </div>
       )}
 
-      {selected && <SelectedPortPanel key={selected.port} port={selected} detailsHref={detailsHref} tiered={tiered} />}
+      {selected && (
+        <SelectedPortPanel
+          key={selected.port}
+          port={selected}
+          detailsHref={detailsHref}
+          tiered={tiered}
+          uplinkTraffic={uplinkTraffic}
+          uplinkTrafficError={uplinkTrafficError}
+          reportedTraffic={reportedTraffic}
+          liveEnabled={liveEnabled}
+          onToggleLive={onToggleLive}
+        />
+      )}
     </div>
   );
 }
@@ -303,7 +315,7 @@ function UplinkTrafficPanel({
   return (
     <div
       aria-label="Live Ether1 traffic"
-      className="mb-3 rounded-xl border border-sky-500/20 bg-sky-500/5 p-3"
+      className="mt-2 rounded-xl border border-sky-500/20 bg-sky-500/5 p-3"
     >
       <div className="mb-2 flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
@@ -365,11 +377,23 @@ function UplinkTrafficPanel({
 }
 
 function SelectedPortPanel({
-  port, detailsHref, tiered,
+  port,
+  detailsHref,
+  tiered,
+  uplinkTraffic,
+  uplinkTrafficError,
+  reportedTraffic,
+  liveEnabled,
+  onToggleLive,
 }: {
   port: PortAnalyticsPort;
   detailsHref: string;
   tiered: boolean;
+  uplinkTraffic: UplinkTrafficResponse | null;
+  uplinkTrafficError: boolean;
+  reportedTraffic: ReportedTraffic | null;
+  liveEnabled: boolean;
+  onToggleLive: () => void;
 }) {
   const status = portVisualStatus(port);
   const badge = STATUS_BADGES[status] ?? STATUS_BADGES.down;
@@ -406,7 +430,16 @@ function SelectedPortPanel({
       </div>
 
       {status === 'uplink' ? (
-        <p className="text-xs text-sky-500">WAN uplink — brings the internet into this router.</p>
+        <>
+          <p className="text-xs text-sky-500">WAN uplink — brings the internet into this router.</p>
+          <UplinkTrafficPanel
+            liveData={uplinkTraffic}
+            reportedData={reportedTraffic}
+            liveEnabled={liveEnabled}
+            unavailable={uplinkTrafficError}
+            onToggleLive={onToggleLive}
+          />
+        </>
       ) : status === 'down' ? (
         <p className="text-xs text-foreground-muted">No physical link on this port.</p>
       ) : status === 'silent_link' ? (
