@@ -2550,6 +2550,22 @@ export interface PortStatusResponse {
   bridges: BridgeEntry[];
 }
 
+export interface UplinkTrafficResponse {
+  success: boolean;
+  router_id: number;
+  interface: string;
+  default_interface: 'ether1';
+  running: boolean;
+  disabled: boolean;
+  rx_bps: number;
+  tx_bps: number;
+  rx_pps: number;
+  tx_pps: number;
+  sampled_at: string;
+  cached: boolean;
+  cache_age_seconds: number;
+}
+
 // Port Analytics (GET /routers/{id}/port-analytics)
 export interface RouterSystemSummary {
   version: string;

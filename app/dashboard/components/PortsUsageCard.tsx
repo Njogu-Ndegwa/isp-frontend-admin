@@ -1,13 +1,20 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { api } from '../../lib/api';
 import SectionCard, { SectionError } from './SectionCard';
 import PortFaceplate, { isUplinkPort, portVisualStatus } from '../../components/PortFaceplate';
 import { formatKESCompact } from '../../lib/format';
 import { DownloadUsageBody } from './DownloadUsageSection';
 import type { DateFilter } from '../dateFilter';
-import type { PortAnalyticsResponse, PortAnalyticsPort, DownstreamDeviceSample, BandwidthHistory } from '../../lib/types';
+import type {
+  PortAnalyticsResponse,
+  PortAnalyticsPort,
+  DownstreamDeviceSample,
+  BandwidthHistory,
+  UplinkTrafficResponse,
+} from '../../lib/types';
 import type { DownloadUsageServiceFilter } from '../DownloadUsageChart';
 import {
   responseHasDeviceTiers,
@@ -32,6 +39,13 @@ function defaultPortSelection(ports: PortAnalyticsPort[]): string | null {
     .filter((p) => portVisualStatus(p) === 'active')
     .sort((a, b) => b.counts.learned_macs - a.counts.learned_macs)[0];
   return (busiest ?? ports[0]).port;
+}
+
+function formatBitrate(bps: number): string {
+  if (bps >= 1_000_000_000) return `${(bps / 1_000_000_000).toFixed(1)} Gbps`;
+  if (bps >= 1_000_000) return `${(bps / 1_000_000).toFixed(1)} Mbps`;
+  if (bps >= 1_000) return `${(bps / 1_000).toFixed(1)} Kbps`;
+  return `${bps} bps`;
 }
 
 // Most interesting devices first: infrastructure, then active clients.
@@ -75,6 +89,33 @@ export default function PortsUsageCard({
 }): React.JSX.Element {
   const [mode, setMode] = useState<Mode>('ports');
   const [selectedPort, setSelectedPort] = useState<string | null>(null);
+  const [uplinkTraffic, setUplinkTraffic] = useState<UplinkTrafficResponse | null>(null);
+  const [uplinkTrafficErrorRouterId, setUplinkTrafficErrorRouterId] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (mode !== 'ports' || !routerId) return;
+
+    let cancelled = false;
+    const loadUplinkTraffic = async () => {
+      if (document.visibilityState !== 'visible') return;
+      try {
+        const sample = await api.getUplinkTraffic(routerId);
+        if (!cancelled) {
+          setUplinkTraffic(sample);
+          setUplinkTrafficErrorRouterId(null);
+        }
+      } catch {
+        if (!cancelled) setUplinkTrafficErrorRouterId(routerId);
+      }
+    };
+
+    void loadUplinkTraffic();
+    const timer = window.setInterval(loadUplinkTraffic, 5_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [mode, routerId]);
 
   const controls = (
     <div className="flex gap-1 p-1 bg-background-tertiary rounded-lg">
@@ -125,6 +166,8 @@ export default function PortsUsageCard({
           routerId={routerId}
           selectedPort={selectedPort}
           onSelectPort={setSelectedPort}
+          uplinkTraffic={uplinkTraffic?.router_id === routerId ? uplinkTraffic : null}
+          uplinkTrafficError={uplinkTrafficErrorRouterId === routerId}
         />
       )}
     </SectionCard>
@@ -138,6 +181,8 @@ function PortsBody({
   routerId,
   selectedPort,
   onSelectPort,
+  uplinkTraffic,
+  uplinkTrafficError,
 }: {
   data: PortAnalyticsResponse | null;
   error: string | null;
@@ -145,6 +190,8 @@ function PortsBody({
   routerId: number;
   selectedPort: string | null;
   onSelectPort: (port: string) => void;
+  uplinkTraffic: UplinkTrafficResponse | null;
+  uplinkTrafficError: boolean;
 }) {
   if (error) {
     return <SectionError message={error} onRetry={onRetry} />;
@@ -177,6 +224,8 @@ function PortsBody({
 
   return (
     <div>
+      <UplinkTrafficPanel data={uplinkTraffic} unavailable={uplinkTrafficError} />
+
       <PortFaceplate
         ports={data.ports}
         selectedPort={effectiveSelected}
@@ -196,6 +245,57 @@ function PortsBody({
       )}
 
       {selected && <SelectedPortPanel key={selected.port} port={selected} detailsHref={detailsHref} tiered={tiered} />}
+    </div>
+  );
+}
+
+function UplinkTrafficPanel({
+  data,
+  unavailable,
+}: {
+  data: UplinkTrafficResponse | null;
+  unavailable: boolean;
+}) {
+  return (
+    <div
+      aria-label="Live Ether1 traffic"
+      className="mb-3 rounded-xl border border-sky-500/20 bg-sky-500/5 p-3"
+    >
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <span className={`h-2 w-2 rounded-full ${data?.running ? 'bg-emerald-500 animate-pulse' : 'bg-foreground-muted/40'}`} />
+          <p className="text-xs font-medium text-foreground">Ether1 internet right now</p>
+        </div>
+        <span className="text-[10px] text-foreground-muted">
+          {data ? `Live · ${data.interface}` : unavailable ? 'Retrying…' : 'Measuring…'}
+        </span>
+      </div>
+
+      {data ? (
+        <div className="grid grid-cols-2 gap-2">
+          <div className="rounded-lg bg-background/60 p-2.5">
+            <p className="text-[10px] uppercase tracking-wide text-sky-500">Coming in ↓</p>
+            <p className="mt-0.5 font-mono text-lg font-semibold text-foreground" data-testid="ether1-incoming-rate">
+              {formatBitrate(data.rx_bps)}
+            </p>
+          </div>
+          <div className="rounded-lg bg-background/60 p-2.5">
+            <p className="text-[10px] uppercase tracking-wide text-foreground-muted">Going out ↑</p>
+            <p className="mt-0.5 font-mono text-lg font-semibold text-foreground" data-testid="ether1-outgoing-rate">
+              {formatBitrate(data.tx_bps)}
+            </p>
+          </div>
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 gap-2">
+          <div className="h-14 skeleton rounded-lg" />
+          <div className="h-14 skeleton rounded-lg" />
+        </div>
+      )}
+
+      <p className="mt-2 text-[10px] text-foreground-muted">
+        Instantaneous speed on the physical Ether1 WAN port, refreshed every 5 seconds.
+      </p>
     </div>
   );
 }

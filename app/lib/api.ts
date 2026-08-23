@@ -93,6 +93,7 @@ import {
   HotspotLogsResponse,
   PortStatusResponse,
   PortAnalyticsResponse,
+  UplinkTrafficResponse,
   MacDiagnoseResponse,
   RouterUptimeResponse,
   InsuranceWireGuardStatus,
@@ -1887,6 +1888,14 @@ class ApiClient {
       headers: this.getHeaders(),
     });
     return this.handleResponse<PortAnalyticsResponse>(response);
+  }
+
+  async getUplinkTraffic(routerId: number): Promise<UplinkTrafficResponse> {
+    if (this.isDemoMode()) return (await loadDemo()).demoUplinkTraffic(routerId);
+    const response = await fetch(`${BASE_URL}/routers/${routerId}/uplink-traffic`, {
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<UplinkTrafficResponse>(response);
   }
 
   async diagnoseMac(routerId: number, macAddress: string): Promise<MacDiagnoseResponse> {
