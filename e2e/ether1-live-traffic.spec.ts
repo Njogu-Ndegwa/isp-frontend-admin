@@ -16,23 +16,34 @@ test.beforeEach(async ({ page }) => {
   }, demoUser);
 });
 
-test('shows the instantaneous Ether1 incoming rate in the Ports section', async ({ page }) => {
+test('uses the stored router report by default and samples live only on request', async ({ page }) => {
   await page.goto('/dashboard');
 
   const panel = page.getByLabel('Live Ether1 traffic');
   await expect(panel).toBeVisible({ timeout: 15_000 });
-  await expect(panel.getByText('Ether1 internet right now')).toBeVisible();
+  await expect(panel.getByText('Ether1 internet traffic')).toBeVisible();
+  await expect(panel.getByText(/Latest report/)).toBeVisible();
+  await expect(page.getByTestId('ether1-incoming-rate')).toHaveText('45.2 Mbps');
+  await expect(page.getByTestId('ether1-outgoing-rate')).toHaveText('12.8 Mbps');
+  await expect(panel.getByText(/latest stored router report/i)).toBeVisible();
+
+  await panel.getByRole('button', { name: 'Start live' }).click();
+  await expect(panel.getByText(/Live · ether1/)).toBeVisible();
   await expect(page.getByTestId('ether1-incoming-rate')).toHaveText('18.6 Mbps');
   await expect(page.getByTestId('ether1-outgoing-rate')).toHaveText('3.2 Mbps');
-  await expect(panel.getByText(/refreshed every 5 seconds/i)).toBeVisible();
+  await expect(panel.getByText(/while Live is enabled/i)).toBeVisible();
+
+  await panel.getByRole('button', { name: 'Stop live' }).click();
+  await expect(panel.getByText(/Latest report/)).toBeVisible();
+  await expect(page.getByTestId('ether1-incoming-rate')).toHaveText('45.2 Mbps');
 
   await page.getByRole('button', { name: 'Usage', exact: true }).click();
   await expect(panel).toBeHidden();
   await page.getByRole('button', { name: 'Ports', exact: true }).click();
-  await expect(page.getByTestId('ether1-incoming-rate')).toHaveText('18.6 Mbps');
+  await expect(page.getByTestId('ether1-incoming-rate')).toHaveText('45.2 Mbps');
 });
 
-test('fits the live Ether1 reading on a phone viewport', async ({ page }) => {
+test('fits the reported Ether1 reading on a phone viewport', async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 812 });
   await page.goto('/dashboard');
 

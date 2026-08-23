@@ -431,6 +431,11 @@ export default function DashboardPage() {
                   usageLoading={bandwidthLoading}
                   usageError={bandwidthError}
                   onRetryUsage={loadBandwidth}
+                  reportedTraffic={mikrotik?.bandwidth ? {
+                    rxBps: mikrotik.bandwidth.downloadMbps * 1_000_000,
+                    txBps: mikrotik.bandwidth.uploadMbps * 1_000_000,
+                    ageSeconds: mikrotik.snapshotAgeSeconds ?? null,
+                  } : null}
                   usagePeriod={downloadUsagePeriod}
                   onUsagePeriodChange={setDownloadUsagePeriod}
                   service={downloadUsageService}
