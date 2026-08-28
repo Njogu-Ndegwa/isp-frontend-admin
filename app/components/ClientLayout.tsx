@@ -12,6 +12,7 @@ import ErrorBoundary from './ErrorBoundary';
 const CollapsibleSidebar = dynamic(() => import('./CollapsibleSidebar'), { ssr: false });
 const MobileBottomNav = dynamic(() => import('./MobileBottomNav'), { ssr: false });
 const SubscriptionBlockedModal = dynamic(() => import('./SubscriptionBlockedModal'), { ssr: false });
+const ManagementTunnelHealthMonitor = dynamic(() => import('./ManagementTunnelHealthMonitor'), { ssr: false });
 
 const PUBLIC_PATHS = ['/', '/demo', '/login', '/landing', '/pricing', '/signup', '/forgot-password', '/reset-password'];
 const PUBLIC_PREFIXES = ['/store', '/r', '/blog'];
@@ -130,6 +131,11 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
         className="min-h-screen p-4 md:p-8 pb-24 md:pb-8 transition-[margin] duration-300 ease-in-out"
         style={{ marginLeft: showAppChrome ? 'var(--app-sidebar-w, 0px)' : 0 }}
       >
+        {!isLoading && isAdmin && (
+          <div className="mb-4 sm:mb-6">
+            <ManagementTunnelHealthMonitor detailed={pathname === '/admin'} />
+          </div>
+        )}
         <ErrorBoundary key={pathname}>
           {children}
         </ErrorBoundary>

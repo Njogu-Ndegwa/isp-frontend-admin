@@ -248,6 +248,40 @@ export interface DbPoolResponse {
   long_running_connections: DbLongRunningConnection[];
 }
 
+// Platform management tunnels - GET /api/admin/management-tunnels
+export type ManagementTunnelOverallStatus = 'healthy' | 'critical';
+
+export interface ManagementTunnelServiceHealth {
+  available: boolean | null;
+  registered_routers: number;
+  online_routers: number;
+  configured_peers?: number;
+  active_sessions?: number;
+  recent_handshakes?: number;
+  stale_handshakes?: number;
+  never_handshaken?: number;
+  interface?: string;
+  listening_port?: number | null;
+  required?: boolean;
+  listener_available?: boolean;
+  ipsec_available?: boolean;
+  ipsec_ports?: Record<string, boolean>;
+  recent_window_seconds?: number;
+}
+
+export interface ManagementTunnelHealthResponse {
+  generated_at: string;
+  overall_status: ManagementTunnelOverallStatus;
+  manager_reachable: boolean;
+  summary: string;
+  issues: string[];
+  services: {
+    wireguard: ManagementTunnelServiceHealth;
+    l2tp: ManagementTunnelServiceHealth;
+  };
+  error?: string;
+}
+
 // Legacy Dashboard Types (kept for compatibility)
 export interface Revenue {
   today: number;

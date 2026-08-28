@@ -237,6 +237,7 @@ import {
   TransactionPaymentMethod,
   TransactionStatusFilter,
   DbPoolResponse,
+  ManagementTunnelHealthResponse,
   AdminSubscriptionCollectionsSummary,
   AdminSubscriptionPaymentsResponse,
   OwnerBankDestination,
@@ -500,6 +501,15 @@ class ApiClient {
     const url = `${BASE_URL}/admin/db-pool${qs ? `?${qs}` : ''}`;
     const response = await fetch(url, { headers: this.getHeaders() });
     return this.handleResponse<DbPoolResponse>(response);
+  }
+
+  // Shared WireGuard + L2TP/IPsec platform health. Admin only.
+  async getManagementTunnelHealth(): Promise<ManagementTunnelHealthResponse> {
+    const response = await fetch(`${BASE_URL}/admin/management-tunnels`, {
+      headers: this.getHeaders(),
+      cache: 'no-store',
+    });
+    return this.handleResponse<ManagementTunnelHealthResponse>(response);
   }
 
   // MikroTik Metrics - GET /api/mikrotik/health[?router_id=<id>][&include_sessions=true][&prefer_snapshot=true]
