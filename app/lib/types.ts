@@ -269,6 +269,25 @@ export interface ManagementTunnelServiceHealth {
   recent_window_seconds?: number;
 }
 
+export interface ManagementTunnelPlaneHealth {
+  manager_reachable: boolean;
+  overall_status: ManagementTunnelOverallStatus;
+  summary: string;
+  services: {
+    wireguard: ManagementTunnelServiceHealth;
+    l2tp: ManagementTunnelServiceHealth;
+  };
+  error?: string;
+}
+
+export interface InsuranceTunnelPlaneHealth extends ManagementTunnelPlaneHealth {
+  server_public_ip?: string | null;
+  vpn_ip?: string | null;
+  subnet?: string | null;
+  mode: 'manual_rescue';
+  automatic_failover_enabled: boolean;
+}
+
 export interface ManagementTunnelHealthResponse {
   generated_at: string;
   overall_status: ManagementTunnelOverallStatus;
@@ -279,6 +298,9 @@ export interface ManagementTunnelHealthResponse {
     wireguard: ManagementTunnelServiceHealth;
     l2tp: ManagementTunnelServiceHealth;
   };
+  primary: ManagementTunnelPlaneHealth;
+  insurance: InsuranceTunnelPlaneHealth;
+  automatic_failover_enabled: boolean;
   error?: string;
 }
 
