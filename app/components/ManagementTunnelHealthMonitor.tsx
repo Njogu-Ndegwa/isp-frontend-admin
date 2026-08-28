@@ -8,6 +8,7 @@ import type {
 } from '../lib/types';
 
 const POLL_INTERVAL_MS = 30_000;
+const REQUEST_TIMEOUT_MS = 15_000;
 
 function formatRelative(iso: string): string {
   const timestamp = new Date(iso).getTime();
@@ -41,6 +42,7 @@ function ServiceCard({
   secondaryValue,
   tertiaryLabel = 'Registered',
   tertiaryValue,
+  unverified = false,
 }: {
   kind: 'wireguard' | 'l2tp';
   title: string;
@@ -52,10 +54,11 @@ function ServiceCard({
   secondaryValue?: number | string;
   tertiaryLabel?: string;
   tertiaryValue?: number | string;
+  unverified?: boolean;
 }) {
-  const available = service.available;
-  const listener = readiness(service.listener_available, 'listening');
-  const ipsec = readiness(service.ipsec_available, 'ready');
+  const available = unverified ? null : service.available;
+  const listener = readiness(unverified ? undefined : service.listener_available, 'listening');
+  const ipsec = readiness(unverified ? undefined : service.ipsec_available, 'ready');
   const statusClass = available === null
     ? 'bg-zinc-500/10 text-zinc-400 border-zinc-500/30'
     : available
@@ -118,12 +121,21 @@ export default function ManagementTunnelHealthMonitor({ detailed = false }: { de
     if (inFlightRef.current) return;
     inFlightRef.current = true;
     if (!silent) setLoading(true);
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
     try {
-      setData(await api.getManagementTunnelHealth());
+      setData(await api.getManagementTunnelHealth(controller.signal));
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Tunnel health check failed');
+      setError(
+        err instanceof DOMException && err.name === 'AbortError'
+          ? 'Tunnel health check timed out'
+          : err instanceof Error
+            ? err.message
+            : 'Tunnel health check failed',
+      );
     } finally {
+      window.clearTimeout(timeout);
       setLoading(false);
       inFlightRef.current = false;
     }
@@ -159,7 +171,8 @@ export default function ManagementTunnelHealthMonitor({ detailed = false }: { de
     };
   }, [refresh]);
 
-  const critical = data?.overall_status === 'critical';
+  const monitoringFailed = error !== null;
+  const critical = monitoringFailed || data?.overall_status === 'critical';
   if (!detailed && !critical) return null;
 
   if (detailed && loading && !data) {
@@ -180,21 +193,26 @@ export default function ManagementTunnelHealthMonitor({ detailed = false }: { de
     );
   }
 
-  if (!data) return null;
-
   if (!detailed) {
+    const summary = monitoringFailed
+      ? `Unable to verify management tunnels: ${error}.${data ? ` Last successful check was ${formatRelative(data.generated_at)}.` : ''}`
+      : data?.summary || 'Management tunnel health is critical.';
     return (
       <div className="rounded-xl border border-red-500/40 bg-red-500/10 p-3 sm:p-4" role="alert" aria-live="assertive">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-sm font-semibold text-red-500">Management tunnel incident</p>
-            <p className="text-xs text-foreground mt-1 break-words">{data.summary}</p>
+            <p className="text-sm font-semibold text-red-500">
+              {monitoringFailed ? 'Tunnel monitoring unavailable' : 'Management tunnel incident'}
+            </p>
+            <p className="text-xs text-foreground mt-1 break-words">{summary}</p>
           </div>
           <button onClick={() => void refresh()} className="shrink-0 btn-secondary text-xs px-3 py-1.5">Check again</button>
         </div>
       </div>
     );
   }
+
+  if (!data) return null;
 
   const primary = data.primary;
   const insurance = data.insurance;
@@ -209,10 +227,12 @@ export default function ManagementTunnelHealthMonitor({ detailed = false }: { de
           <div className="flex items-center gap-2 flex-wrap">
             <h2 className="text-sm sm:text-base font-semibold text-foreground">Management Tunnel Health</h2>
             <span className={`px-2 py-0.5 rounded-full border text-[10px] font-semibold uppercase tracking-wide ${critical ? 'bg-red-500/10 text-red-500 border-red-500/30' : 'bg-emerald-500/10 text-emerald-500 border-emerald-500/30'}`}>
-              {critical ? 'Incident' : 'Operational'}
+              {monitoringFailed ? 'Unverified' : critical ? 'Incident' : 'Operational'}
             </span>
           </div>
-          <p className={`text-xs mt-1 ${critical ? 'text-red-500' : 'text-foreground-muted'}`}>{data.summary}</p>
+          <p className={`text-xs mt-1 ${critical ? 'text-red-500' : 'text-foreground-muted'}`}>
+            {monitoringFailed ? `Live verification failed: ${error}` : data.summary}
+          </p>
         </div>
         <button
           onClick={() => void refresh()}
@@ -227,14 +247,20 @@ export default function ManagementTunnelHealthMonitor({ detailed = false }: { de
         </button>
       </div>
 
+      {monitoringFailed && (
+        <p className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 mb-4 text-[10px] text-red-500" role="alert">
+          The figures below are last known data from {formatRelative(data.generated_at)}. They are not a current confirmation that either tunnel is working.
+        </p>
+      )}
+
       <section aria-labelledby="primary-tunnel-heading">
         <div className="flex items-center justify-between gap-3 mb-2">
           <div>
             <h3 id="primary-tunnel-heading" className="text-xs font-semibold text-foreground">Primary AWS management</h3>
             <p className="text-[10px] text-foreground-muted">Normal application control path · 10.0.0.0/16</p>
           </div>
-          <span className={`text-[10px] font-semibold ${primary.overall_status === 'healthy' ? 'text-emerald-500' : 'text-red-500'}`}>
-            {primary.overall_status === 'healthy' ? 'Operational' : 'Incident'}
+          <span className={`text-[10px] font-semibold ${!monitoringFailed && primary.overall_status === 'healthy' ? 'text-emerald-500' : 'text-red-500'}`}>
+            {monitoringFailed ? 'Unverified' : primary.overall_status === 'healthy' ? 'Operational' : 'Incident'}
           </span>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -245,6 +271,7 @@ export default function ManagementTunnelHealthMonitor({ detailed = false }: { de
             service={primaryWireguard}
             primaryLabel="Recent handshakes"
             primaryValue={primaryWireguard.recent_handshakes ?? 0}
+            unverified={monitoringFailed}
           />
           <ServiceCard
             kind="l2tp"
@@ -253,6 +280,7 @@ export default function ManagementTunnelHealthMonitor({ detailed = false }: { de
             service={primaryL2tp}
             primaryLabel="Active sessions"
             primaryValue={primaryL2tp.active_sessions ?? 0}
+            unverified={monitoringFailed}
           />
         </div>
       </section>
@@ -265,8 +293,8 @@ export default function ManagementTunnelHealthMonitor({ detailed = false }: { de
               Rescue path · {insurance.subnet || 'backup subnet'} · {insurance.server_public_ip || 'server unknown'}
             </p>
           </div>
-          <span className={`text-[10px] font-semibold ${insurance.overall_status === 'healthy' ? 'text-emerald-500' : 'text-red-500'}`}>
-            {insurance.overall_status === 'healthy' ? 'Operational' : 'Incident'}
+          <span className={`text-[10px] font-semibold ${!monitoringFailed && insurance.overall_status === 'healthy' ? 'text-emerald-500' : 'text-red-500'}`}>
+            {monitoringFailed ? 'Unverified' : insurance.overall_status === 'healthy' ? 'Operational' : 'Incident'}
           </span>
         </div>
         {!insurance.automatic_failover_enabled && (
@@ -286,6 +314,7 @@ export default function ManagementTunnelHealthMonitor({ detailed = false }: { de
             secondaryValue={insuranceWireguard.configured_peers ?? 0}
             tertiaryLabel="Stale peers"
             tertiaryValue={insuranceWireguard.stale_handshakes ?? 0}
+            unverified={monitoringFailed}
           />
           <ServiceCard
             kind="l2tp"
@@ -298,6 +327,7 @@ export default function ManagementTunnelHealthMonitor({ detailed = false }: { de
             secondaryValue={insuranceL2tp.configured_peers ?? 0}
             tertiaryLabel="API failover"
             tertiaryValue={data.automatic_failover_enabled ? 'On' : 'Off'}
+            unverified={monitoringFailed}
           />
         </div>
       </section>

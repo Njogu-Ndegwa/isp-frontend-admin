@@ -504,10 +504,11 @@ class ApiClient {
   }
 
   // Shared WireGuard + L2TP/IPsec platform health. Admin only.
-  async getManagementTunnelHealth(): Promise<ManagementTunnelHealthResponse> {
+  async getManagementTunnelHealth(signal?: AbortSignal): Promise<ManagementTunnelHealthResponse> {
     const response = await fetch(`${BASE_URL}/admin/management-tunnels`, {
       headers: this.getHeaders(),
       cache: 'no-store',
+      signal,
     });
     return this.handleResponse<ManagementTunnelHealthResponse>(response);
   }

@@ -139,3 +139,40 @@ test('critical tunnel incident is visible across admin pages on a phone', async 
   );
   expect(overflow).toBeLessThanOrEqual(1);
 });
+
+test('health API failure is never hidden and does not leave stale status green', async ({ page }) => {
+  await authenticate(page);
+  let healthChecks = 0;
+  await page.route('**/api/**', (route) => {
+    if (new URL(route.request().url()).pathname.endsWith('/admin/management-tunnels')) {
+      healthChecks += 1;
+      return healthChecks === 1
+        ? route.fulfill({
+            contentType: 'application/json',
+            body: JSON.stringify(healthPayload()),
+          })
+        : route.fulfill({
+            status: 503,
+            contentType: 'application/json',
+            body: JSON.stringify({ detail: 'Health manager unavailable' }),
+          });
+    }
+    return route.fulfill({
+      status: 503,
+      contentType: 'application/json',
+      body: JSON.stringify({ detail: 'Not required for this focused UI test.' }),
+    });
+  });
+
+  await page.goto('/admin');
+  await expect(page.getByText(/Application failover to Hetzner is currently manual/)).toBeVisible();
+  await page.getByRole('button', { name: 'Refresh management tunnel health' }).click();
+
+  await expect(page.getByText('Unverified').first()).toBeVisible();
+  await expect(page.getByText(/figures below are last known data/)).toBeVisible();
+  await expect(page.getByText('Unknown').first()).toBeVisible();
+
+  await page.goto('/admin/settings');
+  await expect(page.getByText('Tunnel monitoring unavailable')).toBeVisible();
+  await expect(page.getByText(/Unable to verify management tunnels/)).toBeVisible();
+});
