@@ -32,6 +32,17 @@ record) and rerun with the file path; adding yt-dlp's `--cookies-from-browser
 chrome` is another option but reads the browser's cookie store, so only with
 Dennis's explicit go-ahead per run.
 
+### Source hierarchy
+
+- Treat the actual video audio, visible actions, and on-screen text as the
+  authoritative content source. Check ambiguous transcript phrases against
+  frames or burned-in captions when possible.
+- Use TikTok descriptions/caption metadata only for discovery, deduplication,
+  hashtags, and cross-checking. Never turn a description-only claim into blog
+  copy.
+- When the description disagrees with the spoken or visible video, follow the
+  video and flag the discrepancy in the review package or PR for Dennis.
+
 ## Step 2 — Write the draft
 
 Write `content/blog/<slug>.md` (frontmatter format: see `content/blog/README.md`).
@@ -68,9 +79,20 @@ not to transcribe it prettily:
   business | comparison` (drives the card color and the
   `/blog/category/<key>` hub page; see `app/blog/categories.ts`).
 - Link to at least one existing post in `content/blog/` when related.
-- Keep Dennis's voice/claims from the video; do not invent numbers or
-  testimonials. Anything uncertain gets a `<!-- VERIFY: ... -->` comment for
-  him to check.
+- Preserve supported claims and useful voice from the video, but make the post
+  read as a standalone Bitwave Technologies article. Do not tell readers that
+  “Dennis says,” “the video explains,” or “this guide follows our TikTok.” Keep
+  the source TikTok URL/ID in the review package, automation memory, commit, and
+  PR body for internal provenance—not in the article by default.
+- Do not automatically link or embed the source TikTok in reader-facing copy.
+  A contextual TikTok link is allowed only when the video provides unique
+  visual instruction that materially helps the reader beyond the article; link
+  it for that benefit, never merely as source attribution.
+- Make every FAQ answer self-contained. FAQ questions and answers must not
+  refer to Dennis, the source video, TikTok, a transcript, or “the content
+  above.”
+- Do not invent numbers, testimonials, personal experience, or company claims.
+  Anything uncertain gets a `<!-- VERIFY: ... -->` comment for Dennis to check.
 - Whisper mis-hears domain terms — correct against this glossary (verified on a
   real transcript 2026-07-15): "microtik"→MikroTik, "PBOE"→PPPoE,
   "haplight"→hAP lite, "hexiris"→hEX lite, "in drought hours"→RouterOS,
