@@ -51,6 +51,11 @@ import {
   Voucher,
   VoucherStats,
   CompensationAllowance,
+  OutageWindowRequest,
+  OutageApplyRequest,
+  OutagePreviewResponse,
+  OutageApplyResponse,
+  OutageHistoryResponse,
   GenerateVouchersRequest,
   VouchersListResponse,
   VoucherFilters,
@@ -3475,6 +3480,47 @@ class ApiClient {
     });
     return this.handleResponse<AdminSmsHistoryResponse>(response);
   }
+
+  // Outage compensation (bulk expiry extension for power-cut windows)
+  async previewOutageCompensation(request: OutageWindowRequest): Promise<OutagePreviewResponse> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(`${BASE_URL}/compensation/outage/preview`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify(request),
+    });
+    return this.handleResponse<OutagePreviewResponse>(response);
+  }
+
+  async applyOutageCompensation(request: OutageApplyRequest): Promise<OutageApplyResponse> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(`${BASE_URL}/compensation/outage`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify(request),
+    });
+    if (response.status === 409) {
+      const error = await response.json().catch(() => ({ detail: '' }));
+      throw new OutageOverlapError(
+        typeof error.detail === 'string' && error.detail
+          ? error.detail
+          : 'A previous compensation already covers part of this window.'
+      );
+    }
+    return this.handleResponse<OutageApplyResponse>(response);
+  }
+
+  async getOutageCompensationHistory(limit = 50): Promise<OutageHistoryResponse> {
+    if (this.isDemoMode()) return { compensations: [] };
+    const response = await fetch(`${BASE_URL}/compensation/outage/history?limit=${limit}`, {
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<OutageHistoryResponse>(response);
+  }
 }
+
+/** Thrown when applying an outage compensation whose window overlaps a previous
+ *  run; re-apply with allow_duplicate after the user confirms. */
+export class OutageOverlapError extends Error {}
 
 export const api = new ApiClient();
