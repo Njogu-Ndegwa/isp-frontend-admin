@@ -114,6 +114,12 @@ async function shot(page: Page, name: string) {
   await page.screenshot({ path: `${DIR}/${name}.png` });
 }
 
+function recipientSheet(page: Page) {
+  return page.locator('div.fixed.inset-0').filter({
+    has: page.getByRole('heading', { name: 'Select recipients' }),
+  });
+}
+
 async function step(page: Page, name: string, fn: () => Promise<void>) {
   try {
     await fn();
@@ -173,21 +179,23 @@ test('reseller messaging — mobile walkthrough', async ({ page }) => {
   });
 
   await step(page, '04-search', async () => {
-    await page.getByPlaceholder('Search name or phone…').fill('otie');
-    await page.getByText('Peter Otieno').waitFor({ timeout: 8000 });
+    const sheet = recipientSheet(page);
+    await sheet.getByPlaceholder('Search name or phone…').fill('otie');
+    await sheet.getByText('Peter Otieno').waitFor({ timeout: 8000 });
     await page.waitForTimeout(400);
     await shot(page, '04-search-otie');
   });
 
   await step(page, '05-tick', async () => {
-    await page.getByText('Peter Otieno').click();
-    await page.getByText('Mary Otiendo').click();
+    const sheet = recipientSheet(page);
+    await sheet.getByText('Peter Otieno').click();
+    await sheet.getByText('Mary Otiendo').click();
     await page.waitForTimeout(300);
     await shot(page, '05-two-ticked');
   });
 
   await step(page, '06-done', async () => {
-    await page.getByRole('button', { name: /Done/ }).click();
+    await recipientSheet(page).getByRole('button', { name: /Done/ }).click();
     await page.waitForTimeout(400);
     await shot(page, '06-compose-with-chips');
   });
