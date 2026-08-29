@@ -4459,6 +4459,12 @@ export interface SmsCreditInfo {
   enabled: boolean;
 }
 
+export interface ExpirySmsSettings {
+  enabled: boolean;
+  reminder_offsets_minutes: number[];
+  send_at_expiry: boolean;
+}
+
 export interface SmsPurchaseResponse {
   message: string;
   order_id: number;

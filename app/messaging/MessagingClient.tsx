@@ -13,9 +13,10 @@ import { ActivityView } from './components/ActivityView';
 import CreditsView from './components/CreditsView';
 import { TemplatesView } from './components/TemplatesView';
 import { AlertsView } from './components/AlertsView';
+import { ExpiryRemindersView } from './components/ExpiryRemindersView';
 
 // ─── Tab type ─────────────────────────────────────────────────────────────────
-type TabValue = 'compose' | 'activity' | 'templates' | 'credits' | 'alerts';
+type TabValue = 'compose' | 'activity' | 'templates' | 'credits' | 'expiry' | 'alerts';
 
 // ─── MessagingClient ──────────────────────────────────────────────────────────
 export default function MessagingClient() {
@@ -105,6 +106,7 @@ export default function MessagingClient() {
     { value: 'activity', label: 'Activity' },
     { value: 'templates', label: 'Templates' },
     { value: 'credits', label: 'Credits' },
+    { value: 'expiry', label: 'Expiry' },
     { value: 'alerts', label: 'Alerts' },
   ];
 
@@ -149,6 +151,9 @@ export default function MessagingClient() {
           {activeTab === 'templates' && <TemplatesView />}
           {activeTab === 'credits' && credits && (
             <CreditsView credits={credits} onRefresh={loadCredits} />
+          )}
+          {activeTab === 'expiry' && (
+            <ExpiryRemindersView onBuyCredits={() => setActiveTab('credits')} />
           )}
           {activeTab === 'alerts' && (
             <AlertsView credits={credits} onBuyCredits={() => setActiveTab('credits')} />

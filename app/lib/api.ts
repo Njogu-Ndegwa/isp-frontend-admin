@@ -241,6 +241,7 @@ import {
   C2BRegisterRequest,
   C2BRegisterResponse,
   SmsCreditInfo,
+  ExpirySmsSettings,
   SmsPurchaseResponse,
   SmsRecipientsResponse,
   SmsSendRequest,
@@ -3307,6 +3308,30 @@ class ApiClient {
       headers: this.getHeaders(),
     });
     return this.handleResponse<SmsCreditInfo>(response);
+  }
+
+  async getExpirySmsSettings(): Promise<ExpirySmsSettings> {
+    if (this.isDemoMode()) {
+      return {
+        enabled: false,
+        reminder_offsets_minutes: [1440],
+        send_at_expiry: true,
+      };
+    }
+    const response = await fetch(`${BASE_URL}/messaging/expiry-settings`, {
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<ExpirySmsSettings>(response);
+  }
+
+  async updateExpirySmsSettings(settings: ExpirySmsSettings): Promise<ExpirySmsSettings> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(`${BASE_URL}/messaging/expiry-settings`, {
+      method: 'PUT',
+      headers: this.getHeaders(),
+      body: JSON.stringify(settings),
+    });
+    return this.handleResponse<ExpirySmsSettings>(response);
   }
 
   async purchaseSmsCredits(quantity: number, phone_number: string): Promise<SmsPurchaseResponse> {
