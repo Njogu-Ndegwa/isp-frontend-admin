@@ -20,3 +20,17 @@ export function formatKESCompact(amount: number | null | undefined): string {
   if (Math.abs(value) >= 1_000) return `KES ${(value / 1_000).toFixed(0)}K`;
   return `KES ${value.toLocaleString('en-KE')}`;
 }
+
+/**
+ * Human duration from seconds: "45m", "3h 20m", "2d 4h". Drops zero units.
+ */
+export function formatDuration(seconds: number | null | undefined): string {
+  const total = typeof seconds === 'number' && Number.isFinite(seconds) ? Math.max(0, Math.round(seconds)) : 0;
+  if (total < 60) return `${total}s`;
+  const days = Math.floor(total / 86_400);
+  const hours = Math.floor((total % 86_400) / 3_600);
+  const minutes = Math.floor((total % 3_600) / 60);
+  if (days > 0) return hours > 0 ? `${days}d ${hours}h` : `${days}d`;
+  if (hours > 0) return minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`;
+  return `${minutes}m`;
+}
