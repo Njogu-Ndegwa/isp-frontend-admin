@@ -25,7 +25,7 @@ const securityHeaders = [
       // (an image) still shows, so it looks like a video that never plays.
       "media-src 'self' blob: https://res.cloudinary.com",
       "font-src 'self' data:",
-      `connect-src 'self' ${apiOrigin} https://www.google-analytics.com https://*.google-analytics.com https://*.googletagmanager.com https://*.contentsquare.net https://va.vercel-scripts.com`,
+      `connect-src 'self' ${apiOrigin} https://www.google.com https://www.google-analytics.com https://*.google-analytics.com https://*.googletagmanager.com https://*.contentsquare.net https://va.vercel-scripts.com`,
       "frame-ancestors 'none'",
     ].join("; "),
   },
