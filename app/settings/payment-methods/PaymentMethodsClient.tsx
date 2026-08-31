@@ -36,6 +36,7 @@ const PAYMENT_METHOD_TYPES: { value: PaymentMethodType; label: string; descripti
   { value: 'mpesa_paybill_with_keys', label: 'M-Pesa Direct', description: 'Direct STK Push using your own M-Pesa API keys' },
   { value: 'zenopay', label: 'ZenoPay (Tanzania)', description: 'Tanzanian mobile money via ZenoPay' },
   { value: 'mtn_momo', label: 'MTN Mobile Money', description: 'MTN MoMo RequestToPay using your own API User credentials' },
+  { value: 'fapshi', label: 'Fapshi (Cameroon)', description: 'Cameroon MTN MoMo and Orange Money via Fapshi Direct Pay' },
 ];
 
 interface FieldDef {
@@ -110,6 +111,27 @@ const FIELDS_BY_TYPE: Record<PaymentMethodType, FieldDef[]> = {
     },
     { key: 'mtn_currency', label: 'Currency', type: 'text', required: true, placeholder: 'UGX / GHS / EUR …' },
   ],
+  fapshi: [
+    {
+      key: 'fapshi_api_user',
+      label: 'API User',
+      type: 'text',
+      required: true,
+      placeholder: 'Your Fapshi service API User',
+    },
+    { key: 'fapshi_api_key', label: 'API Key', type: 'password', required: true },
+    {
+      key: 'fapshi_environment',
+      label: 'Environment',
+      type: 'select',
+      required: true,
+      hint: 'Use Sandbox first. Live Direct Pay must be enabled by Fapshi for the service.',
+      options: [
+        { value: 'sandbox', label: 'Sandbox' },
+        { value: 'live', label: 'Live' },
+      ],
+    },
+  ],
 };
 
 function isMasked(value: string): boolean {
@@ -153,6 +175,8 @@ function getTypeColor(type: PaymentMethodType) {
       return 'bg-purple-500/10 text-purple-500 border-purple-500/20';
     case 'mtn_momo':
       return 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20';
+    case 'fapshi':
+      return 'bg-cyan-500/10 text-cyan-500 border-cyan-500/20';
     default:
       return 'bg-gray-500/10 text-gray-500 border-gray-500/20';
   }
@@ -163,7 +187,7 @@ function getTypeLabel(type: PaymentMethodType): string {
 }
 
 function hasTestableCredentials(type: PaymentMethodType): boolean {
-  return type === 'mpesa_paybill_with_keys' || type === 'zenopay' || type === 'mtn_momo';
+  return type === 'mpesa_paybill_with_keys' || type === 'zenopay' || type === 'mtn_momo' || type === 'fapshi';
 }
 
 export default function PaymentMethodsPage() {
@@ -240,6 +264,9 @@ export default function PaymentMethodsPage() {
         mtn_target_environment: 'mtnuganda',
         mtn_currency: 'UGX',
       };
+    }
+    if (type === 'fapshi') {
+      return { fapshi_environment: 'sandbox' };
     }
     return {};
   };

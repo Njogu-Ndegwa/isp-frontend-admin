@@ -1708,6 +1708,12 @@ const METHOD_META: Record<string, { icon: React.ReactNode; color: string; bgColo
     bgColor: 'bg-yellow-500/10',
     borderColor: 'border-yellow-500/30',
   },
+  fapshi: {
+    icon: <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6v12m-3-9.5A3.5 3.5 0 0112 7c1.93 0 3.5 1.12 3.5 2.5S13.93 12 12 12s-3.5 1.12-3.5 2.5S10.07 17 12 17a3.5 3.5 0 003-1.5M4 12a8 8 0 1016 0 8 8 0 10-16 0z" /></svg>,
+    color: 'text-cyan-500',
+    bgColor: 'bg-cyan-500/10',
+    borderColor: 'border-cyan-500/30',
+  },
 };
 
 const METHOD_TYPE_LABELS: Record<string, string> = {
@@ -1717,6 +1723,7 @@ const METHOD_TYPE_LABELS: Record<string, string> = {
   mpesa_paybill_with_keys: 'M-Pesa Direct',
   zenopay: 'ZenoPay',
   mtn_momo: 'MTN MoMo',
+  fapshi: 'Fapshi (Cameroon)',
 };
 
 function getMethodDetails(m: AdminPaymentMethod): { label: string; value: string }[] {
@@ -1730,6 +1737,8 @@ function getMethodDetails(m: AdminPaymentMethod): { label: string; value: string
   if (m.mtn_api_user) details.push({ label: 'API User', value: m.mtn_api_user });
   if (m.mtn_target_environment) details.push({ label: 'Environment', value: m.mtn_target_environment });
   if (m.mtn_currency) details.push({ label: 'Currency', value: m.mtn_currency });
+  if (m.fapshi_api_user) details.push({ label: 'API User', value: m.fapshi_api_user });
+  if (m.fapshi_environment) details.push({ label: 'Environment', value: m.fapshi_environment });
   return details;
 }
 

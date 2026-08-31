@@ -1232,7 +1232,7 @@ export interface TransactionSummary {
 }
 
 // Payment Method Configuration Types (Settings CRUD)
-export type PaymentMethodType = 'bank_account' | 'mpesa_paybill' | 'mpesa_till' | 'mpesa_paybill_with_keys' | 'zenopay' | 'mtn_momo';
+export type PaymentMethodType = 'bank_account' | 'mpesa_paybill' | 'mpesa_till' | 'mpesa_paybill_with_keys' | 'zenopay' | 'mtn_momo' | 'fapshi';
 
 export interface PaymentMethodConfig {
   id: number;
@@ -1264,6 +1264,10 @@ export interface PaymentMethodConfig {
   mtn_target_environment?: string;
   mtn_base_url?: string;
   mtn_currency?: string;
+  // fapshi fields
+  fapshi_api_user?: string;
+  fapshi_api_key?: string;
+  fapshi_environment?: 'sandbox' | 'live';
   // C2B registration
   c2b_registered_at?: string | null;
 }
@@ -1287,6 +1291,9 @@ export interface CreatePaymentMethodRequest {
   mtn_target_environment?: string;
   mtn_base_url?: string;
   mtn_currency?: string;
+  fapshi_api_user?: string;
+  fapshi_api_key?: string;
+  fapshi_environment?: 'sandbox' | 'live';
 }
 
 export interface UpdatePaymentMethodRequest {
@@ -1308,6 +1315,9 @@ export interface UpdatePaymentMethodRequest {
   mtn_target_environment?: string;
   mtn_base_url?: string;
   mtn_currency?: string;
+  fapshi_api_user?: string;
+  fapshi_api_key?: string;
+  fapshi_environment?: 'sandbox' | 'live';
 }
 
 export interface PaymentMethodTestResult {
@@ -2898,7 +2908,7 @@ export interface B2BPayoutResponse {
   [key: string]: unknown;
 }
 
-export type AdminPaymentMethodType = 'bank_account' | 'mpesa_paybill' | 'mpesa_till' | 'mpesa_paybill_with_keys' | 'zenopay' | 'mtn_momo';
+export type AdminPaymentMethodType = 'bank_account' | 'mpesa_paybill' | 'mpesa_till' | 'mpesa_paybill_with_keys' | 'zenopay' | 'mtn_momo' | 'fapshi';
 
 export interface AdminPaymentMethod {
   id: number;
@@ -2914,6 +2924,8 @@ export interface AdminPaymentMethod {
   mtn_api_user?: string;
   mtn_target_environment?: string;
   mtn_currency?: string;
+  fapshi_api_user?: string;
+  fapshi_environment?: 'sandbox' | 'live';
 }
 
 export interface AdminResellerDetail {

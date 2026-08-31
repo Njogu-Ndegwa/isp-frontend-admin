@@ -1537,6 +1537,12 @@ export const demoPaymentMethods: import('./types').PaymentMethodConfig[] = [
     is_active: false, mpesa_shortcode: '987654',
     created_at: iso(20), updated_at: iso(20),
   },
+  {
+    id: 4, user_id: 0, method_type: 'fapshi', label: 'Cameroon Mobile Money',
+    is_active: true, fapshi_api_user: '********-demo',
+    fapshi_api_key: '********-demo', fapshi_environment: 'sandbox',
+    created_at: iso(10), updated_at: iso(1),
+  },
 ];
 
 // ─── Reseller-wide top usage (FUP) ──────────────────────────────────
