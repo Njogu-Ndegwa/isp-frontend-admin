@@ -162,12 +162,9 @@ export default function CustomersPage() {
   // that has stopped answering say so instead of showing its last live state.
   const [routerLiveness, setRouterLiveness] = useState<Map<number, RouterLiveness>>(new Map());
 
-  // Period data usage (FUP) per customer. We use a single source of truth —
-  // `api.getCustomerUsage` — for every visible hotspot/PPPoE customer, mirroring
-  // the customer-detail page so the table never disagrees with the drill-in
-  // view. The bulk `getResellerTopUsage` endpoint was tempting for fast
-  // initial paint, but it only returned the top-N by consumption, leaving
-  // light users (and brand-new ones) silently empty.
+  // Period data usage (FUP) per customer. The list uses the same usage records
+  // as the customer-detail page, fetched in one bounded request for the visible
+  // rows so light users and brand-new customers are not omitted.
   const [usageMap, setUsageMap] = useState<Map<number, CustomerUsagePeriod>>(new Map());
   // Per-customer "we've already attempted to fetch this one" set — used to
   // distinguish "loading" (skeleton) from "fetched but no data" ("—") on
@@ -526,11 +523,9 @@ export default function CustomersPage() {
 
   // Period data usage — single data source.
   //
-  // We fetch each visible hotspot/PPPoE customer's usage in parallel via the same
-  // `getCustomerUsage` endpoint the customer-detail page uses, so the table
-  // and detail view can never disagree. The fetch re-runs whenever the
-  // displayed set changes (page / filter / search) and on a fixed poll so
-  // totals stay reasonably fresh.
+  // The fetch re-runs whenever the displayed set changes (page / filter /
+  // search) and on a fixed poll so totals stay reasonably fresh. Hidden tabs
+  // do not poll, and an in-flight request is never overlapped by the interval.
   useEffect(() => {
     if (displayedCustomers.length === 0) return;
     const targets = displayedCustomers.filter((c) => {
@@ -540,41 +535,58 @@ export default function CustomersPage() {
     if (targets.length === 0) return;
 
     let cancelled = false;
+    let inFlight = false;
     let intervalId: number | null = null;
 
     const load = async () => {
-      const results = await Promise.allSettled(
-        targets.map((c) => api.getCustomerUsage(c.id).then((resp) => ({ id: c.id, resp })))
-      );
-      if (cancelled) return;
-      setUsageMap((prev) => {
-        const next = new Map(prev);
-        for (const r of results) {
-          if (r.status !== 'fulfilled') continue;
-          const { id, resp } = r.value;
-          if (resp.period) {
-            next.set(id, resp.period);
-          } else {
-            // No billing period yet — drop any stale entry so the cell
-            // honestly renders "—" instead of last cycle's number.
-            next.delete(id);
+      if (document.visibilityState === 'hidden' || inFlight) return;
+      inFlight = true;
+      try {
+        const results = await api.getCustomersUsage(targets.map((c) => c.id));
+        if (cancelled) return;
+        const byCustomerId = new Map(results.map((result) => [result.customer_id, result]));
+        setUsageMap((prev) => {
+          const next = new Map(prev);
+          for (const customer of targets) {
+            const period = byCustomerId.get(customer.id)?.period;
+            if (period) {
+              next.set(customer.id, period);
+            } else {
+              // No accessible/open billing period — drop stale data so the
+              // cell honestly renders "—" instead of last cycle's number.
+              next.delete(customer.id);
+            }
           }
+          return next;
+        });
+      } catch {
+        // Preserve the last good usage values and retry on the next tick.
+      } finally {
+        if (!cancelled) {
+          // Mark every target as attempted. A null period or temporary failure
+          // should render a stable fallback rather than an endless skeleton.
+          setUsageFetched((prev) => {
+            const next = new Set(prev);
+            for (const customer of targets) next.add(customer.id);
+            return next;
+          });
         }
-        return next;
-      });
-      // Mark every target as fetched, even ones that failed or returned a
-      // null period — the cell can confidently swap from skeleton to "—"
-      // for those instead of looping back into a loading state.
-      setUsageFetched((prev) => {
-        const next = new Set(prev);
-        for (const c of targets) next.add(c.id);
-        return next;
-      });
+        inFlight = false;
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') void load();
     };
 
     load();
     intervalId = window.setInterval(load, USAGE_POLL_INTERVAL);
-    return () => { cancelled = true; if (intervalId) clearInterval(intervalId); };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      cancelled = true;
+      if (intervalId) clearInterval(intervalId);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, [displayedCustomers]);
 
   // Peer-relative usage tiers across the customers currently on screen.

@@ -2893,6 +2893,19 @@ class ApiClient {
     return this.handleResponse<CustomerUsageResponse>(response);
   }
 
+  async getCustomersUsage(customerIds: number[]): Promise<CustomerUsageResponse[]> {
+    if (this.isDemoMode()) {
+      const demo = await loadDemo();
+      return Promise.all(customerIds.map((customerId) => demo.demoCustomerUsage(customerId)));
+    }
+    const response = await fetch(`${BASE_URL}/customers/usage/bulk`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify({ customer_ids: customerIds }),
+    });
+    return this.handleResponse<CustomerUsageResponse[]>(response);
+  }
+
   async getCustomerUsageHistory(customerId: number, limit = 6): Promise<CustomerUsagePeriod[]> {
     if (this.isDemoMode()) return (await loadDemo()).demoCustomerUsageHistory(customerId, limit);
     const response = await fetch(
