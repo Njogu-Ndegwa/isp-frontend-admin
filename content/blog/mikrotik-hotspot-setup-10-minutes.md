@@ -4,10 +4,12 @@ description: Set up a MikroTik router for hotspot or PPPoE billing in under 10 m
 date: 2026-07-15
 tags: mikrotik, hotspot, winbox, setup
 category: mikrotik
-image: /blog-images/mikrotik-hotspot-setup-10-minutes/cover.webp
-imageAlt: MikroTik hAP lite held up showing its yellow ethernet ports
+image: /blog-images/mikrotik-hotspot-setup-10-minutes/cover-crisp.webp
+imageAlt: Ethernet cables connected to networking equipment during MikroTik hotspot setup
 published: false
 ---
+
+<!-- Cover source: https://www.pexels.com/photo/ethernet-cables-plugged-in-network-switch-2881224/ | License: https://www.pexels.com/license/ -->
 
 Setting up a MikroTik router for a hotspot business sounds intimidating — RouterOS has hundreds of menus, and one wrong firewall rule can lock you out. But with the right flow it takes less than 10 minutes, and it works on everything from a hAP lite to an RB951 or a hEX. This is the exact process we use, step by step.
 
