@@ -4,10 +4,12 @@ description: Avoid three hotspot business mistakes in Kenya: overspending on acc
 date: 2026-08-28
 tags: hotspot business, wifi business kenya, access points, uptime
 category: business
-image: /blog-images/hotspot-business-mistakes-kenya/cover.webp
-imageAlt: Kenyan hotspot operator discussing business lessons from an office desk
+image: /blog-images/hotspot-business-mistakes-kenya/cover-crisp.webp
+imageAlt: Kenyan hotspot operator smiling clearly from a well-lit office desk
 published: true
 ---
+
+<!-- Cover source: Biwavte photo library / dennis_soft-smile-desk_20260715_a-detailed-tutorial-on-how_03-00.jpg -->
 
 Hotspot business mistakes in Kenya usually show up before the first customer pays. A new operator buys too much equipment, chooses a crowded location, or launches without backup power. The result is predictable: cash gets tied up in hardware while the network still has no proven demand.
 
