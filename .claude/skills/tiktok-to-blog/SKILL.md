@@ -1,6 +1,6 @@
 ---
 name: tiktok-to-blog
-description: Create SEO blog posts for bitwavetechnologies.com/blog — from a TikTok video (URL or local file) or from scratch — under content/blog/, on its own branch with a PR for Dennis to verify before it publishes. Covers the full pipeline including 16:9 cover images sourced from the Biwavte photo library. Use when asked to write blog posts, convert TikTok content into blog posts, or grow the blog.
+description: Create SEO blog posts for bitwavetechnologies.com/blog — from a TikTok video (URL or local file) or from scratch — under content/blog/, on its own branch with a PR for Dennis to verify before it publishes. Covers the full pipeline including professional 16:9 covers sourced from real Bitwave assets or free, high-quality licensed web images. Use when asked to write blog posts, convert TikTok content into blog posts, or grow the blog.
 ---
 
 # TikTok → Blog pipeline
@@ -78,50 +78,53 @@ not to transcribe it prettily:
   bitwavetechnologies.com, "Winbox" spellings, "MPesa"→M-Pesa, "STK"→STK push.
 - Frontmatter `date:` = today, `published: true` (the PR is the gate).
 
-## Step 3 — Images (required: 1 cover + 0–2 in-context, real first)
+## Step 3 — Images (required: 1 professional cover + 0–2 in-context)
 
 Every post ships a **16:9 cover** (`image:` frontmatter) plus up to 2 inline
 images. The cover appears on the blog card grid, the article header, AND the
 OG/WhatsApp link preview — in Kenya most distribution happens as WhatsApp
 link cards, so a post without a cover is a post that doesn't get clicked.
 Each image must show something the post is actually about. Never use
-AI-generated decoration. Use openly licensed stock only as the documented
-last resort in item 5, after the real sources have failed the visual-quality
-gate below. Priority order for sourcing:
+AI-generated decoration. **Quality, relevance, and professional suitability
+outrank channel provenance.** A TikTok still or Biwavte-library photo gets no
+automatic preference merely because it is ours; reject it when a free licensed
+web image communicates the topic more clearly.
 
-1. **The Biwavte photo library** — `C:\Biwavte-Content-Library\photo-library`
-   (49 curated TikTok stills; categories `dennis/ dashboard/ equipment/
-   props/ site/`). Read `INDEX.json` first and pick by `subject`/`context`;
-   it marks which frames are CAPTION-FREE and which have burned-in captions
-   (usually at ~72–78% frame height) or PRIVACY notes. This is the shared
-   asset pool with the carousel pipeline — check it BEFORE extracting new
-   frames so the whole content system reuses the same real photos.
-2. **Frames from the source TikTok video** (when the library has nothing on
-   point). Keep the downloaded media (`fetch_transcript.py <url> --keep-media
-   <dir>`), then
-   `python .claude/skills/tiktok-to-blog/extract_frames.py <video> <outdir> [seconds...]`
-   — pick frames showing the router, Winbox, or the step being described.
-   A good new frame is worth adding back to the photo library (with an
-   INDEX.json entry) so future posts and carousels can reuse it.
-3. **Real UI screenshots** taken with the browser/Playwright against the
-   Bitwave dashboard, captive portal, or landing page at the exact step the
-   text describes. Use demo/test data only — never a real customer's name,
-   number, or payment; crop or blur anything doubtful.
-4. **Field photos from Dennis** (router installs, antennas, shops) when he
-   provides them.
-5. **Openly-licensed web images — last resort** (Dennis approved 2026-07-21):
-   when none of the above can show the subject (e.g. a device or setting we
-   don't own — fibre spools, a Starlink dish, a matatu stage), search
-   Unsplash / Pexels / Wikimedia Commons. Rules: verify the license allows
-   commercial use (Unsplash and Pexels licenses do; on Commons prefer CC0 /
-   CC-BY and add the required attribution in the image caption); **download
-   the file and run it through `make_cover.py`** into
-   `public/blog-images/<slug>/` — never hotlink, so pages stay self-hosted,
-   cacheable and license-frozen; record the source URL + license in an HTML
-   comment next to the embed; never use a competitor's screenshots or
-   branding; and never present a stock photo as our own network, customer,
-   or dashboard — anything claimed as Bitwave's must be a real Bitwave
-   image.
+Build a shortlist from these source types when available. This is a candidate
+set, not a strict priority order:
+
+- **Free, high-resolution licensed web images** — actively search Pexels,
+  Unsplash, and Wikimedia Commons for a professional, on-topic landscape
+  image. This is a first-class source, not a last resort. Prefer an original at
+  least 1200 px wide with clean focus, lighting, composition, and enough crop
+  room for 16:9.
+- **Real Bitwave UI screenshots or field photos** — use these when authenticity
+  materially helps, especially for an exact dashboard feature, portal state,
+  router installation, or local Kenyan context. Use demo/test data only —
+  never expose a customer's name, number, payment, MAC address, or credentials.
+- **The Biwavte photo library** —
+  `C:\Biwavte-Content-Library\photo-library`. Read `INDEX.json` for subject,
+  caption, quality, and privacy notes, but do not force a library image into a
+  blog cover when it looks like a vertical social-video still rather than
+  editorial photography.
+- **Frames from the source TikTok** — keep media and use
+  `python .claude/skills/tiktok-to-blog/extract_frames.py <video> <outdir> [seconds...]`
+  only when a frame is genuinely sharp, well lit, caption-free in the final
+  crop, and strong enough for a professional article card and WhatsApp preview.
+
+Rules for web images:
+
+- Open the original image page and verify that its licence permits commercial
+  use. Do not rely on an image-search thumbnail or an unsourced repost.
+- Prefer Pexels/Unsplash originals or Commons files under CC0/CC-BY. Follow any
+  attribution requirement; reject editorial-only, watermarked, unclear, or
+  AI-generated material.
+- Download and self-host the selected file under
+  `public/blog-images/<slug>/`; never hotlink. Record the image-page URL and
+  licence URL/terms in an HTML comment next to the embed and in the review
+  package or PR.
+- Never use a competitor's screenshot or branding, and never imply that a
+  stock scene is a real Bitwave customer, installation, network, or dashboard.
 
 **Make the cover** from the chosen frame:
 
@@ -149,12 +152,13 @@ without blurring it first.
   Prefer source material at least 720 px wide; a real demo-UI screenshot should
   start at 1440×810 or larger. Never upscale a weak frame to pass a dimension
   check.
-- If the exact video has no crisp frame, use a sharper on-topic image from the
-  real photo library or a clean demo-UI screenshot. If neither can clearly show
-  the subject, use the openly licensed fallback in item 5 rather than settling
-  for a poor frame.
-- Record the source dimensions, output dimensions, and a plain-language visual
-  verdict in the review package or PR description.
+- Apply the same visual bar to every source. If a channel/library frame is not
+  crisp and editorially suitable, search the licensed web sources before
+  settling. Authenticity does not excuse a poor cover.
+- Record the image-page or internal source, licence where applicable, source
+  dimensions, output dimensions, a plain-language visual verdict, and why the
+  selected image beat the other shortlisted candidates in the review package
+  or PR description.
 - When replacing a cover that has already been deployed, use a new filename
   (for example `cover-crisp.webp`) and update frontmatter. Reusing the old URL
   can leave Next.js or the CDN serving a stale optimized image after deploy.
