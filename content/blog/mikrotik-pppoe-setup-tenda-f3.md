@@ -4,10 +4,12 @@ description: MikroTik PPPoE setup guide: connect an RB951 to a Tenda F3, create 
 date: 2026-08-26
 tags: mikrotik, pppoe, tenda f3, isp setup
 category: pppoe
-image: /blog-images/mikrotik-pppoe-setup-tenda-f3/cover.webp
-imageAlt: Dennis connecting a MikroTik RB951 to a Tenda F3 for a PPPoE customer
+image: /blog-images/mikrotik-pppoe-setup-tenda-f3/cover-crisp.webp
+imageAlt: Clear close-up of a wired WiFi router used in a MikroTik PPPoE setup
 published: true
 ---
+
+<!-- Cover source: https://www.pexels.com/photo/modern-wifi-6-router-on-wooden-desk-32698507/ | License: https://www.pexels.com/license/ -->
 
 A MikroTik PPPoE setup lets an ISP authenticate each customer with a username and password, control access from the MikroTik, and deliver the connection through an ordinary customer router. In this example, internet enters a MikroTik RB951 on ether1 and leaves through ether2 to a Tenda F3.
 

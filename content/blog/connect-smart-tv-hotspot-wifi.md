@@ -4,10 +4,12 @@ description: Learn how to connect a smart TV to hotspot WiFi in Kenya using its 
 date: 2026-08-29
 tags: smart TV, hotspot WiFi, captive portal, MAC address, Kenya
 category: hotspot
-image: /blog-images/connect-smart-tv-hotspot-wifi/cover.webp
-imageAlt: Google TV settings screen used to find the device MAC address for hotspot WiFi access
+image: /blog-images/connect-smart-tv-hotspot-wifi/cover-crisp.webp
+imageAlt: Smartphone held in front of a smart TV for hotspot WiFi setup
 published: true
 ---
+
+<!-- Cover source: https://www.pexels.com/photo/modern-living-room-with-smart-tv-and-smartphone-35490296/ | License: https://www.pexels.com/license/ -->
 
 If you are asking **how to connect a smart TV to hotspot WiFi**, the reliable method is to register the TV’s Wi-Fi MAC address from a phone or laptop, choose an internet plan, then connect the TV to the same hotspot network. This avoids the captive-portal problem that stops many TVs from reaching the payment page.
 

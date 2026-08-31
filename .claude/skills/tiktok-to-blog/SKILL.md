@@ -78,14 +78,16 @@ not to transcribe it prettily:
   bitwavetechnologies.com, "Winbox" spellings, "MPesa"→M-Pesa, "STK"→STK push.
 - Frontmatter `date:` = today, `published: true` (the PR is the gate).
 
-## Step 3 — Images (required: 1 cover + 0–2 in-context, never stock)
+## Step 3 — Images (required: 1 cover + 0–2 in-context, real first)
 
 Every post ships a **16:9 cover** (`image:` frontmatter) plus up to 2 inline
 images. The cover appears on the blog card grid, the article header, AND the
 OG/WhatsApp link preview — in Kenya most distribution happens as WhatsApp
 link cards, so a post without a cover is a post that doesn't get clicked.
-Each image must show something the post is actually about — never stock
-photos, never AI-generated decoration. Priority order for sourcing:
+Each image must show something the post is actually about. Never use
+AI-generated decoration. Use openly licensed stock only as the documented
+last resort in item 5, after the real sources have failed the visual-quality
+gate below. Priority order for sourcing:
 
 1. **The Biwavte photo library** — `C:\Biwavte-Content-Library\photo-library`
    (49 curated TikTok stills; categories `dennis/ dashboard/ equipment/
@@ -134,6 +136,28 @@ the output exceeds the 150 KB budget). Then set frontmatter
 `image: /blog-images/<slug>/cover.webp` and `imageAlt:` describing what it
 shows. PRIVACY: never use frames whose INDEX entry says an MSISDN is visible
 without blurring it first.
+
+**Visual-quality gate — mandatory before accepting any cover:**
+
+- Inspect the full source, the final 16:9 crop, and the crop displayed at
+  roughly 360 px wide. File size and pixel dimensions are not proof of visual
+  quality.
+- Reject soft focus, motion blur, heavy backlighting or underexposure, tiny
+  picture-in-picture interfaces, awkward face/device crops, burned-in
+  captions, and any private identifier.
+- Produce exactly **720×405** unless a genuinely sharp real source is smaller.
+  Prefer source material at least 720 px wide; a real demo-UI screenshot should
+  start at 1440×810 or larger. Never upscale a weak frame to pass a dimension
+  check.
+- If the exact video has no crisp frame, use a sharper on-topic image from the
+  real photo library or a clean demo-UI screenshot. If neither can clearly show
+  the subject, use the openly licensed fallback in item 5 rather than settling
+  for a poor frame.
+- Record the source dimensions, output dimensions, and a plain-language visual
+  verdict in the review package or PR description.
+- When replacing a cover that has already been deployed, use a new filename
+  (for example `cover-crisp.webp`) and update frontmatter. Reusing the old URL
+  can leave Next.js or the CDN serving a stale optimized image after deploy.
 
 Inline images: save to `public/blog-images/<slug>/descriptive-name.webp`
 (WebP, under ~150 KB — readers pay for data); embed with markdown
