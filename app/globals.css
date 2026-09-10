@@ -121,6 +121,13 @@ html {
   scroll-behavior: smooth;
 }
 
+/* The landing and pricing headers are fixed and 4rem tall, so an anchored
+   section would otherwise come to rest underneath the nav with its heading
+   hidden. Keep every jump target clear of it. */
+section[id] {
+  scroll-margin-top: 5rem;
+}
+
 body {
   background: var(--background);
   color: var(--foreground);
