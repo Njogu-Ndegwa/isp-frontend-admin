@@ -757,3 +757,70 @@ const [mrr, churn, signups, funnel, alerts] = await Promise.all([
   api.getAdminSmartAlerts(),
 ]);
 ```
+
+---
+
+## Requested: acquisition attribution on signup
+
+**Status: Not implemented. Blocks per-customer paid-acquisition reporting.**
+
+### Why
+
+Paid campaigns are starting on TikTok and Google Search. GA4 reports
+channel-level *sessions*, so it can say "47 sessions from TikTok, 3 converted",
+but it cannot answer "did the reseller paying us KES 8,000/month come from
+TikTok or Google?". That question needs the source stored against the account.
+
+Because billing is a share of revenue, the number that decides where budget goes
+is cost per *shilling of recurring revenue* by channel — not cost per signup.
+That join is impossible without these fields on the user record.
+
+### What the frontend already does
+
+`app/lib/attribution.ts` captures first-touch attribution on every landing and
+keeps it in `localStorage` plus a `bw_attrib` cookie (90 days). It is currently
+only attached to the GA4 `sign_up` event, **not** to `POST /users/register` —
+sending an unknown field risked failing the request and taking signup down.
+Once the backend accepts these, the payload wiring is a two-line change in
+`app/signup/SignupClient.tsx`.
+
+### Requested change
+
+`POST /users/register` should accept an optional `attribution` object and
+persist it against the created user. Unknown keys inside it should be ignored
+rather than rejected, so the frontend can add platform click-ids later without a
+coordinated release.
+
+```jsonc
+{
+  "email": "...",
+  "password": "...",
+  "role": "reseller",
+  "organization_name": "...",
+  "business_name": "...",
+  "support_phone": "+2547...",
+
+  "attribution": {                    // all fields optional
+    "utm_source": "tiktok",           // tiktok | google | ...
+    "utm_medium": "cpc",
+    "utm_campaign": "test_sep",
+    "utm_content": "setup_video",     // which creative
+    "utm_term": "",
+    "gclid": "",                      // Google click id
+    "ttclid": "",                     // TikTok click id
+    "referrer": "tiktok.com",         // or "direct"
+    "landing_path": "/pricing",
+    "seen_at": "2026-09-10T18:22:04.113Z",  // ISO 8601, first touch
+    "last_utm_source": "google"       // only when last touch differs from first
+  }
+}
+```
+
+Suggested storage: a nullable JSON column on the user/organization row, plus
+indexed `utm_source` and `utm_campaign` columns for reporting. The click ids
+matter beyond reporting — they are what allow uploading offline conversions back
+to Google and TikTok later, so those platforms can optimise toward customers who
+actually pay rather than toward signups.
+
+Values are visitor-supplied query parameters: treat as untrusted, cap length,
+and never interpolate into SQL or logs unescaped.

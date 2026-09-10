@@ -10,6 +10,7 @@ import type { RegisterRequest } from '../lib/types';
 import PhoneInput from '../components/PhoneInput';
 import { DEFAULT_COUNTRY, type Country } from '../lib/countries';
 import { trackEvent } from '../lib/analytics';
+import { getAttributionFields } from '../lib/attribution';
 
 export default function SignupPage() {
   const router = useRouter();
@@ -66,7 +67,11 @@ export default function SignupPage() {
         };
         await api.register(payload);
         setRegistered(true);
-        trackEvent('sign_up', { method: 'email' });
+        // Attribution rides on the analytics event rather than the register
+        // payload: the backend has no column for it yet (see
+        // BACKEND_REQUIREMENTS.md), and an unknown field could fail the request
+        // and take signup down with it.
+        trackEvent('sign_up', { method: 'email', ...getAttributionFields() });
       }
 
       showAlert('success', 'Account created! Signing you in...');

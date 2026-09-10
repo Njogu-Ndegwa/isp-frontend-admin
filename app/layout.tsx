@@ -6,6 +6,7 @@ import ClientLayout from "./components/ClientLayout";
 import AlertContainer from "./components/AlertContainer";
 import ErrorBoundary from "./components/ErrorBoundary";
 import AnalyticsScripts from "./components/AnalyticsScripts";
+import AttributionCapture from "./components/AttributionCapture";
 
 export const viewport: Viewport = {
   width: "device-width",
@@ -39,6 +40,7 @@ export default function RootLayout({
               <AlertContainer />
               <ClientLayout>{children}</ClientLayout>
               <AnalyticsScripts />
+              <AttributionCapture />
             </AuthProvider>
           </AlertProvider>
         </ErrorBoundary>
