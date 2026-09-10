@@ -14,7 +14,11 @@ const PPPOE_RATE = 25;
 
 type ServiceType = 'hotspot' | 'pppoe' | 'both';
 
-export default function PricingCalculator() {
+/**
+ * `showHeading` is false on /pricing, where the page supplies its own heading
+ * and the section would otherwise announce "Pricing" twice.
+ */
+export default function PricingCalculator({ showHeading = true }: { showHeading?: boolean } = {}) {
   const [serviceType, setServiceType] = useState<ServiceType>('pppoe');
   const [hotspotRevenue, setHotspotRevenue] = useState(50000);
   const [pppoeUsers, setPppoeUsers] = useState(30);
@@ -34,17 +38,19 @@ export default function PricingCalculator() {
   return (
     <section id="pricing" className="py-20 md:py-28 px-4">
       <div className="max-w-4xl mx-auto">
-        <Reveal>
-          <div className="text-center mb-14">
-            <span className="text-xs font-semibold uppercase tracking-wider text-accent-primary">Pricing</span>
-            <h2 className="text-3xl md:text-4xl font-bold mt-3">
-              Simple, <span className="gradient-text">transparent pricing</span>
-            </h2>
-            <p className="mt-4 text-foreground-muted max-w-xl mx-auto">
-              Pay based on what you use. No setup fees, no hidden costs. Use the calculator to estimate your monthly bill.
-            </p>
-          </div>
-        </Reveal>
+        {showHeading && (
+          <Reveal>
+            <div className="text-center mb-14">
+              <span className="text-xs font-semibold uppercase tracking-wider text-accent-primary">Pricing</span>
+              <h2 className="text-3xl md:text-4xl font-bold mt-3">
+                Simple, <span className="gradient-text">transparent pricing</span>
+              </h2>
+              <p className="mt-4 text-foreground-muted max-w-xl mx-auto">
+                Pay based on what you use. No setup fees, no hidden costs. Use the calculator to estimate your monthly bill.
+              </p>
+            </div>
+          </Reveal>
+        )}
 
         <Reveal delay={0.08}>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-10">

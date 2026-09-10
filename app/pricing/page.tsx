@@ -138,7 +138,7 @@ export default function PricingPage() {
 
         {/* Interactive estimate. Imported directly rather than through the
             landing page's deferred bundle, so it server-renders here. */}
-        <PricingCalculator />
+        <PricingCalculator showHeading={false} />
 
         <section className="px-4 pb-20 md:pb-28">
           <div className="max-w-4xl mx-auto">
