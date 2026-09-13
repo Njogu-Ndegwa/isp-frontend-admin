@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
+import { SHOP_VISIBLE_ON_LANDING } from './shopVisibility';
 
 function LandingSectionsPlaceholder() {
   return (
@@ -26,7 +27,8 @@ const LandingSections = dynamic(() => import('./LandingSections'), {
 const DEFERRED_SECTION_IDS = new Set([
   'platform',
   'features',
-  'shop',
+  // 'shop' is only a jump target while the equipment shop is on the page.
+  ...(SHOP_VISIBLE_ON_LANDING ? ['shop'] : []),
   'how-it-works',
   'pricing',
   'testimonials',

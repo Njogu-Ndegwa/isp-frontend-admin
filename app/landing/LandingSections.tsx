@@ -5,6 +5,7 @@ import Link from 'next/link';
 import type { ReactNode } from 'react';
 import DemoButton from './DemoButton';
 import PricingCalculator from './PricingCalculator';
+import { SHOP_VISIBLE_ON_LANDING } from './shopVisibility';
 
 const DASHBOARD_SCREENSHOT = 'https://res.cloudinary.com/dhffnvn2d/image/upload/v1771735509/Screenshot_2026-02-22_074227_iwysqz.png';
 const TOWER_PHOTO = 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=1920&q=80';
@@ -129,37 +130,39 @@ export default function LandingSections() {
         </div>
       </section>
 
-      <section id="shop" className="py-20 md:py-28 px-4 bg-gradient-to-br from-background via-background to-amber-500/5">
-        <div className="max-w-6xl mx-auto">
-          <SectionHeading
-            eyebrow="Equipment Shop"
-            title={<>Everything your ISP needs, <span className="gradient-text">in one place</span></>}
-            copy="Shop genuine MikroTik routers, Ubiquiti antennas, Cat6 cables, and ISP accessories."
-          />
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
-            {shopProducts.map((product) => (
-              <div key={product.name} className="card group hover:border-amber-500/30 transition-all">
-                <div className="aspect-square bg-background-secondary rounded-t-xl flex items-center justify-center">
-                  <svg className="w-12 h-12 text-accent-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2" /></svg>
-                </div>
-                <div className="p-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-[10px] font-medium text-foreground-muted border border-border rounded-full px-2 py-0.5">{product.category}</span>
-                    <span className="text-[10px] font-semibold text-amber-500 bg-amber-500/10 rounded-full px-2 py-0.5">{product.tag}</span>
+      {SHOP_VISIBLE_ON_LANDING && (
+        <section id="shop" className="py-20 md:py-28 px-4 bg-gradient-to-br from-background via-background to-amber-500/5">
+          <div className="max-w-6xl mx-auto">
+            <SectionHeading
+              eyebrow="Equipment Shop"
+              title={<>Everything your ISP needs, <span className="gradient-text">in one place</span></>}
+              copy="Shop genuine MikroTik routers, Ubiquiti antennas, Cat6 cables, and ISP accessories."
+            />
+            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
+              {shopProducts.map((product) => (
+                <div key={product.name} className="card group hover:border-amber-500/30 transition-all">
+                  <div className="aspect-square bg-background-secondary rounded-t-xl flex items-center justify-center">
+                    <svg className="w-12 h-12 text-accent-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2" /></svg>
                   </div>
-                  <h3 className="text-sm font-semibold leading-snug">{product.name}</h3>
-                  <p className="text-base font-bold gradient-text mt-2">{product.price}</p>
+                  <div className="p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-[10px] font-medium text-foreground-muted border border-border rounded-full px-2 py-0.5">{product.category}</span>
+                      <span className="text-[10px] font-semibold text-amber-500 bg-amber-500/10 rounded-full px-2 py-0.5">{product.tag}</span>
+                    </div>
+                    <h3 className="text-sm font-semibold leading-snug">{product.name}</h3>
+                    <p className="text-base font-bold gradient-text mt-2">{product.price}</p>
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
+            <div className="text-center">
+              <Link href="/store" className="inline-flex items-center gap-2.5 bg-gradient-to-r from-amber-500 to-orange-500 text-[#09090b] font-semibold px-8 py-4 rounded-xl hover:shadow-xl hover:shadow-amber-500/30 transition-all">
+                Browse the Full Shop
+              </Link>
+            </div>
           </div>
-          <div className="text-center">
-            <Link href="/store" className="inline-flex items-center gap-2.5 bg-gradient-to-r from-amber-500 to-orange-500 text-[#09090b] font-semibold px-8 py-4 rounded-xl hover:shadow-xl hover:shadow-amber-500/30 transition-all">
-              Browse the Full Shop
-            </Link>
-          </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       <section className="relative min-h-[50vh] md:min-h-[60vh] flex items-center justify-center overflow-hidden">
         <Image src={TOWER_PHOTO} alt="Earth at night showing global network connectivity" fill className="object-cover" sizes="100vw" quality={70} />
