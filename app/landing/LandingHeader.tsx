@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import DemoButton from './DemoButton';
+import { SHOP_VISIBLE_ON_LANDING } from './shopVisibility';
 
 const NAV_LINKS = [
   { label: 'Features', href: '#features' },
@@ -29,12 +30,14 @@ export default function LandingHeader() {
               {link.label}
             </a>
           ))}
-          <Link href="/store" className="text-sm font-semibold flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-amber-500/30 text-amber-500 hover:bg-amber-500/10 transition-all">
-            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
-            </svg>
-            Shop
-          </Link>
+          {SHOP_VISIBLE_ON_LANDING && (
+            <Link href="/store" className="text-sm font-semibold flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-amber-500/30 text-amber-500 hover:bg-amber-500/10 transition-all">
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+              </svg>
+              Shop
+            </Link>
+          )}
         </div>
 
         <div className="hidden md:flex items-center gap-3">
@@ -58,12 +61,14 @@ export default function LandingHeader() {
                 {link.label}
               </a>
             ))}
-            <Link href="/store" className="flex items-center gap-2 py-2 text-sm font-semibold text-amber-500 hover:text-amber-400 transition-colors">
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
-              </svg>
-              Equipment Shop
-            </Link>
+            {SHOP_VISIBLE_ON_LANDING && (
+              <Link href="/store" className="flex items-center gap-2 py-2 text-sm font-semibold text-amber-500 hover:text-amber-400 transition-colors">
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+                </svg>
+                Equipment Shop
+              </Link>
+            )}
             <div className="pt-3 border-t border-border space-y-2">
               <div className="flex gap-3">
                 <Link href="/signup" className="btn-primary text-sm flex-1 text-center">Sign Up</Link>

@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import LandingHeader from '../landing/LandingHeader';
+import { SHOP_VISIBLE_ON_LANDING } from '../landing/shopVisibility';
 
 // Blog pages share the landing chrome so every article carries the nav and
 // Sign Up CTA (the blog previously rendered with no header/footer at all).
@@ -17,7 +18,9 @@ export default function BlogLayout({ children }: { children: React.ReactNode }) 
           <div className="flex items-center gap-6 text-sm text-foreground-muted">
             <Link href="/" className="hover:text-foreground transition-colors">Home</Link>
             <Link href="/blog" className="hover:text-foreground transition-colors">Blog</Link>
-            <Link href="/store" className="hover:text-foreground transition-colors">Shop</Link>
+            {SHOP_VISIBLE_ON_LANDING && (
+              <Link href="/store" className="hover:text-foreground transition-colors">Shop</Link>
+            )}
             <Link href="/signup" className="text-amber-500 hover:text-amber-400 transition-colors font-semibold">Start free</Link>
           </div>
           <p className="text-xs text-foreground-muted">
