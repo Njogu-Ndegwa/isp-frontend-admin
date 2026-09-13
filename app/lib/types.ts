@@ -1693,6 +1693,14 @@ export interface RegisterRequest {
   organization_name: string;
   business_name: string;
   support_phone?: string;
+  /**
+   * First-touch acquisition data (utm_*, gclid, ttclid, referrer,
+   * landing_path, seen_at) from app/lib/attribution.ts. Omitted entirely when
+   * the visitor arrived untagged. The backend sanitizes and stores it on the
+   * user row; unknown keys are kept, so a new platform's click id can ship
+   * from here without waiting for a backend release.
+   */
+  attribution?: Record<string, string>;
 }
 
 export interface AuthUser {

@@ -10,6 +10,7 @@ import type { RegisterRequest } from '../lib/types';
 import PhoneInput from '../components/PhoneInput';
 import { DEFAULT_COUNTRY, type Country } from '../lib/countries';
 import { trackEvent } from '../lib/analytics';
+import { getAttributionFields } from '../lib/attribution';
 
 export default function SignupPage() {
   const router = useRouter();
@@ -59,14 +60,18 @@ export default function SignupPage() {
 
     try {
       if (!registered) {
+        const attribution = getAttributionFields();
         const payload: RegisterRequest = {
           ...formData,
           role: 'reseller',
           support_phone: `+${phoneCountry.dialCode}${phoneNational}`,
+          // Only send it when there is something to send — an empty object
+          // would write a meaningless row for every untagged signup.
+          ...(Object.keys(attribution).length ? { attribution } : {}),
         };
         await api.register(payload);
         setRegistered(true);
-        trackEvent('sign_up', { method: 'email' });
+        trackEvent('sign_up', { method: 'email', ...attribution });
       }
 
       showAlert('success', 'Account created! Signing you in...');

@@ -757,3 +757,75 @@ const [mrr, churn, signups, funnel, alerts] = await Promise.all([
   api.getAdminSmartAlerts(),
 ]);
 ```
+
+---
+
+## Acquisition attribution on signup
+
+**Status: SHIPPED (backend branch `feat/signup-attribution`).** `POST /users/register`
+accepts an optional `attribution` object and stores it on the user row as
+`acquisition_source` (lowercased), `acquisition_campaign` and
+`acquisition_details` (the full JSON payload). Unknown keys inside the object
+are kept, not rejected, so a new platform's click id ships from the frontend
+alone. Anything that is not a usable object is ignored rather than failing the
+request — attribution must never be able to take signup down.
+
+A tagged signup is also filed in the lead pipeline under the channel it came
+from ("TikTok Ads", "Google Ads") instead of the generic "Website", so signups
+per channel are countable in the CRM the team already uses. Paid and organic get
+separate sources: `utm_medium=cpc` or a `gclid`/`ttclid` means paid.
+
+### Why
+
+Paid campaigns are starting on TikTok and Google Search. GA4 reports
+channel-level *sessions*, so it can say "47 sessions from TikTok, 3 converted",
+but it cannot answer "did the reseller paying us KES 8,000/month come from
+TikTok or Google?". That question needs the source stored against the account.
+
+Because billing is a share of revenue, the number that decides where budget goes
+is cost per *shilling of recurring revenue* by channel — not cost per signup.
+That join is impossible without these fields on the user record.
+
+### What the frontend does
+
+`app/lib/attribution.ts` captures first-touch attribution on every landing and
+keeps it in `localStorage` plus a `bw_attrib` cookie (90 days).
+`app/signup/SignupClient.tsx` sends it on both the register call and the GA4
+`sign_up` event, and omits the field entirely for an untagged visitor.
+
+### The contract
+
+```jsonc
+{
+  "email": "...",
+  "password": "...",
+  "role": "reseller",
+  "organization_name": "...",
+  "business_name": "...",
+  "support_phone": "+2547...",
+
+  "attribution": {                    // all fields optional
+    "utm_source": "tiktok",           // tiktok | google | ...
+    "utm_medium": "cpc",
+    "utm_campaign": "test_sep",
+    "utm_content": "setup_video",     // which creative
+    "utm_term": "",
+    "gclid": "",                      // Google click id
+    "ttclid": "",                     // TikTok click id
+    "referrer": "tiktok.com",         // or "direct"
+    "landing_path": "/pricing",
+    "seen_at": "2026-09-10T18:22:04.113Z",  // ISO 8601, first touch
+    "last_utm_source": "google"       // only when last touch differs from first
+  }
+}
+```
+
+Storage: `users.acquisition_details` (JSON) holds the payload; `acquisition_source`
+and `acquisition_campaign` are indexed columns so reports group without digging
+through JSON. The click ids matter beyond reporting — they are what allow
+uploading offline conversions back to Google and TikTok, so those platforms
+optimise toward resellers who actually pay rather than toward signups.
+
+Values are visitor-supplied query parameters and are treated as untrusted: keys
+and values are length-capped, control characters stripped, the key count
+bounded, and every value coerced to a short string.
