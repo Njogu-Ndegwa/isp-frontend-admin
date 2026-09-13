@@ -20,36 +20,45 @@ export default function FloatingContact({ whatsappMessage = WHATSAPP_DEFAULT_MES
   const [hidden, setHidden] = useState(false);
 
   useEffect(() => {
-    // The contact section is lazily mounted, so it may not exist yet — watch
-    // for it rather than giving up on the first look.
-    let observer: IntersectionObserver | null = null;
+    // Deliberately not an IntersectionObserver holding a node reference. The
+    // contact section is lazily mounted and React can hand us a different
+    // element than the one we started observing, which silently leaves the
+    // observer watching a detached node — the button then never hides. Looking
+    // the element up fresh on every check cannot go stale that way.
+    let frame = 0;
 
-    const watch = () => {
+    const update = () => {
+      frame = 0;
       const target = document.getElementById('contact');
-      if (!target) return false;
-      observer = new IntersectionObserver(
-        ([entry]) => setHidden(entry.isIntersecting),
-        { threshold: 0.15 },
-      );
-      observer.observe(target);
-      return true;
+      if (!target) {
+        setHidden(false);
+        return;
+      }
+      const rect = target.getBoundingClientRect();
+      const overlap = Math.min(rect.bottom, window.innerHeight) - Math.max(rect.top, 0);
+      setHidden(overlap > Math.min(rect.height, window.innerHeight) * 0.3);
     };
 
-    if (!watch()) {
-      const poll = setInterval(() => {
-        if (watch()) clearInterval(poll);
-      }, 500);
-      // Stop looking after a while; on pages with no contact section the
-      // buttons simply stay visible, which is the behaviour we want anyway.
-      const stop = setTimeout(() => clearInterval(poll), 15000);
-      return () => {
-        clearInterval(poll);
-        clearTimeout(stop);
-        observer?.disconnect();
-      };
-    }
+    const schedule = () => {
+      if (!frame) frame = requestAnimationFrame(update);
+    };
 
-    return () => observer?.disconnect();
+    window.addEventListener('scroll', schedule, { passive: true });
+    window.addEventListener('resize', schedule);
+
+    // The section can appear without any scroll of its own — a deep link, or
+    // the deferred bundle finishing — so keep looking for a while after mount.
+    const poll = setInterval(schedule, 500);
+    const stopPolling = setTimeout(() => clearInterval(poll), 20000);
+    schedule();
+
+    return () => {
+      window.removeEventListener('scroll', schedule);
+      window.removeEventListener('resize', schedule);
+      clearInterval(poll);
+      clearTimeout(stopPolling);
+      if (frame) cancelAnimationFrame(frame);
+    };
   }, []);
 
   return (

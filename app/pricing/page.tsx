@@ -200,7 +200,10 @@ export default function PricingPage() {
               {/* Ad traffic lands here with the question already formed. Send
                   it straight to a person rather than to an anchor on another
                   page that then has to load and scroll. */}
-              <div className="flex flex-col sm:flex-row items-center gap-3 pt-2">
+              {/* id="contact" so the floating buttons stand down while these
+                  are on screen — two sets of the same two options crowding
+                  each other looks like a mistake. */}
+              <div id="contact" className="flex flex-col sm:flex-row items-center gap-3 pt-2">
                 <a
                   href={whatsappHref(WHATSAPP_PRICING_MESSAGE)}
                   target="_blank"
