@@ -760,9 +760,20 @@ const [mrr, churn, signups, funnel, alerts] = await Promise.all([
 
 ---
 
-## Requested: acquisition attribution on signup
+## Acquisition attribution on signup
 
-**Status: Not implemented. Blocks per-customer paid-acquisition reporting.**
+**Status: SHIPPED (backend branch `feat/signup-attribution`).** `POST /users/register`
+accepts an optional `attribution` object and stores it on the user row as
+`acquisition_source` (lowercased), `acquisition_campaign` and
+`acquisition_details` (the full JSON payload). Unknown keys inside the object
+are kept, not rejected, so a new platform's click id ships from the frontend
+alone. Anything that is not a usable object is ignored rather than failing the
+request — attribution must never be able to take signup down.
+
+A tagged signup is also filed in the lead pipeline under the channel it came
+from ("TikTok Ads", "Google Ads") instead of the generic "Website", so signups
+per channel are countable in the CRM the team already uses. Paid and organic get
+separate sources: `utm_medium=cpc` or a `gclid`/`ttclid` means paid.
 
 ### Why
 
@@ -775,21 +786,14 @@ Because billing is a share of revenue, the number that decides where budget goes
 is cost per *shilling of recurring revenue* by channel — not cost per signup.
 That join is impossible without these fields on the user record.
 
-### What the frontend already does
+### What the frontend does
 
 `app/lib/attribution.ts` captures first-touch attribution on every landing and
-keeps it in `localStorage` plus a `bw_attrib` cookie (90 days). It is currently
-only attached to the GA4 `sign_up` event, **not** to `POST /users/register` —
-sending an unknown field risked failing the request and taking signup down.
-Once the backend accepts these, the payload wiring is a two-line change in
-`app/signup/SignupClient.tsx`.
+keeps it in `localStorage` plus a `bw_attrib` cookie (90 days).
+`app/signup/SignupClient.tsx` sends it on both the register call and the GA4
+`sign_up` event, and omits the field entirely for an untagged visitor.
 
-### Requested change
-
-`POST /users/register` should accept an optional `attribution` object and
-persist it against the created user. Unknown keys inside it should be ignored
-rather than rejected, so the frontend can add platform click-ids later without a
-coordinated release.
+### The contract
 
 ```jsonc
 {
@@ -816,11 +820,12 @@ coordinated release.
 }
 ```
 
-Suggested storage: a nullable JSON column on the user/organization row, plus
-indexed `utm_source` and `utm_campaign` columns for reporting. The click ids
-matter beyond reporting — they are what allow uploading offline conversions back
-to Google and TikTok later, so those platforms can optimise toward customers who
-actually pay rather than toward signups.
+Storage: `users.acquisition_details` (JSON) holds the payload; `acquisition_source`
+and `acquisition_campaign` are indexed columns so reports group without digging
+through JSON. The click ids matter beyond reporting — they are what allow
+uploading offline conversions back to Google and TikTok, so those platforms
+optimise toward resellers who actually pay rather than toward signups.
 
-Values are visitor-supplied query parameters: treat as untrusted, cap length,
-and never interpolate into SQL or logs unescaped.
+Values are visitor-supplied query parameters and are treated as untrusted: keys
+and values are length-capped, control characters stripped, the key count
+bounded, and every value coerced to a short string.

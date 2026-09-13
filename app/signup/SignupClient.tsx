@@ -60,18 +60,18 @@ export default function SignupPage() {
 
     try {
       if (!registered) {
+        const attribution = getAttributionFields();
         const payload: RegisterRequest = {
           ...formData,
           role: 'reseller',
           support_phone: `+${phoneCountry.dialCode}${phoneNational}`,
+          // Only send it when there is something to send — an empty object
+          // would write a meaningless row for every untagged signup.
+          ...(Object.keys(attribution).length ? { attribution } : {}),
         };
         await api.register(payload);
         setRegistered(true);
-        // Attribution rides on the analytics event rather than the register
-        // payload: the backend has no column for it yet (see
-        // BACKEND_REQUIREMENTS.md), and an unknown field could fail the request
-        // and take signup down with it.
-        trackEvent('sign_up', { method: 'email', ...getAttributionFields() });
+        trackEvent('sign_up', { method: 'email', ...attribution });
       }
 
       showAlert('success', 'Account created! Signing you in...');
