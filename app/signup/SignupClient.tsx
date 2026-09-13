@@ -9,7 +9,7 @@ import { api } from '../lib/api';
 import type { RegisterRequest } from '../lib/types';
 import PhoneInput from '../components/PhoneInput';
 import { DEFAULT_COUNTRY, type Country } from '../lib/countries';
-import { trackEvent } from '../lib/analytics';
+import { trackSignup } from '../lib/analytics';
 import { getAttributionFields } from '../lib/attribution';
 
 export default function SignupPage() {
@@ -71,7 +71,7 @@ export default function SignupPage() {
         };
         await api.register(payload);
         setRegistered(true);
-        trackEvent('sign_up', { method: 'email', ...attribution });
+        trackSignup();
       }
 
       showAlert('success', 'Account created! Signing you in...');
