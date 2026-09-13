@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { PHONE_DISPLAY, TEL_HREF, WHATSAPP_DEFAULT_MESSAGE, whatsappHref } from '../landing/contact';
+import { trackContact } from '../lib/analytics';
 
 /**
  * A always-reachable way to talk to a human, pinned to the corner of every
@@ -74,6 +75,7 @@ export default function FloatingContact({ whatsappMessage = WHATSAPP_DEFAULT_MES
           two read as one choice with two answers. */}
       <a
         href={TEL_HREF}
+        onClick={() => trackContact('phone', 'floating')}
         aria-label={`Call Bitwave on ${PHONE_DISPLAY}`}
         title={`Call ${PHONE_DISPLAY}`}
         className="h-14 px-5 rounded-full bg-background/95 backdrop-blur border border-amber-500/50 text-amber-500 font-semibold text-sm shadow-xl flex items-center justify-center gap-2 hover:bg-amber-500/10 active:scale-95 transition-all"
@@ -88,6 +90,7 @@ export default function FloatingContact({ whatsappMessage = WHATSAPP_DEFAULT_MES
         href={whatsappHref(whatsappMessage)}
         target="_blank"
         rel="noopener noreferrer"
+        onClick={() => trackContact('whatsapp', 'floating')}
         aria-label={`WhatsApp Bitwave on ${PHONE_DISPLAY}`}
         title={`WhatsApp ${PHONE_DISPLAY}`}
         className="h-14 px-5 rounded-full bg-[#25D366] text-[#062e18] font-semibold text-sm shadow-xl shadow-emerald-900/20 flex items-center justify-center gap-2 hover:brightness-105 active:scale-95 transition-all"
