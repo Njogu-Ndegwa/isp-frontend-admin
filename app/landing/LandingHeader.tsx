@@ -10,6 +10,9 @@ const NAV_LINKS = [
   { label: 'Pricing', href: '#pricing' },
   { label: 'Testimonials', href: '#testimonials' },
   { label: 'Blog', href: '/blog' },
+  // Last in the list but present: a stuck visitor needs a link to tap, not
+  // nine screens of scrolling to find the number.
+  { label: 'Contact', href: '#contact' },
 ];
 
 export default function LandingHeader() {

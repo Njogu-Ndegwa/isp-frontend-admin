@@ -6,11 +6,10 @@ import type { ReactNode } from 'react';
 import DemoButton from './DemoButton';
 import PricingCalculator from './PricingCalculator';
 import { SHOP_VISIBLE_ON_LANDING } from './shopVisibility';
+import { PHONE_DISPLAY, PHONE_NUMBER } from './contact';
 
 const DASHBOARD_SCREENSHOT = 'https://res.cloudinary.com/dhffnvn2d/image/upload/v1771735509/Screenshot_2026-02-22_074227_iwysqz.png';
 const TOWER_PHOTO = 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=1920&q=80';
-const PHONE_NUMBER = '+254795635364';
-const PHONE_DISPLAY = '0795 635 364';
 
 const pains = [
   'Chasing payments after customers claim they paid',

@@ -4,6 +4,7 @@ import Link from 'next/link';
 import DemoButton from './DemoButton';
 import LandingDeferredSections from './LandingDeferredSections';
 import LandingHeader from './LandingHeader';
+import FloatingContact from '../components/FloatingContact';
 
 const HERO_PHOTO = 'https://images.unsplash.com/photo-1558494949-ef010cbdcc31?w=1920&q=80';
 
@@ -87,6 +88,7 @@ export default function LandingPage() {
       </section>
 
       <LandingDeferredSections />
+      <FloatingContact />
     </div>
   );
 }
