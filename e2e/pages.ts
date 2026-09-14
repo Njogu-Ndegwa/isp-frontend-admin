@@ -4,7 +4,7 @@ export const WIDTHS = [320, 375, 768, 834, 1024, 1280];
 export const RESELLER_PAGES = [
   '/dashboard', '/customers', '/customers/register', '/transactions',
   '/routers', '/pppoe-monitor', '/diagnostics', '/plans', '/plans/create',
-  '/vouchers', '/access-credentials', '/access-credentials/create',
+  '/vouchers', '/compensation', '/messaging', '/access-credentials', '/access-credentials/create',
   '/account-statement', '/walled-garden', '/unmatched-payments',
   '/settings', '/settings/profile', '/settings/subscription',
   '/settings/subscription/payments', '/settings/subscription/invoices',
