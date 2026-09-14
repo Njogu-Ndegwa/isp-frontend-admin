@@ -5,13 +5,15 @@ import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '../context/AuthContext';
+import { trackContact } from '../lib/analytics';
+import { WHATSAPP_DEFAULT_MESSAGE, whatsappHref } from '../landing/contact';
 import ErrorBoundary from './ErrorBoundary';
 
 const CollapsibleSidebar = dynamic(() => import('./CollapsibleSidebar'), { ssr: false });
 const MobileBottomNav = dynamic(() => import('./MobileBottomNav'), { ssr: false });
 const SubscriptionBlockedModal = dynamic(() => import('./SubscriptionBlockedModal'), { ssr: false });
 
-const PUBLIC_PATHS = ['/', '/login', '/landing', '/pricing', '/signup', '/forgot-password', '/reset-password'];
+const PUBLIC_PATHS = ['/', '/demo', '/login', '/landing', '/pricing', '/signup', '/forgot-password', '/reset-password'];
 const PUBLIC_PREFIXES = ['/store', '/r', '/blog'];
 const FULLSCREEN_AUTH_PATHS = ['/setup'];
 
@@ -35,6 +37,17 @@ function DemoBanner() {
           </p>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
+          <a
+            href={whatsappHref(WHATSAPP_DEFAULT_MESSAGE)}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={() => trackContact('whatsapp', 'demo_banner')}
+            className="text-xs font-semibold px-3 py-1 rounded-lg border border-amber-500/30 text-amber-400 hover:bg-amber-500/10 transition-colors"
+            aria-label="Chat with Bitwave on WhatsApp"
+          >
+            <span className="hidden sm:inline">WhatsApp</span>
+            <span className="sm:hidden">Chat</span>
+          </a>
           <Link href="/signup" className="text-xs font-semibold px-3 py-1 rounded-lg bg-amber-500 text-[#09090b] hover:bg-amber-400 transition-colors">
             Sign Up
           </Link>
