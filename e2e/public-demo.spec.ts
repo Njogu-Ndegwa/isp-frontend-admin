@@ -89,10 +89,44 @@ test('public /demo initializes the real dashboard and preserves campaign attribu
   });
 
   await expect(page.locator('aside')).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Home', exact: true })).toHaveAttribute('href', '/');
+  await expect(page.getByRole('link', { name: 'Pricing', exact: true })).toHaveAttribute('href', '/pricing');
   await expect(page.getByRole('link', { name: 'Sign Up', exact: true })).toHaveAttribute('href', '/signup');
   const whatsapp = page.getByRole('link', { name: 'Chat with Bitwave on WhatsApp' });
   await expect(whatsapp).toHaveAttribute('href', /^https:\/\/wa\.me\/254795635364/);
   expect(errors).toEqual([]);
+});
+
+test('demo banner keeps public routes and signup within one tap', async ({ page }) => {
+  await enterPublicDemo(page);
+
+  const demoActions = page.getByRole('navigation', { name: 'Demo actions' });
+  await expect(demoActions.getByRole('link', { name: 'Home', exact: true })).toBeVisible();
+  await expect(demoActions.getByRole('link', { name: 'Pricing', exact: true })).toBeVisible();
+  await expect(demoActions.getByRole('link', { name: 'Chat with Bitwave on WhatsApp' })).toBeVisible();
+  await expect(demoActions.getByRole('link', { name: 'Sign Up', exact: true })).toBeVisible();
+
+  await demoActions.getByRole('link', { name: 'Pricing', exact: true }).click();
+  await expect(page).toHaveURL(/\/pricing$/);
+  const attribution = await page.evaluate(() => JSON.parse(localStorage.getItem('bw_attrib_v1') || 'null'));
+  expect(attribution.first).toMatchObject({
+    utm_source: 'playwright',
+    utm_campaign: 'public_demo',
+    landing_path: '/demo',
+  });
+});
+
+test('exiting the demo returns to Home and clears the demo session', async ({ page }) => {
+  await enterPublicDemo(page);
+  await page.getByRole('button', { name: 'Exit', exact: true }).click();
+
+  await expect(page).toHaveURL('/');
+  await expect(page.getByRole('heading', { name: /The Billing System/i })).toBeVisible();
+  const session = await page.evaluate(() => ({
+    demoMode: localStorage.getItem('demo_mode'),
+    token: localStorage.getItem('auth_token'),
+  }));
+  expect(session).toEqual({ demoMode: null, token: null });
 });
 
 for (const route of DESKTOP_SIDEBAR_ROUTES) {
@@ -122,6 +156,19 @@ test('mobile bottom navigation stays full-width and every item navigates', async
   const errors = collectRuntimeErrors(page);
   await page.setViewportSize({ width: 390, height: 844 });
   await enterPublicDemo(page);
+
+  const demoActions = page.getByRole('navigation', { name: 'Demo actions' });
+  await expect(demoActions).toBeVisible();
+  const bannerDimensions = await demoActions.evaluate((element) => ({
+    left: element.getBoundingClientRect().left,
+    right: element.getBoundingClientRect().right,
+    viewport: document.documentElement.clientWidth,
+    scrollWidth: element.scrollWidth,
+    clientWidth: element.clientWidth,
+  }));
+  expect(bannerDimensions.left).toBeGreaterThanOrEqual(0);
+  expect(bannerDimensions.right).toBeLessThanOrEqual(bannerDimensions.viewport);
+  expect(bannerDimensions.scrollWidth).toBeLessThanOrEqual(bannerDimensions.clientWidth);
 
   for (const item of MOBILE_BOTTOM_NAV) {
     const nav = page.locator('nav.fixed.bottom-0');

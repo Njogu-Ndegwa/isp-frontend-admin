@@ -23,12 +23,20 @@ function matchesPathPrefix(pathname: string, prefix: string): boolean {
 
 function DemoBanner() {
   const { logout } = useAuth();
+
+  const exitDemo = () => {
+    logout();
+    // Use a hard navigation so the authenticated-layout guard cannot win a
+    // race and send the just-logged-out visitor to /login first.
+    window.location.assign('/');
+  };
+
   return (
     <div
       className="bg-gradient-to-r from-amber-500/15 via-orange-500/10 to-amber-500/15 border-b border-amber-500/20 transition-[margin] duration-300 ease-in-out"
       style={{ marginLeft: 'var(--app-sidebar-w, 0px)' }}
     >
-      <div className="max-w-7xl mx-auto px-3 py-2 flex items-center justify-between gap-3">
+      <div className="max-w-7xl mx-auto px-3 py-2 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3">
         <div className="flex items-center gap-2 min-w-0">
           <span className="flex-shrink-0 w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
           <p className="text-xs sm:text-sm text-amber-200/90 truncate">
@@ -36,25 +44,31 @@ function DemoBanner() {
             <span className="hidden sm:inline"> &mdash; You&apos;re viewing sample data</span>
           </p>
         </div>
-        <div className="flex items-center gap-2 flex-shrink-0">
+        <nav aria-label="Demo actions" className="grid grid-cols-5 sm:flex items-center gap-1 sm:gap-2 w-full sm:w-auto sm:flex-shrink-0">
+          <Link href="/" className="text-center text-xs font-medium px-2 py-1 rounded-lg text-amber-200/90 hover:text-amber-300 hover:bg-amber-500/10 transition-colors">
+            Home
+          </Link>
+          <Link href="/pricing" className="text-center text-xs font-medium px-2 py-1 rounded-lg text-amber-200/90 hover:text-amber-300 hover:bg-amber-500/10 transition-colors">
+            Pricing
+          </Link>
           <a
             href={whatsappHref(WHATSAPP_DEFAULT_MESSAGE)}
             target="_blank"
             rel="noopener noreferrer"
             onClick={() => trackContact('whatsapp', 'demo_banner')}
-            className="text-xs font-semibold px-3 py-1 rounded-lg border border-amber-500/30 text-amber-400 hover:bg-amber-500/10 transition-colors"
+            className="text-center text-xs font-semibold px-2 sm:px-3 py-1 rounded-lg border border-amber-500/30 text-amber-400 hover:bg-amber-500/10 transition-colors"
             aria-label="Chat with Bitwave on WhatsApp"
           >
             <span className="hidden sm:inline">WhatsApp</span>
             <span className="sm:hidden">Chat</span>
           </a>
-          <Link href="/signup" className="text-xs font-semibold px-3 py-1 rounded-lg bg-amber-500 text-[#09090b] hover:bg-amber-400 transition-colors">
+          <Link href="/signup" className="text-center text-xs font-semibold px-2 sm:px-3 py-1 rounded-lg bg-amber-500 text-[#09090b] hover:bg-amber-400 transition-colors">
             Sign Up
           </Link>
-          <button onClick={logout} className="text-xs font-medium px-3 py-1 rounded-lg border border-amber-500/30 text-amber-400 hover:bg-amber-500/10 transition-colors">
+          <button onClick={exitDemo} className="text-center text-xs font-medium px-2 sm:px-3 py-1 rounded-lg border border-amber-500/30 text-amber-400 hover:bg-amber-500/10 transition-colors">
             Exit
           </button>
-        </div>
+        </nav>
       </div>
     </div>
   );
