@@ -62,9 +62,9 @@ export function trackSignup() {
  */
 export function trackContact(channel: 'whatsapp' | 'phone', placement: string) {
   trackEvent('contact_click', { channel, placement, ...getAttributionFields() });
-  // This pixel's TikTok business funnel uses Lead as its eligible conversion
-  // event. Sending Contact is silently ignored by that funnel and leaves the
-  // campaign without an optimization event.
-  trackTikTok('Lead', { content_name: `${channel}_${placement}` });
+  // TikTok displays the legacy SubmitForm standard event as Lead in Events
+  // Manager. This account's browser pixel still accepts the legacy wire name,
+  // while sending Lead directly is dropped and never activates the event.
+  trackTikTok('SubmitForm', { content_name: `${channel}_${placement}` });
   trackGoogleAdsConversion(GOOGLE_ADS_CONTACT_LABEL);
 }
