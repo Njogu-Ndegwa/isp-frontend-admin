@@ -16,7 +16,7 @@ const securityHeaders = [
     key: "Content-Security-Policy",
     value: [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://www.google-analytics.com https://analytics.tiktok.com https://*.contentsquare.net https://va.vercel-scripts.com",
+      "script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://www.google-analytics.com https://analytics.tiktok.com https://analytics-ipv6.tiktokw.us https://*.contentsquare.net https://va.vercel-scripts.com",
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: blob: https:",
       // Tutorial videos (e.g. the router setup walkthrough) are served from
@@ -25,7 +25,7 @@ const securityHeaders = [
       // (an image) still shows, so it looks like a video that never plays.
       "media-src 'self' blob: https://res.cloudinary.com",
       "font-src 'self' data:",
-      `connect-src 'self' ${apiOrigin} https://www.google.com https://www.google-analytics.com https://analytics.google.com https://*.google-analytics.com https://*.googletagmanager.com https://stats.g.doubleclick.net https://analytics.tiktok.com https://*.contentsquare.net https://va.vercel-scripts.com`,
+      `connect-src 'self' ${apiOrigin} https://www.google.com https://www.google-analytics.com https://analytics.google.com https://*.google-analytics.com https://*.googletagmanager.com https://stats.g.doubleclick.net https://analytics.tiktok.com https://analytics-ipv6.tiktokw.us https://*.contentsquare.net https://va.vercel-scripts.com`,
       "frame-ancestors 'none'",
     ].join("; "),
   },
