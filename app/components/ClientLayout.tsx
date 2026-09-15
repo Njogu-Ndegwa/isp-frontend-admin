@@ -80,6 +80,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   const { isAuthenticated, isLoading, isDemo, user } = useAuth();
 
   const isPublicPage = PUBLIC_PATHS.includes(pathname) || PUBLIC_PREFIXES.some(p => matchesPathPrefix(pathname, p));
+  const isDemoEntry = pathname === '/demo';
 
   const isAdmin = user?.role === 'admin';
   const isOnAdminPage = pathname.startsWith('/admin');
@@ -105,7 +106,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     }
   }, [needsRedirect, redirectTarget, router]);
 
-  if (isPublicPage) {
+  if (isPublicPage && !isDemoEntry) {
     return <main className="min-h-screen">{children}</main>;
   }
 
@@ -118,20 +119,28 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     return <main className="min-h-screen">{children}</main>;
   }
 
+  // Keep the `/demo` child mounted in one stable tree while demo auth starts
+  // or exits. Only its surrounding app chrome needs to wait for demo mode.
+  const showAppChrome = !isDemoEntry || (!isLoading && isDemo);
+
   return (
     <>
       {!isLoading && isDemo && <DemoBanner />}
       <main
         className="min-h-screen p-4 md:p-8 pb-24 md:pb-8 transition-[margin] duration-300 ease-in-out"
-        style={{ marginLeft: 'var(--app-sidebar-w, 0px)' }}
+        style={{ marginLeft: showAppChrome ? 'var(--app-sidebar-w, 0px)' : 0 }}
       >
         <ErrorBoundary key={pathname}>
           {children}
         </ErrorBoundary>
       </main>
-      <CollapsibleSidebar />
-      <MobileBottomNav />
-      <SubscriptionBlockedModal />
+      {showAppChrome && (
+        <>
+          <CollapsibleSidebar />
+          <MobileBottomNav />
+          <SubscriptionBlockedModal />
+        </>
+      )}
     </>
   );
 }
