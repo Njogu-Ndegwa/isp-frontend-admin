@@ -1,8 +1,7 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import { useRouter } from 'next/navigation';
-import { useAuth } from '../context/AuthContext';
+import Link from 'next/link';
 
 type DemoButtonProps = {
   children: ReactNode;
@@ -11,18 +10,9 @@ type DemoButtonProps = {
 };
 
 export default function DemoButton({ children, className = '', onBeforeNavigate }: DemoButtonProps) {
-  const router = useRouter();
-  const { loginAsDemo } = useAuth();
-
-  const handleClick = () => {
-    onBeforeNavigate?.();
-    loginAsDemo();
-    router.push('/dashboard');
-  };
-
   return (
-    <button type="button" onClick={handleClick} className={className}>
+    <Link href="/demo" onClick={onBeforeNavigate} className={className}>
       {children}
-    </button>
+    </Link>
   );
 }

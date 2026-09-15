@@ -60,6 +60,17 @@ async function expectSafeDemoPage(page: Page, title: string, proof: string | Reg
   await expect.poll(() => page.locator('main').innerText()).not.toMatch(/\b(undefined|null)\b/i);
 }
 
+test('landing page exposes the public demo as a real link', async ({ page }) => {
+  await page.goto('/');
+
+  const desktopDemoLink = page.getByRole('link', { name: 'Demo', exact: true });
+  await expect(desktopDemoLink).toHaveAttribute('href', '/demo');
+  await desktopDemoLink.click();
+
+  await expect(page).toHaveURL(/\/dashboard$/);
+  await expect(page.getByText('Demo Mode', { exact: true })).toBeVisible();
+});
+
 test('public /demo initializes the real dashboard and preserves campaign attribution', async ({ page }) => {
   const errors = collectRuntimeErrors(page);
   await page.addInitScript(() => {
