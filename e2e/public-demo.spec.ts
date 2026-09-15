@@ -38,7 +38,7 @@ test.beforeEach(async ({ page }) => {
 
 async function enterPublicDemo(page: Page) {
   await page.goto('/demo?utm_source=playwright&utm_medium=test&utm_campaign=public_demo');
-  await expect(page).toHaveURL(/\/dashboard$/);
+  await expect(page).toHaveURL(/\/demo\?/);
   await expect(page.getByText('Demo Mode', { exact: true })).toBeVisible();
   await expect(page.locator('main')).toBeVisible();
 }
@@ -67,7 +67,7 @@ test('landing page exposes the public demo as a real link', async ({ page }) => 
   await expect(desktopDemoLink).toHaveAttribute('href', '/demo');
   await desktopDemoLink.click();
 
-  await expect(page).toHaveURL(/\/dashboard$/);
+  await expect(page).toHaveURL(/\/demo$/);
   await expect(page.getByText('Demo Mode', { exact: true })).toBeVisible();
 });
 
@@ -81,6 +81,10 @@ test('public /demo initializes the real dashboard and preserves campaign attribu
   });
 
   await enterPublicDemo(page);
+  await expectSafeDemoPage(page, 'Dashboard', /Revenue|Customers/i);
+
+  await page.reload();
+  await expect(page).toHaveURL(/\/demo\?/);
   await expectSafeDemoPage(page, 'Dashboard', /Revenue|Customers/i);
 
   const session = await page.evaluate(() => ({
