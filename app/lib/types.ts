@@ -812,19 +812,26 @@ export interface PublicPortalResponse {
   portal_settings?: PublicPortalSettings;
 }
 
+export type ShareDeviceType = 'tv' | 'console' | 'laptop' | 'iot' | 'other';
+
 export interface ShareSubscriptionRequest {
-  owner_phone: string;
+  /** Voucher, access code (ABC-DEF) or M-Pesa receipt that proves plan ownership. */
+  access_code: string;
+  /** @deprecated Ignored by the backend; ownership is proven by access_code. */
+  owner_phone?: string | null;
   router_id: number;
   device_mac: string;
   owner_mac?: string | null;
   device_name?: string | null;
-  device_type?: 'tv' | 'console' | 'laptop' | 'iot' | 'other';
+  device_type?: ShareDeviceType;
   device_owner_phone?: string | null;
   device_owner_name?: string | null;
 }
 
 export interface ShareSubscriptionCodeCreateRequest {
-  owner_phone: string;
+  access_code: string;
+  /** @deprecated Ignored by the backend; ownership is proven by access_code. */
+  owner_phone?: string | null;
   router_id: number;
   owner_mac?: string | null;
 }
@@ -833,9 +840,9 @@ export interface ShareSubscriptionCodeResponse {
   success: boolean;
   code: string;
   raw_code: string;
-  status: string;
+  status?: string;
   router_id: number;
-  owner_customer_id: number;
+  owner_customer_id?: number;
   expires_at?: string | null;
   active_shared_devices: number;
   max_companion_devices: number;
@@ -848,13 +855,15 @@ export interface ShareSubscriptionCodeRedeemRequest {
   router_id: number;
   device_mac: string;
   device_name?: string | null;
-  device_type?: 'tv' | 'console' | 'laptop' | 'iot' | 'other';
+  device_type?: ShareDeviceType;
   device_owner_phone?: string | null;
   device_owner_name?: string | null;
 }
 
 export interface ShareSubscriptionDisconnectRequest {
-  owner_phone: string;
+  access_code: string;
+  /** @deprecated Ignored by the backend; ownership is proven by access_code. */
+  owner_phone?: string | null;
   router_id: number;
   pairing_id: number;
 }
@@ -930,50 +939,87 @@ export interface PublicDeviceStatusResponse {
   delivery?: DeliveryAttemptStatus | null;
 }
 
-export interface ShareOwnerStatusDevice {
-  id: number;
-  customer_id: number;
-  device_mac: string;
-  device_name?: string | null;
-  device_type?: string | null;
-  router_id: number;
-  plan_id?: number | null;
-  subscription_owner_customer_id?: number | null;
-  is_subscription_share?: boolean;
-  is_active?: boolean;
-  provisioned_at?: string | null;
-  expires_at?: string | null;
-  created_at?: string | null;
-  customer?: {
-    id: number;
-    name?: string | null;
-    phone?: string | null;
-    status?: string;
-    expiry?: string | null;
-  };
-  delivery?: DeliveryAttemptStatus | null;
-}
-
+/**
+ * Public owner-status lookup. The backend no longer returns devices, MACs or
+ * owner ids here; use accessCodeDevices (proven by the plan code) for those.
+ */
 export interface ShareOwnerStatusResponse {
   router_id: number;
-  phone: string;
   has_active_subscription: boolean;
   sharing_enabled: boolean;
-  owner_customer_id?: number;
-  owner_device_mac?: string | null;
-  owner_expiry?: string | null;
-  plan?: {
-    id?: number | null;
-    name?: string | null;
-    max_shared_users?: number;
-  };
   max_shared_users?: number;
-  max_companion_devices?: number;
-  active_shared_devices?: number;
-  available_shared_devices?: number;
-  devices: ShareOwnerStatusDevice[];
-  count: number;
+  requires_access_code?: boolean;
   message?: string;
+}
+
+// Access-code (voucher / ABC-DEF code / M-Pesa receipt) device management
+export interface AccessCodeDevice {
+  pairing_id: number | null;
+  is_main_device: boolean;
+  device_mac: string;
+  device_name: string | null;
+  device_type?: string | null;
+  is_this_device: boolean;
+  added_at: string | null;
+}
+
+export interface AccessCodeDevicesRequest {
+  code: string;
+  router_id: number;
+  mac_address?: string | null;
+}
+
+export interface AccessCodeDevicesResponse {
+  success: boolean;
+  plan_name?: string | null;
+  expires_at?: string | null;
+  sharing_enabled: boolean;
+  max_devices: number;
+  share_code?: string | null;
+  devices: AccessCodeDevice[];
+  device_count: number;
+  available_devices: number;
+}
+
+export interface AccessCodeDisconnectRequest {
+  code: string;
+  router_id: number;
+  pairing_id?: number;
+  main_device?: boolean;
+  mac_address?: string | null;
+}
+
+export interface AccessCodeDisconnectResponse {
+  success: boolean;
+  message: string;
+  cleanup_status?: 'removed' | 'pending' | string;
+}
+
+export interface AccessCodeRedeemRequest {
+  code: string;
+  router_id: number;
+  mac_address: string;
+  device_name?: string | null;
+  device_type?: ShareDeviceType;
+}
+
+export interface AccessCodeRedeemResponse {
+  success: boolean;
+  outcome: 'plan_started' | 'device_added' | 'main_device' | string;
+  message: string;
+  plan_name?: string | null;
+  expires_at?: string | null;
+  max_devices?: number;
+  sharing_enabled?: boolean;
+  [key: string]: unknown;
+}
+
+/** 409 detail returned by /public/access-code/redeem when every slot is taken. */
+export interface AccessCodeDeviceLimitDetail {
+  error: 'device_limit_reached' | string;
+  message: string;
+  max_devices?: number;
+  devices?: AccessCodeDevice[];
 }
 
 export interface UpdatePlanRequest extends Partial<CreatePlanRequest> {
