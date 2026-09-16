@@ -211,6 +211,12 @@ import {
   PortalSettingsResponse,
   PublicPortalResponse,
   PublicDeviceStatusResponse,
+  AccessCodeDevicesRequest,
+  AccessCodeDevicesResponse,
+  AccessCodeDisconnectRequest,
+  AccessCodeDisconnectResponse,
+  AccessCodeRedeemRequest,
+  AccessCodeRedeemResponse,
   ShareOwnerStatusResponse,
   ShareSubscriptionCodeCreateRequest,
   ShareSubscriptionCodeRedeemRequest,
@@ -343,7 +349,14 @@ class ApiClient {
     return headers;
   }
 
-  private async handleResponse<T>(response: Response, skipAuthRedirect = false): Promise<T> {
+  /**
+   * @param preferDetailMessage when the error detail is an object with a
+   *   `message`, use that as the Error message instead of the JSON string.
+   *   Off by default because some callers (LoadBalancingControls) parse the
+   *   JSON back out of `err.message`. The parsed object is always available
+   *   on `ApiError.detail`.
+   */
+  private async handleResponse<T>(response: Response, skipAuthRedirect = false, preferDetailMessage = false): Promise<T> {
     if (!response.ok) {
       if (response.status === 401 && typeof window !== 'undefined' && !skipAuthRedirect) {
         // In demo mode, the token "demo-token" is not recognized by the real
@@ -359,11 +372,23 @@ class ApiClient {
         throw new Error('Session expired. Please log in again.');
       }
       const error = await response.json().catch(() => ({ detail: 'An error occurred' }));
-      const errorMessage = typeof error.detail === 'string' ? error.detail : JSON.stringify(error.detail) || `HTTP error! status: ${response.status}`;
+      const detail: unknown = error?.detail;
+      const detailMessage = detail && typeof detail === 'object' && !Array.isArray(detail)
+        ? (detail as { message?: unknown }).message
+        : undefined;
+      const errorMessage = typeof detail === 'string'
+        ? detail
+        : preferDetailMessage && typeof detailMessage === 'string' && detailMessage
+          ? detailMessage
+          : JSON.stringify(detail) || `HTTP error! status: ${response.status}`;
       if (response.status === 403 && typeof errorMessage === 'string' && errorMessage.includes('subscription') && typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent('subscription-blocked', { detail: errorMessage }));
       }
-      throw new Error(errorMessage);
+      if (detail && typeof detail === 'object') {
+        // Structured detail (e.g. 409 device_limit_reached): keep it for callers.
+        throw new ApiError(errorMessage, response.status, detail);
+      }
+      throw new ApiError(errorMessage, response.status);
     }
     return response.json();
   }
@@ -765,13 +790,46 @@ class ApiClient {
     return this.handleResponse<PublicPortalResponse>(response, true);
   }
 
+  /** List the devices on a plan, proven by its voucher / access code / M-Pesa receipt. */
+  async accessCodeDevices(data: AccessCodeDevicesRequest): Promise<AccessCodeDevicesResponse> {
+    const response = await fetch(`${BASE_URL}/public/access-code/devices`, {
+      method: 'POST',
+      headers: this.getHeaders(false),
+      body: JSON.stringify(data),
+    });
+    return this.handleResponse<AccessCodeDevicesResponse>(response, true, true);
+  }
+
+  /** Remove a shared device (pairing_id) or the main device (main_device: true) from a plan. */
+  async accessCodeDisconnect(data: AccessCodeDisconnectRequest): Promise<AccessCodeDisconnectResponse> {
+    const response = await fetch(`${BASE_URL}/public/access-code/disconnect`, {
+      method: 'POST',
+      headers: this.getHeaders(false),
+      body: JSON.stringify(data),
+    });
+    return this.handleResponse<AccessCodeDisconnectResponse>(response, true, true);
+  }
+
+  /**
+   * Join a device to a plan with its code. A full plan throws an ApiError with
+   * status 409 whose `detail` is an AccessCodeDeviceLimitDetail.
+   */
+  async accessCodeRedeem(data: AccessCodeRedeemRequest): Promise<AccessCodeRedeemResponse> {
+    const response = await fetch(`${BASE_URL}/public/access-code/redeem`, {
+      method: 'POST',
+      headers: this.getHeaders(false),
+      body: JSON.stringify(data),
+    });
+    return this.handleResponse<AccessCodeRedeemResponse>(response, true, true);
+  }
+
   async shareSubscriptionDevice(data: ShareSubscriptionRequest): Promise<ShareSubscriptionResponse> {
     const response = await fetch(`${BASE_URL}/public/device/share-subscription`, {
       method: 'POST',
       headers: this.getHeaders(false),
       body: JSON.stringify(data),
     });
-    return this.handleResponse<ShareSubscriptionResponse>(response, true);
+    return this.handleResponse<ShareSubscriptionResponse>(response, true, true);
   }
 
   async createShareSubscriptionCode(data: ShareSubscriptionCodeCreateRequest): Promise<ShareSubscriptionCodeResponse> {
@@ -780,7 +838,7 @@ class ApiClient {
       headers: this.getHeaders(false),
       body: JSON.stringify(data),
     });
-    return this.handleResponse<ShareSubscriptionCodeResponse>(response, true);
+    return this.handleResponse<ShareSubscriptionCodeResponse>(response, true, true);
   }
 
   async redeemShareSubscriptionCode(data: ShareSubscriptionCodeRedeemRequest): Promise<ShareSubscriptionResponse> {
@@ -789,7 +847,7 @@ class ApiClient {
       headers: this.getHeaders(false),
       body: JSON.stringify(data),
     });
-    return this.handleResponse<ShareSubscriptionResponse>(response, true);
+    return this.handleResponse<ShareSubscriptionResponse>(response, true, true);
   }
 
   async disconnectShareSubscriptionDevice(data: ShareSubscriptionDisconnectRequest): Promise<ShareSubscriptionDisconnectResponse> {
@@ -798,7 +856,7 @@ class ApiClient {
       headers: this.getHeaders(false),
       body: JSON.stringify(data),
     });
-    return this.handleResponse<ShareSubscriptionDisconnectResponse>(response, true);
+    return this.handleResponse<ShareSubscriptionDisconnectResponse>(response, true, true);
   }
 
   async getPublicDeviceStatus(routerId: number, macAddress: string): Promise<PublicDeviceStatusResponse> {
@@ -814,7 +872,7 @@ class ApiClient {
       `${BASE_URL}/public/device/share-subscription/status/${routerId}/${encodeURIComponent(phone)}`,
       { headers: this.getHeaders(false) }
     );
-    return this.handleResponse<ShareOwnerStatusResponse>(response, true);
+    return this.handleResponse<ShareOwnerStatusResponse>(response, true, true);
   }
 
   async activateEmergencyMode(data: ActivateEmergencyRequest): Promise<EmergencyModeResponse> {
@@ -3560,5 +3618,20 @@ class ApiClient {
 /** Thrown when applying an outage compensation whose window overlaps a previous
  *  run; re-apply with allow_duplicate after the user confirms. */
 export class OutageOverlapError extends Error {}
+
+/** Error thrown for non-OK API responses. `detail` carries a structured
+ *  (object) FastAPI detail when the backend sent one, e.g. a 409 with
+ *  `{ error: 'device_limit_reached', message, devices }`. */
+export class ApiError extends Error {
+  status: number;
+  detail?: Record<string, unknown>;
+
+  constructor(message: string, status: number, detail?: object) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+    this.detail = detail as Record<string, unknown> | undefined;
+  }
+}
 
 export const api = new ApiClient();

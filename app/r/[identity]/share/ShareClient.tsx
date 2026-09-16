@@ -3,14 +3,14 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { CSSProperties, FormEvent } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
-import { api } from '../../../lib/api';
+import { api, ApiError } from '../../../lib/api';
 import type {
+  AccessCodeDevice,
+  AccessCodeDeviceLimitDetail,
+  AccessCodeDevicesResponse,
   DeliveryAttemptStatus,
   PublicDeviceStatusResponse,
   PublicPortalResponse,
-  ShareOwnerStatusDevice,
-  ShareOwnerStatusResponse,
-  ShareSubscriptionCodeResponse,
   ShareSubscriptionRequest,
   ShareSubscriptionResponse,
 } from '../../../lib/types';
@@ -26,8 +26,10 @@ const DEVICE_TYPES: Array<{ value: DeviceTypeValue; label: string; icon: string 
   { value: 'other', label: 'Other', icon: 'NET' },
 ];
 
+// Same key the captive portal uses after a voucher / M-Pesa purchase.
+const ACCESS_CODE_STORAGE_KEY = 'bitwave_access_code';
+
 const emptyForm = {
-  owner_phone: '',
   device_mac: '',
   device_name: '',
   device_type: 'tv' as DeviceTypeValue,
@@ -75,13 +77,57 @@ function isValidMac(value: string): boolean {
   return /^[0-9A-F]{12}$/.test(cleanMac(value));
 }
 
-function cleanShareCode(value: string): string {
-  return value.replace(/[^0-9a-z]/gi, '').toUpperCase().slice(0, 6);
+function readStoredAccessCode(): string {
+  try {
+    return window.localStorage.getItem(ACCESS_CODE_STORAGE_KEY) || '';
+  } catch {
+    return '';
+  }
 }
 
-function formatShareCode(value: string): string {
-  return cleanShareCode(value);
+function storeAccessCode(code: string) {
+  try {
+    window.localStorage.setItem(ACCESS_CODE_STORAGE_KEY, code);
+  } catch {
+    /* storage unavailable (private mode, blocked site data) */
+  }
 }
+
+function sameMac(a?: string | null, b?: string | null): boolean {
+  if (!a || !b) return false;
+  return cleanMac(a) === cleanMac(b);
+}
+
+function deviceKey(device: AccessCodeDevice): string {
+  if (device.pairing_id != null) return `pairing-${device.pairing_id}`;
+  return device.is_main_device ? 'main' : `mac-${cleanMac(device.device_mac)}`;
+}
+
+function deviceLabel(device: AccessCodeDevice): string {
+  const name = device.device_name?.trim();
+  if (name) return name;
+  if (device.is_main_device) return 'Main device';
+  const type = DEVICE_TYPES.find((item) => item.value === device.device_type);
+  return type ? type.label : 'Shared device';
+}
+
+function errorMessage(err: unknown, fallback: string): string {
+  return err instanceof Error && err.message ? err.message : fallback;
+}
+
+function deviceLimitDetail(err: unknown): AccessCodeDeviceLimitDetail | null {
+  if (!(err instanceof ApiError) || err.status !== 409 || !err.detail) return null;
+  const detail = err.detail as Partial<AccessCodeDeviceLimitDetail>;
+  if (detail.error !== 'device_limit_reached') return null;
+  return {
+    error: detail.error,
+    message: typeof detail.message === 'string' ? detail.message : err.message,
+    max_devices: detail.max_devices,
+    devices: Array.isArray(detail.devices) ? detail.devices : undefined,
+  };
+}
+
+const LIMIT_HINT = 'All device slots are in use. Remove a device from the list above, then try again.';
 
 function addedDeviceCopy() {
   return {
@@ -137,28 +183,36 @@ export default function RouterSharePage() {
   const params = useParams();
   const searchParams = useSearchParams();
   const identity = normalizeParam(params.identity);
+  const urlCode = (searchParams.get('code') || '').trim();
   const [portal, setPortal] = useState<PublicPortalResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+
+  // Step 1: prove ownership with the plan's code.
+  const [codeInput, setCodeInput] = useState(urlCode);
+  const [plan, setPlan] = useState<AccessCodeDevicesResponse | null>(null);
+  const [verifiedCode, setVerifiedCode] = useState('');
+  const [lookingUp, setLookingUp] = useState(false);
+  const [lookupError, setLookupError] = useState<string | null>(null);
+  const [autoLookupDone, setAutoLookupDone] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  // Device list actions.
+  const [removingKey, setRemovingKey] = useState<string | null>(null);
+  const [listError, setListError] = useState<string | null>(null);
+  const [listMessage, setListMessage] = useState<string | null>(null);
+  const [connectingThisDevice, setConnectingThisDevice] = useState(false);
+
+  // Add a browserless device by MAC.
   const [formData, setFormData] = useState(emptyForm);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [result, setResult] = useState<ShareSubscriptionResponse | null>(null);
-  const [generatedCode, setGeneratedCode] = useState<ShareSubscriptionCodeResponse | null>(null);
-  const [generatingCode, setGeneratingCode] = useState(false);
-  const [shareCodeError, setShareCodeError] = useState<string | null>(null);
   const [deviceStatus, setDeviceStatus] = useState<PublicDeviceStatusResponse | null>(null);
   const [statusLoading, setStatusLoading] = useState(false);
   const [statusError, setStatusError] = useState<string | null>(null);
   const [trackedDeviceMac, setTrackedDeviceMac] = useState('');
   const [useDetectedDevice, setUseDetectedDevice] = useState(false);
-  const [ownerStatus, setOwnerStatus] = useState<ShareOwnerStatusResponse | null>(null);
-  const [checkedOwnerPhone, setCheckedOwnerPhone] = useState('');
-  const [ownerChecking, setOwnerChecking] = useState(false);
-  const [ownerStatusError, setOwnerStatusError] = useState<string | null>(null);
-  const [disconnectingPairingId, setDisconnectingPairingId] = useState<number | null>(null);
-  const [disconnectError, setDisconnectError] = useState<string | null>(null);
-  const [disconnectMessage, setDisconnectMessage] = useState<string | null>(null);
 
   const detectedDeviceMac = useMemo(() => {
     const raw =
@@ -178,6 +232,12 @@ export default function RouterSharePage() {
   }, []);
 
   useEffect(() => {
+    if (urlCode) return;
+    const stored = readStoredAccessCode();
+    if (stored) setCodeInput((prev) => prev || stored);
+  }, [urlCode]);
+
+  useEffect(() => {
     if (!identity) {
       setLoadError('Router link is missing an identity.');
       setLoading(false);
@@ -194,7 +254,7 @@ export default function RouterSharePage() {
       })
       .catch((err) => {
         if (!mounted) return;
-        setLoadError(err instanceof Error ? err.message : 'Failed to load this router.');
+        setLoadError(errorMessage(err, 'Failed to load this router.'));
       })
       .finally(() => {
         if (mounted) setLoading(false);
@@ -205,77 +265,71 @@ export default function RouterSharePage() {
     };
   }, [identity]);
 
+  const routerId = portal?.router.router_id;
+
   const refreshDeviceStatus = useCallback(async (macAddress: string) => {
-    if (!portal?.router.router_id || !macAddress || !isValidMac(macAddress)) return;
+    if (!routerId || !macAddress || !isValidMac(macAddress)) return;
 
     setStatusLoading(true);
     setStatusError(null);
     try {
-      const status = await api.getPublicDeviceStatus(portal.router.router_id, formatMac(macAddress));
+      const status = await api.getPublicDeviceStatus(routerId, formatMac(macAddress));
       setDeviceStatus(status);
     } catch (err) {
-      setStatusError(err instanceof Error ? err.message : 'Failed to check device status.');
+      setStatusError(errorMessage(err, 'Failed to check device status.'));
     } finally {
       setStatusLoading(false);
     }
-  }, [portal?.router.router_id]);
+  }, [routerId]);
 
-  const generateShareCodeForPhone = useCallback(async (phone: string) => {
-    if (!portal?.router.router_id) return;
+  const loadDevices = useCallback(async (code: string, options?: { keepMessages?: boolean }) => {
+    if (!routerId) return false;
+    const trimmed = code.trim();
+    if (!trimmed) {
+      setLookupError('Enter your voucher or access code first.');
+      return false;
+    }
 
-    setGeneratingCode(true);
-    setShareCodeError(null);
+    setLookingUp(true);
+    setLookupError(null);
+    if (!options?.keepMessages) {
+      setListError(null);
+      setListMessage(null);
+    }
     try {
-      const response = await api.createShareSubscriptionCode({
-        owner_phone: phone,
-        router_id: portal.router.router_id,
+      const response = await api.accessCodeDevices({
+        code: trimmed,
+        router_id: routerId,
+        mac_address: detectedDeviceMac || undefined,
       });
-      setGeneratedCode(response);
+      setPlan(response);
+      setVerifiedCode(trimmed);
+      storeAccessCode(trimmed);
+      return true;
     } catch (err) {
-      setGeneratedCode(null);
-      setShareCodeError(err instanceof Error ? err.message : 'Failed to prepare share code.');
-    } finally {
-      setGeneratingCode(false);
-    }
-  }, [portal?.router.router_id]);
-
-  const checkOwnerStatus = useCallback(async (options?: { preserveAttempt?: boolean }) => {
-    if (!portal?.router.router_id) return;
-
-    const phone = formData.owner_phone.trim();
-    if (phone.length < 9) {
-      setOwnerStatus(null);
-      setOwnerStatusError('Enter the subscription owner phone number first.');
-      return;
-    }
-
-    setOwnerChecking(true);
-    setOwnerStatusError(null);
-    setShareCodeError(null);
-    setDisconnectError(null);
-    setDisconnectMessage(null);
-    setGeneratedCode(null);
-    if (!options?.preserveAttempt) {
-      clearTransientDeviceStatus();
-    }
-    try {
-      const status = await api.getShareSubscriptionOwnerStatus(portal.router.router_id, phone);
-      setOwnerStatus(status);
-      setCheckedOwnerPhone(phone);
-      if (
-        status.has_active_subscription &&
-        status.sharing_enabled &&
-        Number(status.available_shared_devices ?? 0) > 0
-      ) {
-        await generateShareCodeForPhone(phone);
+      setPlan(null);
+      setVerifiedCode('');
+      const status = err instanceof ApiError ? err.status : 0;
+      if (status === 401) {
+        setLookupError(errorMessage(err, 'That code was not recognised. Check it and try again.'));
+      } else if (status === 410) {
+        setLookupError(errorMessage(err, 'This plan has expired. Buy a new plan to reconnect.'));
+      } else if (status === 429) {
+        setLookupError('Too many attempts. Please wait a minute and try again.');
+      } else {
+        setLookupError(errorMessage(err, 'Failed to load your devices.'));
       }
-    } catch (err) {
-      setOwnerStatus(null);
-      setOwnerStatusError(err instanceof Error ? err.message : 'Failed to check this subscription.');
+      return false;
     } finally {
-      setOwnerChecking(false);
+      setLookingUp(false);
     }
-  }, [clearTransientDeviceStatus, formData.owner_phone, generateShareCodeForPhone, portal?.router.router_id]);
+  }, [detectedDeviceMac, routerId]);
+
+  useEffect(() => {
+    if (autoLookupDone || !routerId || !urlCode) return;
+    setAutoLookupDone(true);
+    void loadDevices(urlCode);
+  }, [autoLookupDone, loadDevices, routerId, urlCode]);
 
   useEffect(() => {
     if (!detectedDeviceMac) return;
@@ -294,14 +348,6 @@ export default function RouterSharePage() {
 
   const businessName = portal?.portal_settings?.welcome_title || portal?.router.business_name || portal?.router.name || 'Internet Service';
   const supportPhone = portal?.portal_settings?.portal_support_phone || portal?.router.support_phone || null;
-  const shareLimit = useMemo(() => {
-    const planLimits = (portal?.plans ?? [])
-      .filter((plan) => plan.connection_type === 'hotspot')
-      .map((plan) => Math.max(1, Number(plan.max_shared_users) || 1));
-    return Math.max(1, Number(portal?.plan_flags?.max_shared_users) || 1, ...planLimits);
-  }, [portal?.plan_flags?.max_shared_users, portal?.plans]);
-  const sharingEnabled = Boolean(portal?.plan_flags?.sharing_enabled) || shareLimit > 1;
-  const subscriptionDeviceLimit = sharingEnabled ? shareLimit : 1;
   const deviceMacCount = macCharacterCount(formData.device_mac);
   const backgroundImage = portal?.portal_settings?.header_bg_image_url;
   const activeDelivery = deviceStatus ? deviceStatus.delivery ?? null : result?.delivery ?? null;
@@ -314,43 +360,20 @@ export default function RouterSharePage() {
       ? 'share_deviceStatusSuccess'
       : 'share_deviceStatusPending';
   const detectedDeviceInUse = Boolean(detectedDeviceMac && useDetectedDevice && formData.device_mac === detectedDeviceMac);
-  const ownerPhone = formData.owner_phone.trim();
-  const ownerStatusCurrent = Boolean(ownerStatus && checkedOwnerPhone === ownerPhone);
-  const ownerHasRoom = Boolean(
-    ownerStatusCurrent &&
-    ownerStatus?.has_active_subscription &&
-    ownerStatus?.sharing_enabled &&
-    Number(ownerStatus.available_shared_devices ?? 0) > 0
+
+  const devices = plan?.devices ?? [];
+  const maxDevices = Math.max(1, Number(plan?.max_devices) || 1);
+  const devicesInUse = Math.max(0, Number(plan?.device_count ?? devices.length) || 0);
+  const freeSlots = Math.max(0, Number(plan?.available_devices) || 0);
+  const planAllowsSharing = Boolean(plan?.sharing_enabled && maxDevices > 1);
+  const hasFreeSlot = Boolean(plan && freeSlots > 0);
+  const planExpiry = formatExpiry(plan?.expires_at);
+  const detectedDeviceOnPlan = Boolean(
+    detectedDeviceMac &&
+    devices.some((device) => device.is_this_device || sameMac(device.device_mac, detectedDeviceMac))
   );
-  const ownerDeviceRows = ownerStatusCurrent ? ownerStatus?.devices ?? [] : [];
-  const ownerStatusTitle = !ownerStatusCurrent
-    ? 'Check subscription first'
-    : ownerStatus?.has_active_subscription
-      ? ownerStatus.sharing_enabled
-        ? Number(ownerStatus.available_shared_devices ?? 0) > 0
-          ? 'Subscription ready to share'
-          : 'Sharing limit reached'
-        : 'Sharing is off for this plan'
-      : 'No active subscription found';
-  const ownerStatusMessage = !ownerStatusCurrent
-    ? 'Enter the owner phone number and check it before adding another device.'
-    : ownerStatus?.message || '';
-  const ownerSharedCount = ownerStatusCurrent ? Math.max(0, Number(ownerStatus?.active_shared_devices) || 0) : 0;
-  const ownerDeviceLimit = ownerStatusCurrent
-    ? Math.max(1, Number(ownerStatus?.max_shared_users) || subscriptionDeviceLimit)
-    : subscriptionDeviceLimit;
-  const ownerConnectedDevices = ownerStatusCurrent && ownerStatus?.has_active_subscription
-    ? Math.min(ownerDeviceLimit, ownerSharedCount + 1)
-    : 0;
-  const ownerAvailableExtraSlots = ownerStatusCurrent
-    ? Math.max(0, Number(ownerStatus?.available_shared_devices) || 0)
-    : 0;
-  const resultDeviceLimit = Math.max(1, Number(result?.max_shared_users) || subscriptionDeviceLimit);
-  const resultConnectedDevices = result
-    ? Math.min(resultDeviceLimit, Math.max(0, Number(result.active_shared_devices) || 0) + 1)
-    : 0;
-  const canEditDevice = ownerHasRoom;
-  const generatedCodeExpiry = formatExpiry(generatedCode?.expires_at);
+  const canConnectThisDevice = Boolean(plan && detectedDeviceMac && !detectedDeviceOnPlan && hasFreeSlot);
+  const canEditDevice = Boolean(plan && planAllowsSharing && hasFreeSlot);
 
   const themeStyle = {
     '--primary': palette.primary,
@@ -376,7 +399,7 @@ export default function RouterSharePage() {
     : undefined;
 
   useEffect(() => {
-    if (!trackedDeviceMac || !portal?.router.router_id) return;
+    if (!trackedDeviceMac || !routerId) return;
 
     const status = activeDelivery?.delivery_status;
     if (status && status !== 'activating') return;
@@ -386,64 +409,120 @@ export default function RouterSharePage() {
     }, 4000);
 
     return () => window.clearInterval(intervalId);
-  }, [activeDelivery?.delivery_status, portal?.router.router_id, refreshDeviceStatus, trackedDeviceMac]);
+  }, [activeDelivery?.delivery_status, refreshDeviceStatus, routerId, trackedDeviceMac]);
 
-  const rememberShareResponse = useCallback((response: ShareSubscriptionResponse, ownerPhoneValue = '') => {
+  const rememberShareResponse = useCallback((response: ShareSubscriptionResponse) => {
     setResult(response);
     setTrackedDeviceMac(response.device_mac);
     setDeviceStatus(null);
     setFormData((prev) => ({
       ...prev,
-      owner_phone: prev.owner_phone || ownerPhoneValue,
       device_mac: detectedDeviceInUse ? response.device_mac : '',
       device_name: '',
     }));
     void refreshDeviceStatus(response.device_mac);
   }, [detectedDeviceInUse, refreshDeviceStatus]);
 
-  const handleGenerateShareCode = async () => {
-    if (!portal || !sharingEnabled) return;
-
-    const phone = formData.owner_phone.trim();
-    if (phone.length < 9 || !ownerHasRoom) {
-      setShareCodeError('Check the owner subscription first.');
-      return;
-    }
-
-    await generateShareCodeForPhone(phone);
+  const resetPlan = () => {
+    setPlan(null);
+    setVerifiedCode('');
+    setLookupError(null);
+    setListError(null);
+    setListMessage(null);
+    setSubmitError(null);
+    setCopied(false);
+    clearTransientDeviceStatus();
   };
 
-  const handleDisconnectSharedDevice = async (device: ShareOwnerStatusDevice) => {
-    if (!portal?.router.router_id || !ownerStatusCurrent || disconnectingPairingId) return;
+  const handleLookup = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    clearTransientDeviceStatus();
+    setSubmitError(null);
+    setCopied(false);
+    await loadDevices(codeInput);
+  };
 
-    const label = device.device_name || device.customer?.name || device.device_mac;
-    const confirmed = window.confirm(`Disconnect ${label} from this subscription?`);
+  const handleCopyShareCode = async () => {
+    const code = plan?.share_code;
+    if (!code) return;
+    try {
+      await navigator.clipboard.writeText(code);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setCopied(false);
+      window.prompt('Copy this code', code);
+    }
+  };
+
+  const handleRemoveDevice = async (device: AccessCodeDevice) => {
+    if (!routerId || !verifiedCode || removingKey) return;
+    if (!device.is_main_device && device.pairing_id == null) return;
+
+    const label = deviceLabel(device);
+    const warning = device.is_this_device ? ' This device will lose internet access.' : '';
+    const confirmed = window.confirm(`Remove ${label} (${device.device_mac}) from this plan?${warning}`);
     if (!confirmed) return;
 
-    setDisconnectingPairingId(device.id);
-    setDisconnectError(null);
-    setDisconnectMessage(null);
+    const key = deviceKey(device);
+    setRemovingKey(key);
+    setListError(null);
+    setListMessage(null);
     try {
-      const response = await api.disconnectShareSubscriptionDevice({
-        owner_phone: formData.owner_phone.trim(),
-        router_id: portal.router.router_id,
-        pairing_id: device.id,
+      const response = await api.accessCodeDisconnect({
+        code: verifiedCode,
+        router_id: routerId,
+        ...(device.is_main_device ? { main_device: true } : { pairing_id: device.pairing_id ?? undefined }),
+        mac_address: detectedDeviceMac || undefined,
       });
-      setDisconnectMessage(response.message || 'Shared device disconnected.');
-      await checkOwnerStatus({ preserveAttempt: true });
+      setListMessage(response.message || 'Device removed.');
+      if (sameMac(device.device_mac, trackedDeviceMac)) clearTransientDeviceStatus();
+      await loadDevices(verifiedCode, { keepMessages: true });
     } catch (err) {
-      setDisconnectError(err instanceof Error ? err.message : 'Failed to disconnect this device.');
+      setListError(errorMessage(err, 'Failed to remove this device.'));
     } finally {
-      setDisconnectingPairingId(null);
+      setRemovingKey(null);
+    }
+  };
+
+  const handleConnectThisDevice = async () => {
+    if (!routerId || !verifiedCode || !detectedDeviceMac || connectingThisDevice) return;
+
+    setConnectingThisDevice(true);
+    setListError(null);
+    setListMessage(null);
+    try {
+      const response = await api.accessCodeRedeem({
+        code: verifiedCode,
+        router_id: routerId,
+        mac_address: detectedDeviceMac,
+      });
+      setListMessage(response.message || 'This device is now connected.');
+      await loadDevices(verifiedCode, { keepMessages: true });
+    } catch (err) {
+      const limit = deviceLimitDetail(err);
+      if (limit) {
+        setListError(`${limit.message} ${LIMIT_HINT}`);
+        if (limit.devices) {
+          const limitDevices = limit.devices;
+          setPlan((prev) => (prev
+            ? { ...prev, devices: limitDevices, device_count: limitDevices.length, available_devices: 0 }
+            : prev));
+        }
+      } else {
+        setListError(errorMessage(err, 'Failed to connect this device.'));
+      }
+    } finally {
+      setConnectingThisDevice(false);
     }
   };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!portal || !sharingEnabled) return;
+    if (!routerId || !verifiedCode) return;
 
-    if (!ownerHasRoom) {
-      setSubmitError('Check the owner subscription first.');
+    if (!hasFreeSlot) {
+      setSubmitError(LIMIT_HINT);
       return;
     }
 
@@ -458,17 +537,26 @@ export default function RouterSharePage() {
     setStatusError(null);
     try {
       const payload: ShareSubscriptionRequest = {
-        owner_phone: formData.owner_phone.trim(),
-        router_id: portal.router.router_id,
+        access_code: verifiedCode,
+        router_id: routerId,
         device_mac: normalizedDeviceMac,
         device_name: formData.device_name.trim() || null,
         device_type: formData.device_type,
       };
       const response = await api.shareSubscriptionDevice(payload);
-      rememberShareResponse(response, formData.owner_phone.trim());
-      void checkOwnerStatus({ preserveAttempt: true });
+      rememberShareResponse(response);
+      void loadDevices(verifiedCode, { keepMessages: true });
     } catch (err) {
-      setSubmitError(err instanceof Error ? err.message : 'Failed to add this device.');
+      const status = err instanceof ApiError ? err.status : 0;
+      const message = errorMessage(err, 'Failed to add this device.');
+      if (status === 409) {
+        setSubmitError(`${message} ${LIMIT_HINT}`);
+        void loadDevices(verifiedCode, { keepMessages: true });
+      } else if (status === 401) {
+        setSubmitError('Your code is no longer valid. Enter it again to continue.');
+      } else {
+        setSubmitError(message);
+      }
     } finally {
       setSubmitting(false);
     }
@@ -500,27 +588,27 @@ export default function RouterSharePage() {
 
       <div className={'share_main'}>
         <section className={'share_welcomeBanner'} style={welcomeStyle}>
-          <div className={'share_welcomeKicker'}>Existing subscription</div>
-          <h2 className={'share_welcomeTitle'}>Connect a TV / Device</h2>
+          <div className={'share_welcomeKicker'}>Your plan</div>
+          <h2 className={'share_welcomeTitle'}>Manage your devices</h2>
           <p className={'share_welcomeSub'}>
-            Add another device to the paid internet subscription on this hotspot.
+            See which devices use your plan, share it with another device, or remove one.
           </p>
         </section>
 
         <div className={'share_quickSteps'}>
           <div className={'share_step'}>
             <span className={'share_stepNum'}>1</span>
-            <span className={'share_stepText'}>Enter owner</span>
+            <span className={'share_stepText'}>Enter code</span>
           </div>
           <div className={'share_stepArrow'}>-</div>
           <div className={'share_step'}>
             <span className={'share_stepNum'}>2</span>
-            <span className={'share_stepText'}>Add device</span>
+            <span className={'share_stepText'}>See devices</span>
           </div>
           <div className={'share_stepArrow'}>-</div>
           <div className={'share_step'}>
             <span className={'share_stepNum'}>3</span>
-            <span className={'share_stepText'}>Connect</span>
+            <span className={'share_stepText'}>Share or remove</span>
           </div>
         </div>
 
@@ -529,11 +617,11 @@ export default function RouterSharePage() {
             <div className={'share_deviceEntryHeader'}>
               <span className={'share_deviceEntryIcon'}>TV</span>
               <div className={'share_deviceEntryText'}>
-                <div className={'share_deviceEntryTitle'}>Share subscription</div>
+                <div className={'share_deviceEntryTitle'}>Share your plan</div>
                 <div className={'share_deviceEntrySubtitle'}>
-                  {sharingEnabled
-                    ? `This subscription allows up to ${subscriptionDeviceLimit} total devices`
-                    : 'Smart TVs, consoles and other browserless devices'}
+                  {plan
+                    ? `This plan allows up to ${maxDevices} device${maxDevices === 1 ? '' : 's'}`
+                    : 'Phones, laptops, smart TVs and consoles'}
                 </div>
               </div>
               <span className={'share_deviceEntryChevron'}>&gt;</span>
@@ -552,354 +640,371 @@ export default function RouterSharePage() {
                   <h3 className={'share_stateTitle'}>Link unavailable</h3>
                   <p className={'share_stateText'}>{loadError}</p>
                 </div>
-              ) : !sharingEnabled ? (
-                <div className={'share_statePanel'}>
-                  <span className={`${'share_stateIcon'} ${'share_stateIconWarning'}`}>!</span>
-                  <h3 className={'share_stateTitle'}>Sharing is not enabled</h3>
-                  <p className={'share_stateText'}>
-                    This hotspot is not accepting shared subscription devices right now.
-                  </p>
-                  {supportPhone && (
-                    <a href={`tel:${supportPhone}`} className={'share_deviceNextBtn'}>
-                      Call support
-                    </a>
-                  )}
-                </div>
               ) : (
                 <>
-                  <div className={'share_deviceTabs'}>
-                    <span className={`${'share_deviceTab'} ${'share_deviceTabActive'}`}>Owner Lookup</span>
-                    <span className={'share_deviceTab'}>Share Code</span>
+                  <div className={'share_deviceStepsBar'} aria-hidden="true">
+                    <span className={`${'share_deviceStepDot'} ${plan ? 'share_deviceStepDone' : 'share_deviceStepActive'}`}>1</span>
+                    <span className={`${'share_deviceStepLine'} ${plan ? 'share_deviceStepLineDone' : ''}`} />
+                    <span className={`${'share_deviceStepDot'} ${plan ? 'share_deviceStepDone' : ''}`}>2</span>
+                    <span className={`${'share_deviceStepLine'} ${plan ? 'share_deviceStepLineDone' : ''}`} />
+                    <span className={`${'share_deviceStepDot'} ${plan ? 'share_deviceStepActive' : ''}`}>3</span>
                   </div>
 
-                  <div className={'share_deviceStepsBar'}>
-                    <span className={`${'share_deviceStepDot'} ${'share_deviceStepDone'}`}>1</span>
-                    <span className={`${'share_deviceStepLine'} ${'share_deviceStepLineDone'}`} />
-                    <span className={`${'share_deviceStepDot'} ${'share_deviceStepDone'}`}>2</span>
-                    <span className={`${'share_deviceStepLine'} ${'share_deviceStepLineDone'}`} />
-                    <span className={`${'share_deviceStepDot'} ${'share_deviceStepActive'}`}>3</span>
-                  </div>
+                  <form onSubmit={handleLookup} autoComplete="off">
+                    <h3 className={'share_deviceStepTitle'}>Enter your voucher or access code</h3>
 
-                  {statusCopy && visibleDeviceMac && (
-                    <div className={`${'share_deviceStatusWrap'} ${statusToneClass}`}>
-                      <div className={'share_deviceStatusHeader'}>
-                        <div className={'share_deviceSuccessIcon'}>
-                          {statusCopy.tone === 'error' ? '!' : statusCopy.tone === 'pending' ? '...' : 'OK'}
-                        </div>
-                        <div>
-                          <h3 className={'share_deviceSuccessTitle'}>{statusCopy.title}</h3>
-                          <p className={'share_deviceSuccessTip'}>{statusCopy.message}</p>
-                        </div>
-                      </div>
-                      <div className={'share_deviceSuccessDetails'}>
-                        <div className={'share_deviceSummaryRow'}>
-                          <span className={'share_deviceSummaryLabel'}>Device</span>
-                          <span className={'share_deviceSummaryValue'}>{visibleDeviceMac}</span>
-                        </div>
-                        {result && (
-                          <div className={'share_deviceSummaryRow'}>
-                            <span className={'share_deviceSummaryLabel'}>Slots used</span>
-                            <span className={'share_deviceSummaryValue'}>
-                              {resultConnectedDevices}/{resultDeviceLimit} used
-                            </span>
-                          </div>
-                        )}
-                        {activeDelivery?.provisioning_state && (
-                          <div className={'share_deviceSummaryRow'}>
-                            <span className={'share_deviceSummaryLabel'}>Router status</span>
-                            <span className={'share_deviceSummaryValue'}>{activeDelivery.provisioning_state}</span>
-                          </div>
-                        )}
-                        {visibleExpiry && (
-                          <div className={'share_deviceSummaryRow'}>
-                            <span className={'share_deviceSummaryLabel'}>Active until</span>
-                            <span className={'share_deviceSummaryValue'}>{visibleExpiry}</span>
-                          </div>
-                        )}
-                      </div>
-                      <button
-                        type="button"
-                        className={'share_deviceStatusBtn'}
-                        onClick={() => refreshDeviceStatus(visibleDeviceMac)}
-                        disabled={statusLoading}
-                      >
-                        {statusLoading ? 'Checking...' : 'Check status'}
-                      </button>
-                    </div>
-                  )}
-
-                  {(submitError || statusError) && (
-                    <div className={'share_deviceErrorWrap'}>
-                      <div className={'share_deviceErrorIcon'}>X</div>
-                      <div>
-                        <h3 className={'share_deviceErrorTitle'}>Something went wrong</h3>
-                        <p className={'share_deviceErrorMsg'}>{submitError || statusError}</p>
-                      </div>
-                    </div>
-                  )}
-
-                  <form onSubmit={handleSubmit} autoComplete="off">
-                    <h3 className={'share_deviceStepTitle'}>Subscription Owner</h3>
-
-                    <label htmlFor="owner_phone" className={'share_deviceLabel'}>
-                      Phone Number <span className={'share_required'}>*</span>
+                    <label htmlFor="access_code" className={'share_deviceLabel'}>
+                      Voucher, access code or M-Pesa receipt <span className={'share_required'}>*</span>
                     </label>
                     <input
-                      id="owner_phone"
-                      type="tel"
-                      inputMode="tel"
-                      value={formData.owner_phone}
+                      id="access_code"
+                      type="text"
+                      value={codeInput}
                       onChange={(event) => {
-                        setOwnerStatusError(null);
-                        setSubmitError(null);
-                        setShareCodeError(null);
-                        setGeneratedCode(null);
-                        clearTransientDeviceStatus();
-                        setFormData({ ...formData, owner_phone: event.target.value });
+                        const next = event.target.value;
+                        setCodeInput(next);
+                        if (plan && next.trim() !== verifiedCode) resetPlan();
+                        setLookupError(null);
                       }}
-                      className={'share_deviceInput'}
-                      placeholder="0712345678"
+                      className={`${'share_deviceInput'} ${'share_mono'}`}
+                      placeholder="e.g. ABC-DEF"
+                      autoCapitalize="characters"
+                      autoCorrect="off"
+                      spellCheck={false}
+                      maxLength={40}
+                      aria-describedby="access_code_help"
+                      aria-invalid={lookupError ? true : undefined}
                       required
                     />
+                    <div id="access_code_help" className={'share_deviceMacCounter'}>
+                      The code shown after you paid, your voucher, or your M-Pesa receipt number.
+                    </div>
 
                     <button
-                      type="button"
+                      type="submit"
                       className={'share_ownerCheckBtn'}
-                      onClick={() => void checkOwnerStatus()}
-                      disabled={ownerChecking || ownerPhone.length < 9}
+                      disabled={lookingUp || !codeInput.trim()}
                     >
-                      {ownerChecking ? (
+                      {lookingUp ? (
                         <>
                           <span className={'share_buttonSpinner'} />
                           Checking...
                         </>
+                      ) : plan ? (
+                        'Refresh my devices'
                       ) : (
-                        'Check subscription'
+                        'Show my devices'
                       )}
                     </button>
 
-                    <div className={`${'share_ownerStatusCard'} ${ownerHasRoom ? 'share_ownerStatusOk' : 'share_ownerStatusWarn'}`}>
+                    {lookupError && (
+                      <p className={'share_ownerStatusError'} role="alert">{lookupError}</p>
+                    )}
+                  </form>
+
+                  {plan && (
+                    <div
+                      className={`${'share_ownerStatusCard'} ${hasFreeSlot ? 'share_ownerStatusOk' : 'share_ownerStatusWarn'}`}
+                      aria-live="polite"
+                    >
                       <div className={'share_ownerStatusHeader'}>
                         <div>
-                          <h3 className={'share_ownerStatusTitle'}>{ownerStatusTitle}</h3>
-                          {ownerStatusMessage && <p className={'share_ownerStatusText'}>{ownerStatusMessage}</p>}
-                          {ownerStatusError && <p className={'share_ownerStatusError'}>{ownerStatusError}</p>}
+                          <h3 className={'share_ownerStatusTitle'}>{plan.plan_name || 'Your plan'}</h3>
+                          <p className={'share_ownerStatusText'}>
+                            {devicesInUse} of {maxDevices} device{maxDevices === 1 ? '' : 's'} in use
+                          </p>
                         </div>
-                        {ownerStatusCurrent && ownerStatus?.has_active_subscription && (
-                          <span className={'share_ownerStatusBadge'}>
-                            {ownerConnectedDevices}/{ownerDeviceLimit}
-                          </span>
+                        <span className={'share_ownerStatusBadge'} aria-hidden="true">
+                          {devicesInUse}/{maxDevices}
+                        </span>
+                      </div>
+
+                      <div className={'share_ownerStatusDetails'}>
+                        {planExpiry && (
+                          <div className={'share_deviceSummaryRow'}>
+                            <span className={'share_deviceSummaryLabel'}>Active until</span>
+                            <span className={'share_deviceSummaryValue'}>{planExpiry}</span>
+                          </div>
+                        )}
+                        <div className={'share_deviceSummaryRow'}>
+                          <span className={'share_deviceSummaryLabel'}>Free slots</span>
+                          <span className={'share_deviceSummaryValue'}>{freeSlots}</span>
+                        </div>
+                      </div>
+
+                      {plan.share_code && planAllowsSharing && (
+                        <div className={'share_shareCodeGenerateCard'}>
+                          <div>
+                            <div className={'share_shareCodeGenerateTitle'}>Your code</div>
+                            <div className={'share_shareCodeValue'}>{plan.share_code}</div>
+                            <div className={'share_shareCodeGenerateText'}>
+                              Enter this code on your other devices in the WiFi login page under &apos;Voucher or access code&apos;.
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            className={'share_shareCodeGenerateBtn'}
+                            onClick={() => void handleCopyShareCode()}
+                            aria-label={`Copy code ${plan.share_code}`}
+                          >
+                            {copied ? 'Copied' : 'Copy'}
+                          </button>
+                        </div>
+                      )}
+
+                      {!planAllowsSharing && (
+                        <p className={'share_ownerStatusText'}>This plan is for one device only.</p>
+                      )}
+
+                      {canConnectThisDevice && (
+                        <div className={'share_detectedDeviceCard'} style={{ marginTop: 'var(--space-md)' }}>
+                          <div>
+                            <div className={'share_detectedDeviceLabel'}>This device is not on the plan</div>
+                            <div className={'share_detectedDeviceMac'}>{detectedDeviceMac}</div>
+                          </div>
+                          <button
+                            type="button"
+                            className={'share_detectedDeviceBtn'}
+                            onClick={() => void handleConnectThisDevice()}
+                            disabled={connectingThisDevice}
+                          >
+                            {connectingThisDevice ? 'Connecting...' : 'Connect this device'}
+                          </button>
+                        </div>
+                      )}
+
+                      <div className={'share_ownerDevicesList'}>
+                        <h4 className={'share_ownerDevicesTitle'} style={{ margin: 0 }}>Devices on this plan</h4>
+                        {devices.length === 0 ? (
+                          <p className={'share_ownerStatusText'}>No devices are connected yet.</p>
+                        ) : (
+                          <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
+                            {devices.map((device) => {
+                              const key = deviceKey(device);
+                              const label = deviceLabel(device);
+                              const removable = device.is_main_device || device.pairing_id != null;
+                              const addedAt = formatExpiry(device.added_at);
+                              return (
+                                <li key={key} className={'share_ownerDeviceRow'}>
+                                  <div>
+                                    <div className={'share_ownerDeviceMeta'} style={{ color: 'var(--text)', fontWeight: 800 }}>
+                                      {label}
+                                    </div>
+                                    <div className={'share_ownerDeviceMac'}>{device.device_mac}</div>
+                                    {(device.is_main_device && device.device_name) || addedAt ? (
+                                      <div className={'share_ownerDeviceMeta'}>
+                                        {device.is_main_device && device.device_name ? 'Main device' : null}
+                                        {device.is_main_device && device.device_name && addedAt ? ' · ' : null}
+                                        {addedAt ? `Added ${addedAt}` : null}
+                                      </div>
+                                    ) : null}
+                                  </div>
+                                  <div className={'share_ownerDeviceActions'}>
+                                    {device.is_this_device && (
+                                      <span className={'share_ownerDeviceStatus'}>This device</span>
+                                    )}
+                                    {removable && (
+                                      <button
+                                        type="button"
+                                        className={'share_ownerDeviceDisconnect'}
+                                        onClick={() => void handleRemoveDevice(device)}
+                                        disabled={removingKey !== null}
+                                        aria-label={`Remove ${label} (${device.device_mac})`}
+                                      >
+                                        {removingKey === key ? 'Removing...' : 'Remove'}
+                                      </button>
+                                    )}
+                                  </div>
+                                </li>
+                              );
+                            })}
+                          </ul>
                         )}
                       </div>
+                      {listMessage && <p className={'share_ownerStatusText'} role="status">{listMessage}</p>}
+                      {listError && <p className={'share_ownerStatusError'} role="alert">{listError}</p>}
+                    </div>
+                  )}
 
-                      {ownerStatusCurrent && ownerStatus?.has_active_subscription && (
-                        <div className={'share_ownerStatusDetails'}>
-                          <div className={'share_deviceSummaryRow'}>
-                            <span className={'share_deviceSummaryLabel'}>Owner device</span>
-                            <span className={'share_deviceSummaryValue'}>{ownerStatus.owner_device_mac || '-'}</span>
+                  {plan && planAllowsSharing && (
+                    <form onSubmit={handleSubmit} autoComplete="off">
+                      <h3 className={'share_deviceStepTitleAlt'}>Add a device without a browser (TV, console)</h3>
+
+                      {statusCopy && visibleDeviceMac && (
+                        <div className={`${'share_deviceStatusWrap'} ${statusToneClass}`} aria-live="polite">
+                          <div className={'share_deviceStatusHeader'}>
+                            <div className={'share_deviceSuccessIcon'}>
+                              {statusCopy.tone === 'error' ? '!' : statusCopy.tone === 'pending' ? '...' : 'OK'}
+                            </div>
+                            <div>
+                              <h3 className={'share_deviceSuccessTitle'}>{statusCopy.title}</h3>
+                              <p className={'share_deviceSuccessTip'}>{statusCopy.message}</p>
+                            </div>
                           </div>
-                          <div className={'share_deviceSummaryRow'}>
-                            <span className={'share_deviceSummaryLabel'}>Plan</span>
-                            <span className={'share_deviceSummaryValue'}>{ownerStatus.plan?.name || '-'}</span>
-                          </div>
-                          <div className={'share_deviceSummaryRow'}>
-                            <span className={'share_deviceSummaryLabel'}>Extra slots available</span>
-                            <span className={'share_deviceSummaryValue'}>{ownerAvailableExtraSlots}</span>
-                          </div>
-                          {ownerStatus.owner_expiry && (
+                          <div className={'share_deviceSuccessDetails'}>
                             <div className={'share_deviceSummaryRow'}>
-                              <span className={'share_deviceSummaryLabel'}>Active until</span>
-                              <span className={'share_deviceSummaryValue'}>{formatExpiry(ownerStatus.owner_expiry)}</span>
+                              <span className={'share_deviceSummaryLabel'}>Device</span>
+                              <span className={'share_deviceSummaryValue'}>{visibleDeviceMac}</span>
                             </div>
-                          )}
+                            {activeDelivery?.provisioning_state && (
+                              <div className={'share_deviceSummaryRow'}>
+                                <span className={'share_deviceSummaryLabel'}>Router status</span>
+                                <span className={'share_deviceSummaryValue'}>{activeDelivery.provisioning_state}</span>
+                              </div>
+                            )}
+                            {visibleExpiry && (
+                              <div className={'share_deviceSummaryRow'}>
+                                <span className={'share_deviceSummaryLabel'}>Active until</span>
+                                <span className={'share_deviceSummaryValue'}>{visibleExpiry}</span>
+                              </div>
+                            )}
+                          </div>
+                          <button
+                            type="button"
+                            className={'share_deviceStatusBtn'}
+                            onClick={() => refreshDeviceStatus(visibleDeviceMac)}
+                            disabled={statusLoading}
+                          >
+                            {statusLoading ? 'Checking...' : 'Check status'}
+                          </button>
                         </div>
                       )}
 
-                      {ownerStatusCurrent && ownerDeviceRows.length > 0 && (
-                        <div className={'share_ownerDevicesList'}>
-                          <div className={'share_ownerDevicesTitle'}>Shared devices</div>
-                          {ownerDeviceRows.map((device) => (
-                            <div key={device.id} className={'share_ownerDeviceRow'}>
-                              <div>
-                                <div className={'share_ownerDeviceMac'}>{device.device_mac}</div>
-                                <div className={'share_ownerDeviceMeta'}>
-                                  {device.device_name || device.customer?.name || 'Shared device'}
-                                </div>
-                              </div>
-                              <div className={'share_ownerDeviceActions'}>
-                                <span className={'share_ownerDeviceStatus'}>
-                                  {device.delivery?.delivery_status || device.customer?.status || 'active'}
-                                </span>
-                                <button
-                                  type="button"
-                                  className={'share_ownerDeviceDisconnect'}
-                                  onClick={() => void handleDisconnectSharedDevice(device)}
-                                  disabled={disconnectingPairingId === device.id}
-                                >
-                                  {disconnectingPairingId === device.id ? 'Disconnecting...' : 'Disconnect'}
-                                </button>
-                              </div>
-                            </div>
-                          ))}
+                      {(submitError || statusError) && (
+                        <div className={'share_deviceErrorWrap'} role="alert">
+                          <div className={'share_deviceErrorIcon'}>X</div>
+                          <div>
+                            <h3 className={'share_deviceErrorTitle'}>Something went wrong</h3>
+                            <p className={'share_deviceErrorMsg'}>{submitError || statusError}</p>
+                          </div>
                         </div>
                       )}
-                      {ownerStatusCurrent && disconnectMessage && <p className={'share_ownerStatusText'}>{disconnectMessage}</p>}
-                      {ownerStatusCurrent && disconnectError && <p className={'share_ownerStatusError'}>{disconnectError}</p>}
-                    </div>
 
-                    {ownerStatusCurrent && ownerStatus?.has_active_subscription && ownerStatus.sharing_enabled && (
-                      <div className={'share_shareCodeGenerateCard'}>
-                        <div>
-                          <div className={'share_shareCodeGenerateTitle'}>Share by code</div>
-                          {generatedCode ? (
-                            <div className={'share_shareCodeValue'}>{generatedCode.raw_code || formatShareCode(generatedCode.code)}</div>
-                          ) : generatingCode ? (
-                            <div className={'share_shareCodeGenerateText'}>Preparing code...</div>
-                          ) : (
-                            <div className={'share_shareCodeGenerateText'}>Code appears after the fresh subscription check.</div>
-                          )}
-                          {generatedCodeExpiry && (
-                            <div className={'share_shareCodeExpiry'}>Expires {generatedCodeExpiry}</div>
-                          )}
-                          {shareCodeError && <p className={'share_ownerStatusError'}>{shareCodeError}</p>}
+                      {!hasFreeSlot && (
+                        <p className={'share_ownerStatusError'}>{LIMIT_HINT}</p>
+                      )}
+
+                      {detectedDeviceMac && (
+                        <div className={'share_detectedDeviceCard'}>
+                          <div>
+                            <div className={'share_detectedDeviceLabel'}>This device detected</div>
+                            <div className={'share_detectedDeviceMac'}>{detectedDeviceMac}</div>
+                          </div>
+                          <button
+                            type="button"
+                            className={'share_detectedDeviceBtn'}
+                            onClick={() => {
+                              const nextUseDetected = !useDetectedDevice;
+                              setUseDetectedDevice(nextUseDetected);
+                              setFormData((prev) => ({
+                                ...prev,
+                                device_mac: nextUseDetected ? detectedDeviceMac : '',
+                              }));
+                            }}
+                            disabled={!canEditDevice}
+                          >
+                            {useDetectedDevice ? 'Enter MAC' : 'Use this'}
+                          </button>
                         </div>
-                        <button
-                          type="button"
-                          className={'share_shareCodeGenerateBtn'}
-                          onClick={handleGenerateShareCode}
-                          disabled={generatingCode || !ownerHasRoom}
-                        >
-                          {generatingCode ? 'Checking...' : generatedCode ? 'Refresh' : 'Retry'}
-                        </button>
-                      </div>
-                    )}
+                      )}
 
-                    <h3 className={'share_deviceStepTitleAlt'}>Device MAC Address</h3>
-
-                    {detectedDeviceMac && (
-                      <div className={'share_detectedDeviceCard'}>
-                        <div>
-                          <div className={'share_detectedDeviceLabel'}>This device detected</div>
-                          <div className={'share_detectedDeviceMac'}>{detectedDeviceMac}</div>
-                        </div>
-                        <button
-                          type="button"
-                          className={'share_detectedDeviceBtn'}
-                          onClick={() => {
-                            const nextUseDetected = !useDetectedDevice;
-                            setUseDetectedDevice(nextUseDetected);
-                            setFormData((prev) => ({
-                              ...prev,
-                              device_mac: nextUseDetected ? detectedDeviceMac : '',
-                            }));
+                      <label htmlFor="device_mac" className={'share_deviceLabel'}>
+                        MAC Address <span className={'share_required'}>*</span>
+                      </label>
+                      <div className={'share_deviceMacWrap'}>
+                        <input
+                          id="device_mac"
+                          type="text"
+                          value={formData.device_mac}
+                          onChange={(event) => {
+                            const nextMac = formatMac(event.target.value);
+                            setUseDetectedDevice(Boolean(detectedDeviceMac && nextMac === detectedDeviceMac));
+                            if (trackedDeviceMac && nextMac !== trackedDeviceMac) {
+                              clearTransientDeviceStatus();
+                            }
+                            setSubmitError(null);
+                            setFormData({ ...formData, device_mac: nextMac });
                           }}
-                        >
-                          {useDetectedDevice ? 'Enter MAC' : 'Use this'}
-                        </button>
-                      </div>
-                    )}
-
-                    <label htmlFor="device_mac" className={'share_deviceLabel'}>
-                      MAC Address <span className={'share_required'}>*</span>
-                    </label>
-                    <div className={'share_deviceMacWrap'}>
-                      <input
-                        id="device_mac"
-                        type="text"
-                        value={formData.device_mac}
-                        onChange={(event) => {
-                          const nextMac = formatMac(event.target.value);
-                          setUseDetectedDevice(Boolean(detectedDeviceMac && nextMac === detectedDeviceMac));
-                          if (trackedDeviceMac && nextMac !== trackedDeviceMac) {
-                            clearTransientDeviceStatus();
-                          }
-                          setFormData({ ...formData, device_mac: nextMac });
-                        }}
-                        className={`${'share_deviceInput'} ${'share_mono'}`}
-                        placeholder="XX:XX:XX:XX:XX:XX"
-                        inputMode="text"
-                        autoCapitalize="characters"
-                        autoComplete="off"
-                        spellCheck={false}
-                        maxLength={17}
-                        disabled={!canEditDevice}
-                        required
-                      />
-                      {deviceMacCount === 12 && <span className={'share_deviceMacStatus'}>OK</span>}
-                    </div>
-                    <div className={'share_deviceMacCounter'}>{deviceMacCount}/12 characters</div>
-
-                    <details className={'share_deviceMacHelp'}>
-                      <summary>Where do I find the MAC address?</summary>
-                      <div className={'share_macHelpList'}>
-                        <div className={'share_macHelpItem'}><strong>Samsung TV</strong> - Settings &gt; General &gt; Network</div>
-                        <div className={'share_macHelpItem'}><strong>Android TV</strong> - Settings &gt; Device Preferences &gt; About &gt; Status</div>
-                        <div className={'share_macHelpItem'}><strong>Phone or laptop</strong> - Open this page from that device on the hotspot. If the router provides the device MAC, it fills in automatically.</div>
-                        <div className={'share_macHelpItem'}><strong>PlayStation</strong> - Settings &gt; Network &gt; View Connection Status</div>
-                        <div className={'share_macHelpItem'}><strong>Other</strong> - Check WiFi or Network settings for MAC Address.</div>
-                      </div>
-                    </details>
-
-                    <label className={'share_deviceLabel'}>Device Type</label>
-                    <div className={'share_deviceTypeGrid'}>
-                      {DEVICE_TYPES.map((type) => (
-                        <button
-                          key={type.value}
-                          type="button"
-                          onClick={() => setFormData({ ...formData, device_type: type.value })}
+                          className={`${'share_deviceInput'} ${'share_mono'}`}
+                          placeholder="XX:XX:XX:XX:XX:XX"
+                          inputMode="text"
+                          autoCapitalize="characters"
+                          autoComplete="off"
+                          spellCheck={false}
+                          maxLength={17}
                           disabled={!canEditDevice}
-                          className={`${'share_deviceTypeBtn'} ${formData.device_type === type.value ? 'share_deviceTypeBtnActive' : ''}`}
-                        >
-                          <span>{type.icon}</span>
-                          {type.label}
-                        </button>
-                      ))}
-                    </div>
-
-                    <label htmlFor="device_name" className={'share_deviceLabel'}>
-                      Device Name <span className={'share_optional'}>(optional)</span>
-                    </label>
-                    <input
-                      id="device_name"
-                      type="text"
-                      value={formData.device_name}
-                      onChange={(event) => setFormData({ ...formData, device_name: event.target.value })}
-                      className={'share_deviceInput'}
-                      placeholder="e.g. Living Room TV"
-                      maxLength={40}
-                      disabled={!canEditDevice}
-                    />
-
-                    <div className={'share_deviceSummaryCard'}>
-                      <div className={'share_deviceSummaryRow'}>
-                        <span className={'share_deviceSummaryLabel'}>Subscription devices</span>
-                        <span className={'share_deviceSummaryValue'}>
-                          {subscriptionDeviceLimit} total device{subscriptionDeviceLimit === 1 ? '' : 's'}
-                        </span>
+                          aria-describedby="device_mac_counter"
+                          required
+                        />
+                        {deviceMacCount === 12 && <span className={'share_deviceMacStatus'}>OK</span>}
                       </div>
-                      <div className={'share_deviceSummaryRow'}>
-                        <span className={'share_deviceSummaryLabel'}>Slots used</span>
-                        <span className={'share_deviceSummaryValue'}>
-                          {ownerStatusCurrent && ownerStatus?.has_active_subscription
-                            ? `${ownerConnectedDevices}/${ownerDeviceLimit}`
-                            : '-'}
-                        </span>
-                      </div>
-                    </div>
+                      <div id="device_mac_counter" className={'share_deviceMacCounter'}>{deviceMacCount}/12 characters</div>
 
-                    <button type="submit" disabled={submitting || !ownerHasRoom || deviceMacCount !== 12} className={'share_devicePayBtn'}>
-                      {submitting ? (
-                        <>
-                          <span className={'share_buttonSpinner'} />
-                          Adding device...
-                        </>
-                      ) : !ownerHasRoom ? (
-                        'Check subscription first'
-                      ) : (
-                        'Add Device'
-                      )}
-                    </button>
-                  </form>
+                      <details className={'share_deviceMacHelp'}>
+                        <summary>Where do I find the MAC address?</summary>
+                        <div className={'share_macHelpList'}>
+                          <div className={'share_macHelpItem'}><strong>Samsung TV</strong> - Settings &gt; General &gt; Network</div>
+                          <div className={'share_macHelpItem'}><strong>Android TV</strong> - Settings &gt; Device Preferences &gt; About &gt; Status</div>
+                          <div className={'share_macHelpItem'}><strong>Phone or laptop</strong> - You don&apos;t need the MAC. Open the WiFi login page on that device and enter your code under &apos;Voucher or access code&apos;.</div>
+                          <div className={'share_macHelpItem'}><strong>PlayStation</strong> - Settings &gt; Network &gt; View Connection Status</div>
+                          <div className={'share_macHelpItem'}><strong>Other</strong> - Check WiFi or Network settings for MAC Address.</div>
+                        </div>
+                      </details>
+
+                      <span id="device_type_label" className={'share_deviceLabel'}>Device Type</span>
+                      <div className={'share_deviceTypeGrid'} role="group" aria-labelledby="device_type_label">
+                        {DEVICE_TYPES.map((type) => (
+                          <button
+                            key={type.value}
+                            type="button"
+                            onClick={() => setFormData({ ...formData, device_type: type.value })}
+                            disabled={!canEditDevice}
+                            aria-pressed={formData.device_type === type.value}
+                            className={`${'share_deviceTypeBtn'} ${formData.device_type === type.value ? 'share_deviceTypeBtnActive' : ''}`}
+                          >
+                            <span aria-hidden="true">{type.icon}</span>
+                            {type.label}
+                          </button>
+                        ))}
+                      </div>
+
+                      <label htmlFor="device_name" className={'share_deviceLabel'}>
+                        Device Name <span className={'share_optional'}>(optional)</span>
+                      </label>
+                      <input
+                        id="device_name"
+                        type="text"
+                        value={formData.device_name}
+                        onChange={(event) => setFormData({ ...formData, device_name: event.target.value })}
+                        className={'share_deviceInput'}
+                        placeholder="e.g. Living Room TV"
+                        maxLength={40}
+                        disabled={!canEditDevice}
+                      />
+
+                      <div className={'share_deviceSummaryCard'}>
+                        <div className={'share_deviceSummaryRow'}>
+                          <span className={'share_deviceSummaryLabel'}>Devices in use</span>
+                          <span className={'share_deviceSummaryValue'}>
+                            {devicesInUse}/{maxDevices}
+                          </span>
+                        </div>
+                      </div>
+
+                      <button type="submit" disabled={submitting || !canEditDevice || deviceMacCount !== 12} className={'share_devicePayBtn'}>
+                        {submitting ? (
+                          <>
+                            <span className={'share_buttonSpinner'} />
+                            Adding device...
+                          </>
+                        ) : !hasFreeSlot ? (
+                          'No free slots'
+                        ) : (
+                          'Add Device'
+                        )}
+                      </button>
+                    </form>
+                  )}
                 </>
               )}
             </div>
