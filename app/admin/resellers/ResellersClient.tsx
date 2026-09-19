@@ -420,7 +420,7 @@ export default function ResellersListPage() {
                           <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold font-mono bg-emerald-500/10 text-emerald-500">
                             {r.mpesa_shortcode}
                           </span>
-                          <span>M-Pesa: {rowMoney(r.mpesa_revenue, r)}</span>
+                          <span>{r.currency && r.currency !== 'KES' ? 'Mobile money' : 'M-Pesa'}: {rowMoney(r.mpesa_revenue, r)}</span>
                         </span>
                       ),
                       right: `${r.active_customers}/${r.total_customers} users`,
@@ -495,7 +495,7 @@ export default function ResellersListPage() {
                   return (
                     <div className="text-right">
                       <p className="font-semibold text-foreground">{rowMoney(item.total_revenue, item)}</p>
-                      <p className="text-[10px] text-emerald-500">M-Pesa: {rowMoney(item.mpesa_revenue, item)}</p>
+                      <p className="text-[10px] text-emerald-500">{item.currency && item.currency !== 'KES' ? 'Mobile money' : 'M-Pesa'}: {rowMoney(item.mpesa_revenue, item)}</p>
                     </div>
                   );
                 case 'customers':

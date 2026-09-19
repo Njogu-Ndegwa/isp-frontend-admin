@@ -16,10 +16,10 @@ import { formatWithKes } from '../../../lib/reportingCurrency';
 
 
 const MARKET_OPTIONS = [
-  { code: 'KE', label: 'Kenya: KES usage billing, M-Pesa' },
-  { code: 'CM', label: 'Cameroon: USD flat fee, card' },
-  { code: 'UG', label: 'Uganda: USD flat fee, card' },
-  { code: 'TZ', label: 'Tanzania: USD flat fee, card' },
+  { code: 'KE', label: 'Kenya (KES): 3% + KES 25/PPPoE, min KES 500, M-Pesa' },
+  { code: 'CM', label: 'Cameroon (XAF): 3% + USD 0.20/PPPoE, min USD 10, card' },
+  { code: 'UG', label: 'Uganda (UGX): 3% + USD 0.20/PPPoE, min USD 10, card' },
+  { code: 'TZ', label: 'Tanzania (TZS): 3% + USD 0.20/PPPoE, min USD 10, card' },
 ];
 
 const formatSafeDate = (dateStr: string | null | undefined): string => {
