@@ -3,6 +3,8 @@
 import React, { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
 import type { LoginRequest, AuthUser, SubscriptionAlert } from '../lib/types';
 import { setDisplayCurrency } from '../lib/format';
+import { resolveLanguage, translate, type TFunction } from '../lib/i18n';
+import { subscriptionAlertMessage } from '../lib/subscriptionAlert';
 
 const DEMO_USER: AuthUser = {
   id: 0,
@@ -116,11 +118,20 @@ export function AuthProvider({
     setToken(response.access_token);
     setUser(response.user);
 
-    if (response.subscription_alert) {
-      setSubscriptionAlert(response.subscription_alert);
+    // The backend's alert text is English with the amount pre-formatted; say
+    // it in the reseller's language and the invoice's currency instead.
+    let alert = response.subscription_alert;
+    if (alert) {
+      const lang = resolveLanguage(response.user);
+      const t: TFunction = (text, vars) => translate(lang, text, vars);
+      const message = subscriptionAlertMessage(
+        alert.status, alert.current_invoice, response.user.subscription_expires_at, t,
+      );
+      alert = { ...alert, message: message ?? alert.message };
+      setSubscriptionAlert(alert);
     }
 
-    return response.subscription_alert;
+    return alert;
   };
 
   const loginAsDemo = () => {

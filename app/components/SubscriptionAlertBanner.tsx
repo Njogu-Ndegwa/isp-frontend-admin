@@ -4,6 +4,8 @@ import Link from 'next/link';
 import { SubscriptionAlert } from '../lib/types';
 import { formatMoney } from '../lib/format';
 import { useT } from '../lib/i18n';
+import { useAuth } from '../context/AuthContext';
+import { subscriptionAlertMessage } from '../lib/subscriptionAlert';
 
 interface SubscriptionAlertBannerProps {
   alert: SubscriptionAlert;
@@ -12,6 +14,11 @@ interface SubscriptionAlertBannerProps {
 
 export default function SubscriptionAlertBanner({ alert, onPayNow }: SubscriptionAlertBannerProps) {
   const t = useT();
+  const { user } = useAuth();
+  // Build the sentence here (translated, in the invoice's currency); the
+  // backend's English text is only a fallback for shapes we don't know.
+  const message =
+    subscriptionAlertMessage(alert.status, alert.current_invoice, user?.subscription_expires_at, t) ?? alert.message;
   const isWarning = alert.status === 'trial' || alert.current_invoice?.is_due_soon;
   const isDanger = alert.status === 'suspended' || alert.status === 'inactive' || alert.current_invoice?.is_overdue;
 
@@ -44,7 +51,7 @@ export default function SubscriptionAlertBanner({ alert, onPayNow }: Subscriptio
           )}
         </div>
         <div className="flex-1 min-w-0">
-          <p className={`text-sm font-medium ${textClass}`}>{alert.message}</p>
+          <p className={`text-sm font-medium ${textClass}`}>{message}</p>
           <div className="flex items-center gap-3 mt-2">
             <Link
               href="/settings/subscription"

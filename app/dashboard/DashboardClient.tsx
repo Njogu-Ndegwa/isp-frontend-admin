@@ -20,7 +20,7 @@ import TopUsers from './components/TopUsers';
 import DailyBreakdown from './components/DailyBreakdown';
 import InterfacesPanel from './components/InterfacesPanel';
 import PortsUsageCard from './components/PortsUsageCard';
-import { formatMoney } from '../lib/format';
+import { subscriptionAlertMessage } from '../lib/subscriptionAlert';
 import { useT, type TFunction } from '../lib/i18n';
 
 const DASHBOARD_LOAD_DELAYS_MS = {
@@ -45,46 +45,9 @@ const isDashboardVisible = () =>
   typeof document === 'undefined' || document.visibilityState === 'visible';
 
 const buildSubscriptionAlert = (overview: SubscriptionOverview, t: TFunction): SubscriptionAlert | null => {
-  const status = overview.status;
   const invoice = overview.pending_invoice ?? null;
-  let message: string | null = null;
-
-  if (status === 'suspended' || status === 'inactive') {
-    message = t('Your subscription is suspended. Please pay your outstanding invoice to continue using the service.');
-  } else if (invoice?.is_overdue) {
-    const paid = invoice.amount_paid ?? 0;
-    const remaining = invoice.balance_remaining ?? Math.max(invoice.final_charge - paid, 0);
-    const money = (v: number) => formatMoney(v, invoice.currency);
-    message = t('Your {period} invoice of {amount} is overdue.', { period: invoice.period_label, amount: money(invoice.final_charge) });
-    message += ' ' + (paid > 0
-      ? t('{paid} paid, {remaining} remaining.', { paid: money(paid), remaining: money(remaining) })
-      : t('Please pay to avoid suspension.'));
-  } else if (invoice?.is_due_soon) {
-    const paid = invoice.amount_paid ?? 0;
-    const remaining = invoice.balance_remaining ?? Math.max(invoice.final_charge - paid, 0);
-    const days = invoice.days_until_due ?? 0;
-    const money = (v: number) => formatMoney(v, invoice.currency);
-    const dueVars = { period: invoice.period_label, amount: money(invoice.final_charge), days };
-    message = days === 1
-      ? t('Your {period} invoice of {amount} is due in 1 day.', dueVars)
-      : t('Your {period} invoice of {amount} is due in {days} days.', dueVars);
-    if (paid > 0) {
-      message += ' ' + t('{paid} paid, {remaining} remaining.', { paid: money(paid), remaining: money(remaining) });
-    }
-  } else if (status === 'trial' && overview.expires_at) {
-    const expiresAt = new Date(overview.expires_at).getTime();
-    if (!Number.isNaN(expiresAt)) {
-      const daysLeft = Math.ceil((expiresAt - Date.now()) / 86400000);
-      if (daysLeft <= 3) {
-        const safeDays = Math.max(daysLeft, 0);
-        message = safeDays === 1
-          ? t('Your free trial ends in 1 day.')
-          : t('Your free trial ends in {days} days.', { days: safeDays });
-      }
-    }
-  }
-
-  return message ? { status, message, current_invoice: invoice } : null;
+  const message = subscriptionAlertMessage(overview.status, invoice, overview.expires_at, t);
+  return message ? { status: overview.status, message, current_invoice: invoice } : null;
 };
 
 export default function DashboardPage() {
