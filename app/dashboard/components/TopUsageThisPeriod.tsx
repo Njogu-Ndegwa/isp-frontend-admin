@@ -3,6 +3,7 @@ import React from 'react';
 import Link from 'next/link';
 import { SectionEmpty } from './SectionCard';
 import type { ResellerTopUsageEntry } from '../../lib/types';
+import { useT } from '../../lib/i18n';
 
 // Account-wide data-cap / FUP usage for the billing period. Body only —
 // rendered inside the combined Top Users card.
@@ -13,6 +14,7 @@ export function TopUsageBody({
   data: ResellerTopUsageEntry[] | null;
   loading: boolean;
 }): React.ReactElement {
+  const t = useT();
   const formatMb = (mb: number): string => {
     if (mb >= 1024) return `${(mb / 1024).toFixed(2)} GB`;
     return `${mb.toFixed(0)} MB`;
@@ -23,7 +25,7 @@ export function TopUsageBody({
   }
 
   if (!data || data.length === 0) {
-    return <SectionEmpty message="No usage recorded this period" />;
+    return <SectionEmpty message={t('No usage recorded this period')} />;
   }
 
   // For uncapped (no-FUP) plans, % of cap is meaningless, so the bar shows
@@ -46,7 +48,7 @@ export function TopUsageBody({
             : 'bg-purple-500';
     const connectionType = entry.connection_type ?? 'hotspot';
     const serviceLabel = connectionType === 'pppoe' ? 'PPPoE' : 'Hotspot';
-    const identifier = entry.identifier || entry.pppoe_username || 'No identifier';
+    const identifier = entry.identifier || entry.pppoe_username || t('No identifier');
     const usageText = `${formatMb(entry.total_mb)}${hasCap ? ` / ${formatMb(entry.cap_mb as number)}` : ''}`;
     return { hasCap, percent, barWidth, barColor, connectionType, serviceLabel, identifier, usageText };
   };
@@ -59,11 +61,11 @@ export function TopUsageBody({
           <thead>
             <tr className="border-b border-border">
               <th className="text-left py-2 text-xs font-medium text-foreground-muted uppercase tracking-wider w-12">#</th>
-              <th className="text-left py-2 text-xs font-medium text-foreground-muted uppercase tracking-wider">Customer</th>
-              <th className="text-left py-2 text-xs font-medium text-foreground-muted uppercase tracking-wider">Service</th>
-              <th className="text-left py-2 text-xs font-medium text-foreground-muted uppercase tracking-wider">Plan</th>
-              <th className="text-left py-2 text-xs font-medium text-foreground-muted uppercase tracking-wider">Usage</th>
-              <th className="text-right py-2 text-xs font-medium text-foreground-muted uppercase tracking-wider">% used</th>
+              <th className="text-left py-2 text-xs font-medium text-foreground-muted uppercase tracking-wider">{t('Customer')}</th>
+              <th className="text-left py-2 text-xs font-medium text-foreground-muted uppercase tracking-wider">{t('Service')}</th>
+              <th className="text-left py-2 text-xs font-medium text-foreground-muted uppercase tracking-wider">{t('Plan')}</th>
+              <th className="text-left py-2 text-xs font-medium text-foreground-muted uppercase tracking-wider">{t('Usage')}</th>
+              <th className="text-right py-2 text-xs font-medium text-foreground-muted uppercase tracking-wider">{t('% used')}</th>
             </tr>
           </thead>
           <tbody>
@@ -74,7 +76,7 @@ export function TopUsageBody({
                   <td className="py-3 text-foreground-muted">{i + 1}</td>
                   <td className="py-3">
                     <Link href={`/customers/${entry.customer_id}`} className="font-medium text-foreground hover:text-accent-primary transition-colors">
-                      {entry.customer_name || 'Unnamed customer'}
+                      {entry.customer_name || t('Unnamed customer')}
                     </Link>
                     <p className="text-xs font-mono text-foreground-muted">{v.identifier}</p>
                   </td>
@@ -114,7 +116,7 @@ export function TopUsageBody({
                         )}
                       </>
                     ) : (
-                      <span className="text-xs text-foreground-muted">No cap</span>
+                      <span className="text-xs text-foreground-muted">{t('No cap')}</span>
                     )}
                   </td>
                 </tr>
@@ -138,7 +140,7 @@ export function TopUsageBody({
                 <div className="flex items-center gap-2 min-w-0">
                   <span className="text-xs text-foreground-muted w-5">{i + 1}.</span>
                   <div className="min-w-0">
-                    <p className="text-sm font-medium text-foreground truncate">{entry.customer_name || 'Unnamed customer'}</p>
+                    <p className="text-sm font-medium text-foreground truncate">{entry.customer_name || t('Unnamed customer')}</p>
                     <p className="text-[10px] font-mono text-foreground-muted truncate">{v.identifier}</p>
                   </div>
                 </div>
@@ -155,7 +157,7 @@ export function TopUsageBody({
                       {v.percent.toFixed(0)}%
                     </span>
                   ) : (
-                    <span className="text-[10px] text-foreground-muted">No cap</span>
+                    <span className="text-[10px] text-foreground-muted">{t('No cap')}</span>
                   )}
                 </div>
               </div>

@@ -4,6 +4,7 @@ import SectionCard, { SectionEmpty } from './SectionCard';
 import { TopDownloadersBody } from './TopDownloaders';
 import { TopUsageBody } from './TopUsageThisPeriod';
 import type { TopUsersResponse, ResellerTopUsageEntry } from '../../lib/types';
+import { useT } from '../../lib/i18n';
 
 type Mode = 'live' | 'period';
 
@@ -29,6 +30,7 @@ export default function TopUsers({
   period: ResellerTopUsageEntry[] | null;
   periodLoading: boolean;
 }): React.ReactElement {
+  const t = useT();
   const [mode, setMode] = useState<Mode>('live');
   // Live needs a router; fall back to Period when none is selected.
   const effectiveMode: Mode = mode === 'live' && !selectedRouterId ? 'period' : mode;
@@ -37,10 +39,10 @@ export default function TopUsers({
     effectiveMode === 'live' ? (
       <span className="flex items-center gap-1.5">
         <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-        this router · live
+        {t('this router · live')}
       </span>
     ) : (
-      <span>all routers · this period</span>
+      <span>{t('all routers · this period')}</span>
     );
 
   const controls = (
@@ -49,29 +51,29 @@ export default function TopUsers({
         type="button"
         onClick={() => setMode('live')}
         disabled={!selectedRouterId}
-        title={selectedRouterId ? 'Live bandwidth on the selected router' : 'Select a router to see live usage'}
+        title={selectedRouterId ? t('Live bandwidth on the selected router') : t('Select a router to see live usage')}
         className={`period-pill whitespace-nowrap ${
           effectiveMode === 'live' ? 'period-pill-active' : 'period-pill-inactive'
         } ${!selectedRouterId ? 'opacity-40 cursor-not-allowed' : ''}`}
       >
-        Live
+        {t('Live')}
       </button>
       <button
         type="button"
         onClick={() => setMode('period')}
-        title="Data-cap / FUP usage this billing period (all routers)"
+        title={t('Data-cap / FUP usage this billing period (all routers)')}
         className={`period-pill whitespace-nowrap ${
           effectiveMode === 'period' ? 'period-pill-active' : 'period-pill-inactive'
         }`}
       >
-        Period
+        {t('Period')}
       </button>
     </div>
   );
 
   return (
     <SectionCard
-      title="Top Users"
+      title={t('Top Users')}
       accent="violet"
       controls={controls}
       meta={meta}
@@ -81,7 +83,7 @@ export default function TopUsers({
         selectedRouterId ? (
           <TopDownloadersBody data={live} loading={liveLoading} error={liveError} onRetry={onRetryLive} />
         ) : (
-          <SectionEmpty message="Select a router to see live usage" />
+          <SectionEmpty message={t('Select a router to see live usage')} />
         )
       ) : (
         <TopUsageBody data={period} loading={periodLoading} />

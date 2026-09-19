@@ -10,6 +10,7 @@ import DataTable from '../../../components/DataTable';
 import MobileDataCard from '../../../components/MobileDataCard';
 import { SkeletonCard } from '../../../components/LoadingSpinner';
 import { formatMoney } from '../../../lib/format';
+import { useT } from '../../../lib/i18n';
 
 
 const formatSafeDate = (dateStr: string | null | undefined): string => {
@@ -32,6 +33,7 @@ const STATUS_FILTERS = [
 ];
 
 export default function InvoiceListPage() {
+  const t = useT();
   const [invoices, setInvoices] = useState<SubscriptionInvoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -50,11 +52,11 @@ export default function InvoiceListPage() {
       setInvoices(result.invoices);
       setTotalPages(result.total_pages);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load invoices');
+      setError(err instanceof Error ? err.message : t('Failed to load invoices'));
     } finally {
       setLoading(false);
     }
-  }, [page, statusFilter]);
+  }, [page, statusFilter, t]);
 
   const handleRequestInvoice = async () => {
     setRequestingInvoice(true);
@@ -62,13 +64,13 @@ export default function InvoiceListPage() {
     try {
       const result = await api.requestInvoice();
       setRequestMsg({
-        text: result.generated ? 'Invoice generated successfully' : 'You already have a pending invoice',
+        text: result.generated ? t('Invoice generated successfully') : t('You already have a pending invoice'),
         type: 'success',
       });
       fetchInvoices();
     } catch (err) {
       setRequestMsg({
-        text: err instanceof Error ? err.message : 'Failed to request invoice',
+        text: err instanceof Error ? err.message : t('Failed to request invoice'),
         type: 'error',
       });
     } finally {
@@ -96,12 +98,12 @@ export default function InvoiceListPage() {
           <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
           </svg>
-          Subscription
+          {t('Subscription')}
         </Link>
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-lg font-semibold text-foreground">Invoices</h2>
-            <p className="text-xs text-foreground-muted mt-0.5">Your subscription billing history</p>
+            <h2 className="text-lg font-semibold text-foreground">{t('Invoices')}</h2>
+            <p className="text-xs text-foreground-muted mt-0.5">{t('Your subscription billing history')}</p>
           </div>
           <button
             onClick={handleRequestInvoice}
@@ -111,14 +113,14 @@ export default function InvoiceListPage() {
             {requestingInvoice ? (
               <>
                 <span className="w-3.5 h-3.5 border-2 border-current/30 border-t-current rounded-full animate-spin" />
-                Requesting...
+                {t('Requesting...')}
               </>
             ) : (
               <>
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
                 </svg>
-                Request Invoice
+                {t('Request Invoice')}
               </>
             )}
           </button>
@@ -150,7 +152,7 @@ export default function InvoiceListPage() {
                 : 'border border-border text-foreground-muted hover:bg-background-tertiary'
             }`}
           >
-            {f.label}
+            {t(f.label)}
           </button>
         ))}
       </div>
@@ -162,12 +164,12 @@ export default function InvoiceListPage() {
       ) : error ? (
         <div className="rounded-2xl bg-background-secondary border border-border p-8 text-center">
           <p className="text-sm text-danger mb-3">{error}</p>
-          <button onClick={fetchInvoices} className="btn-primary px-4 py-2 text-sm">Retry</button>
+          <button onClick={fetchInvoices} className="btn-primary px-4 py-2 text-sm">{t('Retry')}</button>
         </div>
       ) : invoices.length === 0 ? (
         <div className="rounded-2xl bg-background-secondary border border-border p-8 text-center">
           <svg className="w-12 h-12 mx-auto text-foreground-muted/30 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-          <p className="text-sm text-foreground-muted">No invoices found</p>
+          <p className="text-sm text-foreground-muted">{t('No invoices found')}</p>
         </div>
       ) : (
         <>
@@ -175,11 +177,11 @@ export default function InvoiceListPage() {
           <div className="hidden md:block">
             <DataTable
               columns={[
-                { key: 'period', label: 'Period' },
-                { key: 'amount', label: 'Amount', className: 'text-right' },
-                { key: 'status', label: 'Status' },
-                { key: 'due_date', label: 'Due Date' },
-                { key: 'message', label: 'Message' },
+                { key: 'period', label: t('Period') },
+                { key: 'amount', label: t('Amount'), className: 'text-right' },
+                { key: 'status', label: t('Status') },
+                { key: 'due_date', label: t('Due Date') },
+                { key: 'message', label: t('Message') },
                 { key: 'actions', label: '', className: 'text-right' },
               ]}
               data={invoices}
@@ -196,14 +198,14 @@ export default function InvoiceListPage() {
                       onClick={(e) => { e.stopPropagation(); setPayInvoice(inv); }}
                       className="text-xs px-3 py-1.5 rounded-lg bg-accent-primary text-white hover:bg-accent-primary/90 transition-colors font-medium"
                     >
-                      Pay
+                      {t('Pay')}
                     </button>
                   ) : null;
                   default: return null;
                 }
               }}
               onRowClick={(inv) => { window.location.href = `/settings/subscription/invoices/${inv.id}`; }}
-              emptyState={{ message: 'No invoices found' }}
+              emptyState={{ message: t('No invoices found') }}
             />
           </div>
 
@@ -219,7 +221,7 @@ export default function InvoiceListPage() {
                       title={inv.period_label}
                       subtitle={inv.human_message || formatSafeDate(inv.due_date)}
                       avatar={{ text: inv.status.charAt(0).toUpperCase(), color: inv.status === 'paid' ? 'success' : inv.status === 'overdue' ? 'danger' : 'warning' }}
-                      status={{ label: inv.status, variant: inv.status === 'paid' ? 'success' : inv.status === 'overdue' ? 'danger' : inv.status === 'waived' ? 'neutral' : 'warning' }}
+                      status={{ label: t(inv.status), variant: inv.status === 'paid' ? 'success' : inv.status === 'overdue' ? 'danger' : inv.status === 'waived' ? 'neutral' : 'warning' }}
                       value={{ text: formatMoney(inv.final_charge, inv.currency) }}
                       layout="compact"
                     />
@@ -229,7 +231,7 @@ export default function InvoiceListPage() {
                       onClick={() => setPayInvoice(inv)}
                       className="absolute top-3 right-3 text-[10px] px-2.5 py-1 rounded-lg bg-accent-primary text-white hover:bg-accent-primary/90 transition-colors font-semibold z-10"
                     >
-                      Pay
+                      {t('Pay')}
                     </button>
                   )}
                 </div>
@@ -245,15 +247,15 @@ export default function InvoiceListPage() {
                 disabled={page === 1}
                 className="px-3 py-1.5 text-xs font-medium rounded-lg border border-border text-foreground-muted hover:bg-background-tertiary disabled:opacity-30"
               >
-                Previous
+                {t('Previous')}
               </button>
-              <span className="text-xs text-foreground-muted">Page {page} of {totalPages}</span>
+              <span className="text-xs text-foreground-muted">{t('Page {page} of {total}', { page, total: totalPages })}</span>
               <button
                 onClick={() => setPage(Math.min(totalPages, page + 1))}
                 disabled={page === totalPages}
                 className="px-3 py-1.5 text-xs font-medium rounded-lg border border-border text-foreground-muted hover:bg-background-tertiary disabled:opacity-30"
               >
-                Next
+                {t('Next')}
               </button>
             </div>
           )}

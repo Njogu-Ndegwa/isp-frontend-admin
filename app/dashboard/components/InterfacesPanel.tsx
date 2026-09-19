@@ -1,6 +1,7 @@
 'use client';
 import React from 'react';
 import type { MikroTikInterface } from '../../lib/types';
+import { useT } from '../../lib/i18n';
 
 // Single source of truth for formatBytes — imported by NetworkHealthCard
 export function formatBytes(bytes: number): string {
@@ -42,6 +43,7 @@ function InterfaceCard({ iface }: { iface: MikroTikInterface }) {
 }
 
 export default function InterfacesPanel({ interfaces }: { interfaces: MikroTikInterface[] }): React.JSX.Element {
+  const t = useT();
   const visible = interfaces.filter((i) => i?.type !== 'loopback');
 
   if (visible.length === 0) return <></>;
@@ -54,7 +56,7 @@ export default function InterfacesPanel({ interfaces }: { interfaces: MikroTikIn
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
           </svg>
         </span>
-        Network Interfaces ({visible.length})
+        {t('Network Interfaces ({count})', { count: visible.length })}
       </summary>
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2 animate-fade-in">
         {visible.map((iface, index) => (

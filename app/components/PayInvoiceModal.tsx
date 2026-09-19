@@ -5,6 +5,7 @@ import { api } from '../lib/api';
 import { SubscriptionInvoice } from '../lib/types';
 import { useAuth } from '../context/AuthContext';
 import { formatMoney } from '../lib/format';
+import { useT } from '../lib/i18n';
 
 interface PayInvoiceModalProps {
   isOpen: boolean;
@@ -18,6 +19,7 @@ type PayStep = 'form' | 'waiting' | 'success' | 'timeout' | 'redirecting';
 
 export default function PayInvoiceModal({ isOpen, onClose, invoice, onPaymentComplete }: PayInvoiceModalProps) {
   const { user } = useAuth();
+  const t = useT();
   const remainingBalance = invoice.balance_remaining ?? invoice.final_charge;
   const currency = (invoice.currency || 'KES').toUpperCase();
   const money = (value: number | null | undefined) => formatMoney(value, currency);
@@ -76,16 +78,16 @@ export default function PayInvoiceModal({ isOpen, onClose, invoice, onPaymentCom
 
   const handlePay = async () => {
     if (!phone.trim()) {
-      setError('Please enter a phone number');
+      setError(t('Please enter a phone number'));
       return;
     }
     const parsedAmount = parseFloat(amount);
     if (isNaN(parsedAmount) || parsedAmount <= 0) {
-      setError('Please enter a valid amount');
+      setError(t('Please enter a valid amount'));
       return;
     }
     if (parsedAmount > remainingBalance) {
-      setError(`Amount cannot exceed the remaining balance of ${money(remainingBalance)}`);
+      setError(t('Amount cannot exceed the remaining balance of {amount}', { amount: money(remainingBalance) }));
       return;
     }
     setLoading(true);
@@ -99,7 +101,7 @@ export default function PayInvoiceModal({ isOpen, onClose, invoice, onPaymentCom
       setStep('waiting');
       startPolling();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Payment failed');
+      setError(err instanceof Error ? err.message : t('Payment failed'));
     } finally {
       setLoading(false);
     }
@@ -113,7 +115,7 @@ export default function PayInvoiceModal({ isOpen, onClose, invoice, onPaymentCom
       setStep('redirecting');
       window.location.assign(checkout.payment_url);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not start card payment');
+      setError(err instanceof Error ? err.message : t('Could not start card payment'));
     } finally {
       setLoading(false);
     }
@@ -140,7 +142,7 @@ export default function PayInvoiceModal({ isOpen, onClose, invoice, onPaymentCom
 
         {step === 'form' && (
           <>
-            <h3 className="text-lg font-semibold text-foreground mb-1">Pay Invoice</h3>
+            <h3 className="text-lg font-semibold text-foreground mb-1">{t('Pay Invoice')}</h3>
             <p className="text-sm text-foreground-muted mb-4">
               {invoice.period_label} &mdash; {money(invoice.final_charge)}
             </p>
@@ -148,15 +150,15 @@ export default function PayInvoiceModal({ isOpen, onClose, invoice, onPaymentCom
             {(invoice.amount_paid != null && invoice.amount_paid > 0) && (
               <div className="mb-4 p-3 rounded-xl bg-background-tertiary/50 space-y-1.5">
                 <div className="flex items-center justify-between text-xs">
-                  <span className="text-foreground-muted">Invoice Total</span>
+                  <span className="text-foreground-muted">{t('Invoice Total')}</span>
                   <span className="text-foreground font-medium">{money(invoice.final_charge)}</span>
                 </div>
                 <div className="flex items-center justify-between text-xs">
-                  <span className="text-foreground-muted">Already Paid</span>
+                  <span className="text-foreground-muted">{t('Already Paid')}</span>
                   <span className="text-emerald-500 font-medium">{money(invoice.amount_paid)}</span>
                 </div>
                 <div className="flex items-center justify-between text-xs border-t border-border pt-1.5">
-                  <span className="text-foreground-muted font-medium">Balance Remaining</span>
+                  <span className="text-foreground-muted font-medium">{t('Balance Remaining')}</span>
                   <span className="text-amber-500 font-semibold">{money(remainingBalance)}</span>
                 </div>
               </div>
@@ -171,8 +173,8 @@ export default function PayInvoiceModal({ isOpen, onClose, invoice, onPaymentCom
             {payByCard ? (
               <>
                 <div className="mb-5 p-3 rounded-xl bg-background-tertiary/50 text-sm text-foreground-muted space-y-1.5">
-                  <p>You will be taken to a secure Paystack page to pay with Visa or Mastercard.</p>
-                  <p>Your subscription is activated once we confirm the payment.</p>
+                  <p>{t('You will be taken to a secure Paystack page to pay with Visa or Mastercard.')}</p>
+                  <p>{t('Your subscription is activated once we confirm the payment.')}</p>
                 </div>
                 <button
                   onClick={handleCardPay}
@@ -182,10 +184,10 @@ export default function PayInvoiceModal({ isOpen, onClose, invoice, onPaymentCom
                   {loading ? (
                     <>
                       <span className="w-4 h-4 border-2 border-current/30 border-t-current rounded-full animate-spin" />
-                      Opening checkout...
+                      {t('Opening checkout...')}
                     </>
                   ) : (
-                    `Pay ${money(remainingBalance)} by card`
+                    t('Pay {amount} by card', { amount: money(remainingBalance) })
                   )}
                 </button>
               </>
@@ -193,7 +195,7 @@ export default function PayInvoiceModal({ isOpen, onClose, invoice, onPaymentCom
               <>
               <div className="mb-4">
                 <label className="block text-sm font-medium text-foreground-muted mb-1.5">
-                  M-Pesa Phone Number
+                  {t('M-Pesa Phone Number')}
                 </label>
                 <input
                   type="tel"
@@ -203,13 +205,13 @@ export default function PayInvoiceModal({ isOpen, onClose, invoice, onPaymentCom
                   placeholder="0712345678"
                 />
                 <p className="text-xs text-foreground-muted/60 mt-1">
-                  An STK push will be sent to this number
+                  {t('An STK push will be sent to this number')}
                 </p>
               </div>
 
               <div className="mb-5">
                 <label className="block text-sm font-medium text-foreground-muted mb-1.5">
-                  Amount ({currency})
+                  {t('Amount ({currency})', { currency })}
                 </label>
                 <input
                   type="number"
@@ -222,7 +224,7 @@ export default function PayInvoiceModal({ isOpen, onClose, invoice, onPaymentCom
                   step="1"
                 />
                 <p className="text-xs text-foreground-muted/60 mt-1">
-                  Pay the full balance or enter a partial amount
+                  {t('Pay the full balance or enter a partial amount')}
                 </p>
               </div>
 
@@ -234,10 +236,10 @@ export default function PayInvoiceModal({ isOpen, onClose, invoice, onPaymentCom
                 {loading ? (
                   <>
                     <span className="w-4 h-4 border-2 border-current/30 border-t-current rounded-full animate-spin" />
-                    Sending...
+                    {t('Sending...')}
                   </>
                 ) : (
-                  `Pay ${money(parseFloat(amount) || 0)}`
+                  t('Pay {amount}', { amount: money(parseFloat(amount) || 0) })
                 )}
               </button>
               </>
@@ -250,8 +252,8 @@ export default function PayInvoiceModal({ isOpen, onClose, invoice, onPaymentCom
             <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-amber-500/10 flex items-center justify-center">
               <div className="w-8 h-8 border-[3px] border-amber-500/30 border-t-amber-500 rounded-full animate-spin" />
             </div>
-            <h3 className="text-lg font-semibold text-foreground mb-2">Opening secure checkout</h3>
-            <p className="text-sm text-foreground-muted">Taking you to Paystack to pay by card...</p>
+            <h3 className="text-lg font-semibold text-foreground mb-2">{t('Opening secure checkout')}</h3>
+            <p className="text-sm text-foreground-muted">{t('Taking you to Paystack to pay by card...')}</p>
           </div>
         )}
 
@@ -260,9 +262,9 @@ export default function PayInvoiceModal({ isOpen, onClose, invoice, onPaymentCom
             <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-amber-500/10 flex items-center justify-center">
               <div className="w-8 h-8 border-[3px] border-amber-500/30 border-t-amber-500 rounded-full animate-spin" />
             </div>
-            <h3 className="text-lg font-semibold text-foreground mb-2">Check Your Phone</h3>
+            <h3 className="text-lg font-semibold text-foreground mb-2">{t('Check Your Phone')}</h3>
             <p className="text-sm text-foreground-muted">
-              An M-Pesa payment prompt has been sent to your phone. Please enter your PIN to complete the payment.
+              {t('An M-Pesa payment prompt has been sent to your phone. Please enter your PIN to complete the payment.')}
             </p>
           </div>
         )}
@@ -274,12 +276,12 @@ export default function PayInvoiceModal({ isOpen, onClose, invoice, onPaymentCom
                 <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
               </svg>
             </div>
-            <h3 className="text-lg font-semibold text-foreground mb-2">Payment Successful</h3>
+            <h3 className="text-lg font-semibold text-foreground mb-2">{t('Payment Successful')}</h3>
             <p className="text-sm text-foreground-muted mb-5">
-              Your subscription has been updated. Thank you!
+              {t('Your subscription has been updated. Thank you!')}
             </p>
             <button onClick={onClose} className="btn-primary px-6 py-2 text-sm font-semibold">
-              Done
+              {t('Done')}
             </button>
           </div>
         )}
@@ -291,12 +293,12 @@ export default function PayInvoiceModal({ isOpen, onClose, invoice, onPaymentCom
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             </div>
-            <h3 className="text-lg font-semibold text-foreground mb-2">Payment Processing</h3>
+            <h3 className="text-lg font-semibold text-foreground mb-2">{t('Payment Processing')}</h3>
             <p className="text-sm text-foreground-muted mb-5">
-              Your payment is being processed. It may take a moment to reflect.
+              {t('Your payment is being processed. It may take a moment to reflect.')}
             </p>
             <button onClick={onClose} className="btn-primary px-6 py-2 text-sm font-semibold">
-              Close
+              {t('Close')}
             </button>
           </div>
         )}

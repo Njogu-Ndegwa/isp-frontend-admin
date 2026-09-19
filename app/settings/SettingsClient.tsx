@@ -4,9 +4,11 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { settingsNav } from './nav';
+import { useT } from '../lib/i18n';
 
 export default function SettingsIndexPage() {
   const router = useRouter();
+  const t = useT();
 
   useEffect(() => {
     const mq = window.matchMedia('(min-width: 768px)');
@@ -27,8 +29,8 @@ export default function SettingsIndexPage() {
             {section.icon}
           </div>
           <div className="flex-1 min-w-0">
-            <h3 className="text-sm font-semibold text-foreground">{section.label}</h3>
-            <p className="text-xs text-foreground-muted mt-0.5">{section.description}</p>
+            <h3 className="text-sm font-semibold text-foreground">{t(section.label)}</h3>
+            <p className="text-xs text-foreground-muted mt-0.5">{t(section.description)}</p>
           </div>
           <svg className="w-5 h-5 text-foreground-muted group-hover:text-foreground transition-colors flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />

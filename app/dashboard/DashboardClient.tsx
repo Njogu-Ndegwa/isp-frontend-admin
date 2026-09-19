@@ -21,6 +21,7 @@ import DailyBreakdown from './components/DailyBreakdown';
 import InterfacesPanel from './components/InterfacesPanel';
 import PortsUsageCard from './components/PortsUsageCard';
 import { formatMoney } from '../lib/format';
+import { useT, type TFunction } from '../lib/i18n';
 
 const DASHBOARD_LOAD_DELAYS_MS = {
   mikrotik: 1500,
@@ -43,29 +44,32 @@ const STALE_HEALTH_RETRY_MAX_SECONDS = 60;
 const isDashboardVisible = () =>
   typeof document === 'undefined' || document.visibilityState === 'visible';
 
-const buildSubscriptionAlert = (overview: SubscriptionOverview): SubscriptionAlert | null => {
+const buildSubscriptionAlert = (overview: SubscriptionOverview, t: TFunction): SubscriptionAlert | null => {
   const status = overview.status;
   const invoice = overview.pending_invoice ?? null;
   let message: string | null = null;
 
   if (status === 'suspended' || status === 'inactive') {
-    message = 'Your subscription is suspended. Please pay your outstanding invoice to continue using the service.';
+    message = t('Your subscription is suspended. Please pay your outstanding invoice to continue using the service.');
   } else if (invoice?.is_overdue) {
     const paid = invoice.amount_paid ?? 0;
     const remaining = invoice.balance_remaining ?? Math.max(invoice.final_charge - paid, 0);
     const money = (v: number) => formatMoney(v, invoice.currency);
-    message = `Your ${invoice.period_label} invoice of ${money(invoice.final_charge)} is overdue.`;
-    message += paid > 0
-      ? ` ${money(paid)} paid, ${money(remaining)} remaining.`
-      : ' Please pay to avoid suspension.';
+    message = t('Your {period} invoice of {amount} is overdue.', { period: invoice.period_label, amount: money(invoice.final_charge) });
+    message += ' ' + (paid > 0
+      ? t('{paid} paid, {remaining} remaining.', { paid: money(paid), remaining: money(remaining) })
+      : t('Please pay to avoid suspension.'));
   } else if (invoice?.is_due_soon) {
     const paid = invoice.amount_paid ?? 0;
     const remaining = invoice.balance_remaining ?? Math.max(invoice.final_charge - paid, 0);
     const days = invoice.days_until_due ?? 0;
     const money = (v: number) => formatMoney(v, invoice.currency);
-    message = `Your ${invoice.period_label} invoice of ${money(invoice.final_charge)} is due in ${days} day${days === 1 ? '' : 's'}.`;
+    const dueVars = { period: invoice.period_label, amount: money(invoice.final_charge), days };
+    message = days === 1
+      ? t('Your {period} invoice of {amount} is due in 1 day.', dueVars)
+      : t('Your {period} invoice of {amount} is due in {days} days.', dueVars);
     if (paid > 0) {
-      message += ` ${money(paid)} paid, ${money(remaining)} remaining.`;
+      message += ' ' + t('{paid} paid, {remaining} remaining.', { paid: money(paid), remaining: money(remaining) });
     }
   } else if (status === 'trial' && overview.expires_at) {
     const expiresAt = new Date(overview.expires_at).getTime();
@@ -73,7 +77,9 @@ const buildSubscriptionAlert = (overview: SubscriptionOverview): SubscriptionAle
       const daysLeft = Math.ceil((expiresAt - Date.now()) / 86400000);
       if (daysLeft <= 3) {
         const safeDays = Math.max(daysLeft, 0);
-        message = `Your free trial ends in ${safeDays} day${safeDays === 1 ? '' : 's'}.`;
+        message = safeDays === 1
+          ? t('Your free trial ends in 1 day.')
+          : t('Your free trial ends in {days} days.', { days: safeDays });
       }
     }
   }
@@ -83,6 +89,7 @@ const buildSubscriptionAlert = (overview: SubscriptionOverview): SubscriptionAle
 
 export default function DashboardPage() {
   const { subscriptionAlert: authAlert } = useAuth();
+  const t = useT();
 
   // Analytics state
   const [data, setData] = useState<DashboardAnalytics | null>(null);
@@ -240,7 +247,7 @@ export default function DashboardPage() {
     const timeout = window.setTimeout(() => {
       api.getSubscription().then((overview) => {
         if (!cancelled) {
-          setSubscriptionAlert(buildSubscriptionAlert(overview));
+          setSubscriptionAlert(buildSubscriptionAlert(overview, t));
         }
       }).catch(() => {});
     }, DASHBOARD_LOAD_DELAYS_MS.subscription);
@@ -249,7 +256,7 @@ export default function DashboardPage() {
       cancelled = true;
       window.clearTimeout(timeout);
     };
-  }, [authAlert]);
+  }, [authAlert, t]);
 
   // Load both in parallel on mount and when selectedDays changes
   useEffect(() => {
@@ -411,8 +418,8 @@ export default function DashboardPage() {
         <>
           {/* Row 1 — KPIs */}
           {analyticsError
-            ? <SectionCard title="Analytics"><SectionError message={analyticsError} onRetry={loadAnalytics} /></SectionCard>
-            : <KpiStrip data={data} loading={analyticsLoading} periodLabel={getPeriodLabel(dateFilter)} />}
+            ? <SectionCard title={t('Analytics')}><SectionError message={analyticsError} onRetry={loadAnalytics} /></SectionCard>
+            : <KpiStrip data={data} loading={analyticsLoading} periodLabel={getPeriodLabel(dateFilter, t)} />}
 
           {/* 12-col bento grid */}
           <div className="grid grid-cols-1 xl:grid-cols-12 gap-4 sm:gap-6 items-stretch">

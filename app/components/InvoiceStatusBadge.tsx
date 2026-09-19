@@ -1,5 +1,7 @@
 'use client';
 
+import { useT } from '../lib/i18n';
+
 interface InvoiceStatusBadgeProps {
   status: string;
 }
@@ -12,11 +14,12 @@ const STATUS_CONFIG: Record<string, { label: string; classes: string }> = {
 };
 
 export default function InvoiceStatusBadge({ status }: InvoiceStatusBadgeProps) {
+  const t = useT();
   const config = STATUS_CONFIG[status] || STATUS_CONFIG.pending;
 
   return (
     <span className={`inline-flex items-center text-[10px] font-semibold px-2 py-0.5 rounded-full border ${config.classes}`}>
-      {config.label}
+      {t(config.label)}
     </span>
   );
 }

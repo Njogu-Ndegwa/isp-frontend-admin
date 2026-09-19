@@ -7,6 +7,7 @@ import Sparkline from './Sparkline';
 import { revenueSeries, transactionSeries, userSeries } from './kpiSeries';
 import { CurrencyIcon, TransactionsIcon, UsersIcon, ChartIcon } from './icons';
 import type { DashboardAnalytics } from '../../lib/types';
+import { useT } from '../../lib/i18n';
 
 export default function KpiStrip(props: {
   data: DashboardAnalytics | null;
@@ -14,6 +15,7 @@ export default function KpiStrip(props: {
   periodLabel: string;
 }): React.JSX.Element {
   const { data, loading, periodLabel } = props;
+  const t = useT();
 
   if (loading) {
     return (
@@ -37,7 +39,7 @@ export default function KpiStrip(props: {
       <div style={{ animationDelay: '0.05s' }} className="animate-fade-in opacity-0">
         <div className="relative">
           <StatCard
-            title="Total Revenue"
+            title={t('Total Revenue')}
             value={`KES ${data.summary.totalRevenue.toLocaleString()}`}
             subtitle={periodLabel}
             icon={<CurrencyIcon />}
@@ -58,9 +60,9 @@ export default function KpiStrip(props: {
       <div style={{ animationDelay: '0.1s' }} className="animate-fade-in opacity-0">
         <div className="relative">
           <StatCard
-            title="Transactions"
+            title={t('Transactions')}
             value={data.summary.totalTransactions}
-            subtitle={`${data.averages.dailyTransactions.toFixed(1)} avg/day`}
+            subtitle={t('{count} avg/day', { count: data.averages.dailyTransactions.toFixed(1) })}
             icon={<TransactionsIcon />}
             accent="info"
           />
@@ -78,9 +80,9 @@ export default function KpiStrip(props: {
       <div style={{ animationDelay: '0.15s' }} className="animate-fade-in opacity-0">
         <div className="relative">
           <StatCard
-            title="Unique Customers"
+            title={t('Unique Customers')}
             value={data.summary.uniqueCustomers}
-            subtitle={`KES ${data.averages.revenuePerCustomer.toFixed(0)} avg spend`}
+            subtitle={t('{amount} avg spend', { amount: `KES ${data.averages.revenuePerCustomer.toFixed(0)}` })}
             icon={<UsersIcon />}
             accent="success"
           />
@@ -98,9 +100,9 @@ export default function KpiStrip(props: {
       <div style={{ animationDelay: '0.2s' }} className="animate-fade-in opacity-0">
         <div className="relative">
           <StatCard
-            title="Avg Transaction"
+            title={t('Avg Transaction')}
             value={`KES ${data.averages.transactionValue.toFixed(0)}`}
-            subtitle={`KES ${data.averages.dailyRevenue.toFixed(0)}/day avg`}
+            subtitle={t('{amount}/day avg', { amount: `KES ${data.averages.dailyRevenue.toFixed(0)}` })}
             icon={<ChartIcon />}
             accent="secondary"
           />

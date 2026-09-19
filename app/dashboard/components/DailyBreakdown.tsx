@@ -4,6 +4,7 @@ import { DashboardAnalytics, DayDetail } from '../../lib/types';
 import { formatTimeGMT3, formatDateOnlyGMT3 } from '../../lib/dateUtils';
 import { SectionEmpty } from './SectionCard';
 import { formatAmount, getDisplayCurrency } from '../../lib/format';
+import { useT } from '../../lib/i18n';
 
 // ---------------------------------------------------------------------------
 // Date-helper wrappers (mirrors DashboardClient 1383–1399)
@@ -74,11 +75,12 @@ function MetricBox({
 // ---------------------------------------------------------------------------
 
 function DayDetailCard({ dayData }: { dayData: DayDetail }) {
+  const t = useT();
   return (
     <div>
       <div className="flex items-center justify-between mb-4 sm:mb-5 gap-3">
         <div className="min-w-0">
-          <p className="text-[10px] sm:text-xs text-foreground-muted uppercase tracking-wide font-medium">Selected Day</p>
+          <p className="text-[10px] sm:text-xs text-foreground-muted uppercase tracking-wide font-medium">{t('Selected Day')}</p>
           <h3 className="font-semibold text-foreground text-sm sm:text-base truncate">{dayData.dateLabel}</h3>
         </div>
         <span className="text-xl sm:text-2xl font-bold text-amber-500 stat-value flex-shrink-0">
@@ -87,16 +89,16 @@ function DayDetailCard({ dayData }: { dayData: DayDetail }) {
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 mb-4 sm:mb-5">
-        <MetricBox value={dayData.totalTransactions} label="Tx" />
-        <MetricBox value={dayData.uniqueUsers} label="Users" color="emerald" />
-        <MetricBox value={`${dayData.repeatCustomerPercent.toFixed(0)}%`} label="Repeat" color="amber" />
-        <MetricBox value={`${dayData.avgDailySpendPerUser.toFixed(0)}`} label="Avg" prefix={getDisplayCurrency()} />
+        <MetricBox value={dayData.totalTransactions} label={t('Tx')} />
+        <MetricBox value={dayData.uniqueUsers} label={t('Users')} color="emerald" />
+        <MetricBox value={`${dayData.repeatCustomerPercent.toFixed(0)}%`} label={t('Repeat')} color="amber" />
+        <MetricBox value={`${dayData.avgDailySpendPerUser.toFixed(0)}`} label={t('Avg')} prefix={getDisplayCurrency()} />
       </div>
 
       {/* Top Spenders */}
       <div className="mb-4 sm:mb-5">
         <p className="text-[10px] sm:text-xs text-foreground-muted uppercase tracking-wide font-medium mb-2 sm:mb-3">
-          Top Spenders
+          {t('Top Spenders')}
         </p>
         <div className="space-y-2">
           {dayData.topSpenders.slice(0, 3).map((spender, i) => (
@@ -126,7 +128,7 @@ function DayDetailCard({ dayData }: { dayData: DayDetail }) {
             <p className="text-base sm:text-lg font-semibold text-foreground">
               {convertUTCTimeToLocal(dayData.firstTransaction, dayData.date)}
             </p>
-            <p className="text-[10px] sm:text-xs text-foreground-muted">First Tx</p>
+            <p className="text-[10px] sm:text-xs text-foreground-muted">{t('First Tx')}</p>
           </div>
           <div className="flex-1 mx-2 sm:mx-4">
             <div className="h-0.5 bg-gradient-to-r from-emerald-500 via-amber-500 to-orange-500 rounded-full" />
@@ -135,7 +137,7 @@ function DayDetailCard({ dayData }: { dayData: DayDetail }) {
             <p className="text-base sm:text-lg font-semibold text-foreground">
               {convertUTCTimeToLocal(dayData.lastTransaction, dayData.date)}
             </p>
-            <p className="text-[10px] sm:text-xs text-foreground-muted">Last Tx</p>
+            <p className="text-[10px] sm:text-xs text-foreground-muted">{t('Last Tx')}</p>
           </div>
         </div>
       </div>
@@ -156,19 +158,20 @@ function DayCard({
   isSelected: boolean;
   onClick: () => void;
 }) {
+  const t = useT();
   return (
     <button onClick={onClick} className={`day-card text-left ${isSelected ? 'day-card-active' : ''}`}>
       <p className={`font-medium text-xs sm:text-sm ${isSelected ? 'text-amber-500' : 'text-foreground'}`}>
         {formatLocalDate(day.date, { weekday: 'short', month: 'short', day: 'numeric' })}
       </p>
       <div className="flex items-baseline justify-between mt-1.5 sm:mt-2">
-        <span className="text-[10px] sm:text-xs text-foreground-muted">{day.totalTransactions} tx</span>
+        <span className="text-[10px] sm:text-xs text-foreground-muted">{t('{count} tx', { count: day.totalTransactions })}</span>
         <span className={`font-semibold text-xs sm:text-sm stat-value ${isSelected ? 'text-amber-500' : 'text-foreground'}`}>
           {formatAmount(day.totalRevenue)}
         </span>
       </div>
       <div className="flex items-center gap-1 sm:gap-2 mt-1.5 sm:mt-2">
-        <span className="text-[9px] sm:text-[10px] text-foreground-muted">{day.uniqueUsers} users</span>
+        <span className="text-[9px] sm:text-[10px] text-foreground-muted">{t('{count} users', { count: day.uniqueUsers })}</span>
         <span className="text-[9px] sm:text-[10px] text-foreground-muted">·</span>
         <span className="text-[9px] sm:text-[10px] text-foreground-muted">{day.repeatCustomerPercent.toFixed(0)}%</span>
       </div>
@@ -189,6 +192,7 @@ function DailyTrendChart({
   onDateSelect: (date: string) => void;
   selectedDate: string | null;
 }) {
+  const t = useT();
   const maxRevenue = Math.max(...data.map((d) => d.revenue));
 
   return (
@@ -230,7 +234,7 @@ function DailyTrendChart({
                 {formatAmount(day.revenue)}
               </p>
               <p className="text-[10px] sm:text-xs text-foreground-muted">
-                {day.transactions} tx · {day.users}
+                {t('{count} tx', { count: day.transactions })} · {day.users}
               </p>
             </div>
           </button>
@@ -250,6 +254,7 @@ export default function DailyBreakdown(props: {
   onDateSelect: (d: string) => void;
 }): React.JSX.Element {
   const { data, selectedDate, onDateSelect } = props;
+  const t = useT();
 
   const sortedDayEntries = Object.entries(data.days).sort(([a], [b]) => b.localeCompare(a));
   const selectedDayData = selectedDate ? data.days[selectedDate] ?? null : null;
@@ -262,7 +267,7 @@ export default function DailyBreakdown(props: {
       <summary className="flex items-center justify-between gap-3 p-4 sm:p-5 cursor-pointer list-none select-none">
         <h3 className="font-semibold text-foreground flex items-center gap-2 text-sm sm:text-base min-w-0">
           <span className="w-1.5 h-5 rounded-full flex-shrink-0 bg-orange-500" />
-          <span className="truncate">Daily Breakdown</span>
+          <span className="truncate">{t('Daily Breakdown')}</span>
         </h3>
         {/* Chevron — rotates when open */}
         <svg
@@ -282,7 +287,7 @@ export default function DailyBreakdown(props: {
         {/* 1. Daily Revenue Bar List */}
         <section>
           <p className="text-[10px] sm:text-xs text-foreground-muted uppercase tracking-wide font-medium mb-3">
-            Daily Revenue
+            {t('Daily Revenue')}
           </p>
           {hasTrend ? (
             <DailyTrendChart
@@ -291,7 +296,7 @@ export default function DailyBreakdown(props: {
               selectedDate={selectedDate}
             />
           ) : (
-            <SectionEmpty message="No daily trend data available." />
+            <SectionEmpty message={t('No daily trend data available.')} />
           )}
         </section>
 
@@ -302,7 +307,7 @@ export default function DailyBreakdown(props: {
           </section>
         ) : (
           <section className="border-t border-border/50 pt-5">
-            <EmptyState message="Select a day to view details." />
+            <EmptyState message={t('Select a day to view details.')} />
           </section>
         )}
 
@@ -311,9 +316,9 @@ export default function DailyBreakdown(props: {
           <div className="flex items-center justify-between mb-3 sm:mb-4">
             <h3 className="font-semibold text-foreground flex items-center gap-2 text-sm sm:text-base">
               <span className="w-1.5 h-5 rounded-full bg-orange-500" />
-              Day Breakdown
+              {t('Day Breakdown')}
             </h3>
-            <span className="text-[10px] sm:text-xs text-foreground-muted">Tap to view</span>
+            <span className="text-[10px] sm:text-xs text-foreground-muted">{t('Tap to view')}</span>
           </div>
           {hasDays ? (
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 sm:gap-3">
@@ -327,7 +332,7 @@ export default function DailyBreakdown(props: {
               ))}
             </div>
           ) : (
-            <SectionEmpty message="No day data available." />
+            <SectionEmpty message={t('No day data available.')} />
           )}
         </section>
       </div>

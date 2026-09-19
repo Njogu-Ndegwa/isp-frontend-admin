@@ -2,21 +2,23 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useT } from '../lib/i18n';
 
 export default function SubscriptionBlockedModal() {
+  const t = useT();
   const [isOpen, setIsOpen] = useState(false);
   const [message, setMessage] = useState('');
 
   useEffect(() => {
     const handler = (e: Event) => {
       const raw = (e as CustomEvent).detail;
-      const detail = typeof raw === 'string' ? raw : 'Your subscription is inactive. Please renew to continue.';
+      const detail = typeof raw === 'string' ? raw : t('Your subscription is inactive. Please renew to continue.');
       setMessage(detail);
       setIsOpen(true);
     };
     window.addEventListener('subscription-blocked', handler);
     return () => window.removeEventListener('subscription-blocked', handler);
-  }, []);
+  }, [t]);
 
   if (!isOpen) return null;
 
@@ -30,7 +32,7 @@ export default function SubscriptionBlockedModal() {
           </svg>
         </div>
 
-        <h3 className="text-lg font-semibold text-foreground mb-2">Subscription Required</h3>
+        <h3 className="text-lg font-semibold text-foreground mb-2">{t('Subscription Required')}</h3>
         <p className="text-sm text-foreground-muted mb-6">{message}</p>
 
         <div className="flex flex-col gap-3">
@@ -39,13 +41,13 @@ export default function SubscriptionBlockedModal() {
             onClick={() => setIsOpen(false)}
             className="btn-primary py-2.5 text-sm font-semibold text-center"
           >
-            View Subscription
+            {t('View Subscription')}
           </Link>
           <button
             onClick={() => setIsOpen(false)}
             className="text-sm text-foreground-muted hover:text-foreground transition-colors"
           >
-            Dismiss
+            {t('Dismiss')}
           </button>
         </div>
       </div>

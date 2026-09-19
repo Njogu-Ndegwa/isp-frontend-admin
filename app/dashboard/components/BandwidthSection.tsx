@@ -5,6 +5,7 @@ import dynamic from 'next/dynamic';
 import { SkeletonCard } from '../../components/LoadingSpinner';
 import SectionCard, { SectionError } from './SectionCard';
 import type { BandwidthHistory } from '../../lib/types';
+import { useT } from '../../lib/i18n';
 
 const BandwidthChart = dynamic(() => import('../BandwidthChart'), {
   ssr: false,
@@ -27,9 +28,10 @@ export default function BandwidthSection({
   error: string | null;
   onRetry: () => void;
 }): React.JSX.Element {
+  const t = useT();
   if (error) {
     return (
-      <SectionCard title="Bandwidth History" accent="cyan">
+      <SectionCard title={t('Bandwidth History')} accent="cyan">
         <SectionError message={error} onRetry={onRetry} />
       </SectionCard>
     );
@@ -37,7 +39,7 @@ export default function BandwidthSection({
 
   if (loading && !data) {
     return (
-      <SectionCard title="Bandwidth History" accent="cyan" loading>
+      <SectionCard title={t('Bandwidth History')} accent="cyan" loading>
         <div className="h-48 skeleton rounded-lg" />
       </SectionCard>
     );
@@ -45,9 +47,9 @@ export default function BandwidthSection({
 
   if (!data || data.history.length === 0) {
     return (
-      <SectionCard title="Bandwidth History" accent="cyan">
+      <SectionCard title={t('Bandwidth History')} accent="cyan">
         <div className="text-center py-8 text-foreground-muted">
-          <p className="text-sm">No bandwidth data available yet</p>
+          <p className="text-sm">{t('No bandwidth data available yet')}</p>
         </div>
       </SectionCard>
     );
@@ -76,15 +78,15 @@ export default function BandwidthSection({
 
   return (
     <SectionCard
-      title="Bandwidth History"
+      title={t('Bandwidth History')}
       accent="cyan"
       loading={loading}
       meta={
         <div className="text-right">
           <p className="text-[10px] sm:text-xs text-foreground-muted">
-            {data.periodLabel ?? `Last ${data.periodHours}h`} &bull; {data.count} points
+            {data.periodLabel ?? t('Last {hours}h', { hours: data.periodHours })} &bull; {t('{count} points', { count: data.count })}
           </p>
-          <p className="text-[10px] sm:text-xs text-foreground-muted">Current Avg</p>
+          <p className="text-[10px] sm:text-xs text-foreground-muted">{t('Current Avg')}</p>
           {currentAvgMeta}
         </div>
       }
@@ -92,28 +94,28 @@ export default function BandwidthSection({
       {/* Peak/Avg stats grid */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3 mb-4 sm:mb-5">
         <div className="p-2.5 sm:p-3 rounded-lg bg-background-tertiary">
-          <p className="text-[9px] sm:text-[10px] text-foreground-muted uppercase tracking-wide">Peak Down</p>
+          <p className="text-[9px] sm:text-[10px] text-foreground-muted uppercase tracking-wide">{t('Peak Down')}</p>
           <p className="text-base sm:text-lg font-bold text-cyan-500 stat-value">
             {maxDownload.toFixed(2)}{' '}
             <span className="text-[10px] sm:text-xs font-normal">Mbps</span>
           </p>
         </div>
         <div className="p-2.5 sm:p-3 rounded-lg bg-background-tertiary">
-          <p className="text-[9px] sm:text-[10px] text-foreground-muted uppercase tracking-wide">Peak Up</p>
+          <p className="text-[9px] sm:text-[10px] text-foreground-muted uppercase tracking-wide">{t('Peak Up')}</p>
           <p className="text-base sm:text-lg font-bold text-emerald-500 stat-value">
             {maxUpload.toFixed(2)}{' '}
             <span className="text-[10px] sm:text-xs font-normal">Mbps</span>
           </p>
         </div>
         <div className="p-2.5 sm:p-3 rounded-lg bg-background-tertiary">
-          <p className="text-[9px] sm:text-[10px] text-foreground-muted uppercase tracking-wide">Avg Down</p>
+          <p className="text-[9px] sm:text-[10px] text-foreground-muted uppercase tracking-wide">{t('Avg Down')}</p>
           <p className="text-base sm:text-lg font-bold text-foreground stat-value">
             {avgDownload.toFixed(2)}{' '}
             <span className="text-[10px] sm:text-xs font-normal">Mbps</span>
           </p>
         </div>
         <div className="p-2.5 sm:p-3 rounded-lg bg-background-tertiary">
-          <p className="text-[9px] sm:text-[10px] text-foreground-muted uppercase tracking-wide">Avg Up</p>
+          <p className="text-[9px] sm:text-[10px] text-foreground-muted uppercase tracking-wide">{t('Avg Up')}</p>
           <p className="text-base sm:text-lg font-bold text-foreground stat-value">
             {avgUpload.toFixed(2)}{' '}
             <span className="text-[10px] sm:text-xs font-normal">Mbps</span>
@@ -124,7 +126,7 @@ export default function BandwidthSection({
       {hasTrackedUsage && (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3 mb-4 sm:mb-5">
           <div className="p-2.5 sm:p-3 rounded-lg bg-background-tertiary">
-            <p className="text-[9px] sm:text-[10px] text-foreground-muted uppercase tracking-wide">Tracked Total</p>
+            <p className="text-[9px] sm:text-[10px] text-foreground-muted uppercase tracking-wide">{t('Tracked Total')}</p>
             <p className="text-base sm:text-lg font-bold text-foreground stat-value">{formatUsageMb(trackedUsageMb)}</p>
           </div>
           <div className="p-2.5 sm:p-3 rounded-lg bg-background-tertiary">

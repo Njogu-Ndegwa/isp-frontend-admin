@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '../context/AuthContext';
 import ThemeToggle from './ThemeToggle';
+import { useT } from '../lib/i18n';
 
 interface MobileSidebarProps {
   isOpen: boolean;
@@ -280,6 +281,7 @@ export default function MobileSidebar({ isOpen, onClose }: MobileSidebarProps) {
   const [isClosing, setIsClosing] = useState(false);
   const pathname = usePathname();
   const { user } = useAuth();
+  const t = useT();
   const isAdmin = user?.role === 'admin';
 
   const startXRef = useRef(0);
@@ -378,7 +380,7 @@ export default function MobileSidebar({ isOpen, onClose }: MobileSidebarProps) {
         {/* Header */}
         <div className="flex items-center justify-between px-5 pt-4 pb-3 border-b border-border">
           <div className="min-w-0">
-            <p className="text-sm font-semibold text-foreground truncate">{user?.organization_name || 'Menu'}</p>
+            <p className="text-sm font-semibold text-foreground truncate">{user?.organization_name || t('Menu')}</p>
             {user?.email && (
               <p className="text-xs text-foreground-muted truncate">{user.email}</p>
             )}
@@ -425,10 +427,11 @@ function NavSection({
   isActive: (href: string) => boolean;
   onClose: () => void;
 }) {
+  const t = useT();
   return (
     <div>
       <h4 className="text-[10px] font-semibold uppercase tracking-wider text-foreground-muted/60 mb-2 px-3">
-        {label}
+        {t(label)}
       </h4>
       <div className="space-y-0.5">
         {items.map((item) => {
@@ -445,7 +448,7 @@ function NavSection({
               }`}
             >
               <div className={active ? 'text-accent-primary' : ''}>{item.icon}</div>
-              <span className="text-sm font-medium">{item.name}</span>
+              <span className="text-sm font-medium">{t(item.name)}</span>
             </Link>
           );
         })}

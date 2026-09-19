@@ -2,6 +2,7 @@
 
 import SectionCard, { SectionEmpty } from './SectionCard';
 import { formatAmount } from '../../lib/format';
+import { useT } from '../../lib/i18n';
 
 interface Plan {
   name: string;
@@ -10,12 +11,13 @@ interface Plan {
 }
 
 export default function PlanPerformance({ plans, totalRevenue }: { plans: Plan[]; totalRevenue: number }) {
+  const t = useT();
   const colors = ['bg-amber-500', 'bg-orange-500', 'bg-yellow-500', 'bg-red-500', 'bg-pink-500'];
 
   return (
-    <SectionCard title="Plan Performance" accent="emerald">
+    <SectionCard title={t('Plan Performance')} accent="emerald">
       {plans.length === 0 ? (
-        <SectionEmpty message="No plan data available" />
+        <SectionEmpty message={t('No plan data available')} />
       ) : (
         <div className="space-y-4">
           {plans.map((plan, i) => {
@@ -40,7 +42,7 @@ export default function PlanPerformance({ plans, totalRevenue }: { plans: Plan[]
                     />
                   </div>
                   <span className="text-xs text-foreground-muted w-16 text-right">
-                    {plan.count} sales
+                    {t('{count} sales', { count: plan.count })}
                   </span>
                 </div>
               </div>

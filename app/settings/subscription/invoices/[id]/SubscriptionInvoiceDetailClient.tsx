@@ -10,6 +10,7 @@ import InvoiceChargeBreakdown from '../../../../components/InvoiceChargeBreakdow
 import PayInvoiceModal from '../../../../components/PayInvoiceModal';
 import { PageLoader } from '../../../../components/LoadingSpinner';
 import { formatMoney } from '../../../../lib/format';
+import { useT } from '../../../../lib/i18n';
 
 
 const formatSafeDate = (dateStr: string | null | undefined): string => {
@@ -24,6 +25,7 @@ const formatSafeDate = (dateStr: string | null | undefined): string => {
 };
 
 export default function InvoiceDetailPage() {
+  const t = useT();
   const params = useParams();
   const invoiceId = Number(params.id);
   const [invoice, setInvoice] = useState<SubscriptionInvoice | null>(null);
@@ -33,7 +35,7 @@ export default function InvoiceDetailPage() {
 
   const fetchInvoice = useCallback(async () => {
     if (!invoiceId || isNaN(invoiceId)) {
-      setError('Invalid invoice ID');
+      setError(t('Invalid invoice ID'));
       setLoading(false);
       return;
     }
@@ -43,11 +45,11 @@ export default function InvoiceDetailPage() {
       const result = await api.getSubscriptionInvoice(invoiceId);
       setInvoice(result);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load invoice');
+      setError(err instanceof Error ? err.message : t('Failed to load invoice'));
     } finally {
       setLoading(false);
     }
-  }, [invoiceId]);
+  }, [invoiceId, t]);
 
   useEffect(() => {
     fetchInvoice();
@@ -65,11 +67,11 @@ export default function InvoiceDetailPage() {
           <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
           </svg>
-          Invoices
+          {t('Invoices')}
         </Link>
         <div className="rounded-2xl bg-background-secondary border border-border p-8 text-center">
-          <p className="text-sm text-danger mb-3">{error || 'Invoice not found'}</p>
-          <button onClick={fetchInvoice} className="btn-primary px-4 py-2 text-sm">Retry</button>
+          <p className="text-sm text-danger mb-3">{error || t('Invoice not found')}</p>
+          <button onClick={fetchInvoice} className="btn-primary px-4 py-2 text-sm">{t('Retry')}</button>
         </div>
       </div>
     );
@@ -87,7 +89,7 @@ export default function InvoiceDetailPage() {
         <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
         </svg>
-        Invoices
+        {t('Invoices')}
       </Link>
 
       {/* Invoice summary section */}
@@ -105,12 +107,15 @@ export default function InvoiceDetailPage() {
               <p className="text-2xl font-bold text-foreground">{formatMoney(invoice.final_charge, invoice.currency)}</p>
               {(invoice.amount_paid != null && invoice.amount_paid > 0) && (
                 <p className="text-xs text-emerald-500 mt-1">
-                  {formatMoney(invoice.amount_paid, invoice.currency)} paid &mdash; {formatMoney(invoice.balance_remaining ?? 0, invoice.currency)} remaining
+                  {t('{paid} paid — {remaining} remaining', {
+                    paid: formatMoney(invoice.amount_paid, invoice.currency),
+                    remaining: formatMoney(invoice.balance_remaining ?? 0, invoice.currency),
+                  })}
                 </p>
               )}
-              <p className="text-xs text-foreground-muted mt-1">Due: {formatSafeDate(invoice.due_date)}</p>
+              <p className="text-xs text-foreground-muted mt-1">{t('Due: {date}', { date: formatSafeDate(invoice.due_date) })}</p>
               {invoice.paid_at && (
-                <p className="text-xs text-emerald-500 mt-0.5">Paid: {formatSafeDate(invoice.paid_at)}</p>
+                <p className="text-xs text-emerald-500 mt-0.5">{t('Paid: {date}', { date: formatSafeDate(invoice.paid_at) })}</p>
               )}
             </div>
             {canPay && (
@@ -121,16 +126,16 @@ export default function InvoiceDetailPage() {
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 013 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 00-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 01-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 003 15h-.75M15 10.5a3 3 0 11-6 0 3 3 0 016 0zm3 0h.008v.008H18V10.5zm-12 0h.008v.008H6V10.5z" />
                 </svg>
-                {(invoice.currency || 'KES') === 'KES' ? 'Pay via M-Pesa' : 'Pay by card'}
+                {(invoice.currency || 'KES') === 'KES' ? t('Pay via M-Pesa') : t('Pay by card')}
               </button>
             )}
           </div>
 
           {/* Period timeline */}
           <div className="flex flex-wrap items-center gap-4 text-xs text-foreground-muted border-t border-border pt-3">
-            {invoice.period_start && <span>Period: {formatSafeDate(invoice.period_start)}</span>}
-            {invoice.period_end && <span>to {formatSafeDate(invoice.period_end)}</span>}
-            {invoice.created_at && <span className="ml-auto">Created: {formatSafeDate(invoice.created_at)}</span>}
+            {invoice.period_start && <span>{t('Period: {date}', { date: formatSafeDate(invoice.period_start) })}</span>}
+            {invoice.period_end && <span>{t('to {date}', { date: formatSafeDate(invoice.period_end) })}</span>}
+            {invoice.created_at && <span className="ml-auto">{t('Created: {date}', { date: formatSafeDate(invoice.created_at) })}</span>}
           </div>
         </div>
       </section>
@@ -142,7 +147,7 @@ export default function InvoiceDetailPage() {
       {invoice.payments && invoice.payments.length > 0 && (
         <section className="rounded-2xl bg-background-secondary border border-border overflow-hidden">
           <div className="p-5 border-b border-border">
-            <h2 className="text-base font-semibold text-foreground">Payment History</h2>
+            <h2 className="text-base font-semibold text-foreground">{t('Payment History')}</h2>
           </div>
           <div className="p-4 space-y-3">
             {invoice.payments.map((p) => (
@@ -162,7 +167,7 @@ export default function InvoiceDetailPage() {
                     p.status === 'pending' ? 'bg-yellow-500/10 text-yellow-500' :
                     'bg-red-500/10 text-red-500'
                   }`}>
-                    {p.status}
+                    {t(p.status)}
                   </span>
                   <p className="text-xs text-foreground-muted mt-1">{formatSafeDate(p.created_at)}</p>
                 </div>

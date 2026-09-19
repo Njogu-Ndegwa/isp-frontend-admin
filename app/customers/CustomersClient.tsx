@@ -26,6 +26,7 @@ import Tabs from '../components/Tabs';
 import DataTable, { DataTableColumn } from '../components/DataTable';
 import Pagination from '../components/Pagination';
 import { formatAmount } from '../lib/format';
+import { useT } from '../lib/i18n';
 
 const TransferPPPoEModal = dynamic(() => import('../components/TransferPPPoEModal'), {
   ssr: false,
@@ -133,6 +134,7 @@ const CUSTOMER_COLUMNS: DataTableColumn[] = [
 export default function CustomersPage() {
   const routerNav = useRouter();
   const { showAlert } = useAlert();
+  const t = useT();
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [totalItems, setTotalItems] = useState(0);
   const [totalAll, setTotalAll] = useState(0);
@@ -752,10 +754,10 @@ export default function CustomersPage() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
             </svg>
           </div>
-          <h2 className="text-xl font-semibold text-foreground mb-2">Failed to Load Customers</h2>
+          <h2 className="text-xl font-semibold text-foreground mb-2">{t('Failed to Load Customers')}</h2>
           <p className="text-foreground-muted mb-4">{error}</p>
           <button onClick={() => refreshData()} className="btn-primary">
-            Try Again
+            {t('Try Again')}
           </button>
         </div>
       </div>
@@ -765,8 +767,8 @@ export default function CustomersPage() {
   return (
     <div>
       <Header
-        title="Customers"
-        subtitle={`Manage your ${totalItems || customers.length} registered customers`}
+        title={t('Customers')}
+        subtitle={t('Manage your {count} registered customers', { count: totalItems || customers.length })}
         action={
           <div className="flex items-center gap-2">
             <button
@@ -777,8 +779,8 @@ export default function CustomersPage() {
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4m4 6H4m0 0l4 4m-4-4l4-4" />
               </svg>
-              <span className="hidden sm:inline">Move PPPoE</span>
-              <span className="sm:hidden">Move</span>
+              <span className="hidden sm:inline">{t('Move PPPoE')}</span>
+              <span className="sm:hidden">{t('Move')}</span>
             </button>
             <button
               type="button"
@@ -788,8 +790,8 @@ export default function CustomersPage() {
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 16V4m0 0l-4 4m4-4l4 4M4 20h16" />
               </svg>
-              <span className="hidden sm:inline">Import PPPoE</span>
-              <span className="sm:hidden">Import</span>
+              <span className="hidden sm:inline">{t('Import PPPoE')}</span>
+              <span className="sm:hidden">{t('Import')}</span>
             </button>
             <Link
               href="/customers/register"
@@ -798,8 +800,8 @@ export default function CustomersPage() {
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
               </svg>
-              <span className="hidden sm:inline">Register Customer</span>
-              <span className="sm:hidden">Add</span>
+              <span className="hidden sm:inline">{t('Register Customer')}</span>
+              <span className="sm:hidden">{t('Add')}</span>
             </Link>
           </div>
         }
@@ -810,7 +812,7 @@ export default function CustomersPage() {
         <div className="grid grid-cols-3 gap-3 sm:gap-6 mb-6">
           <div className="animate-fade-in delay-1" style={{ opacity: 0 }}>
             <StatCard
-              title="Total"
+              title={t('Total')}
               value={totalAll}
               icon={
                 <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -822,7 +824,7 @@ export default function CustomersPage() {
           </div>
           <div className="animate-fade-in delay-2" style={{ opacity: 0 }}>
             <StatCard
-              title="Active"
+              title={t('Active')}
               value={totalActive}
               icon={
                 <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -834,7 +836,7 @@ export default function CustomersPage() {
           </div>
           <div className="animate-fade-in delay-3" style={{ opacity: 0 }}>
             <StatCard
-              title="Inactive"
+              title={t('Inactive')}
               value={Math.max(0, totalAll - totalActive)}
               icon={
                 <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -852,10 +854,10 @@ export default function CustomersPage() {
       <Tabs<ConnectionFilter>
         value={connectionFilter}
         onChange={(v) => { setConnectionFilter(v); setPage(1); }}
-        ariaLabel="Connection type"
+        ariaLabel={t('Connection type')}
         className="mb-4 animate-fade-in"
         tabs={[
-          { value: 'all', label: 'All', count: totalAll || undefined },
+          { value: 'all', label: t('All'), count: totalAll || undefined },
           {
             value: 'hotspot',
             label: 'Hotspot',
@@ -886,22 +888,22 @@ export default function CustomersPage() {
             <SearchInput
               value={searchQuery}
               onChange={setSearchQuery}
-              placeholder="Search by name, phone, account number, MAC, or PPPoE username..."
+              placeholder={t('Search by name, phone, account number, MAC, or PPPoE username...')}
             />
           </div>
         </div>
 
         {/* Status pills — secondary in-view filter, remembered across visits */}
         <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-xs uppercase tracking-wider text-foreground-muted hidden sm:inline">Status</span>
+          <span className="text-xs uppercase tracking-wider text-foreground-muted hidden sm:inline">{t('Status')}</span>
           <FilterPills<FilterStatus>
             value={filter}
             onChange={(v) => { setFilter(v); setPage(1); }}
-            ariaLabel="Filter by status"
+            ariaLabel={t('Filter by status')}
             options={[
-              { value: 'all', label: 'All', count: statusCounts.all },
-              { value: 'active', label: 'Active', count: statusCounts.active },
-              { value: 'inactive', label: 'Inactive', count: statusCounts.inactive },
+              { value: 'all', label: t('All'), count: statusCounts.all },
+              { value: 'active', label: t('Active'), count: statusCounts.active },
+              { value: 'inactive', label: t('Inactive'), count: statusCounts.inactive },
             ]}
           />
         </div>
@@ -919,13 +921,13 @@ export default function CustomersPage() {
           <div>
             <p className="text-sm font-medium text-warning">
               {offlineRouters.length === 1
-                ? `${offlineRouters[0].name} is not reachable`
-                : `${offlineRouters.length} routers are not reachable`}
+                ? t('{name} is not reachable', { name: offlineRouters[0].name })
+                : t('{count} routers are not reachable', { count: offlineRouters.length })}
             </p>
             <p className="text-xs text-foreground-muted mt-0.5">
-              Live status and speeds for {offlineRouters.length === 1 ? 'its' : 'their'} customers are
-              unavailable until {offlineRouters.length === 1 ? 'it comes' : 'they come'} back — usually
-              power or the internet line at the site.
+              {offlineRouters.length === 1
+                ? t('Live status and speeds for its customers are unavailable until it comes back — usually power or the internet line at the site.')
+                : t('Live status and speeds for their customers are unavailable until they come back — usually power or the internet line at the site.')}
               {offlineRouters.length > 1 && ` (${offlineRouters.map((r) => r.name).join(', ')})`}
             </p>
           </div>
@@ -934,7 +936,7 @@ export default function CustomersPage() {
 
       {/* Desktop Table */}
           <DataTable<Customer>
-            columns={CUSTOMER_COLUMNS}
+            columns={CUSTOMER_COLUMNS.map((col) => ({ ...col, label: col.label ? t(col.label) : col.label }))}
             data={displayedCustomers}
             loading={loading}
             rowKey={(c) => c.id}
@@ -957,7 +959,7 @@ export default function CustomersPage() {
                         {(customer.name || '?').charAt(0).toUpperCase()}
                       </div>
                       <div>
-                        <span className="font-medium text-foreground">{customer.name || 'Unknown'}</span>
+                        <span className="font-medium text-foreground">{customer.name || t('Unknown')}</span>
                         {customer.account_number && (
                           <p className="text-xs font-mono text-foreground-muted">4159825 &mdash; {customer.account_number}</p>
                         )}
@@ -972,7 +974,7 @@ export default function CustomersPage() {
                 case 'plan':
                   return (
                     <div>
-                      <p className="font-medium text-foreground">{customer.plan?.name || 'No Plan'}</p>
+                      <p className="font-medium text-foreground">{customer.plan?.name || t('No Plan')}</p>
                       <p className="text-xs text-foreground-muted">{customer.plan?.price != null ? formatAmount(customer.plan.price) : '-'}</p>
                     </div>
                   );
@@ -981,7 +983,7 @@ export default function CustomersPage() {
                 case 'status':
                   return (
                     <span className={`badge ${getStatusBadge(customer.status)} capitalize`}>
-                      {customer.status}
+                      {t(customer.status)}
                     </span>
                   );
                 case 'expiry':
@@ -1016,13 +1018,13 @@ export default function CustomersPage() {
                       <div className="flex flex-col gap-0.5">
                         <span
                           className="inline-flex items-center gap-1.5 text-warning text-xs font-medium"
-                          title="The router is not reachable, so live status for its customers is unavailable"
+                          title={t('The router is not reachable, so live status for its customers is unavailable')}
                         >
-                          <span className="w-2 h-2 rounded-full bg-warning" /> Router offline
+                          <span className="w-2 h-2 rounded-full bg-warning" /> {t('Router offline')}
                         </span>
                         {formatTimeSinceUTC(liveness?.lastOnlineAt) && (
                           <span className="text-[11px] text-foreground-muted">
-                            last seen {formatTimeSinceUTC(liveness?.lastOnlineAt)}
+                            {t('last seen {time}', { time: formatTimeSinceUTC(liveness?.lastOnlineAt) ?? '' })}
                           </span>
                         )}
                       </div>
@@ -1047,22 +1049,22 @@ export default function CustomersPage() {
                     <div className="flex flex-col gap-0.5">
                       {live.disabled ? (
                         <span className="inline-flex items-center gap-1.5 text-warning text-xs font-medium">
-                          <span className="w-2 h-2 rounded-full bg-warning" /> Disabled
+                          <span className="w-2 h-2 rounded-full bg-warning" /> {t('Disabled')}
                         </span>
                       ) : live.online ? (
                         <span className="inline-flex items-center gap-1.5 text-emerald-500 text-xs font-medium">
-                          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" /> Online
+                          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" /> {t('Online')}
                         </span>
                       ) : (
                         <span className="inline-flex items-center gap-1.5 text-foreground-muted text-xs font-medium">
-                          <span className="w-2 h-2 rounded-full bg-foreground-muted/40" /> Offline
+                          <span className="w-2 h-2 rounded-full bg-foreground-muted/40" /> {t('Offline')}
                         </span>
                       )}
                       {live.online && live.address && (
                         <span className="font-mono text-[11px] text-foreground-muted">{live.address}</span>
                       )}
                       {live.online && live.uptime && (
-                        <span className="text-[11px] text-foreground-muted">up {live.uptime}</span>
+                        <span className="text-[11px] text-foreground-muted">{t('up {uptime}', { uptime: live.uptime })}</span>
                       )}
                     </div>
                   );
@@ -1108,7 +1110,7 @@ export default function CustomersPage() {
                   return (
                     <div className="flex flex-col gap-0.5 min-w-[120px]" title={tooltip}>
                       <span className="text-[9px] uppercase tracking-wider text-foreground-muted/80 leading-none">
-                        Used
+                        {t('Used')}
                       </span>
                       <div className="flex items-baseline justify-between gap-2 text-xs tabular-nums">
                         <span className={peerStyle}>
@@ -1116,10 +1118,10 @@ export default function CustomersPage() {
                         </span>
                         {usage.cap_mb ? (
                           <span className="text-foreground-muted text-[11px]">
-                            of {formatDataMB(usage.cap_mb)}
+                            {t('of {amount}', { amount: formatDataMB(usage.cap_mb) })}
                           </span>
                         ) : (
-                          <span className="text-foreground-muted text-[10px] uppercase tracking-wider">no cap</span>
+                          <span className="text-foreground-muted text-[10px] uppercase tracking-wider">{t('no cap')}</span>
                         )}
                       </div>
                       {usage.cap_mb !== null && (
@@ -1131,13 +1133,13 @@ export default function CustomersPage() {
                             />
                           </div>
                           <span className={`text-[10px] tabular-nums font-medium ${colors.text}`}>
-                            {usage.percent_used.toFixed(0)}% of cap
+                            {t('{percent}% of cap', { percent: usage.percent_used.toFixed(0) })}
                           </span>
                         </div>
                       )}
                       {usage.fup_active && (
                         <span className="text-[10px] uppercase tracking-wider text-danger font-semibold">
-                          FUP active
+                          {t('FUP active')}
                         </span>
                       )}
                     </div>
@@ -1149,7 +1151,7 @@ export default function CustomersPage() {
                       <button
                         onClick={() => routerNav.push(`/customers/${customer.id}`)}
                         className="p-1.5 rounded-md hover:bg-accent-primary/10 transition-colors text-foreground-muted hover:text-accent-primary"
-                        title="Edit customer"
+                        title={t('Edit customer')}
                       >
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -1158,7 +1160,7 @@ export default function CustomersPage() {
                       <button
                         onClick={() => setDeleteConfirm(customer)}
                         className="p-1.5 rounded-md hover:bg-danger/10 transition-colors text-foreground-muted hover:text-danger"
-                        title="Delete customer"
+                        title={t('Delete customer')}
                       >
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -1169,7 +1171,7 @@ export default function CustomersPage() {
                           <button
                             onClick={() => handleViewCredentials(customer)}
                             className="p-1.5 rounded-md hover:bg-background-tertiary transition-colors text-foreground-muted hover:text-foreground"
-                            title="View Credentials"
+                            title={t('View Credentials')}
                           >
                             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                               <path strokeLinecap="round" strokeLinejoin="round" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
@@ -1179,7 +1181,7 @@ export default function CustomersPage() {
                             <button
                               onClick={() => setActivateModal(customer)}
                               className="p-1.5 rounded-md hover:bg-success/10 transition-colors text-success"
-                              title="Activate PPPoE"
+                              title={t('Activate PPPoE')}
                             >
                               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M5.636 18.364a9 9 0 010-12.728m12.728 0a9 9 0 010 12.728M9.172 14.828a4 4 0 010-5.656m5.656 0a4 4 0 010 5.656M12 12h.01" />
@@ -1190,7 +1192,7 @@ export default function CustomersPage() {
                             <button
                               onClick={() => setDeactivateConfirm(customer)}
                               className="p-1.5 rounded-md hover:bg-danger/10 transition-colors text-danger"
-                              title="Deactivate PPPoE"
+                              title={t('Deactivate PPPoE')}
                             >
                               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
@@ -1212,7 +1214,7 @@ export default function CustomersPage() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
                 </svg>
               ),
-              message: searchQuery ? 'No customers match your search' : 'No customers found',
+              message: searchQuery ? t('No customers match your search') : t('No customers found'),
             }}
             footer={
               <Pagination page={page} perPage={perPage} total={effectiveTotal} onPageChange={handlePageChange} onPerPageChange={handlePerPageChange} loading={loading} noun="customers" />
@@ -1230,7 +1232,7 @@ export default function CustomersPage() {
                 <svg className="w-12 h-12 mx-auto mb-4 text-foreground-muted/50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
                 </svg>
-                {searchQuery ? 'No customers match your search' : 'No customers found'}
+                {searchQuery ? t('No customers match your search') : t('No customers found')}
               </div>
             ) : (
               displayedCustomers.map((customer) => {
@@ -1255,7 +1257,7 @@ export default function CustomersPage() {
                 <MobileDataCard
                   key={customer.id}
                   id={customer.id}
-                  title={customer.name || 'Unknown'}
+                  title={customer.name || t('Unknown')}
                   subtitle={customer.account_number ? `4159825 — ${customer.account_number}` : (customer.pppoe_username || customer.phone || undefined)}
                   avatar={{
                     text: (customer.name || '?').charAt(0).toUpperCase(),
@@ -1269,28 +1271,28 @@ export default function CustomersPage() {
                     // A router that isn't answering outranks every per-customer
                     // state: none of them can be connected through it.
                     routerDownCard
-                      ? { label: 'Router offline', variant: 'warning' as const }
+                      ? { label: t('Router offline'), variant: 'warning' as const }
                       : cardLoadingLive
                       ? undefined
                       : liveCard
                       ? liveCard.disabled
-                        ? { label: 'Disabled', variant: 'warning' as const }
+                        ? { label: t('Disabled'), variant: 'warning' as const }
                         : liveCard.online
                         // Cyan (not `success`) so the "Online" pill is
                         // unambiguously distinct from the green "Active"
                         // status pill sitting right next to it.
-                        ? { label: 'Online', variant: 'cyan' as const }
-                        : { label: 'Offline', variant: 'neutral' as const }
+                        ? { label: t('Online'), variant: 'cyan' as const }
+                        : { label: t('Offline'), variant: 'neutral' as const }
                       : connectionTypeCard === 'pppoe'
                       ? { label: 'PPPoE', variant: 'info' as const }
                       : { label: 'Hotspot', variant: 'neutral' as const }
                   }
                   status={{
-                    label: customer.status,
+                    label: t(customer.status),
                     variant: customer.status === 'active' ? 'success' : customer.status === 'expired' ? 'danger' : 'neutral',
                   }}
                   value={{
-                    text: customer.plan?.name || 'No Plan',
+                    text: customer.plan?.name || t('No Plan'),
                   }}
                   secondary={{
                     left: cardLoadingLive ? (
@@ -1311,11 +1313,11 @@ export default function CustomersPage() {
                             : `Used ${formatDataMB(usageCard.total_mb)} this period — no cap${getPeerUsageLabel(usageCard.total_mb)}`
                         }
                       >
-                        <span className="text-[9px] uppercase tracking-wider text-foreground-muted/80">Used</span>
+                        <span className="text-[9px] uppercase tracking-wider text-foreground-muted/80">{t('Used')}</span>
                         <span className={getPeerUsageStyle(usageCard.total_mb)}>{formatDataMB(usageCard.total_mb)}</span>
                         {usageCard.cap_mb !== null && (
                           <span className="text-foreground-muted text-[11px]">
-                            of {formatDataMB(usageCard.cap_mb)}
+                            {t('of {amount}', { amount: formatDataMB(usageCard.cap_mb) })}
                           </span>
                         )}
                         {usageCard.cap_mb !== null && usageColors && (
@@ -1359,7 +1361,7 @@ export default function CustomersPage() {
                       <button
                         onClick={(e) => { e.preventDefault(); e.stopPropagation(); routerNav.push(`/customers/${customer.id}`); }}
                         className="p-1.5 rounded-md hover:bg-accent-primary/10 transition-colors text-foreground-muted hover:text-accent-primary active:opacity-70"
-                        title="Edit"
+                        title={t('Edit')}
                       >
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -1369,7 +1371,7 @@ export default function CustomersPage() {
                         <button
                           onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleViewCredentials(customer); }}
                           className="p-1.5 rounded-md hover:bg-background-tertiary transition-colors text-foreground-muted hover:text-foreground active:opacity-70"
-                          title="Credentials"
+                          title={t('Credentials')}
                         >
                           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                             <path strokeLinecap="round" strokeLinejoin="round" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
@@ -1380,7 +1382,7 @@ export default function CustomersPage() {
                         <button
                           onClick={(e) => { e.preventDefault(); e.stopPropagation(); setActivateModal(customer); }}
                           className="p-1.5 rounded-md hover:bg-success/10 transition-colors text-success active:opacity-70"
-                          title="Activate"
+                          title={t('Activate')}
                         >
                           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                             <path strokeLinecap="round" strokeLinejoin="round" d="M5.636 18.364a9 9 0 010-12.728m12.728 0a9 9 0 010 12.728M9.172 14.828a4 4 0 010-5.656m5.656 0a4 4 0 010 5.656M12 12h.01" />
@@ -1391,7 +1393,7 @@ export default function CustomersPage() {
                         <button
                           onClick={(e) => { e.preventDefault(); e.stopPropagation(); setDeactivateConfirm(customer); }}
                           className="p-1.5 rounded-md hover:bg-danger/10 transition-colors text-danger active:opacity-70"
-                          title="Deactivate"
+                          title={t('Deactivate')}
                         >
                           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                             <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
@@ -1401,7 +1403,7 @@ export default function CustomersPage() {
                       <button
                         onClick={(e) => { e.preventDefault(); e.stopPropagation(); setDeleteConfirm(customer); }}
                         className="p-1.5 rounded-md hover:bg-danger/10 transition-colors text-foreground-muted hover:text-danger active:opacity-70"
-                        title="Delete"
+                        title={t('Delete')}
                       >
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />

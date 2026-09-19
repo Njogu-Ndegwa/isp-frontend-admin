@@ -1,5 +1,6 @@
 'use client';
 import React from 'react';
+import { useT } from '../../lib/i18n';
 
 const ACCENT: Record<string, string> = {
   amber: 'bg-amber-500', emerald: 'bg-emerald-500', cyan: 'bg-cyan-500',
@@ -41,10 +42,11 @@ export default function SectionCard({
 }
 
 export function SectionError({ message, onRetry }: { message: string; onRetry?: () => void }) {
+  const t = useT();
   return (
     <div className="flex items-center justify-between gap-3">
       <p className="text-xs text-danger">{message}</p>
-      {onRetry && <button onClick={onRetry} className="btn-ghost text-xs">Retry</button>}
+      {onRetry && <button onClick={onRetry} className="btn-ghost text-xs">{t('Retry')}</button>}
     </div>
   );
 }

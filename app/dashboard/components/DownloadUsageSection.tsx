@@ -7,6 +7,7 @@ import { SectionError } from './SectionCard';
 import type { BandwidthHistory } from '../../lib/types';
 import type { DownloadUsageServiceFilter } from '../DownloadUsageChart';
 import { DateFilter, USAGE_PERIOD_OPTIONS, isFilterEqual } from '../dateFilter';
+import { useT } from '../../lib/i18n';
 
 const DownloadUsageChart = dynamic(() => import('../DownloadUsageChart'), {
   ssr: false,
@@ -62,9 +63,10 @@ export function DownloadUsageBody({
   service: DownloadUsageServiceFilter;
   onServiceChange: (s: DownloadUsageServiceFilter) => void;
 }): React.JSX.Element {
+  const t = useT();
   const totals = getDownloadUsageTotals(data);
-  const selectedLabel =
-    USAGE_PERIOD_OPTIONS.find((option) => isFilterEqual(option.filter, period))?.label ?? 'Selected period';
+  const selectedOption = USAGE_PERIOD_OPTIONS.find((option) => isFilterEqual(option.filter, period));
+  const selectedLabel = selectedOption ? t(selectedOption.label) : t('Selected period');
   // Prefer the window the backend actually served, so the caption can never
   // claim a period the numbers don't cover.
   const periodCaption = data?.periodLabel ?? selectedLabel;
@@ -91,7 +93,7 @@ export function DownloadUsageBody({
                   service === option.value ? 'period-pill-active' : 'period-pill-inactive'
                 }`}
               >
-                {option.label}
+                {t(option.label)}
               </button>
             ))}
           </div>
@@ -104,28 +106,28 @@ export function DownloadUsageBody({
                   isFilterEqual(option.filter, period) ? 'period-pill-active' : 'period-pill-inactive'
                 }`}
               >
-                {option.label}
+                {t(option.label)}
               </button>
             ))}
           </div>
         </div>
         <span className="text-foreground-muted text-[10px] sm:text-xs">
-          {periodCaption} &bull; {data?.count ?? 0} points
-          {data?.periodTruncated ? ' • limited to the last 30 days' : ''}
+          {periodCaption} &bull; {t('{count} points', { count: data?.count ?? 0 })}
+          {data?.periodTruncated ? ` • ${t('limited to the last 30 days')}` : ''}
         </span>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3 mb-4">
         <div className="p-2.5 sm:p-3 rounded-lg bg-background-tertiary">
-          <p className="text-[9px] sm:text-[10px] text-foreground-muted uppercase tracking-wide">Total Download</p>
+          <p className="text-[9px] sm:text-[10px] text-foreground-muted uppercase tracking-wide">{t('Total Download')}</p>
           <p className="text-base sm:text-lg font-bold text-cyan-500 stat-value">{formatUsageMb(totals.all)}</p>
         </div>
         <div className="p-2.5 sm:p-3 rounded-lg bg-background-tertiary">
-          <p className="text-[9px] sm:text-[10px] text-foreground-muted uppercase tracking-wide">Hotspot Download</p>
+          <p className="text-[9px] sm:text-[10px] text-foreground-muted uppercase tracking-wide">{t('Hotspot Download')}</p>
           <p className="text-base sm:text-lg font-bold text-amber-500 stat-value">{formatUsageMb(totals.hotspot)}</p>
         </div>
         <div className="p-2.5 sm:p-3 rounded-lg bg-background-tertiary">
-          <p className="text-[9px] sm:text-[10px] text-foreground-muted uppercase tracking-wide">PPPoE Download</p>
+          <p className="text-[9px] sm:text-[10px] text-foreground-muted uppercase tracking-wide">{t('PPPoE Download')}</p>
           <p className="text-base sm:text-lg font-bold text-violet-500 stat-value">{formatUsageMb(totals.pppoe)}</p>
         </div>
       </div>

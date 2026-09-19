@@ -9,6 +9,7 @@ import InvoiceStatusBadge from '../../components/InvoiceStatusBadge';
 import PayInvoiceModal from '../../components/PayInvoiceModal';
 import { PageLoader } from '../../components/LoadingSpinner';
 import { formatMoney } from '../../lib/format';
+import { useT } from '../../lib/i18n';
 
 
 const formatSafeDate = (dateStr: string | null | undefined): string => {
@@ -34,6 +35,7 @@ function getDaysUntil(dateStr: string | null): number | null {
 }
 
 export default function SubscriptionSettingsPage() {
+  const t = useT();
   const [data, setData] = useState<SubscriptionOverview | null>(null);
   const [recentInvoices, setRecentInvoices] = useState<SubscriptionInvoice[]>([]);
   const [loading, setLoading] = useState(true);
@@ -54,21 +56,21 @@ export default function SubscriptionSettingsPage() {
       setData(subscriptionResult);
       setRecentInvoices(invoicesResult.invoices);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load subscription');
+      setError(err instanceof Error ? err.message : t('Failed to load subscription'));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   const handleRequestInvoice = async () => {
     setRequestingInvoice(true);
     setRequestInvoiceMsg(null);
     try {
       const result = await api.requestInvoice();
-      setRequestInvoiceMsg(result.generated ? 'Invoice generated successfully' : 'You already have a pending invoice');
+      setRequestInvoiceMsg(result.generated ? t('Invoice generated successfully') : t('You already have a pending invoice'));
       fetchData();
     } catch (err) {
-      setRequestInvoiceMsg(err instanceof Error ? err.message : 'Failed to request invoice');
+      setRequestInvoiceMsg(err instanceof Error ? err.message : t('Failed to request invoice'));
     } finally {
       setRequestingInvoice(false);
     }
@@ -106,7 +108,7 @@ export default function SubscriptionSettingsPage() {
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
             </svg>
             <p className="text-sm text-danger mb-3">{error}</p>
-            <button onClick={fetchData} className="btn-primary px-4 py-2 text-sm">Retry</button>
+            <button onClick={fetchData} className="btn-primary px-4 py-2 text-sm">{t('Retry')}</button>
           </div>
         </section>
       </div>
@@ -129,12 +131,17 @@ export default function SubscriptionSettingsPage() {
   const minimumCharge = pricing?.kind === 'usage' ? pricing.minimum : 500;
   const hotspotRatePct = Math.round((pricing?.hotspot_rate ?? 0.03) * 1000) / 10;
   const perPppoe = pricing?.per_pppoe_user ?? 25;
-  const payLabel = invoiceCurrency === 'KES' ? 'Pay via M-Pesa' : 'Pay by card';
+  const payLabel = invoiceCurrency === 'KES' ? t('Pay via M-Pesa') : t('Pay by card');
   // International invoices are in USD; show what the reseller actually
   // collected in their own currency and the rate used to convert it.
   const localRevenueNote =
     pricing?.revenue_currency && pricing.revenue_currency !== invoiceCurrency && pricing.fx_rate
-      ? `${formatMoney(pricing.hotspot_revenue_local ?? 0, pricing.revenue_currency)} at ${pricing.fx_rate.toLocaleString('en-US')} ${pricing.revenue_currency}/${invoiceCurrency}`
+      ? t('{amount} at {rate} {from}/{to}', {
+          amount: formatMoney(pricing.hotspot_revenue_local ?? 0, pricing.revenue_currency),
+          rate: pricing.fx_rate.toLocaleString('en-US'),
+          from: pricing.revenue_currency,
+          to: invoiceCurrency,
+        })
       : null;
 
   return (
@@ -142,9 +149,9 @@ export default function SubscriptionSettingsPage() {
 
       {returnedFromCard && (
         <div className="rounded-2xl p-4 sm:p-5 bg-emerald-500/10 border border-emerald-500/25 text-sm text-foreground">
-          <p className="font-semibold text-emerald-500">Thanks, we have your card payment</p>
+          <p className="font-semibold text-emerald-500">{t('Thanks, we have your card payment')}</p>
           <p className="mt-1 text-foreground-muted">
-            Your subscription will be activated as soon as the payment is confirmed. You don&apos;t need to pay again.
+            {t("Your subscription will be activated as soon as the payment is confirmed. You don't need to pay again.")}
           </p>
         </div>
       )}
@@ -166,11 +173,11 @@ export default function SubscriptionSettingsPage() {
             </div>
             <div className="flex-1 min-w-0">
               <p className={`text-sm font-semibold ${pendingInv.is_overdue ? 'text-red-500' : 'text-amber-500'}`}>
-                {pendingInv.is_overdue ? 'Payment Overdue' : 'Payment Due Soon'}
+                {pendingInv.is_overdue ? t('Payment Overdue') : t('Payment Due Soon')}
               </p>
               <p className="text-sm text-foreground mt-0.5">
                 <span className="font-bold">{money(pendingInv.final_charge)}</span>
-                {' '}due {formatSafeDate(pendingInv.due_date)}
+                {' '}{t('due {date}', { date: formatSafeDate(pendingInv.due_date) })}
               </p>
             </div>
             <button
@@ -180,7 +187,7 @@ export default function SubscriptionSettingsPage() {
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 013 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 00-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 01-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 003 15h-.75M15 10.5a3 3 0 11-6 0 3 3 0 016 0zm3 0h.008v.008H18V10.5zm-12 0h.008v.008H6V10.5z" />
               </svg>
-              Pay Now
+              {t('Pay Now')}
             </button>
           </div>
         </div>
@@ -197,10 +204,10 @@ export default function SubscriptionSettingsPage() {
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-semibold text-red-500">
-                Subscription {data.status === 'suspended' ? 'Suspended' : 'Inactive'}
+                {data.status === 'suspended' ? t('Subscription Suspended') : t('Subscription Inactive')}
               </p>
               <p className="text-sm text-foreground-muted mt-0.5">
-                Request an invoice to renew your subscription
+                {t('Request an invoice to renew your subscription')}
               </p>
             </div>
             <button
@@ -211,10 +218,10 @@ export default function SubscriptionSettingsPage() {
               {requestingInvoice ? (
                 <>
                   <span className="w-4 h-4 border-2 border-current/30 border-t-current rounded-full animate-spin" />
-                  Requesting...
+                  {t('Requesting...')}
                 </>
               ) : (
-                'Request Invoice'
+                t('Request Invoice')
               )}
             </button>
           </div>
@@ -231,7 +238,7 @@ export default function SubscriptionSettingsPage() {
             <div className="flex items-center gap-3 min-w-0">
               <SubscriptionStatusBadge status={data.status} size="md" />
               {isTrial && (
-                <span className="text-xs text-foreground-muted hidden sm:inline">Free trial</span>
+                <span className="text-xs text-foreground-muted hidden sm:inline">{t('Free trial')}</span>
               )}
             </div>
             {daysUntilExpiry !== null && (
@@ -241,10 +248,12 @@ export default function SubscriptionSettingsPage() {
                   daysUntilExpiry <= 3 ? 'text-red-500' :
                   daysUntilExpiry <= 7 ? 'text-amber-500' : 'text-foreground'
                 }`}>
-                  {daysUntilExpiry > 0 ? `${daysUntilExpiry}d left` : `Expired ${Math.abs(daysUntilExpiry)}d ago`}
+                  {daysUntilExpiry > 0 ? t('{days}d left', { days: daysUntilExpiry }) : t('Expired {days}d ago', { days: Math.abs(daysUntilExpiry) })}
                 </p>
                 <p className="text-[11px] text-foreground-muted mt-0.5">
-                  {daysUntilExpiry > 0 ? 'Expires' : 'Expired'} {formatSafeDate(data.expires_at)}
+                  {daysUntilExpiry > 0
+                    ? t('Expires {date}', { date: formatSafeDate(data.expires_at) })
+                    : t('Expired {date}', { date: formatSafeDate(data.expires_at) })}
                 </p>
               </div>
             )}
@@ -253,8 +262,8 @@ export default function SubscriptionSettingsPage() {
           {isTrial && trialDaysLeft !== null && (
             <div className="mt-3 pt-3 border-t border-border">
               <div className="flex items-center justify-between text-xs text-foreground-muted mb-1.5">
-                <span>Trial progress</span>
-                <span>{Math.max(0, 7 - trialDaysLeft)} of 7 days</span>
+                <span>{t('Trial progress')}</span>
+                <span>{t('{count} of 7 days', { count: Math.max(0, 7 - trialDaysLeft) })}</span>
               </div>
               <div className="w-full h-1.5 bg-background-tertiary rounded-full overflow-hidden">
                 <div
@@ -274,7 +283,7 @@ export default function SubscriptionSettingsPage() {
         }`}>
           <div className="p-4 sm:p-5 border-b border-border flex items-center justify-between">
             <div className="min-w-0">
-              <h2 className="text-base font-semibold text-foreground">Current Invoice</h2>
+              <h2 className="text-base font-semibold text-foreground">{t('Current Invoice')}</h2>
               <p className="text-xs text-foreground-muted mt-0.5">{pendingInv.period_label}</p>
             </div>
             <span className={`flex-shrink-0 text-[10px] font-semibold px-2.5 py-1 rounded-full border ${
@@ -282,7 +291,7 @@ export default function SubscriptionSettingsPage() {
                 ? 'bg-red-500/10 text-red-500 border-red-500/20'
                 : 'bg-amber-500/10 text-amber-500 border-amber-500/20'
             }`}>
-              {pendingInv.is_overdue ? 'Overdue' : 'Due Soon'}
+              {pendingInv.is_overdue ? t('Overdue') : t('Due Soon')}
             </span>
           </div>
 
@@ -292,7 +301,7 @@ export default function SubscriptionSettingsPage() {
               {(pendingInv.hotspot_revenue != null && pendingInv.hotspot_revenue > 0) && (
                 <div className="flex items-center justify-between text-sm">
                   <div>
-                    <p className="text-foreground">Hotspot Revenue</p>
+                    <p className="text-foreground">{t('Hotspot Revenue')}</p>
                     <p className="text-xs text-foreground-muted">{money(pendingInv.hotspot_revenue)} x {hotspotRatePct}%</p>
                     {localRevenueNote && (
                       <p className="text-[11px] text-foreground-muted/70">{localRevenueNote}</p>
@@ -305,8 +314,8 @@ export default function SubscriptionSettingsPage() {
               {(pendingInv.pppoe_user_count != null && pendingInv.pppoe_user_count > 0) && (
                 <div className="flex items-center justify-between text-sm">
                   <div>
-                    <p className="text-foreground">PPPoE Users</p>
-                    <p className="text-xs text-foreground-muted">{pendingInv.pppoe_user_count} users x {money(perPppoe)}</p>
+                    <p className="text-foreground">{t('PPPoE Users')}</p>
+                    <p className="text-xs text-foreground-muted">{t('{count} users x {price}', { count: pendingInv.pppoe_user_count, price: money(perPppoe) })}</p>
                   </div>
                   <span className="font-medium text-foreground">{money(pendingInv.pppoe_charge ?? 0)}</span>
                 </div>
@@ -315,31 +324,31 @@ export default function SubscriptionSettingsPage() {
               <div className="border-t border-border pt-2.5 space-y-2">
                 {pendingInv.gross_charge != null && (
                   <div className="flex items-center justify-between text-sm">
-                    <span className="text-foreground-muted">{isFlatPricing ? 'Monthly subscription' : 'Subtotal'}</span>
+                    <span className="text-foreground-muted">{isFlatPricing ? t('Monthly subscription') : t('Subtotal')}</span>
                     <span className="text-foreground">{money(pendingInv.gross_charge)}</span>
                   </div>
                 )}
 
                 {!isFlatPricing && pendingInv.gross_charge != null && pendingInv.gross_charge < minimumCharge && (
                   <div className="flex items-center justify-between text-xs">
-                    <span className="text-foreground-muted">Minimum charge applied</span>
+                    <span className="text-foreground-muted">{t('Minimum charge applied')}</span>
                     <span className="text-amber-500">{money(minimumCharge)}</span>
                   </div>
                 )}
 
                 <div className="flex items-center justify-between border-t border-border pt-2">
-                  <span className="text-sm font-semibold text-foreground">Total Due</span>
+                  <span className="text-sm font-semibold text-foreground">{t('Total Due')}</span>
                   <span className="text-lg font-bold text-foreground">{money(pendingInv.final_charge)}</span>
                 </div>
 
                 {(pendingInv.amount_paid != null && pendingInv.amount_paid > 0) && (
                   <>
                     <div className="flex items-center justify-between text-sm">
-                      <span className="text-foreground-muted">Paid</span>
+                      <span className="text-foreground-muted">{t('Paid')}</span>
                       <span className="text-emerald-500 font-medium">{money(pendingInv.amount_paid)}</span>
                     </div>
                     <div className="flex items-center justify-between text-sm font-semibold">
-                      <span className="text-foreground">Balance</span>
+                      <span className="text-foreground">{t('Balance')}</span>
                       <span className={`text-base ${(pendingInv.balance_remaining ?? 0) > 0 ? 'text-amber-500' : 'text-emerald-500'}`}>
                         {money(pendingInv.balance_remaining ?? 0)}
                       </span>
@@ -371,7 +380,7 @@ export default function SubscriptionSettingsPage() {
                 href={`/settings/subscription/invoices/${pendingInv.id}`}
                 className="w-full sm:w-auto px-6 py-3 text-sm text-center text-foreground-muted hover:text-foreground border border-border rounded-xl hover:bg-background-tertiary transition-colors active:opacity-70 touch-manipulation"
               >
-                View full invoice
+                {t('View full invoice')}
               </Link>
             </div>
           </div>
@@ -381,18 +390,18 @@ export default function SubscriptionSettingsPage() {
       {/* --- Section 4: Recent Invoices --- */}
       <section className="rounded-2xl bg-background-secondary border border-border overflow-hidden">
         <div className="p-4 sm:p-5 border-b border-border flex items-center justify-between">
-          <h2 className="text-base font-semibold text-foreground">Recent Invoices</h2>
+          <h2 className="text-base font-semibold text-foreground">{t('Recent Invoices')}</h2>
           <Link
             href="/settings/subscription/invoices"
             className="text-xs text-accent-primary hover:underline active:opacity-70 touch-manipulation"
           >
-            View all
+            {t('View all')}
           </Link>
         </div>
 
         {recentInvoices.length === 0 ? (
           <div className="p-5 text-center">
-            <p className="text-sm text-foreground-muted">No invoices yet</p>
+            <p className="text-sm text-foreground-muted">{t('No invoices yet')}</p>
           </div>
         ) : (
           <div className="divide-y divide-border">
@@ -405,7 +414,7 @@ export default function SubscriptionSettingsPage() {
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-foreground truncate">{inv.period_label}</p>
                   <p className="text-xs text-foreground-muted mt-0.5">
-                    Due {formatSafeDate(inv.due_date)}
+                    {t('Due {date}', { date: formatSafeDate(inv.due_date) })}
                   </p>
                 </div>
                 <div className="flex items-center gap-3 flex-shrink-0">
@@ -431,7 +440,7 @@ export default function SubscriptionSettingsPage() {
             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 013 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 00-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 01-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 003 15h-.75M15 10.5a3 3 0 11-6 0 3 3 0 016 0zm3 0h.008v.008H18V10.5zm-12 0h.008v.008H6V10.5z" />
             </svg>
-            Payment history
+            {t('Payment history')}
           </Link>
         </div>
       </section>
@@ -447,14 +456,14 @@ export default function SubscriptionSettingsPage() {
             {requestingInvoice ? (
               <>
                 <span className="w-3.5 h-3.5 border-2 border-current/30 border-t-current rounded-full animate-spin" />
-                Requesting...
+                {t('Requesting...')}
               </>
             ) : (
               <>
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m3.75 9v6m3-3H9m1.5-12H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
                 </svg>
-                Request Invoice
+                {t('Request Invoice')}
               </>
             )}
           </button>

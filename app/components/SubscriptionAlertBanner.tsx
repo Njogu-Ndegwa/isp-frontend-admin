@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { SubscriptionAlert } from '../lib/types';
 import { formatMoney } from '../lib/format';
+import { useT } from '../lib/i18n';
 
 interface SubscriptionAlertBannerProps {
   alert: SubscriptionAlert;
@@ -10,6 +11,7 @@ interface SubscriptionAlertBannerProps {
 }
 
 export default function SubscriptionAlertBanner({ alert, onPayNow }: SubscriptionAlertBannerProps) {
+  const t = useT();
   const isWarning = alert.status === 'trial' || alert.current_invoice?.is_due_soon;
   const isDanger = alert.status === 'suspended' || alert.status === 'inactive' || alert.current_invoice?.is_overdue;
 
@@ -48,14 +50,14 @@ export default function SubscriptionAlertBanner({ alert, onPayNow }: Subscriptio
               href="/settings/subscription"
               className={`text-xs font-medium ${textClass} hover:underline`}
             >
-              View Subscription
+              {t('View Subscription')}
             </Link>
             {alert.current_invoice && onPayNow && (
               <button
                 onClick={onPayNow}
                 className="text-xs font-semibold px-3 py-1 rounded-lg bg-amber-500 text-[#09090b] hover:bg-amber-400 transition-colors"
               >
-                Pay Now - {formatMoney(alert.current_invoice.final_charge, alert.current_invoice.currency)}
+                {t('Pay Now - {amount}', { amount: formatMoney(alert.current_invoice.final_charge, alert.current_invoice.currency) })}
               </button>
             )}
           </div>

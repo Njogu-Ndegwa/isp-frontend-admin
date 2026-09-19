@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '../context/AuthContext';
+import { useT } from '../lib/i18n';
 
 type NavIconFn = (active: boolean) => React.ReactNode;
 interface BottomNavItem {
@@ -119,6 +120,7 @@ const adminNavItems: BottomNavItem[] = [
 export default function MobileBottomNav() {
   const pathname = usePathname();
   const { user } = useAuth();
+  const t = useT();
 
   const isAdmin = user?.role === 'admin';
   const mainNavItems = isAdmin ? adminNavItems : resellerNavItems;
@@ -152,7 +154,7 @@ export default function MobileBottomNav() {
                 <span className={`text-[10px] mt-1 font-medium transition-colors ${
                   isActive ? 'text-accent-primary' : 'text-foreground-muted'
                 }`}>
-                  {item.name}
+                  {t(item.name)}
                 </span>
               </Link>
             );
