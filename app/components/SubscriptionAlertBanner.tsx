@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { SubscriptionAlert } from '../lib/types';
+import { formatMoney } from '../lib/format';
 
 interface SubscriptionAlertBannerProps {
   alert: SubscriptionAlert;
@@ -54,7 +55,7 @@ export default function SubscriptionAlertBanner({ alert, onPayNow }: Subscriptio
                 onClick={onPayNow}
                 className="text-xs font-semibold px-3 py-1 rounded-lg bg-amber-500 text-[#09090b] hover:bg-amber-400 transition-colors"
               >
-                Pay Now - KES {alert.current_invoice.final_charge.toLocaleString()}
+                Pay Now - {formatMoney(alert.current_invoice.final_charge, alert.current_invoice.currency)}
               </button>
             )}
           </div>

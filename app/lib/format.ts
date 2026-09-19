@@ -1,4 +1,31 @@
 /**
+ * The logged-in reseller's operating currency (their market's currency). All
+ * of a reseller's own money — plan prices, customer payments, revenue — is in
+ * this currency. Set by AuthProvider from `user.market.currency`; KES until
+ * then and for admins.
+ */
+let displayCurrency = 'KES';
+
+export function setDisplayCurrency(currency: string | null | undefined): void {
+  displayCurrency = (currency || 'KES').toUpperCase();
+}
+
+export function getDisplayCurrency(): string {
+  return displayCurrency;
+}
+
+/** A reseller's own money in their operating currency: "XAF 159,140", "KES 1,500". */
+export function formatAmount(amount: number | null | undefined): string {
+  return formatMoney(amount, displayCurrency);
+}
+
+/** Compact version of formatAmount for chart axes/tooltips: "XAF 1.5M". */
+export function formatAmountCompact(amount: number | null | undefined): string {
+  if (displayCurrency === 'KES') return formatKESCompact(amount);
+  return formatKESCompact(amount).replace(/^KES /, `${displayCurrency} `);
+}
+
+/**
  * Money in any currency: "KES 1,500", "USD 10.00", "XAF 159,140".
  * Use this wherever the backend sends a `currency` (subscription invoices and
  * payments, a reseller's market). Currencies without minor units in practice

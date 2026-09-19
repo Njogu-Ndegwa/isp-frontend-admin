@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import SectionCard, { SectionError } from './SectionCard';
 import PortFaceplate, { isUplinkPort, portVisualStatus } from '../../components/PortFaceplate';
-import { formatKESCompact } from '../../lib/format';
+import { formatAmountCompact } from '../../lib/format';
 import { DownloadUsageBody } from './DownloadUsageSection';
 import type { DateFilter } from '../dateFilter';
 import type {
@@ -351,7 +351,7 @@ function SelectedPortPanel({
             <span className="font-medium text-foreground">{equipment.length}</span> equipment ·{' '}
             <span className="font-medium text-foreground">{paying.length}</span> customer{paying.length !== 1 ? 's' : ''}
             {port.revenue && port.revenue.this_month > 0 && (
-              <> · <span className="font-medium text-foreground">{formatKESCompact(port.revenue.this_month)}</span> this month</>
+              <> · <span className="font-medium text-foreground">{formatAmountCompact(port.revenue.this_month)}</span> this month</>
             )}
           </p>
 
@@ -393,7 +393,7 @@ function SelectedPortPanel({
               <> · <span className="font-medium text-foreground">{port.counts.unknown_devices}</span> unknown</>
             )}
             {port.revenue && port.revenue.this_month > 0 && (
-              <> · <span className="font-medium text-foreground">{formatKESCompact(port.revenue.this_month)}</span> this month</>
+              <> · <span className="font-medium text-foreground">{formatAmountCompact(port.revenue.this_month)}</span> this month</>
             )}
           </p>
 

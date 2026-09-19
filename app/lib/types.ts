@@ -1759,6 +1759,9 @@ export interface AuthUser {
   mpesa_shortcode?: string;
   subscription_status?: string;
   subscription_expires_at?: string | null;
+  /** The reseller's country market: currency, language, subscription terms. */
+  market?: ResellerMarket;
+  preferred_language?: string | null;
 }
 
 export interface SubscriptionAlert {
@@ -1792,6 +1795,8 @@ export interface UserProfile {
   mpesa_shortcode: string;
   created_at: string;
   last_login_at: string;
+  preferred_language?: string | null;
+  market?: ResellerMarket;
 }
 
 export interface UpdateProfileRequest {
@@ -1800,6 +1805,8 @@ export interface UpdateProfileRequest {
   organization_name?: string;
   mpesa_shortcode?: string;
   email?: string;
+  /** One of the market's languages; "" resets to the market default. */
+  preferred_language?: string;
 }
 
 export interface ChangePasswordRequest {

@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { api } from '../lib/api';
 import { PayoutFrequency, ResellerPayoutSettings } from '../lib/types';
 import ConfirmDialog from '../components/ConfirmDialog';
-import { formatKES } from '../lib/format';
+import { formatAmount } from '../lib/format';
 import { formatDateGMT3 } from '../lib/dateUtils';
 
 const FREQUENCY_OPTIONS: { value: PayoutFrequency; label: string; hint: string }[] = [
@@ -52,18 +52,18 @@ export default function WithdrawCard({ onWithdrawn }: { onWithdrawn?: () => void
       const transfers = result.transfers ?? [];
       if (transfers.length > 1) {
         const breakdown = transfers
-          .map((t) => `${formatKES(t.net_amount)} to ${t.destination_label}`)
+          .map((t) => `${formatAmount(t.net_amount)} to ${t.destination_label}`)
           .join(', ');
         setNotice(
           `Withdrawal initiated as ${transfers.length} transfers — ${breakdown} ` +
-          `(${formatKES(result.fee)} total transaction fees). ` +
+          `(${formatAmount(result.fee)} total transaction fees). ` +
           `Each router's earnings went to its own destination. ` +
           `They usually complete within a few minutes.`
         );
       } else {
         setNotice(
-          `Withdrawal initiated: ${formatKES(result.net_payout)} to ${result.destination_label} ` +
-          `(${formatKES(result.fee)} transaction fee). It usually completes within a few minutes.`
+          `Withdrawal initiated: ${formatAmount(result.net_payout)} to ${result.destination_label} ` +
+          `(${formatAmount(result.fee)} transaction fee). It usually completes within a few minutes.`
         );
       }
       onWithdrawn?.();
@@ -152,17 +152,17 @@ export default function WithdrawCard({ onWithdrawn }: { onWithdrawn?: () => void
           <div className="space-y-1.5 text-sm mb-4">
             <div className="flex items-center justify-between">
               <span className="text-foreground-muted">Available balance</span>
-              <span className="font-bold text-lg">{formatKES(settings.unpaid_balance)}</span>
+              <span className="font-bold text-lg">{formatAmount(settings.unpaid_balance)}</span>
             </div>
             {settings.unpaid_balance >= settings.minimum_withdrawal && (
               <>
                 <div className="flex items-center justify-between">
                   <span className="text-foreground-muted">Transaction fee</span>
-                  <span className="font-medium text-orange-500">- {formatKES(settings.fee_preview.total_fee)}</span>
+                  <span className="font-medium text-orange-500">- {formatAmount(settings.fee_preview.total_fee)}</span>
                 </div>
                 <div className="flex items-center justify-between border-t border-border pt-1.5">
                   <span className="text-foreground-muted">You&apos;ll receive</span>
-                  <span className="font-semibold text-emerald-500">{formatKES(settings.fee_preview.net_payout)}</span>
+                  <span className="font-semibold text-emerald-500">{formatAmount(settings.fee_preview.net_payout)}</span>
                 </div>
               </>
             )}
@@ -186,7 +186,7 @@ export default function WithdrawCard({ onWithdrawn }: { onWithdrawn?: () => void
 
           {settings.blocked_reason === 'pending_withdrawal' && settings.pending_withdrawal ? (
             <div className="p-3 rounded-xl bg-amber-500/10 text-amber-500 text-xs">
-              A payout of {formatKES(settings.pending_withdrawal.amount)} started{' '}
+              A payout of {formatAmount(settings.pending_withdrawal.amount)} started{' '}
               {settings.pending_withdrawal.created_at
                 ? formatDateGMT3(settings.pending_withdrawal.created_at, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true })
                 : 'recently'}{' '}
@@ -203,7 +203,7 @@ export default function WithdrawCard({ onWithdrawn }: { onWithdrawn?: () => void
             </div>
           ) : settings.blocked_reason === 'balance_too_low' ? (
             <p className="text-xs text-foreground-muted">
-              Withdrawals are available once your balance reaches {formatKES(settings.minimum_withdrawal)}.
+              Withdrawals are available once your balance reaches {formatAmount(settings.minimum_withdrawal)}.
             </p>
           ) : settings.blocked_reason === 'cooldown' ? (
             <p className="text-xs text-foreground-muted">
@@ -216,7 +216,7 @@ export default function WithdrawCard({ onWithdrawn }: { onWithdrawn?: () => void
               disabled={withdrawing}
               className="btn-primary w-full sm:w-auto px-5 py-2 text-sm disabled:opacity-50"
             >
-              {withdrawing ? 'Processing...' : `Withdraw ${formatKES(settings.unpaid_balance)}`}
+              {withdrawing ? 'Processing...' : `Withdraw ${formatAmount(settings.unpaid_balance)}`}
             </button>
           )}
         </div>
@@ -286,10 +286,10 @@ export default function WithdrawCard({ onWithdrawn }: { onWithdrawn?: () => void
         loading={withdrawing}
         title="Confirm Withdrawal"
         message={
-          `Withdraw ${formatKES(settings.unpaid_balance)} to ` +
+          `Withdraw ${formatAmount(settings.unpaid_balance)} to ` +
           `${settings.payment_method?.label ?? 'your payout account'}? ` +
-          `A ${formatKES(settings.fee_preview.total_fee)} transaction fee applies — ` +
-          `you'll receive ${formatKES(settings.fee_preview.net_payout)}.`
+          `A ${formatAmount(settings.fee_preview.total_fee)} transaction fee applies — ` +
+          `you'll receive ${formatAmount(settings.fee_preview.net_payout)}.`
         }
         confirmLabel="Withdraw"
       />

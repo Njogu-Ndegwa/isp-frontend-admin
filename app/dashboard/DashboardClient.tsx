@@ -20,6 +20,7 @@ import TopUsers from './components/TopUsers';
 import DailyBreakdown from './components/DailyBreakdown';
 import InterfacesPanel from './components/InterfacesPanel';
 import PortsUsageCard from './components/PortsUsageCard';
+import { formatMoney } from '../lib/format';
 
 const DASHBOARD_LOAD_DELAYS_MS = {
   mikrotik: 1500,
@@ -52,17 +53,19 @@ const buildSubscriptionAlert = (overview: SubscriptionOverview): SubscriptionAle
   } else if (invoice?.is_overdue) {
     const paid = invoice.amount_paid ?? 0;
     const remaining = invoice.balance_remaining ?? Math.max(invoice.final_charge - paid, 0);
-    message = `Your ${invoice.period_label} invoice of KES ${invoice.final_charge.toLocaleString()} is overdue.`;
+    const money = (v: number) => formatMoney(v, invoice.currency);
+    message = `Your ${invoice.period_label} invoice of ${money(invoice.final_charge)} is overdue.`;
     message += paid > 0
-      ? ` KES ${paid.toLocaleString()} paid, KES ${remaining.toLocaleString()} remaining.`
+      ? ` ${money(paid)} paid, ${money(remaining)} remaining.`
       : ' Please pay to avoid suspension.';
   } else if (invoice?.is_due_soon) {
     const paid = invoice.amount_paid ?? 0;
     const remaining = invoice.balance_remaining ?? Math.max(invoice.final_charge - paid, 0);
     const days = invoice.days_until_due ?? 0;
-    message = `Your ${invoice.period_label} invoice of KES ${invoice.final_charge.toLocaleString()} is due in ${days} day${days === 1 ? '' : 's'}.`;
+    const money = (v: number) => formatMoney(v, invoice.currency);
+    message = `Your ${invoice.period_label} invoice of ${money(invoice.final_charge)} is due in ${days} day${days === 1 ? '' : 's'}.`;
     if (paid > 0) {
-      message += ` KES ${paid.toLocaleString()} paid, KES ${remaining.toLocaleString()} remaining.`;
+      message += ` ${money(paid)} paid, ${money(remaining)} remaining.`;
     }
   } else if (status === 'trial' && overview.expires_at) {
     const expiresAt = new Date(overview.expires_at).getTime();

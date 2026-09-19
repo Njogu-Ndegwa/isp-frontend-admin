@@ -1,6 +1,7 @@
 'use client';
 
 import SectionCard, { SectionEmpty } from './SectionCard';
+import { formatAmount } from '../../lib/format';
 
 interface Plan {
   name: string;
@@ -28,7 +29,7 @@ export default function PlanPerformance({ plans, totalRevenue }: { plans: Plan[]
                     <span className="font-medium text-sm text-foreground truncate">{plan.name}</span>
                   </div>
                   <span className="font-semibold text-sm text-amber-500 stat-value ml-2 flex-shrink-0">
-                    KES {plan.revenue.toLocaleString()}
+                    {formatAmount(plan.revenue)}
                   </span>
                 </div>
                 <div className="flex items-center gap-3">

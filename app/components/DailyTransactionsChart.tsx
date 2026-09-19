@@ -12,7 +12,7 @@ import {
   Cell,
 } from 'recharts';
 import { api } from '../lib/api';
-import { formatKES, formatKESCompact } from '../lib/format';
+import { formatAmount, formatAmountCompact } from '../lib/format';
 import {
   DailyTransactionsPeriod,
   DailyTransactionsResponse,
@@ -78,7 +78,7 @@ function TxTooltip({
       <div className="flex items-center gap-2">
         <span className="w-2 h-2 rounded-full bg-emerald-500" />
         <span className="text-foreground-muted text-xs">Revenue:</span>
-        <span className="font-semibold text-foreground text-xs ml-auto">{formatKES(row.revenue)}</span>
+        <span className="font-semibold text-foreground text-xs ml-auto">{formatAmount(row.revenue)}</span>
       </div>
     </div>
   );
@@ -108,13 +108,13 @@ export function PortRevenueTooltip({
           <div key={port} className="flex items-center gap-2 mb-1">
             <span className="w-2 h-2 rounded-full" style={{ background: row.color }} />
             <span className="text-foreground-muted text-xs font-mono">{port}:</span>
-            <span className="font-semibold text-foreground text-xs ml-auto">{formatKES(row.value)}</span>
+            <span className="font-semibold text-foreground text-xs ml-auto">{formatAmount(row.value)}</span>
           </div>
         );
       })}
       <div className="flex items-center gap-2 pt-1 mt-1 border-t border-border/50">
         <span className="text-foreground-muted text-xs">Total:</span>
-        <span className="font-semibold text-foreground text-xs ml-auto">{formatKES(total)}</span>
+        <span className="font-semibold text-foreground text-xs ml-auto">{formatAmount(total)}</span>
       </div>
     </div>
   );
@@ -371,7 +371,7 @@ export default function DailyTransactionsChart({ routerId, enabled = true }: Pro
             </div>
             <div className="rounded-xl bg-emerald-500/8 border border-emerald-500/15 p-2.5 sm:p-3">
               <p className="text-[10px] text-foreground-muted uppercase tracking-wider mb-0.5">Revenue</p>
-              <p className="text-sm sm:text-base font-bold text-emerald-500">{formatKESCompact(data.totals.revenue)}</p>
+              <p className="text-sm sm:text-base font-bold text-emerald-500">{formatAmountCompact(data.totals.revenue)}</p>
             </div>
             <div className="rounded-xl bg-amber-500/8 border border-amber-500/15 p-2.5 sm:p-3">
               <p className="text-[10px] text-foreground-muted uppercase tracking-wider mb-0.5">Avg / Active Day</p>
@@ -410,7 +410,7 @@ export default function DailyTransactionsChart({ routerId, enabled = true }: Pro
                     axisLine={false}
                     tickLine={false}
                     tick={{ fill: 'var(--foreground-muted)', fontSize: 10 }}
-                    tickFormatter={(v: number) => formatKESCompact(v).replace('KES ', '')}
+                    tickFormatter={(v: number) => formatAmountCompact(v).replace(/^[A-Z]{3} /, '')}
                     width={44}
                   />
                   <Tooltip

@@ -18,6 +18,7 @@ import PlanRouterScope, {
 import { formatDateGMT3, utcToGMT3Input, gmt3InputToISO } from '../lib/dateUtils';
 import { DataCapUnit, dataCapInputToMb, splitDataCapMb } from './dataCap';
 import { normalizeDuration, describeDuration } from './duration';
+import { formatAmount } from '../lib/format';
 
 type FilterTab = 'all' | 'regular' | 'emergency';
 type ConnectionFilter = 'all' | 'hotspot' | 'pppoe';
@@ -451,9 +452,9 @@ export default function PlansPage() {
                 case 'price':
                   return (
                     <div>
-                      <span className="font-semibold text-foreground">KES {plan.price}</span>
+                      <span className="font-semibold text-foreground">{formatAmount(plan.price)}</span>
                       {plan.original_price != null && plan.original_price > plan.price && (
-                        <p className="text-xs text-foreground-muted line-through">KES {plan.original_price}</p>
+                        <p className="text-xs text-foreground-muted line-through">{formatAmount(plan.original_price)}</p>
                       )}
                     </div>
                   );

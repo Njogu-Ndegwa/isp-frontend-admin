@@ -8,7 +8,7 @@ import {
   DownstreamDeviceSample,
 } from '../lib/types';
 import PortFaceplate, { isUplinkPort, portVisualStatus } from '../components/PortFaceplate';
-import { formatKES } from '../lib/format';
+import { formatAmount } from '../lib/format';
 import {
   responseHasDeviceTiers,
   splitDeviceTiers,
@@ -206,10 +206,10 @@ export default function PortAnalyticsTab({
             started, plus customers who paid while offline or have no MAC on file.
           </p>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-            <DetailStat label="This Month" value={formatKES(data.revenue.router_this_month)} />
-            <DetailStat label="Today" value={formatKES(data.revenue.router_today)} />
-            <DetailStat label="On Ports (All Time)" value={formatKES(data.revenue.attributed_total)} />
-            <DetailStat label="Unattributed (All Time)" value={formatKES(data.revenue.unattributed_total)} />
+            <DetailStat label="This Month" value={formatAmount(data.revenue.router_this_month)} />
+            <DetailStat label="Today" value={formatAmount(data.revenue.router_today)} />
+            <DetailStat label="On Ports (All Time)" value={formatAmount(data.revenue.attributed_total)} />
+            <DetailStat label="Unattributed (All Time)" value={formatAmount(data.revenue.unattributed_total)} />
           </div>
         </div>
       )}
@@ -373,10 +373,10 @@ function PortDetail({ port, tiered }: { port: PortAnalyticsPort; tiered: boolean
             </span>
           </p>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-            <DetailStat label="This Month" value={formatKES(port.revenue.this_month)} />
-            <DetailStat label="This Week" value={formatKES(port.revenue.this_week)} />
-            <DetailStat label="Today" value={formatKES(port.revenue.today)} />
-            <DetailStat label="All Time" value={formatKES(port.revenue.total)} small />
+            <DetailStat label="This Month" value={formatAmount(port.revenue.this_month)} />
+            <DetailStat label="This Week" value={formatAmount(port.revenue.this_week)} />
+            <DetailStat label="Today" value={formatAmount(port.revenue.today)} />
+            <DetailStat label="All Time" value={formatAmount(port.revenue.total)} small />
           </div>
         </div>
       )}
@@ -586,7 +586,7 @@ function DownstreamDeviceRow({ device }: { device: DownstreamDeviceSample }) {
       <td className="py-2 pr-3 text-right font-mono text-xs whitespace-nowrap">
         {device.kind === 'known_customer' && device.revenue_total != null ? (
           <span className={device.revenue_total > 0 ? 'text-foreground' : 'text-foreground-muted'}>
-            {formatKES(device.revenue_total)}
+            {formatAmount(device.revenue_total)}
           </span>
         ) : (
           <span className="text-foreground-muted">—</span>
@@ -706,7 +706,7 @@ function PayingCustomerRow({ device }: { device: DownstreamDeviceSample }) {
         )}
       </td>
       <td className="py-2 pr-3 text-right font-mono text-xs whitespace-nowrap text-foreground">
-        {formatKES(device.revenue_total ?? 0)}
+        {formatAmount(device.revenue_total ?? 0)}
       </td>
       <td className="py-2 font-mono text-xs text-foreground-muted whitespace-nowrap">{device.last_seen || '—'}</td>
     </tr>

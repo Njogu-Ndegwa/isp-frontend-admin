@@ -3,6 +3,7 @@ import React from 'react';
 import { DashboardAnalytics, DayDetail } from '../../lib/types';
 import { formatTimeGMT3, formatDateOnlyGMT3 } from '../../lib/dateUtils';
 import { SectionEmpty } from './SectionCard';
+import { formatAmount, getDisplayCurrency } from '../../lib/format';
 
 // ---------------------------------------------------------------------------
 // Date-helper wrappers (mirrors DashboardClient 1383–1399)
@@ -81,7 +82,7 @@ function DayDetailCard({ dayData }: { dayData: DayDetail }) {
           <h3 className="font-semibold text-foreground text-sm sm:text-base truncate">{dayData.dateLabel}</h3>
         </div>
         <span className="text-xl sm:text-2xl font-bold text-amber-500 stat-value flex-shrink-0">
-          KES {dayData.totalRevenue.toLocaleString()}
+          {formatAmount(dayData.totalRevenue)}
         </span>
       </div>
 
@@ -89,7 +90,7 @@ function DayDetailCard({ dayData }: { dayData: DayDetail }) {
         <MetricBox value={dayData.totalTransactions} label="Tx" />
         <MetricBox value={dayData.uniqueUsers} label="Users" color="emerald" />
         <MetricBox value={`${dayData.repeatCustomerPercent.toFixed(0)}%`} label="Repeat" color="amber" />
-        <MetricBox value={`${dayData.avgDailySpendPerUser.toFixed(0)}`} label="Avg" prefix="KES" />
+        <MetricBox value={`${dayData.avgDailySpendPerUser.toFixed(0)}`} label="Avg" prefix={getDisplayCurrency()} />
       </div>
 
       {/* Top Spenders */}
@@ -111,7 +112,7 @@ function DayDetailCard({ dayData }: { dayData: DayDetail }) {
                 <span className="font-mono text-xs sm:text-sm text-foreground">****{spender.phone}</span>
               </div>
               <span className="font-semibold text-xs sm:text-sm text-amber-500 stat-value">
-                KES {spender.amount.toLocaleString()}
+                {formatAmount(spender.amount)}
               </span>
             </div>
           ))}
@@ -163,7 +164,7 @@ function DayCard({
       <div className="flex items-baseline justify-between mt-1.5 sm:mt-2">
         <span className="text-[10px] sm:text-xs text-foreground-muted">{day.totalTransactions} tx</span>
         <span className={`font-semibold text-xs sm:text-sm stat-value ${isSelected ? 'text-amber-500' : 'text-foreground'}`}>
-          KES {day.totalRevenue.toLocaleString()}
+          {formatAmount(day.totalRevenue)}
         </span>
       </div>
       <div className="flex items-center gap-1 sm:gap-2 mt-1.5 sm:mt-2">
@@ -226,7 +227,7 @@ function DailyTrendChart({
 
             <div className="w-20 sm:w-28 text-right flex-shrink-0">
               <p className={`font-semibold stat-value text-xs sm:text-base ${isSelected ? 'text-amber-500' : 'text-foreground'}`}>
-                KES {day.revenue.toLocaleString()}
+                {formatAmount(day.revenue)}
               </p>
               <p className="text-[10px] sm:text-xs text-foreground-muted">
                 {day.transactions} tx · {day.users}

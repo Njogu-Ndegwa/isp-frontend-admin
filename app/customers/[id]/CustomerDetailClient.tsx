@@ -11,6 +11,7 @@ import Header from '../../components/Header';
 import { PageLoader } from '../../components/LoadingSpinner';
 import DateTimePicker from '../../components/DateTimePicker';
 import { utcToGMT3Input, gmt3InputToISO } from '../../lib/dateUtils';
+import { formatAmount } from '../../lib/format';
 
 export default function EditCustomerPage() {
   const params = useParams();
@@ -202,14 +203,14 @@ export default function EditCustomerPage() {
               <div className="bg-background-tertiary rounded-lg p-3">
                 <label className="text-xs font-medium text-foreground-muted uppercase tracking-wider">Plan Amount</label>
                 <div className="mt-1">
-                  <span className="text-sm font-medium text-foreground">KES {customer.plan?.price ?? '-'}</span>
+                  <span className="text-sm font-medium text-foreground">{customer.plan?.price != null ? formatAmount(customer.plan.price) : '-'}</span>
                 </div>
               </div>
               {(customer.wallet_credit_kes ?? 0) > 0 && (
                 <div className="bg-success/10 border border-success/20 rounded-lg p-3">
                   <label className="text-xs font-medium text-success uppercase tracking-wider">Wallet Credit</label>
                   <div className="mt-1">
-                    <span className="text-sm font-semibold text-success">KES {customer.wallet_credit_kes}</span>
+                    <span className="text-sm font-semibold text-success">{formatAmount(customer.wallet_credit_kes)}</span>
                   </div>
                 </div>
               )}
@@ -258,7 +259,7 @@ export default function EditCustomerPage() {
                 <option value="" disabled>Select plan</option>
                 {plans.map((plan) => (
                   <option key={plan.id} value={plan.id}>
-                    {plan.name} — KES {plan.price} ({plan.connection_type === 'pppoe' ? 'PPPoE' : 'Hotspot'})
+                    {plan.name} — {formatAmount(plan.price)} ({plan.connection_type === 'pppoe' ? 'PPPoE' : 'Hotspot'})
                   </option>
                 ))}
               </select>

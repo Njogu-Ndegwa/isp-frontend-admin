@@ -14,7 +14,7 @@ import {
 } from 'recharts';
 import { api } from '../lib/api';
 import { AdminResellerStats, AdminResellerStatsPeriod } from '../lib/types';
-import { formatKES, formatKESCompact } from '../lib/format';
+import { formatAmount, formatAmountCompact } from '../lib/format';
 
 const PERIOD_OPTIONS: { value: AdminResellerStatsPeriod; label: string }[] = [
   { value: '7d', label: '7D' },
@@ -41,7 +41,7 @@ function RevenueTooltip({ active, payload, label }: {
           <span className="text-foreground-muted text-xs">
             {entry.dataKey === 'revenue' ? 'Revenue' : 'M-Pesa'}:
           </span>
-          <span className="font-semibold text-foreground text-xs">{formatKES(entry.value)}</span>
+          <span className="font-semibold text-foreground text-xs">{formatAmount(entry.value)}</span>
         </div>
       ))}
     </div>
@@ -147,11 +147,11 @@ export default function ResellerCharts() {
               <h4 className="text-sm font-semibold text-foreground">Revenue Over Time</h4>
               <div className="text-right">
                 <p className="text-xs text-foreground-muted">Period Total</p>
-                <p className="text-sm font-bold text-emerald-500">{formatKESCompact(stats.totals.revenue)}</p>
+                <p className="text-sm font-bold text-emerald-500">{formatAmountCompact(stats.totals.revenue)}</p>
               </div>
             </div>
             <p className="text-[10px] text-foreground-muted mb-3">
-              M-Pesa: {formatKESCompact(stats.totals.mpesa_revenue)} ({stats.totals.revenue > 0 ? Math.round((stats.totals.mpesa_revenue / stats.totals.revenue) * 100) : 0}%)
+              M-Pesa: {formatAmountCompact(stats.totals.mpesa_revenue)} ({stats.totals.revenue > 0 ? Math.round((stats.totals.mpesa_revenue / stats.totals.revenue) * 100) : 0}%)
             </p>
 
             <div className="h-48 sm:h-56 w-full">
@@ -184,7 +184,7 @@ export default function ResellerCharts() {
                       axisLine={false}
                       tickLine={false}
                       tick={{ fill: 'var(--foreground-muted)', fontSize: 10 }}
-                      tickFormatter={(v) => formatKESCompact(v)}
+                      tickFormatter={(v) => formatAmountCompact(v)}
                       width={55}
                     />
                     <Tooltip

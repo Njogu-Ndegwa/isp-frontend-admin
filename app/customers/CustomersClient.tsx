@@ -25,6 +25,7 @@ import FilterPills from '../components/FilterPills';
 import Tabs from '../components/Tabs';
 import DataTable, { DataTableColumn } from '../components/DataTable';
 import Pagination from '../components/Pagination';
+import { formatAmount } from '../lib/format';
 
 const TransferPPPoEModal = dynamic(() => import('../components/TransferPPPoEModal'), {
   ssr: false,
@@ -972,7 +973,7 @@ export default function CustomersPage() {
                   return (
                     <div>
                       <p className="font-medium text-foreground">{customer.plan?.name || 'No Plan'}</p>
-                      <p className="text-xs text-foreground-muted">KES {customer.plan?.price ?? '-'}</p>
+                      <p className="text-xs text-foreground-muted">{customer.plan?.price != null ? formatAmount(customer.plan.price) : '-'}</p>
                     </div>
                   );
                 case 'router':
