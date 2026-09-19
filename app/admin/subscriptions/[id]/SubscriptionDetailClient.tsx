@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import { api } from '../../../lib/api';
-import { AdminSubscriptionDetail, SubscriptionInvoice } from '../../../lib/types';
+import { AdminSubscriptionDetail, SubscriptionInvoice, SubscriptionPayment } from '../../../lib/types';
 import { useAuth } from '../../../context/AuthContext';
 import Header from '../../../components/Header';
 import SubscriptionStatusBadge from '../../../components/SubscriptionStatusBadge';
@@ -11,8 +11,15 @@ import InvoiceStatusBadge from '../../../components/InvoiceStatusBadge';
 import EditSubscriptionModal from '../../../components/EditSubscriptionModal';
 import ConfirmDialog from '../../../components/ConfirmDialog';
 import { SkeletonCard } from '../../../components/LoadingSpinner';
-import { formatKES } from '../../../lib/format';
+import { formatMoney } from '../../../lib/format';
 
+
+const MARKET_OPTIONS = [
+  { code: 'KE', label: 'Kenya: KES usage billing, M-Pesa' },
+  { code: 'CM', label: 'Cameroon: USD flat fee, card' },
+  { code: 'UG', label: 'Uganda: USD flat fee, card' },
+  { code: 'TZ', label: 'Tanzania: USD flat fee, card' },
+];
 
 const formatSafeDate = (dateStr: string | null | undefined): string => {
   try {
@@ -45,6 +52,12 @@ export default function AdminSubscriptionDetailPage() {
   const [actionLoading, setActionLoading] = useState(false);
   const [verifyLoading, setVerifyLoading] = useState(false);
   const [verifyResult, setVerifyResult] = useState<{ message: string; count: number } | null>(null);
+  const [repriceTarget, setRepriceTarget] = useState<SubscriptionInvoice | null>(null);
+  const [confirmCardTarget, setConfirmCardTarget] = useState<SubscriptionPayment | null>(null);
+  const [marketCode, setMarketCode] = useState('KE');
+  const [priceOverride, setPriceOverride] = useState('');
+  const [marketSaving, setMarketSaving] = useState(false);
+  const [marketMsg, setMarketMsg] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
     try {
@@ -52,6 +65,8 @@ export default function AdminSubscriptionDetailPage() {
       setError(null);
       const result = await api.getAdminSubscriptionDetail(resellerId);
       setData(result);
+      setMarketCode(result.reseller.market_code || 'KE');
+      setPriceOverride(result.reseller.price_override != null ? String(result.reseller.price_override) : '');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load subscription');
     } finally {
@@ -119,7 +134,56 @@ export default function AdminSubscriptionDetailPage() {
     }
   };
 
-  const pendingPaymentsCount = data?.payments.filter(p => p.status === 'pending').length ?? 0;
+  const handleSaveMarket = async () => {
+    setMarketSaving(true);
+    setMarketMsg(null);
+    try {
+      const override = priceOverride.trim();
+      await api.editAdminSubscription(resellerId, {
+        market_code: marketCode,
+        ...(override ? { price_override: Number(override) } : { clear_price_override: true }),
+      });
+      setMarketMsg('Saved. Reprice any pending invoice issued under the old market.');
+      fetchData();
+    } catch (err) {
+      setMarketMsg(err instanceof Error ? err.message : 'Failed to save market');
+    } finally {
+      setMarketSaving(false);
+    }
+  };
+
+  const handleReprice = async () => {
+    if (!repriceTarget) return;
+    setActionLoading(true);
+    try {
+      await api.repriceInvoice(resellerId, repriceTarget.id);
+      setRepriceTarget(null);
+      fetchData();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to reprice invoice');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleConfirmCard = async () => {
+    if (!confirmCardTarget) return;
+    setActionLoading(true);
+    try {
+      await api.confirmCardPayment(confirmCardTarget.id);
+      setConfirmCardTarget(null);
+      fetchData();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to confirm card payment');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Only M-Pesa payments can be verified against Safaricom; card payments are
+  // confirmed one by one after checking PayAfrica.
+  const pendingPaymentsCount = data?.payments.filter(p => p.status === 'pending' && p.payment_method === 'mpesa').length ?? 0;
+  const market = data?.subscription.market;
 
   if (user?.role !== 'admin') {
     return (
@@ -189,7 +253,7 @@ export default function AdminSubscriptionDetailPage() {
               </div>
               <div className="text-right">
                 <p className="text-xs text-foreground-muted">Total Paid</p>
-                <p className="text-xl font-bold text-emerald-500">{formatKES(data.subscription.total_paid)}</p>
+                <p className="text-xl font-bold text-emerald-500">{formatMoney(data.subscription.total_paid, market?.subscription_currency)}</p>
               </div>
             </div>
 
@@ -211,6 +275,48 @@ export default function AdminSubscriptionDetailPage() {
                 <p className="text-sm font-medium text-foreground">{data.subscription.invoice_count}</p>
               </div>
             </div>
+          </div>
+
+          {/* Market: currency, pricing and how this reseller pays */}
+          <div className="card p-5 sm:p-6 space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
+              <h3 className="text-sm font-semibold text-foreground">Market &amp; pricing</h3>
+              {market && (
+                <span className="text-xs text-foreground-muted">
+                  Operates in {market.currency} &middot; billed{' '}
+                  {market.subscription_pricing.kind === 'flat'
+                    ? `${formatMoney(market.subscription_pricing.flat_amount, market.subscription_currency)}/month`
+                    : `on usage, min ${formatMoney(market.subscription_pricing.minimum, market.subscription_currency)}`}
+                  {' '}&middot; pays by {market.subscription_payment_methods.join(', ')}
+                </span>
+              )}
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-[1fr_180px_auto] gap-2 items-end">
+              <label className="text-xs text-foreground-muted">
+                Market
+                <select value={marketCode} onChange={(e) => setMarketCode(e.target.value)} className="input mt-1">
+                  {MARKET_OPTIONS.map((m) => (
+                    <option key={m.code} value={m.code}>{m.label}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="text-xs text-foreground-muted">
+                Price override (optional)
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={priceOverride}
+                  onChange={(e) => setPriceOverride(e.target.value)}
+                  placeholder="Market default"
+                  className="input mt-1"
+                />
+              </label>
+              <button onClick={handleSaveMarket} disabled={marketSaving} className="btn-primary text-sm px-4 py-2.5 disabled:opacity-50">
+                {marketSaving ? 'Saving...' : 'Save'}
+              </button>
+            </div>
+            {marketMsg && <p className="text-xs text-foreground-muted">{marketMsg}</p>}
           </div>
 
           {/* Tabs */}
@@ -255,7 +361,15 @@ export default function AdminSubscriptionDetailPage() {
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
-                      <span className="text-sm font-semibold text-foreground">{formatKES(inv.final_charge)}</span>
+                      <span className="text-sm font-semibold text-foreground">{formatMoney(inv.final_charge, inv.currency)}</span>
+                      {(inv.status === 'pending' || inv.status === 'overdue') && (
+                        <button
+                          onClick={() => setRepriceTarget(inv)}
+                          className="text-xs px-2 py-1 rounded-lg border border-border text-foreground-muted hover:bg-background-tertiary transition-colors"
+                        >
+                          Reprice
+                        </button>
+                      )}
                       {(inv.status === 'pending' || inv.status === 'overdue') && (
                         <button
                           onClick={() => { setWaiveTarget(inv); setShowWaiveDialog(true); }}
@@ -310,12 +424,20 @@ export default function AdminSubscriptionDetailPage() {
                 data.payments.map((p) => (
                   <div key={p.id} className="card p-4 flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium text-foreground">{formatKES(p.amount)}</p>
+                      <p className="text-sm font-medium text-foreground">{formatMoney(p.amount, p.currency)}</p>
                       <p className="text-xs text-foreground-muted">
                         {p.payment_method.toUpperCase()} &mdash; {p.payment_reference}
                       </p>
                     </div>
                     <div className="text-right">
+                      {p.payment_method === 'card' && p.status === 'pending' && (
+                        <button
+                          onClick={() => setConfirmCardTarget(p)}
+                          className="block ml-auto text-xs px-2 py-1 mb-1 rounded-lg bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 hover:bg-emerald-500/20 transition-colors"
+                        >
+                          Confirm card payment
+                        </button>
+                      )}
                       <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
                         p.status === 'completed' ? 'bg-emerald-500/10 text-emerald-500' :
                         p.status === 'pending' ? 'bg-yellow-500/10 text-yellow-500' :
@@ -359,7 +481,7 @@ export default function AdminSubscriptionDetailPage() {
         onClose={() => { setShowWaiveDialog(false); setWaiveTarget(null); }}
         onConfirm={handleWaive}
         title="Waive Invoice"
-        message={waiveTarget ? `Waive the ${waiveTarget.period_label} invoice (${formatKES(waiveTarget.final_charge)})?` : ''}
+        message={waiveTarget ? `Waive the ${waiveTarget.period_label} invoice (${formatMoney(waiveTarget.final_charge, waiveTarget.currency)})?` : ''}
         confirmLabel="Waive"
         variant="warning"
         loading={actionLoading}
@@ -374,6 +496,28 @@ export default function AdminSubscriptionDetailPage() {
         confirmLabel="Verify Payments"
         variant="primary"
         loading={verifyLoading}
+      />
+
+      <ConfirmDialog
+        isOpen={!!repriceTarget}
+        onClose={() => setRepriceTarget(null)}
+        onConfirm={handleReprice}
+        title="Reprice Invoice"
+        message={repriceTarget ? `Recompute the ${repriceTarget.period_label} invoice (${formatMoney(repriceTarget.final_charge, repriceTarget.currency)}) with this reseller's current market pricing?` : ''}
+        confirmLabel="Reprice"
+        variant="warning"
+        loading={actionLoading}
+      />
+
+      <ConfirmDialog
+        isOpen={!!confirmCardTarget}
+        onClose={() => setConfirmCardTarget(null)}
+        onConfirm={handleConfirmCard}
+        title="Confirm Card Payment"
+        message={confirmCardTarget ? `Only confirm after you have seen ${formatMoney(confirmCardTarget.amount, confirmCardTarget.currency)} arrive in PayAfrica (our reference ${confirmCardTarget.payment_reference}). This marks the invoice paid and activates the reseller.` : ''}
+        confirmLabel="Confirm & activate"
+        variant="primary"
+        loading={actionLoading}
       />
 
       {/* Edit Modal */}

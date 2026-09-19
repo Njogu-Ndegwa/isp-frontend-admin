@@ -9,7 +9,7 @@ import PayInvoiceModal from '../../../components/PayInvoiceModal';
 import DataTable from '../../../components/DataTable';
 import MobileDataCard from '../../../components/MobileDataCard';
 import { SkeletonCard } from '../../../components/LoadingSpinner';
-import { formatKES } from '../../../lib/format';
+import { formatMoney } from '../../../lib/format';
 
 
 const formatSafeDate = (dateStr: string | null | undefined): string => {
@@ -187,7 +187,7 @@ export default function InvoiceListPage() {
               renderCell={(inv, col) => {
                 switch (col) {
                   case 'period': return <span className="font-medium">{inv.period_label}</span>;
-                  case 'amount': return <span className="font-semibold">{formatKES(inv.final_charge)}</span>;
+                  case 'amount': return <span className="font-semibold">{formatMoney(inv.final_charge, inv.currency)}</span>;
                   case 'status': return <InvoiceStatusBadge status={inv.status} />;
                   case 'due_date': return <span className="text-foreground-muted text-sm">{formatSafeDate(inv.due_date)}</span>;
                   case 'message': return <span className={`text-sm ${inv.is_overdue ? 'text-red-500' : inv.is_due_soon ? 'text-amber-500' : 'text-foreground-muted'}`}>{inv.human_message || '-'}</span>;
@@ -220,7 +220,7 @@ export default function InvoiceListPage() {
                       subtitle={inv.human_message || formatSafeDate(inv.due_date)}
                       avatar={{ text: inv.status.charAt(0).toUpperCase(), color: inv.status === 'paid' ? 'success' : inv.status === 'overdue' ? 'danger' : 'warning' }}
                       status={{ label: inv.status, variant: inv.status === 'paid' ? 'success' : inv.status === 'overdue' ? 'danger' : inv.status === 'waived' ? 'neutral' : 'warning' }}
-                      value={{ text: formatKES(inv.final_charge) }}
+                      value={{ text: formatMoney(inv.final_charge, inv.currency) }}
                       layout="compact"
                     />
                   </Link>

@@ -8,7 +8,7 @@ import SubscriptionStatusBadge from '../../components/SubscriptionStatusBadge';
 import InvoiceStatusBadge from '../../components/InvoiceStatusBadge';
 import PayInvoiceModal from '../../components/PayInvoiceModal';
 import { PageLoader } from '../../components/LoadingSpinner';
-import { formatKES } from '../../lib/format';
+import { formatMoney } from '../../lib/format';
 
 
 const formatSafeDate = (dateStr: string | null | undefined): string => {
@@ -41,6 +41,7 @@ export default function SubscriptionSettingsPage() {
   const [showPayModal, setShowPayModal] = useState(false);
   const [requestingInvoice, setRequestingInvoice] = useState(false);
   const [requestInvoiceMsg, setRequestInvoiceMsg] = useState<string | null>(null);
+  const [returnedFromCard, setReturnedFromCard] = useState(false);
 
   const fetchData = useCallback(async () => {
     try {
@@ -77,6 +78,23 @@ export default function SubscriptionSettingsPage() {
     fetchData();
   }, [fetchData]);
 
+  // Paystack sends the reseller back here after checkout. The redirect proves
+  // nothing about the payment, so only acknowledge it; activation follows
+  // once the payment is confirmed on our side.
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('card') === 'returned') {
+        setReturnedFromCard(true);
+        params.delete('card');
+        const rest = params.toString();
+        window.history.replaceState(null, '', window.location.pathname + (rest ? `?${rest}` : ''));
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
+
   if (loading) return <PageLoader />;
 
   if (error) {
@@ -104,9 +122,26 @@ export default function SubscriptionSettingsPage() {
   const canPay = pendingInv && (pendingInv.status === 'pending' || pendingInv.status === 'overdue');
   const isExpiredOrSuspended = data.status === 'suspended' || data.status === 'inactive';
   const needsAction = canPay || isExpiredOrSuspended;
+  const invoiceCurrency = pendingInv?.currency || 'KES';
+  const money = (value: number | null | undefined) => formatMoney(value, invoiceCurrency);
+  const pricing = pendingInv?.pricing_rule ?? data.market?.subscription_pricing;
+  const isFlatPricing = pricing?.kind === 'flat';
+  const minimumCharge = pricing?.kind === 'usage' ? pricing.minimum : 500;
+  const hotspotRatePct = Math.round((pricing?.hotspot_rate ?? 0.03) * 1000) / 10;
+  const perPppoe = pricing?.per_pppoe_user ?? 25;
+  const payLabel = invoiceCurrency === 'KES' ? 'Pay via M-Pesa' : 'Pay by card';
 
   return (
     <div className="space-y-5 pb-24 md:pb-6">
+
+      {returnedFromCard && (
+        <div className="rounded-2xl p-4 sm:p-5 bg-emerald-500/10 border border-emerald-500/25 text-sm text-foreground">
+          <p className="font-semibold text-emerald-500">Thanks, we have your card payment</p>
+          <p className="mt-1 text-foreground-muted">
+            Your subscription will be activated as soon as the payment is confirmed. You don&apos;t need to pay again.
+          </p>
+        </div>
+      )}
 
       {/* --- Section 1: Urgent Action Banner --- */}
       {needsAction && pendingInv && (
@@ -128,7 +163,7 @@ export default function SubscriptionSettingsPage() {
                 {pendingInv.is_overdue ? 'Payment Overdue' : 'Payment Due Soon'}
               </p>
               <p className="text-sm text-foreground mt-0.5">
-                <span className="font-bold">{formatKES(pendingInv.final_charge)}</span>
+                <span className="font-bold">{money(pendingInv.final_charge)}</span>
                 {' '}due {formatSafeDate(pendingInv.due_date)}
               </p>
             </div>
@@ -252,9 +287,9 @@ export default function SubscriptionSettingsPage() {
                 <div className="flex items-center justify-between text-sm">
                   <div>
                     <p className="text-foreground">Hotspot Revenue</p>
-                    <p className="text-xs text-foreground-muted">{formatKES(pendingInv.hotspot_revenue)} x 3%</p>
+                    <p className="text-xs text-foreground-muted">{money(pendingInv.hotspot_revenue)} x {hotspotRatePct}%</p>
                   </div>
-                  <span className="font-medium text-foreground">{formatKES(pendingInv.hotspot_charge ?? 0)}</span>
+                  <span className="font-medium text-foreground">{money(pendingInv.hotspot_charge ?? 0)}</span>
                 </div>
               )}
 
@@ -262,42 +297,42 @@ export default function SubscriptionSettingsPage() {
                 <div className="flex items-center justify-between text-sm">
                   <div>
                     <p className="text-foreground">PPPoE Users</p>
-                    <p className="text-xs text-foreground-muted">{pendingInv.pppoe_user_count} users x KES 25</p>
+                    <p className="text-xs text-foreground-muted">{pendingInv.pppoe_user_count} users x {money(perPppoe)}</p>
                   </div>
-                  <span className="font-medium text-foreground">{formatKES(pendingInv.pppoe_charge ?? 0)}</span>
+                  <span className="font-medium text-foreground">{money(pendingInv.pppoe_charge ?? 0)}</span>
                 </div>
               )}
 
               <div className="border-t border-border pt-2.5 space-y-2">
                 {pendingInv.gross_charge != null && (
                   <div className="flex items-center justify-between text-sm">
-                    <span className="text-foreground-muted">Subtotal</span>
-                    <span className="text-foreground">{formatKES(pendingInv.gross_charge)}</span>
+                    <span className="text-foreground-muted">{isFlatPricing ? 'Monthly subscription' : 'Subtotal'}</span>
+                    <span className="text-foreground">{money(pendingInv.gross_charge)}</span>
                   </div>
                 )}
 
-                {pendingInv.gross_charge != null && pendingInv.gross_charge < 500 && (
+                {!isFlatPricing && pendingInv.gross_charge != null && pendingInv.gross_charge < minimumCharge && (
                   <div className="flex items-center justify-between text-xs">
                     <span className="text-foreground-muted">Minimum charge applied</span>
-                    <span className="text-amber-500">KES 500</span>
+                    <span className="text-amber-500">{money(minimumCharge)}</span>
                   </div>
                 )}
 
                 <div className="flex items-center justify-between border-t border-border pt-2">
                   <span className="text-sm font-semibold text-foreground">Total Due</span>
-                  <span className="text-lg font-bold text-foreground">{formatKES(pendingInv.final_charge)}</span>
+                  <span className="text-lg font-bold text-foreground">{money(pendingInv.final_charge)}</span>
                 </div>
 
                 {(pendingInv.amount_paid != null && pendingInv.amount_paid > 0) && (
                   <>
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-foreground-muted">Paid</span>
-                      <span className="text-emerald-500 font-medium">{formatKES(pendingInv.amount_paid)}</span>
+                      <span className="text-emerald-500 font-medium">{money(pendingInv.amount_paid)}</span>
                     </div>
                     <div className="flex items-center justify-between text-sm font-semibold">
                       <span className="text-foreground">Balance</span>
                       <span className={`text-base ${(pendingInv.balance_remaining ?? 0) > 0 ? 'text-amber-500' : 'text-emerald-500'}`}>
-                        {formatKES(pendingInv.balance_remaining ?? 0)}
+                        {money(pendingInv.balance_remaining ?? 0)}
                       </span>
                     </div>
                   </>
@@ -321,7 +356,7 @@ export default function SubscriptionSettingsPage() {
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 013 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 00-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 01-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 003 15h-.75M15 10.5a3 3 0 11-6 0 3 3 0 016 0zm3 0h.008v.008H18V10.5zm-12 0h.008v.008H6V10.5z" />
                 </svg>
-                Pay via M-Pesa
+                {payLabel}
               </button>
               <Link
                 href={`/settings/subscription/invoices/${pendingInv.id}`}
@@ -366,7 +401,7 @@ export default function SubscriptionSettingsPage() {
                 </div>
                 <div className="flex items-center gap-3 flex-shrink-0">
                   <div className="text-right">
-                    <p className="text-sm font-semibold text-foreground">{formatKES(inv.final_charge)}</p>
+                    <p className="text-sm font-semibold text-foreground">{formatMoney(inv.final_charge, inv.currency)}</p>
                   </div>
                   <InvoiceStatusBadge status={inv.status} />
                   <svg className="w-4 h-4 text-foreground-muted group-hover:text-foreground transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>

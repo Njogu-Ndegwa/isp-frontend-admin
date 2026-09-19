@@ -3354,6 +3354,9 @@ export interface SubscriptionInvoice {
   pppoe_charge?: number;
   gross_charge?: number;
   final_charge: number;
+  /** Currency of every amount on the invoice (KES for Kenya, USD for international). */
+  currency?: string;
+  pricing_rule?: SubscriptionPricingRule | null;
   amount_paid?: number;
   balance_remaining?: number;
   status: string;
@@ -3374,8 +3377,44 @@ export interface SubscriptionPayment {
   payment_method: string;
   payment_reference: string;
   phone_number?: string;
+  currency?: string;
+  /** Hosted card checkout link, for reopening a pending card payment. */
+  checkout_url?: string | null;
   status: string;
   created_at: string;
+}
+
+export interface SubscriptionPricingRule {
+  kind: 'usage' | 'flat';
+  currency: string;
+  hotspot_rate: number;
+  per_pppoe_user: number;
+  minimum: number;
+  flat_amount: number;
+}
+
+/** The reseller's country market: currency, language and how they pay. */
+export interface ResellerMarket {
+  code: string;
+  name: string;
+  currency: string;
+  language: string;
+  languages: string[];
+  timezone: string;
+  subscription_currency: string;
+  subscription_pricing: SubscriptionPricingRule;
+  subscription_payment_methods: string[];
+}
+
+export interface SubscriptionCardPayResponse {
+  message: string;
+  payment_id: number;
+  invoice_id: number;
+  amount: number;
+  currency: string;
+  payment_url: string;
+  reference: string;
+  provider_reference: string;
 }
 
 export interface SubscriptionOverview {
@@ -3385,6 +3424,8 @@ export interface SubscriptionOverview {
   current_period_start: string | null;
   current_period_end: string | null;
   total_paid: number;
+  total_paid_by_currency?: Record<string, number>;
+  market?: ResellerMarket;
   invoice_count: number;
   pending_invoice: SubscriptionInvoice | null;
 }
@@ -3473,6 +3514,9 @@ export interface AdminSubscriptionDetail {
     email: string;
     organization_name: string;
     business_name?: string;
+    market_code?: string;
+    price_override?: number | null;
+    preferred_language?: string | null;
   };
   subscription: SubscriptionOverview;
   invoices: SubscriptionInvoice[];
@@ -3483,6 +3527,23 @@ export interface EditSubscriptionRequest {
   subscription_status?: string;
   subscription_expires_at?: string;
   adjust_days?: number;
+  market_code?: string;
+  price_override?: number;
+  clear_price_override?: boolean;
+  preferred_language?: string;
+}
+
+export interface RepriceInvoiceResponse {
+  before: { final_charge: number; currency: string };
+  invoice: SubscriptionInvoice;
+}
+
+export interface ConfirmCardPaymentResponse {
+  message: string;
+  payment_id: number;
+  reseller_id: number;
+  subscription_status: string;
+  subscription_expires_at: string | null;
 }
 
 export interface EditSubscriptionResponse {

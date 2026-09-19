@@ -7,7 +7,7 @@ import { SubscriptionPayment } from '../../../lib/types';
 import DataTable from '../../../components/DataTable';
 import MobileDataCard from '../../../components/MobileDataCard';
 import { SkeletonCard } from '../../../components/LoadingSpinner';
-import { formatKES } from '../../../lib/format';
+import { formatMoney } from '../../../lib/format';
 
 
 const formatSafeDate = (dateStr: string | null | undefined): string => {
@@ -95,7 +95,7 @@ export default function PaymentHistoryPage() {
               renderCell={(p, col) => {
                 switch (col) {
                   case 'date': return <span className="text-sm">{formatSafeDate(p.created_at)}</span>;
-                  case 'amount': return <span className="font-semibold">{formatKES(p.amount)}</span>;
+                  case 'amount': return <span className="font-semibold">{formatMoney(p.amount, p.currency)}</span>;
                   case 'method': return <span className="text-sm uppercase">{p.payment_method}</span>;
                   case 'reference': return <span className="text-sm text-foreground-muted font-mono">{p.payment_reference}</span>;
                   case 'status': return (
@@ -123,7 +123,7 @@ export default function PaymentHistoryPage() {
               <MobileDataCard
                 key={p.id}
                 id={p.id}
-                title={formatKES(p.amount)}
+                title={formatMoney(p.amount, p.currency)}
                 subtitle={`${p.payment_method.toUpperCase()} — ${p.payment_reference}`}
                 avatar={{ text: 'M', color: p.status === 'completed' ? 'success' : p.status === 'pending' ? 'warning' : 'danger' }}
                 status={{ label: p.status, variant: p.status === 'completed' ? 'success' : p.status === 'pending' ? 'warning' : 'danger' }}
