@@ -3391,6 +3391,11 @@ export interface SubscriptionPricingRule {
   per_pppoe_user: number;
   minimum: number;
   flat_amount: number;
+  /** Set on invoices: the reseller's own revenue before conversion. */
+  revenue_currency?: string;
+  hotspot_revenue_local?: number;
+  /** Local currency units per 1 unit of the invoice currency. */
+  fx_rate?: number;
 }
 
 /** The reseller's country market: currency, language and how they pay. */
@@ -3403,6 +3408,8 @@ export interface ResellerMarket {
   timezone: string;
   subscription_currency: string;
   subscription_pricing: SubscriptionPricingRule;
+  /** Local currency units per 1 unit of the subscription currency. */
+  fx_rate?: number;
   subscription_payment_methods: string[];
 }
 

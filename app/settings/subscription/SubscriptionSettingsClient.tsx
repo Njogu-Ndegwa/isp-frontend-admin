@@ -130,6 +130,12 @@ export default function SubscriptionSettingsPage() {
   const hotspotRatePct = Math.round((pricing?.hotspot_rate ?? 0.03) * 1000) / 10;
   const perPppoe = pricing?.per_pppoe_user ?? 25;
   const payLabel = invoiceCurrency === 'KES' ? 'Pay via M-Pesa' : 'Pay by card';
+  // International invoices are in USD; show what the reseller actually
+  // collected in their own currency and the rate used to convert it.
+  const localRevenueNote =
+    pricing?.revenue_currency && pricing.revenue_currency !== invoiceCurrency && pricing.fx_rate
+      ? `${formatMoney(pricing.hotspot_revenue_local ?? 0, pricing.revenue_currency)} at ${pricing.fx_rate.toLocaleString('en-US')} ${pricing.revenue_currency}/${invoiceCurrency}`
+      : null;
 
   return (
     <div className="space-y-5 pb-24 md:pb-6">
@@ -288,6 +294,9 @@ export default function SubscriptionSettingsPage() {
                   <div>
                     <p className="text-foreground">Hotspot Revenue</p>
                     <p className="text-xs text-foreground-muted">{money(pendingInv.hotspot_revenue)} x {hotspotRatePct}%</p>
+                    {localRevenueNote && (
+                      <p className="text-[11px] text-foreground-muted/70">{localRevenueNote}</p>
+                    )}
                   </div>
                   <span className="font-medium text-foreground">{money(pendingInv.hotspot_charge ?? 0)}</span>
                 </div>
