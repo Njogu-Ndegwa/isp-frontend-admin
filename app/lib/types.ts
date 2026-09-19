@@ -3460,6 +3460,15 @@ export interface SubscriptionCardPayResponse {
   provider_reference: string;
 }
 
+export interface CardPaymentVerifyResponse {
+  /** False when no Paystack key is configured: an admin confirms payments. */
+  auto_verify: boolean;
+  results: Record<string, string>;
+  activated: boolean;
+  subscription_status?: string;
+  subscription_expires_at?: string | null;
+}
+
 export interface SubscriptionOverview {
   status: string;
   expires_at: string | null;
