@@ -5,7 +5,7 @@ import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { api } from '../lib/api';
 import { AdminEarnings } from '../lib/types';
-import { formatKES } from '../lib/format';
+import { formatReporting, type ReportingCurrency } from '../lib/reportingCurrency';
 import {
   PERIOD_FOR_CHIP, PERIOD_NOUN, SOURCE_LABELS, sourceSwatchStyle, toChartPoints,
 } from './earnings/earningsChartData';
@@ -25,9 +25,15 @@ const EarningsChart = dynamic(() => import('./earnings/EarningsCharts'), {
 export default function EarningsSummaryCard({
   period = '30d',
   onPeriodChange,
+  currencyMode = 'KES',
+  usdRate,
 }: {
   period?: PeriodFilter;
   onPeriodChange?: (p: PeriodFilter) => void;
+  /** The page's reporting currency; totals arrive in KES. */
+  currencyMode?: ReportingCurrency;
+  /** Fallback KES-per-USD rate until this card's own response carries one. */
+  usdRate?: number;
 }) {
   // One state object written only from the fetch callbacks. Loading is derived
   // from "what we hold isn't for the period being asked for", which avoids a
@@ -70,6 +76,8 @@ export default function EarningsSummaryCard({
     : [];
 
   const change = data?.change_percent.combined ?? 0;
+  const rate = data?.usd_rate ?? usdRate;
+  const money = (kes: number) => formatReporting(kes, currencyMode, rate);
 
   return (
     <div className="card p-4 sm:p-5">
@@ -96,7 +104,7 @@ export default function EarningsSummaryCard({
         <>
           <div className="flex items-baseline gap-2 flex-wrap">
             <span className="text-2xl font-bold text-foreground tabular-nums">
-              {formatKES(data.totals.combined)}
+              {money(data.totals.combined)}
             </span>
             <span className={`text-xs font-medium ${change >= 0 ? 'text-emerald-500' : 'text-red-400'}`}>
               {change >= 0 ? '+' : ''}{change.toFixed(1)}%
@@ -111,7 +119,7 @@ export default function EarningsSummaryCard({
               <div key={row.key} className="flex items-center gap-1.5 text-[11px]">
                 <span className="w-2.5 h-2.5 rounded-sm shrink-0" style={sourceSwatchStyle(row.key)} />
                 <span className="text-foreground-muted">{row.label}</span>
-                <span className="text-foreground font-medium tabular-nums">{formatKES(row.value)}</span>
+                <span className="text-foreground font-medium tabular-nums">{money(row.value)}</span>
                 <span className={row.change >= 0 ? 'text-emerald-500' : 'text-red-400'}>
                   {row.change >= 0 ? '+' : ''}{row.change.toFixed(0)}%
                 </span>
@@ -129,7 +137,7 @@ export default function EarningsSummaryCard({
               )}
             </div>
           ) : (
-            <EarningsChart data={points} height={180} />
+            <EarningsChart data={points} height={180} currencyMode={currencyMode} usdRate={rate} />
           )}
         </>
       )}

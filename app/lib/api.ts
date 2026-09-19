@@ -149,6 +149,9 @@ import {
   SubscriptionPaymentsResponse,
   SubscriptionPayRequest,
   SubscriptionPayResponse,
+  SubscriptionCardPayResponse,
+  RepriceInvoiceResponse,
+  ConfirmCardPaymentResponse,
   AdminSubscriptionsResponse,
   AdminSubscriptionRevenue,
   AdminExpiringSoon,
@@ -2447,6 +2450,16 @@ class ApiClient {
     return this.handleResponse<SubscriptionPayResponse>(response);
   }
 
+  async paySubscriptionByCard(invoiceId: number): Promise<SubscriptionCardPayResponse> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(`${BASE_URL}/subscription/pay-card`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify({ invoice_id: invoiceId }),
+    });
+    return this.handleResponse<SubscriptionCardPayResponse>(response);
+  }
+
   async requestInvoice(): Promise<RequestInvoiceResponse> {
     if (this.isDemoMode()) this.demoBlock();
     const response = await fetch(`${BASE_URL}/subscription/request-invoice`, {
@@ -2552,6 +2565,23 @@ class ApiClient {
       headers: this.getHeaders(),
     });
     return this.handleResponse<GeneratePreExpiryInvoicesResponse>(response);
+  }
+
+  async repriceInvoice(resellerId: number, invoiceId: number): Promise<RepriceInvoiceResponse> {
+    const response = await fetch(`${BASE_URL}/admin/subscriptions/${resellerId}/reprice/${invoiceId}`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<RepriceInvoiceResponse>(response);
+  }
+
+  async confirmCardPayment(paymentId: number, receipt?: string): Promise<ConfirmCardPaymentResponse> {
+    const response = await fetch(`${BASE_URL}/admin/subscriptions/payments/${paymentId}/confirm-card`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify(receipt ? { receipt } : {}),
+    });
+    return this.handleResponse<ConfirmCardPaymentResponse>(response);
   }
 
   async verifySubscriptionPayments(resellerId: number): Promise<VerifyPaymentsResponse> {

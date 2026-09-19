@@ -7,6 +7,7 @@ import { CpuIcon, MemoryIcon, StorageIcon, RouterIcon } from './icons';
 import { formatBytes } from './InterfacesPanel';
 import type { MikroTikMetrics } from '../../lib/types';
 import { parseUTCToGMT3, formatGMT3Date } from '../../lib/dateUtils';
+import { useT } from '../../lib/i18n';
 
 // "Router Health" card — reproduces the original MikroTik section layout:
 // a 4-up row of CPU/Memory/Storage radial dials + an Active Users tile,
@@ -22,10 +23,11 @@ export default function NetworkHealthCard({
   error: string | null;
   onRetry: () => void;
 }): React.JSX.Element {
+  const t = useT();
   // Error state
   if (error) {
     return (
-      <SectionCard title="Router Health" accent="emerald">
+      <SectionCard title={t('Router Health')} accent="emerald">
         <SectionError message={error} onRetry={onRetry} />
       </SectionCard>
     );
@@ -34,7 +36,7 @@ export default function NetworkHealthCard({
   // Loading skeleton (no data yet)
   if (loading && !data) {
     return (
-      <SectionCard title="Router Health" accent="emerald" loading>
+      <SectionCard title={t('Router Health')} accent="emerald" loading>
         <div className="grid grid-cols-2 gap-3 sm:gap-4 mb-4 sm:mb-5">
           {[1, 2, 3, 4].map((i) => (
             <div key={i} className="flex flex-col items-center p-3 sm:p-4 rounded-2xl bg-background-tertiary/40">
@@ -65,18 +67,23 @@ export default function NetworkHealthCard({
   const isLiveFailure = data.live === false && Boolean(data.fallbackReason) && !isFastSnapshot;
 
   const systemSummary = hasSystemDetails
-    ? `${system.boardName || 'Router'} - ${system.platform || 'Unknown'}${system.version ? ` v${system.version}` : ''} - Up: ${uptime}`
+    ? t('{board} - {platform}{version} - Up: {uptime}', {
+        board: system.boardName || t('Router'),
+        platform: system.platform || t('Unknown'),
+        version: system.version ? ` v${system.version}` : '',
+        uptime,
+      })
     : data.refreshInProgress
-      ? 'System details updating'
-      : 'System details unavailable';
+      ? t('System details updating')
+      : t('System details unavailable');
 
   const statusLabel = data.stale
     ? data.refreshInProgress || isFastSnapshot
-      ? 'Updating'
+      ? t('Updating')
       : isLiveFailure
-        ? 'Offline - Stale'
-        : 'Stale'
-    : 'Online';
+        ? t('Offline - Stale')
+        : t('Stale')
+    : t('Online');
 
   const statusClass = data.stale
     ? isLiveFailure
@@ -95,7 +102,7 @@ export default function NetworkHealthCard({
   const metaNode = lastUpdated ? <span suppressHydrationWarning>{lastUpdated}</span> : null;
 
   return (
-    <SectionCard title="Router Health" accent="emerald" loading={loading} meta={metaNode}>
+    <SectionCard title={t('Router Health')} accent="emerald" loading={loading} meta={metaNode}>
       {/* Router name + status badge + system summary subtitle */}
       <div className="flex items-start gap-3 mb-4 sm:mb-5">
         <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center flex-shrink-0">
@@ -106,7 +113,7 @@ export default function NetworkHealthCard({
             <span className="font-semibold text-foreground text-sm sm:text-base">{routerName}</span>
             <span className={`badge text-[10px] ${statusClass}`}>{statusLabel}</span>
             {data.cached && !data.stale && (
-              <span className="badge bg-blue-500/20 text-blue-400 text-[10px]">Cached</span>
+              <span className="badge bg-blue-500/20 text-blue-400 text-[10px]">{t('Cached')}</span>
             )}
           </div>
           <p className="text-[10px] sm:text-xs text-foreground-muted truncate">{systemSummary}</p>
@@ -117,20 +124,20 @@ export default function NetworkHealthCard({
       <div className="grid grid-cols-2 gap-3 sm:gap-4 mb-4 sm:mb-5">
         <RadialGauge
           value={cpuLoad}
-          label="CPU Load"
+          label={t('CPU Load')}
           icon={<CpuIcon className="w-5 h-5" />}
           thresholds={{ warning: 50, danger: 80 }}
         />
         <RadialGauge
           value={memory.usedPercent ?? 0}
-          label="Memory"
+          label={t('Memory')}
           icon={<MemoryIcon className="w-5 h-5" />}
           thresholds={{ warning: 60, danger: 80 }}
           subtitle={`${formatBytes(memory.usedBytes ?? 0)} / ${formatBytes(memory.totalBytes ?? 0)}`}
         />
         <RadialGauge
           value={storage.usedPercent ?? 0}
-          label="Storage"
+          label={t('Storage')}
           icon={<StorageIcon className="w-5 h-5" />}
           thresholds={{ warning: 70, danger: 90 }}
           subtitle={`${formatBytes(storage.usedBytes ?? 0)} / ${formatBytes(storage.totalBytes ?? 0)}`}

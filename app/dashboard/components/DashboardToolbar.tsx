@@ -6,6 +6,7 @@ import MobileSidebar from '../../components/MobileSidebar';
 import AccountMenu from '../../components/AccountMenu';
 import type { Router } from '../../lib/types';
 import { DateFilter, DATE_FILTER_OPTIONS, isFilterEqual } from '../dateFilter';
+import { useT } from '../../lib/i18n';
 
 export default function DashboardToolbar(props: {
   selectedRouterId: number | null;
@@ -41,6 +42,7 @@ export default function DashboardToolbar(props: {
   } = props;
 
   const [showSidebar, setShowSidebar] = useState(false);
+  const t = useT();
 
   return (
     <div className="sticky top-0 z-20 bg-background/80 backdrop-blur border-b border-border">
@@ -49,7 +51,7 @@ export default function DashboardToolbar(props: {
           {/* Hamburger — only below `md`, where the desktop sidebar is hidden */}
           <button
             onClick={() => setShowSidebar(true)}
-            aria-label="Open navigation menu"
+            aria-label={t('Open navigation menu')}
             className="md:hidden -ml-1 p-1.5 rounded-lg text-foreground-muted hover:text-foreground hover:bg-background-tertiary transition-colors active:opacity-70 touch-manipulation flex-none"
           >
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -57,7 +59,7 @@ export default function DashboardToolbar(props: {
             </svg>
           </button>
 
-          <h1 className="text-lg font-semibold text-foreground flex-none">Dashboard</h1>
+          <h1 className="text-lg font-semibold text-foreground flex-none">{t('Dashboard')}</h1>
 
           {/* Account — top-right on mobile, far-right on desktop */}
           <div className="order-1 md:order-last ml-auto md:ml-0 flex-none">
@@ -89,7 +91,7 @@ export default function DashboardToolbar(props: {
                       : 'period-pill-inactive'
                   }`}
                 >
-                  {label}
+                  {t(label)}
                 </button>
               ))}
               <button
@@ -100,7 +102,7 @@ export default function DashboardToolbar(props: {
                     : 'period-pill-inactive'
                 }`}
               >
-                Custom
+                {t('Custom')}
               </button>
             </div>
 
@@ -108,7 +110,7 @@ export default function DashboardToolbar(props: {
               onClick={onRefresh}
               className="btn-secondary flex items-center gap-2 flex-none"
               disabled={refreshing}
-              aria-label="Refresh dashboard"
+              aria-label={t('Refresh dashboard')}
             >
               <svg
                 className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`}
@@ -123,7 +125,7 @@ export default function DashboardToolbar(props: {
                   d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
                 />
               </svg>
-              <span className="hidden md:inline">Refresh</span>
+              <span className="hidden md:inline">{t('Refresh')}</span>
             </button>
           </div>
         </div>
@@ -137,7 +139,7 @@ export default function DashboardToolbar(props: {
               onChange={(e) => onCustomStartChange(e.target.value)}
               className="px-2 py-1.5 text-sm bg-background border border-border rounded-md text-foreground focus:outline-none focus:ring-1 focus:ring-amber-500 flex-1 min-w-0"
             />
-            <span className="text-foreground-muted text-sm">to</span>
+            <span className="text-foreground-muted text-sm">{t('to')}</span>
             <input
               type="date"
               value={customEndDate}
@@ -149,7 +151,7 @@ export default function DashboardToolbar(props: {
               disabled={!customStartDate || !customEndDate}
               className="btn-primary text-xs px-3 py-1.5 disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
             >
-              Apply
+              {t('Apply')}
             </button>
           </div>
         )}

@@ -1,5 +1,7 @@
 'use client';
 
+import { useT } from '../lib/i18n';
+
 interface SubscriptionStatusBadgeProps {
   status: string;
   size?: 'sm' | 'md';
@@ -13,6 +15,7 @@ const STATUS_CONFIG: Record<string, { label: string; classes: string }> = {
 };
 
 export default function SubscriptionStatusBadge({ status, size = 'sm' }: SubscriptionStatusBadgeProps) {
+  const t = useT();
   const config = STATUS_CONFIG[status] || STATUS_CONFIG.inactive;
   const sizeClasses = size === 'md' ? 'text-xs px-3 py-1' : 'text-[10px] px-2 py-0.5';
 
@@ -23,7 +26,7 @@ export default function SubscriptionStatusBadge({ status, size = 'sm' }: Subscri
         status === 'trial' ? 'bg-blue-500' :
         status === 'suspended' ? 'bg-red-500' : 'bg-gray-400'
       }`} />
-      {config.label}
+      {t(config.label)}
     </span>
   );
 }

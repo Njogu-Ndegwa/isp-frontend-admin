@@ -27,7 +27,7 @@ import { SkeletonCard } from '../../../components/LoadingSpinner';
 import Pagination from '../../../components/Pagination';
 import BackupVpnControls from '../../../components/BackupVpnControls';
 import InsuranceTunnelBadge from '../../../components/InsuranceTunnelBadge';
-import { formatKES } from '../../../lib/format';
+import { formatKES, formatMoney } from '../../../lib/format';
 
 const formatSafeDate = (dateStr: string | null | undefined): string => {
   try {
@@ -62,6 +62,11 @@ export default function ResellerDetailPage() {
   const resellerId = Number(params.id);
 
   const [detail, setDetail] = useState<AdminResellerDetail | null>(null);
+  // Each endpoint reports the currency of its own amounts (the reseller's
+  // market currency); fall back to the detail's until a section has loaded.
+  const [sectionCurrency, setSectionCurrency] = useState<
+    Partial<Record<'payments' | 'routers' | 'payouts' | 'charges', string>>
+  >({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<Tab>('payments');
@@ -210,6 +215,7 @@ export default function ResellerDetailPage() {
       });
       if (paymentsRequestSeqRef.current !== requestSeq) return;
       setAllPayments(result.payments);
+      if (result.currency) setSectionCurrency((c) => ({ ...c, payments: result.currency }));
       setPaymentsPage(result.page);
       setPaymentsTotalPages(result.total_pages);
       setPaymentsTotalCount(result.total_count);
@@ -235,6 +241,7 @@ export default function ResellerDetailPage() {
       const result = await api.getAdminResellerRouters(resellerId);
       if (routersRequestSeqRef.current !== requestSeq) return;
       setRouters(result.routers);
+      if (result.currency) setSectionCurrency((c) => ({ ...c, routers: result.currency }));
       setRoutersLoaded(true);
     } catch {
       if (routersRequestSeqRef.current !== requestSeq) return;
@@ -261,6 +268,7 @@ export default function ResellerDetailPage() {
       });
       if (payoutsRequestSeqRef.current !== requestSeq) return;
       setPayouts(result.payouts);
+      if (result.currency) setSectionCurrency((c) => ({ ...c, payouts: result.currency }));
       setPayoutsPage(result.page);
       setPayoutsTotalPages(result.total_pages);
       setPayoutsTotalCount(result.total_count);
@@ -290,6 +298,7 @@ export default function ResellerDetailPage() {
       });
       if (chargesRequestSeqRef.current !== requestSeq) return;
       setCharges(result.charges);
+      if (result.currency) setSectionCurrency((c) => ({ ...c, charges: result.currency }));
       setChargesPage(result.page);
       setChargesTotalPages(result.total_pages);
       setChargesTotalCount(result.total_count);
@@ -488,6 +497,10 @@ export default function ResellerDetailPage() {
     { key: 'charges', label: 'Charges' },
   ];
 
+  // Everything about one reseller is in their market currency (KES, XAF, ...).
+  const currency = (detail.currency || 'KES').toUpperCase();
+  const money = (amount: number | null | undefined) => formatMoney(amount, currency);
+
   return (
     <div className="space-y-4 pb-24 md:pb-6">
       <Header
@@ -568,11 +581,11 @@ export default function ResellerDetailPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="card p-4 bg-background-tertiary/50">
               <p className="text-xs text-foreground-muted mb-1">Period Total</p>
-              <p className="text-xl font-bold">{formatKES(detail.revenue.period)}</p>
+              <p className="text-xl font-bold">{money(detail.revenue.period)}</p>
             </div>
             <div className="card p-4 bg-background-tertiary/50">
               <p className="text-xs text-foreground-muted mb-1">Period M-Pesa</p>
-              <p className="text-xl font-bold text-emerald-500">{formatKES(detail.revenue.period_mpesa ?? 0)}</p>
+              <p className="text-xl font-bold text-emerald-500">{money(detail.revenue.period_mpesa ?? 0)}</p>
             </div>
           </div>
         ) : (
@@ -586,8 +599,8 @@ export default function ResellerDetailPage() {
               <StatCard
                 key={item.label}
                 title={item.label}
-                value={formatKES(item.total)}
-                subtitle={`M-Pesa: ${formatKES(item.mpesa)}`}
+                value={money(item.total)}
+                subtitle={`M-Pesa: ${money(item.mpesa)}`}
                 accent={item.accent}
                 icon={<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8V7m0 10v1" /></svg>}
               />
@@ -612,17 +625,17 @@ export default function ResellerDetailPage() {
           <h3 className="text-sm font-semibold text-foreground mb-3">Payout Status</h3>
           <div className={`grid gap-2 ${detail.payouts.total_transaction_charges ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-1 sm:grid-cols-3'}`}>
             <div className="text-center">
-              <p className="text-lg font-bold text-emerald-500 stat-value">{formatKES(detail.payouts.total_paid)}</p>
+              <p className="text-lg font-bold text-emerald-500 stat-value">{money(detail.payouts.total_paid)}</p>
               <p className="text-xs text-foreground-muted mt-0.5">Paid</p>
             </div>
             {(detail.payouts.total_transaction_charges != null && detail.payouts.total_transaction_charges > 0) && (
               <div className="text-center">
-                <p className="text-lg font-bold text-orange-500 stat-value">{formatKES(detail.payouts.total_transaction_charges)}</p>
+                <p className="text-lg font-bold text-orange-500 stat-value">{money(detail.payouts.total_transaction_charges)}</p>
                 <p className="text-xs text-foreground-muted mt-0.5">Charges</p>
               </div>
             )}
             <div className="text-center">
-              <p className="text-lg font-bold text-amber-500 stat-value">{formatKES(detail.payouts.unpaid_balance)}</p>
+              <p className="text-lg font-bold text-amber-500 stat-value">{money(detail.payouts.unpaid_balance)}</p>
               <p className="text-xs text-foreground-muted mt-0.5">Unpaid</p>
             </div>
             <div className="text-center">
@@ -669,11 +682,12 @@ export default function ResellerDetailPage() {
           dateFilter={paymentDate}
           onDateChange={(d) => { setPaymentDate(d); setPaymentsPage(1); }}
           summary={paymentsSummary}
+          currency={sectionCurrency.payments ?? currency}
         />
       )}
 
       {activeTab === 'routers' && (
-        <RoutersTab routers={routers} loading={showRoutersLoading} />
+        <RoutersTab routers={routers} loading={showRoutersLoading} currency={sectionCurrency.routers ?? currency} />
       )}
 
       {activeTab === 'payouts' && (
@@ -691,6 +705,7 @@ export default function ResellerDetailPage() {
           onEndDateChange={(d) => { setPayoutEndDate(d); setPayoutsLoaded(false); }}
           onRecordPayout={() => setShowPayoutModal(true)}
           onSendPayout={handleOpenB2BPayout}
+          currency={sectionCurrency.payouts ?? currency}
         />
       )}
 
@@ -712,6 +727,7 @@ export default function ResellerDetailPage() {
           onEndDateChange={(d) => { setChargeEndDate(d); setChargesLoaded(false); }}
           onAddCharge={() => setShowChargeModal(true)}
           summary={chargesSummary}
+          currency={sectionCurrency.charges ?? currency}
         />
       )}
 
@@ -734,7 +750,7 @@ export default function ResellerDetailPage() {
 
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium mb-1">Amount (KES) *</label>
+                <label className="block text-sm font-medium mb-1">Amount ({currency}) *</label>
                 <input
                   type="number"
                   className="input w-full"
@@ -818,7 +834,7 @@ export default function ResellerDetailPage() {
                     </div>
                     <div className="text-right">
                       <p className="text-xs text-foreground-muted">Unpaid Balance</p>
-                      <p className="text-xl font-bold text-emerald-500">{formatKES(detail.payouts.unpaid_balance)}</p>
+                      <p className="text-xl font-bold text-emerald-500">{money(detail.payouts.unpaid_balance)}</p>
                     </div>
                   </div>
 
@@ -1003,7 +1019,7 @@ export default function ResellerDetailPage() {
                 </div>
                 <div className="text-right">
                   <p className="text-xs text-foreground-muted">Unpaid Balance</p>
-                  <p className="text-lg font-bold text-amber-500">{formatKES(detail.payouts.unpaid_balance)}</p>
+                  <p className="text-lg font-bold text-amber-500">{money(detail.payouts.unpaid_balance)}</p>
                 </div>
               </div>
               <p className="text-xs text-foreground-muted mt-1">{detail.organization_name} &bull; {detail.business_name}</p>
@@ -1015,7 +1031,7 @@ export default function ResellerDetailPage() {
 
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium mb-1">Amount (KES) *</label>
+                <label className="block text-sm font-medium mb-1">Amount ({currency}) *</label>
                 <input
                   type="number"
                   className="input w-full"
@@ -1214,6 +1230,7 @@ function PaymentsTab({
   dateFilter,
   onDateChange,
   summary,
+  currency,
 }: {
   recentPayments: AdminResellerPayment[];
   allPayments: AdminResellerPayment[];
@@ -1228,8 +1245,10 @@ function PaymentsTab({
   dateFilter: string;
   onDateChange: (d: string) => void;
   summary: { total_transactions: number; total_amount: number; mpesa_amount: number } | null;
+  currency: string;
 }) {
   const payments = showAll ? allPayments : recentPayments;
+  const money = (amount: number | null | undefined) => formatMoney(amount, currency);
 
   return (
     <div className="space-y-3">
@@ -1239,8 +1258,8 @@ function PaymentsTab({
           {summary && (
             <div className="flex items-center gap-4 ml-auto text-sm">
               <span className="text-foreground-muted">{summary.total_transactions} txns</span>
-              <span className="font-medium">{formatKES(summary.total_amount)}</span>
-              <span className="text-emerald-500 text-xs">M-Pesa: {formatKES(summary.mpesa_amount)}</span>
+              <span className="font-medium">{money(summary.total_amount)}</span>
+              <span className="text-emerald-500 text-xs">M-Pesa: {money(summary.mpesa_amount)}</span>
             </div>
           )}
         </div>
@@ -1279,7 +1298,7 @@ function PaymentsTab({
                     );
                   case 'plan': return <span className="badge-info text-xs">{item.plan_name}</span>;
                   case 'method': return <span className="text-sm capitalize">{item.payment_method.replace('_', ' ')}</span>;
-                  case 'amount': return <span className="font-semibold text-sm">{formatKES(item.amount)}</span>;
+                  case 'amount': return <span className="font-semibold text-sm">{money(item.amount)}</span>;
                   case 'date': return <span className="text-sm text-foreground-muted">{formatSafeDate(item.created_at)}</span>;
                   default: return null;
                 }
@@ -1297,7 +1316,7 @@ function PaymentsTab({
                 title={p.customer_name}
                 subtitle={p.customer_phone}
                 avatar={{ text: p.customer_name.slice(0, 2).toUpperCase(), color: 'success' }}
-                value={{ text: formatKES(p.amount) }}
+                value={{ text: money(p.amount) }}
                 secondary={{ left: <span>{p.plan_name}</span>, right: null }}
                 footer={
                   <div className="flex items-center justify-between text-xs text-foreground-muted">
@@ -1335,7 +1354,15 @@ function PaymentsTab({
 
 // ─── Routers Tab ─────────────────────────────────────────────────────
 
-function RoutersTab({ routers, loading }: { routers: AdminRouterDetail[]; loading: boolean }) {
+function RoutersTab({
+  routers,
+  loading,
+  currency,
+}: {
+  routers: AdminRouterDetail[];
+  loading: boolean;
+  currency: string;
+}) {
   if (loading) {
     return <div className="space-y-2">{Array.from({ length: 2 }).map((_, i) => <SkeletonCard key={i} />)}</div>;
   }
@@ -1380,7 +1407,7 @@ function RoutersTab({ routers, loading }: { routers: AdminRouterDetail[]; loadin
             </div>
             <div>
               <p className="text-xs text-foreground-muted">Revenue</p>
-              <p className="font-semibold text-emerald-500">{formatKES(r.total_revenue)}</p>
+              <p className="font-semibold text-emerald-500">{formatMoney(r.total_revenue, currency)}</p>
             </div>
           </div>
           {r.last_checked_at && (
@@ -1413,6 +1440,7 @@ function PayoutsTab({
   onEndDateChange,
   onRecordPayout,
   onSendPayout,
+  currency,
 }: {
   payouts: AdminPayout[];
   loading: boolean;
@@ -1427,7 +1455,9 @@ function PayoutsTab({
   onEndDateChange: (d: string) => void;
   onRecordPayout: () => void;
   onSendPayout: () => void;
+  currency: string;
 }) {
+  const money = (amount: number | null | undefined) => formatMoney(amount, currency);
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-3">
@@ -1470,7 +1500,7 @@ function PayoutsTab({
               renderCell={(item, col) => {
                 switch (col) {
                   case 'id': return <span className="text-foreground-muted text-xs">#{item.id}</span>;
-                  case 'amount': return <span className="font-semibold text-emerald-500">{formatKES(item.amount)}</span>;
+                  case 'amount': return <span className="font-semibold text-emerald-500">{money(item.amount)}</span>;
                   case 'method': return <span className="text-sm capitalize">{item.payment_method}</span>;
                   case 'reference': return <span className="text-sm font-mono text-foreground-muted">{item.reference || '-'}</span>;
                   case 'notes': return <span className="text-sm text-foreground-muted truncate max-w-[150px] block">{item.notes || '-'}</span>;
@@ -1492,7 +1522,7 @@ function PayoutsTab({
               <MobileDataCard
                 key={p.id}
                 id={p.id}
-                title={formatKES(p.amount)}
+                title={money(p.amount)}
                 subtitle={p.notes || undefined}
                 avatar={{ text: p.payment_method.slice(0, 2).toUpperCase(), color: 'success' }}
                 status={{
@@ -1547,6 +1577,7 @@ function ChargesTab({
   onEndDateChange,
   onAddCharge,
   summary,
+  currency,
 }: {
   recentCharges: AdminTransactionCharge[];
   allCharges: AdminTransactionCharge[];
@@ -1564,8 +1595,10 @@ function ChargesTab({
   onEndDateChange: (d: string) => void;
   onAddCharge: () => void;
   summary: { total_charges: number; total_amount: number } | null;
+  currency: string;
 }) {
   const charges = showAll ? allCharges : recentCharges;
+  const money = (amount: number | null | undefined) => formatMoney(amount, currency);
 
   return (
     <div className="space-y-3">
@@ -1577,7 +1610,7 @@ function ChargesTab({
           {summary && (
             <div className="flex items-center gap-4 text-sm">
               <span className="text-foreground-muted">{summary.total_charges} charges</span>
-              <span className="font-medium text-amber-500">{formatKES(summary.total_amount)}</span>
+              <span className="font-medium text-amber-500">{money(summary.total_amount)}</span>
             </div>
           )}
         </div>
@@ -1612,7 +1645,7 @@ function ChargesTab({
               renderCell={(item, col) => {
                 switch (col) {
                   case 'id': return <span className="text-foreground-muted text-xs">#{item.id}</span>;
-                  case 'amount': return <span className="font-semibold text-amber-500">{formatKES(item.amount)}</span>;
+                  case 'amount': return <span className="font-semibold text-amber-500">{money(item.amount)}</span>;
                   case 'description': return <span className="text-sm">{item.description}</span>;
                   case 'reference': return <span className="text-sm font-mono text-foreground-muted">{item.reference || '-'}</span>;
                   case 'date': return <span className="text-sm text-foreground-muted">{formatSafeDate(item.created_at)}</span>;
@@ -1629,7 +1662,7 @@ function ChargesTab({
               <MobileDataCard
                 key={c.id}
                 id={c.id}
-                title={formatKES(c.amount)}
+                title={money(c.amount)}
                 subtitle={c.description}
                 avatar={{ text: 'TC', color: 'warning' }}
                 status={{

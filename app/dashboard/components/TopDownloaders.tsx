@@ -2,6 +2,7 @@
 import React from 'react';
 import { SectionError, SectionEmpty } from './SectionCard';
 import type { TopUsersResponse } from '../../lib/types';
+import { useT } from '../../lib/i18n';
 
 // Live per-router top users (from MikroTik queue counters). Body only —
 // rendered inside the combined Top Users card, which owns the card chrome.
@@ -16,6 +17,7 @@ export function TopDownloadersBody({
   error: string | null;
   onRetry: () => void;
 }): React.ReactElement {
+  const t = useT();
   const formatRate = (bps: number) => {
     if (bps === 0) return '-';
     const kbps = bps / 1000;
@@ -37,7 +39,7 @@ export function TopDownloadersBody({
   }
 
   if (!data || data.topUsers.length === 0) {
-    return <SectionEmpty message="No active users on this router" />;
+    return <SectionEmpty message={t('No active users on this router')} />;
   }
 
   const maxDownload = Math.max(1, ...data.topUsers.map(u => u.downloadMB));
@@ -103,13 +105,13 @@ export function TopDownloadersBody({
           <thead>
             <tr className="text-foreground-muted text-xs uppercase tracking-wider border-b border-border">
               <th className="text-left pb-3 font-medium w-12">#</th>
-              <th className="text-left pb-3 font-medium">User</th>
-              <th className="text-left pb-3 font-medium">Service</th>
-              <th className="text-left pb-3 font-medium">Usage</th>
-              <th className="text-right pb-3 font-medium">Download</th>
-              <th className="text-right pb-3 font-medium">Upload</th>
-              <th className="text-right pb-3 font-medium">Total</th>
-              <th className="text-right pb-3 font-medium">Speed</th>
+              <th className="text-left pb-3 font-medium">{t('User')}</th>
+              <th className="text-left pb-3 font-medium">{t('Service')}</th>
+              <th className="text-left pb-3 font-medium">{t('Usage')}</th>
+              <th className="text-right pb-3 font-medium">{t('Download')}</th>
+              <th className="text-right pb-3 font-medium">{t('Upload')}</th>
+              <th className="text-right pb-3 font-medium">{t('Total')}</th>
+              <th className="text-right pb-3 font-medium">{t('Speed')}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-border/30">
@@ -139,7 +141,7 @@ export function TopDownloadersBody({
                   <td className="py-3">
                     <div className="flex items-center gap-2">
                       <span className="font-mono text-sm text-foreground">{user.customerPhone}</span>
-                      {isActive && <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse flex-shrink-0" title="Active now" />}
+                      {isActive && <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse flex-shrink-0" title={t('Active now')} />}
                     </div>
                     {user.customerName && user.customerName !== user.customerPhone && (
                       <p className="text-xs text-foreground-muted mt-0.5">{user.customerName}</p>
@@ -178,7 +180,7 @@ export function TopDownloadersBody({
                         {formatRate(downloadRate)}
                       </span>
                     ) : (
-                      <span className="text-sm text-foreground-muted">Idle</span>
+                      <span className="text-sm text-foreground-muted">{t('Idle')}</span>
                     )}
                   </td>
                 </tr>

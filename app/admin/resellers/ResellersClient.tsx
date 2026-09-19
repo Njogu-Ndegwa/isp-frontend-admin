@@ -15,7 +15,10 @@ import MobileDataCard from '../../components/MobileDataCard';
 import StatCard from '../../components/StatCard';
 import { PageLoader } from '../../components/LoadingSpinner';
 import dynamic from 'next/dynamic';
-import { formatKES } from '../../lib/format';
+import { formatMoney } from '../../lib/format';
+import {
+  ReportingCurrencyToggle, formatReporting, sumToKes, useReportingCurrency,
+} from '../../lib/reportingCurrency';
 
 // Recharts-based component is loaded dynamically (client-only) so recharts
 // stays out of this route's First Load JS bundle.
@@ -106,6 +109,10 @@ export default function ResellersListPage() {
   const [desktopPage, setDesktopPage] = useState(1);
   const [mobileDisplayCount, setMobileDisplayCount] = useState(20);
   const [loadedQueryKey, setLoadedQueryKey] = useState<string | null>(null);
+  // Rows are in each reseller's own currency; these convert them for totals.
+  const [kesRates, setKesRates] = useState<Record<string, number> | undefined>(undefined);
+  const [usdRate, setUsdRate] = useState<number | undefined>(undefined);
+  const [currencyMode, setCurrencyMode] = useReportingCurrency();
 
   const queryKey = useMemo(() => JSON.stringify({
     search,
@@ -135,6 +142,8 @@ export default function ResellersListPage() {
       if (requestSeqRef.current !== requestSeq) return;
       setResellers(result.resellers ?? []);
       setTotal(result.total ?? result.resellers?.length ?? 0);
+      setKesRates(result.kes_rates);
+      setUsdRate(result.usd_rate);
       setLoadedQueryKey(requestQueryKey);
     } catch (err) {
       if (requestSeqRef.current !== requestSeq) return;
@@ -194,13 +203,34 @@ export default function ResellersListPage() {
     );
   }
 
-  const totalRevenue = resellers.reduce((sum, r) => sum + r.total_revenue, 0);
-  const totalMpesa = resellers.reduce((sum, r) => sum + r.mpesa_revenue, 0);
-  const totalUnpaid = resellers.reduce((sum, r) => sum + r.unpaid_balance, 0);
+  // Rows can be in different currencies: convert each to KES before summing,
+  // then show the total in the admin's reporting currency.
+  const rowCurrency = (r: AdminReseller) => r.currency;
+  const revenueSum = sumToKes(resellers, (r) => r.total_revenue, rowCurrency, kesRates);
+  const mpesaSum = sumToKes(resellers, (r) => r.mpesa_revenue, rowCurrency, kesRates);
+  const unpaidSum = sumToKes(resellers, (r) => r.unpaid_balance, rowCurrency, kesRates);
+  const totalRevenue = revenueSum.total;
+  const totalMpesa = mpesaSum.total;
+  const totalUnpaid = unpaidSum.total;
+  const unconverted = [...new Set([...revenueSum.missing, ...mpesaSum.missing, ...unpaidSum.missing])];
+  const money = (kes: number) => formatReporting(kes, currencyMode, usdRate);
+  const rowMoney = (amount: number | null | undefined, r: AdminReseller) => formatMoney(amount, r.currency);
 
   return (
     <div>
       <Header title="Resellers" subtitle={`Manage ${total} registered resellers`} backHref="/admin" />
+
+      {/* Totals below are converted across markets; rows stay in each reseller's currency. */}
+      {!showLoadingState && resellers.length > 0 && (
+        <div className="flex items-center justify-end gap-3 mb-3 flex-wrap">
+          {unconverted.length > 0 && (
+            <span className="text-[11px] text-amber-500">
+              Totals exclude {unconverted.join(', ')} (no exchange rate)
+            </span>
+          )}
+          <ReportingCurrencyToggle value={currencyMode} onChange={setCurrencyMode} />
+        </div>
+      )}
 
       {/* Summary Stats */}
       {!showLoadingState && resellers.length > 0 && (
@@ -211,18 +241,18 @@ export default function ResellersListPage() {
             />
           </div>
           <div className="animate-fade-in delay-2" style={{ opacity: 0 }}>
-            <StatCard title="Total Revenue" value={formatKES(totalRevenue)} accent="success"
+            <StatCard title="Total Revenue" value={money(totalRevenue)} accent="success"
               icon={<svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8V7m0 10v1" /></svg>}
             />
           </div>
           <div className="animate-fade-in delay-3" style={{ opacity: 0 }}>
-            <StatCard title="M-Pesa Revenue" value={formatKES(totalMpesa)} accent="info"
+            <StatCard title="M-Pesa Revenue" value={money(totalMpesa)} accent="info"
               subtitle={`${totalRevenue > 0 ? Math.round((totalMpesa / totalRevenue) * 100) : 0}% of total`}
               icon={<svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" /></svg>}
             />
           </div>
           <div className="animate-fade-in delay-4" style={{ opacity: 0 }}>
-            <StatCard title="Unpaid Balance" value={formatKES(totalUnpaid)} subtitle="Pending payouts" accent="warning"
+            <StatCard title="Unpaid Balance" value={money(totalUnpaid)} subtitle="Pending payouts" accent="warning"
               icon={<svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
             />
           </div>
@@ -230,7 +260,7 @@ export default function ResellersListPage() {
       )}
 
       {/* Charts */}
-      <ResellerCharts />
+      <ResellerCharts currencyMode={currencyMode} />
 
       {/* Filters */}
       <div className="space-y-3 mb-6 animate-fade-in">
@@ -381,7 +411,7 @@ export default function ResellersListPage() {
                       variant: isRecentlyActive(r.last_login_at) ? 'success' : 'neutral',
                     }}
                     value={{
-                      text: formatKES(r.total_revenue),
+                      text: rowMoney(r.total_revenue, r),
                       highlight: true,
                     }}
                     secondary={{
@@ -390,7 +420,7 @@ export default function ResellersListPage() {
                           <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold font-mono bg-emerald-500/10 text-emerald-500">
                             {r.mpesa_shortcode}
                           </span>
-                          <span>M-Pesa: {formatKES(r.mpesa_revenue)}</span>
+                          <span>{r.currency && r.currency !== 'KES' ? 'Mobile money' : 'M-Pesa'}: {rowMoney(r.mpesa_revenue, r)}</span>
                         </span>
                       ),
                       right: `${r.active_customers}/${r.total_customers} users`,
@@ -398,12 +428,12 @@ export default function ResellersListPage() {
                     footer={
                       <div className="space-y-1.5">
                         <div className="flex items-center justify-between">
-                          <span>Unpaid: <span className="text-amber-500 font-medium">{formatKES(r.unpaid_balance)}</span></span>
+                          <span>Unpaid: <span className="text-amber-500 font-medium">{rowMoney(r.unpaid_balance, r)}</span></span>
                           <span>Joined: {formatSafeDate(r.created_at)}</span>
                         </div>
                         <div className="flex items-center justify-between">
                           {(r.total_transaction_charges != null && r.total_transaction_charges > 0) ? (
-                            <span className="text-orange-500 text-[10px]">Charges: {formatKES(r.total_transaction_charges)}</span>
+                            <span className="text-orange-500 text-[10px]">Charges: {rowMoney(r.total_transaction_charges, r)}</span>
                           ) : <span />}
                           <span>
                             <span className={`inline-block w-1.5 h-1.5 rounded-full mr-1 ${isRecentlyActive(r.last_login_at) ? 'bg-emerald-500' : 'bg-foreground-muted/30'}`} />
@@ -464,8 +494,8 @@ export default function ResellersListPage() {
                 case 'revenue':
                   return (
                     <div className="text-right">
-                      <p className="font-semibold text-foreground">{formatKES(item.total_revenue)}</p>
-                      <p className="text-[10px] text-emerald-500">M-Pesa: {formatKES(item.mpesa_revenue)}</p>
+                      <p className="font-semibold text-foreground">{rowMoney(item.total_revenue, item)}</p>
+                      <p className="text-[10px] text-emerald-500">{item.currency && item.currency !== 'KES' ? 'Mobile money' : 'M-Pesa'}: {rowMoney(item.mpesa_revenue, item)}</p>
                     </div>
                   );
                 case 'customers':
@@ -480,9 +510,9 @@ export default function ResellersListPage() {
                 case 'unpaid':
                   return (
                     <div className="text-right">
-                      <span className="text-sm font-medium text-amber-500">{formatKES(item.unpaid_balance)}</span>
+                      <span className="text-sm font-medium text-amber-500">{rowMoney(item.unpaid_balance, item)}</span>
                       {(item.total_transaction_charges != null && item.total_transaction_charges > 0) && (
-                        <p className="text-[10px] text-orange-500">Charges: {formatKES(item.total_transaction_charges)}</p>
+                        <p className="text-[10px] text-orange-500">Charges: {rowMoney(item.total_transaction_charges, item)}</p>
                       )}
                     </div>
                   );

@@ -1,5 +1,6 @@
 'use client';
 import React from 'react';
+import { useT } from '../../lib/i18n';
 
 // Radial dial for a single 0–100% metric (CPU / Memory / Storage),
 // colored by warning/danger thresholds. Restored from the original dashboard design.
@@ -18,6 +19,7 @@ export default function RadialGauge({
   thresholds?: { warning: number; danger: number };
   subtitle?: string;
 }) {
+  const t = useT();
   const radius = (size - 16) / 2;
   const circumference = 2 * Math.PI * radius;
   const strokeWidth = 8;
@@ -35,10 +37,10 @@ export default function RadialGauge({
   const color = getColor();
   const riskLevel =
     normalizedValue >= thresholds.danger
-      ? 'Critical'
+      ? t('Critical')
       : normalizedValue >= thresholds.warning
-        ? 'Warning'
-        : 'Normal';
+        ? t('Warning')
+        : t('Normal');
 
   return (
     <div className={`relative flex flex-col items-center p-3 sm:p-4 rounded-2xl bg-gradient-to-b ${color.bg}`}>

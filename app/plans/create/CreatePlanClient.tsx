@@ -11,6 +11,7 @@ import Header from '../../components/Header';
 import { gmt3InputToISO } from '../../lib/dateUtils';
 import { DataCapUnit, dataCapInputToMb } from '../dataCap';
 import { normalizeDuration, describeDuration } from '../duration';
+import { getDisplayCurrency } from '../../lib/format';
 
 export default function CreatePlanPage() {
   const router = useRouter();
@@ -130,7 +131,7 @@ export default function CreatePlanPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label htmlFor="price" className="block text-sm font-medium text-foreground-muted mb-1.5">
-                  Price (KES)
+                  Price ({getDisplayCurrency()})
                 </label>
                 <input
                   id="price"

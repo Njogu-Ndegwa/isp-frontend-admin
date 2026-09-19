@@ -18,6 +18,8 @@ import PlanRouterScope, {
 import { formatDateGMT3, utcToGMT3Input, gmt3InputToISO } from '../lib/dateUtils';
 import { DataCapUnit, dataCapInputToMb, splitDataCapMb } from './dataCap';
 import { normalizeDuration, describeDuration } from './duration';
+import { formatAmount, getDisplayCurrency } from '../lib/format';
+import { useT } from '../lib/i18n';
 
 type FilterTab = 'all' | 'regular' | 'emergency';
 type ConnectionFilter = 'all' | 'hotspot' | 'pppoe';
@@ -36,6 +38,7 @@ const PLAN_COLUMNS: DataTableColumn[] = [
 ];
 
 export default function PlansPage() {
+  const t = useT();
   const [plans, setPlans] = useState<Plan[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -154,7 +157,7 @@ export default function PlansPage() {
   const getMobilePlanMeta = (plan: Plan) => {
     const cap = formatDataCap(plan.data_cap_mb);
     const sharing = plan.connection_type === 'hotspot'
-      ? (getSharingLimit(plan) > 1 ? `${getSharingLimit(plan)} devices` : 'No sharing')
+      ? (getSharingLimit(plan) > 1 ? t('{count} devices', { count: getSharingLimit(plan) }) : t('No sharing'))
       : null;
     const scope = plan.router_ids && plan.router_ids.length > 0
       ? describeRouterScope(plan.router_ids, routers)
@@ -163,7 +166,7 @@ export default function PlansPage() {
       cap ? `FUP ${cap}` : null,
       sharing,
       scope,
-      plan.plan_type === 'emergency' ? 'Emergency' : 'Regular',
+      plan.plan_type === 'emergency' ? t('Emergency') : t('Regular'),
     ].filter(Boolean).join(' - ');
   };
 
@@ -198,10 +201,10 @@ export default function PlansPage() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
             </svg>
           </div>
-          <h2 className="text-xl font-semibold text-foreground mb-2">Failed to Load Plans</h2>
+          <h2 className="text-xl font-semibold text-foreground mb-2">{t('Failed to Load Plans')}</h2>
           <p className="text-foreground-muted mb-4">{error}</p>
           <button onClick={loadData} className="btn-primary">
-            Try Again
+            {t('Try Again')}
           </button>
         </div>
       </div>
@@ -210,7 +213,7 @@ export default function PlansPage() {
 
   return (
     <div>
-      <Header title="Plans" subtitle="Manage your internet plans and pricing" />
+      <Header title={t('Plans')} subtitle={t('Manage your internet plans and pricing')} />
 
       {/* Emergency Active Indicator */}
       {anyRouterInEmergency && (
@@ -219,7 +222,7 @@ export default function PlansPage() {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
           </svg>
           <div className="flex-1">
-            <span className="text-danger font-semibold text-sm">Emergency Mode Active</span>
+            <span className="text-danger font-semibold text-sm">{t('Emergency Mode Active')}</span>
             <span className="text-danger/80 text-sm ml-2">
               {routers.filter(r => r.emergency_active).map(r => r.name).join(', ')}
             </span>
@@ -253,7 +256,7 @@ export default function PlansPage() {
           <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
           </svg>
-          <span>{filteredPlans.length} plans{activeTab !== 'all' ? ` (${activeTab})` : ''}</span>
+          <span>{t('{count} plans', { count: filteredPlans.length })}{activeTab !== 'all' ? ` (${t(activeTab)})` : ''}</span>
         </div>
         <div className="flex gap-2 flex-wrap">
           {hasEmergencyPlans && routers.length > 0 && (
@@ -266,7 +269,7 @@ export default function PlansPage() {
                 >
                   {routers.map((r) => (
                     <option key={r.id} value={r.id}>
-                      {r.name} {r.emergency_active ? '(emergency)' : ''}
+                      {r.name} {r.emergency_active ? t('(emergency)') : ''}
                     </option>
                   ))}
                 </select>
@@ -287,7 +290,7 @@ export default function PlansPage() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                   </svg>
                 )}
-                {selectedRouterInEmergency ? 'Deactivate Emergency' : 'Activate Emergency'}
+                {selectedRouterInEmergency ? t('Deactivate Emergency') : t('Activate Emergency')}
               </button>
             </div>
           )}
@@ -295,13 +298,13 @@ export default function PlansPage() {
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
             </svg>
-            <span className="hidden sm:inline">Refresh</span>
+            <span className="hidden sm:inline">{t('Refresh')}</span>
           </button>
           <Link href="/plans/create" className="btn-primary flex items-center gap-2">
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
             </svg>
-            Create Plan
+            {t('Create Plan')}
           </Link>
         </div>
       </div>
@@ -313,7 +316,7 @@ export default function PlansPage() {
             <SearchInput
               value={searchQuery}
               onChange={setSearchQuery}
-              placeholder="Search by plan name, price, or speed..."
+              placeholder={t('Search by plan name, price, or speed...')}
             />
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:flex">
@@ -321,17 +324,17 @@ export default function PlansPage() {
               value={activeTab}
               onChange={(v) => setActiveTab(v as FilterTab)}
               options={[
-                { value: 'all', label: 'All Plans' },
-                { value: 'regular', label: 'Regular' },
-                { value: 'emergency', label: 'Emergency' },
-                { value: 'hidden', label: 'Hidden' },
+                { value: 'all', label: t('All Plans') },
+                { value: 'regular', label: t('Regular') },
+                { value: 'emergency', label: t('Emergency') },
+                { value: 'hidden', label: t('Hidden') },
               ]}
             />
             <FilterSelect
               value={connectionFilter}
               onChange={(v) => setConnectionFilter(v as ConnectionFilter)}
               options={[
-                { value: 'all', label: 'All Types' },
+                { value: 'all', label: t('All Types') },
                 { value: 'hotspot', label: 'Hotspot' },
                 { value: 'pppoe', label: 'PPPoE' },
               ]}
@@ -340,9 +343,9 @@ export default function PlansPage() {
               value={visibilityFilter}
               onChange={(v) => setVisibilityFilter(v as VisibilityFilter)}
               options={[
-                { value: 'all', label: 'All Status' },
-                { value: 'visible', label: 'Visible' },
-                { value: 'hidden', label: 'Hidden' },
+                { value: 'all', label: t('All Status') },
+                { value: 'visible', label: t('Visible') },
+                { value: 'hidden', label: t('Hidden') },
               ]}
             />
           </div>
@@ -351,13 +354,13 @@ export default function PlansPage() {
         {/* Active Filters */}
         {(activeTab !== 'all' || connectionFilter !== 'all' || visibilityFilter !== 'all') && (
           <div className="flex items-center gap-2 mt-3 flex-wrap">
-            <span className="text-xs text-foreground-muted">Filters:</span>
+            <span className="text-xs text-foreground-muted">{t('Filters:')}</span>
             {activeTab !== 'all' && (
               <button
                 onClick={() => setActiveTab('all')}
                 className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-accent-primary/10 text-accent-primary hover:bg-accent-primary/20 transition-colors capitalize"
               >
-                {activeTab}
+                {t(activeTab)}
                 <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
               </button>
             )}
@@ -375,7 +378,7 @@ export default function PlansPage() {
                 onClick={() => setVisibilityFilter('all')}
                 className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-accent-primary/10 text-accent-primary hover:bg-accent-primary/20 transition-colors capitalize"
               >
-                {visibilityFilter}
+                {t(visibilityFilter)}
                 <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
               </button>
             )}
@@ -383,7 +386,7 @@ export default function PlansPage() {
               onClick={() => { setActiveTab('all'); setConnectionFilter('all'); setVisibilityFilter('all'); }}
               className="text-xs text-foreground-muted hover:text-foreground transition-colors underline underline-offset-2"
             >
-              Clear all
+              {t('Clear all')}
             </button>
           </div>
         )}
@@ -410,7 +413,7 @@ export default function PlansPage() {
         <PullToRefresh onRefresh={loadData}>
           {/* Desktop Table */}
           <DataTable<Plan>
-            columns={PLAN_COLUMNS}
+            columns={PLAN_COLUMNS.map((col) => ({ ...col, label: col.label ? t(col.label) : col.label }))}
             data={filteredPlans}
             rowKey={(plan) => plan.id}
             renderCell={(plan, key) => {
@@ -442,7 +445,7 @@ export default function PlansPage() {
                               .map((id) => routers.find((r) => r.id === id)?.name ?? `Router ${id}`)
                               .join(', ')}
                           >
-                            Only on {describeRouterScope(plan.router_ids, routers)}
+                            {t('Only on {routers}', { routers: describeRouterScope(plan.router_ids, routers) })}
                           </p>
                         )}
                       </div>
@@ -451,16 +454,16 @@ export default function PlansPage() {
                 case 'price':
                   return (
                     <div>
-                      <span className="font-semibold text-foreground">KES {plan.price}</span>
+                      <span className="font-semibold text-foreground">{formatAmount(plan.price)}</span>
                       {plan.original_price != null && plan.original_price > plan.price && (
-                        <p className="text-xs text-foreground-muted line-through">KES {plan.original_price}</p>
+                        <p className="text-xs text-foreground-muted line-through">{formatAmount(plan.original_price)}</p>
                       )}
                     </div>
                   );
                 case 'duration':
                   return (
                     <span className="text-foreground-muted">
-                      {plan.duration_value} {plan.duration_unit.toLowerCase()}
+                      {plan.duration_value} {t(plan.duration_unit.toLowerCase())}
                     </span>
                   );
                 case 'speed': {
@@ -486,7 +489,7 @@ export default function PlansPage() {
                   const limit = getSharingLimit(plan);
                   return (
                     <span className={`badge ${limit > 1 ? 'badge-info' : 'badge-neutral'}`}>
-                      {limit > 1 ? `${limit} devices` : 'Off'}
+                      {limit > 1 ? t('{count} devices', { count: limit }) : t('Off')}
                     </span>
                   );
                 }
@@ -495,14 +498,14 @@ export default function PlansPage() {
                     <span className={`badge ${
                       plan.plan_type === 'emergency' ? 'badge-warning' : 'badge-success'
                     } capitalize`}>
-                      {plan.plan_type || 'regular'}
+                      {t(plan.plan_type || 'regular')}
                     </span>
                   );
                 case 'status': {
                   const isExpired = plan.valid_until && new Date(plan.valid_until) < new Date();
-                  if (isExpired) return <span className="badge badge-danger">Expired</span>;
-                  if (plan.is_hidden) return <span className="badge badge-neutral">Hidden</span>;
-                  return <span className="badge badge-success">Visible</span>;
+                  if (isExpired) return <span className="badge badge-danger">{t('Expired')}</span>;
+                  if (plan.is_hidden) return <span className="badge badge-neutral">{t('Hidden')}</span>;
+                  return <span className="badge badge-success">{t('Visible')}</span>;
                 }
                 case 'actions':
                   return (
@@ -510,7 +513,7 @@ export default function PlansPage() {
                       <button
                         onClick={() => setEditingPlan(plan)}
                         className="p-1.5 rounded-md hover:bg-accent-primary/10 transition-colors text-foreground-muted hover:text-accent-primary"
-                        title="Edit plan"
+                        title={t('Edit plan')}
                       >
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -520,7 +523,7 @@ export default function PlansPage() {
                         onClick={() => handleToggleHidden(plan)}
                         disabled={actionLoading === plan.id}
                         className="p-1.5 rounded-md hover:bg-warning/10 transition-colors text-foreground-muted hover:text-warning"
-                        title={plan.is_hidden ? 'Show plan' : 'Hide plan'}
+                        title={plan.is_hidden ? t('Show plan') : t('Hide plan')}
                       >
                         {actionLoading === plan.id ? (
                           <div className="w-4 h-4 border-2 border-warning/30 border-t-warning rounded-full animate-spin" />
@@ -539,7 +542,7 @@ export default function PlansPage() {
                         onClick={() => handleDeletePlan(plan.id)}
                         disabled={actionLoading === plan.id}
                         className="p-1.5 rounded-md hover:bg-danger/10 transition-colors text-foreground-muted hover:text-danger"
-                        title="Delete plan"
+                        title={t('Delete plan')}
                       >
                         {actionLoading === plan.id ? (
                           <div className="w-4 h-4 border-2 border-danger/30 border-t-danger rounded-full animate-spin" />
@@ -565,7 +568,7 @@ export default function PlansPage() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
                 </svg>
               ),
-              message: searchQuery ? 'No plans match your search' : activeTab === 'all' ? 'No plans yet' : `No ${activeTab} plans`,
+              message: searchQuery ? t('No plans match your search') : activeTab === 'all' ? t('No plans yet') : activeTab === 'emergency' ? t('No emergency plans') : (activeTab as string) === 'hidden' ? t('No hidden plans') : t('No regular plans'),
             }}
           />
 
@@ -576,7 +579,7 @@ export default function PlansPage() {
                 <svg className="w-12 h-12 mx-auto mb-4 text-foreground-muted/50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
                 </svg>
-                {searchQuery ? 'No plans match your search' : activeTab === 'all' ? 'No plans yet' : `No ${activeTab} plans`}
+                {searchQuery ? t('No plans match your search') : activeTab === 'all' ? t('No plans yet') : activeTab === 'emergency' ? t('No emergency plans') : (activeTab as string) === 'hidden' ? t('No hidden plans') : t('No regular plans')}
               </div>
             ) : (
               filteredPlans.map((plan) => (
@@ -591,15 +594,15 @@ export default function PlansPage() {
                     }}
                     badge={{ label: plan.connection_type === 'pppoe' ? 'PPPoE' : 'Hotspot' }}
                     status={{
-                      label: plan.is_hidden ? 'Hidden' : 'Visible',
+                      label: plan.is_hidden ? t('Hidden') : t('Visible'),
                       variant: plan.is_hidden ? 'neutral' : 'success',
                     }}
                     value={{
-                      text: `KES ${plan.price}`,
+                      text: formatAmount(plan.price),
                       highlight: true,
                     }}
                     secondary={{
-                      left: `${plan.duration_value} ${plan.duration_unit.toLowerCase()}`,
+                      left: `${plan.duration_value} ${t(plan.duration_unit.toLowerCase())}`,
                       right: getMobilePlanMeta(plan),
                     }}
                     onClick={() => setEditingPlan(plan)}
@@ -608,7 +611,7 @@ export default function PlansPage() {
                         <button
                           onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleToggleHidden(plan); }}
                           className="p-1.5 rounded-md hover:bg-warning/10 transition-colors text-foreground-muted hover:text-warning"
-                          title={plan.is_hidden ? 'Show' : 'Hide'}
+                          title={plan.is_hidden ? t('Show') : t('Hide')}
                         >
                           {plan.is_hidden ? (
                             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -624,7 +627,7 @@ export default function PlansPage() {
                         <button
                           onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleDeletePlan(plan.id); }}
                           className="p-1.5 rounded-md hover:bg-danger/10 transition-colors text-foreground-muted hover:text-danger"
-                          title="Delete"
+                          title={t('Delete')}
                         >
                           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -807,7 +810,7 @@ function EditPlanModal({
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-foreground mb-2">Price (KES)</label>
+                <label className="block text-sm font-medium text-foreground mb-2">Price ({getDisplayCurrency()})</label>
                 <input
                   type="number"
                   value={formData.price || ''}

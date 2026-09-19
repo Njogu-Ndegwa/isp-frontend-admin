@@ -14,7 +14,7 @@ import FilterSelect from '../components/FilterSelect';
 import FilterDatePicker from '../components/FilterDatePicker';
 import DataTable, { DataTableColumn } from '../components/DataTable';
 import Pagination from '../components/Pagination';
-import { formatKES } from '../lib/format';
+import { formatAmount } from '../lib/format';
 import { scopedSummaryDates, thisMonthCardTitle, scopeCaption } from './summaryScope';
 
 type StatusFilter = 'all' | 'completed' | 'pending' | 'failed' | 'expired';
@@ -293,9 +293,9 @@ export default function TransactionsPage() {
             <div className="animate-fade-in delay-1">
               <StatCard
                 title={thisMonthCardTitle(dateFilter)}
-                value={formatKES(summary.status_breakdown.completed?.amount || 0)}
+                value={formatAmount(summary.status_breakdown.completed?.amount || 0)}
                 subtitle={summary.compensation_total && summary.compensation_total > 0
-                  ? `+ ${formatKES(summary.compensation_total)} free comp`
+                  ? `+ ${formatAmount(summary.compensation_total)} free comp`
                   : undefined}
                 icon={
                   <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -308,7 +308,7 @@ export default function TransactionsPage() {
             <div className="animate-fade-in delay-2">
               <StatCard
                 title="Hotspot"
-                value={formatKES(summary.connection_type_breakdown?.hotspot?.amount || 0)}
+                value={formatAmount(summary.connection_type_breakdown?.hotspot?.amount || 0)}
                 icon={
                   <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.111 16.404a5.5 5.5 0 017.778 0M5.636 13.929a9 9 0 0112.728 0M3.161 11.455a12.5 12.5 0 0117.678 0M12 20h.01" />
@@ -320,7 +320,7 @@ export default function TransactionsPage() {
             <div className="animate-fade-in delay-3">
               <StatCard
                 title="PPPoE"
-                value={formatKES(summary.connection_type_breakdown?.pppoe?.amount || 0)}
+                value={formatAmount(summary.connection_type_breakdown?.pppoe?.amount || 0)}
                 icon={
                   <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
@@ -332,7 +332,7 @@ export default function TransactionsPage() {
             <div className="animate-fade-in delay-4">
               <StatCard
                 title="All Time"
-                value={formatKES(allTimeSummary?.status_breakdown.completed?.amount || 0)}
+                value={formatAmount(allTimeSummary?.status_breakdown.completed?.amount || 0)}
                 icon={
                   <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
@@ -611,7 +611,7 @@ export default function TransactionsPage() {
                 case 'amount':
                   return (
                     <div className="flex items-center gap-1.5">
-                      <span className="font-semibold text-accent-primary">{formatKES(tx.amount)}</span>
+                      <span className="font-semibold text-accent-primary">{formatAmount(tx.amount)}</span>
                       {tx.counts_as_revenue === false && (
                         <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-semibold text-foreground-muted bg-gray-500/15 border border-gray-500/20">
                           Free

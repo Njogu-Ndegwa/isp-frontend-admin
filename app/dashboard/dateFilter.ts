@@ -1,5 +1,7 @@
 // Shared date filter types and helpers — consumed by DashboardToolbar, DashboardClient, and section components.
 
+import type { TFunction } from '../lib/i18n';
+
 export type DateFilter =
   | { type: 'preset'; preset: 'today' | 'this_month' }
   | { type: 'days'; days: number }
@@ -49,16 +51,16 @@ export function toUsageWindowParams(filter: DateFilter): UsageWindowParams {
   return { startDate: filter.startDate, endDate: filter.endDate };
 }
 
-export function getPeriodLabel(filter: DateFilter): string {
+export function getPeriodLabel(filter: DateFilter, t: TFunction): string {
   if (filter.type === 'preset') {
-    if (filter.preset === 'today') return 'today';
-    if (filter.preset === 'this_month') return 'this month';
+    if (filter.preset === 'today') return t('today');
+    if (filter.preset === 'this_month') return t('this month');
   }
   if (filter.type === 'days') {
-    return `the last ${filter.days} days`;
+    return t('the last {days} days', { days: filter.days });
   }
   if (filter.type === 'custom') {
-    return `${filter.startDate} to ${filter.endDate}`;
+    return t('{start} to {end}', { start: filter.startDate, end: filter.endDate });
   }
-  return 'selected period';
+  return t('selected period');
 }

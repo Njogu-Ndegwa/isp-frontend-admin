@@ -12,7 +12,7 @@ import MobileDataCard from '../components/MobileDataCard';
 import FilterDatePicker from '../components/FilterDatePicker';
 import Pagination from '../components/Pagination';
 import { SkeletonCard } from '../components/LoadingSpinner';
-import { formatKES } from '../lib/format';
+import { formatAmount } from '../lib/format';
 import WithdrawCard from './WithdrawCard';
 
 const formatSafeDate = (dateStr: string | null | undefined): string => {
@@ -115,25 +115,25 @@ export default function AccountStatementPage() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <StatCard
               title="Revenue Collected"
-              value={formatKES(data.balance.total_system_collected)}
+              value={formatAmount(data.balance.total_system_collected)}
               accent="success"
               icon={<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8V7m0 10v1" /></svg>}
             />
             <StatCard
               title="Paid to You"
-              value={formatKES(data.balance.total_paid_to_you)}
+              value={formatAmount(data.balance.total_paid_to_you)}
               accent="info"
               icon={<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
             />
             <StatCard
               title="Charges / Fees"
-              value={formatKES(data.balance.total_transaction_charges)}
+              value={formatAmount(data.balance.total_transaction_charges)}
               accent="warning"
               icon={<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 12H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
             />
             <StatCard
               title="Unpaid Balance"
-              value={formatKES(data.balance.unpaid_balance)}
+              value={formatAmount(data.balance.unpaid_balance)}
               accent="primary"
               icon={<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" /></svg>}
             />
@@ -148,19 +148,19 @@ export default function AccountStatementPage() {
             <div className="space-y-2 text-sm">
               <div className="flex items-center justify-between">
                 <span className="text-foreground-muted">M-Pesa Revenue (system collected)</span>
-                <span className="font-medium text-emerald-500">{formatKES(data.balance.total_system_collected)}</span>
+                <span className="font-medium text-emerald-500">{formatAmount(data.balance.total_system_collected)}</span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-foreground-muted">Payouts (paid to you)</span>
-                <span className="font-medium text-blue-500">- {formatKES(data.balance.total_paid_to_you)}</span>
+                <span className="font-medium text-blue-500">- {formatAmount(data.balance.total_paid_to_you)}</span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-foreground-muted">Transaction Charges (fees)</span>
-                <span className="font-medium text-orange-500">- {formatKES(data.balance.total_transaction_charges)}</span>
+                <span className="font-medium text-orange-500">- {formatAmount(data.balance.total_transaction_charges)}</span>
               </div>
               <div className="border-t border-border pt-2 flex items-center justify-between">
                 <span className="font-semibold">Net Unpaid Balance</span>
-                <span className="font-bold text-lg">{formatKES(data.balance.unpaid_balance)}</span>
+                <span className="font-bold text-lg">{formatAmount(data.balance.unpaid_balance)}</span>
               </div>
             </div>
           </div>
@@ -194,15 +194,15 @@ export default function AccountStatementPage() {
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
                 <div className="card p-3 bg-background-tertiary/50">
                   <p className="text-xs text-foreground-muted mb-0.5">Period Payouts</p>
-                  <p className="text-lg font-bold text-emerald-500">{formatKES(data.period_summary.total_payouts)}</p>
+                  <p className="text-lg font-bold text-emerald-500">{formatAmount(data.period_summary.total_payouts)}</p>
                 </div>
                 <div className="card p-3 bg-background-tertiary/50">
                   <p className="text-xs text-foreground-muted mb-0.5">Period Charges</p>
-                  <p className="text-lg font-bold text-amber-500">{formatKES(data.period_summary.total_charges)}</p>
+                  <p className="text-lg font-bold text-amber-500">{formatAmount(data.period_summary.total_charges)}</p>
                 </div>
                 <div className="card p-3 bg-background-tertiary/50">
                   <p className="text-xs text-foreground-muted mb-0.5">Net</p>
-                  <p className="text-lg font-bold">{formatKES(data.period_summary.net)}</p>
+                  <p className="text-lg font-bold">{formatAmount(data.period_summary.net)}</p>
                 </div>
               </div>
             )}
@@ -241,7 +241,7 @@ export default function AccountStatementPage() {
                         case 'amount':
                           return (
                             <span className={`font-semibold ${item.type === 'payout' ? 'text-emerald-500' : 'text-amber-500'}`}>
-                              {item.type === 'charge' ? '- ' : ''}{formatKES(item.amount)}
+                              {item.type === 'charge' ? '- ' : ''}{formatAmount(item.amount)}
                             </span>
                           );
                         case 'description':
@@ -266,7 +266,7 @@ export default function AccountStatementPage() {
                     <MobileDataCard
                       key={`${entry.type}-${entry.id}`}
                       id={entry.id}
-                      title={`${entry.type === 'charge' ? '- ' : ''}${formatKES(entry.amount)}`}
+                      title={`${entry.type === 'charge' ? '- ' : ''}${formatAmount(entry.amount)}`}
                       subtitle={entry.description}
                       avatar={{
                         text: entry.type === 'payout' ? 'PO' : 'TC',

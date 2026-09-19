@@ -18,7 +18,7 @@ import {
   RevenueOverTimePeriod,
   RevenueOverTimeResponse,
 } from '../lib/types';
-import { formatKES, formatKESCompact } from '../lib/format';
+import { formatAmount, formatAmountCompact } from '../lib/format';
 import { portColor, PortRevenueTooltip } from './DailyTransactionsChart';
 
 // ─── Period options ────────────────────────────────────────────────────────────
@@ -56,7 +56,7 @@ function RevenueTooltip({
       <div className="flex items-center gap-2 mb-1">
         <span className="w-2 h-2 rounded-full bg-emerald-500" />
         <span className="text-foreground-muted text-xs">Revenue:</span>
-        <span className="font-semibold text-foreground text-xs ml-auto">{formatKES(rev.value)}</span>
+        <span className="font-semibold text-foreground text-xs ml-auto">{formatAmount(rev.value)}</span>
       </div>
       {tx && (
         <div className="flex items-center gap-2">
@@ -289,12 +289,12 @@ export default function RevenueOverTimeChart({ routerId, enabled = true }: Props
           <div className="grid grid-cols-3 gap-2 sm:gap-3 mb-4">
             <div className="rounded-xl bg-emerald-500/8 border border-emerald-500/15 p-2.5 sm:p-3">
               <p className="text-[10px] text-foreground-muted uppercase tracking-wider mb-0.5">Total Revenue</p>
-              <p className="text-sm sm:text-base font-bold text-emerald-500">{formatKESCompact(portData.totals.revenue)}</p>
+              <p className="text-sm sm:text-base font-bold text-emerald-500">{formatAmountCompact(portData.totals.revenue)}</p>
             </div>
             <div className="rounded-xl bg-amber-500/8 border border-amber-500/15 p-2.5 sm:p-3">
               <p className="text-[10px] text-foreground-muted uppercase tracking-wider mb-0.5">Avg / Day</p>
               <p className="text-sm sm:text-base font-bold text-amber-500">
-                {formatKESCompact(portData.totals.revenue / (portData.data.length || 1))}
+                {formatAmountCompact(portData.totals.revenue / (portData.data.length || 1))}
               </p>
             </div>
             <div className="rounded-xl bg-indigo-500/8 border border-indigo-500/15 p-2.5 sm:p-3">
@@ -331,7 +331,7 @@ export default function RevenueOverTimeChart({ routerId, enabled = true }: Props
                     axisLine={false}
                     tickLine={false}
                     tick={{ fill: 'var(--foreground-muted)', fontSize: 10 }}
-                    tickFormatter={(v: number) => formatKESCompact(v)}
+                    tickFormatter={(v: number) => formatAmountCompact(v)}
                     width={58}
                   />
                   <Tooltip
@@ -368,14 +368,14 @@ export default function RevenueOverTimeChart({ routerId, enabled = true }: Props
           <div className="grid grid-cols-3 gap-2 sm:gap-3 mb-4">
             <div className="rounded-xl bg-emerald-500/8 border border-emerald-500/15 p-2.5 sm:p-3">
               <p className="text-[10px] text-foreground-muted uppercase tracking-wider mb-0.5">Total Revenue</p>
-              <p className="text-sm sm:text-base font-bold text-emerald-500">{formatKESCompact(data.totals.revenue)}</p>
+              <p className="text-sm sm:text-base font-bold text-emerald-500">{formatAmountCompact(data.totals.revenue)}</p>
             </div>
             <div className="rounded-xl bg-amber-500/8 border border-amber-500/15 p-2.5 sm:p-3">
               <p className="text-[10px] text-foreground-muted uppercase tracking-wider mb-0.5">
                 Avg / {groupLabel === 'daily' ? 'Day' : groupLabel === 'weekly' ? 'Week' : 'Month'}
               </p>
               <p className="text-sm sm:text-base font-bold text-amber-500">
-                {formatKESCompact(data.totals.avg_per_period)}
+                {formatAmountCompact(data.totals.avg_per_period)}
               </p>
             </div>
             <div className="rounded-xl bg-indigo-500/8 border border-indigo-500/15 p-2.5 sm:p-3">
@@ -415,7 +415,7 @@ export default function RevenueOverTimeChart({ routerId, enabled = true }: Props
                     axisLine={false}
                     tickLine={false}
                     tick={{ fill: 'var(--foreground-muted)', fontSize: 10 }}
-                    tickFormatter={(v) => formatKESCompact(v)}
+                    tickFormatter={(v) => formatAmountCompact(v)}
                     width={58}
                   />
                   <Tooltip

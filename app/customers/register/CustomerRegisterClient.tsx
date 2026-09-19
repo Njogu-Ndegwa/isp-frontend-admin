@@ -9,6 +9,7 @@ import { Plan, Router, RegisterCustomerRequest, PPPoECredentials, Customer } fro
 import { useAlert } from '../../context/AlertContext';
 import Header from '../../components/Header';
 import { PageLoader } from '../../components/LoadingSpinner';
+import { formatAmount } from '../../lib/format';
 
 export default function RegisterCustomerPage() {
   const router = useRouter();
@@ -247,7 +248,7 @@ export default function RegisterCustomerPage() {
                 <option value="" disabled>Select a plan</option>
                 {plans.map((plan) => (
                   <option key={plan.id} value={plan.id}>
-                    {plan.name} — KES {plan.price} ({plan.connection_type === 'pppoe' ? 'PPPoE' : 'Hotspot'})
+                    {plan.name} — {formatAmount(plan.price)} ({plan.connection_type === 'pppoe' ? 'PPPoE' : 'Hotspot'})
                   </option>
                 ))}
               </select>

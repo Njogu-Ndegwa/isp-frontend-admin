@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import BottomSheet from './BottomSheet';
 import { useAuth } from '../context/AuthContext';
 import ThemeToggle from './ThemeToggle';
+import { useT } from '../lib/i18n';
 
 interface MoreMenuProps {
   isOpen: boolean;
@@ -182,6 +183,7 @@ const adminItems = [
 export default function MoreMenu({ isOpen, onClose }: MoreMenuProps) {
   const pathname = usePathname();
   const { logout, user } = useAuth();
+  const t = useT();
   const isAdmin = user?.role === 'admin';
 
   const handleLogout = () => {
@@ -205,7 +207,7 @@ export default function MoreMenu({ isOpen, onClose }: MoreMenuProps) {
           {item.icon}
         </div>
         <span className={`text-[11px] font-medium leading-tight ${isActive ? 'text-accent-primary' : ''}`}>
-          {item.name}
+          {t(item.name)}
         </span>
       </Link>
     );
@@ -232,7 +234,7 @@ export default function MoreMenu({ isOpen, onClose }: MoreMenuProps) {
           <>
             <div className="mb-4">
               <h4 className="text-[10px] font-semibold uppercase tracking-wider text-foreground-muted/60 mb-2 px-1">
-                Management
+                {t('Management')}
               </h4>
               <div className="grid grid-cols-4 gap-2">
                 {managementItems.map((item) => (
@@ -245,7 +247,7 @@ export default function MoreMenu({ isOpen, onClose }: MoreMenuProps) {
 
             <div className="mt-4">
               <h4 className="text-[10px] font-semibold uppercase tracking-wider text-foreground-muted/60 mb-2 px-1">
-                Settings
+                {t('Settings')}
               </h4>
               <div className="grid grid-cols-4 gap-2">
                 {settingsItems.map((item) => (
@@ -272,7 +274,7 @@ export default function MoreMenu({ isOpen, onClose }: MoreMenuProps) {
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
             </svg>
-            <span className="font-medium text-sm">Logout</span>
+            <span className="font-medium text-sm">{t('Logout')}</span>
           </button>
         </div>
       </div>

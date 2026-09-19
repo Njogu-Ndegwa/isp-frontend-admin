@@ -4,7 +4,8 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import SectionCard, { SectionError } from './SectionCard';
 import PortFaceplate, { isUplinkPort, portVisualStatus } from '../../components/PortFaceplate';
-import { formatKESCompact } from '../../lib/format';
+import { formatAmountCompact } from '../../lib/format';
+import { useT } from '../../lib/i18n';
 import { DownloadUsageBody } from './DownloadUsageSection';
 import type { DateFilter } from '../dateFilter';
 import type {
@@ -92,6 +93,7 @@ export default function PortsUsageCard({
   service: DownloadUsageServiceFilter;
   onServiceChange: (s: DownloadUsageServiceFilter) => void;
 }): React.JSX.Element {
+  const t = useT();
   const [mode, setMode] = useState<Mode>('ports');
   const [selectedPort, setSelectedPort] = useState<string | null>(null);
 
@@ -106,7 +108,7 @@ export default function PortsUsageCard({
             mode === m ? 'period-pill-active' : 'period-pill-inactive'
           }`}
         >
-          {m === 'ports' ? 'Ports' : 'Usage'}
+          {m === 'ports' ? t('Ports') : t('Usage')}
         </button>
       ))}
     </div>
@@ -114,12 +116,12 @@ export default function PortsUsageCard({
 
   const meta =
     mode === 'ports' && portMap?.cache_age_seconds != null ? (
-      <span>Updated {Math.round(portMap.cache_age_seconds)}s ago</span>
+      <span>{t('Updated {seconds}s ago', { seconds: Math.round(portMap.cache_age_seconds) })}</span>
     ) : undefined;
 
   return (
     <SectionCard
-      title="Ports & Usage"
+      title={t('Ports & Usage')}
       accent="purple"
       loading={mode === 'ports' ? portMapLoading : usageLoading}
       meta={meta}
@@ -168,6 +170,7 @@ function PortsBody({
   onSelectPort: (port: string) => void;
   reportedTraffic: ReportedTraffic | null;
 }) {
+  const t = useT();
   if (error) {
     return <SectionError message={error} onRetry={onRetry} />;
   }
@@ -182,7 +185,7 @@ function PortsBody({
   }
 
   if (data.ports.length === 0) {
-    return <p className="text-sm text-foreground-muted text-center py-6">No bridge ports found on this router</p>;
+    return <p className="text-sm text-foreground-muted text-center py-6">{t('No bridge ports found on this router')}</p>;
   }
 
   const effectiveSelected = selectedPort && data.ports.some((p) => p.port === selectedPort)
@@ -235,32 +238,33 @@ function UplinkTrafficPanel({ reportedData }: { reportedData: ReportedTraffic | 
   const txBps = reportedData?.txBps;
   const hasReading = rxBps != null && txBps != null;
   const reportAge = reportedData?.ageSeconds;
+  const t = useT();
 
   return (
     <div
-      aria-label="Ether1 traffic"
+      aria-label={t('Ether1 traffic')}
       className="mt-2 rounded-xl border border-sky-500/20 bg-sky-500/5 p-3"
     >
       <div className="mb-2 flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <span className="h-2 w-2 rounded-full bg-sky-500" />
-          <p className="text-xs font-medium text-foreground">Ether1 internet traffic</p>
+          <p className="text-xs font-medium text-foreground">{t('Ether1 internet traffic')}</p>
         </div>
         <span className="text-[10px] text-foreground-muted">
-          {reportAge != null ? `Latest report · ${Math.max(0, Math.round(reportAge))}s ago` : 'Latest report'}
+          {reportAge != null ? t('Latest report · {seconds}s ago', { seconds: Math.max(0, Math.round(reportAge)) }) : t('Latest report')}
         </span>
       </div>
 
       {hasReading ? (
         <div className="grid grid-cols-2 gap-2">
           <div className="rounded-lg bg-background/60 p-2.5">
-            <p className="text-[10px] uppercase tracking-wide text-sky-500">Coming in ↓</p>
+            <p className="text-[10px] uppercase tracking-wide text-sky-500">{t('Coming in ↓')}</p>
             <p className="mt-0.5 font-mono text-lg font-semibold text-foreground" data-testid="ether1-incoming-rate">
               {formatBitrate(rxBps)}
             </p>
           </div>
           <div className="rounded-lg bg-background/60 p-2.5">
-            <p className="text-[10px] uppercase tracking-wide text-foreground-muted">Going out ↑</p>
+            <p className="text-[10px] uppercase tracking-wide text-foreground-muted">{t('Going out ↑')}</p>
             <p className="mt-0.5 font-mono text-lg font-semibold text-foreground" data-testid="ether1-outgoing-rate">
               {formatBitrate(txBps)}
             </p>
@@ -269,11 +273,11 @@ function UplinkTrafficPanel({ reportedData }: { reportedData: ReportedTraffic | 
       ) : (
         <div className="grid grid-cols-2 gap-2">
           <div className="rounded-lg bg-background/60 p-2.5">
-            <p className="text-[10px] uppercase tracking-wide text-sky-500">Coming in ↓</p>
+            <p className="text-[10px] uppercase tracking-wide text-sky-500">{t('Coming in ↓')}</p>
             <p className="mt-0.5 font-mono text-lg font-semibold text-foreground-muted">—</p>
           </div>
           <div className="rounded-lg bg-background/60 p-2.5">
-            <p className="text-[10px] uppercase tracking-wide text-foreground-muted">Going out ↑</p>
+            <p className="text-[10px] uppercase tracking-wide text-foreground-muted">{t('Going out ↑')}</p>
             <p className="mt-0.5 font-mono text-lg font-semibold text-foreground-muted">—</p>
           </div>
         </div>
@@ -281,8 +285,8 @@ function UplinkTrafficPanel({ reportedData }: { reportedData: ReportedTraffic | 
 
       <p className="mt-2 text-[10px] text-foreground-muted">
         {hasReading
-          ? 'Recent average from the latest stored router report. This panel does not poll the router.'
-          : 'No stored router report yet. The speed will appear after the router sends its next report.'}
+          ? t('Recent average from the latest stored router report. This panel does not poll the router.')
+          : t('No stored router report yet. The speed will appear after the router sends its next report.')}
       </p>
     </div>
   );
@@ -299,6 +303,7 @@ function SelectedPortPanel({
   tiered: boolean;
   reportedTraffic: ReportedTraffic | null;
 }) {
+  const t = useT();
   const status = portVisualStatus(port);
   const badge = STATUS_BADGES[status] ?? STATUS_BADGES.down;
 
@@ -322,26 +327,26 @@ function SelectedPortPanel({
       <div className="flex items-center justify-between gap-2 flex-wrap mb-2">
         <div className="flex items-center gap-2 flex-wrap min-w-0">
           <span className="font-mono font-semibold text-foreground text-sm">{port.port}</span>
-          <span className={`badge text-[10px] ${badge.badge}`}>{badge.label}</span>
+          <span className={`badge text-[10px] ${badge.badge}`}>{t(badge.label)}</span>
           {port.link.up && port.link.rate && (
             <span className="text-xs text-foreground-muted">{port.link.rate}</span>
           )}
           {port.bridge && <span className="text-xs text-foreground-muted hidden sm:inline">· {port.bridge}</span>}
         </div>
         <Link href={detailsHref} className="btn-ghost text-xs whitespace-nowrap flex-shrink-0">
-          Details →
+          {t('Details →')}
         </Link>
       </div>
 
       {status === 'uplink' ? (
         <>
-          <p className="text-xs text-sky-500">WAN uplink — brings the internet into this router.</p>
+          <p className="text-xs text-sky-500">{t('WAN uplink — brings the internet into this router.')}</p>
           <UplinkTrafficPanel reportedData={reportedTraffic} />
         </>
       ) : status === 'down' ? (
-        <p className="text-xs text-foreground-muted">No physical link on this port.</p>
+        <p className="text-xs text-foreground-muted">{t('No physical link on this port.')}</p>
       ) : status === 'silent_link' ? (
-        <p className="text-xs text-amber-400">Link is up but nothing downstream is talking.</p>
+        <p className="text-xs text-amber-400">{t('Link is up but nothing downstream is talking.')}</p>
       ) : tiered ? (
         <>
           {/* Counts line — total devices is an aggregate port figure; the
@@ -351,7 +356,7 @@ function SelectedPortPanel({
             <span className="font-medium text-foreground">{equipment.length}</span> equipment ·{' '}
             <span className="font-medium text-foreground">{paying.length}</span> customer{paying.length !== 1 ? 's' : ''}
             {port.revenue && port.revenue.this_month > 0 && (
-              <> · <span className="font-medium text-foreground">{formatKESCompact(port.revenue.this_month)}</span> this month</>
+              <> · <span className="font-medium text-foreground">{formatAmountCompact(port.revenue.this_month)}</span> this month</>
             )}
           </p>
 
@@ -377,9 +382,9 @@ function SelectedPortPanel({
               )}
             </div>
           ) : port.downstream_devices_sample.length > 0 ? (
-            <p className="text-xs text-foreground-muted">No paying customers are currently seen on this port.</p>
+            <p className="text-xs text-foreground-muted">{t('No paying customers are currently seen on this port.')}</p>
           ) : (
-            <p className="text-xs text-foreground-muted">No device samples captured for this port.</p>
+            <p className="text-xs text-foreground-muted">{t('No device samples captured for this port.')}</p>
           )}
         </>
       ) : (
@@ -393,7 +398,7 @@ function SelectedPortPanel({
               <> · <span className="font-medium text-foreground">{port.counts.unknown_devices}</span> unknown</>
             )}
             {port.revenue && port.revenue.this_month > 0 && (
-              <> · <span className="font-medium text-foreground">{formatKESCompact(port.revenue.this_month)}</span> this month</>
+              <> · <span className="font-medium text-foreground">{formatAmountCompact(port.revenue.this_month)}</span> this month</>
             )}
           </p>
 
@@ -410,7 +415,7 @@ function SelectedPortPanel({
               )}
             </div>
           ) : (
-            <p className="text-xs text-foreground-muted">No device samples captured for this port.</p>
+            <p className="text-xs text-foreground-muted">{t('No device samples captured for this port.')}</p>
           )}
         </>
       )}
@@ -422,6 +427,7 @@ function DeviceRow({ device }: { device: DownstreamDeviceSample }) {
   const isInfra = device.kind === 'infrastructure';
   const online = device.hotspot_active || device.ppp_active;
   const label = device.name || device.mac;
+  const t = useT();
 
   return (
     <div className="flex items-center gap-2 py-1 px-2 rounded-lg bg-background-tertiary/40 min-w-0">
@@ -432,7 +438,7 @@ function DeviceRow({ device }: { device: DownstreamDeviceSample }) {
       ) : (
         <span
           className={`w-2 h-2 rounded-full flex-shrink-0 ${online ? 'bg-emerald-500' : 'bg-foreground-muted/30'}`}
-          title={online ? 'Online now' : 'Not currently active'}
+          title={online ? t('Online now') : t('Not currently active')}
         />
       )}
       <span className={`text-xs truncate min-w-0 flex-1 ${device.name ? 'text-foreground' : 'font-mono text-foreground-muted'}`}>
@@ -443,7 +449,7 @@ function DeviceRow({ device }: { device: DownstreamDeviceSample }) {
         device.kind === 'known_customer' ? 'bg-blue-500/20 text-blue-400' :
         'bg-foreground-muted/20 text-foreground-muted'
       }`}>
-        {isInfra ? 'Infra' : device.kind === 'known_customer' ? 'Customer' : 'Unknown'}
+        {isInfra ? t('Infra') : device.kind === 'known_customer' ? t('Customer') : t('Unknown')}
       </span>
       {device.last_seen && (
         <span className="text-[10px] font-mono text-foreground-muted flex-shrink-0 hidden sm:inline">{device.last_seen}</span>
@@ -456,13 +462,14 @@ function DeviceRow({ device }: { device: DownstreamDeviceSample }) {
 // Labels come from deviceTiers identity resolution — never a raw full MAC.
 
 function EquipmentMiniRow({ device }: { device: EquipmentEntry }) {
+  const t = useT();
   return (
     <div className="flex items-center gap-2 py-1 px-2 rounded-lg min-w-0 bg-background-tertiary/40">
       <svg className="w-3.5 h-3.5 flex-shrink-0 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0" />
       </svg>
       <span className="text-xs truncate min-w-0 flex-1 text-foreground">{equipmentDisplayName(device)}</span>
-      <span className="badge text-[9px] flex-shrink-0 bg-purple-500/20 text-purple-400">Equipment</span>
+      <span className="badge text-[9px] flex-shrink-0 bg-purple-500/20 text-purple-400">{t('Equipment')}</span>
       {device.last_seen && (
         <span className="text-[10px] font-mono text-foreground-muted flex-shrink-0 hidden sm:inline">{device.last_seen}</span>
       )}
@@ -472,14 +479,15 @@ function EquipmentMiniRow({ device }: { device: EquipmentEntry }) {
 
 function PayingMiniRow({ device }: { device: DownstreamDeviceSample }) {
   const online = device.hotspot_active || device.ppp_active;
+  const t = useT();
   return (
     <div className="flex items-center gap-2 py-1 px-2 rounded-lg bg-background-tertiary/40 min-w-0">
       <span
         className={`w-2 h-2 rounded-full flex-shrink-0 ${online ? 'bg-emerald-500' : 'bg-foreground-muted/30'}`}
-        title={online ? 'Online now' : 'Not currently active'}
+        title={online ? t('Online now') : t('Not currently active')}
       />
       <span className="text-xs truncate min-w-0 flex-1 text-foreground">{deviceDisplayName(device)}</span>
-      <span className="badge text-[9px] flex-shrink-0 bg-blue-500/20 text-blue-400">Customer</span>
+      <span className="badge text-[9px] flex-shrink-0 bg-blue-500/20 text-blue-400">{t('Customer')}</span>
       {device.last_seen && (
         <span className="text-[10px] font-mono text-foreground-muted flex-shrink-0 hidden sm:inline">{device.last_seen}</span>
       )}

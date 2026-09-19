@@ -3,6 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { CurrencyIcon, TransactionsIcon, UsersIcon, ChartIcon } from './icons';
+import { useT } from '../../lib/i18n';
 
 /**
  * Shown on the dashboard when the reseller has no routers yet. Instead of
@@ -10,14 +11,15 @@ import { CurrencyIcon, TransactionsIcon, UsersIcon, ChartIcon } from './icons';
  * router is connected, alongside a clear call to action to get set up.
  */
 export default function DashboardEmptyState(): React.JSX.Element {
+  const t = useT();
   return (
     <div className="space-y-4 sm:space-y-6 animate-fade-in">
       {/* Ghost KPI tiles — a preview of the analytics that will appear */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4" aria-hidden="true">
-        <GhostStat title="Total Revenue" icon={<CurrencyIcon />} />
-        <GhostStat title="Transactions" icon={<TransactionsIcon />} />
-        <GhostStat title="Unique Customers" icon={<UsersIcon />} />
-        <GhostStat title="Avg Transaction" icon={<ChartIcon />} />
+        <GhostStat title={t('Total Revenue')} icon={<CurrencyIcon />} />
+        <GhostStat title={t('Transactions')} icon={<TransactionsIcon />} />
+        <GhostStat title={t('Unique Customers')} icon={<UsersIcon />} />
+        <GhostStat title={t('Avg Transaction')} icon={<ChartIcon />} />
       </div>
 
       {/* Call to action */}
@@ -27,10 +29,9 @@ export default function DashboardEmptyState(): React.JSX.Element {
             <path strokeLinecap="round" strokeLinejoin="round" d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0" />
           </svg>
         </div>
-        <h3 className="text-lg font-semibold text-foreground">Your dashboard is almost ready</h3>
+        <h3 className="text-lg font-semibold text-foreground">{t('Your dashboard is almost ready')}</h3>
         <p className="text-sm text-foreground-muted mt-2 max-w-md">
-          Connect your first router to start seeing live revenue, customer activity, network health,
-          and usage analytics right here.
+          {t('Connect your first router to start seeing live revenue, customer activity, network health, and usage analytics right here.')}
         </p>
         <div className="flex flex-col sm:flex-row items-center gap-3 mt-6 w-full sm:w-auto">
           <Link
@@ -40,10 +41,10 @@ export default function DashboardEmptyState(): React.JSX.Element {
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
             </svg>
-            Add your first router
+            {t('Add your first router')}
           </Link>
           <Link href="/setup" className="btn-secondary w-full sm:w-auto text-center">
-            Use the setup guide
+            {t('Use the setup guide')}
           </Link>
         </div>
       </div>

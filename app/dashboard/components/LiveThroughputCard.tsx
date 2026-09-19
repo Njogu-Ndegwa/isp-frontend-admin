@@ -2,10 +2,12 @@
 import React from 'react';
 import { UsersIcon } from './icons';
 import type { MikroTikMetrics } from '../../lib/types';
+import { useT } from '../../lib/i18n';
 
 // Live bandwidth download/upload meters (the original BandwidthSpeedometer),
 // rendered full-width beneath the gauge row inside the Router Health card.
 export function BandwidthMeters({ data }: { data: MikroTikMetrics }) {
+  const t = useT();
   const bandwidth = data.bandwidth ?? { downloadMbps: 0, uploadMbps: 0 };
   const download = bandwidth.downloadMbps ?? 0;
   const upload = bandwidth.uploadMbps ?? 0;
@@ -17,7 +19,7 @@ export function BandwidthMeters({ data }: { data: MikroTikMetrics }) {
     <div className="p-3 sm:p-4 rounded-2xl bg-gradient-to-br from-background-tertiary to-background">
       <div className="flex items-center justify-between mb-3 sm:mb-4">
         <span className="text-[10px] sm:text-xs text-foreground-muted uppercase tracking-wide font-medium">
-          Live Bandwidth
+          {t('Live Bandwidth')}
         </span>
         <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
       </div>
@@ -32,7 +34,7 @@ export function BandwidthMeters({ data }: { data: MikroTikMetrics }) {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
                 </svg>
               </div>
-              <span className="text-xs sm:text-sm text-foreground-muted">Download</span>
+              <span className="text-xs sm:text-sm text-foreground-muted">{t('Download')}</span>
             </div>
             <span className="text-lg sm:text-xl font-bold text-cyan-500 stat-value">
               {download.toFixed(2)}{' '}
@@ -58,7 +60,7 @@ export function BandwidthMeters({ data }: { data: MikroTikMetrics }) {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10l7-7m0 0l7 7m-7-7v18" />
                 </svg>
               </div>
-              <span className="text-xs sm:text-sm text-foreground-muted">Upload</span>
+              <span className="text-xs sm:text-sm text-foreground-muted">{t('Upload')}</span>
             </div>
             <span className="text-lg sm:text-xl font-bold text-emerald-500 stat-value">
               {upload.toFixed(2)}{' '}
@@ -78,7 +80,7 @@ export function BandwidthMeters({ data }: { data: MikroTikMetrics }) {
 
       {/* Combined total */}
       <div className="mt-3 sm:mt-4 pt-2.5 sm:pt-3 border-t border-border/30 flex items-center justify-between">
-        <span className="text-[10px] sm:text-xs text-foreground-muted">Total Throughput</span>
+        <span className="text-[10px] sm:text-xs text-foreground-muted">{t('Total Throughput')}</span>
         <span className="text-xs sm:text-sm font-semibold text-foreground">
           {(download + upload).toFixed(2)} Mbps
         </span>
@@ -89,15 +91,16 @@ export function BandwidthMeters({ data }: { data: MikroTikMetrics }) {
 
 // Active hotspot/PPPoE "online now" tile — sits as the 4th cell in the gauge row.
 export function ActiveUsersBox({ data }: { data: MikroTikMetrics }) {
+  const t = useT();
   const activeHotspot = data.activeHotspotUsers ?? data.activeSessionCount ?? 0;
   const activePppoe = data.activePppoeUsers ?? data.activePppoeCount ?? 0;
   const activeTotal = data.activeTotalUsers ?? activeHotspot + activePppoe;
   const snapshotAgeSec = Math.round(data.snapshotAgeSeconds ?? 0);
   const hotspotAgeLabel = snapshotAgeSec > 0
     ? snapshotAgeSec < 60
-      ? `updated ${snapshotAgeSec}s ago`
-      : `updated ${Math.round(snapshotAgeSec / 60)}m ago`
-    : 'snapshot';
+      ? t('updated {seconds}s ago', { seconds: snapshotAgeSec })
+      : t('updated {minutes}m ago', { minutes: Math.round(snapshotAgeSec / 60) })
+    : t('snapshot');
 
   return (
     <div className="p-3 sm:p-4 rounded-2xl bg-gradient-to-b from-amber-500/20 to-amber-500/5 flex flex-col items-center justify-center">
@@ -105,19 +108,19 @@ export function ActiveUsersBox({ data }: { data: MikroTikMetrics }) {
         <UsersIcon className="w-5 h-5 sm:w-6 sm:h-6 text-amber-500" />
       </div>
       <div className="flex items-stretch gap-3 sm:gap-4">
-        <div className="flex flex-col items-center" title={`Hotspot users — ${hotspotAgeLabel}`}>
+        <div className="flex flex-col items-center" title={t('Hotspot users — {age}', { age: hotspotAgeLabel })}>
           <span className="text-xl sm:text-2xl font-bold text-amber-500 stat-value leading-none">{activeHotspot}</span>
           <span className="text-[9px] sm:text-[10px] font-medium text-foreground-muted uppercase tracking-wide mt-1">Hotspot</span>
           <span className="text-[8px] sm:text-[9px] text-foreground-muted/70 mt-0.5">{hotspotAgeLabel}</span>
         </div>
         <div className="w-px bg-amber-500/20" />
-        <div className="flex flex-col items-center" title="PPPoE users — live count">
+        <div className="flex flex-col items-center" title={t('PPPoE users — live count')}>
           <span className="text-xl sm:text-2xl font-bold text-sky-400 stat-value leading-none">{activePppoe}</span>
           <span className="text-[9px] sm:text-[10px] font-medium text-foreground-muted uppercase tracking-wide mt-1">PPPoE</span>
-          <span className="text-[8px] sm:text-[9px] text-emerald-400/80 mt-0.5">live</span>
+          <span className="text-[8px] sm:text-[9px] text-emerald-400/80 mt-0.5">{t('live')}</span>
         </div>
       </div>
-      <span className="text-[9px] sm:text-[10px] text-foreground-muted mt-2">{activeTotal} active • online</span>
+      <span className="text-[9px] sm:text-[10px] text-foreground-muted mt-2">{t('{count} active • online', { count: activeTotal })}</span>
     </div>
   );
 }

@@ -12,7 +12,7 @@ import EditSubscriptionModal from '../../components/EditSubscriptionModal';
 import DataTable from '../../components/DataTable';
 import MobileDataCard from '../../components/MobileDataCard';
 import { SkeletonCard } from '../../components/LoadingSpinner';
-import { formatKES } from '../../lib/format';
+import { formatMoney } from '../../lib/format';
 
 
 const formatSafeDate = (dateStr: string | null | undefined): string => {
@@ -214,9 +214,9 @@ export default function AdminSubscriptionsPage() {
                   case 'expires':
                     return <span className="text-sm text-foreground-muted">{formatSafeDate(sub.subscription_expires_at)}</span>;
                   case 'total_paid':
-                    return <span className="text-sm font-medium">{formatKES(sub.total_paid)}</span>;
+                    return <span className="text-sm font-medium">{formatMoney(sub.total_paid, sub.currency)}</span>;
                   case 'outstanding':
-                    return <span className={`text-sm font-medium ${sub.outstanding > 0 ? 'text-amber-500' : 'text-foreground-muted'}`}>{formatKES(sub.outstanding)}</span>;
+                    return <span className={`text-sm font-medium ${sub.outstanding > 0 ? 'text-amber-500' : 'text-foreground-muted'}`}>{formatMoney(sub.outstanding, sub.currency)}</span>;
                   case 'last_login':
                     return <span className="text-xs text-foreground-muted">{formatSafeDate(sub.last_login_at)}</span>;
                   case 'actions':
@@ -266,10 +266,10 @@ export default function AdminSubscriptionsPage() {
                 subtitle={sub.email}
                 avatar={{ text: sub.organization_name.slice(0, 2).toUpperCase(), color: sub.subscription_status === 'active' ? 'success' : sub.subscription_status === 'trial' ? 'info' : 'danger' }}
                 status={{ label: sub.subscription_status, variant: sub.subscription_status === 'active' ? 'success' : sub.subscription_status === 'trial' ? 'info' : sub.subscription_status === 'suspended' ? 'danger' : 'neutral' }}
-                value={{ text: formatKES(sub.total_paid) }}
+                value={{ text: formatMoney(sub.total_paid, sub.currency) }}
                 fields={[
                   { value: `Expires: ${formatSafeDate(sub.subscription_expires_at)}` },
-                  ...(sub.outstanding > 0 ? [{ value: `Outstanding: ${formatKES(sub.outstanding)}` }] : []),
+                  ...(sub.outstanding > 0 ? [{ value: `Outstanding: ${formatMoney(sub.outstanding, sub.currency)}` }] : []),
                 ]}
                 layout="compact"
                 href={`/admin/subscriptions/${sub.id}`}

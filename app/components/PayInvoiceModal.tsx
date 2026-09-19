@@ -4,7 +4,8 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { api } from '../lib/api';
 import { SubscriptionInvoice } from '../lib/types';
 import { useAuth } from '../context/AuthContext';
-import { formatKES } from '../lib/format';
+import { formatMoney } from '../lib/format';
+import { useT } from '../lib/i18n';
 
 interface PayInvoiceModalProps {
   isOpen: boolean;
@@ -13,12 +14,17 @@ interface PayInvoiceModalProps {
   onPaymentComplete: () => void;
 }
 
-type PayStep = 'form' | 'waiting' | 'success' | 'timeout';
+type PayStep = 'form' | 'waiting' | 'success' | 'timeout' | 'redirecting';
 
 
 export default function PayInvoiceModal({ isOpen, onClose, invoice, onPaymentComplete }: PayInvoiceModalProps) {
   const { user } = useAuth();
+  const t = useT();
   const remainingBalance = invoice.balance_remaining ?? invoice.final_charge;
+  const currency = (invoice.currency || 'KES').toUpperCase();
+  const money = (value: number | null | undefined) => formatMoney(value, currency);
+  // M-Pesa only pays KES invoices; everything else goes through card checkout.
+  const payByCard = currency !== 'KES';
   const [phone, setPhone] = useState('');
   const [amount, setAmount] = useState(remainingBalance.toString());
   const [step, setStep] = useState<PayStep>('form');
@@ -72,16 +78,16 @@ export default function PayInvoiceModal({ isOpen, onClose, invoice, onPaymentCom
 
   const handlePay = async () => {
     if (!phone.trim()) {
-      setError('Please enter a phone number');
+      setError(t('Please enter a phone number'));
       return;
     }
     const parsedAmount = parseFloat(amount);
     if (isNaN(parsedAmount) || parsedAmount <= 0) {
-      setError('Please enter a valid amount');
+      setError(t('Please enter a valid amount'));
       return;
     }
     if (parsedAmount > remainingBalance) {
-      setError(`Amount cannot exceed the remaining balance of ${formatKES(remainingBalance)}`);
+      setError(t('Amount cannot exceed the remaining balance of {amount}', { amount: money(remainingBalance) }));
       return;
     }
     setLoading(true);
@@ -95,7 +101,21 @@ export default function PayInvoiceModal({ isOpen, onClose, invoice, onPaymentCom
       setStep('waiting');
       startPolling();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Payment failed');
+      setError(err instanceof Error ? err.message : t('Payment failed'));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCardPay = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const checkout = await api.paySubscriptionByCard(invoice.id);
+      setStep('redirecting');
+      window.location.assign(checkout.payment_url);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('Could not start card payment'));
     } finally {
       setLoading(false);
     }
@@ -122,24 +142,24 @@ export default function PayInvoiceModal({ isOpen, onClose, invoice, onPaymentCom
 
         {step === 'form' && (
           <>
-            <h3 className="text-lg font-semibold text-foreground mb-1">Pay Invoice</h3>
+            <h3 className="text-lg font-semibold text-foreground mb-1">{t('Pay Invoice')}</h3>
             <p className="text-sm text-foreground-muted mb-4">
-              {invoice.period_label} &mdash; {formatKES(invoice.final_charge)}
+              {invoice.period_label} &mdash; {money(invoice.final_charge)}
             </p>
 
             {(invoice.amount_paid != null && invoice.amount_paid > 0) && (
               <div className="mb-4 p-3 rounded-xl bg-background-tertiary/50 space-y-1.5">
                 <div className="flex items-center justify-between text-xs">
-                  <span className="text-foreground-muted">Invoice Total</span>
-                  <span className="text-foreground font-medium">{formatKES(invoice.final_charge)}</span>
+                  <span className="text-foreground-muted">{t('Invoice Total')}</span>
+                  <span className="text-foreground font-medium">{money(invoice.final_charge)}</span>
                 </div>
                 <div className="flex items-center justify-between text-xs">
-                  <span className="text-foreground-muted">Already Paid</span>
-                  <span className="text-emerald-500 font-medium">{formatKES(invoice.amount_paid)}</span>
+                  <span className="text-foreground-muted">{t('Already Paid')}</span>
+                  <span className="text-emerald-500 font-medium">{money(invoice.amount_paid)}</span>
                 </div>
                 <div className="flex items-center justify-between text-xs border-t border-border pt-1.5">
-                  <span className="text-foreground-muted font-medium">Balance Remaining</span>
-                  <span className="text-amber-500 font-semibold">{formatKES(remainingBalance)}</span>
+                  <span className="text-foreground-muted font-medium">{t('Balance Remaining')}</span>
+                  <span className="text-amber-500 font-semibold">{money(remainingBalance)}</span>
                 </div>
               </div>
             )}
@@ -150,56 +170,91 @@ export default function PayInvoiceModal({ isOpen, onClose, invoice, onPaymentCom
               </div>
             )}
 
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-foreground-muted mb-1.5">
-                M-Pesa Phone Number
-              </label>
-              <input
-                type="tel"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                className="input"
-                placeholder="0712345678"
-              />
-              <p className="text-xs text-foreground-muted/60 mt-1">
-                An STK push will be sent to this number
-              </p>
-            </div>
+            {payByCard ? (
+              <>
+                <div className="mb-5 p-3 rounded-xl bg-background-tertiary/50 text-sm text-foreground-muted space-y-1.5">
+                  <p>{t('You will be taken to a secure Paystack page to pay with Visa or Mastercard.')}</p>
+                  <p>{t('Your subscription is activated once we confirm the payment.')}</p>
+                </div>
+                <button
+                  onClick={handleCardPay}
+                  disabled={loading}
+                  className="w-full btn-primary py-3 text-sm font-semibold flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  {loading ? (
+                    <>
+                      <span className="w-4 h-4 border-2 border-current/30 border-t-current rounded-full animate-spin" />
+                      {t('Opening checkout...')}
+                    </>
+                  ) : (
+                    t('Pay {amount} by card', { amount: money(remainingBalance) })
+                  )}
+                </button>
+              </>
+            ) : (
+              <>
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-foreground-muted mb-1.5">
+                  {t('M-Pesa Phone Number')}
+                </label>
+                <input
+                  type="tel"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  className="input"
+                  placeholder="0712345678"
+                />
+                <p className="text-xs text-foreground-muted/60 mt-1">
+                  {t('An STK push will be sent to this number')}
+                </p>
+              </div>
 
-            <div className="mb-5">
-              <label className="block text-sm font-medium text-foreground-muted mb-1.5">
-                Amount (KES)
-              </label>
-              <input
-                type="number"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                className="input"
-                placeholder={remainingBalance.toString()}
-                min="1"
-                max={remainingBalance}
-                step="1"
-              />
-              <p className="text-xs text-foreground-muted/60 mt-1">
-                Pay the full balance or enter a partial amount
-              </p>
-            </div>
+              <div className="mb-5">
+                <label className="block text-sm font-medium text-foreground-muted mb-1.5">
+                  {t('Amount ({currency})', { currency })}
+                </label>
+                <input
+                  type="number"
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                  className="input"
+                  placeholder={remainingBalance.toString()}
+                  min="1"
+                  max={remainingBalance}
+                  step="1"
+                />
+                <p className="text-xs text-foreground-muted/60 mt-1">
+                  {t('Pay the full balance or enter a partial amount')}
+                </p>
+              </div>
 
-            <button
-              onClick={handlePay}
-              disabled={loading}
-              className="w-full btn-primary py-3 text-sm font-semibold flex items-center justify-center gap-2 disabled:opacity-50"
-            >
-              {loading ? (
-                <>
-                  <span className="w-4 h-4 border-2 border-current/30 border-t-current rounded-full animate-spin" />
-                  Sending...
-                </>
-              ) : (
-                `Pay ${formatKES(parseFloat(amount) || 0)}`
-              )}
-            </button>
+              <button
+                onClick={handlePay}
+                disabled={loading}
+                className="w-full btn-primary py-3 text-sm font-semibold flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                {loading ? (
+                  <>
+                    <span className="w-4 h-4 border-2 border-current/30 border-t-current rounded-full animate-spin" />
+                    {t('Sending...')}
+                  </>
+                ) : (
+                  t('Pay {amount}', { amount: money(parseFloat(amount) || 0) })
+                )}
+              </button>
+              </>
+            )}
           </>
+        )}
+
+        {step === 'redirecting' && (
+          <div className="text-center py-6">
+            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-amber-500/10 flex items-center justify-center">
+              <div className="w-8 h-8 border-[3px] border-amber-500/30 border-t-amber-500 rounded-full animate-spin" />
+            </div>
+            <h3 className="text-lg font-semibold text-foreground mb-2">{t('Opening secure checkout')}</h3>
+            <p className="text-sm text-foreground-muted">{t('Taking you to Paystack to pay by card...')}</p>
+          </div>
         )}
 
         {step === 'waiting' && (
@@ -207,9 +262,9 @@ export default function PayInvoiceModal({ isOpen, onClose, invoice, onPaymentCom
             <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-amber-500/10 flex items-center justify-center">
               <div className="w-8 h-8 border-[3px] border-amber-500/30 border-t-amber-500 rounded-full animate-spin" />
             </div>
-            <h3 className="text-lg font-semibold text-foreground mb-2">Check Your Phone</h3>
+            <h3 className="text-lg font-semibold text-foreground mb-2">{t('Check Your Phone')}</h3>
             <p className="text-sm text-foreground-muted">
-              An M-Pesa payment prompt has been sent to your phone. Please enter your PIN to complete the payment.
+              {t('An M-Pesa payment prompt has been sent to your phone. Please enter your PIN to complete the payment.')}
             </p>
           </div>
         )}
@@ -221,12 +276,12 @@ export default function PayInvoiceModal({ isOpen, onClose, invoice, onPaymentCom
                 <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
               </svg>
             </div>
-            <h3 className="text-lg font-semibold text-foreground mb-2">Payment Successful</h3>
+            <h3 className="text-lg font-semibold text-foreground mb-2">{t('Payment Successful')}</h3>
             <p className="text-sm text-foreground-muted mb-5">
-              Your subscription has been updated. Thank you!
+              {t('Your subscription has been updated. Thank you!')}
             </p>
             <button onClick={onClose} className="btn-primary px-6 py-2 text-sm font-semibold">
-              Done
+              {t('Done')}
             </button>
           </div>
         )}
@@ -238,12 +293,12 @@ export default function PayInvoiceModal({ isOpen, onClose, invoice, onPaymentCom
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             </div>
-            <h3 className="text-lg font-semibold text-foreground mb-2">Payment Processing</h3>
+            <h3 className="text-lg font-semibold text-foreground mb-2">{t('Payment Processing')}</h3>
             <p className="text-sm text-foreground-muted mb-5">
-              Your payment is being processed. It may take a moment to reflect.
+              {t('Your payment is being processed. It may take a moment to reflect.')}
             </p>
             <button onClick={onClose} className="btn-primary px-6 py-2 text-sm font-semibold">
-              Close
+              {t('Close')}
             </button>
           </div>
         )}

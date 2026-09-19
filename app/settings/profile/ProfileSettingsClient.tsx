@@ -8,6 +8,7 @@ import { PageLoader } from '../../components/LoadingSpinner';
 import { useAlert } from '../../context/AlertContext';
 import { useAuth } from '../../context/AuthContext';
 import { formatDateGMT3 } from '../../lib/dateUtils';
+import { useT, translate, LANGUAGE_NAMES } from '../../lib/i18n';
 
 const formatSafeDate = (dateStr: string | undefined, full = false): string => {
   try {
@@ -25,7 +26,8 @@ const formatSafeDate = (dateStr: string | undefined, full = false): string => {
 export default function ProfilePage() {
   const router = useRouter();
   const { showAlert } = useAlert();
-  const { logout, updateUser } = useAuth();
+  const { logout, updateUser, user } = useAuth();
+  const t = useT();
 
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -42,6 +44,8 @@ export default function ProfilePage() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [deleting, setDeleting] = useState(false);
+
+  const [savingLanguage, setSavingLanguage] = useState(false);
 
   const loadProfile = useCallback(async () => {
     try {
@@ -101,6 +105,20 @@ export default function ProfilePage() {
       showAlert('error', err instanceof Error ? err.message : 'Failed to update profile');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleLanguageChange = async (value: string) => {
+    try {
+      setSavingLanguage(true);
+      await api.updateProfile({ preferred_language: value });
+      updateUser({ preferred_language: value });
+      // Confirm in the language the reseller just picked.
+      showAlert('success', translate(value.toLowerCase(), 'Language updated'));
+    } catch (err) {
+      showAlert('error', err instanceof Error ? err.message : t('Failed to update language'));
+    } finally {
+      setSavingLanguage(false);
     }
   };
 
@@ -172,6 +190,9 @@ export default function ProfilePage() {
     { label: 'Member Since', value: formatSafeDate(profile.created_at) },
     { label: 'Last Login', value: formatSafeDate(profile.last_login_at, true) },
   ];
+
+  const marketLanguages = user?.market?.languages ?? [];
+  const currentLanguage = user?.preferred_language || user?.market?.language || 'en';
 
   return (
     <div className="space-y-6">
@@ -282,6 +303,34 @@ export default function ProfilePage() {
           )}
         </div>
       </section>
+
+      {/* Dashboard language (only for markets that offer more than one) */}
+      {marketLanguages.length > 1 && (
+        <section className="rounded-2xl bg-background-secondary border border-border overflow-hidden">
+          <div className="p-5 border-b border-border">
+            <h2 className="text-base font-semibold text-foreground">{t('Language')}</h2>
+            <p className="text-xs text-foreground-muted mt-0.5">{t('Choose the language for your dashboard.')}</p>
+          </div>
+          <div className="p-5">
+            <label htmlFor="dashboard-language" className="block text-xs font-medium text-foreground-muted mb-1.5">
+              {t('Language')}
+            </label>
+            <select
+              id="dashboard-language"
+              className="input"
+              value={currentLanguage}
+              disabled={savingLanguage}
+              onChange={(e) => handleLanguageChange(e.target.value)}
+            >
+              {marketLanguages.map((code) => (
+                <option key={code} value={code}>
+                  {LANGUAGE_NAMES[code.toLowerCase()] ?? code}
+                </option>
+              ))}
+            </select>
+          </div>
+        </section>
+      )}
 
       {/* Change Password */}
       <section className="rounded-2xl bg-background-secondary border border-border overflow-hidden">

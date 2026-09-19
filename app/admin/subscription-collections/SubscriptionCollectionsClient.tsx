@@ -20,6 +20,7 @@ import MobileDataCard from '../../components/MobileDataCard';
 import ConfirmDialog from '../../components/ConfirmDialog';
 import { SkeletonCard } from '../../components/LoadingSpinner';
 import { formatKES } from '../../lib/format';
+import { formatWithKes } from '../../lib/reportingCurrency';
 
 
 const formatSafeDate = (dateStr: string | null | undefined): string => {
@@ -779,7 +780,7 @@ function TransactionsTab({
                   case 'invoice':
                     return <span className="text-sm text-foreground-muted">#{p.invoice_id || '-'}</span>;
                   case 'amount':
-                    return <span className="text-sm font-medium">{formatKES(p.amount)}</span>;
+                    return <span className="text-sm font-medium">{formatWithKes(p.amount, p.currency, p.amount_kes)}</span>;
                   case 'reference':
                     return <span className="text-xs text-foreground-muted font-mono">{p.payment_reference || '-'}</span>;
                   case 'payment_status':
@@ -812,7 +813,7 @@ function TransactionsTab({
                   label: SEND_STATUS_MAP[p.send_status].label,
                   variant: p.send_status === 'sent' ? 'success' : p.send_status === 'unsent' ? 'warning' : p.send_status === 'not_applicable' ? 'neutral' : 'info',
                 }}
-                value={{ text: formatKES(p.amount) }}
+                value={{ text: formatWithKes(p.amount, p.currency, p.amount_kes) }}
                 fields={[
                   { value: `Ref: ${p.payment_reference || '-'}` },
                   { value: `Unsent: ${formatKES(p.unsent_amount)}` },

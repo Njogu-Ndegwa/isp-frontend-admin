@@ -6,6 +6,7 @@ import { useState, useEffect, useCallback, type ReactNode } from 'react';
 import { useAuth } from '../context/AuthContext';
 import ThemeToggle from './ThemeToggle';
 import InboxBell from './InboxBell';
+import { useT } from '../lib/i18n';
 
 interface NavItem {
   name: string;
@@ -416,6 +417,7 @@ const adminNavGroups: NavGroup[] = [
 export default function CollapsibleSidebar() {
   const pathname = usePathname();
   const { isAuthenticated, logout, user } = useAuth();
+  const t = useT();
   const isAdmin = user?.role === 'admin';
   const allNavGroups = isAdmin ? adminNavGroups : navGroups;
   const [pref, setPref] = useState<CollapsePref>('auto');
@@ -531,7 +533,7 @@ export default function CollapsibleSidebar() {
           </span>
           {!effectiveCollapsed && (
             <>
-              <span className="font-medium text-sm truncate">{item.name}</span>
+              <span className="font-medium text-sm truncate">{t(item.name)}</span>
               {isActive && (
                 <span className="ml-auto w-1.5 h-1.5 rounded-full bg-amber-500 flex-shrink-0" />
               )}
@@ -541,7 +543,7 @@ export default function CollapsibleSidebar() {
 
         {effectiveCollapsed && hoveredItem === item.href && (
           <div className="absolute left-full top-1/2 -translate-y-1/2 ml-2 px-3 py-1.5 bg-background-tertiary border border-border rounded-lg text-sm text-foreground whitespace-nowrap z-50 shadow-lg">
-            {item.name}
+            {t(item.name)}
             <div className="absolute left-0 top-1/2 -translate-x-1 -translate-y-1/2 w-2 h-2 bg-background-tertiary border-l border-b border-border rotate-45" />
           </div>
         )}
@@ -590,7 +592,7 @@ export default function CollapsibleSidebar() {
               >
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
               </svg>
-              <span className="truncate">{group.label}</span>
+              <span className="truncate">{t(group.label ?? '')}</span>
             </button>
           </>
         )}
@@ -619,7 +621,7 @@ export default function CollapsibleSidebar() {
             </div>
             <div>
               <h1 className="font-bold text-lg text-foreground">ISP Billing</h1>
-              <p className="text-xs text-foreground-muted">{isAdmin ? 'Admin Console' : 'Admin Portal'}</p>
+              <p className="text-xs text-foreground-muted">{isAdmin ? 'Admin Console' : t('Admin Portal')}</p>
             </div>
           </Link>
         )}
@@ -627,7 +629,7 @@ export default function CollapsibleSidebar() {
         <button
           onClick={() => setPref(effectiveCollapsed ? 'expanded' : 'collapsed')}
           className="p-2 rounded-lg text-foreground-muted hover:text-foreground hover:bg-background-tertiary transition-all"
-          title={effectiveCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          title={effectiveCollapsed ? t('Expand sidebar') : t('Collapse sidebar')}
         >
           <svg 
             className={`w-5 h-5 transition-transform duration-300 ${effectiveCollapsed ? 'rotate-180' : ''}`} 
@@ -652,12 +654,12 @@ export default function CollapsibleSidebar() {
           <button
             onClick={logout}
             className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-foreground-muted hover:text-red-500 hover:bg-red-500/10 transition-all ${effectiveCollapsed ? 'justify-center' : ''}`}
-            title={effectiveCollapsed ? 'Logout' : ''}
+            title={effectiveCollapsed ? t('Logout') : ''}
           >
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
             </svg>
-            {!effectiveCollapsed && <span className="font-medium text-sm">Logout</span>}
+            {!effectiveCollapsed && <span className="font-medium text-sm">{t('Logout')}</span>}
           </button>
         ) : (
           <Link

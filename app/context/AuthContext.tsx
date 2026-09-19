@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
 import type { LoginRequest, AuthUser, SubscriptionAlert } from '../lib/types';
+import { setDisplayCurrency } from '../lib/format';
 
 const DEMO_USER: AuthUser = {
   id: 0,
@@ -68,6 +69,10 @@ export function AuthProvider({
   const [isDemo, setIsDemo] = useState(initialIsDemo);
   const [isLoading, setIsLoading] = useState(!hasInitialAuth);
   const [subscriptionAlert, setSubscriptionAlert] = useState<SubscriptionAlert | null>(null);
+
+  // Money everywhere in the reseller's screens renders in their market's
+  // currency. Set during render so the first paint already uses it.
+  setDisplayCurrency(user?.market?.currency);
 
   useEffect(() => {
     if (hasInitialAuth) {
@@ -141,6 +146,30 @@ export function AuthProvider({
     setIsDemo(false);
     setSubscriptionAlert(null);
   };
+
+  // Sessions stored before markets existed (or before a market change) lack
+  // the market; refresh it from the profile once per load.
+  useEffect(() => {
+    if (!token || isDemo) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const { api } = await import('../lib/api');
+        const profile = await api.getProfile();
+        if (cancelled || !profile?.market) return;
+        setUser((prev) => {
+          if (!prev) return prev;
+          const updated = { ...prev, market: profile.market, preferred_language: profile.preferred_language ?? null };
+          localStorage.setItem('auth_user', JSON.stringify(updated));
+          persistAuthCookies(token, updated, false);
+          return updated;
+        });
+      } catch {
+        // Keep the stored user; the market refreshes on the next load.
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [token, isDemo]);
 
   const updateUser = (updates: Partial<AuthUser>) => {
     setUser((prev) => {
