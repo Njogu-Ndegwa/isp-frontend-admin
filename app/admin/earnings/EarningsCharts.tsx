@@ -3,29 +3,28 @@
 import {
   Area, AreaChart, Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from 'recharts';
-import { formatKES } from '../../lib/format';
+import {
+  formatReporting, formatReportingAxis, type ReportingCurrency,
+} from '../../lib/reportingCurrency';
 import {
   EarningsChartPoint, SOURCE_COLORS, SOURCE_LABELS, TOTAL_COLOR, sourceSwatchStyle,
 } from './earningsChartData';
 
-const formatCompact = (amount: number): string => {
-  if (Math.abs(amount) >= 1_000_000) return `${(amount / 1_000_000).toFixed(1)}M`;
-  if (Math.abs(amount) >= 1_000) return `${(amount / 1_000).toFixed(1)}K`;
-  return String(Math.round(amount));
-};
-
 const axisTick = { fontSize: 10, fill: 'var(--color-foreground-muted)' };
 
 function EarningsTooltip({
-  active, payload, label, cumulative,
+  active, payload, label, cumulative, currencyMode = 'KES', usdRate,
 }: {
   active?: boolean;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   payload?: any[];
   label?: string;
   cumulative?: boolean;
+  currencyMode?: ReportingCurrency;
+  usdRate?: number;
 }) {
   if (!active || !payload?.length) return null;
+  const formatKES = (kes: number) => formatReporting(kes, currencyMode, usdRate);
 
   // Read the bucket off the datum, not the plotted series. The bar view plots
   // no `runningTotal` series, so a dataKey lookup silently returned 0 and the
@@ -88,11 +87,16 @@ export default function EarningsChart({
   mode = 'bucket',
   height = 300,
   compact = false,
+  currencyMode = 'KES',
+  usdRate,
 }: {
   data: EarningsChartPoint[];
   mode?: 'bucket' | 'cumulative';
   height?: number;
   compact?: boolean;
+  /** Points are KES; this decides how the axis and tooltip show them. */
+  currencyMode?: ReportingCurrency;
+  usdRate?: number;
 }) {
   const cumulative = mode === 'cumulative';
 
@@ -111,14 +115,14 @@ export default function EarningsChart({
         tick={compact ? false : axisTick}
         tickLine={false}
         axisLine={false}
-        tickFormatter={formatCompact}
+        tickFormatter={(v) => formatReportingAxis(Number(v), currencyMode, usdRate)}
         width={compact ? 0 : 48}
       />
       <Tooltip
         cursor={cumulative
           ? { stroke: 'var(--color-border)', strokeWidth: 1 }
           : { fill: 'var(--color-background-tertiary)', opacity: 0.4 }}
-        content={<EarningsTooltip cumulative={cumulative} />}
+        content={<EarningsTooltip cumulative={cumulative} currencyMode={currencyMode} usdRate={usdRate} />}
       />
     </>
   );

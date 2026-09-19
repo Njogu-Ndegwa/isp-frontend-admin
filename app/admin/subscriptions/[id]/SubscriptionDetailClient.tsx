@@ -12,6 +12,7 @@ import EditSubscriptionModal from '../../../components/EditSubscriptionModal';
 import ConfirmDialog from '../../../components/ConfirmDialog';
 import { SkeletonCard } from '../../../components/LoadingSpinner';
 import { formatMoney } from '../../../lib/format';
+import { formatWithKes } from '../../../lib/reportingCurrency';
 
 
 const MARKET_OPTIONS = [
@@ -424,7 +425,7 @@ export default function AdminSubscriptionDetailPage() {
                 data.payments.map((p) => (
                   <div key={p.id} className="card p-4 flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium text-foreground">{formatMoney(p.amount, p.currency)}</p>
+                      <p className="text-sm font-medium text-foreground">{formatWithKes(p.amount, p.currency, p.amount_kes)}</p>
                       <p className="text-xs text-foreground-muted">
                         {p.payment_method.toUpperCase()} &mdash; {p.payment_reference}
                       </p>

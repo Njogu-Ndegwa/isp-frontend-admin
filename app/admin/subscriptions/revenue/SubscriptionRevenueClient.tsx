@@ -9,7 +9,9 @@ import Header from '../../../components/Header';
 import StatCard from '../../../components/StatCard';
 import ConfirmDialog from '../../../components/ConfirmDialog';
 import { SkeletonCard } from '../../../components/LoadingSpinner';
-import { formatKES } from '../../../lib/format';
+import {
+  ReportingCurrencyToggle, formatReporting, useReportingCurrency,
+} from '../../../lib/reportingCurrency';
 
 // Recharts-based pie chart is loaded dynamically (client-only) so recharts
 // stays out of this route's First Load JS bundle.
@@ -28,6 +30,9 @@ export default function SubscriptionRevenuePage() {
   const [generateResult, setGenerateResult] = useState<string | null>(null);
   const [showPreExpiryDialog, setShowPreExpiryDialog] = useState(false);
   const [preExpiryLoading, setPreExpiryLoading] = useState(false);
+  // Totals arrive in KES (card payments converted); the toggle shows them in USD.
+  const [currencyMode, setCurrencyMode] = useReportingCurrency();
+  const money = (kes: number) => formatReporting(kes, currencyMode, data?.usd_rate);
 
   const fetchData = useCallback(async () => {
     try {
@@ -134,25 +139,29 @@ export default function SubscriptionRevenuePage() {
         </div>
       ) : data ? (
         <>
+          <div className="flex justify-end -mb-3">
+            <ReportingCurrencyToggle value={currencyMode} onChange={setCurrencyMode} />
+          </div>
+
           {/* Revenue Stats */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
             <StatCard
               title="Total Collected"
-              value={formatKES(data.total_collected)}
+              value={money(data.total_collected)}
               subtitle="All time"
               accent="success"
               icon={<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
             />
             <StatCard
               title="This Month"
-              value={formatKES(data.this_month_collected)}
+              value={money(data.this_month_collected)}
               subtitle="Current month"
               accent="primary"
               icon={<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" /></svg>}
             />
             <StatCard
               title="Outstanding"
-              value={formatKES(data.total_outstanding)}
+              value={money(data.total_outstanding)}
               subtitle={`${data.overdue_invoices} overdue`}
               accent="warning"
               icon={<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" /></svg>}

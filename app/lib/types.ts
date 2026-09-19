@@ -2875,6 +2875,9 @@ export interface AdminReseller {
   total_transaction_charges?: number;
   subscription_status?: string;
   subscription_expires_at?: string | null;
+  /** Money on this row is in the reseller's own market currency. */
+  currency?: string;
+  market_code?: string;
 }
 
 export type AdminResellerFilter =
@@ -2908,6 +2911,9 @@ export interface AdminResellersResponse {
     search: string | null;
   };
   resellers: AdminReseller[];
+  /** KES per 1 unit of each currency — convert rows before totalling. */
+  kes_rates?: Record<string, number>;
+  usd_rate?: number;
 }
 
 export interface AdminResellerRevenue {
@@ -3005,6 +3011,9 @@ export interface AdminResellerDetail {
   payouts: AdminResellerPayoutsInfo;
   recent_transaction_charges?: AdminTransactionCharge[];
   payment_methods?: AdminPaymentMethod[];
+  /** Every amount on the detail is in this (the reseller's market) currency. */
+  currency?: string;
+  market_code?: string;
 }
 
 export interface AdminPaymentsResponse {
@@ -3019,6 +3028,7 @@ export interface AdminPaymentsResponse {
     mpesa_amount: number;
   };
   payments: AdminResellerPayment[];
+  currency?: string;
 }
 
 export interface AdminRouterDetail {
@@ -3039,6 +3049,7 @@ export interface AdminRoutersResponse {
   reseller_id: number;
   total: number;
   routers: AdminRouterDetail[];
+  currency?: string;
 }
 
 export interface AdminDashboardRevenue {
@@ -3112,6 +3123,12 @@ export interface AdminDashboard {
   signups_this_week?: number;
   signups_this_month?: number;
   generated_at: string;
+  /** Platform totals are converted to this currency (KES). */
+  reporting_currency?: string;
+  /** KES per 1 USD — divide a KES total by this to show USD. */
+  usd_rate?: number;
+  /** KES per 1 unit of each currency, e.g. { USD: 129.5, XAF: 0.2268 }. */
+  kes_rates?: Record<string, number>;
 }
 
 export interface AdminCreatePayoutRequest {
@@ -3151,6 +3168,7 @@ export interface AdminPayoutsResponse {
     total_amount: number;
   };
   payouts: AdminPayout[];
+  currency?: string;
 }
 
 // Transaction Charges
@@ -3187,6 +3205,7 @@ export interface AdminTransactionChargesResponse {
     total_amount: number;
   };
   charges: AdminTransactionCharge[];
+  currency?: string;
 }
 
 // Reseller Account Statement
@@ -3329,6 +3348,12 @@ export interface AdminResellerStats extends ChartWindow {
     mpesa_revenue: number;
     new_resellers: number;
   };
+  /** Platform totals are converted to this currency (KES). */
+  reporting_currency?: string;
+  /** KES per 1 USD — divide a KES total by this to show USD. */
+  usd_rate?: number;
+  /** KES per 1 unit of each currency, e.g. { USD: 129.5, XAF: 0.2268 }. */
+  kes_rates?: Record<string, number>;
 }
 
 export interface DeleteResellerPreview {
@@ -3363,6 +3388,8 @@ export interface SubscriptionInvoice {
   final_charge: number;
   /** Currency of every amount on the invoice (KES for Kenya, USD for international). */
   currency?: string;
+  /** Admin views: final_charge converted to KES. */
+  final_charge_kes?: number;
   pricing_rule?: SubscriptionPricingRule | null;
   amount_paid?: number;
   balance_remaining?: number;
@@ -3385,6 +3412,8 @@ export interface SubscriptionPayment {
   payment_reference: string;
   phone_number?: string;
   currency?: string;
+  /** Admin views: amount converted to KES. */
+  amount_kes?: number;
   /** Hosted card checkout link, for reopening a pending card payment. */
   checkout_url?: string | null;
   status: string;
@@ -3489,6 +3518,9 @@ export interface AdminSubscription {
   pending_invoice?: SubscriptionInvoice | null;
   created_at: string;
   last_login_at: string | null;
+  /** Currency of total_paid / outstanding (KES or USD). */
+  currency?: string;
+  market_code?: string;
 }
 
 export interface AdminSubscriptionsResponse {
@@ -3507,6 +3539,12 @@ export interface AdminSubscriptionRevenue {
     trial: number;
     suspended: number;
   };
+  /** Platform totals are converted to this currency (KES). */
+  reporting_currency?: string;
+  /** KES per 1 USD — divide a KES total by this to show USD. */
+  usd_rate?: number;
+  /** KES per 1 unit of each currency, e.g. { USD: 129.5, XAF: 0.2268 }. */
+  kes_rates?: Record<string, number>;
 }
 
 export interface AdminExpiringSoon {
@@ -3629,6 +3667,12 @@ export interface AdminMRRMetrics {
   by_plan: { plan_name: string; reseller_count: number; mrr: number }[];
   period: string;
   calculated_at: string;
+  /** Platform totals are converted to this currency (KES). */
+  reporting_currency?: string;
+  /** KES per 1 USD — divide a KES total by this to show USD. */
+  usd_rate?: number;
+  /** KES per 1 unit of each currency, e.g. { USD: 129.5, XAF: 0.2268 }. */
+  kes_rates?: Record<string, number>;
 }
 
 export interface AdminChurnedReseller {
@@ -3702,6 +3746,12 @@ export interface AdminSubscriptionRevenueHistory extends ChartWindow {
   average_revenue_per_bucket?: number;
   subscription_revenue_over_time: { date: string; label: string; revenue: number; cumulative_revenue?: number }[];
   previous_period: { date: string; label: string; revenue: number; cumulative_revenue?: number }[];
+  /** Platform totals are converted to this currency (KES). */
+  reporting_currency?: string;
+  /** KES per 1 USD — divide a KES total by this to show USD. */
+  usd_rate?: number;
+  /** KES per 1 unit of each currency, e.g. { USD: 129.5, XAF: 0.2268 }. */
+  kes_rates?: Record<string, number>;
 }
 
 /** Keys of the individual bands that stack into total earnings. */
@@ -3753,6 +3803,12 @@ export interface AdminEarnings {
   average_per_bucket: number;
   series: AdminEarningsPoint[];
   own_reseller_accounts: AdminEarningsAccount[];
+  /** Platform totals are converted to this currency (KES). */
+  reporting_currency?: string;
+  /** KES per 1 USD — divide a KES total by this to show USD. */
+  usd_rate?: number;
+  /** KES per 1 unit of each currency, e.g. { USD: 129.5, XAF: 0.2268 }. */
+  kes_rates?: Record<string, number>;
 }
 
 export interface AdminARPUMetrics {
@@ -3773,6 +3829,12 @@ export interface AdminARPUMetrics {
   period: string;
   comparison_basis?: string;
   calculated_at: string;
+  /** Platform totals are converted to this currency (KES). */
+  reporting_currency?: string;
+  /** KES per 1 USD — divide a KES total by this to show USD. */
+  usd_rate?: number;
+  /** KES per 1 unit of each currency, e.g. { USD: 129.5, XAF: 0.2268 }. */
+  kes_rates?: Record<string, number>;
 }
 
 export interface AdminTrialConversion {
@@ -3817,6 +3879,12 @@ export interface AdminRevenueConcentration {
   }[];
   period: string;
   calculated_at: string;
+  /** Platform totals are converted to this currency (KES). */
+  reporting_currency?: string;
+  /** KES per 1 USD — divide a KES total by this to show USD. */
+  usd_rate?: number;
+  /** KES per 1 unit of each currency, e.g. { USD: 129.5, XAF: 0.2268 }. */
+  kes_rates?: Record<string, number>;
 }
 
 export interface AdminSmartAlert {
@@ -3848,6 +3916,12 @@ export interface AdminRevenueForecast {
   confidence: 'high' | 'medium' | 'low';
   based_on_days: number;
   calculated_at: string;
+  /** Platform totals are converted to this currency (KES). */
+  reporting_currency?: string;
+  /** KES per 1 USD — divide a KES total by this to show USD. */
+  usd_rate?: number;
+  /** KES per 1 unit of each currency, e.g. { USD: 129.5, XAF: 0.2268 }. */
+  kes_rates?: Record<string, number>;
 }
 
 export interface AdminGrowthTarget {
@@ -3864,6 +3938,12 @@ export interface AdminGrowthTarget {
 export interface AdminGrowthTargetsResponse {
   targets: AdminGrowthTarget[];
   updated_at: string;
+  /** Platform totals are converted to this currency (KES). */
+  reporting_currency?: string;
+  /** KES per 1 USD — divide a KES total by this to show USD. */
+  usd_rate?: number;
+  /** KES per 1 unit of each currency, e.g. { USD: 129.5, XAF: 0.2268 }. */
+  kes_rates?: Record<string, number>;
 }
 
 export interface GrowthTargetUpdatePayload {
@@ -3912,6 +3992,10 @@ export interface AdminSubscriptionPaymentRow {
   pending_send_amount: number;
   unsent_amount: number;
   created_at: string | null;
+  /** Currency of `amount` (KES for M-Pesa, USD for card). */
+  currency?: string;
+  /** `amount` converted to KES. */
+  amount_kes?: number;
 }
 
 export interface AdminSubscriptionPaymentsResponse {

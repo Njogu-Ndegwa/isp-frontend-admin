@@ -30,7 +30,9 @@ import MobileDataCard from '../components/MobileDataCard';
 import { SkeletonCard } from '../components/LoadingSpinner';
 import DbPoolMonitor from '../components/DbPoolMonitor';
 import dynamic from 'next/dynamic';
-import { formatKES } from '../lib/format';
+import {
+  ReportingCurrencyToggle, formatReporting, useReportingCurrency,
+} from '../lib/reportingCurrency';
 import PeriodSelector, {
   PERIOD_OPTIONS, type PeriodFilter as SharedPeriodFilter,
 } from './PeriodSelector';
@@ -250,7 +252,14 @@ function ActivationFunnelSection({ funnel }: { funnel: AdminActivationFunnel }) 
   );
 }
 
-function GrowthTargetsSection({ targets }: { targets: AdminGrowthTarget[] }) {
+function GrowthTargetsSection({
+  targets,
+  money,
+}: {
+  targets: AdminGrowthTarget[];
+  /** Formats a KES total in the admin's reporting currency. */
+  money: (kes: number) => string;
+}) {
   return (
     <div className="card p-4 sm:p-5">
       <h3 className="text-sm font-semibold text-foreground mb-4">Growth Targets</h3>
@@ -279,10 +288,10 @@ function GrowthTargetsSection({ targets }: { targets: AdminGrowthTarget[] }) {
             </div>
             <div className="flex items-center justify-between mt-1">
               <span className="text-[10px] text-foreground-muted">
-                {target.unit === 'KES' ? formatKES(target.current_value) : `${target.current_value}${target.unit === '%' ? '%' : ` ${target.unit}`}`}
+                {target.unit === 'KES' ? money(target.current_value) : `${target.current_value}${target.unit === '%' ? '%' : ` ${target.unit}`}`}
               </span>
               <span className="text-[10px] text-foreground-muted">
-                Target: {target.unit === 'KES' ? formatKES(target.target_value) : `${target.target_value}${target.unit === '%' ? '%' : ` ${target.unit}`}`}
+                Target: {target.unit === 'KES' ? money(target.target_value) : `${target.target_value}${target.unit === '%' ? '%' : ` ${target.unit}`}`}
               </span>
             </div>
           </div>
@@ -292,7 +301,13 @@ function GrowthTargetsSection({ targets }: { targets: AdminGrowthTarget[] }) {
   );
 }
 
-function RevenueConcentrationSection({ data }: { data: AdminRevenueConcentration }) {
+function RevenueConcentrationSection({
+  data,
+  money,
+}: {
+  data: AdminRevenueConcentration;
+  money: (kes: number) => string;
+}) {
   return (
     <div className="card p-4 sm:p-5">
       <h3 className="text-sm font-semibold text-foreground mb-4">Revenue Concentration</h3>
@@ -328,7 +343,7 @@ function RevenueConcentrationSection({ data }: { data: AdminRevenueConcentration
         </div>
       )}
       <p className="text-[10px] text-foreground-muted mt-3">
-        {data.total_resellers_with_revenue} resellers generating {formatKES(data.total_revenue)} total
+        {data.total_resellers_with_revenue} resellers generating {money(data.total_revenue)} total
       </p>
     </div>
   );
@@ -607,6 +622,14 @@ export default function AdminDashboardPage() {
       ? 'Weekly'
       : 'Daily';
 
+  // Every platform total on this page is KES from the backend; the toggle
+  // re-expresses them in USD with the rate the responses carry.
+  const [currencyMode, setCurrencyMode] = useReportingCurrency();
+  const usdRate = data?.usd_rate ?? mrr?.usd_rate ?? arpu?.usd_rate
+    ?? subRevenueHistory?.usd_rate ?? mpesaStats?.usd_rate
+    ?? growthTargets?.usd_rate ?? revenueConcentration?.usd_rate;
+  const money = (kes: number | null | undefined) => formatReporting(kes, currencyMode, usdRate);
+
   const customerSignupsCompareData = useMemo(() => {
     if (!customerSignupsCompare || customerSignupsPrevData.length === 0) return customerSignupsData;
     return customerSignupsData.map((d, i) => ({
@@ -643,6 +666,7 @@ export default function AdminDashboardPage() {
         subtitle="Platform overview and growth metrics"
         action={
           <div className="flex items-center gap-3">
+            <ReportingCurrencyToggle value={currencyMode} onChange={setCurrencyMode} />
             <PeriodSelector value={globalPeriod} onChange={setGlobalPeriod} />
             <Link href="/admin/resellers" className="btn-primary text-sm px-4 py-2 hidden sm:inline-flex">
               View Resellers
@@ -650,6 +674,11 @@ export default function AdminDashboardPage() {
           </div>
         }
       />
+
+      {/* The header's action row is desktop-only; keep the currency switch on phones. */}
+      <div className="md:hidden flex justify-end -mt-2">
+        <ReportingCurrencyToggle value={currencyMode} onChange={setCurrencyMode} />
+      </div>
 
       {/* DB Pool Monitor — Admin only, shown above dashboard data so it's visible even on slow loads */}
       {user?.role === 'admin' && <DbPoolMonitor />}
@@ -678,7 +707,7 @@ export default function AdminDashboardPage() {
             {mrr ? (
               <StatCard
                 title="MRR"
-                value={formatKES(mrr.current_mrr)}
+                value={money(mrr.current_mrr)}
                 subtitle={`${mrr.change_percent >= 0 ? '+' : ''}${mrr.change_percent.toFixed(1)}% vs last period`}
                 trend={{ value: Math.abs(mrr.change_percent), isPositive: mrr.change_percent >= 0 }}
                 accent="success"
@@ -693,7 +722,7 @@ export default function AdminDashboardPage() {
             {arpu ? (
               <StatCard
                 title="ARPU"
-                value={arpu.insufficient_data ? '—' : formatKES(arpu.current_arpu)}
+                value={arpu.insufficient_data ? '—' : money(arpu.current_arpu)}
                 subtitle={arpu.insufficient_data
                   ? 'No paying subscribers yet'
                   : `${arpu.change_percent >= 0 ? '+' : ''}${arpu.change_percent.toFixed(1)}% vs same point last month · ${arpu.paying_subscribers ?? arpu.active_resellers} paying`}
@@ -755,10 +784,10 @@ export default function AdminDashboardPage() {
             {/* Period Revenue */}
             <StatCard
               title="Period Revenue"
-              value={formatKES(data.revenue.this_month)}
+              value={money(data.revenue.this_month)}
               subtitle={data.growth_deltas
                 ? `${data.growth_deltas.revenue_change_percent >= 0 ? '+' : ''}${data.growth_deltas.revenue_change_percent.toFixed(1)}% ${data.growth_deltas.comparison_period}`
-                : `M-Pesa: ${formatKES(data.revenue.this_month_mpesa)}`}
+                : `M-Pesa: ${money(data.revenue.this_month_mpesa)}`}
               trend={data.growth_deltas ? { value: Math.abs(data.growth_deltas.revenue_change_percent), isPositive: data.growth_deltas.revenue_change_percent >= 0 } : undefined}
               accent="success"
               icon={<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>}
@@ -771,6 +800,8 @@ export default function AdminDashboardPage() {
             <EarningsSummaryCard
               period={effectiveEarningsPeriod}
               onPeriodChange={(p) => setEarningsChartPeriod(p === globalPeriod ? null : p)}
+              currencyMode={currencyMode}
+              usdRate={usdRate}
             />
 
             {/* M-Pesa Transaction Revenue */}
@@ -788,7 +819,7 @@ export default function AdminDashboardPage() {
               loading={mpesaSeries.loading}
               isEmpty={mpesaSeries.loaded && mpesaRevenueData.length === 0}
             >
-              <MpesaRevenueChart data={mpesaRevenueData} />
+              <MpesaRevenueChart data={mpesaRevenueData} currencyMode={currencyMode} usdRate={mpesaStats?.usd_rate ?? usdRate} />
             </ChartCard>
 
             {/* Subscription Revenue */}
@@ -809,7 +840,7 @@ export default function AdminDashboardPage() {
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4 text-xs">
                 <div>
                   <p className="text-[10px] text-foreground-muted uppercase tracking-wider">Total collected</p>
-                  <p className="text-sm font-semibold text-foreground">{formatKES(subRevenueTotal)}</p>
+                  <p className="text-sm font-semibold text-foreground">{money(subRevenueTotal)}</p>
                 </div>
                 <div>
                   <p className="text-[10px] text-foreground-muted uppercase tracking-wider">Vs previous</p>
@@ -820,11 +851,16 @@ export default function AdminDashboardPage() {
                 <div>
                   <p className="text-[10px] text-foreground-muted uppercase tracking-wider">{subRevenueBucketLabel} avg</p>
                   <p className="text-sm font-semibold text-foreground">
-                    {formatKES(subRevenueHistory?.average_revenue_per_bucket ?? 0)}
+                    {money(subRevenueHistory?.average_revenue_per_bucket ?? 0)}
                   </p>
                 </div>
               </div>
-              <SubscriptionRevenueChart data={subRevenueCompareData} showCompare={subRevCompare} />
+              <SubscriptionRevenueChart
+                data={subRevenueCompareData}
+                showCompare={subRevCompare}
+                currencyMode={currencyMode}
+                usdRate={subRevenueHistory?.usd_rate ?? usdRate}
+              />
             </ChartCard>
 
             {/* Reseller Signups */}
@@ -882,7 +918,7 @@ export default function AdminDashboardPage() {
           {/* Growth Targets + Revenue Concentration — side by side */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
             {growthTargets ? (
-              <GrowthTargetsSection targets={growthTargets.targets} />
+              <GrowthTargetsSection targets={growthTargets.targets} money={money} />
             ) : (
               <div className="card p-4 sm:p-5">
                 <h3 className="text-sm font-semibold text-foreground mb-4">Growth Targets</h3>
@@ -893,7 +929,7 @@ export default function AdminDashboardPage() {
             )}
 
             {revenueConcentration ? (
-              <RevenueConcentrationSection data={revenueConcentration} />
+              <RevenueConcentrationSection data={revenueConcentration} money={money} />
             ) : (
               <div className="card p-4 sm:p-5">
                 <h3 className="text-sm font-semibold text-foreground mb-4">Revenue Concentration</h3>
@@ -984,7 +1020,7 @@ export default function AdminDashboardPage() {
                     case 'rank': return <span className="text-foreground-muted">{idx + 1}</span>;
                     case 'organization': return <span className="font-medium">{item.organization_name}</span>;
                     case 'email': return <span className="text-foreground-muted text-sm">{item.email}</span>;
-                    case 'revenue': return <span className="font-semibold text-emerald-500">{formatKES(item.month_revenue)}</span>;
+                    case 'revenue': return <span className="font-semibold text-emerald-500">{money(item.month_revenue)}</span>;
                     default: return null;
                   }
                 }}
@@ -1001,7 +1037,7 @@ export default function AdminDashboardPage() {
                   title={r.organization_name}
                   subtitle={r.email}
                   avatar={{ text: `#${idx + 1}`, color: idx === 0 ? 'primary' : idx === 1 ? 'secondary' : 'info' }}
-                  value={{ text: formatKES(r.month_revenue) }}
+                  value={{ text: money(r.month_revenue) }}
                   layout="compact"
                   href={`/admin/resellers/${r.id}`}
                 />

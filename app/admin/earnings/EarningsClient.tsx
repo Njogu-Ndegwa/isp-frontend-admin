@@ -12,7 +12,9 @@ import { useAuth } from '../../context/AuthContext';
 import { useAlert } from '../../context/AlertContext';
 import Header from '../../components/Header';
 import { SkeletonCard } from '../../components/LoadingSpinner';
-import { formatKES } from '../../lib/format';
+import {
+  ReportingCurrencyToggle, formatReporting, useReportingCurrency,
+} from '../../lib/reportingCurrency';
 import {
   EarningsPeriod, EarningsSourceKey, PERIOD_NOUN, SOURCE_LABELS,
   sourceSwatchStyle, toChartPoints,
@@ -41,9 +43,12 @@ const accountLabel = (account: AdminEarningsAccount): string =>
 function SourceLegend({
   entries,
   runningTotal,
+  money,
 }: {
   entries: { key: LegendKey; label: string; total: number }[];
   runningTotal: number | null;
+  /** Formats a KES total in the page's reporting currency. */
+  money: (kes: number) => string;
 }) {
   return (
     <div className="flex items-center gap-x-4 gap-y-1.5 flex-wrap text-[11px]">
@@ -51,13 +56,13 @@ function SourceLegend({
         <span key={entry.key} className="flex items-center gap-1.5">
           <span className="w-2.5 h-2.5 rounded-sm shrink-0" style={sourceSwatchStyle(entry.key)} />
           <span className="text-foreground-muted">{entry.label}</span>
-          <span className="text-foreground font-medium tabular-nums">{formatKES(entry.total)}</span>
+          <span className="text-foreground font-medium tabular-nums">{money(entry.total)}</span>
         </span>
       ))}
       {runningTotal !== null && (
         <span className="flex items-center gap-1.5">
           <span className="text-foreground-muted">Total so far</span>
-          <span className="text-foreground font-medium tabular-nums">{formatKES(runningTotal)}</span>
+          <span className="text-foreground font-medium tabular-nums">{money(runningTotal)}</span>
         </span>
       )}
     </div>
@@ -65,7 +70,7 @@ function SourceLegend({
 }
 
 
-function BreakdownTable({ data }: { data: AdminEarnings }) {
+function BreakdownTable({ data, money }: { data: AdminEarnings; money: (kes: number) => string }) {
   const total = data.totals.combined;
   return (
     <div className="overflow-x-auto">
@@ -110,24 +115,24 @@ function BreakdownTable({ data }: { data: AdminEarnings }) {
               <td className={`py-2.5 px-3 text-right tabular-nums whitespace-nowrap ${
                 row.sub ? 'text-foreground-muted' : 'text-foreground font-medium'
               }`}>
-                {formatKES(row.total)}
+                {money(row.total)}
               </td>
               <td className="py-2.5 px-3 text-right tabular-nums text-foreground-muted whitespace-nowrap">
                 {total > 0 ? `${((row.total / total) * 100).toFixed(1)}%` : '—'}
               </td>
               <td className="py-2.5 pl-3 text-right tabular-nums text-foreground-muted whitespace-nowrap">
-                {formatKES(row.prev)}
+                {money(row.prev)}
               </td>
             </tr>
           ))}
           <tr className="border-t-2 border-border">
             <th scope="row" className="py-2.5 pr-3 text-foreground font-semibold">Total</th>
             <td className="py-2.5 px-3 text-right tabular-nums text-foreground font-semibold whitespace-nowrap">
-              {formatKES(total)}
+              {money(total)}
             </td>
             <td className="py-2.5 px-3 text-right tabular-nums text-foreground-muted whitespace-nowrap">100%</td>
             <td className="py-2.5 pl-3 text-right tabular-nums text-foreground-muted whitespace-nowrap">
-              {formatKES(data.previous_totals.combined)}
+              {money(data.previous_totals.combined)}
             </td>
           </tr>
         </tbody>
@@ -338,6 +343,11 @@ export default function EarningsClient() {
 
   const rangeLabel = PERIOD_NOUN[period];
 
+  // Totals arrive in KES; the toggle re-expresses them in USD.
+  const [currencyMode, setCurrencyMode] = useReportingCurrency();
+  const usdRate = data?.usd_rate;
+  const money = (kes: number) => formatReporting(kes, currencyMode, usdRate);
+
   if (user?.role !== 'admin') {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
@@ -376,18 +386,21 @@ export default function EarningsClient() {
         <>
           {/* Hero — lifetime total, the number the whole page is about */}
           <div className="card p-5 sm:p-6">
-            <p className="text-[10px] uppercase tracking-wider text-foreground-muted">Total earned, all time</p>
+            <div className="flex items-start justify-between gap-3">
+              <p className="text-[10px] uppercase tracking-wider text-foreground-muted">Total earned, all time</p>
+              <ReportingCurrencyToggle value={currencyMode} onChange={setCurrencyMode} />
+            </div>
             <p className="text-3xl sm:text-4xl font-bold text-foreground mt-1 tabular-nums">
-              {formatKES(data.all_time.combined)}
+              {money(data.all_time.combined)}
             </p>
             <div className="flex flex-wrap items-center gap-x-5 gap-y-1 mt-3 text-xs text-foreground-muted">
               <span>
                 Selling the system{' '}
-                <strong className="text-foreground tabular-nums">{formatKES(data.all_time.system)}</strong>
+                <strong className="text-foreground tabular-nums">{money(data.all_time.system)}</strong>
               </span>
               <span>
                 Own reseller{' '}
-                <strong className="text-foreground tabular-nums">{formatKES(data.all_time.reseller)}</strong>
+                <strong className="text-foreground tabular-nums">{money(data.all_time.reseller)}</strong>
               </span>
             </div>
           </div>
@@ -402,7 +415,7 @@ export default function EarningsClient() {
               <div key={tile.label} className="card p-4 sm:p-5">
                 <p className="text-[10px] uppercase tracking-wider text-foreground-muted">{tile.label}</p>
                 <p className="text-xl sm:text-2xl font-bold text-foreground mt-1 tabular-nums">
-                  {formatKES(tile.value)}
+                  {money(tile.value)}
                 </p>
                 <p className={`text-xs mt-1 ${tile.change >= 0 ? 'text-emerald-500' : 'text-red-400'}`}>
                   {formatSigned(tile.change)}{' '}
@@ -419,7 +432,7 @@ export default function EarningsClient() {
                 <h2 className="text-sm font-semibold text-foreground">Earnings over time</h2>
                 <p className="text-[11px] text-foreground-muted mt-0.5">
                   {data.granularity === 'month' ? 'Monthly' : data.granularity === 'week' ? 'Weekly' : 'Daily'} buckets
-                  {' · '}avg {formatKES(data.average_per_bucket)} per bucket
+                  {' · '}avg {money(data.average_per_bucket)} per bucket
                 </p>
               </div>
               <div className="flex items-center gap-2 flex-wrap">
@@ -446,7 +459,11 @@ export default function EarningsClient() {
             </div>
 
             <div className="mb-4">
-              <SourceLegend entries={legendEntries} runningTotal={mode === 'bucket' ? data.totals.combined : null} />
+              <SourceLegend
+                entries={legendEntries}
+                runningTotal={mode === 'bucket' ? data.totals.combined : null}
+                money={money}
+              />
             </div>
 
             {loading ? (
@@ -456,7 +473,7 @@ export default function EarningsClient() {
                 Nothing recorded {rangeLabel} yet
               </div>
             ) : (
-              <EarningsChart data={chartPoints} mode={mode} />
+              <EarningsChart data={chartPoints} mode={mode} currencyMode={currencyMode} usdRate={usdRate} />
             )}
           </div>
 
@@ -464,7 +481,7 @@ export default function EarningsClient() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
             <div className="card p-4 sm:p-5">
               <h3 className="text-sm font-semibold text-foreground mb-3">Breakdown · {rangeLabel}</h3>
-              <BreakdownTable data={data} />
+              <BreakdownTable data={data} money={money} />
             </div>
             <OwnAccountsCard accounts={data.own_reseller_accounts} onSaved={load} />
           </div>

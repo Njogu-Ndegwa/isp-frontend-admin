@@ -14,7 +14,9 @@ import {
 } from 'recharts';
 import { api } from '../lib/api';
 import { AdminResellerStats, AdminResellerStatsPeriod } from '../lib/types';
-import { formatAmount, formatAmountCompact } from '../lib/format';
+import {
+  formatReporting, formatReportingCompact, type ReportingCurrency,
+} from '../lib/reportingCurrency';
 
 const PERIOD_OPTIONS: { value: AdminResellerStatsPeriod; label: string }[] = [
   { value: '7d', label: '7D' },
@@ -26,10 +28,12 @@ const PERIOD_OPTIONS: { value: AdminResellerStatsPeriod; label: string }[] = [
 
 
 
-function RevenueTooltip({ active, payload, label }: {
+function RevenueTooltip({ active, payload, label, currencyMode = 'KES', usdRate }: {
   active?: boolean;
   payload?: Array<{ value: number; dataKey: string; color: string }>;
   label?: string;
+  currencyMode?: ReportingCurrency;
+  usdRate?: number;
 }) {
   if (!active || !payload || payload.length === 0) return null;
   return (
@@ -41,7 +45,7 @@ function RevenueTooltip({ active, payload, label }: {
           <span className="text-foreground-muted text-xs">
             {entry.dataKey === 'revenue' ? 'Revenue' : 'M-Pesa'}:
           </span>
-          <span className="font-semibold text-foreground text-xs">{formatAmount(entry.value)}</span>
+          <span className="font-semibold text-foreground text-xs">{formatReporting(entry.value, currencyMode, usdRate)}</span>
         </div>
       ))}
     </div>
@@ -78,7 +82,15 @@ function ChartSkeleton() {
   );
 }
 
-export default function ResellerCharts() {
+/**
+ * Platform-wide reseller revenue + signups (admin). Revenue arrives in KES
+ * (other markets converted by the backend); `currencyMode` re-expresses it.
+ */
+export default function ResellerCharts({
+  currencyMode = 'KES',
+}: {
+  currencyMode?: ReportingCurrency;
+} = {}) {
   const [stats, setStats] = useState<AdminResellerStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -147,11 +159,11 @@ export default function ResellerCharts() {
               <h4 className="text-sm font-semibold text-foreground">Revenue Over Time</h4>
               <div className="text-right">
                 <p className="text-xs text-foreground-muted">Period Total</p>
-                <p className="text-sm font-bold text-emerald-500">{formatAmountCompact(stats.totals.revenue)}</p>
+                <p className="text-sm font-bold text-emerald-500">{formatReportingCompact(stats.totals.revenue, currencyMode, stats.usd_rate)}</p>
               </div>
             </div>
             <p className="text-[10px] text-foreground-muted mb-3">
-              M-Pesa: {formatAmountCompact(stats.totals.mpesa_revenue)} ({stats.totals.revenue > 0 ? Math.round((stats.totals.mpesa_revenue / stats.totals.revenue) * 100) : 0}%)
+              M-Pesa: {formatReportingCompact(stats.totals.mpesa_revenue, currencyMode, stats.usd_rate)} ({stats.totals.revenue > 0 ? Math.round((stats.totals.mpesa_revenue / stats.totals.revenue) * 100) : 0}%)
             </p>
 
             <div className="h-48 sm:h-56 w-full">
@@ -184,11 +196,11 @@ export default function ResellerCharts() {
                       axisLine={false}
                       tickLine={false}
                       tick={{ fill: 'var(--foreground-muted)', fontSize: 10 }}
-                      tickFormatter={(v) => formatAmountCompact(v)}
+                      tickFormatter={(v) => formatReportingCompact(Number(v), currencyMode, stats.usd_rate)}
                       width={55}
                     />
                     <Tooltip
-                      content={<RevenueTooltip />}
+                      content={<RevenueTooltip currencyMode={currencyMode} usdRate={stats.usd_rate} />}
                       cursor={{ stroke: 'var(--border-hover)', strokeWidth: 1 }}
                     />
                     <Area
