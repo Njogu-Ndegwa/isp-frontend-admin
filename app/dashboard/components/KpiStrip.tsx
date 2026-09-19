@@ -8,6 +8,7 @@ import { revenueSeries, transactionSeries, userSeries } from './kpiSeries';
 import { CurrencyIcon, TransactionsIcon, UsersIcon, ChartIcon } from './icons';
 import type { DashboardAnalytics } from '../../lib/types';
 import { useT } from '../../lib/i18n';
+import { formatAmount } from '../../lib/format';
 
 export default function KpiStrip(props: {
   data: DashboardAnalytics | null;
@@ -40,7 +41,7 @@ export default function KpiStrip(props: {
         <div className="relative">
           <StatCard
             title={t('Total Revenue')}
-            value={`KES ${data.summary.totalRevenue.toLocaleString()}`}
+            value={formatAmount(data.summary.totalRevenue)}
             subtitle={periodLabel}
             icon={<CurrencyIcon />}
             accent="primary"
@@ -82,7 +83,7 @@ export default function KpiStrip(props: {
           <StatCard
             title={t('Unique Customers')}
             value={data.summary.uniqueCustomers}
-            subtitle={t('{amount} avg spend', { amount: `KES ${data.averages.revenuePerCustomer.toFixed(0)}` })}
+            subtitle={t('{amount} avg spend', { amount: formatAmount(data.averages.revenuePerCustomer) })}
             icon={<UsersIcon />}
             accent="success"
           />
@@ -101,8 +102,8 @@ export default function KpiStrip(props: {
         <div className="relative">
           <StatCard
             title={t('Avg Transaction')}
-            value={`KES ${data.averages.transactionValue.toFixed(0)}`}
-            subtitle={t('{amount}/day avg', { amount: `KES ${data.averages.dailyRevenue.toFixed(0)}` })}
+            value={formatAmount(data.averages.transactionValue)}
+            subtitle={t('{amount}/day avg', { amount: formatAmount(data.averages.dailyRevenue) })}
             icon={<ChartIcon />}
             accent="secondary"
           />

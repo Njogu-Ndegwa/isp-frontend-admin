@@ -18,7 +18,7 @@ import PlanRouterScope, {
 import { formatDateGMT3, utcToGMT3Input, gmt3InputToISO } from '../lib/dateUtils';
 import { DataCapUnit, dataCapInputToMb, splitDataCapMb } from './dataCap';
 import { normalizeDuration, describeDuration } from './duration';
-import { formatAmount } from '../lib/format';
+import { formatAmount, getDisplayCurrency } from '../lib/format';
 import { useT } from '../lib/i18n';
 
 type FilterTab = 'all' | 'regular' | 'emergency';
@@ -598,7 +598,7 @@ export default function PlansPage() {
                       variant: plan.is_hidden ? 'neutral' : 'success',
                     }}
                     value={{
-                      text: `KES ${plan.price}`,
+                      text: formatAmount(plan.price),
                       highlight: true,
                     }}
                     secondary={{
@@ -810,7 +810,7 @@ function EditPlanModal({
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-foreground mb-2">Price (KES)</label>
+                <label className="block text-sm font-medium text-foreground mb-2">Price ({getDisplayCurrency()})</label>
                 <input
                   type="number"
                   value={formData.price || ''}
