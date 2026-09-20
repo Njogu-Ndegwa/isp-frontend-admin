@@ -786,6 +786,7 @@ export interface PublicPortalSettings {
   plans_section_title?: string | null;
   featured_plan_ids?: string | null;
   show_plan_speed?: boolean;
+  plan_sort_order?: PortalPlanSortOrder;
 }
 
 export interface PublicPortalResponse {
@@ -4278,6 +4279,17 @@ export type PortalColorTheme =
 export type PortalHeaderStyle = 'standard' | 'minimal' | 'hero' | 'compact';
 export type PortalLanguage = 'en' | 'sw' | 'fr';
 export type PortalAnnouncementType = 'info' | 'warning' | 'success';
+/**
+ * How the captive portal orders the packages it lists.
+ * 'default' keeps the legacy merchandised order (bestseller/popular pinned,
+ * then price high to low) and is what every existing reseller has.
+ */
+export type PortalPlanSortOrder =
+  | 'default'
+  | 'price_asc'
+  | 'price_desc'
+  | 'duration_asc'
+  | 'duration_desc';
 
 export interface PortalThemePalette {
   primary: string;
@@ -4323,6 +4335,7 @@ export interface PortalSettings {
   plans_section_title: string | null;
   featured_plan_ids: string | null;
   show_plan_speed: boolean;
+  plan_sort_order: PortalPlanSortOrder;
   created_at: string;
   updated_at: string;
 }
@@ -4333,6 +4346,7 @@ export interface PortalSettingsResponse {
   available_header_styles: PortalHeaderStyle[];
   available_languages: PortalLanguage[];
   available_announcement_types: PortalAnnouncementType[];
+  available_plan_sort_orders: PortalPlanSortOrder[];
 }
 
 export interface UpdatePortalSettingsRequest {
@@ -4360,6 +4374,7 @@ export interface UpdatePortalSettingsRequest {
   plans_section_title?: string | null;
   featured_plan_ids?: string | null;
   show_plan_speed?: boolean;
+  plan_sort_order?: PortalPlanSortOrder;
 }
 
 export interface UpdatePortalSettingsResponse {
