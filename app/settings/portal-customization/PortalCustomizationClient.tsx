@@ -8,6 +8,7 @@ import {
   PortalColorTheme,
   PortalHeaderStyle,
   PortalLanguage,
+  PortalPlanSortOrder,
   UpdatePortalSettingsRequest,
 } from '../../lib/types';
 import { getThemePalette } from '../../lib/portalThemes';
@@ -59,6 +60,16 @@ const LANGUAGE_OPTIONS: { value: PortalLanguage; label: string }[] = [
   { value: 'fr', label: 'French' },
 ];
 
+// How the portal lists packages. 'default' is what every existing reseller has:
+// the merchandised order (bestseller/popular pinned, then most expensive first).
+const PLAN_SORT_OPTIONS: { value: PortalPlanSortOrder; label: string; desc: string }[] = [
+  { value: 'default', label: 'Recommended first', desc: 'Best sellers pinned, then most expensive first' },
+  { value: 'price_asc', label: 'Cheapest first', desc: 'Smallest package to largest, by price' },
+  { value: 'price_desc', label: 'Most expensive first', desc: 'Largest package to smallest, by price' },
+  { value: 'duration_asc', label: 'Shortest first', desc: 'Smallest package to largest, by time' },
+  { value: 'duration_desc', label: 'Longest first', desc: 'Largest package to smallest, by time' },
+];
+
 const IMAGE_PRESETS: { key: string; label: string }[] = [
   { key: 'https://images.unsplash.com/photo-1477959858617-67f85cf4f1df?w=750&h=370&fit=crop&q=80', label: 'City' },
   { key: 'https://images.unsplash.com/photo-1529156069898-49953e39b3ac?w=750&h=370&fit=crop&q=80', label: 'People' },
@@ -68,6 +79,33 @@ const IMAGE_PRESETS: { key: string; label: string }[] = [
 ];
 
 
+
+// Minutes per duration unit, so "180 minutes" sorts below "1 day".
+// Mirrors plan_duration_minutes() in the backend (app/services/plan_cache.py)
+// and convertToHours() in the portal client.
+const DURATION_UNIT_MINUTES: Record<string, number> = {
+  MINUTES: 1,
+  HOURS: 60,
+  DAYS: 60 * 24,
+  WEEKS: 60 * 24 * 7,
+  MONTHS: 60 * 24 * 30,
+};
+
+function durationMinutes(plan: Plan): number {
+  const unit = String(plan.duration_unit || '').toUpperCase();
+  return (Number(plan.duration_value) || 0) * (DURATION_UNIT_MINUTES[unit] ?? 1);
+}
+
+/** Order two plans the way the live portal would, for the preview pane. */
+function comparePreviewPlans(a: Plan, b: Plan, sortOrder: PortalPlanSortOrder): number {
+  let diff = 0;
+  if (sortOrder === 'price_asc') diff = a.price - b.price;
+  else if (sortOrder === 'price_desc') diff = b.price - a.price;
+  else if (sortOrder === 'duration_asc') diff = durationMinutes(a) - durationMinutes(b);
+  else if (sortOrder === 'duration_desc') diff = durationMinutes(b) - durationMinutes(a);
+  // 'default' leaves the server order alone, same as the portal client does.
+  return diff !== 0 ? diff : a.id - b.id;
+}
 
 export default function PortalCustomizationPage() {
   const { showAlert } = useAlert();
@@ -184,8 +222,10 @@ export default function PortalCustomizationPage() {
     .split(',')
     .map(Number)
     .filter(Boolean);
+  const sortOrder = (previewSettings.plan_sort_order ?? 'default') as PortalPlanSortOrder;
   const previewPlans: PreviewPlan[] = plans
     .filter((p) => !p.is_hidden && p.plan_type !== 'emergency')
+    .sort((a, b) => comparePreviewPlans(a, b, sortOrder))
     .sort(
       (a, b) =>
         Number(featuredIds.includes(b.id)) - Number(featuredIds.includes(a.id))
@@ -377,6 +417,32 @@ export default function PortalCustomizationPage() {
               onChange={(e) => markChange('plans_section_title', e.target.value || null)}
               placeholder="Choose Your Plan"
             />
+          </div>
+          <div>
+            <label
+              htmlFor="plan-sort-order"
+              className="block text-xs font-medium text-foreground-muted mb-1.5"
+            >
+              Package Order
+            </label>
+            <select
+              id="plan-sort-order"
+              className="input"
+              value={(current('plan_sort_order') as PortalPlanSortOrder) ?? 'default'}
+              onChange={(e) => markChange('plan_sort_order', e.target.value as PortalPlanSortOrder)}
+            >
+              {PLAN_SORT_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+            <p className="text-xs text-foreground-muted mt-1.5">
+              {PLAN_SORT_OPTIONS.find(
+                (o) => o.value === ((current('plan_sort_order') as PortalPlanSortOrder) ?? 'default')
+              )?.desc}
+              {' '}Limited-time offers always stay at the top.
+            </p>
           </div>
         </div>
       </section>

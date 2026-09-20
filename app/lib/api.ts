@@ -3242,6 +3242,7 @@ class ApiClient {
           plans_section_title: null,
           featured_plan_ids: null,
           show_plan_speed: true,
+          plan_sort_order: 'default',
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         },
@@ -3249,6 +3250,7 @@ class ApiClient {
         available_header_styles: ['standard', 'minimal', 'hero', 'compact'],
         available_languages: ['en', 'sw', 'fr'],
         available_announcement_types: ['info', 'warning', 'success'],
+        available_plan_sort_orders: ['default', 'price_asc', 'price_desc', 'duration_asc', 'duration_desc'],
       };
     }
     const response = await fetch(`${BASE_URL}/portal/settings`, {
