@@ -4689,6 +4689,17 @@ export interface SmsBundle {
   label: string;
 }
 
+/** Which gateway a reseller's messages leave on, and so whether portal
+ *  credits are charged for them at all. */
+export interface SmsGatewaySummary {
+  source: 'platform' | 'reseller';
+  provider: string | null;
+  provider_label: string | null;
+  sender_id: string | null;
+  account_id: number | null;
+  bills_platform_credits: boolean;
+}
+
 export interface SmsCreditInfo {
   balance: number;
   total_purchased: number;
@@ -4697,6 +4708,9 @@ export interface SmsCreditInfo {
   min_purchase_credits: number;
   bundles: SmsBundle[];
   enabled: boolean;
+  // Absent on older backends; treat undefined as "credits apply".
+  gateway?: SmsGatewaySummary;
+  bills_platform_credits?: boolean;
 }
 
 export interface ExpirySmsSettings {

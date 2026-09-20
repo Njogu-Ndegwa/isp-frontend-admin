@@ -117,8 +117,26 @@ export default function CreditsView({ credits, onRefresh }: { credits: SmsCredit
     openBuy(qty);
   };
 
+  const onOwnGateway = credits.gateway?.bills_platform_credits === false;
+
   return (
     <div className="space-y-6">
+      {/* On your own gateway, portal credits are not what pays for your SMS.
+          Say so before the balance, or the number below reads as a limit. */}
+      {onOwnGateway && (
+        <div className="card p-4 space-y-1">
+          <p className="text-sm font-medium text-foreground">
+            You send on your own gateway
+            {credits.gateway?.provider_label ? ` — ${credits.gateway.provider_label}` : ''}
+          </p>
+          <p className="text-xs text-foreground-muted">
+            Your messages are billed by your SMS provider, not here, so they use
+            no portal credits. The balance below only applies if you switch back
+            to the platform gateway.
+          </p>
+        </div>
+      )}
+
       {/* Balance summary */}
       <div className="card p-5 space-y-3">
         <p className="text-sm font-medium text-foreground-muted">Current Balance</p>
