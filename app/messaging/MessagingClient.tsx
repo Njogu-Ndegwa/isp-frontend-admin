@@ -14,9 +14,10 @@ import CreditsView from './components/CreditsView';
 import { TemplatesView } from './components/TemplatesView';
 import { AlertsView } from './components/AlertsView';
 import { ExpiryRemindersView } from './components/ExpiryRemindersView';
+import { GatewayView } from './components/GatewayView';
 
 // ─── Tab type ─────────────────────────────────────────────────────────────────
-type TabValue = 'compose' | 'activity' | 'templates' | 'credits' | 'expiry' | 'alerts';
+type TabValue = 'compose' | 'activity' | 'templates' | 'credits' | 'expiry' | 'alerts' | 'gateway';
 
 // ─── MessagingClient ──────────────────────────────────────────────────────────
 export default function MessagingClient() {
@@ -108,6 +109,7 @@ export default function MessagingClient() {
     { value: 'credits', label: 'Credits' },
     { value: 'expiry', label: 'Expiry' },
     { value: 'alerts', label: 'Alerts' },
+    { value: 'gateway', label: 'Gateway' },
   ];
 
   // Wire ComposeView.onSent → switch to Activity with focusCampaignId + refresh credits
@@ -158,6 +160,7 @@ export default function MessagingClient() {
           {activeTab === 'alerts' && (
             <AlertsView credits={credits} onBuyCredits={() => setActiveTab('credits')} />
           )}
+          {activeTab === 'gateway' && <GatewayView />}
         </div>
       </div>
     </div>

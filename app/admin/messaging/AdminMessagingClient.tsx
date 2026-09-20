@@ -17,13 +17,15 @@ import Tabs, { TabItem } from '../../components/Tabs';
 import { SkeletonCard } from '../../components/LoadingSpinner';
 import { ResellerLedgerSheet } from './components/ResellerLedgerSheet';
 import BroadcastView from './components/BroadcastView';
+import AdminGatewayTab from './components/AdminGatewayTab';
 
 // ── Tab type ─────────────────────────────────────────────────────────────────
 
-type TabValue = 'settings' | 'sales' | 'broadcast' | 'sms-history';
+type TabValue = 'settings' | 'gateway' | 'sales' | 'broadcast' | 'sms-history';
 
 const TABS: TabItem<TabValue>[] = [
   { value: 'settings', label: 'Settings' },
+  { value: 'gateway',  label: 'Gateways' },
   { value: 'sales',    label: 'Credit sales' },
   { value: 'broadcast', label: 'Message resellers' },
   { value: 'sms-history', label: 'SMS history' },
@@ -866,6 +868,15 @@ export default function AdminMessagingPage() {
           settings={settings}
           loading={loadingSettings}
           onRefetch={fetchSettings}
+        />
+      )}
+
+      {tab === 'gateway' && (
+        <AdminGatewayTab
+          settings={settings}
+          resellers={resellers}
+          loadingResellers={loadingResellers}
+          onRefetchSettings={fetchSettings}
         />
       )}
 
