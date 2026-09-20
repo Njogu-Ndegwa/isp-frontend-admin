@@ -8,6 +8,8 @@ import { api } from '../lib/api';
 import { fullOnboardingCheck } from '../hooks/useOnboardingStatus';
 import DeviceModeTroubleshoot from '../components/DeviceModeTroubleshoot';
 import HotspotPackageTroubleshoot from '../components/HotspotPackageTroubleshoot';
+import PlanNameHint from '../components/PlanNameHint';
+import { MAX_PLAN_NAME_LENGTH, isPlanNameTooLong } from '../lib/planName';
 import type {
   VpnType,
   ProvisionTokenResponse,
@@ -548,6 +550,10 @@ function PlanStep({ onComplete }: { onComplete: () => void }) {
       showAlert('error', 'Please fill in all required fields.');
       return;
     }
+    if (isPlanNameTooLong(form.name)) {
+      showAlert('error', `Plan name is too long. Keep it to ${MAX_PLAN_NAME_LENGTH} characters so it fits on the customer's portal.`);
+      return;
+    }
 
     setLoading(true);
     try {
@@ -591,8 +597,10 @@ function PlanStep({ onComplete }: { onComplete: () => void }) {
             onChange={e => update('name', e.target.value)}
             className="input"
             placeholder="e.g. Daily 10Mbps"
+            maxLength={MAX_PLAN_NAME_LENGTH}
             required
           />
+          <PlanNameHint name={form.name} />
         </div>
 
         <div>

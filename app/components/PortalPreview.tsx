@@ -5,10 +5,24 @@ import { PortalSettings, PortalThemePalette, PortalHeaderStyle } from '../lib/ty
 
 export interface PreviewPlan {
   id: number;
+  /** The package name as typed in the admin panel; the portal prints it verbatim. */
+  name?: string;
   price: number;
   duration: string;
   speed: string;
   popular: boolean;
+}
+
+/**
+ * Mirrors planNameLine() in the portal's script.js: a name that only repeats
+ * the duration is dropped rather than printed twice on one card.
+ */
+function previewPlanName(plan: PreviewPlan): string {
+  const name = (plan.name || '').trim();
+  if (!name) return '';
+  const normalize = (s: string) => s.toLowerCase().replace(/\s+/g, ' ').trim();
+  if (normalize(name) === normalize(plan.duration)) return '';
+  return name;
 }
 
 interface PortalPreviewProps {
@@ -201,9 +215,12 @@ export default function PortalPreview({ settings, palette, plans, fullscreen = f
     <div className="pp-plans">
       <h2 className="pp-plans-title">{settings.plans_section_title || 'Choose Your Plan'}</h2>
       <div className="pp-plans-grid">
-        {planList.map((plan) => (
+        {planList.map((plan) => {
+          const planName = previewPlanName(plan);
+          return (
           <div key={plan.id} className={`pp-plan-card${plan.popular ? ' pp-plan-popular' : ''}`}>
-            <div className="pp-plan-duration">{plan.duration}</div>
+            {planName && <div className="pp-plan-name">{planName}</div>}
+            <div className={`pp-plan-duration${planName ? ' pp-has-name' : ''}`}>{plan.duration}</div>
             <div className="pp-plan-price">
               <span className="pp-plan-currency">KSH</span>
               {plan.price}
@@ -213,7 +230,8 @@ export default function PortalPreview({ settings, palette, plans, fullscreen = f
             )}
             {plan.popular && <div className="pp-plan-value">Best Value ⭐</div>}
           </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
@@ -703,10 +721,23 @@ export default function PortalPreview({ settings, palette, plans, fullscreen = f
       padding: 4px 34px;
       transform: rotate(45deg);
     }
+    .pp-plan-name {
+      font-size: 0.9rem;
+      font-weight: 700;
+      line-height: 1.25;
+      color: ${palette.text};
+      overflow-wrap: break-word;
+      margin-bottom: 2px;
+    }
     .pp-plan-duration {
       font-size: 1rem;
       font-weight: 700;
       color: ${palette.text};
+    }
+    .pp-plan-duration.pp-has-name {
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: ${palette.textSecondary};
     }
     .pp-plan-price {
       font-size: 1.75rem;
