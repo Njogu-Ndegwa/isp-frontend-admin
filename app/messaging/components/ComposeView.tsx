@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { api } from '../../lib/api';
-import { SmsCreditInfo, SmsTemplate, Plan } from '../../lib/types';
+import { SmsCreditInfo, SmsGatewaySummary, SmsTemplate, Plan } from '../../lib/types';
 import { calcSegments } from '../lib/segments';
 import { RecipientPicker, RecipientSelection, AudienceMode } from './RecipientPicker';
 import { useAlert } from '../../context/AlertContext';
@@ -35,7 +35,11 @@ export function ComposeView({ credits, onSent, onSwitchToCredits }: ComposeViewP
   const [sending, setSending] = useState(false);
 
   const seg = calcSegments(body);
-  const creditsNeeded = seg.segments * selection.count;
+  // A reseller on their own gateway pays their SMS vendor directly, so these
+  // messages cost no portal credits and the balance must not block the send.
+  // Older backends omit the flag; undefined means credits apply.
+  const billsCredits = credits.bills_platform_credits !== false;
+  const creditsNeeded = billsCredits ? seg.segments * selection.count : 0;
   const balance = credits.balance;
   const insufficient = creditsNeeded > 0 && creditsNeeded > balance;
   const canSend = body.trim().length > 0 && selection.count > 0 && !insufficient && !sending;
@@ -202,6 +206,7 @@ export function ComposeView({ credits, onSent, onSwitchToCredits }: ComposeViewP
               creditsNeeded={creditsNeeded}
               balance={balance}
               balanceAfter={balance - creditsNeeded}
+              gateway={credits.gateway}
               insufficient={insufficient}
               sending={sending}
               canSend={canSend}
@@ -223,6 +228,7 @@ export function ComposeView({ credits, onSent, onSwitchToCredits }: ComposeViewP
           creditsNeeded={creditsNeeded}
           balance={balance}
           balanceAfter={balance - creditsNeeded}
+          gateway={credits.gateway}
           insufficient={insufficient}
           sending={sending}
           canSend={canSend}
@@ -242,6 +248,7 @@ interface SendSummaryProps {
   creditsNeeded: number;
   balance: number;
   balanceAfter: number;
+  gateway?: SmsGatewaySummary;
   insufficient: boolean;
   sending: boolean;
   canSend: boolean;
@@ -256,6 +263,7 @@ function SendSummary({
   creditsNeeded,
   balance,
   balanceAfter,
+  gateway,
   insufficient,
   sending,
   canSend,
@@ -269,7 +277,10 @@ function SendSummary({
       <div className="flex items-center gap-3">
         <div className="flex-1 min-w-0">
           <p className="text-xs text-foreground-muted truncate">
-            {selection.count.toLocaleString()} recipients · {creditsNeeded.toLocaleString()} credits
+            {selection.count.toLocaleString()} recipients ·{' '}
+            {gateway?.bills_platform_credits === false
+              ? 'your own gateway'
+              : `${creditsNeeded.toLocaleString()} credits`}
           </p>
           {insufficient && (
             <p className="text-xs text-danger">
@@ -312,22 +323,38 @@ function SendSummary({
           <span className="text-foreground-muted">Segments/msg</span>
           <span className="font-medium text-foreground">{segments || '—'}</span>
         </div>
-        <div className="flex justify-between border-t border-border pt-2">
-          <span className="text-foreground-muted">Credits needed</span>
-          <span className={`font-semibold ${insufficient ? 'text-danger' : 'text-foreground'}`}>
-            {creditsNeeded.toLocaleString()}
-          </span>
-        </div>
-        <div className="flex justify-between">
-          <span className="text-foreground-muted">Balance now</span>
-          <span className="font-medium text-foreground">{balance.toLocaleString()}</span>
-        </div>
-        <div className="flex justify-between">
-          <span className="text-foreground-muted">Balance after</span>
-          <span className={`font-semibold ${balanceAfter < 0 ? 'text-danger' : 'text-success'}`}>
-            {balanceAfter.toLocaleString()}
-          </span>
-        </div>
+        {gateway?.bills_platform_credits === false ? (
+          <div className="border-t border-border pt-2">
+            <div className="flex justify-between">
+              <span className="text-foreground-muted">Portal credits</span>
+              <span className="font-semibold text-success">Not used</span>
+            </div>
+            <p className="text-xs text-foreground-muted mt-1">
+              Sending on your own gateway
+              {gateway.provider_label ? ` (${gateway.provider_label})` : ''} — billed by
+              your SMS provider, not here.
+            </p>
+          </div>
+        ) : (
+          <>
+            <div className="flex justify-between border-t border-border pt-2">
+              <span className="text-foreground-muted">Credits needed</span>
+              <span className={`font-semibold ${insufficient ? 'text-danger' : 'text-foreground'}`}>
+                {creditsNeeded.toLocaleString()}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-foreground-muted">Balance now</span>
+              <span className="font-medium text-foreground">{balance.toLocaleString()}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-foreground-muted">Balance after</span>
+              <span className={`font-semibold ${balanceAfter < 0 ? 'text-danger' : 'text-success'}`}>
+                {balanceAfter.toLocaleString()}
+              </span>
+            </div>
+          </>
+        )}
       </div>
 
       {insufficient && (
