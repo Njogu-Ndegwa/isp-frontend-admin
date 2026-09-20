@@ -20,6 +20,8 @@ import { DataCapUnit, dataCapInputToMb, splitDataCapMb } from './dataCap';
 import { normalizeDuration, describeDuration } from './duration';
 import { formatAmount, getDisplayCurrency } from '../lib/format';
 import { useT } from '../lib/i18n';
+import PlanNameHint from '../components/PlanNameHint';
+import { MAX_PLAN_NAME_LENGTH, isPlanNameTooLong } from '../lib/planName';
 
 type FilterTab = 'all' | 'regular' | 'emergency';
 type ConnectionFilter = 'all' | 'hotspot' | 'pppoe';
@@ -746,6 +748,12 @@ function EditPlanModal({
         setError('Select at least one router, or set this plan to “All routers”.');
         return;
       }
+      // Plans created before this limit existed can be over it. The reseller is
+      // only asked to fix the one they have open, not every old plan at once.
+      if (isPlanNameTooLong(formData.name)) {
+        setError(`Plan name is too long. Keep it to ${MAX_PLAN_NAME_LENGTH} characters so it fits on the customer's portal.`);
+        return;
+      }
       payload.router_ids = routerScope;
       payload.duration_value = normalized.value;
       payload.duration_unit = normalized.unit;
@@ -805,7 +813,9 @@ function EditPlanModal({
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 className="input"
                 placeholder="e.g., 1 Hour Plan"
+                maxLength={MAX_PLAN_NAME_LENGTH}
               />
+              <PlanNameHint name={formData.name} />
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

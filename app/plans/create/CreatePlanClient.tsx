@@ -12,6 +12,8 @@ import { gmt3InputToISO } from '../../lib/dateUtils';
 import { DataCapUnit, dataCapInputToMb } from '../dataCap';
 import { normalizeDuration, describeDuration } from '../duration';
 import { getDisplayCurrency } from '../../lib/format';
+import PlanNameHint from '../../components/PlanNameHint';
+import { MAX_PLAN_NAME_LENGTH, isPlanNameTooLong } from '../../lib/planName';
 
 export default function CreatePlanPage() {
   const router = useRouter();
@@ -75,6 +77,10 @@ export default function CreatePlanPage() {
         showAlert('error', 'Select at least one router, or set this plan to “All routers”.');
         return;
       }
+      if (isPlanNameTooLong(formData.name)) {
+        showAlert('error', `Plan name is too long. Keep it to ${MAX_PLAN_NAME_LENGTH} characters so it fits on the customer's portal.`);
+        return;
+      }
       payload.router_ids = routerScope;
       payload.duration_value = normalized.value;
       payload.duration_unit = normalized.unit;
@@ -124,8 +130,10 @@ export default function CreatePlanPage() {
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 className="input"
                 placeholder="e.g., 1 Hour Plan"
+                maxLength={MAX_PLAN_NAME_LENGTH}
                 required
               />
+              <PlanNameHint name={formData.name} />
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

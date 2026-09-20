@@ -239,6 +239,7 @@ export default function PortalCustomizationPage() {
         p.duration_value === 1 && unit.endsWith('s') ? unit.slice(0, -1) : unit;
       return {
         id: p.id,
+        name: p.name,
         price: p.price,
         duration: `${p.duration_value} ${label}`.toUpperCase(),
         speed: p.speed || `${p.download_speed}M/${p.upload_speed}M`,
