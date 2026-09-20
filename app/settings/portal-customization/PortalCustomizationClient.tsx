@@ -98,6 +98,9 @@ function durationMinutes(plan: Plan): number {
 
 /** Order two plans the way the live portal would, for the preview pane. */
 function comparePreviewPlans(a: Plan, b: Plan, sortOrder: PortalPlanSortOrder): number {
+  // No special-offer grouping here, unlike the portal and the API payload: this
+  // preview already drops emergency plans, and the admin Plan type has no
+  // special_offer variant to group on.
   let diff = 0;
   if (sortOrder === 'price_asc') diff = a.price - b.price;
   else if (sortOrder === 'price_desc') diff = b.price - a.price;
