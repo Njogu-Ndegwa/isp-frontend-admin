@@ -262,6 +262,12 @@ import {
   InboxResponse,
   MessagingSettings,
   MessagingSettingsUpdate,
+  SmsProviderSpec,
+  SmsProviderAccount,
+  SmsProviderAccountsResponse,
+  CreateSmsProviderAccountRequest,
+  UpdateSmsProviderAccountRequest,
+  SmsProviderTestResult,
   SmsCreditOrder,
   AdminInboxSendRequest,
   AdminInboxSendResponse,
@@ -3555,6 +3561,110 @@ class ApiClient {
       headers: this.getHeaders(),
     });
     return this.handleResponse<{ id: number; is_read: boolean }>(response);
+  }
+
+  // SMS gateway provider accounts (reseller-scoped)
+  async getSmsProviders(): Promise<{ self_service_enabled: boolean; providers: SmsProviderSpec[] }> {
+    const response = await fetch(`${BASE_URL}/messaging/providers`, {
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<{ self_service_enabled: boolean; providers: SmsProviderSpec[] }>(response);
+  }
+
+  async getSmsProviderAccounts(): Promise<SmsProviderAccountsResponse> {
+    const response = await fetch(`${BASE_URL}/messaging/provider-accounts`, {
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<SmsProviderAccountsResponse>(response);
+  }
+
+  async createSmsProviderAccount(body: CreateSmsProviderAccountRequest): Promise<{ message: string; account: SmsProviderAccount }> {
+    const response = await fetch(`${BASE_URL}/messaging/provider-accounts`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify(body),
+    });
+    return this.handleResponse<{ message: string; account: SmsProviderAccount }>(response);
+  }
+
+  async updateSmsProviderAccount(id: number, body: UpdateSmsProviderAccountRequest): Promise<{ message: string; account: SmsProviderAccount }> {
+    const response = await fetch(`${BASE_URL}/messaging/provider-accounts/${id}`, {
+      method: 'PUT',
+      headers: this.getHeaders(),
+      body: JSON.stringify(body),
+    });
+    return this.handleResponse<{ message: string; account: SmsProviderAccount }>(response);
+  }
+
+  async deactivateSmsProviderAccount(id: number): Promise<{ message: string }> {
+    const response = await fetch(`${BASE_URL}/messaging/provider-accounts/${id}`, {
+      method: 'DELETE',
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<{ message: string }>(response);
+  }
+
+  async testSmsProviderAccount(id: number, phone: string, body?: string): Promise<SmsProviderTestResult> {
+    const response = await fetch(`${BASE_URL}/messaging/provider-accounts/${id}/test`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify(body ? { phone, body } : { phone }),
+    });
+    return this.handleResponse<SmsProviderTestResult>(response);
+  }
+
+  // SMS gateway provider accounts (admin)
+  async getAdminSmsProviders(): Promise<{ providers: SmsProviderSpec[] }> {
+    const response = await fetch(`${BASE_URL}/admin/messaging/providers`, {
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<{ providers: SmsProviderSpec[] }>(response);
+  }
+
+  async getAdminSmsProviderAccounts(params?: { user_id?: number; scope?: 'all' | 'platform' | 'reseller' }): Promise<{ accounts: SmsProviderAccount[] }> {
+    const query = new URLSearchParams();
+    if (params?.user_id !== undefined) query.set('user_id', String(params.user_id));
+    if (params?.scope) query.set('scope', params.scope);
+    const suffix = query.toString() ? `?${query.toString()}` : '';
+    const response = await fetch(`${BASE_URL}/admin/messaging/provider-accounts${suffix}`, {
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<{ accounts: SmsProviderAccount[] }>(response);
+  }
+
+  async createAdminSmsProviderAccount(body: CreateSmsProviderAccountRequest): Promise<{ message: string; account: SmsProviderAccount }> {
+    const response = await fetch(`${BASE_URL}/admin/messaging/provider-accounts`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify(body),
+    });
+    return this.handleResponse<{ message: string; account: SmsProviderAccount }>(response);
+  }
+
+  async updateAdminSmsProviderAccount(id: number, body: UpdateSmsProviderAccountRequest): Promise<{ message: string; account: SmsProviderAccount }> {
+    const response = await fetch(`${BASE_URL}/admin/messaging/provider-accounts/${id}`, {
+      method: 'PUT',
+      headers: this.getHeaders(),
+      body: JSON.stringify(body),
+    });
+    return this.handleResponse<{ message: string; account: SmsProviderAccount }>(response);
+  }
+
+  async deactivateAdminSmsProviderAccount(id: number): Promise<{ message: string }> {
+    const response = await fetch(`${BASE_URL}/admin/messaging/provider-accounts/${id}`, {
+      method: 'DELETE',
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<{ message: string }>(response);
+  }
+
+  async testAdminSmsProviderAccount(id: number, phone: string, body?: string): Promise<SmsProviderTestResult> {
+    const response = await fetch(`${BASE_URL}/admin/messaging/provider-accounts/${id}/test`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify(body ? { phone, body } : { phone }),
+    });
+    return this.handleResponse<SmsProviderTestResult>(response);
   }
 
   // Admin messaging

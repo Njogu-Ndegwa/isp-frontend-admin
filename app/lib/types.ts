@@ -4814,6 +4814,7 @@ export interface MessagingSettings {
   min_purchase_credits: number;
   sender_id: string | null;
   enabled: boolean;
+  allow_reseller_gateways: boolean;
   message_retention_days: number;
   bundles: SmsBundle[];
   welcome_enabled: boolean;
@@ -4827,12 +4828,99 @@ export interface MessagingSettingsUpdate {
   min_purchase_credits?: number;
   sender_id?: string | null;
   enabled?: boolean;
+  allow_reseller_gateways?: boolean;
   message_retention_days?: number;
   bundles?: SmsBundle[];
   welcome_enabled?: boolean;
   welcome_subject?: string;
   welcome_message_body?: string;
   welcome_support_phone?: string | null;
+}
+
+// SMS gateway providers.
+// The field list for a provider is NOT hardcoded here. It comes from
+// GET /messaging/providers so adding a gateway on the backend needs no
+// frontend change.
+
+export interface SmsProviderField {
+  key: string;
+  label: string;
+  secret: boolean;
+  required: boolean;
+  default: string;
+  help: string;
+}
+
+export interface SmsProviderSpec {
+  name: string;
+  label: string;
+  sender_id_hint: string;
+  docs_url: string;
+  countries: string[];
+  fields: SmsProviderField[];
+}
+
+export interface SmsProviderAccount {
+  id: number;
+  user_id: number | null;
+  scope: 'platform' | 'reseller';
+  provider: string;
+  provider_label: string;
+  label: string;
+  sender_id: string | null;
+  // Secret values come back masked (last 4) or null; never in plaintext.
+  credentials: Record<string, string | null>;
+  is_default: boolean;
+  is_active: boolean;
+  config_problems: string[];
+  last_test_at: string | null;
+  last_test_ok: boolean | null;
+  last_test_error: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+/** Which gateway this reseller's messages actually go out on right now. */
+export interface SmsEffectiveGateway {
+  source: 'reseller' | 'platform' | 'env';
+  provider: string;
+  sender_id: string;
+  account_id: number | null;
+}
+
+export interface SmsProviderAccountsResponse {
+  self_service_enabled: boolean;
+  accounts: SmsProviderAccount[];
+  effective: SmsEffectiveGateway;
+}
+
+export interface CreateSmsProviderAccountRequest {
+  provider: string;
+  label: string;
+  /** Admin only. Omit for the platform account. */
+  user_id?: number | null;
+  sender_id?: string | null;
+  credentials: Record<string, string>;
+  is_default?: boolean;
+  is_active?: boolean;
+}
+
+export interface UpdateSmsProviderAccountRequest {
+  label?: string;
+  sender_id?: string | null;
+  credentials?: Record<string, string>;
+  is_default?: boolean;
+  is_active?: boolean;
+}
+
+export interface SmsProviderTestResult {
+  ok: boolean;
+  provider: string;
+  sender_id: string;
+  recipient: string;
+  provider_message_id: string | null;
+  status: string | null;
+  error: string | null;
 }
 
 export interface SmsCreditOrder {
