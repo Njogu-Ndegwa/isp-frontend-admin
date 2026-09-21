@@ -111,6 +111,13 @@ function Metric({ label, value }: { label: string; value: number | string }) {
   );
 }
 
+function routerStateStyle(state: 'online' | 'watch' | 'offline' | 'unknown') {
+  if (state === 'offline') return { label: 'Down', className: 'bg-red-500/10 text-red-500 border-red-500/30' };
+  if (state === 'watch') return { label: 'Watch', className: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30' };
+  if (state === 'online') return { label: 'Up', className: 'bg-emerald-500/10 text-emerald-500 border-emerald-500/30' };
+  return { label: 'No fresh sample', className: 'bg-zinc-500/10 text-zinc-400 border-zinc-500/30' };
+}
+
 export default function ManagementTunnelHealthMonitor({ detailed = false }: { detailed?: boolean }) {
   const [data, setData] = useState<ManagementTunnelHealthResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -220,6 +227,8 @@ export default function ManagementTunnelHealthMonitor({ detailed = false }: { de
   const primaryL2tp = primary.services.l2tp;
   const insuranceWireguard = insurance.services.wireguard;
   const insuranceL2tp = insurance.services.l2tp;
+  const connmark = primary.ipsec_connmark;
+  const fleet = data.fleet_status;
   const flapping = data.flapping;
   return (
     <div className={`card p-4 sm:p-5 ${critical ? 'border-red-500/40' : 'border-emerald-500/20'}`} role={critical ? 'alert' : undefined}>
@@ -284,6 +293,29 @@ export default function ManagementTunnelHealthMonitor({ detailed = false }: { de
             unverified={monitoringFailed}
           />
         </div>
+        <div className={`mt-3 rounded-lg border px-3 py-2 ${connmark?.healthy === false ? 'border-red-500/30 bg-red-500/[0.05]' : 'border-emerald-500/20 bg-emerald-500/[0.04]'}`}>
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-xs font-semibold text-foreground">IPsec collision early warning</p>
+              <p className="text-[10px] text-foreground-muted mt-0.5">
+                {!connmark?.available
+                  ? 'The connmark audit is unavailable until the updated tunnel manager is deployed.'
+                  : connmark.healthy
+                    ? `Clear · ${connmark.inspected_rule_count ?? 0} live NAT-T mark rules inspected.`
+                    : `${connmark.duplicate_tuple_count} duplicate NAT-T tuples · ${connmark.superseded_rule_count} superseded rules. Investigate before routers begin flapping.`}
+              </p>
+            </div>
+            <span className={`shrink-0 px-2 py-0.5 rounded-full border text-[10px] font-semibold uppercase ${
+              !connmark?.available
+                ? 'bg-zinc-500/10 text-zinc-400 border-zinc-500/30'
+                : connmark.healthy
+                  ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/30'
+                  : 'bg-red-500/10 text-red-500 border-red-500/30'
+            }`}>
+              {!connmark?.available ? 'Unknown' : connmark.healthy ? 'Clear' : 'Risk detected'}
+            </span>
+          </div>
+        </div>
       </section>
 
       <section aria-labelledby="insurance-tunnel-heading" className="mt-5 pt-4 border-t border-border">
@@ -331,6 +363,62 @@ export default function ManagementTunnelHealthMonitor({ detailed = false }: { de
             unverified={monitoringFailed}
           />
         </div>
+      </section>
+
+      <section aria-labelledby="router-tunnel-state-heading" className="mt-5 pt-4 border-t border-border">
+        <div className="flex items-start justify-between gap-3 mb-3">
+          <div>
+            <h3 id="router-tunnel-state-heading" className="text-xs font-semibold text-foreground">Router tunnel state</h3>
+            <p className="text-[10px] text-foreground-muted">
+              Cached primary-path reachability · no slow live-router scan on dashboard load
+            </p>
+          </div>
+          <span className={`text-[10px] font-semibold ${fleet.offline_count ? 'text-red-500' : fleet.watch_count ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-500'}`}>
+            {fleet.offline_count ? `${fleet.offline_count} down` : fleet.watch_count ? `${fleet.watch_count} on watch` : 'No confirmed outages'}
+          </span>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">
+          <Metric label="Up now" value={fleet.online_count} />
+          <Metric label="Early warning" value={fleet.watch_count} />
+          <Metric label="Confirmed down" value={fleet.offline_count} />
+          <Metric label="No fresh sample" value={fleet.unknown_count} />
+        </div>
+
+        {fleet.routers.length > 0 ? (
+          <div className="space-y-2">
+            {fleet.routers.slice(0, 12).map((router) => {
+              const state = routerStateStyle(router.state);
+              return (
+                <div key={router.router_id} className="rounded-lg border border-border bg-background-tertiary/20 px-3 py-2 flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-xs font-medium text-foreground truncate">
+                      {router.router_name || router.identity || `Router ${router.router_id}`}
+                    </p>
+                    <p className="text-[10px] text-foreground-muted truncate">
+                      {router.identity && router.identity !== router.router_name ? `${router.identity} · ` : ''}
+                      {router.ip_address} · {router.tunnel_type.toUpperCase()}
+                    </p>
+                    <p className="text-[10px] text-foreground-muted mt-1">{router.reason}</p>
+                  </div>
+                  <div className="shrink-0 text-right">
+                    <span className={`inline-block px-2 py-0.5 rounded-full border text-[10px] font-semibold ${state.className}`}>{state.label}</span>
+                    <p className="text-[10px] text-foreground-muted mt-1">
+                      {router.last_checked_at ? formatRelative(router.last_checked_at) : 'never checked'}
+                    </p>
+                  </div>
+                </div>
+              );
+            })}
+            {fleet.routers.length > 12 && (
+              <p className="text-[10px] text-foreground-muted text-right">Showing 12 of {fleet.attention_count} routers needing attention.</p>
+            )}
+          </div>
+        ) : (
+          <p className="rounded-lg border border-emerald-500/20 bg-emerald-500/[0.04] px-3 py-2 text-[10px] text-emerald-600 dark:text-emerald-400">
+            Every router with a fresh sample has a confirmed working primary management tunnel.
+          </p>
+        )}
       </section>
 
       <section aria-labelledby="router-flapping-heading" className="mt-5 pt-4 border-t border-border">

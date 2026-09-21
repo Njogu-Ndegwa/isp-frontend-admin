@@ -277,6 +277,16 @@ export interface ManagementTunnelPlaneHealth {
     wireguard: ManagementTunnelServiceHealth;
     l2tp: ManagementTunnelServiceHealth;
   };
+  ipsec_connmark?: ManagementTunnelConnmarkHealth;
+  error?: string;
+}
+
+export interface ManagementTunnelConnmarkHealth {
+  available: boolean;
+  healthy: boolean | null;
+  duplicate_tuple_count: number;
+  superseded_rule_count: number;
+  inspected_rule_count?: number;
   error?: string;
 }
 
@@ -310,6 +320,37 @@ export interface ManagementTunnelFlapHistory {
   routers: ManagementTunnelFlappingRouter[];
 }
 
+export type ManagementTunnelRouterState = 'online' | 'watch' | 'offline' | 'unknown';
+
+export interface ManagementTunnelFleetRouter {
+  router_id: number;
+  router_name?: string | null;
+  identity?: string | null;
+  ip_address: string;
+  tunnel_type: 'wireguard' | 'l2tp';
+  state: ManagementTunnelRouterState;
+  reason: string;
+  last_checked_at?: string | null;
+  status_age_seconds?: number | null;
+  status_source?: string | null;
+  pending_outage: boolean;
+  is_flapping: boolean;
+  transition_count: number;
+  outage_count: number;
+  last_transition_at?: string | null;
+}
+
+export interface ManagementTunnelFleetStatus {
+  stale_after_seconds: number;
+  total_routers: number;
+  online_count: number;
+  watch_count: number;
+  offline_count: number;
+  unknown_count: number;
+  attention_count: number;
+  routers: ManagementTunnelFleetRouter[];
+}
+
 export interface ManagementTunnelHealthResponse {
   generated_at: string;
   overall_status: ManagementTunnelOverallStatus;
@@ -322,6 +363,7 @@ export interface ManagementTunnelHealthResponse {
   };
   primary: ManagementTunnelPlaneHealth;
   insurance: InsuranceTunnelPlaneHealth;
+  fleet_status: ManagementTunnelFleetStatus;
   flapping: ManagementTunnelFlapHistory;
   automatic_failover_enabled: boolean;
   error?: string;
