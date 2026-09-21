@@ -248,6 +248,127 @@ export interface DbPoolResponse {
   long_running_connections: DbLongRunningConnection[];
 }
 
+// Platform management tunnels - GET /api/admin/management-tunnels
+export type ManagementTunnelOverallStatus = 'healthy' | 'critical';
+
+export interface ManagementTunnelServiceHealth {
+  available: boolean | null;
+  registered_routers: number;
+  online_routers: number;
+  configured_peers?: number;
+  active_sessions?: number;
+  recent_handshakes?: number;
+  stale_handshakes?: number;
+  never_handshaken?: number;
+  interface?: string;
+  listening_port?: number | null;
+  required?: boolean;
+  listener_available?: boolean;
+  ipsec_available?: boolean;
+  ipsec_ports?: Record<string, boolean>;
+  recent_window_seconds?: number;
+}
+
+export interface ManagementTunnelPlaneHealth {
+  manager_reachable: boolean;
+  overall_status: ManagementTunnelOverallStatus;
+  summary: string;
+  services: {
+    wireguard: ManagementTunnelServiceHealth;
+    l2tp: ManagementTunnelServiceHealth;
+  };
+  ipsec_connmark?: ManagementTunnelConnmarkHealth;
+  error?: string;
+}
+
+export interface ManagementTunnelConnmarkHealth {
+  available: boolean;
+  healthy: boolean | null;
+  duplicate_tuple_count: number;
+  superseded_rule_count: number;
+  inspected_rule_count?: number;
+  error?: string;
+}
+
+export interface InsuranceTunnelPlaneHealth extends ManagementTunnelPlaneHealth {
+  server_public_ip?: string | null;
+  vpn_ip?: string | null;
+  subnet?: string | null;
+  mode: 'manual_rescue';
+  automatic_failover_enabled: boolean;
+}
+
+export interface ManagementTunnelFlappingRouter {
+  router_id: number;
+  router_name?: string | null;
+  identity?: string | null;
+  ip_address: string;
+  tunnel_type: 'wireguard' | 'l2tp';
+  current_status: RouterStatus;
+  sample_count: number;
+  transition_count: number;
+  outage_count: number;
+  is_flapping: boolean;
+  last_transition_at?: string | null;
+}
+
+export interface ManagementTunnelFlapHistory {
+  window_hours: number;
+  monitored_routers: number;
+  affected_count: number;
+  total_transitions: number;
+  routers: ManagementTunnelFlappingRouter[];
+}
+
+export type ManagementTunnelRouterState = 'online' | 'watch' | 'offline' | 'unknown';
+
+export interface ManagementTunnelFleetRouter {
+  router_id: number;
+  router_name?: string | null;
+  identity?: string | null;
+  ip_address: string;
+  tunnel_type: 'wireguard' | 'l2tp';
+  state: ManagementTunnelRouterState;
+  reason: string;
+  last_checked_at?: string | null;
+  status_age_seconds?: number | null;
+  status_source?: string | null;
+  pending_outage: boolean;
+  is_flapping: boolean;
+  transition_count: number;
+  outage_count: number;
+  last_transition_at?: string | null;
+}
+
+export interface ManagementTunnelFleetStatus {
+  stale_after_seconds: number;
+  total_routers: number;
+  online_count: number;
+  watch_count: number;
+  offline_count: number;
+  unknown_count: number;
+  attention_count: number;
+  routers: ManagementTunnelFleetRouter[];
+}
+
+export interface ManagementTunnelHealthResponse {
+  generated_at: string;
+  overall_status: ManagementTunnelOverallStatus;
+  manager_reachable: boolean;
+  summary: string;
+  issues: string[];
+  services: {
+    wireguard: ManagementTunnelServiceHealth;
+    l2tp: ManagementTunnelServiceHealth;
+  };
+  primary: ManagementTunnelPlaneHealth;
+  insurance: InsuranceTunnelPlaneHealth;
+  fleet_status: ManagementTunnelFleetStatus;
+  flapping: ManagementTunnelFlapHistory;
+  automatic_failover_enabled: boolean;
+  error?: string;
+}
+
 // Legacy Dashboard Types (kept for compatibility)
 export interface Revenue {
   today: number;
@@ -1444,7 +1565,7 @@ export interface RouterUptimeResponse {
   overall: {
     total_checks: number;
     online_checks: number;
-    uptime_percentage: number;
+    uptime_percentage: number | null;
   };
   window: {
     hours: number;
@@ -1454,7 +1575,28 @@ export interface RouterUptimeResponse {
     last_check_at: string;
     total_checks: number;
     online_checks: number;
-    uptime_percentage: number;
+    uptime_percentage: number | null;
+  };
+  flapping: {
+    window_hours: number;
+    status: RouterStatus;
+    sample_count: number;
+    transition_count: number;
+    outage_count: number;
+    recovery_count: number;
+    is_flapping: boolean;
+    last_transition_at: string | null;
+    transitions: Array<{
+      at: string;
+      from: 'online' | 'offline';
+      to: 'online' | 'offline';
+      source: string;
+    }>;
+    outages: Array<{
+      started_at: string;
+      ended_at: string | null;
+      duration_seconds: number;
+    }>;
   };
   recent_checks: UptimeCheck[];
 }

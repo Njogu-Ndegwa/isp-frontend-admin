@@ -1794,7 +1794,8 @@ function UptimePanel({ data }: { data: RouterUptimeResponse }) {
     } catch { return '-'; }
   };
 
-  const pctColor = (pct: number) =>
+  const pctColor = (pct: number | null) =>
+    pct === null ? 'text-foreground-muted' :
     pct >= 99 ? 'text-emerald-500' :
     pct >= 95 ? 'text-emerald-400' :
     pct >= 90 ? 'text-amber-400' :
@@ -1806,11 +1807,11 @@ function UptimePanel({ data }: { data: RouterUptimeResponse }) {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <div className="p-3 rounded-lg bg-background-tertiary">
           <p className="text-[10px] uppercase tracking-wider text-foreground-muted mb-1">Window Uptime</p>
-          <p className={`text-xl font-bold ${pctColor(uptimePct)}`}>{uptimePct.toFixed(2)}%</p>
+          <p className={`text-xl font-bold ${pctColor(uptimePct)}`}>{uptimePct === null ? '—' : `${uptimePct.toFixed(2)}%`}</p>
         </div>
         <div className="p-3 rounded-lg bg-background-tertiary">
           <p className="text-[10px] uppercase tracking-wider text-foreground-muted mb-1">Overall Uptime</p>
-          <p className={`text-xl font-bold ${pctColor(overallPct)}`}>{overallPct.toFixed(2)}%</p>
+          <p className={`text-xl font-bold ${pctColor(overallPct)}`}>{overallPct === null ? '—' : `${overallPct.toFixed(2)}%`}</p>
         </div>
         <div className="p-3 rounded-lg bg-background-tertiary">
           <p className="text-[10px] uppercase tracking-wider text-foreground-muted mb-1">Checks (Window)</p>
@@ -1830,6 +1831,24 @@ function UptimePanel({ data }: { data: RouterUptimeResponse }) {
             <span className="text-lg font-bold text-foreground capitalize">{data.current_status.status}</span>
           </div>
         </div>
+      </div>
+
+      <div className={`rounded-lg border px-3 py-2 flex flex-wrap items-center justify-between gap-2 ${
+        data.flapping.is_flapping
+          ? 'border-red-500/30 bg-red-500/[0.05]'
+          : 'border-border bg-background-tertiary/30'
+      }`}>
+        <div>
+          <p className={`text-xs font-semibold ${data.flapping.is_flapping ? 'text-red-500' : 'text-foreground'}`}>
+            {data.flapping.is_flapping ? 'Repeated management-tunnel flapping detected' : 'No repeated flapping detected'}
+          </p>
+          <p className="text-[10px] text-foreground-muted">
+            {data.flapping.transition_count} state changes · {data.flapping.outage_count} confirmed outages · {data.flapping.recovery_count} recoveries
+          </p>
+        </div>
+        <p className="text-[10px] text-foreground-muted">
+          Last {data.flapping.window_hours}h{data.flapping.last_transition_at ? ` · last change ${formatCheckTime(data.flapping.last_transition_at)}` : ''}
+        </p>
       </div>
 
       {/* Uptime bar (Uptime Kuma style) */}
