@@ -536,6 +536,18 @@ export function demoRouterUptime(routerId: number): RouterUptimeResponse {
       hours: 24, from: iso(1), to: iso(), first_check_at: iso(1), last_check_at: iso(),
       total_checks: 288, online_checks: 286, uptime_percentage: 99.31,
     },
+    flapping: {
+      window_hours: 24,
+      status: router.status ?? 'online',
+      sample_count: 288,
+      transition_count: 0,
+      outage_count: 0,
+      recovery_count: 0,
+      is_flapping: false,
+      last_transition_at: null,
+      transitions: [],
+      outages: [],
+    },
     recent_checks: Array.from({ length: 90 }, (_, i) => ({
       checked_at: iso(0, (89 - i) * 0.5), is_online: i !== 23 && i !== 24 && i !== 61, source: 'health_check',
     })),

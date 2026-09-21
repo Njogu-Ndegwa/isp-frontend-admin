@@ -288,6 +288,28 @@ export interface InsuranceTunnelPlaneHealth extends ManagementTunnelPlaneHealth 
   automatic_failover_enabled: boolean;
 }
 
+export interface ManagementTunnelFlappingRouter {
+  router_id: number;
+  router_name?: string | null;
+  identity?: string | null;
+  ip_address: string;
+  tunnel_type: 'wireguard' | 'l2tp';
+  current_status: RouterStatus;
+  sample_count: number;
+  transition_count: number;
+  outage_count: number;
+  is_flapping: boolean;
+  last_transition_at?: string | null;
+}
+
+export interface ManagementTunnelFlapHistory {
+  window_hours: number;
+  monitored_routers: number;
+  affected_count: number;
+  total_transitions: number;
+  routers: ManagementTunnelFlappingRouter[];
+}
+
 export interface ManagementTunnelHealthResponse {
   generated_at: string;
   overall_status: ManagementTunnelOverallStatus;
@@ -300,6 +322,7 @@ export interface ManagementTunnelHealthResponse {
   };
   primary: ManagementTunnelPlaneHealth;
   insurance: InsuranceTunnelPlaneHealth;
+  flapping: ManagementTunnelFlapHistory;
   automatic_failover_enabled: boolean;
   error?: string;
 }
@@ -1500,7 +1523,7 @@ export interface RouterUptimeResponse {
   overall: {
     total_checks: number;
     online_checks: number;
-    uptime_percentage: number;
+    uptime_percentage: number | null;
   };
   window: {
     hours: number;
@@ -1510,7 +1533,28 @@ export interface RouterUptimeResponse {
     last_check_at: string;
     total_checks: number;
     online_checks: number;
-    uptime_percentage: number;
+    uptime_percentage: number | null;
+  };
+  flapping: {
+    window_hours: number;
+    status: RouterStatus;
+    sample_count: number;
+    transition_count: number;
+    outage_count: number;
+    recovery_count: number;
+    is_flapping: boolean;
+    last_transition_at: string | null;
+    transitions: Array<{
+      at: string;
+      from: 'online' | 'offline';
+      to: 'online' | 'offline';
+      source: string;
+    }>;
+    outages: Array<{
+      started_at: string;
+      ended_at: string | null;
+      duration_seconds: number;
+    }>;
   };
   recent_checks: UptimeCheck[];
 }

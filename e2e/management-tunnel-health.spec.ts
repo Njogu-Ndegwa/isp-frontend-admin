@@ -83,6 +83,27 @@ function healthPayload(l2tpAvailable = true) {
       mode: 'manual_rescue',
       automatic_failover_enabled: false,
     },
+    flapping: {
+      window_hours: 24,
+      monitored_routers: 63,
+      affected_count: l2tpAvailable ? 0 : 2,
+      total_transitions: l2tpAvailable ? 0 : 11,
+      routers: l2tpAvailable ? [] : [
+        {
+          router_id: 166,
+          router_name: 'PAWACONNECT #1',
+          identity: 'Router-0425',
+          ip_address: '10.0.100.19',
+          tunnel_type: 'l2tp',
+          current_status: 'online',
+          sample_count: 35,
+          transition_count: 6,
+          outage_count: 3,
+          is_flapping: true,
+          last_transition_at: new Date().toISOString(),
+        },
+      ],
+    },
     automatic_failover_enabled: false,
   };
 }
@@ -122,6 +143,8 @@ test('admin dashboard shows primary and Hetzner emergency tunnel health', async 
   await expect(page.getByRole('heading', { name: 'Hetzner emergency tunnel' })).toBeVisible();
   await expect(page.getByText(/Manual rescue only/)).toBeVisible();
   await expect(page.getByRole('heading', { name: 'L2TP / IPsec', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Router flapping history' })).toBeVisible();
+  await expect(page.getByText('No repeated flaps')).toBeVisible();
   await expect(page.getByText('Active sessions').first()).toBeVisible();
   await expect(page.getByText('UDP 1701:').first()).toBeVisible();
 });

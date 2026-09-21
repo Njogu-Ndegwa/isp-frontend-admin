@@ -220,6 +220,7 @@ export default function ManagementTunnelHealthMonitor({ detailed = false }: { de
   const primaryL2tp = primary.services.l2tp;
   const insuranceWireguard = insurance.services.wireguard;
   const insuranceL2tp = insurance.services.l2tp;
+  const flapping = data.flapping;
   return (
     <div className={`card p-4 sm:p-5 ${critical ? 'border-red-500/40' : 'border-emerald-500/20'}`} role={critical ? 'alert' : undefined}>
       <div className="flex items-start justify-between gap-3 mb-4">
@@ -330,6 +331,54 @@ export default function ManagementTunnelHealthMonitor({ detailed = false }: { de
             unverified={monitoringFailed}
           />
         </div>
+      </section>
+
+      <section aria-labelledby="router-flapping-heading" className="mt-5 pt-4 border-t border-border">
+        <div className="flex items-start justify-between gap-3 mb-3">
+          <div>
+            <h3 id="router-flapping-heading" className="text-xs font-semibold text-foreground">Router flapping history</h3>
+            <p className="text-[10px] text-foreground-muted">
+              Debounced RouterOS reachability transitions · last {flapping.window_hours} hours
+            </p>
+          </div>
+          <span className={`text-[10px] font-semibold ${flapping.affected_count ? 'text-red-500' : 'text-emerald-500'}`}>
+            {flapping.affected_count ? `${flapping.affected_count} affected` : 'No repeated flaps'}
+          </span>
+        </div>
+
+        <div className="grid grid-cols-3 gap-2 mb-3">
+          <Metric label="Routers sampled" value={flapping.monitored_routers} />
+          <Metric label="Repeated flappers" value={flapping.affected_count} />
+          <Metric label="State changes" value={flapping.total_transitions} />
+        </div>
+
+        {flapping.routers.length > 0 ? (
+          <div className="space-y-2">
+            {flapping.routers.map((router) => (
+              <div key={router.router_id} className="rounded-lg border border-red-500/20 bg-red-500/[0.04] px-3 py-2 flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-xs font-medium text-foreground truncate">
+                    {router.router_name || router.identity || `Router ${router.router_id}`}
+                  </p>
+                  <p className="text-[10px] text-foreground-muted truncate">
+                    {router.identity && router.identity !== router.router_name ? `${router.identity} · ` : ''}
+                    {router.ip_address} · {router.tunnel_type.toUpperCase()}
+                  </p>
+                </div>
+                <div className="shrink-0 text-right">
+                  <p className="text-xs font-semibold text-red-500">{router.transition_count} changes</p>
+                  <p className="text-[10px] text-foreground-muted">
+                    {router.outage_count} outages{router.last_transition_at ? ` · ${formatRelative(router.last_transition_at)}` : ''}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="rounded-lg border border-emerald-500/20 bg-emerald-500/[0.04] px-3 py-2 text-[10px] text-emerald-600 dark:text-emerald-400">
+            No router has completed two outage/recovery cycles in this window.
+          </p>
+        )}
       </section>
 
       <p className="text-[10px] text-foreground-muted mt-3 text-right">
