@@ -254,6 +254,16 @@ export default function SubscriptionCollectionsPage() {
     if (activeTab === 'transfer-history') fetchB2BTransactions();
   }, [activeTab, fetchB2BTransactions]);
 
+  const activeDestinations = useMemo(() => destinations.filter(d => d.is_active), [destinations]);
+
+  // The mobile bottom nav sits above the page, so the dialog renders as a sheet
+  // on top of it — freeze the page behind it while it's open.
+  useEffect(() => {
+    if (!showSendDialog) return;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = ''; };
+  }, [showSendDialog]);
+
   const handleSendToBank = async () => {
     setSendLoading(true);
     setSendError(null);
@@ -301,10 +311,10 @@ export default function SubscriptionCollectionsPage() {
 
   const handleOpenSendDialog = async () => {
     const latestDestinations = await fetchDestinations();
-    const availableDestinations = latestDestinations ?? destinations;
-    if (availableDestinations.length > 0) {
-      setSelectedDestination(availableDestinations.find(d => d.is_active) || availableDestinations[0]);
-    }
+    // Only active destinations can receive a transfer, and they're the only ones
+    // listed in the dialog — so never preselect one the picker can't show.
+    const availableDestinations = (latestDestinations ?? destinations).filter(d => d.is_active);
+    setSelectedDestination(availableDestinations[0] || null);
     setSendError(null);
     setSendResult(null);
     setShowSendDialog(true);
@@ -417,9 +427,12 @@ export default function SubscriptionCollectionsPage() {
 
       {/* Send to Bank Confirmation Dialog */}
       {showSendDialog && summary && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[10000] flex items-end sm:items-center justify-center sm:p-4">
           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => !sendLoading && setShowSendDialog(false)} />
-          <div className="relative card p-6 max-w-md w-full space-y-4">
+          <div
+            className="relative w-full sm:max-w-md max-h-[90vh] overflow-y-auto bg-background-secondary border border-border rounded-t-2xl sm:rounded-2xl shadow-2xl p-6 space-y-4"
+            style={{ paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom, 0px))' }}
+          >
             <h3 className="text-lg font-semibold">Confirm Transfer</h3>
 
             <div className="space-y-3">
@@ -443,18 +456,18 @@ export default function SubscriptionCollectionsPage() {
               </div>
             </div>
 
-            {destinations.length > 0 && (
+            {activeDestinations.length > 0 ? (
               <div>
                 <label className="block text-xs text-foreground-muted mb-1">Destination</label>
                 <select
                   value={selectedDestination?.id || ''}
                   onChange={(e) => {
-                    const dest = destinations.find(d => d.id === Number(e.target.value));
+                    const dest = activeDestinations.find(d => d.id === Number(e.target.value));
                     setSelectedDestination(dest || null);
                   }}
                   className="input text-sm"
                 >
-                  {destinations.filter(d => d.is_active).map(d => (
+                  {activeDestinations.map(d => (
                     <option key={d.id} value={d.id}>
                       {d.label} ({d.method_type === 'bank_account'
                         ? `${d.bank_paybill_number} / ${d.bank_account_number}`
@@ -462,6 +475,21 @@ export default function SubscriptionCollectionsPage() {
                     </option>
                   ))}
                 </select>
+              </div>
+            ) : (
+              <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 space-y-2">
+                <p className="text-xs text-amber-500">
+                  No active bank destination yet. Add one before you can transfer.
+                </p>
+                <button
+                  onClick={() => {
+                    setShowSendDialog(false);
+                    setActiveTab('bank-destination');
+                  }}
+                  className="text-xs font-medium text-amber-500 underline underline-offset-2"
+                >
+                  Add a destination
+                </button>
               </div>
             )}
 
@@ -483,7 +511,7 @@ export default function SubscriptionCollectionsPage() {
               </button>
               <button
                 onClick={handleSendToBank}
-                disabled={sendLoading || summary.available_to_send <= 0}
+                disabled={sendLoading || summary.available_to_send <= 0 || activeDestinations.length === 0}
                 className="flex-1 btn-primary px-4 py-2 text-sm disabled:opacity-50"
               >
                 {sendLoading ? (
