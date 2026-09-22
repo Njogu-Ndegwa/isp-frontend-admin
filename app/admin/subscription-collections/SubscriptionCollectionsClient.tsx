@@ -609,12 +609,12 @@ function OverviewTab({
         <div>
           <h3 className="text-sm font-semibold text-foreground">Paystack Card Settlement</h3>
           <p className="text-xs text-foreground-muted mt-1">
-            Card revenue increases gross MRR but settles outside the M-Pesa paybill. Net assumes a 3% Paystack fee.
+            Gross card charges are retained for reconciliation. Admin MRR and bank settlement are net of the assumed 3% Paystack fee and stay outside the M-Pesa paybill.
           </p>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <StatCard
-            title="Gross Card MRR"
+            title="Gross Card Charges"
             value={formatKES(summary.card_settlement.gross_collected)}
             subtitle={`${summary.card_settlement.payment_count} completed card payment${summary.card_settlement.payment_count === 1 ? '' : 's'}`}
             accent="success"

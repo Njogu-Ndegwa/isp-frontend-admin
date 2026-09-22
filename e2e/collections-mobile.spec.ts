@@ -84,7 +84,7 @@ test('card settlement is separate from the M-Pesa paybill on mobile', async ({ p
 
   await expect(page.getByText('Collected in Paybill')).toBeVisible();
   await expect(page.getByText('Paystack Card Settlement')).toBeVisible();
-  await expect(page.getByText('Gross Card MRR')).toBeVisible();
+  await expect(page.getByText('Gross Card Charges', { exact: true })).toBeVisible();
   await expect(page.getByText('Paystack Fees')).toBeVisible();
   await expect(page.getByText('Card Net to Bank')).toBeVisible();
   await expect(page.getByText('3% assumed processing fee')).toBeVisible();

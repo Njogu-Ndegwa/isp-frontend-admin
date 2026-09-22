@@ -3665,6 +3665,10 @@ export interface AdminMRRMetrics {
   previous_period_mrr: number;
   change_percent: number;
   currency: string;
+  /** MRR is reported after assumed card-processing fees. */
+  basis?: 'net_subscription_revenue' | string;
+  /** Decimal rate applied to completed card subscription payments. */
+  card_processing_fee_rate?: number;
   breakdown: {
     new_mrr: number;
     churned_mrr: number;

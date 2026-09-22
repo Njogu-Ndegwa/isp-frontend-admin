@@ -179,7 +179,7 @@ export default function SubscriptionRevenuePage() {
             <div>
               <h3 className="text-sm font-semibold text-foreground">Paystack Card Settlement</h3>
               <p className="text-xs text-foreground-muted mt-1">
-                Gross card payments stay in MRR. The bank settlement below assumes Paystack retains 3% and is separate from the M-Pesa paybill.
+                Gross card payments remain visible for reconciliation. MRR and bank settlement are net of the assumed 3% Paystack fee and separate from the M-Pesa paybill.
               </p>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
