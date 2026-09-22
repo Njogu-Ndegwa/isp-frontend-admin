@@ -152,6 +152,10 @@ async function mockApi(page: Page) {
     // `.catch(() => null)` fallback so the page renders its error card while
     // the admin-only monitors above it still mount.
     if (path.endsWith('/admin/dashboard')) return json(route, { detail: 'mocked out' }, 503);
+    // DbPoolMonitor reads `pool.pressure` from its response and would crash the
+    // whole route (error boundary) on an empty object; a 503 lands in its own
+    // catch block and renders its error card instead.
+    if (path.endsWith('/admin/db-pool')) return json(route, { detail: 'mocked out' }, 503);
     return json(route, {});
   });
 }
@@ -201,6 +205,10 @@ test('operations health panel shows an unavailable state when the endpoint fails
     const path = new URL(route.request().url()).pathname;
     if (path.endsWith('/admin/ops-health')) return json(route, { detail: 'not deployed' }, 404);
     if (path.endsWith('/admin/dashboard')) return json(route, { detail: 'mocked out' }, 503);
+    // DbPoolMonitor reads `pool.pressure` from its response and would crash the
+    // whole route (error boundary) on an empty object; a 503 lands in its own
+    // catch block and renders its error card instead.
+    if (path.endsWith('/admin/db-pool')) return json(route, { detail: 'mocked out' }, 503);
     return json(route, {});
   });
   await page.goto('/admin', { waitUntil: 'domcontentloaded' });
