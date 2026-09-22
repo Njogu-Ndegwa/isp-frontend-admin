@@ -9,7 +9,31 @@ import {
   OpsHealthLatency,
   OpsHealthResponse,
   OpsHealthStatus,
+  OpsHealthTunnelBacklog,
+  OpsHealthTunnelLatency,
 } from '../lib/types';
+
+// Backend order: primary planes, then insurance planes, then unclassified.
+const TUNNEL_ORDER = ['wireguard', 'l2tp', 'wg2_insurance', 'aws_insurance', 'other'];
+const TUNNEL_LABEL: Record<string, string> = {
+  wireguard: 'WireGuard',
+  l2tp: 'L2TP',
+  wg2_insurance: 'wg2 ins.',
+  aws_insurance: 'AWS ins.',
+  other: 'other',
+};
+
+function tunnelLabel(t: string | null | undefined): string {
+  return t ? (TUNNEL_LABEL[t] ?? t) : '—';
+}
+
+function orderedTunnels(keys: string[]): string[] {
+  return [...keys].sort((a, b) => {
+    const ia = TUNNEL_ORDER.indexOf(a);
+    const ib = TUNNEL_ORDER.indexOf(b);
+    return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
+  });
+}
 
 const POLL_INTERVAL_MS = 60_000;
 const CLOCK_TICK_MS = 15_000;
@@ -234,6 +258,78 @@ function Tile({ title, status, children, footer }: {
       <div className="grid grid-cols-2 gap-x-2 gap-y-1.5">{children}</div>
       {footer ? <div className="mt-auto pt-1 space-y-1">{footer}</div> : null}
     </div>
+  );
+}
+
+function TunnelBadge({ tunnel }: { tunnel: string | null | undefined }) {
+  if (!tunnel) return null;
+  return (
+    <span className="inline-flex items-center px-1.5 py-0.5 rounded border border-border bg-background-tertiary text-[10px] uppercase tracking-wider text-foreground-muted flex-shrink-0" data-tunnel={tunnel}>
+      {tunnelLabel(tunnel)}
+    </span>
+  );
+}
+
+/**
+ * Per-tunnel rows inside a tile: "WireGuard  call 1.9s ×1.0  e2e 4.1s  backlog 0".
+ * The point is to see one plane drift while the other stays flat.
+ */
+function TunnelRows({ latency, backlog, hot, removal }: {
+  latency?: Partial<Record<string, OpsHealthTunnelLatency>>;
+  backlog?: Partial<Record<string, OpsHealthTunnelBacklog>>;
+  hot?: Partial<Record<string, { routers: number; customers: number }>>;
+  removal?: Partial<Record<string, OpsHealthLatency>>;
+}) {
+  const keys = orderedTunnels(Array.from(new Set([
+    ...Object.keys(latency ?? {}),
+    ...Object.keys(backlog ?? {}),
+    ...Object.keys(hot ?? {}),
+    ...Object.keys(removal ?? {}),
+  ])));
+  if (keys.length === 0) return null;
+  return (
+    <ul className="space-y-0.5" data-testid="ops-health-tunnel-rows">
+      {keys.map((t) => {
+        const lat = latency?.[t];
+        const call = latencyLabel(lat?.router_call);
+        const e2e = latencyLabel(lat?.end_to_end);
+        const rm = latencyLabel(removal?.[t]);
+        const b = backlog?.[t];
+        const h = hot?.[t];
+        const worstRatio = Math.max(call.ratioValue ?? 0, e2e.ratioValue ?? 0, rm.ratioValue ?? 0);
+        return (
+          <li key={t} className="flex items-center gap-1.5 text-[11px] leading-tight min-w-0" data-tunnel={t}>
+            <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${worstRatio >= 4 ? 'bg-red-500' : worstRatio >= 2 ? 'bg-amber-500' : 'bg-foreground-muted/40'}`} />
+            <span className="font-medium text-foreground w-16 truncate flex-shrink-0" title={t}>{tunnelLabel(t)}</span>
+            {lat ? (
+              <>
+                <span className="text-foreground-muted tabular-nums whitespace-nowrap">
+                  call <span className={`font-semibold ${ratioTone(call.ratioValue)}`}>{call.value}</span>{call.ratio ? <span className={ratioTone(call.ratioValue)}> {call.ratio}</span> : null}
+                </span>
+                <span className="text-foreground-muted tabular-nums whitespace-nowrap hidden sm:inline">
+                  e2e <span className="font-semibold text-foreground">{e2e.value}</span>
+                </span>
+              </>
+            ) : null}
+            {removal?.[t] ? (
+              <span className="text-foreground-muted tabular-nums whitespace-nowrap">
+                p95 <span className={`font-semibold ${ratioTone(rm.ratioValue)}`}>{rm.value}</span>{rm.ratio ? <span className={ratioTone(rm.ratioValue)}> {rm.ratio}</span> : null}
+              </span>
+            ) : null}
+            {b ? (
+              <span className={`ml-auto tabular-nums whitespace-nowrap ${b.routers_with_backlog > 0 ? 'text-amber-500' : 'text-foreground-muted'}`} title={`${b.pending} pending on ${b.routers} routers`}>
+                {formatNumber(b.pending)} pend · {formatNumber(b.routers_with_backlog)} rtr
+              </span>
+            ) : null}
+            {h ? (
+              <span className="ml-auto tabular-nums whitespace-nowrap text-foreground-muted" title={`${h.customers} expired-but-active on ${h.routers} routers`}>
+                {formatNumber(h.customers)} on {formatNumber(h.routers)} rtr
+              </span>
+            ) : null}
+          </li>
+        );
+      })}
+    </ul>
   );
 }
 
@@ -471,6 +567,7 @@ export default function OpsHealthPanel() {
           status={prov?.status}
           footer={
             <>
+              <TunnelRows latency={prov?.latency?.by_tunnel} backlog={prov?.backlog_by_tunnel} />
               <div className="text-foreground-muted/80"><Sparkline values={series(points, 'provisioning_retry_pending')} label="Retry pending, 24h" /></div>
               <div className="text-foreground-muted/80"><Sparkline values={series(points, 'provisioning_p95_end_to_end')} label="End-to-end p95, 24h" /></div>
               <DetailToggle
@@ -506,6 +603,7 @@ export default function OpsHealthPanel() {
           status={exp?.status}
           footer={
             <>
+              <TunnelRows removal={exp?.removal_latency_by_tunnel} hot={exp?.hot_by_tunnel} />
               <div className="text-foreground-muted/80"><Sparkline values={series(points, 'expiry_active_hot')} label="Hot backlog, 24h" /></div>
               <div className="text-foreground-muted/80"><Sparkline values={series(points, 'expiry_p95_removal')} label="Removal p95, 24h" /></div>
             </>
@@ -603,6 +701,7 @@ export default function OpsHealthPanel() {
                   <Link href="/routers" className="font-medium text-foreground hover:underline truncate min-w-0 flex-1" title={`Router #${r.router_id}`}>
                     {r.router_name || `Router #${r.router_id}`}
                   </Link>
+                  <TunnelBadge tunnel={r.tunnel} />
                   <span className="font-mono tabular-nums text-foreground flex-shrink-0">{formatNumber(r.pending)} pending</span>
                   {r.last_error ? (
                     <span className="text-[11px] text-foreground-muted truncate max-w-[40%] hidden sm:inline" title={r.last_error}>{r.last_error}</span>

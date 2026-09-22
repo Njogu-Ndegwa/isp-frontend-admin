@@ -281,11 +281,27 @@ export interface OpsHealthProvisioningCounts {
   failed: number;
 }
 
+/** Management tunnel a router is reached over, derived from its stored IP. */
+export type OpsHealthTunnel = 'wireguard' | 'l2tp' | 'wg2_insurance' | 'aws_insurance' | 'other';
+
 export interface OpsHealthProvisioningTopRouter {
   router_id: number;
   router_name: string | null;
   pending: number;
   last_error: string | null;
+  tunnel?: OpsHealthTunnel | string;
+}
+
+export interface OpsHealthTunnelBacklog {
+  routers: number;
+  pending: number;
+  routers_with_backlog: number;
+}
+
+export interface OpsHealthTunnelLatency {
+  end_to_end: OpsHealthLatency | null;
+  router_call: OpsHealthLatency | null;
+  routers: number;
 }
 
 export interface OpsHealthProvisioningSection {
@@ -294,10 +310,12 @@ export interface OpsHealthProvisioningSection {
   counts: OpsHealthProvisioningCounts;
   success_ratio: number | null;
   routers_with_backlog: number;
+  backlog_by_tunnel?: Partial<Record<string, OpsHealthTunnelBacklog>>;
   top_routers: OpsHealthProvisioningTopRouter[];
   latency: {
     end_to_end: OpsHealthLatency;
     router_call: OpsHealthLatency;
+    by_tunnel?: Partial<Record<string, OpsHealthTunnelLatency>>;
   };
 }
 
@@ -330,7 +348,9 @@ export interface OpsHealthExpirySection {
   expired_active_hot: number;
   expired_active_quarantined: number;
   oldest_hot_expired_minutes: number | null;
+  hot_by_tunnel?: Partial<Record<string, { routers: number; customers: number }>>;
   removal_latency: OpsHealthLatency;
+  removal_latency_by_tunnel?: Partial<Record<string, OpsHealthLatency>>;
   cleanup_job: OpsHealthCleanupJob;
 }
 

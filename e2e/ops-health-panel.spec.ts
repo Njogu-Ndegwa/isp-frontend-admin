@@ -58,12 +58,29 @@ const OPS_HEALTH = {
       success_ratio: 0.04,
       routers_with_backlog: 59,
       top_routers: [
-        { router_id: 8, router_name: 'Powernet #8', pending: 21, last_error: 'timeout' },
-        { router_id: 110, router_name: 'SIMSEAS #4', pending: 17, last_error: null },
+        { router_id: 8, router_name: 'Powernet #8', pending: 21, last_error: 'timeout', tunnel: 'l2tp' },
+        { router_id: 110, router_name: 'SIMSEAS #4', pending: 17, last_error: null, tunnel: 'wireguard' },
       ],
+      backlog_by_tunnel: {
+        wireguard: { routers: 12, pending: 40, routers_with_backlog: 6 },
+        l2tp: { routers: 47, pending: 304, routers_with_backlog: 53 },
+      },
       latency: {
         end_to_end: { p50: 4.1, p95: 61.0, samples: 14, baseline_p95: 6.2, ratio: 9.8 },
         router_call: { p50: 1.2, p95: 40.0, samples: 14, baseline_p95: 2.0, ratio: 20.0 },
+        // L2TP is the plane that drifted; WireGuard stays flat -> "it's the tunnel host".
+        by_tunnel: {
+          l2tp: {
+            end_to_end: { p50: 8.0, p95: 75.0, samples: 9, baseline_p95: 6.5, ratio: 11.5 },
+            router_call: { p50: 3.0, p95: 66.0, samples: 9, baseline_p95: 2.1, ratio: 31.4 },
+            routers: 47,
+          },
+          wireguard: {
+            end_to_end: { p50: 2.1, p95: 4.4, samples: 5, baseline_p95: 4.0, ratio: 1.1 },
+            router_call: { p50: 0.9, p95: 1.9, samples: 5, baseline_p95: 1.8, ratio: 1.1 },
+            routers: 46,
+          },
+        },
       },
     },
     payments: {
@@ -79,7 +96,12 @@ const OPS_HEALTH = {
       expired_active_hot: 126,
       expired_active_quarantined: 626,
       oldest_hot_expired_minutes: 41,
+      hot_by_tunnel: { wireguard: { routers: 9, customers: 31 }, l2tp: { routers: 22, customers: 95 } },
       removal_latency: { p50: 90.0, p95: 400.0, samples: 30, baseline_p95: 300.0, ratio: 1.3 },
+      removal_latency_by_tunnel: {
+        wireguard: { p50: 70.0, p95: 250.0, samples: 12, baseline_p95: 240.0, ratio: 1.0 },
+        l2tp: { p50: 110.0, p95: 520.0, samples: 18, baseline_p95: 310.0, ratio: 1.7 },
+      },
       cleanup_job: {
         last_finished_at: '2026-09-22T18:59:10Z',
         last_duration_seconds: 55.2,
@@ -192,6 +214,23 @@ for (const width of [375, 1280]) {
     const routers = page.getByTestId('ops-health-top-routers');
     await expect(routers).toBeVisible();
     await expect(routers.getByRole('link', { name: 'Powernet #8' })).toHaveAttribute('href', '/routers');
+    // Every problematic router says which tunnel it is reached over.
+    await expect(routers.locator('li', { hasText: 'Powernet #8' }).locator('[data-tunnel="l2tp"]')).toHaveText('L2TP');
+    await expect(routers.locator('li', { hasText: 'SIMSEAS #4' }).locator('[data-tunnel="wireguard"]')).toHaveText('WireGuard');
+
+    // Per-tunnel p95 rows: WireGuard first, then L2TP, with L2TP's call latency flagged red.
+    const provRows = panel.locator('[data-ops-tile="Provisioning"] [data-testid="ops-health-tunnel-rows"] li');
+    await expect(provRows).toHaveCount(2);
+    await expect(provRows.nth(0)).toHaveAttribute('data-tunnel', 'wireguard');
+    await expect(provRows.nth(0)).toContainText('1.9s');
+    await expect(provRows.nth(1)).toHaveAttribute('data-tunnel', 'l2tp');
+    await expect(provRows.nth(1)).toContainText('×31');
+    await expect(provRows.nth(1)).toContainText('304 pend');
+    await expect(provRows.nth(1).locator('span').first()).toHaveClass(/bg-red-500/);
+    const expRows = panel.locator('[data-ops-tile="Expiry"] [data-testid="ops-health-tunnel-rows"] li');
+    await expect(expRows).toHaveCount(2);
+    await expect(expRows.nth(1)).toContainText('8.7m');
+    await expect(expRows.nth(1)).toContainText('95 on 22 rtr');
 
     // No horizontal page scroll on a phone.
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
