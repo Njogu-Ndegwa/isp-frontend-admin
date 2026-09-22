@@ -237,6 +237,8 @@ import {
   TransactionPaymentMethod,
   TransactionStatusFilter,
   DbPoolResponse,
+  OpsHealthResponse,
+  OpsHealthHistory,
   AdminSubscriptionCollectionsSummary,
   AdminSubscriptionPaymentsResponse,
   OwnerBankDestination,
@@ -500,6 +502,24 @@ class ApiClient {
     const url = `${BASE_URL}/admin/db-pool${qs ? `?${qs}` : ''}`;
     const response = await fetch(url, { headers: this.getHeaders() });
     return this.handleResponse<DbPoolResponse>(response);
+  }
+
+  // Operations health - GET /api/admin/ops-health (admin only). Returns null on
+  // any failure so the panel can render an "unavailable" state instead of
+  // taking the dashboard down with it.
+  async getOpsHealth(): Promise<OpsHealthResponse | null> {
+    try {
+      const response = await fetch(`${BASE_URL}/admin/ops-health`, { headers: this.getHeaders() });
+      return await this.handleResponse<OpsHealthResponse>(response);
+    } catch { return null; }
+  }
+
+  // GET /api/admin/ops-health/history?hours=N -> { points: [...] }
+  async getOpsHealthHistory(hours = 24): Promise<OpsHealthHistory | null> {
+    try {
+      const response = await fetch(`${BASE_URL}/admin/ops-health/history?hours=${hours}`, { headers: this.getHeaders() });
+      return await this.handleResponse<OpsHealthHistory>(response);
+    } catch { return null; }
   }
 
   // MikroTik Metrics - GET /api/mikrotik/health[?router_id=<id>][&include_sessions=true][&prefer_snapshot=true]
