@@ -1409,7 +1409,7 @@ export interface Router {
   owner_subscription_status?: 'active' | 'trial' | 'inactive' | 'suspended' | string | null;
   backup_ip?: string | null;
   backup_ip_error?: string | null;
-  insurance_backup_status?: 'unknown' | 'verified' | 'registered' | 'configured' | 'missing' | 'unavailable' | 'partial' | 'failed' | 'skipped' | 'queued' | 'running' | 'invalid_ip' | string | null;
+  insurance_backup_status?: 'unknown' | 'verified' | 'registered' | 'configured' | 'standby' | 'missing' | 'unavailable' | 'partial' | 'failed' | 'skipped' | 'queued' | 'running' | 'invalid_ip' | string | null;
   insurance_backup_source?: 'batch' | 'manager' | 'derived_ip' | 'l2tp' | string | null;
   insurance_backup_active?: boolean | null;
   insurance_backup_checked_at?: string | null;
@@ -1483,6 +1483,9 @@ export interface RouterWebFigCloseResponse {
 export interface InsuranceWireGuardVerification {
   ip: string;
   port: number;
+  mode?: 'configured_standby' | string;
+  active?: boolean;
+  reason?: string;
   ping_success: boolean;
   ping_stdout?: string;
   ping_stderr?: string;
@@ -1554,7 +1557,7 @@ export interface InsuranceTunnelBatchItem {
   recently_offline?: boolean;
   has_known_backup?: boolean;
   eligible?: boolean;
-  status: 'queued' | 'running' | 'verified' | 'partial' | 'failed' | 'skipped';
+  status: 'queued' | 'running' | 'standby' | 'verified' | 'partial' | 'failed' | 'skipped';
   error?: string | null;
   verification?: InsuranceWireGuardVerification;
   verification_attempts?: Array<{

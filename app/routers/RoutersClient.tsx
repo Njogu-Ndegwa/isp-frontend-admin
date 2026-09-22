@@ -82,7 +82,8 @@ function hasKnownBackup(router: Router): boolean {
     router.insurance_backup_active === true ||
     router.insurance_backup_status === 'verified' ||
     router.insurance_backup_status === 'registered' ||
-    router.insurance_backup_status === 'configured'
+    router.insurance_backup_status === 'configured' ||
+    router.insurance_backup_status === 'standby'
   );
 }
 
@@ -97,6 +98,8 @@ function backupStatusLabel(status?: string | null): string {
     case 'registered':
     case 'configured':
       return 'Backup found';
+    case 'standby':
+      return 'Standby (off)';
     case 'partial':
       return 'Partial';
     case 'failed':
@@ -123,19 +126,23 @@ function BackupStatusBadge({ router }: { router: Router }) {
   const classes =
     status === 'verified' || status === 'registered' || status === 'configured'
       ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/30'
+      : status === 'standby'
+        ? 'bg-sky-500/10 text-sky-500 border-sky-500/30'
       : status === 'partial' || status === 'running' || status === 'queued' || status === 'missing' || status === 'unavailable'
         ? 'bg-amber-500/10 text-amber-500 border-amber-500/30'
         : status === 'failed' || status === 'invalid_ip'
           ? 'bg-red-500/10 text-red-500 border-red-500/30'
           : 'bg-background-tertiary text-foreground-muted border-border';
   const title = router.insurance_backup_error
-    || (status === 'registered' || status === 'configured'
-      ? `Backup peer found for ${router.backup_ip || 'this router'}`
-      : status === 'missing'
-        ? `No backup peer found for ${router.backup_ip || 'this router'}`
-        : router.backup_ip
-          ? `Backup IP ${router.backup_ip}`
-          : 'No backup tunnel status is available');
+    || (status === 'standby'
+      ? 'L2TP backup is configured but intentionally disabled until controlled failover'
+      : status === 'registered' || status === 'configured'
+        ? `Backup peer found for ${router.backup_ip || 'this router'}`
+        : status === 'missing'
+          ? `No backup peer found for ${router.backup_ip || 'this router'}`
+          : router.backup_ip
+            ? `Backup IP ${router.backup_ip}`
+            : 'No backup tunnel status is available');
 
   return (
     <span
@@ -149,6 +156,9 @@ function BackupStatusBadge({ router }: { router: Router }) {
 
 function formatInsuranceVerification(verification?: InsuranceWireGuardVerification): string | null {
   if (!verification) return null;
+  if (verification.mode === 'configured_standby') {
+    return verification.reason || 'Configured standby; intentionally inactive';
+  }
   const parts = [
     `ping ${verification.ping_success ? 'ok' : 'failed'}`,
     `tcp ${verification.tcp_success ? 'ok' : 'failed'}`,
@@ -757,6 +767,7 @@ function RoutersTab({
     ? Math.min(
         batchJob.total,
         (batchSummary?.verified ?? 0) +
+          (batchSummary?.standby ?? 0) +
           (batchSummary?.partial ?? 0) +
           (batchSummary?.failed ?? 0) +
           (batchSummary?.skipped ?? 0)
@@ -1152,12 +1163,13 @@ function RoutersTab({
           )}
 
           {(batchPreview || batchJob) && (
-            <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-8 gap-2">
+            <div className="mt-3 grid grid-cols-2 sm:grid-cols-5 xl:grid-cols-9 gap-2">
               <BatchMetric label="Total" value={batchJob?.total ?? batchPreview?.total ?? 0} />
               <BatchMetric label="Eligible" value={batchPreview?.eligible ?? 0} />
               <BatchMetric label="Processed" value={batchProcessed} tone="success" />
               <BatchMetric label="Remaining" value={batchRemaining} />
               <BatchMetric label="Verified" value={batchSummary?.verified ?? 0} tone="success" />
+              <BatchMetric label="Standby" value={batchSummary?.standby ?? 0} />
               <BatchMetric label="Partial" value={batchSummary?.partial ?? 0} tone="warning" />
               <BatchMetric label="Failed" value={batchSummary?.failed ?? 0} tone="danger" />
               <BatchMetric label="Skipped" value={(batchSummary?.skipped ?? batchPreview?.skipped) || 0} />
