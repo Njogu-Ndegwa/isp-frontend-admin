@@ -18,12 +18,18 @@ const ADMIN = {
 };
 
 const SUMMARY = {
+  paybill_collected: 482_000,
   total_collected: 482_000,
   completed_sent: 300_000,
   pending_send: 12_000,
   available_to_send: 170_000,
+  completed_bank_net: 298_150,
   completed_fees: 1_850,
   fee_preview: { safaricom_fee: 210, kadogo_surcharge: 0, net_payout: 169_790 },
+  card_settlement: {
+    fee_rate: 0.03, fee_assumed: true, currency: 'KES', payment_count: 1,
+    gross_collected: 1_295, processing_fees: 38.85, net_settlement: 1_256.15,
+  },
 };
 
 const DESTINATION = {
@@ -70,6 +76,18 @@ test('admin reaches Collections from the mobile sidebar', async ({ page }) => {
   await page.waitForURL('**/admin/subscription-collections');
   await expect(page.getByRole('heading', { name: 'Subscription Collections' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Send Available Balance' })).toBeVisible();
+});
+
+test('card settlement is separate from the M-Pesa paybill on mobile', async ({ page }) => {
+  await openAsAdmin(page, [DESTINATION]);
+  await page.goto('/admin/subscription-collections', { waitUntil: 'domcontentloaded' });
+
+  await expect(page.getByText('Collected in Paybill')).toBeVisible();
+  await expect(page.getByText('Paystack Card Settlement')).toBeVisible();
+  await expect(page.getByText('Gross Card Charges', { exact: true })).toBeVisible();
+  await expect(page.getByText('Paystack Fees')).toBeVisible();
+  await expect(page.getByText('Card Net to Bank')).toBeVisible();
+  await expect(page.getByText('3% assumed processing fee')).toBeVisible();
 });
 
 test('confirm-transfer sheet clears the mobile bottom nav', async ({ page }) => {

@@ -569,9 +569,9 @@ function OverviewTab({
     <div className="space-y-6">
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
         <StatCard
-          title="Total Collected"
-          value={formatKES(summary.total_collected)}
-          subtitle="All subscription payments"
+          title="Collected in Paybill"
+          value={formatKES(summary.paybill_collected)}
+          subtitle="M-Pesa subscription payments"
           accent="success"
           icon={<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
         />
@@ -603,6 +603,38 @@ function OverviewTab({
           accent="danger"
           icon={<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M2.25 6L9 12.75l4.286-4.286a11.948 11.948 0 014.306 6.43l.776 2.898m0 0l3.182-5.511m-3.182 5.51l-5.511-3.181" /></svg>}
         />
+      </div>
+
+      <div className="card p-5 sm:p-6 space-y-4">
+        <div>
+          <h3 className="text-sm font-semibold text-foreground">Paystack Card Settlement</h3>
+          <p className="text-xs text-foreground-muted mt-1">
+            Gross card charges are retained for reconciliation. Admin MRR and bank settlement are net of the assumed 3% Paystack fee and stay outside the M-Pesa paybill.
+          </p>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <StatCard
+            title="Gross Card Charges"
+            value={formatKES(summary.card_settlement.gross_collected)}
+            subtitle={`${summary.card_settlement.payment_count} completed card payment${summary.card_settlement.payment_count === 1 ? '' : 's'}`}
+            accent="success"
+            icon={<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6v12m3-9.75C15 7.007 13.657 6 12 6S9 7.007 9 8.25s1.343 2.25 3 2.25 3 1.007 3 2.25S13.657 15 12 15s-3-1.007-3-2.25" /></svg>}
+          />
+          <StatCard
+            title="Paystack Fees"
+            value={formatKES(summary.card_settlement.processing_fees)}
+            subtitle={`${Math.round(summary.card_settlement.fee_rate * 100)}% assumed processing fee`}
+            accent="danger"
+            icon={<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 9h.008v.008H9V9zm6 6h.008v.008H15V15zm.75-7.5-7.5 9" /></svg>}
+          />
+          <StatCard
+            title="Card Net to Bank"
+            value={formatKES(summary.card_settlement.net_settlement)}
+            subtitle="Separate settlement route"
+            accent="info"
+            icon={<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 10.5h18m-16.5 0V18m5.25-7.5V18m5.25-7.5V18m4.5-7.5V18M2.25 18h19.5M12 3l9 4.5H3L12 3z" /></svg>}
+          />
+        </div>
       </div>
 
       {/* Transfer Preview Card */}
@@ -744,8 +776,8 @@ function TransactionsTab({
       {response?.summary && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <div className="card p-3 text-center">
-            <p className="text-xs text-foreground-muted">Total Collected</p>
-            <p className="text-sm font-semibold">{formatKES(response.summary.total_collected)}</p>
+            <p className="text-xs text-foreground-muted">Collected in Paybill</p>
+            <p className="text-sm font-semibold">{formatKES(response.summary.paybill_collected)}</p>
           </div>
           <div className="card p-3 text-center">
             <p className="text-xs text-foreground-muted">In Your Bank</p>
@@ -808,7 +840,16 @@ function TransactionsTab({
                   case 'invoice':
                     return <span className="text-sm text-foreground-muted">#{p.invoice_id || '-'}</span>;
                   case 'amount':
-                    return <span className="text-sm font-medium">{formatWithKes(p.amount, p.currency, p.amount_kes)}</span>;
+                    return (
+                      <div className="text-right">
+                        <p className="text-sm font-medium">{formatWithKes(p.amount, p.currency, p.amount_kes)}</p>
+                        {p.payment_method === 'card' && p.status === 'completed' ? (
+                          <p className="text-xs text-emerald-500">
+                            Net {formatWithKes(p.net_settlement || 0, p.currency, p.net_settlement_kes)}
+                          </p>
+                        ) : null}
+                      </div>
+                    );
                   case 'reference':
                     return <span className="text-xs text-foreground-muted font-mono">{p.payment_reference || '-'}</span>;
                   case 'payment_status':
@@ -844,7 +885,9 @@ function TransactionsTab({
                 value={{ text: formatWithKes(p.amount, p.currency, p.amount_kes) }}
                 fields={[
                   { value: `Ref: ${p.payment_reference || '-'}` },
-                  { value: `Unsent: ${formatKES(p.unsent_amount)}` },
+                  p.payment_method === 'card' && p.status === 'completed'
+                    ? { value: `Net after 3%: ${formatWithKes(p.net_settlement || 0, p.currency, p.net_settlement_kes)}` }
+                    : { value: `Unsent: ${formatKES(p.unsent_amount)}` },
                 ]}
                 layout="compact"
               />
