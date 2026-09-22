@@ -175,6 +175,38 @@ export default function SubscriptionRevenuePage() {
             />
           </div>
 
+          <div className="card p-5 sm:p-6 space-y-4">
+            <div>
+              <h3 className="text-sm font-semibold text-foreground">Paystack Card Settlement</h3>
+              <p className="text-xs text-foreground-muted mt-1">
+                Gross card payments stay in MRR. The bank settlement below assumes Paystack retains 3% and is separate from the M-Pesa paybill.
+              </p>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <StatCard
+                title="Gross Card Revenue"
+                value={money(data.paystack.gross_collected)}
+                subtitle={`${data.paystack.payment_count} completed payment${data.paystack.payment_count === 1 ? '' : 's'}`}
+                accent="success"
+                icon={<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6v12m3-9.75C15 7.007 13.657 6 12 6S9 7.007 9 8.25s1.343 2.25 3 2.25 3 1.007 3 2.25S13.657 15 12 15s-3-1.007-3-2.25" /></svg>}
+              />
+              <StatCard
+                title="Paystack Fees"
+                value={money(data.paystack.processing_fees)}
+                subtitle={`${Math.round(data.paystack.fee_rate * 100)}% assumed`}
+                accent="danger"
+                icon={<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 9h.008v.008H9V9zm6 6h.008v.008H15V15zm.75-7.5-7.5 9" /></svg>}
+              />
+              <StatCard
+                title="Net Card Settlement"
+                value={money(data.paystack.net_settlement)}
+                subtitle={`${money(data.paystack.this_month.net_settlement)} this month`}
+                accent="info"
+                icon={<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 10.5h18m-16.5 0V18m5.25-7.5V18m5.25-7.5V18m4.5-7.5V18M2.25 18h19.5M12 3l9 4.5H3L12 3z" /></svg>}
+              />
+            </div>
+          </div>
+
           {/* Reseller Breakdown */}
           <div className="card p-5 sm:p-6">
             <h3 className="text-sm font-semibold text-foreground mb-4">Reseller Breakdown</h3>

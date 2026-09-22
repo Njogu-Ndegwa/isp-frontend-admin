@@ -3538,6 +3538,9 @@ export interface AdminSubscriptionRevenue {
   total_outstanding: number;
   total_invoices: number;
   overdue_invoices: number;
+  paystack: PaystackSettlement & {
+    this_month: PaystackSettlement;
+  };
   resellers: {
     active: number;
     trial: number;
@@ -3964,7 +3967,18 @@ export interface GrowthTargetUpdatePayload {
 export type SubscriptionPaymentStatus = 'pending' | 'completed' | 'failed';
 export type BankSendStatus = 'sent' | 'partially_sent' | 'pending_send' | 'unsent' | 'not_applicable';
 
+export interface PaystackSettlement {
+  fee_rate: number;
+  fee_assumed: boolean;
+  currency: string;
+  payment_count: number;
+  gross_collected: number;
+  processing_fees: number;
+  net_settlement: number;
+}
+
 export interface AdminSubscriptionCollectionsSummary {
+  paybill_collected: number;
   total_collected: number;
   completed_sent: number;
   pending_send: number;
@@ -3977,6 +3991,7 @@ export interface AdminSubscriptionCollectionsSummary {
     total_fee: number;
     net_payout: number;
   };
+  card_settlement: PaystackSettlement;
 }
 
 export interface AdminSubscriptionPaymentRow {
@@ -4000,6 +4015,11 @@ export interface AdminSubscriptionPaymentRow {
   currency?: string;
   /** `amount` converted to KES. */
   amount_kes?: number;
+  processing_fee_rate?: number;
+  processing_fee?: number;
+  net_settlement?: number;
+  processing_fee_kes?: number;
+  net_settlement_kes?: number;
 }
 
 export interface AdminSubscriptionPaymentsResponse {
@@ -4007,12 +4027,7 @@ export interface AdminSubscriptionPaymentsResponse {
   per_page: number;
   total: number;
   total_pages: number;
-  summary: {
-    total_collected: number;
-    completed_sent: number;
-    pending_send: number;
-    available_to_send: number;
-  };
+  summary: AdminSubscriptionCollectionsSummary;
   payments: AdminSubscriptionPaymentRow[];
 }
 
