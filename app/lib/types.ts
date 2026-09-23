@@ -451,6 +451,84 @@ export interface OpsHealthHistoryPoint {
   active_writers: number | null;
 }
 
+// Look-back report - GET /api/admin/ops-health/window?start=&end=&router_id=
+export interface OpsHealthWindowStats {
+  p50: number | null;
+  p95: number | null;
+  max: number | null;
+  samples: number;
+}
+
+export interface OpsHealthWindowTunnel {
+  attempts: number;
+  delivered: number;
+  not_delivered: number;
+  end_to_end: OpsHealthWindowStats;
+  router_call: OpsHealthWindowStats;
+}
+
+export interface OpsHealthWindowRouter {
+  router_id: number;
+  router_name: string | null;
+  tunnel: string;
+  attempts: number;
+  delivered: number;
+  not_delivered: number;
+  end_to_end_p95: number | null;
+  router_call_p95: number | null;
+  last_error: string | null;
+}
+
+export interface OpsHealthWindowUnenforcedRouter {
+  router_id: number;
+  router_name: string | null;
+  tunnel: string;
+  still_active: number;
+  oldest_expired_minutes: number | null;
+  reason: string;
+  reason_label: string;
+  router_last_status: boolean | null;
+  router_last_online_at: string | null;
+  owner_status: string | null;
+}
+
+/** Of the customers whose plan expired inside the slice, how many were actually removed from the router. */
+export interface OpsHealthWindowEnforcement {
+  expired: number;
+  removed: number;
+  still_active: number;
+  pct_removed: number | null;
+  by_reason: Partial<Record<string, number>>;
+  routers: OpsHealthWindowUnenforcedRouter[];
+  routers_total: number;
+}
+
+export interface OpsHealthWindowReport {
+  window: { start: string; end: string; hours: number };
+  router: { router_id: number; router_name: string | null; tunnel: string } | null;
+  provisioning: {
+    counts: Partial<Record<string, number>>;
+    success_ratio: number | null;
+    end_to_end: OpsHealthWindowStats;
+    router_call: OpsHealthWindowStats;
+    retries_per_delivery: { p50: number | null; max: number | null };
+    by_tunnel: Partial<Record<string, OpsHealthWindowTunnel>>;
+    routers: OpsHealthWindowRouter[];
+    routers_total: number;
+  };
+  expiry: {
+    enforcement: OpsHealthWindowEnforcement;
+    removals: number;
+    removal_latency: OpsHealthWindowStats;
+    by_tunnel: Partial<Record<string, OpsHealthWindowStats>>;
+  };
+  payments: {
+    counts: { created: number; completed: number; failed: number; pending: number };
+    callback_latency: OpsHealthWindowStats;
+  } | null;
+  truncated: boolean;
+}
+
 export interface OpsHealthHistory {
   points: OpsHealthHistoryPoint[];
 }

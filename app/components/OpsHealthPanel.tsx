@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { api } from '../lib/api';
+import OpsHealthLookback from './OpsHealthLookback';
 import {
   OpsHealthAlert,
   OpsHealthHistoryPoint,
@@ -361,7 +362,7 @@ function HeartbeatIcon({ className }: { className?: string }) {
 // Panel
 // ---------------------------------------------------------------------------
 
-type Detail = 'routers' | 'jobs' | 'instances' | null;
+type Detail = 'routers' | 'jobs' | 'instances' | 'lookback' | null;
 
 export default function OpsHealthPanel() {
   const [data, setData] = useState<OpsHealthResponse | null>(null);
@@ -687,6 +688,12 @@ export default function OpsHealthPanel() {
           <Metric label="Checked out" value={`${formatNumber(pool?.checked_out)} / ${formatNumber(pool?.pool_size)}`} suffix={pool?.max_overflow != null ? `+${pool.max_overflow}` : null} />
         </Tile>
       </div>
+
+      {/* Look back at any time slice, optionally one router (live query, no baseline) */}
+      <div className="mt-3">
+        <DetailToggle label="Look back at a time slice / one router" open={detail === 'lookback'} onClick={() => toggleDetail('lookback')} />
+      </div>
+      {detail === 'lookback' && <OpsHealthLookback />}
 
       {/* Expandable details — full width so the 2-column grid stays tidy on phones */}
       {detail === 'routers' && (
