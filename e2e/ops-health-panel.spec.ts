@@ -112,6 +112,7 @@ const OPS_HEALTH = {
     tunnels: {
       status: 'watch',
       counts: { online: 80, offline: 9, stale: 4, total: 93 },
+      by_tunnel: { wireguard: { online: 55, offline: 3, stale: 2, total: 60 }, l2tp: { online: 25, offline: 6, stale: 2, total: 33 } },
       recent_drops_10m: 2,
       platform_event: false,
       control_path: { available: true, native: 76, transit_fallback: 7, unrouted: 10, checked_at: '2026-09-22T18:59:40Z' },
@@ -153,6 +154,49 @@ const OPS_HEALTH = {
   history: { points: historyPoints },
 };
 
+const WINDOW_REPORT = {
+  window: { start: '2026-09-22T15:00:00Z', end: '2026-09-22T18:00:00Z', hours: 3 },
+  router: null,
+  provisioning: {
+    counts: { scheduled: 0, in_progress: 0, retry_pending: 4, router_updated: 38, failed: 1 },
+    success_ratio: 0.884,
+    end_to_end: { p50: 9.0, p95: 61.5, max: 3625, samples: 38 },
+    router_call: { p50: 8.0, p95: 14.2, max: 75, samples: 38 },
+    retries_per_delivery: { p50: 1, max: 5 },
+    by_tunnel: {
+      l2tp: { attempts: 15, delivered: 10, not_delivered: 5, end_to_end: { p50: 12, p95: 240, max: 3625, samples: 10 }, router_call: { p50: 11, p95: 66, max: 75, samples: 10 } },
+      wireguard: { attempts: 28, delivered: 28, not_delivered: 0, end_to_end: { p50: 8, p95: 16, max: 20, samples: 28 }, router_call: { p50: 8, p95: 15, max: 20, samples: 28 } },
+    },
+    routers: [
+      { router_id: 8, router_name: 'Powernet #8', tunnel: 'l2tp', attempts: 9, delivered: 4, not_delivered: 5, end_to_end_p95: 240, router_call_p95: 66, last_error: 'Failed to connect' },
+      { router_id: 110, router_name: 'SIMSEAS #4', tunnel: 'wireguard', attempts: 12, delivered: 12, not_delivered: 0, end_to_end_p95: 16, router_call_p95: 15, last_error: null },
+    ],
+    routers_total: 2,
+  },
+  expiry: {
+    enforcement: {
+      expired: 40, removed: 34, still_active: 6, pct_removed: 85.0,
+      by_reason: { router_status_stale: 4, router_offline_3d_plus: 2 },
+      routers: [
+        { router_id: 247, router_name: 'Jomvu main', tunnel: 'wireguard', still_active: 4, oldest_expired_minutes: 1440, reason: 'router_status_stale', reason_label: 'router marked online but not reached for 6h+', router_last_status: true, router_last_online_at: '2026-09-22T06:32:00Z', owner_status: 'active' },
+        { router_id: 302, router_name: 'MIKROTIK 1 MUTHUA', tunnel: 'wireguard', still_active: 2, oldest_expired_minutes: 3900, reason: 'router_offline_3d_plus', reason_label: 'router offline 3+ days (quarantined)', router_last_status: false, router_last_online_at: '2026-09-20T11:41:00Z', owner_status: 'active' },
+      ],
+      routers_total: 2,
+    },
+    removals: 30, removal_latency: { p50: 90, p95: 400, max: 900, samples: 30 }, by_tunnel: { wireguard: { p50: 80, p95: 250, max: 300, samples: 12 } },
+  },
+  payments: { counts: { created: 120, completed: 101, failed: 15, pending: 4 }, callback_latency: { p50: 8, p95: 22, max: 60, samples: 101 } },
+  timeline: {
+    bucket_seconds: 900,
+    points: Array.from({ length: 12 }, (_, i) => ({
+      t: new Date(Date.UTC(2026, 8, 22, 15, i * 15)).toISOString(),
+      delivered: 3 + (i % 4), not_delivered: i === 7 ? 3 : 0, pending: 0,
+      expired: 2 + (i % 3), removed: i === 7 ? 1 : 2 + (i % 3), e2e_p95: 8 + (i === 7 ? 200 : i),
+    })),
+  },
+  truncated: false,
+};
+
 function json(route: Route, body: unknown, status = 200) {
   return route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
 }
@@ -170,6 +214,8 @@ async function mockApi(page: Page) {
     const path = new URL(route.request().url()).pathname;
     if (path.endsWith('/admin/ops-health')) return json(route, OPS_HEALTH);
     if (path.endsWith('/admin/ops-health/history')) return json(route, { points: historyPoints });
+    if (path.endsWith('/admin/ops-health/window')) return json(route, WINDOW_REPORT);
+    if (path.endsWith('/routers')) return json(route, [{ id: 8, name: 'Powernet #8', ip_address: '10.0.100.8' }, { id: 110, name: 'SIMSEAS #4', ip_address: '10.0.0.110' }]);
     // The rest of the dashboard is out of scope here; a 503 exercises every
     // `.catch(() => null)` fallback so the page renders its error card while
     // the admin-only monitors above it still mount.
@@ -191,7 +237,7 @@ for (const width of [375, 1280]) {
 
     const panel = page.getByTestId('ops-health-panel');
     await expect(panel).toBeVisible();
-    await expect(panel.getByRole('heading', { name: 'Operations health' })).toBeVisible();
+    await expect(panel.getByRole('heading', { name: 'Network health' })).toBeVisible();
 
     // Alerts: critical sorted before warning, with title + message + since.
     const alerts = page.getByTestId('ops-health-alerts').locator('li');
@@ -201,6 +247,21 @@ for (const width of [375, 1280]) {
     await expect(alerts.nth(0)).toContainText('344 attempts waiting for retry');
     await expect(alerts.nth(0)).toContainText(/since \d+[smhd] ago/);
     await expect(alerts.nth(1)).toHaveAttribute('data-alert-key', 'expiry.hot_backlog');
+
+    // Plain-language headline: summary sentence + four StatCards + trend charts + tunnel bars.
+    await expect(page.getByTestId('ops-health-summary')).toContainText('1 critical and 1 warning need attention');
+    const headline = page.getByTestId('ops-health-headline');
+    await expect(headline).toContainText('Payments reaching routers');
+    await expect(headline).toContainText('4%');
+    await expect(headline).toContainText('126 waiting');
+    await expect(headline).toContainText('80 of 93');
+    await expect(headline).toContainText('101 of 120');
+    await expect(page.getByTestId('ops-trend-provisioning_retry_pending').locator('svg.recharts-surface').first()).toBeVisible();
+    await expect(page.getByTestId('ops-tunnel-bars').locator('svg.recharts-surface').first()).toBeVisible();
+
+    // Technical tiles are behind a toggle now.
+    await expect(panel.locator('[data-ops-tile="Provisioning"]')).toHaveCount(0);
+    await panel.getByRole('button', { name: /Technical details/ }).click();
 
     // All eight section tiles are present.
     for (const title of ['Provisioning', 'Payments', 'Expiry', 'Tunnels', 'Control plane', 'Safety net', 'Jobs', 'DB pool']) {
@@ -227,6 +288,31 @@ for (const width of [375, 1280]) {
     await expect(provRows.nth(1)).toContainText('×31');
     await expect(provRows.nth(1)).toContainText('304 pend');
     await expect(provRows.nth(1).locator('span').first()).toHaveClass(/bg-red-500/);
+    // Look-back slice: open, run against the mocked window report, worst router first.
+    await panel.getByRole('button', { name: /Investigate a time window/ }).click();
+    const lookback = page.getByTestId('ops-health-lookback');
+    await expect(lookback).toBeVisible();
+    await lookback.getByTestId('ops-health-lookback-run').click();
+    const result = page.getByTestId('ops-health-lookback-result');
+    await expect(result).toContainText('3h slice');
+    await expect(result).toContainText('88%');
+    await expect(result).toContainText('p95 1.0m');
+    const rows = page.getByTestId('ops-health-lookback-routers').locator('li');
+    await expect(rows).toHaveCount(2);
+    await expect(rows.nth(0)).toContainText('Powernet #8');
+    await expect(rows.nth(0)).toContainText('Failed to connect');
+    await expect(page.getByTestId('ops-health-lookback-enforcement')).toContainText('85%');
+    const unenforced = page.getByTestId('ops-health-lookback-unenforced');
+    await expect(unenforced).toContainText('6 customers on 2 routers');
+    await expect(unenforced).toContainText('router not reached 6h+: 4');
+    await expect(unenforced.locator('li').nth(0)).toContainText('Jomvu main');
+    await expect(unenforced.locator('li').nth(0)).toContainText('1.0d');
+    await expect(unenforced.locator('li').nth(0)).toContainText('not reached for 6h+');
+    await expect(result).toContainText('Time to remove after expiry (30)');
+    await expect(result).toContainText('M-Pesa confirmations');
+    await expect(page.getByTestId('ops-lookback-timeline').locator('svg.recharts-surface').first()).toBeVisible();
+    await expect(page.getByTestId('ops-lookback-expiry-timeline').locator('svg.recharts-surface').first()).toBeVisible();
+
     const expRows = panel.locator('[data-ops-tile="Expiry"] [data-testid="ops-health-tunnel-rows"] li');
     await expect(expRows).toHaveCount(2);
     await expect(expRows.nth(1)).toContainText('8.7m');

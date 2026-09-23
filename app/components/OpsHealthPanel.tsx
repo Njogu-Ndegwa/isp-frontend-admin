@@ -2,7 +2,41 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
 import { api } from '../lib/api';
+import OpsHealthLookback from './OpsHealthLookback';
+import StatCard from './StatCard';
+
+// Recharts is client-only and heavy; keep it out of the route's first paint.
+const TrendArea = dynamic(() => import('./OpsHealthCharts').then((m) => m.TrendArea), { ssr: false });
+const TunnelBars = dynamic(() => import('./OpsHealthCharts').then((m) => m.TunnelBars), { ssr: false });
+
+const ICONS = {
+  payments: <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>,
+  expiry: <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>,
+  routers: <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0" /></svg>,
+  mpesa: <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>,
+};
+
+type Accent = 'primary' | 'success' | 'warning' | 'danger';
+function accentFor(status: string | null | undefined): Accent {
+  if (status === 'critical') return 'danger';
+  if (status === 'warning') return 'warning';
+  if (status === 'healthy') return 'success';
+  return 'primary';
+}
+
+function plainSummary(alerts: OpsHealthAlert[], overall: string): string {
+  const critical = alerts.filter((a) => a.severity === 'critical').length;
+  const warning = alerts.filter((a) => a.severity === 'warning').length;
+  if (critical === 0 && warning === 0) {
+    return overall === 'watch' ? 'Nothing is broken, but a couple of figures are worth a glance.' : 'Payments are reaching routers and expired customers are being removed.';
+  }
+  const parts: string[] = [];
+  if (critical) parts.push(`${critical} critical`);
+  if (warning) parts.push(`${warning} warning${warning > 1 ? 's' : ''}`);
+  return `${parts.join(' and ')} need${critical + warning === 1 ? 's' : ''} attention.`;
+}
 import {
   OpsHealthAlert,
   OpsHealthHistoryPoint,
@@ -361,13 +395,14 @@ function HeartbeatIcon({ className }: { className?: string }) {
 // Panel
 // ---------------------------------------------------------------------------
 
-type Detail = 'routers' | 'jobs' | 'instances' | null;
+type Detail = 'routers' | 'jobs' | 'instances' | 'lookback' | null;
 
 export default function OpsHealthPanel() {
   const [data, setData] = useState<OpsHealthResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [lastFetchFailed, setLastFetchFailed] = useState(false);
   const [detail, setDetail] = useState<Detail>(null);
+  const [showTech, setShowTech] = useState(false);
   const [now, setNow] = useState<number>(() => Date.now());
   const inFlightRef = useRef(false);
 
@@ -506,7 +541,7 @@ export default function OpsHealthPanel() {
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <h3 className="text-sm sm:text-base font-semibold text-foreground">Operations health</h3>
+            <h3 className="text-sm sm:text-base font-semibold text-foreground">Network health</h3>
             <StatusPill status={overall} pulse />
             {stale && (
               <span className="inline-flex items-center px-2 py-0.5 rounded-full border text-[11px] font-medium uppercase tracking-wider bg-background-tertiary text-foreground-muted border-border" title={`Snapshot is ${formatSeconds(ageSeconds)} old`}>
@@ -514,7 +549,8 @@ export default function OpsHealthPanel() {
               </span>
             )}
           </div>
-          <p className="text-xs text-foreground-muted mt-0.5">
+          <p className="text-xs text-foreground mt-0.5" data-testid="ops-health-summary">{plainSummary(alerts, overall)}</p>
+          <p className="text-[11px] text-foreground-muted mt-0.5">
             updated {formatRelative(data.generated_at, now)}
             {lastFetchFailed ? <span className="text-amber-500"> · last refresh failed</span> : null}
           </p>
@@ -559,8 +595,66 @@ export default function OpsHealthPanel() {
         )}
       </div>
 
+      {/* Headline: four plain-language cards, same StatCard as the revenue KPIs */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-3" data-testid="ops-health-headline">
+        <StatCard
+          title="Payments reaching routers"
+          value={formatPercent(prov?.success_ratio)}
+          subtitle={`${formatNumber(prov?.counts?.retry_pending)} waiting for retry · usually connects in ${formatSeconds(prov?.latency?.end_to_end?.p50)}`}
+          icon={ICONS.payments}
+          accent={accentFor(prov?.status)}
+        />
+        <StatCard
+          title="Expired customers removed"
+          value={(exp?.expired_active_hot ?? 0) === 0 ? 'All removed' : `${formatNumber(exp?.expired_active_hot)} waiting`}
+          subtitle={exp?.oldest_hot_expired_minutes != null ? `oldest expired ${formatMinutes(exp.oldest_hot_expired_minutes)} ago` : 'nothing overdue'}
+          icon={ICONS.expiry}
+          accent={accentFor(exp?.status)}
+        />
+        <StatCard
+          title="Routers online"
+          value={`${formatNumber(tun?.counts?.online)} of ${formatNumber(tun?.counts?.total)}`}
+          subtitle={`${formatNumber(tun?.counts?.offline)} offline · ${formatNumber(tun?.counts?.stale)} not reached recently`}
+          icon={ICONS.routers}
+          accent={accentFor(tun?.status)}
+        />
+        <StatCard
+          title="M-Pesa confirmations"
+          value={`${formatNumber(pay?.counts?.completed)} of ${formatNumber(pay?.counts?.created)}`}
+          subtitle={`last hour · confirmation within ${formatSeconds(pay?.callback_latency?.p95)}`}
+          icon={ICONS.mpesa}
+          accent={accentFor(pay?.status)}
+        />
+      </div>
+
+      {/* Trends over 24 h: one measure per chart, never two scales on one axis */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4 mb-3" data-testid="ops-health-trends">
+        <div className="rounded-xl border border-border bg-background-tertiary/40 p-3">
+          <TrendArea points={points} dataKey="provisioning_retry_pending" label="Payments waiting for retry" />
+        </div>
+        <div className="rounded-xl border border-border bg-background-tertiary/40 p-3">
+          <TrendArea points={points} dataKey="expiry_active_hot" label="Expired customers still connected" color="#0891b2" />
+        </div>
+        <div className="rounded-xl border border-border bg-background-tertiary/40 p-3">
+          <TrendArea points={points} dataKey="tunnels_offline" label="Routers offline" color="#ef4444" />
+        </div>
+      </div>
+
+      {/* Routers by tunnel */}
+      <div className="rounded-xl border border-border bg-background-tertiary/40 p-3 mb-3">
+        <div className="flex items-center justify-between gap-2 mb-1">
+          <p className="text-xs font-semibold text-foreground">Routers by tunnel</p>
+          <p className="text-[11px] text-foreground-muted">{formatNumber(tun?.recent_drops_10m)} dropped in the last 10 min{tun?.platform_event ? ' · fleet-wide, likely our side' : ''}</p>
+        </div>
+        <TunnelBars byTunnel={tun?.by_tunnel ?? {}} labels={TUNNEL_LABEL} />
+      </div>
+
+      <div className="mb-2">
+        <DetailToggle label="Technical details" open={showTech} onClick={() => setShowTech((v) => !v)} />
+      </div>
+
       {/* Section tiles */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
+      {showTech ? <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3" data-testid="ops-health-tiles">
         {/* Provisioning */}
         <Tile
           title="Provisioning"
@@ -686,7 +780,13 @@ export default function OpsHealthPanel() {
           <Metric label="Pressure" value={pool?.pressure_level ?? '—'} tone={styleFor(pool?.pressure_level).text} />
           <Metric label="Checked out" value={`${formatNumber(pool?.checked_out)} / ${formatNumber(pool?.pool_size)}`} suffix={pool?.max_overflow != null ? `+${pool.max_overflow}` : null} />
         </Tile>
+      </div> : null}
+
+      {/* Look back at any time slice, optionally one router (live query, no baseline) */}
+      <div className="mt-3">
+        <DetailToggle label="Investigate a time window or a single router" open={detail === 'lookback'} onClick={() => toggleDetail('lookback')} />
       </div>
+      {detail === 'lookback' && <OpsHealthLookback />}
 
       {/* Expandable details — full width so the 2-column grid stays tidy on phones */}
       {detail === 'routers' && (
