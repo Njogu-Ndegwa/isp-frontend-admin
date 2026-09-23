@@ -516,10 +516,12 @@ class ApiClient {
   }
 
   // GET /api/admin/ops-health/window?start=ISO&end=ISO[&router_id=N] -> live look-back report
-  async getOpsHealthWindow(startIso: string, endIso: string, routerId?: number): Promise<OpsHealthWindowReport | null> {
+  // `owner` = reseller email or user id: scopes the whole report to their routers.
+  async getOpsHealthWindow(startIso: string, endIso: string, routerId?: number, owner?: string): Promise<OpsHealthWindowReport | null> {
     try {
       const params = new URLSearchParams({ start: startIso, end: endIso });
       if (routerId) params.set('router_id', String(routerId));
+      if (owner && owner.trim()) params.set('owner', owner.trim());
       const response = await fetch(`${BASE_URL}/admin/ops-health/window?${params.toString()}`, { headers: this.getHeaders() });
       return await this.handleResponse<OpsHealthWindowReport>(response);
     } catch { return null; }

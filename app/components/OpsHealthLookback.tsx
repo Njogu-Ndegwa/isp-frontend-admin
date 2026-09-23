@@ -1,13 +1,13 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { api } from '../lib/api';
 
 const DeliveryTimeline = dynamic(() => import('./OpsHealthCharts').then((m) => m.DeliveryTimeline), { ssr: false });
 const LatencyTimeline = dynamic(() => import('./OpsHealthCharts').then((m) => m.LatencyTimeline), { ssr: false });
 const ExpiryTimeline = dynamic(() => import('./OpsHealthCharts').then((m) => m.ExpiryTimeline), { ssr: false });
-import { OpsHealthWindowReport, OpsHealthWindowStats, Router } from '../lib/types';
+import { AdminReseller, OpsHealthWindowReport, OpsHealthWindowStats, Router } from '../lib/types';
 
 // Backend order: primary planes, then insurance planes, then unclassified.
 const TUNNEL_ORDER = ['wireguard', 'l2tp', 'wg2_insurance', 'aws_insurance', 'other'];
@@ -86,6 +86,22 @@ const PRESETS: Array<{ label: string; hours: number }> = [
   { label: '1h', hours: 1 }, { label: '8h', hours: 8 }, { label: '24h', hours: 24 }, { label: '7d', hours: 168 },
 ];
 
+/** The reseller the report is scoped to. `email` is what the API is asked for. */
+interface OwnerPick { id: number; email: string; name: string }
+
+function routerState(r: { last_status: boolean | null; last_checked_at: string | null }): { label: string; cls: string } {
+  if (r.last_status === null || !r.last_checked_at) return { label: 'never reached', cls: 'text-foreground-muted' };
+  const ageMs = Date.now() - new Date(r.last_checked_at).getTime();
+  if (Number.isFinite(ageMs) && ageMs > 6 * 3600_000) return { label: 'not reached 6h+', cls: 'text-zinc-400' };
+  return r.last_status ? { label: 'online', cls: 'text-emerald-500' } : { label: 'offline', cls: 'text-red-500' };
+}
+
+function fmtAgo(iso: string | null): string {
+  if (!iso) return '—';
+  const mins = (Date.now() - new Date(iso).getTime()) / 60_000;
+  return Number.isFinite(mins) ? `${fmtMins(Math.max(0, mins))} ago` : '—';
+}
+
 export default function OpsHealthLookback() {
   const [routers, setRouters] = useState<Router[]>([]);
   const [routerId, setRouterId] = useState<number | ''>('');
@@ -95,23 +111,68 @@ export default function OpsHealthLookback() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Reseller search is the primary way in: type an email (or name), pick, and
+  // the report runs across every router that reseller owns.
+  const [ownerQuery, setOwnerQuery] = useState('');
+  const [ownerMatches, setOwnerMatches] = useState<AdminReseller[]>([]);
+  const [ownerSearching, setOwnerSearching] = useState(false);
+  const [owner, setOwner] = useState<OwnerPick | null>(null);
+  const searchSeq = useRef(0);
+
   useEffect(() => {
     let cancelled = false;
     api.getRouters().then((rs) => { if (!cancelled) setRouters([...rs].sort((a, b) => a.name.localeCompare(b.name))); }).catch(() => {});
     return () => { cancelled = true; };
   }, []);
 
-  const run = useCallback(async () => {
+  useEffect(() => {
+    const q = ownerQuery.trim();
+    if (owner || q.length < 2) { setOwnerMatches([]); setOwnerSearching(false); return; }
+    const seq = ++searchSeq.current;
+    setOwnerSearching(true);
+    const t = setTimeout(async () => {
+      try {
+        const res = await api.getAdminResellers({ search: q });
+        if (seq === searchSeq.current) setOwnerMatches((res?.resellers ?? []).slice(0, 8));
+      } catch {
+        if (seq === searchSeq.current) setOwnerMatches([]);
+      } finally {
+        if (seq === searchSeq.current) setOwnerSearching(false);
+      }
+    }, 250);
+    return () => clearTimeout(t);
+  }, [ownerQuery, owner]);
+
+  const run = useCallback(async (override?: { routerId?: number | ''; owner?: OwnerPick | null }) => {
     const s = fromLocalInput(start);
     const e = fromLocalInput(end);
     if (!s || !e) { setError('Pick a valid start and end.'); return; }
+    const rid = override && 'routerId' in override ? override.routerId : routerId;
+    const own = override && 'owner' in override ? override.owner : owner;
     setLoading(true);
     setError(null);
-    const result = await api.getOpsHealthWindow(s.toISOString(), e.toISOString(), routerId === '' ? undefined : routerId);
+    const result = await api.getOpsHealthWindow(s.toISOString(), e.toISOString(), rid === '' || rid === undefined ? undefined : rid, own?.email);
     setLoading(false);
-    if (!result || !result.window || !result.provisioning) { setError('The look-back endpoint did not respond.'); return; }
+    if (!result || !result.window || !result.provisioning) { setError(own ? `No report for ${own.email}. Check the email and try again.` : 'The look-back endpoint did not respond.'); return; }
     setReport(result);
-  }, [start, end, routerId]);
+  }, [start, end, routerId, owner]);
+
+  const pickOwner = (r: AdminReseller) => {
+    const picked = { id: r.id, email: r.email, name: r.organization_name || r.business_name || r.email };
+    setOwner(picked);
+    setOwnerQuery('');
+    setOwnerMatches([]);
+    setRouterId('');
+    void run({ routerId: '', owner: picked });
+  };
+  const clearOwner = () => { setOwner(null); setRouterId(''); setReport(null); };
+  const pickRouter = (id: number | '') => { setRouterId(id); void run({ routerId: id }); };
+
+  // With a reseller chosen, the router list is theirs (from the report); otherwise the fleet.
+  const routerOptions = useMemo(() => {
+    if (owner && report?.owner?.routers) return report.owner.routers.map((r) => ({ id: r.router_id, name: r.router_name ?? `Router #${r.router_id}` }));
+    return routers.map((r) => ({ id: r.id, name: r.name }));
+  }, [owner, report, routers]);
 
   const applyPreset = (hours: number) => {
     const now = new Date();
@@ -138,6 +199,45 @@ export default function OpsHealthLookback() {
         </div>
       </div>
 
+      <div className="relative mb-2" data-testid="ops-health-lookback-owner">
+        <label className="text-[10px] uppercase tracking-wider text-foreground-muted block">
+          Reseller (email or name)
+          {owner ? (
+            <div className="input mt-1 w-full text-xs flex items-center justify-between gap-2" data-testid="ops-health-lookback-owner-chip">
+              <span className="truncate normal-case tracking-normal text-foreground"><span className="font-medium">{owner.name}</span> <span className="text-foreground-muted">{owner.email}</span></span>
+              <button type="button" onClick={clearOwner} className="text-foreground-muted hover:text-foreground shrink-0" aria-label="Clear reseller">✕</button>
+            </div>
+          ) : (
+            <input
+              type="search"
+              value={ownerQuery}
+              onChange={(e) => setOwnerQuery(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter' && ownerMatches[0]) { e.preventDefault(); pickOwner(ownerMatches[0]); } }}
+              placeholder="opic@example.com"
+              autoComplete="off"
+              className="input mt-1 w-full text-xs"
+              aria-label="Look-back reseller"
+            />
+          )}
+        </label>
+        {!owner && (ownerMatches.length > 0 || (ownerSearching && ownerQuery.trim().length >= 2)) ? (
+          <ul className="absolute z-20 left-0 right-0 mt-1 rounded-lg border border-border bg-background-secondary shadow-lg max-h-56 overflow-auto" role="listbox" data-testid="ops-health-lookback-owner-matches">
+            {ownerSearching && ownerMatches.length === 0 ? <li className="px-3 py-2 text-xs text-foreground-muted">Searching…</li> : null}
+            {ownerMatches.map((r) => (
+              <li key={r.id} role="option" aria-selected="false">
+                <button type="button" onClick={() => pickOwner(r)} className="w-full text-left px-3 py-1.5 text-xs hover:bg-background-tertiary flex items-center justify-between gap-2">
+                  <span className="truncate"><span className="font-medium text-foreground">{r.organization_name || r.business_name || r.email}</span> <span className="text-foreground-muted">{r.email}</span></span>
+                  <span className="text-[10px] text-foreground-muted shrink-0">{r.active_customers ?? 0} active customers</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+        {!owner && ownerQuery.trim().length >= 2 && !ownerSearching && ownerMatches.length === 0 ? (
+          <p className="text-[11px] text-foreground-muted mt-1">No reseller matches “{ownerQuery.trim()}”.</p>
+        ) : null}
+      </div>
+
       <div className="grid grid-cols-2 sm:grid-cols-[1fr_1fr_1.4fr_auto] gap-2 items-end">
         <label className="text-[10px] uppercase tracking-wider text-foreground-muted">
           From (your time)
@@ -148,13 +248,13 @@ export default function OpsHealthLookback() {
           <input type="datetime-local" value={end} onChange={(e) => setEnd(e.target.value)} className="input mt-1 w-full text-xs" aria-label="Look-back end" />
         </label>
         <label className="text-[10px] uppercase tracking-wider text-foreground-muted col-span-2 sm:col-span-1">
-          Router
-          <select value={routerId} onChange={(e) => setRouterId(e.target.value === '' ? '' : Number(e.target.value))} className="input mt-1 w-full text-xs" aria-label="Look-back router">
-            <option value="">All routers</option>
-            {routers.map((r) => <option key={r.id} value={r.id}>{r.name} (#{r.id})</option>)}
+          {owner ? 'Narrow to one of their routers' : 'Router'}
+          <select value={routerId} onChange={(e) => pickRouter(e.target.value === '' ? '' : Number(e.target.value))} className="input mt-1 w-full text-xs" aria-label="Look-back router">
+            <option value="">{owner ? `All ${routerOptions.length} routers` : 'All routers'}</option>
+            {routerOptions.map((r) => <option key={r.id} value={r.id}>{r.name} (#{r.id})</option>)}
           </select>
         </label>
-        <button type="button" onClick={run} disabled={loading} className="btn-primary text-xs px-3 py-2 col-span-2 sm:col-span-1" data-testid="ops-health-lookback-run">
+        <button type="button" onClick={() => run()} disabled={loading} className="btn-primary text-xs px-3 py-2 col-span-2 sm:col-span-1" data-testid="ops-health-lookback-run">
           {loading ? 'Computing…' : 'Show'}
         </button>
       </div>
@@ -162,10 +262,39 @@ export default function OpsHealthLookback() {
 
       {report ? (
         <div className="mt-3 space-y-3" data-testid="ops-health-lookback-result">
-          <p className="text-[11px] text-foreground-muted">
-            {report.window.hours}h slice · {report.router ? `${report.router.router_name ?? `Router #${report.router.router_id}`} (${TUNNEL_LABEL[report.router.tunnel] ?? report.router.tunnel})` : 'all routers'}
+          <p className="text-[11px] text-foreground-muted" data-testid="ops-health-lookback-scope">
+            {report.window.hours}h slice
+            {report.owner ? ` · ${report.owner.organization_name || report.owner.email || `Reseller #${report.owner.user_id}`}${report.owner.email ? ` (${report.owner.email})` : ''} · ${report.owner.routers_total} router${report.owner.routers_total === 1 ? '' : 's'}` : ''}
+            {report.router ? ` · ${report.router.router_name ?? `Router #${report.router.router_id}`} (${TUNNEL_LABEL[report.router.tunnel] ?? report.router.tunnel})` : (report.owner ? '' : ' · all routers')}
             {report.truncated ? <span className="text-amber-500"> · truncated, narrow the slice</span> : null}
           </p>
+
+          {report.owner && !report.router ? (
+            <div className="rounded-lg border border-border overflow-hidden" data-testid="ops-health-lookback-owner-routers">
+              <div className="px-2.5 py-1.5 bg-background-tertiary/60 text-[10px] uppercase tracking-wider text-foreground-muted grid grid-cols-2 sm:grid-cols-[1fr_auto_auto_auto] gap-x-3">
+                <span>Their routers ({report.owner.routers_total})</span><span>Tunnel</span><span>State</span><span>Last reached</span>
+              </div>
+              {report.owner.routers.length === 0 ? (
+                <p className="px-2.5 py-2 text-xs text-foreground-muted">This reseller has no routers.</p>
+              ) : (
+                <ul className="divide-y divide-border">
+                  {report.owner.routers.map((r) => {
+                    const st = routerState(r);
+                    return (
+                      <li key={r.router_id} className="px-2.5 py-1.5 text-xs grid grid-cols-2 sm:grid-cols-[1fr_auto_auto_auto] gap-x-3 gap-y-0.5 items-center">
+                        <button type="button" onClick={() => pickRouter(r.router_id)} className="text-left font-medium text-foreground hover:underline truncate col-span-2 sm:col-span-1" title={`Narrow to router #${r.router_id}`}>
+                          {r.router_name ?? `Router #${r.router_id}`}
+                        </button>
+                        <span className="text-foreground-muted uppercase text-[10px]">{TUNNEL_LABEL[r.tunnel] ?? r.tunnel}</span>
+                        <span className={`font-semibold ${st.cls}`}>{st.label}</span>
+                        <span className="tabular-nums text-foreground-muted">{fmtAgo(r.last_checked_at)}</span>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
+          ) : null}
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div className="rounded-xl border border-border bg-background-tertiary/40 p-3">
