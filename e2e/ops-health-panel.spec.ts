@@ -154,6 +154,20 @@ const OPS_HEALTH = {
   history: { points: historyPoints },
 };
 
+const OPIC = {
+  id: 294, email: 'opic@example.com', organization_name: 'OPIC INTERNET SERVICES', business_name: 'OPIC',
+  support_phone: '', mpesa_shortcode: '', created_at: '2026-01-01T00:00:00Z', last_login_at: null,
+  total_revenue: 0, mpesa_revenue: 0, total_customers: 40, active_customers: 12, total_routers: 3,
+};
+
+// Router state is judged against the wall clock, so these are relative to now.
+const minsAgo = (m: number) => new Date(Date.now() - m * 60_000).toISOString();
+const OWNER_ROUTERS = [
+  { router_id: 487, router_name: 'OPIC INTERNET SERVICES #2', tunnel: 'wireguard', last_status: true, last_online_at: minsAgo(5), last_checked_at: minsAgo(5), router_agent_enabled: true },
+  { router_id: 488, router_name: 'OPIC INTERNET SERVICES #3', tunnel: 'l2tp', last_status: false, last_online_at: minsAgo(3 * 24 * 60), last_checked_at: minsAgo(4), router_agent_enabled: false },
+  { router_id: 489, router_name: 'OPIC INTERNET SERVICES #4', tunnel: 'wireguard', last_status: null, last_online_at: null, last_checked_at: null, router_agent_enabled: false },
+];
+
 const WINDOW_REPORT = {
   window: { start: '2026-09-22T15:00:00Z', end: '2026-09-22T18:00:00Z', hours: 3 },
   router: null,
@@ -214,7 +228,20 @@ async function mockApi(page: Page) {
     const path = new URL(route.request().url()).pathname;
     if (path.endsWith('/admin/ops-health')) return json(route, OPS_HEALTH);
     if (path.endsWith('/admin/ops-health/history')) return json(route, { points: historyPoints });
-    if (path.endsWith('/admin/ops-health/window')) return json(route, WINDOW_REPORT);
+    if (path.endsWith('/admin/ops-health/window')) {
+      const owner = new URL(route.request().url()).searchParams.get('owner');
+      if (owner === 'opic@example.com') {
+        return json(route, {
+          ...WINDOW_REPORT,
+          owner: { user_id: 294, email: 'opic@example.com', organization_name: 'OPIC INTERNET SERVICES', subscription_status: 'active', routers: OWNER_ROUTERS, routers_total: 3 },
+        });
+      }
+      return json(route, WINDOW_REPORT);
+    }
+    if (path.endsWith('/admin/resellers')) {
+      const q = (new URL(route.request().url()).searchParams.get('search') ?? '').toLowerCase();
+      return json(route, { total: q && 'opic'.includes(q.slice(0, 4)) ? 1 : 0, resellers: q && OPIC.email.includes(q) ? [OPIC] : [] });
+    }
     if (path.endsWith('/routers')) return json(route, [{ id: 8, name: 'Powernet #8', ip_address: '10.0.100.8' }, { id: 110, name: 'SIMSEAS #4', ip_address: '10.0.0.110' }]);
     // The rest of the dashboard is out of scope here; a 503 exercises every
     // `.catch(() => null)` fallback so the page renders its error card while
@@ -312,6 +339,33 @@ for (const width of [375, 1280]) {
     await expect(result).toContainText('M-Pesa confirmations');
     await expect(page.getByTestId('ops-lookback-timeline').locator('svg.recharts-surface').first()).toBeVisible();
     await expect(page.getByTestId('ops-lookback-expiry-timeline').locator('svg.recharts-surface').first()).toBeVisible();
+
+    // Primary way in: type a reseller email, pick the match, the report re-runs
+    // scoped to every router they own and lists them all, even the idle one.
+    const ownerRequest = page.waitForRequest((req) => req.url().includes('/admin/ops-health/window') && req.url().includes('owner=opic%40example.com'));
+    await lookback.getByLabel('Look-back reseller').fill('opic@ex');
+    const matches = page.getByTestId('ops-health-lookback-owner-matches');
+    await expect(matches).toContainText('OPIC INTERNET SERVICES');
+    await matches.getByRole('button').first().click();
+    await ownerRequest;
+    await expect(page.getByTestId('ops-health-lookback-owner-chip')).toContainText('opic@example.com');
+    await expect(page.getByTestId('ops-health-lookback-scope')).toContainText('OPIC INTERNET SERVICES (opic@example.com) · 3 routers');
+    const ownerRows = page.getByTestId('ops-health-lookback-owner-routers').locator('li');
+    await expect(ownerRows).toHaveCount(3);
+    await expect(ownerRows.nth(0)).toContainText('OPIC INTERNET SERVICES #2');
+    await expect(ownerRows.nth(0)).toContainText('online');
+    await expect(ownerRows.nth(1)).toContainText('offline');
+    await expect(ownerRows.nth(2)).toContainText('never reached');
+    // The router dropdown now only offers their routers.
+    await expect(lookback.getByLabel('Look-back router').locator('option')).toHaveCount(4);
+    // Narrow to one of theirs: owner and router_id travel together.
+    const narrowRequest = page.waitForRequest((req) => req.url().includes('router_id=488') && req.url().includes('owner=opic%40example.com'));
+    await ownerRows.nth(1).getByRole('button').click();
+    await narrowRequest;
+    // Clearing the reseller returns to the fleet-wide view.
+    await page.getByRole('button', { name: 'Clear reseller' }).click();
+    await expect(page.getByTestId('ops-health-lookback-owner-chip')).toHaveCount(0);
+    await expect(lookback.getByLabel('Look-back router').locator('option')).toHaveCount(3);
 
     const expRows = panel.locator('[data-ops-tile="Expiry"] [data-testid="ops-health-tunnel-rows"] li');
     await expect(expRows).toHaveCount(2);

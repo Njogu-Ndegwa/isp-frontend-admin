@@ -504,9 +504,30 @@ export interface OpsHealthWindowEnforcement {
   routers_total: number;
 }
 
+export interface OpsHealthWindowOwnerRouter {
+  router_id: number;
+  router_name: string | null;
+  tunnel: string;
+  last_status: boolean | null;
+  last_online_at: string | null;
+  last_checked_at: string | null;
+  router_agent_enabled: boolean;
+}
+
+/** Present when the report is scoped to one reseller: every router they own, active or not. */
+export interface OpsHealthWindowOwner {
+  user_id: number;
+  email: string | null;
+  organization_name: string | null;
+  subscription_status: string | null;
+  routers: OpsHealthWindowOwnerRouter[];
+  routers_total: number;
+}
+
 export interface OpsHealthWindowReport {
   window: { start: string; end: string; hours: number };
   router: { router_id: number; router_name: string | null; tunnel: string } | null;
+  owner?: OpsHealthWindowOwner | null;
   provisioning: {
     counts: Partial<Record<string, number>>;
     success_ratio: number | null;
