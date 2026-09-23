@@ -613,6 +613,9 @@ export default function OpsHealthPanel() {
           <Metric label="Oldest hot" value={formatMinutes(exp?.oldest_hot_expired_minutes)} />
           <Metric label="Removal p95" value={expRm.value} suffix={expRm.ratio} suffixTone={ratioTone(expRm.ratioValue)} />
           <Metric label="Quarantined" value={formatNumber(exp?.expired_active_quarantined)} />
+          {typeof exp?.expired_active_suspended_owner === 'number' && exp.expired_active_suspended_owner > 0 ? (
+            <Metric label="Susp. owners" value={formatNumber(exp.expired_active_suspended_owner)} tone="text-foreground-muted" />
+          ) : null}
         </Tile>
 
         {/* Tunnels */}

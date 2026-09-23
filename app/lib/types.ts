@@ -347,6 +347,8 @@ export interface OpsHealthExpirySection {
   expired_active_total: number;
   expired_active_hot: number;
   expired_active_quarantined: number;
+  /** Expired-but-active customers on routers of suspended/inactive resellers (cut off at the platform level, not a live backlog). */
+  expired_active_suspended_owner?: number;
   oldest_hot_expired_minutes: number | null;
   hot_by_tunnel?: Partial<Record<string, { routers: number; customers: number }>>;
   removal_latency: OpsHealthLatency;
