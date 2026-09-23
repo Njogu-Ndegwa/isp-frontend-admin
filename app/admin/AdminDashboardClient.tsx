@@ -68,6 +68,12 @@ const EarningsSummaryCard = dynamic(() => import('./EarningsSummaryCard'), {
   ssr: false,
   loading: () => <SkeletonCard />,
 });
+// Ops-health panel polls its own endpoint and carries inline sparklines; keep
+// it out of the route's first paint like the chart components above.
+const OpsHealthPanel = dynamic(() => import('../components/OpsHealthPanel'), {
+  ssr: false,
+  loading: () => <SkeletonCard />,
+});
 
 type PeriodFilter = SharedPeriodFilter;
 
@@ -682,6 +688,9 @@ export default function AdminDashboardPage() {
 
       {/* DB Pool Monitor — Admin only, shown above dashboard data so it's visible even on slow loads */}
       {user?.role === 'admin' && <DbPoolMonitor />}
+
+      {/* Operations health — Admin only, above the KPI cards so incidents surface before revenue */}
+      {user?.role === 'admin' && <OpsHealthPanel />}
 
       {loading ? (
         <div className="space-y-6">

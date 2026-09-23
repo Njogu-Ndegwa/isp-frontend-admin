@@ -248,6 +248,220 @@ export interface DbPoolResponse {
   long_running_connections: DbLongRunningConnection[];
 }
 
+// Operations health - GET /api/admin/ops-health (+ /history?hours=N)
+// Field names mirror the backend contract exactly (ops-health-spec.md, 2026-09-22).
+export type OpsHealthStatus = 'healthy' | 'watch' | 'warning' | 'critical' | 'unknown';
+
+export type OpsHealthAlertSeverity = 'warning' | 'critical';
+
+export interface OpsHealthAlert {
+  key: string;
+  severity: OpsHealthAlertSeverity;
+  title: string;
+  message: string;
+  value: number | null;
+  threshold: number | null;
+  since: string | null;
+}
+
+/** p50/p95 in seconds plus a ratio against the 7-day baseline (null when the baseline is thin). */
+export interface OpsHealthLatency {
+  p50: number | null;
+  p95: number | null;
+  samples: number;
+  baseline_p95: number | null;
+  ratio: number | null;
+}
+
+export interface OpsHealthProvisioningCounts {
+  scheduled: number;
+  in_progress: number;
+  retry_pending: number;
+  router_updated: number;
+  failed: number;
+}
+
+/** Management tunnel a router is reached over, derived from its stored IP. */
+export type OpsHealthTunnel = 'wireguard' | 'l2tp' | 'wg2_insurance' | 'aws_insurance' | 'other';
+
+export interface OpsHealthProvisioningTopRouter {
+  router_id: number;
+  router_name: string | null;
+  pending: number;
+  last_error: string | null;
+  tunnel?: OpsHealthTunnel | string;
+}
+
+export interface OpsHealthTunnelBacklog {
+  routers: number;
+  pending: number;
+  routers_with_backlog: number;
+}
+
+export interface OpsHealthTunnelLatency {
+  end_to_end: OpsHealthLatency | null;
+  router_call: OpsHealthLatency | null;
+  routers: number;
+}
+
+export interface OpsHealthProvisioningSection {
+  status: OpsHealthStatus;
+  window_minutes: number;
+  counts: OpsHealthProvisioningCounts;
+  success_ratio: number | null;
+  routers_with_backlog: number;
+  backlog_by_tunnel?: Partial<Record<string, OpsHealthTunnelBacklog>>;
+  top_routers: OpsHealthProvisioningTopRouter[];
+  latency: {
+    end_to_end: OpsHealthLatency;
+    router_call: OpsHealthLatency;
+    by_tunnel?: Partial<Record<string, OpsHealthTunnelLatency>>;
+  };
+}
+
+export interface OpsHealthPaymentsCounts {
+  created: number;
+  completed: number;
+  failed: number;
+  pending: number;
+  pending_over_5m: number;
+}
+
+export interface OpsHealthPaymentsSection {
+  status: OpsHealthStatus;
+  window_minutes: number;
+  counts: OpsHealthPaymentsCounts;
+  callback_latency: OpsHealthLatency;
+  minutes_since_last_completed: number | null;
+}
+
+export interface OpsHealthCleanupJob {
+  last_finished_at: string | null;
+  last_duration_seconds: number | null;
+  skipped_runs_last_hour: number;
+  last_error: string | null;
+}
+
+export interface OpsHealthExpirySection {
+  status: OpsHealthStatus;
+  expired_active_total: number;
+  expired_active_hot: number;
+  expired_active_quarantined: number;
+  oldest_hot_expired_minutes: number | null;
+  hot_by_tunnel?: Partial<Record<string, { routers: number; customers: number }>>;
+  removal_latency: OpsHealthLatency;
+  removal_latency_by_tunnel?: Partial<Record<string, OpsHealthLatency>>;
+  cleanup_job: OpsHealthCleanupJob;
+}
+
+export interface OpsHealthTunnelCounts {
+  online: number;
+  offline: number;
+  stale: number;
+  total: number;
+}
+
+export interface OpsHealthControlPath {
+  available: boolean;
+  native: number | null;
+  transit_fallback: number | null;
+  unrouted: number | null;
+  checked_at: string | null;
+}
+
+export interface OpsHealthTunnelsSection {
+  status: OpsHealthStatus;
+  counts: OpsHealthTunnelCounts;
+  recent_drops_10m: number;
+  platform_event: boolean;
+  control_path: OpsHealthControlPath;
+}
+
+export interface OpsHealthInstance {
+  instance_id: string;
+  hostname: string | null;
+  runtime_mode: string | null;
+  scheduler_enabled: boolean;
+  db_identity: string | null;
+  app_version: string | null;
+  last_seen_at: string | null;
+}
+
+export interface OpsHealthControlPlaneSection {
+  status: OpsHealthStatus;
+  active_writers: number;
+  instances: OpsHealthInstance[];
+  db_identity_mismatch: boolean;
+}
+
+export interface OpsHealthSafetyNetSection {
+  status: OpsHealthStatus;
+  removals_last_hour: number;
+  baseline_per_hour: number | null;
+  last_removal_at: string | null;
+}
+
+export interface OpsHealthJobItem {
+  id: string;
+  interval_seconds: number | null;
+  last_started_at: string | null;
+  last_finished_at: string | null;
+  last_duration_seconds: number | null;
+  last_error: string | null;
+  missed_or_skipped_last_hour: number;
+  stale: boolean;
+}
+
+export interface OpsHealthJobsSection {
+  status: OpsHealthStatus;
+  items: OpsHealthJobItem[];
+}
+
+export interface OpsHealthDbPoolSection {
+  status: OpsHealthStatus;
+  pressure_level: DbPoolPressureLevel | string;
+  checked_out: number;
+  pool_size: number;
+  max_overflow: number;
+}
+
+export interface OpsHealthSections {
+  provisioning: OpsHealthProvisioningSection;
+  payments: OpsHealthPaymentsSection;
+  expiry: OpsHealthExpirySection;
+  tunnels: OpsHealthTunnelsSection;
+  control_plane: OpsHealthControlPlaneSection;
+  safety_net: OpsHealthSafetyNetSection;
+  jobs: OpsHealthJobsSection;
+  db_pool: OpsHealthDbPoolSection;
+}
+
+/** One 5-minute sample; every metric may be null when the snapshot lacked data. */
+export interface OpsHealthHistoryPoint {
+  t: string;
+  provisioning_retry_pending: number | null;
+  provisioning_p95_end_to_end: number | null;
+  payments_p95_callback: number | null;
+  expiry_active_hot: number | null;
+  expiry_p95_removal: number | null;
+  tunnels_offline: number | null;
+  safety_net_removals: number | null;
+  active_writers: number | null;
+}
+
+export interface OpsHealthHistory {
+  points: OpsHealthHistoryPoint[];
+}
+
+export interface OpsHealthResponse {
+  generated_at: string;
+  snapshot_age_seconds: number;
+  overall_status: OpsHealthStatus;
+  alerts: OpsHealthAlert[];
+  sections: OpsHealthSections;
+  history: OpsHealthHistory;
+}
+
 // Legacy Dashboard Types (kept for compatibility)
 export interface Revenue {
   today: number;
