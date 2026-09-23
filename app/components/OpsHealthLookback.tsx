@@ -1,7 +1,12 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import dynamic from 'next/dynamic';
 import { api } from '../lib/api';
+
+const DeliveryTimeline = dynamic(() => import('./OpsHealthCharts').then((m) => m.DeliveryTimeline), { ssr: false });
+const LatencyTimeline = dynamic(() => import('./OpsHealthCharts').then((m) => m.LatencyTimeline), { ssr: false });
+const ExpiryTimeline = dynamic(() => import('./OpsHealthCharts').then((m) => m.ExpiryTimeline), { ssr: false });
 import { OpsHealthWindowReport, OpsHealthWindowStats, Router } from '../lib/types';
 
 // Backend order: primary planes, then insurance planes, then unclassified.
@@ -123,7 +128,7 @@ export default function OpsHealthLookback() {
   return (
     <div className="mt-3 pt-3 border-t border-border" data-testid="ops-health-lookback">
       <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
-        <p className="text-[11px] uppercase tracking-wider text-foreground-muted font-semibold">Look back at a time slice</p>
+        <p className="text-[11px] uppercase tracking-wider text-foreground-muted font-semibold">Investigate a time window</p>
         <div className="flex gap-1">
           {PRESETS.map((p) => (
             <button key={p.label} type="button" onClick={() => applyPreset(p.hours)} className="text-[11px] px-2 py-0.5 rounded border border-border text-foreground-muted hover:text-foreground hover:bg-background-tertiary">
@@ -162,8 +167,23 @@ export default function OpsHealthLookback() {
             {report.truncated ? <span className="text-amber-500"> · truncated, narrow the slice</span> : null}
           </p>
 
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className="rounded-xl border border-border bg-background-tertiary/40 p-3">
+              <p className="text-xs font-semibold text-foreground mb-1">Payments in this window</p>
+              <DeliveryTimeline points={report.timeline?.points ?? []} bucketSeconds={report.timeline?.bucket_seconds ?? 3600} />
+            </div>
+            <div className="rounded-xl border border-border bg-background-tertiary/40 p-3">
+              <p className="text-xs font-semibold text-foreground mb-1">Plans that expired in this window</p>
+              <ExpiryTimeline points={report.timeline?.points ?? []} bucketSeconds={report.timeline?.bucket_seconds ?? 3600} />
+            </div>
+          </div>
+          <div className="rounded-xl border border-border bg-background-tertiary/40 p-3">
+            <p className="text-xs font-semibold text-foreground mb-1">How long customers waited to get connected (slowest 5%)</p>
+            <LatencyTimeline points={report.timeline?.points ?? []} bucketSeconds={report.timeline?.bucket_seconds ?? 3600} />
+          </div>
+
           <div className="rounded-xl border border-border bg-background-tertiary/40 p-2.5 sm:p-3 space-y-2">
-            <p className="text-xs font-semibold text-foreground">Provisioning (payment → router)</p>
+            <p className="text-xs font-semibold text-foreground">Payments reaching routers</p>
             <div className="grid grid-cols-2 sm:grid-cols-5 gap-x-3 gap-y-1.5">
               <StatCell label="Payments" value={String(Object.values(prov?.counts ?? {}).reduce((a: number, b) => a + (b ?? 0), 0))} />
               <StatCell label="Delivered" value={String(prov?.counts?.router_updated ?? 0)} />
@@ -172,8 +192,8 @@ export default function OpsHealthLookback() {
               <StatCell label="Retries / delivery" value={`p50 ${prov?.retries_per_delivery?.p50 ?? '—'} · max ${prov?.retries_per_delivery?.max ?? '—'}`} />
             </div>
             <div className="divide-y divide-border/60">
-              <LatencyRow label="End-to-end" s={prov?.end_to_end} />
-              <LatencyRow label="Router call" s={prov?.router_call} />
+              <LatencyRow label="Paid → connected" s={prov?.end_to_end} />
+              <LatencyRow label="Router response" s={prov?.router_call} />
               {tunnels.map((t) => (
                 <LatencyRow key={t} label={`${TUNNEL_LABEL[t] ?? t} · call (${prov?.by_tunnel?.[t]?.delivered ?? 0} ok / ${prov?.by_tunnel?.[t]?.not_delivered ?? 0} not)`} s={prov?.by_tunnel?.[t]?.router_call} />
               ))}
@@ -246,14 +266,14 @@ export default function OpsHealthLookback() {
                   </div>
                 );
               })()}
-              <p className="text-xs font-semibold text-foreground mb-1 mt-2">Removal latency ({report.expiry.removals})</p>
+              <p className="text-xs font-semibold text-foreground mb-1 mt-2">Time to remove after expiry ({report.expiry.removals})</p>
               <LatencyRow label="Expiry → removed" s={report.expiry.removal_latency} warn={600} crit={1800} />
               {Object.keys(report.expiry.by_tunnel ?? {}).sort((a, b) => TUNNEL_ORDER.indexOf(a) - TUNNEL_ORDER.indexOf(b)).map((t) => (
                 <LatencyRow key={t} label={TUNNEL_LABEL[t] ?? t} s={report.expiry.by_tunnel[t]} warn={600} crit={1800} />
               ))}
             </div>
             <div className="rounded-xl border border-border bg-background-tertiary/40 p-2.5 sm:p-3">
-              <p className="text-xs font-semibold text-foreground mb-1">M-Pesa callbacks {report.router ? '(fleet-wide, not per router)' : ''}</p>
+              <p className="text-xs font-semibold text-foreground mb-1">M-Pesa confirmations {report.router ? '(fleet-wide, not per router)' : ''}</p>
               {report.payments ? (
                 <>
                   <div className="grid grid-cols-4 gap-x-2 mb-1">
@@ -262,7 +282,7 @@ export default function OpsHealthLookback() {
                     <StatCell label="Failed" value={String(report.payments.counts.failed)} />
                     <StatCell label="Pending" value={String(report.payments.counts.pending)} />
                   </div>
-                  <LatencyRow label="STK → callback" s={report.payments.callback_latency} warn={30} crit={90} />
+                  <LatencyRow label="PIN entered → confirmed" s={report.payments.callback_latency} warn={30} crit={90} />
                 </>
               ) : <p className="text-xs text-foreground-muted">Clear the router filter to see payment latency.</p>}
             </div>

@@ -374,6 +374,7 @@ export interface OpsHealthControlPath {
 export interface OpsHealthTunnelsSection {
   status: OpsHealthStatus;
   counts: OpsHealthTunnelCounts;
+  by_tunnel?: Partial<Record<string, OpsHealthTunnelCounts>>;
   recent_drops_10m: number;
   platform_event: boolean;
   control_path: OpsHealthControlPath;
@@ -526,7 +527,18 @@ export interface OpsHealthWindowReport {
     counts: { created: number; completed: number; failed: number; pending: number };
     callback_latency: OpsHealthWindowStats;
   } | null;
+  timeline: { bucket_seconds: number; points: OpsHealthTimelinePoint[] };
   truncated: boolean;
+}
+
+export interface OpsHealthTimelinePoint {
+  t: string;
+  delivered: number;
+  not_delivered: number;
+  pending: number;
+  expired: number;
+  removed: number;
+  e2e_p95: number | null;
 }
 
 export interface OpsHealthHistory {

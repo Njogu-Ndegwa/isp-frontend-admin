@@ -112,6 +112,7 @@ const OPS_HEALTH = {
     tunnels: {
       status: 'watch',
       counts: { online: 80, offline: 9, stale: 4, total: 93 },
+      by_tunnel: { wireguard: { online: 55, offline: 3, stale: 2, total: 60 }, l2tp: { online: 25, offline: 6, stale: 2, total: 33 } },
       recent_drops_10m: 2,
       platform_event: false,
       control_path: { available: true, native: 76, transit_fallback: 7, unrouted: 10, checked_at: '2026-09-22T18:59:40Z' },
@@ -185,6 +186,14 @@ const WINDOW_REPORT = {
     removals: 30, removal_latency: { p50: 90, p95: 400, max: 900, samples: 30 }, by_tunnel: { wireguard: { p50: 80, p95: 250, max: 300, samples: 12 } },
   },
   payments: { counts: { created: 120, completed: 101, failed: 15, pending: 4 }, callback_latency: { p50: 8, p95: 22, max: 60, samples: 101 } },
+  timeline: {
+    bucket_seconds: 900,
+    points: Array.from({ length: 12 }, (_, i) => ({
+      t: new Date(Date.UTC(2026, 8, 22, 15, i * 15)).toISOString(),
+      delivered: 3 + (i % 4), not_delivered: i === 7 ? 3 : 0, pending: 0,
+      expired: 2 + (i % 3), removed: i === 7 ? 1 : 2 + (i % 3), e2e_p95: 8 + (i === 7 ? 200 : i),
+    })),
+  },
   truncated: false,
 };
 
@@ -228,7 +237,7 @@ for (const width of [375, 1280]) {
 
     const panel = page.getByTestId('ops-health-panel');
     await expect(panel).toBeVisible();
-    await expect(panel.getByRole('heading', { name: 'Operations health' })).toBeVisible();
+    await expect(panel.getByRole('heading', { name: 'Network health' })).toBeVisible();
 
     // Alerts: critical sorted before warning, with title + message + since.
     const alerts = page.getByTestId('ops-health-alerts').locator('li');
@@ -238,6 +247,21 @@ for (const width of [375, 1280]) {
     await expect(alerts.nth(0)).toContainText('344 attempts waiting for retry');
     await expect(alerts.nth(0)).toContainText(/since \d+[smhd] ago/);
     await expect(alerts.nth(1)).toHaveAttribute('data-alert-key', 'expiry.hot_backlog');
+
+    // Plain-language headline: summary sentence + four StatCards + trend charts + tunnel bars.
+    await expect(page.getByTestId('ops-health-summary')).toContainText('1 critical and 1 warning need attention');
+    const headline = page.getByTestId('ops-health-headline');
+    await expect(headline).toContainText('Payments reaching routers');
+    await expect(headline).toContainText('4%');
+    await expect(headline).toContainText('126 waiting');
+    await expect(headline).toContainText('80 of 93');
+    await expect(headline).toContainText('101 of 120');
+    await expect(page.getByTestId('ops-trend-provisioning_retry_pending').locator('svg.recharts-surface').first()).toBeVisible();
+    await expect(page.getByTestId('ops-tunnel-bars').locator('svg.recharts-surface').first()).toBeVisible();
+
+    // Technical tiles are behind a toggle now.
+    await expect(panel.locator('[data-ops-tile="Provisioning"]')).toHaveCount(0);
+    await panel.getByRole('button', { name: /Technical details/ }).click();
 
     // All eight section tiles are present.
     for (const title of ['Provisioning', 'Payments', 'Expiry', 'Tunnels', 'Control plane', 'Safety net', 'Jobs', 'DB pool']) {
@@ -265,7 +289,7 @@ for (const width of [375, 1280]) {
     await expect(provRows.nth(1)).toContainText('304 pend');
     await expect(provRows.nth(1).locator('span').first()).toHaveClass(/bg-red-500/);
     // Look-back slice: open, run against the mocked window report, worst router first.
-    await panel.getByRole('button', { name: /Look back at a time slice/ }).click();
+    await panel.getByRole('button', { name: /Investigate a time window/ }).click();
     const lookback = page.getByTestId('ops-health-lookback');
     await expect(lookback).toBeVisible();
     await lookback.getByTestId('ops-health-lookback-run').click();
@@ -284,8 +308,10 @@ for (const width of [375, 1280]) {
     await expect(unenforced.locator('li').nth(0)).toContainText('Jomvu main');
     await expect(unenforced.locator('li').nth(0)).toContainText('1.0d');
     await expect(unenforced.locator('li').nth(0)).toContainText('not reached for 6h+');
-    await expect(result).toContainText('Removal latency (30)');
-    await expect(result).toContainText('M-Pesa callbacks');
+    await expect(result).toContainText('Time to remove after expiry (30)');
+    await expect(result).toContainText('M-Pesa confirmations');
+    await expect(page.getByTestId('ops-lookback-timeline').locator('svg.recharts-surface').first()).toBeVisible();
+    await expect(page.getByTestId('ops-lookback-expiry-timeline').locator('svg.recharts-surface').first()).toBeVisible();
 
     const expRows = panel.locator('[data-ops-tile="Expiry"] [data-testid="ops-health-tunnel-rows"] li');
     await expect(expRows).toHaveCount(2);
