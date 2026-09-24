@@ -10,9 +10,9 @@ const ExpiryTimeline = dynamic(() => import('./OpsHealthCharts').then((m) => m.E
 import { AdminReseller, OpsHealthWindowReport, OpsHealthWindowStats, Router } from '../lib/types';
 
 // Backend order: primary planes, then insurance planes, then unclassified.
-const TUNNEL_ORDER = ['wireguard', 'l2tp', 'wg2_insurance', 'aws_insurance', 'other'];
+const TUNNEL_ORDER = ['wireguard', 'l2tp', 'sstp', 'wg2_insurance', 'aws_insurance', 'other'];
 const TUNNEL_LABEL: Record<string, string> = {
-  wireguard: 'WireGuard', l2tp: 'L2TP', wg2_insurance: 'wg2 ins.', aws_insurance: 'AWS ins.', other: 'other',
+  wireguard: 'WireGuard', l2tp: 'L2TP', sstp: 'SSTP', wg2_insurance: 'wg2 ins.', aws_insurance: 'AWS ins.', other: 'other',
 };
 
 function fmtSecs(v: number | null | undefined): string {
