@@ -102,10 +102,11 @@ function fmtAgo(iso: string | null): string {
   return Number.isFinite(mins) ? `${fmtMins(Math.max(0, mins))} ago` : '—';
 }
 
-export default function OpsHealthLookback() {
+/** initialRouterId: open straight onto one router's last 24h (from the Problem routers card). */
+export default function OpsHealthLookback({ initialRouterId }: { initialRouterId?: number } = {}) {
   const [routers, setRouters] = useState<Router[]>([]);
-  const [routerId, setRouterId] = useState<number | ''>('');
-  const [start, setStart] = useState<string>(() => toLocalInput(new Date(Date.now() - 3 * 3600_000)));
+  const [routerId, setRouterId] = useState<number | ''>(initialRouterId ?? '');
+  const [start, setStart] = useState<string>(() => toLocalInput(new Date(Date.now() - (initialRouterId ? 24 : 3) * 3600_000)));
   const [end, setEnd] = useState<string>(() => toLocalInput(new Date()));
   const [report, setReport] = useState<OpsHealthWindowReport | null>(null);
   const [loading, setLoading] = useState(false);
@@ -167,6 +168,16 @@ export default function OpsHealthLookback() {
   };
   const clearOwner = () => { setOwner(null); setRouterId(''); setReport(null); };
   const pickRouter = (id: number | '') => { setRouterId(id); void run({ routerId: id }); };
+
+  // Opened from a Problem routers row: run that router's report straight away, and
+  // again whenever a different row is clicked while the panel is already open.
+  useEffect(() => {
+    if (initialRouterId === undefined) return;
+    setOwner(null);
+    setRouterId(initialRouterId);
+    void run({ routerId: initialRouterId, owner: null });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- run only when the requested router changes
+  }, [initialRouterId]);
 
   // With a reseller chosen, the router list is theirs (from the report); otherwise the fleet.
   const routerOptions = useMemo(() => {

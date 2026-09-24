@@ -362,6 +362,43 @@ export interface OpsHealthTunnelCounts {
   offline: number;
   stale: number;
   total: number;
+  /** Not heard from in 24h+ (active resellers only) — "probably down". Fleet counts only. */
+  silent_24h?: number;
+}
+
+export type OpsHealthProblemState = 'attention' | 'recovering' | 'fixed';
+
+export interface OpsHealthProblemWindow {
+  payments: number;
+  lost: number;
+  first_try_pct: number | null;
+  reach_pct: number | null;
+  drops: number;
+}
+
+export interface OpsHealthProblemRouter {
+  router_id: number;
+  router_name: string | null;
+  reseller: string | null;
+  tunnel: string | null;
+  state: OpsHealthProblemState;
+  /** One plain-language line naming what triggered the state. */
+  reason: string;
+  /** Present when the router's management tunnel was changed in the last 7 days. */
+  fix: { tunnel: string; label: string; at: string; at_short: string } | null;
+  window: 'since_fix' | 'last_24h';
+  after: OpsHealthProblemWindow;
+  before: OpsHealthProblemWindow;
+  last_online_at: string | null;
+}
+
+export interface OpsHealthProblemRoutersSection {
+  status: OpsHealthStatus;
+  counts: Record<OpsHealthProblemState, number>;
+  paid_not_connected_24h: number;
+  paid_not_connected_daily_avg_before: number;
+  routers: OpsHealthProblemRouter[];
+  routers_total: number;
 }
 
 export interface OpsHealthControlPath {
@@ -436,6 +473,8 @@ export interface OpsHealthSections {
   tunnels: OpsHealthTunnelsSection;
   control_plane: OpsHealthControlPlaneSection;
   safety_net: OpsHealthSafetyNetSection;
+  /** Absent on snapshots taken before the backend shipped it. */
+  problem_routers?: OpsHealthProblemRoutersSection;
   jobs: OpsHealthJobsSection;
   db_pool: OpsHealthDbPoolSection;
 }
