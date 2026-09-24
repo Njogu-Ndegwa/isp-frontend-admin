@@ -13,7 +13,9 @@ import {
   PPPoEMonitorUser,
   HotspotMonitorUser,
   CustomerUsagePeriod,
+  CustomerUsageLive,
 } from '../lib/types';
+import { LIVE_POLL_INTERVAL, formatAge } from '../lib/live';
 import { formatDateGMT3, formatTimeSinceUTC } from '../lib/dateUtils';
 import { useAlert } from '../context/AlertContext';
 import Header from '../components/Header';
@@ -85,9 +87,40 @@ function canMonitorLive(customer: Customer): boolean {
 function getHotspotLiveForCustomer(
   customer: Customer,
   hotspotLive: Map<string, HotspotMonitorUser>,
+  pushLive?: Map<number, CustomerUsageLive>,
 ): HotspotMonitorUser | undefined {
+  const pushed = pushLive?.get(customer.id);
+  if (pushed) return pushLiveToMonitorUser(customer, pushed);
   return hotspotLive.get(`customer:${customer.id}`)
     ?? hotspotLive.get(normalizeMacForLookup(customer.mac_address));
+}
+
+// Real-time push pilot: the router reports every few seconds, so its live
+// state comes from the push instead of an on-demand RouterOS call per page.
+function pushLiveToMonitorUser(customer: Customer, live: CustomerUsageLive): HotspotMonitorUser {
+  return {
+    username: normalizeMacForLookup(customer.mac_address),
+    mac_address: customer.mac_address ?? '',
+    profile: '',
+    disabled: false,
+    comment: '',
+    online: live.online,
+    online_source: live.online ? 'host' : null,
+    address: live.ip,
+    uptime: null,
+    idle_time: null,
+    login_by: '',
+    upload_bytes: 0,
+    download_bytes: 0,
+    upload_rate: String(Math.round(live.rate_up_bps ?? 0)),
+    download_rate: String(Math.round(live.rate_down_bps ?? 0)),
+    max_limit: live.max_limit ?? '',
+    binding_type: 'bypassed',
+    bypassed: true,
+    authorized: false,
+    has_queue: live.queue_status === 'ok' || live.queue_status === 'shadowed',
+    customer: null,
+  };
 }
 
 function formatRate(bpsStr: string | undefined | null): string {
@@ -174,6 +207,10 @@ export default function CustomersPage() {
   // a per-row basis. Survives page changes so customers we've already
   // resolved don't flash a skeleton on revisit.
   const [usageFetched, setUsageFetched] = useState<Set<number>>(new Set());
+  // Real-time push pilot: live device state per customer, and the routers that
+  // report it (no per-page RouterOS polling for those).
+  const [pushLive, setPushLive] = useState<Map<number, CustomerUsageLive>>(new Map());
+  const [liveRouterIds, setLiveRouterIds] = useState<Set<number>>(new Set());
 
   // Persistent connection-type counts. Computed from `allCustomersCache` the
   // first time it gets populated (i.e. once the user lands on a connection
@@ -400,10 +437,22 @@ export default function CustomersPage() {
     for (const customer of displayedCustomers) {
       if (getConnectionType(customer) !== 'hotspot') continue;
       const routerId = customer.router_id ?? customer.router?.id;
-      if (routerId) ids.add(routerId);
+      if (routerId && !liveRouterIds.has(routerId)) ids.add(routerId);
     }
     return Array.from(ids).sort((a, b) => a - b);
-  }, [displayedCustomers]);
+  }, [displayedCustomers, liveRouterIds]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = () => {
+      api.getLiveRouterIds()
+        .then((ids) => { if (!cancelled) setLiveRouterIds(new Set(ids)); })
+        .catch(() => {});
+    };
+    load();
+    const id = window.setInterval(load, 60_000);
+    return () => { cancelled = true; window.clearInterval(id); };
+  }, []);
 
   // Routers behind the visible rows that are not answering right now.
   const offlineRouters = useMemo(() => {
@@ -536,6 +585,7 @@ export default function CustomersPage() {
       return connectionType === 'pppoe' || connectionType === 'hotspot';
     });
     if (targets.length === 0) return;
+    const hasLiveTargets = targets.some((c) => liveRouterIds.has(c.router_id ?? c.router?.id ?? -1));
 
     let cancelled = false;
     let inFlight = false;
@@ -548,6 +598,15 @@ export default function CustomersPage() {
         const results = await api.getCustomersUsage(targets.map((c) => c.id));
         if (cancelled) return;
         const byCustomerId = new Map(results.map((result) => [result.customer_id, result]));
+        setPushLive((prev) => {
+          const next = new Map(prev);
+          for (const customer of targets) {
+            const live = byCustomerId.get(customer.id)?.live;
+            if (live) next.set(customer.id, live);
+            else next.delete(customer.id);
+          }
+          return next;
+        });
         setUsageMap((prev) => {
           const next = new Map(prev);
           for (const customer of targets) {
@@ -583,14 +642,14 @@ export default function CustomersPage() {
     };
 
     load();
-    intervalId = window.setInterval(load, USAGE_POLL_INTERVAL);
+    intervalId = window.setInterval(load, hasLiveTargets ? LIVE_POLL_INTERVAL : USAGE_POLL_INTERVAL);
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => {
       cancelled = true;
       if (intervalId) clearInterval(intervalId);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [displayedCustomers]);
+  }, [displayedCustomers, liveRouterIds]);
 
   // Peer-relative usage tiers across the customers currently on screen.
   // Used to color-code the total-used number so heavier-than-average users
@@ -945,8 +1004,8 @@ export default function CustomersPage() {
               const connectionType = getConnectionType(customer);
               const live: LiveMonitorUser | undefined = connectionType === 'pppoe'
                 ? (customer.pppoe_username ? pppoeLive.get(customer.pppoe_username) : undefined)
-                : getHotspotLiveForCustomer(customer, hotspotLive);
-              const liveLoaded = connectionType === 'pppoe' ? pppoeLiveLoaded : hotspotLiveLoaded;
+                : getHotspotLiveForCustomer(customer, hotspotLive, pushLive);
+              const liveLoaded = connectionType === 'pppoe' ? pppoeLiveLoaded : (hotspotLiveLoaded || pushLive.has(customer.id));
               const liveMonitorable = canMonitorLive(customer);
               const usage = usageMap.get(customer.id);
               const liveness = routerLiveness.get(customer.router_id ?? customer.router?.id ?? -1);
@@ -1142,6 +1201,11 @@ export default function CustomersPage() {
                           {t('FUP active')}
                         </span>
                       )}
+                      {pushLive.get(customer.id) && (
+                        <span className="text-[10px] text-emerald-500 tabular-nums" data-testid="usage-live-age">
+                          ● {t('live')} · {formatAge(pushLive.get(customer.id)?.report_age_seconds)}
+                        </span>
+                      )}
                     </div>
                   );
                 }
@@ -1239,8 +1303,8 @@ export default function CustomersPage() {
                 const connectionTypeCard = getConnectionType(customer);
                 const liveCard: LiveMonitorUser | undefined = connectionTypeCard === 'pppoe'
                   ? (customer.pppoe_username ? pppoeLive.get(customer.pppoe_username) : undefined)
-                  : getHotspotLiveForCustomer(customer, hotspotLive);
-                const liveLoadedCard = connectionTypeCard === 'pppoe' ? pppoeLiveLoaded : hotspotLiveLoaded;
+                  : getHotspotLiveForCustomer(customer, hotspotLive, pushLive);
+                const liveLoadedCard = connectionTypeCard === 'pppoe' ? pppoeLiveLoaded : (hotspotLiveLoaded || pushLive.has(customer.id));
                 const liveMonitorableCard = canMonitorLive(customer);
                 const usageCard = usageMap.get(customer.id);
                 const livenessCard = routerLiveness.get(customer.router_id ?? customer.router?.id ?? -1);

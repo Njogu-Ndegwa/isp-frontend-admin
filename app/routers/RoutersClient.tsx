@@ -492,6 +492,11 @@ function RoutersTab({
   onAddRouter: () => void;
   canManageBackupVpn: boolean;
 }) {
+  // Routers on the real-time push pilot get a "Live" link.
+  const [liveRouterIds, setLiveRouterIds] = useState<Set<number>>(new Set());
+  useEffect(() => {
+    api.getLiveRouterIds().then((ids) => setLiveRouterIds(new Set(ids))).catch(() => {});
+  }, []);
   const { showAlert } = useAlert();
   const [emergencyLoading, setEmergencyLoading] = useState<number | null>(null);
   const [emergencyModalRouter, setEmergencyModalRouter] = useState<Router | null>(null);
@@ -1388,6 +1393,16 @@ function RoutersTab({
                         {router.name.charAt(0).toUpperCase()}
                       </div>
                       <span className="font-medium text-foreground">{router.name}</span>
+                      {liveRouterIds.has(router.id) && (
+                        <Link
+                          href={`/routers/${router.id}/live`}
+                          onClick={(e) => e.stopPropagation()}
+                          className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-emerald-500 hover:bg-emerald-500/20"
+                          title="Open the router's live view"
+                        >
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> Live
+                        </Link>
+                      )}
                       {canManageBackupVpn && <InsuranceTunnelBadge type={router.planned_insurance_tunnel_type} />}
                     </div>
                   );

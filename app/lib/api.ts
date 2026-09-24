@@ -210,6 +210,7 @@ import {
   UpdateAccessCredentialRequest,
   CustomerUsageResponse,
   CustomerUsagePeriod,
+  RouterLive,
   ResellerTopUsageEntry,
   PortalSettingsResponse,
   PublicPortalResponse,
@@ -3031,6 +3032,20 @@ class ApiClient {
       body: JSON.stringify({ customer_ids: customerIds }),
     });
     return this.handleResponse<CustomerUsageResponse[]>(response);
+  }
+
+  // ─── Real-time push pilot ──────────────────────────────────────────
+
+  /** Router ids (of the caller's) currently reporting live; [] when none. */
+  async getLiveRouterIds(): Promise<number[]> {
+    if (this.isDemoMode()) return [];
+    const response = await fetch(`${BASE_URL}/realtime/routers`, { headers: this.getHeaders() });
+    return this.handleResponse<number[]>(response);
+  }
+
+  async getRouterLive(routerId: number): Promise<RouterLive> {
+    const response = await fetch(`${BASE_URL}/routers/${routerId}/live`, { headers: this.getHeaders() });
+    return this.handleResponse<RouterLive>(response);
   }
 
   async getCustomerUsageHistory(customerId: number, limit = 6): Promise<CustomerUsagePeriod[]> {
