@@ -281,8 +281,9 @@ export interface OpsHealthProvisioningCounts {
   failed: number;
 }
 
-/** Management tunnel a router is reached over, derived from its stored IP. */
-export type OpsHealthTunnel = 'wireguard' | 'l2tp' | 'wg2_insurance' | 'aws_insurance' | 'other';
+/** Management tunnel a router is reached over: its stored IP range, unless the
+ * backend's routers.management_tunnel flag overrides it (e.g. SSTP). */
+export type OpsHealthTunnel = 'wireguard' | 'l2tp' | 'sstp' | 'wg2_insurance' | 'aws_insurance' | 'other';
 
 export interface OpsHealthProvisioningTopRouter {
   router_id: number;
