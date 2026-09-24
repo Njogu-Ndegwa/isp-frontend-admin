@@ -2238,6 +2238,10 @@ export interface MikroTikMetrics {
   sessionsTruncated?: boolean;
   interfaces: MikroTikInterface[];
   generatedAt: string;
+  /** Where CPU/memory/storage/uptime came from: the router's own report ('push' | 'snmp') or a direct login ('routeros'). */
+  healthSource?: 'push' | 'snmp' | 'routeros';
+  /** When the router's own report was taken (naive UTC ISO); absent for 'routeros'. */
+  healthSampledAt?: string;
   uptime?: string;
   // Additional fields
   routerId?: number;

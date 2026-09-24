@@ -618,6 +618,8 @@ class ApiClient {
       sessionsTruncated: (data.sessions_truncated as boolean) ?? false,
       interfaces: (data.interfaces as Array<unknown>) ?? [],
       generatedAt: (data.generated_at as string) ?? '',
+      healthSource: (data.health_source as 'push' | 'snmp' | 'routeros' | undefined) ?? undefined,
+      healthSampledAt: (data.health_sampled_at as string | undefined) ?? undefined,
       uptime: (system?.uptime as string) ?? '',
       // Additional fields
       routerId: (data.router_id as number) ?? 0,
