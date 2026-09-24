@@ -6,6 +6,7 @@ import dynamic from 'next/dynamic';
 import { api } from '../lib/api';
 import OpsHealthLookback from './OpsHealthLookback';
 import StatCard from './StatCard';
+import ProblemRoutersCard from './ProblemRoutersCard';
 
 // Recharts is client-only and heavy; keep it out of the route's first paint.
 const TrendArea = dynamic(() => import('./OpsHealthCharts').then((m) => m.TrendArea), { ssr: false });
@@ -404,6 +405,11 @@ export default function OpsHealthPanel() {
   const [lastFetchFailed, setLastFetchFailed] = useState(false);
   const [detail, setDetail] = useState<Detail>(null);
   const [showTech, setShowTech] = useState(false);
+  const [lookbackRouterId, setLookbackRouterId] = useState<number | undefined>(undefined);
+  const openRouterLookback = useCallback((id: number) => {
+    setLookbackRouterId(id);
+    setDetail('lookback');
+  }, []);
   const [now, setNow] = useState<number>(() => Date.now());
   const inFlightRef = useRef(false);
 
@@ -615,7 +621,9 @@ export default function OpsHealthPanel() {
         <StatCard
           title="Routers online"
           value={`${formatNumber(tun?.counts?.online)} of ${formatNumber(tun?.counts?.total)}`}
-          subtitle={`${formatNumber(tun?.counts?.offline)} offline · ${formatNumber(tun?.counts?.stale)} not reached recently`}
+          subtitle={tun?.counts?.silent_24h != null
+            ? `${formatNumber(tun.counts.offline)} offline now · ${formatNumber(tun.counts.silent_24h)} not heard from in 24h+`
+            : `${formatNumber(tun?.counts?.offline)} offline · ${formatNumber(tun?.counts?.stale)} not reached recently`}
           icon={ICONS.routers}
           accent={accentFor(tun?.status)}
         />
@@ -640,6 +648,9 @@ export default function OpsHealthPanel() {
           <TrendArea points={points} dataKey="tunnels_offline" label="Routers offline" color="#ef4444" />
         </div>
       </div>
+
+      {/* Problem routers: the routers costing paying customers, and whether fixes held */}
+      <ProblemRoutersCard section={sec?.problem_routers} onOpen={openRouterLookback} tunnelLabels={TUNNEL_LABEL} />
 
       {/* Routers by tunnel */}
       <div className="rounded-xl border border-border bg-background-tertiary/40 p-3 mb-3">
@@ -787,7 +798,7 @@ export default function OpsHealthPanel() {
       <div className="mt-3">
         <DetailToggle label="Investigate a time window or a single router" open={detail === 'lookback'} onClick={() => toggleDetail('lookback')} />
       </div>
-      {detail === 'lookback' && <OpsHealthLookback />}
+      {detail === 'lookback' && <OpsHealthLookback initialRouterId={lookbackRouterId} />}
 
       {/* Expandable details — full width so the 2-column grid stays tidy on phones */}
       {detail === 'routers' && (
