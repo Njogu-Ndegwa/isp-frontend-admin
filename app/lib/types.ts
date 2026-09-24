@@ -490,6 +490,10 @@ export interface OpsHealthHistoryPoint {
   tunnels_offline: number | null;
   safety_net_removals: number | null;
   active_writers: number | null;
+  /** Who is behind the numbers ({router_id: count}); absent on older snapshots. */
+  retry_by_router?: Record<string, number>;
+  expiry_hot_by_router?: Record<string, number>;
+  offline_router_ids?: number[];
 }
 
 // Look-back report - GET /api/admin/ops-health/window?start=&end=&router_id=
@@ -604,6 +608,8 @@ export interface OpsHealthTimelinePoint {
 
 export interface OpsHealthHistory {
   points: OpsHealthHistoryPoint[];
+  /** Names for every router mentioned in the points' per-router breakdowns. */
+  router_names?: Record<string, string>;
 }
 
 export interface OpsHealthResponse {
