@@ -95,6 +95,37 @@ function getHotspotLiveForCustomer(
     ?? hotspotLive.get(normalizeMacForLookup(customer.mac_address));
 }
 
+function getPPPoELiveForCustomer(
+  customer: Customer,
+  pppoeLive: Map<string, PPPoEMonitorUser>,
+  pushLive?: Map<number, CustomerUsageLive>,
+): PPPoEMonitorUser | undefined {
+  const pushed = pushLive?.get(customer.id);
+  if (pushed) {
+    return {
+      username: customer.pppoe_username ?? '',
+      service: 'pppoe',
+      profile: '',
+      disabled: false,
+      comment: '',
+      online: pushed.online,
+      address: pushed.ip,
+      uptime: null,
+      caller_id: null,
+      upload_bytes: 0,
+      download_bytes: 0,
+      upload_rate: String(Math.round(pushed.rate_up_bps ?? 0)),
+      download_rate: String(Math.round(pushed.rate_down_bps ?? 0)),
+      max_limit: pushed.max_limit ?? '',
+      last_logged_out: '',
+      last_disconnect_reason: '',
+      last_caller_id: '',
+      customer: null,
+    };
+  }
+  return customer.pppoe_username ? pppoeLive.get(customer.pppoe_username) : undefined;
+}
+
 // Real-time push pilot: the router reports every few seconds, so its live
 // state comes from the push instead of an on-demand RouterOS call per page.
 function pushLiveToMonitorUser(customer: Customer, live: CustomerUsageLive): HotspotMonitorUser {
@@ -427,10 +458,10 @@ export default function CustomersPage() {
     for (const customer of displayedCustomers) {
       if (getConnectionType(customer) !== 'pppoe') continue;
       const routerId = customer.router_id ?? customer.router?.id;
-      if (routerId) ids.add(routerId);
+      if (routerId && !liveRouterIds.has(routerId)) ids.add(routerId);
     }
     return Array.from(ids).sort((a, b) => a - b);
-  }, [displayedCustomers]);
+  }, [displayedCustomers, liveRouterIds]);
 
   const hotspotLiveRouterIds = useMemo(() => {
     const ids = new Set<number>();
@@ -504,6 +535,7 @@ export default function CustomersPage() {
     setPppoeLiveLoaded(false);
 
     const load = async () => {
+      if (document.visibilityState === 'hidden') return;
       try {
         const results = await Promise.allSettled(
           pppoeLiveRouterIds.map((routerId) => api.getPPPoEUsers(routerId))
@@ -544,6 +576,7 @@ export default function CustomersPage() {
     setHotspotLiveLoaded(false);
 
     const load = async () => {
+      if (document.visibilityState === 'hidden') return;
       try {
         const results = await Promise.allSettled(
           hotspotLiveRouterIds.map((routerId) => api.getHotspotUsers(routerId))
@@ -1001,9 +1034,9 @@ export default function CustomersPage() {
             renderCell={(customer, key) => {
               const connectionType = getConnectionType(customer);
               const live: LiveMonitorUser | undefined = connectionType === 'pppoe'
-                ? (customer.pppoe_username ? pppoeLive.get(customer.pppoe_username) : undefined)
+                ? getPPPoELiveForCustomer(customer, pppoeLive, pushLive)
                 : getHotspotLiveForCustomer(customer, hotspotLive, pushLive);
-              const liveLoaded = connectionType === 'pppoe' ? pppoeLiveLoaded : (hotspotLiveLoaded || pushLive.has(customer.id));
+              const liveLoaded = (connectionType === 'pppoe' ? pppoeLiveLoaded : hotspotLiveLoaded) || pushLive.has(customer.id);
               const liveMonitorable = canMonitorLive(customer);
               const usage = usageMap.get(customer.id);
               const liveness = routerLiveness.get(customer.router_id ?? customer.router?.id ?? -1);
@@ -1300,9 +1333,9 @@ export default function CustomersPage() {
               displayedCustomers.map((customer) => {
                 const connectionTypeCard = getConnectionType(customer);
                 const liveCard: LiveMonitorUser | undefined = connectionTypeCard === 'pppoe'
-                  ? (customer.pppoe_username ? pppoeLive.get(customer.pppoe_username) : undefined)
+                  ? getPPPoELiveForCustomer(customer, pppoeLive, pushLive)
                   : getHotspotLiveForCustomer(customer, hotspotLive, pushLive);
-                const liveLoadedCard = connectionTypeCard === 'pppoe' ? pppoeLiveLoaded : (hotspotLiveLoaded || pushLive.has(customer.id));
+                const liveLoadedCard = (connectionTypeCard === 'pppoe' ? pppoeLiveLoaded : hotspotLiveLoaded) || pushLive.has(customer.id);
                 const liveMonitorableCard = canMonitorLive(customer);
                 const usageCard = usageMap.get(customer.id);
                 const livenessCard = routerLiveness.get(customer.router_id ?? customer.router?.id ?? -1);
