@@ -2,8 +2,6 @@
 
 import type { LiveQueueStatus } from './types';
 
-export const LIVE_POLL_INTERVAL = 5_000;
-
 export function formatBps(bps: number | null | undefined): string {
   if (bps === null || bps === undefined) return '—';
   if (bps >= 1_000_000) return `${(bps / 1_000_000).toFixed(1)} Mbps`;

@@ -15,7 +15,7 @@ import {
   CustomerUsagePeriod,
   CustomerUsageLive,
 } from '../lib/types';
-import { LIVE_POLL_INTERVAL, formatAge } from '../lib/live';
+import { formatAge } from '../lib/live';
 import { formatDateGMT3, formatTimeSinceUTC } from '../lib/dateUtils';
 import { useAlert } from '../context/AlertContext';
 import Header from '../components/Header';
@@ -450,8 +450,7 @@ export default function CustomersPage() {
         .catch(() => {});
     };
     load();
-    const id = window.setInterval(load, 60_000);
-    return () => { cancelled = true; window.clearInterval(id); };
+    return () => { cancelled = true; };
   }, []);
 
   // Routers behind the visible rows that are not answering right now.
@@ -585,7 +584,6 @@ export default function CustomersPage() {
       return connectionType === 'pppoe' || connectionType === 'hotspot';
     });
     if (targets.length === 0) return;
-    const hasLiveTargets = targets.some((c) => liveRouterIds.has(c.router_id ?? c.router?.id ?? -1));
 
     let cancelled = false;
     let inFlight = false;
@@ -642,14 +640,14 @@ export default function CustomersPage() {
     };
 
     load();
-    intervalId = window.setInterval(load, hasLiveTargets ? LIVE_POLL_INTERVAL : USAGE_POLL_INTERVAL);
+    intervalId = window.setInterval(load, USAGE_POLL_INTERVAL);
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => {
       cancelled = true;
       if (intervalId) clearInterval(intervalId);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [displayedCustomers, liveRouterIds]);
+  }, [displayedCustomers]);
 
   // Peer-relative usage tiers across the customers currently on screen.
   // Used to color-code the total-used number so heavier-than-average users
