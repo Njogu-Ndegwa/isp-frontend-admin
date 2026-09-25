@@ -102,6 +102,44 @@ export default function RouterLiveClient() {
             )}
           </div>
 
+          {live.ports && live.ports.length > 0 && (
+            <div className="card overflow-x-auto">
+              <p className="px-4 pt-4 text-sm font-medium text-foreground">Ports</p>
+              <table className="w-full text-sm" data-testid="live-ports">
+                <thead>
+                  <tr className="text-left text-[10px] uppercase tracking-wider text-foreground-muted border-b border-border">
+                    <th className="p-3">Port</th>
+                    <th className="p-3">Link</th>
+                    <th className="p-3">In now</th>
+                    <th className="p-3">Out now</th>
+                    <th className="p-3">Devices</th>
+                    <th className="p-3">Link drops</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {live.ports.map((p) => (
+                    <tr key={p.name} className="border-b border-border/50">
+                      <td className="p-3 font-mono text-xs text-foreground">{p.name}</td>
+                      <td className="p-3 text-xs">
+                        {p.disabled ? (
+                          <span className="text-foreground-muted">Disabled</span>
+                        ) : p.running ? (
+                          <span className="inline-flex items-center gap-1.5 text-emerald-500"><span className="w-2 h-2 rounded-full bg-emerald-500" /> Up</span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1.5 text-foreground-muted"><span className="w-2 h-2 rounded-full bg-foreground-muted/40" /> Down</span>
+                        )}
+                      </td>
+                      <td className="p-3 tabular-nums text-accent-primary">{p.running ? formatBps(p.rx_bps) : '—'}</td>
+                      <td className="p-3 tabular-nums text-teal-500">{p.running ? formatBps(p.tx_bps) : '—'}</td>
+                      <td className="p-3 tabular-nums text-foreground-muted">{p.devices ?? '—'}</td>
+                      <td className="p-3 tabular-nums text-foreground-muted">{p.link_downs}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
           <div className="card overflow-x-auto">
             <table className="w-full text-sm" data-testid="live-devices">
               <thead>
