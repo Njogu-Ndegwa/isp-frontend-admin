@@ -8,6 +8,7 @@ import { formatBytes } from './InterfacesPanel';
 import type { MikroTikMetrics } from '../../lib/types';
 import { parseUTCToGMT3, formatGMT3Date } from '../../lib/dateUtils';
 import { useT } from '../../lib/i18n';
+import { healthSourceCaption } from '../../lib/healthSource';
 
 // "Router Health" card — reproduces the original MikroTik section layout:
 // a 4-up row of CPU/Memory/Storage radial dials + an Active Users tile,
@@ -101,6 +102,13 @@ export default function NetworkHealthCard({
 
   const metaNode = lastUpdated ? <span suppressHydrationWarning>{lastUpdated}</span> : null;
 
+  const sourceCaption = healthSourceCaption(data.healthSource, data.healthSampledAt);
+  const sourceToneClass = sourceCaption?.tone === 'good'
+    ? 'text-emerald-500'
+    : sourceCaption?.tone === 'info'
+      ? 'text-blue-400'
+      : 'text-foreground-muted';
+
   return (
     <SectionCard title={t('Router Health')} accent="emerald" loading={loading} meta={metaNode}>
       {/* Router name + status badge + system summary subtitle */}
@@ -117,6 +125,11 @@ export default function NetworkHealthCard({
             )}
           </div>
           <p className="text-[10px] sm:text-xs text-foreground-muted truncate">{systemSummary}</p>
+          {sourceCaption && (
+            <p className={`text-[10px] sm:text-xs truncate ${sourceToneClass}`} data-testid="router-health-source" suppressHydrationWarning>
+              {sourceCaption.text}
+            </p>
+          )}
         </div>
       </div>
 
