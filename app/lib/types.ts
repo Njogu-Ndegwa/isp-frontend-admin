@@ -1484,6 +1484,19 @@ export interface RouterLive {
   last_repair_at: string | null;
   last_repair_result: Record<string, unknown> | null;
   devices: RouterLiveDevice[];
+  ports?: RouterLivePort[];
+  bridge_hosts_at?: string | null;
+  bindings_count?: number | null;
+}
+
+export interface RouterLivePort {
+  name: string;
+  running: boolean;
+  disabled: boolean;
+  rx_bps: number | null;
+  tx_bps: number | null;
+  link_downs: number;
+  devices: number | null;
 }
 
 export interface ResellerTopUsageEntry {
