@@ -5,6 +5,8 @@ import { OpsHealthProblemRouter, OpsHealthProblemRoutersSection, OpsHealthProble
 
 // Problem routers: the routers costing paying customers now, and whether the
 // fixes we applied held. One plain reason per router; click opens its look-back.
+// Routers with paid customers still waiting to be connected lead the list: a
+// waiting payment only counts as "not connected" hours later, once retries give up.
 
 const STYLE: Record<OpsHealthProblemState, { dot: string; chip: string; label: string }> = {
   attention: { dot: 'bg-red-500', chip: 'bg-red-500/10 text-red-500 border-red-500/30', label: 'need attention' },
@@ -34,6 +36,11 @@ function Row({ r, onOpen, tunnelLabels }: {
             {r.router_name ?? `Router #${r.router_id}`}
           </button>
           {r.reseller && <span className="text-[11px] text-foreground-muted truncate">· {r.reseller}</span>}
+          {!!r.waiting && (
+            <span className="inline-flex items-center px-1.5 py-0.5 rounded border border-red-500/30 bg-red-500/10 text-[10px] font-semibold text-red-500 flex-shrink-0" data-testid="problem-router-waiting">
+              {fmt(r.waiting)} waiting
+            </span>
+          )}
           {r.tunnel && (
             <span className="inline-flex items-center px-1.5 py-0.5 rounded border border-border bg-background-tertiary text-[10px] uppercase tracking-wider text-foreground-muted flex-shrink-0" data-tunnel={r.tunnel}>
               {tunnelLabels[r.tunnel] ?? r.tunnel}
@@ -58,11 +65,24 @@ export default function ProblemRoutersCard({ section, onOpen, tunnelLabels = {} 
   const lost = section.paid_not_connected_24h;
   const avg = section.paid_not_connected_daily_avg_before;
   const better = lost <= avg;
+  const waiting = section.waiting_now ?? 0;
+  const waitingRouters = section.waiting_routers ?? 0;
   return (
     <div className="rounded-xl border border-border bg-background-tertiary/40 p-3 mb-3" data-testid="ops-health-problem-routers">
       <div className="flex items-start justify-between gap-2 flex-wrap mb-1.5">
         <div className="min-w-0">
           <p className="text-xs font-semibold text-foreground">Problem routers</p>
+          <p className="text-[11px] text-foreground-muted" data-testid="problem-routers-explainer">
+            Routers where paid customers are waiting or were not connected, or that are often unreachable.
+          </p>
+          {waiting > 0 && (
+            <p className="text-[11px] text-foreground-muted" data-testid="problem-routers-waiting">
+              <span className="font-semibold text-red-500">
+                {fmt(waiting)} paid {waiting === 1 ? 'customer' : 'customers'} waiting to be connected now
+              </span>{' '}
+              on {fmt(waitingRouters)} {waitingRouters === 1 ? 'router' : 'routers'}
+            </p>
+          )}
           <p className="text-[11px] text-foreground-muted" data-testid="problem-routers-headline">
             <span className={`font-semibold ${lost === 0 ? 'text-emerald-500' : better ? 'text-foreground' : 'text-red-500'}`}>
               {fmt(lost)} paid {lost === 1 ? 'customer' : 'customers'} not connected
