@@ -1,13 +1,13 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { api } from '../../lib/api';
 import { copyText } from '../../lib/clipboard';
 import { Customer, Plan, Router as RouterType, UpdateCustomerRequest, CustomerUsageResponse, CustomerUsageLive } from '../../lib/types';
 import {
-  LIVE_POLL_INTERVAL, QUEUE_STATUS_LABEL, QUEUE_STATUS_TONE, formatAge, formatBps, formatMaxLimit,
+  QUEUE_STATUS_LABEL, QUEUE_STATUS_TONE, formatAge, formatBps, formatMaxLimit,
 } from '../../lib/live';
 import { useAlert } from '../../context/AlertContext';
 import Header from '../../components/Header';
@@ -16,7 +16,6 @@ import DateTimePicker from '../../components/DateTimePicker';
 import { utcToGMT3Input, gmt3InputToISO } from '../../lib/dateUtils';
 import { formatAmount } from '../../lib/format';
 
-const USAGE_POLL_INTERVAL = 60_000;
 
 export default function EditCustomerPage() {
   const params = useParams();
@@ -82,30 +81,22 @@ export default function EditCustomerPage() {
   const isPPPoE = connectionType === 'pppoe';
   const tracksUsage = connectionType === 'pppoe' || connectionType === 'hotspot';
 
-  // Routers report usage every ~2 minutes, so poll while the page is open
-  // instead of showing the number from when it loaded. Same cadence as the
-  // customers list; every few seconds when the router reports live (real-time
-  // push pilot). A failed poll keeps the last good value.
+  // Fetched when the page opens and when the user presses Refresh — never on a
+  // timer, so server cost follows actual views, not open tabs. The router
+  // pushes fresh numbers every few seconds, so every fetch is already current.
   const usageCustomerId = customer?.id;
-  const livePolling = Boolean(usage?.live);
-  useEffect(() => {
-    if (!usageCustomerId || !tracksUsage) return;
-    let cancelled = false;
-    const load = () => {
-      if (document.visibilityState === 'hidden') return;
-      api.getCustomerUsage(usageCustomerId).then((data) => {
-        if (!cancelled) setUsage(data);
-      }).catch(() => {});
-    };
-    load();
-    const intervalId = window.setInterval(load, livePolling ? LIVE_POLL_INTERVAL : USAGE_POLL_INTERVAL);
-    document.addEventListener('visibilitychange', load);
-    return () => {
-      cancelled = true;
-      window.clearInterval(intervalId);
-      document.removeEventListener('visibilitychange', load);
-    };
-  }, [usageCustomerId, tracksUsage, livePolling]);
+  const [usageLoading, setUsageLoading] = useState(false);
+  const fetchUsage = useCallback(() => {
+    if (!usageCustomerId || !tracksUsage) return Promise.resolve();
+    return api.getCustomerUsage(usageCustomerId)
+      .then((data) => setUsage(data))
+      .catch(() => {});
+  }, [usageCustomerId, tracksUsage]);
+  useEffect(() => { void fetchUsage(); }, [fetchUsage]);
+  const loadUsage = () => {
+    setUsageLoading(true);
+    void fetchUsage().finally(() => setUsageLoading(false));
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -191,6 +182,18 @@ export default function EditCustomerPage() {
       />
 
       <div className="max-w-lg mx-auto space-y-4">
+        {tracksUsage && usage && (
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={loadUsage}
+              disabled={usageLoading}
+              className="text-xs text-accent-primary hover:underline disabled:opacity-50"
+            >
+              {usageLoading ? 'Refreshing…' : 'Refresh usage'}
+            </button>
+          </div>
+        )}
         {usage?.live && customer && (
           <LivePanel live={usage.live} routerId={customer.router_id ?? customer.router?.id ?? null} />
         )}

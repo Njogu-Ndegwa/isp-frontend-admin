@@ -1,13 +1,13 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { api } from '../../../lib/api';
 import type { RouterLive } from '../../../lib/types';
 import Header from '../../../components/Header';
 import {
-  LIVE_POLL_INTERVAL, QUEUE_STATUS_LABEL, QUEUE_STATUS_TONE,
+  QUEUE_STATUS_LABEL, QUEUE_STATUS_TONE,
   formatAge, formatBps, formatBytes, formatMaxLimit,
 } from '../../../lib/live';
 
@@ -27,26 +27,20 @@ export default function RouterLiveClient() {
   const [live, setLive] = useState<RouterLive | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // Poll every few seconds; the server answers from memory, so this costs
-  // neither the database nor the router anything.
-  useEffect(() => {
-    if (!routerId) return;
-    let cancelled = false;
-    const load = () => {
-      if (document.visibilityState === 'hidden') return;
-      api.getRouterLive(routerId)
-        .then((data) => { if (!cancelled) { setLive(data); setError(null); } })
-        .catch((e: Error) => { if (!cancelled) setError(e.message || 'Not reporting live'); });
-    };
-    load();
-    const id = window.setInterval(load, LIVE_POLL_INTERVAL);
-    document.addEventListener('visibilitychange', load);
-    return () => {
-      cancelled = true;
-      window.clearInterval(id);
-      document.removeEventListener('visibilitychange', load);
-    };
+  // Fetched on open and on Refresh only — no timer. The router reports every
+  // few seconds and the server answers from memory, so each fetch is current.
+  const [loading, setLoading] = useState(false);
+  const fetchLive = useCallback(() => {
+    if (!routerId) return Promise.resolve();
+    return api.getRouterLive(routerId)
+      .then((data) => { setLive(data); setError(null); })
+      .catch((e: Error) => setError(e.message || 'Not reporting live'));
   }, [routerId]);
+  useEffect(() => { void fetchLive(); }, [fetchLive]);
+  const load = () => {
+    setLoading(true);
+    void fetchLive().finally(() => setLoading(false));
+  };
 
   const memUsed = live && live.total_memory && live.free_memory !== null
     ? Math.round(((live.total_memory - live.free_memory) / live.total_memory) * 100)
@@ -60,6 +54,11 @@ export default function RouterLiveClient() {
         title="Router live view"
         subtitle={live ? `${live.board || 'Router'} · RouterOS ${live.version}` : 'Real-time push'}
         backHref="/routers"
+        action={
+          <button type="button" onClick={load} disabled={loading} className="btn-primary text-sm disabled:opacity-50">
+            {loading ? 'Refreshing…' : 'Refresh'}
+          </button>
+        }
       />
 
       {error && !live && (
