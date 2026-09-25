@@ -1,7 +1,12 @@
 'use client';
 
 import { useState } from 'react';
-import { OpsHealthProblemRouter, OpsHealthProblemRoutersSection, OpsHealthProblemState } from '../lib/types';
+import {
+  OpsHealthProblemRouter,
+  OpsHealthProblemRoutersSection,
+  OpsHealthProblemState,
+  OpsHealthRouterDiagnosis,
+} from '../lib/types';
 
 // Problem routers: the routers costing paying customers now, and whether the
 // fixes we applied held. One plain reason per router; click opens its look-back.
@@ -14,6 +19,41 @@ const STYLE: Record<OpsHealthProblemState, { dot: string; chip: string; label: s
   fixed: { dot: 'bg-emerald-500', chip: 'bg-emerald-500/10 text-emerald-500 border-emerald-500/30', label: 'fixed' },
 };
 const ORDER: OpsHealthProblemState[] = ['attention', 'recovering', 'fixed'];
+
+// What the live probe (TCP connects + one API login + the router's own push)
+// says is wrong. Unknown ailments from a newer backend fall back to a neutral chip.
+const AILMENT: Record<string, { label: string; chip: string }> = {
+  overloaded: { label: 'Overloaded router', chip: 'bg-orange-500/10 text-orange-500 border-orange-500/30' },
+  lossy_line: { label: 'Line losing packets', chip: 'bg-amber-500/10 text-amber-500 border-amber-500/30' },
+  udp_blocked: { label: 'UDP blocked', chip: 'bg-violet-500/10 text-violet-500 border-violet-500/30' },
+  tunnel_down: { label: 'Tunnel down', chip: 'bg-violet-500/10 text-violet-500 border-violet-500/30' },
+  offline: { label: 'Offline', chip: 'bg-red-500/10 text-red-500 border-red-500/30' },
+  healthy_now: { label: 'Healthy now', chip: 'bg-emerald-500/10 text-emerald-500 border-emerald-500/30' },
+  login_rejected: { label: 'Login rejected', chip: 'bg-red-500/10 text-red-500 border-red-500/30' },
+  inconclusive: { label: 'Inconclusive', chip: 'bg-background-tertiary text-foreground-muted border-border' },
+};
+const NEUTRAL_CHIP = 'bg-background-tertiary text-foreground-muted border-border';
+
+function Diagnosis({ d }: { d: OpsHealthRouterDiagnosis }) {
+  const style = AILMENT[d.ailment];
+  return (
+    <div className="mt-0.5" data-testid="problem-router-diagnosis" data-ailment={d.ailment}>
+      <div className="flex items-center gap-1 flex-wrap">
+        <span className={`inline-flex items-center px-1.5 py-0.5 rounded border text-[10px] font-medium ${style?.chip ?? NEUTRAL_CHIP}`}>
+          {style?.label ?? d.ailment}
+        </span>
+        {d.sstp_candidate && (
+          <span className="inline-flex items-center px-1.5 py-0.5 rounded border border-sky-500/30 bg-sky-500/10 text-[10px] font-medium text-sky-500" data-testid="problem-router-sstp-candidate">
+            SSTP candidate
+          </span>
+        )}
+      </div>
+      <p className="text-[11px] text-foreground-muted break-words" title={d.probed_at ? `Probed ${d.probed_at}` : undefined}>
+        {d.evidence} · {d.action}
+      </p>
+    </div>
+  );
+}
 
 const fmt = (n: number | null | undefined) => (typeof n === 'number' ? n.toLocaleString() : '—');
 
@@ -48,6 +88,7 @@ function Row({ r, onOpen, tunnelLabels }: {
           )}
         </div>
         <p className="text-[11px] text-foreground-muted break-words">{r.reason}</p>
+        {r.diagnosis && <Diagnosis d={r.diagnosis} />}
       </div>
     </li>
   );

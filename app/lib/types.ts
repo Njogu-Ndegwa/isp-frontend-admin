@@ -393,6 +393,32 @@ export interface OpsHealthProblemRouter {
   /** Paid customers not yet connected on this router right now (older than the 5-min grace). */
   waiting?: number;
   oldest_waiting_at?: string | null;
+  /** Live "what is ailing it" from the router-diagnosis probe; absent/null until probed. */
+  diagnosis?: OpsHealthRouterDiagnosis | null;
+}
+
+export type OpsHealthRouterAilment =
+  | 'overloaded'
+  | 'lossy_line'
+  | 'udp_blocked'
+  | 'tunnel_down'
+  | 'offline'
+  | 'healthy_now'
+  | 'login_rejected'
+  | 'inconclusive';
+
+export interface OpsHealthRouterDiagnosis {
+  /** Unknown values from a newer backend render as a neutral chip. */
+  ailment: OpsHealthRouterAilment;
+  /** Short human evidence, e.g. "TCP 5/5, API login timed out, CPU 100% (push 3 min ago)". */
+  evidence: string;
+  /** Suggested next step. */
+  action: string;
+  /** True when moving management to SSTP is the likely fix. */
+  sstp_candidate: boolean;
+  tcp_ok?: number;
+  login?: 'ok' | 'timeout' | 'rejected' | 'error' | 'skipped';
+  probed_at?: string;
 }
 
 export interface OpsHealthProblemRoutersSection {
