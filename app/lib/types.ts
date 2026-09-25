@@ -390,6 +390,9 @@ export interface OpsHealthProblemRouter {
   after: OpsHealthProblemWindow;
   before: OpsHealthProblemWindow;
   last_online_at: string | null;
+  /** Paid customers not yet connected on this router right now (older than the 5-min grace). */
+  waiting?: number;
+  oldest_waiting_at?: string | null;
 }
 
 export interface OpsHealthProblemRoutersSection {
@@ -397,6 +400,9 @@ export interface OpsHealthProblemRoutersSection {
   counts: Record<OpsHealthProblemState, number>;
   paid_not_connected_24h: number;
   paid_not_connected_daily_avg_before: number;
+  /** Live: paid customers still waiting to be connected, and on how many routers. */
+  waiting_now?: number;
+  waiting_routers?: number;
   routers: OpsHealthProblemRouter[];
   routers_total: number;
 }
