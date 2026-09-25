@@ -1426,6 +1426,64 @@ export interface CustomerUsageResponse {
   plan_data_cap_mb: number | null;
   plan_fup_action: FupAction | null;
   period: CustomerUsagePeriod | null;
+  /** Seconds-fresh device state; only for routers on the real-time push pilot. */
+  live?: CustomerUsageLive | null;
+}
+
+/** Why a device is (or is not) on its own speed limit, as the router sees it. */
+export type LiveQueueStatus = 'ok' | 'shadowed' | 'no_limit' | 'offline';
+
+export interface CustomerUsageLive {
+  online: boolean;
+  ip: string | null;
+  rate_down_bps: number | null;
+  rate_up_bps: number | null;
+  seen_at: string;
+  reported_at: string;
+  report_age_seconds: number;
+  interval_seconds: number;
+  queue_status: LiveQueueStatus;
+  max_limit: string | null;
+}
+
+export interface RouterLiveDevice {
+  customer_id: number | null;
+  customer_name: string | null;
+  mac: string;
+  ip: string | null;
+  online: boolean;
+  rate_down_bps: number | null;
+  rate_up_bps: number | null;
+  session_download_bytes: number;
+  session_upload_bytes: number;
+  seen_at: string;
+  queue_status: LiveQueueStatus;
+  max_limit: string | null;
+}
+
+export interface RouterLive {
+  router_id: number;
+  reported_at: string;
+  report_age_seconds: number;
+  interval_seconds: number;
+  pushes_since_restart: number;
+  cpu_load: number | null;
+  free_memory: number | null;
+  total_memory: number | null;
+  uptime: string;
+  version: string;
+  board: string;
+  wan_rx_bps: number | null;
+  wan_tx_bps: number | null;
+  hotspot_active: number;
+  pppoe_active: number;
+  queue_count: number;
+  orphan_queues: number;
+  shadowed: number;
+  no_limit: number;
+  last_repair_at: string | null;
+  last_repair_result: Record<string, unknown> | null;
+  devices: RouterLiveDevice[];
 }
 
 export interface ResellerTopUsageEntry {

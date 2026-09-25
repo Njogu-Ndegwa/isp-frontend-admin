@@ -5,13 +5,18 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { api } from '../../lib/api';
 import { copyText } from '../../lib/clipboard';
-import { Customer, Plan, Router as RouterType, UpdateCustomerRequest, CustomerUsageResponse } from '../../lib/types';
+import { Customer, Plan, Router as RouterType, UpdateCustomerRequest, CustomerUsageResponse, CustomerUsageLive } from '../../lib/types';
+import {
+  LIVE_POLL_INTERVAL, QUEUE_STATUS_LABEL, QUEUE_STATUS_TONE, formatAge, formatBps, formatMaxLimit,
+} from '../../lib/live';
 import { useAlert } from '../../context/AlertContext';
 import Header from '../../components/Header';
 import { PageLoader } from '../../components/LoadingSpinner';
 import DateTimePicker from '../../components/DateTimePicker';
 import { utcToGMT3Input, gmt3InputToISO } from '../../lib/dateUtils';
 import { formatAmount } from '../../lib/format';
+
+const USAGE_POLL_INTERVAL = 60_000;
 
 export default function EditCustomerPage() {
   const params = useParams();
@@ -77,16 +82,30 @@ export default function EditCustomerPage() {
   const isPPPoE = connectionType === 'pppoe';
   const tracksUsage = connectionType === 'pppoe' || connectionType === 'hotspot';
 
+  // Routers report usage every ~2 minutes, so poll while the page is open
+  // instead of showing the number from when it loaded. Same cadence as the
+  // customers list; every few seconds when the router reports live (real-time
+  // push pilot). A failed poll keeps the last good value.
+  const usageCustomerId = customer?.id;
+  const livePolling = Boolean(usage?.live);
   useEffect(() => {
-    if (!customer || !tracksUsage) return;
+    if (!usageCustomerId || !tracksUsage) return;
     let cancelled = false;
-    api.getCustomerUsage(customer.id).then((data) => {
-      if (!cancelled) setUsage(data);
-    }).catch(() => {
-      if (!cancelled) setUsage(null);
-    });
-    return () => { cancelled = true; };
-  }, [customer, tracksUsage]);
+    const load = () => {
+      if (document.visibilityState === 'hidden') return;
+      api.getCustomerUsage(usageCustomerId).then((data) => {
+        if (!cancelled) setUsage(data);
+      }).catch(() => {});
+    };
+    load();
+    const intervalId = window.setInterval(load, livePolling ? LIVE_POLL_INTERVAL : USAGE_POLL_INTERVAL);
+    document.addEventListener('visibilitychange', load);
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+      document.removeEventListener('visibilitychange', load);
+    };
+  }, [usageCustomerId, tracksUsage, livePolling]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -172,6 +191,9 @@ export default function EditCustomerPage() {
       />
 
       <div className="max-w-lg mx-auto space-y-4">
+        {usage?.live && customer && (
+          <LivePanel live={usage.live} routerId={customer.router_id ?? customer.router?.id ?? null} />
+        )}
         {tracksUsage && usage && <UsagePanel usage={usage} />}
 
         {isPPPoE && (
@@ -399,6 +421,56 @@ export default function EditCustomerPage() {
             </div>
           </div>
         </div>
+      )}
+    </div>
+  );
+}
+
+function LivePanel({ live, routerId }: { live: CustomerUsageLive; routerId: number | null }) {
+  return (
+    <div className="card p-4 space-y-3" data-testid="live-panel">
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-semibold text-foreground-muted uppercase tracking-wider">Live now</h3>
+        <span className="text-[11px] text-foreground-muted tabular-nums">
+          Router report {formatAge(live.report_age_seconds)} · every {live.interval_seconds}s
+        </span>
+      </div>
+      <div className="flex items-center gap-2">
+        {live.online ? (
+          <span className="inline-flex items-center gap-1.5 text-emerald-500 text-sm font-medium">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" /> Online
+          </span>
+        ) : (
+          <span className="inline-flex items-center gap-1.5 text-foreground-muted text-sm font-medium">
+            <span className="w-2 h-2 rounded-full bg-foreground-muted/40" /> Offline
+          </span>
+        )}
+        {live.ip && <span className="font-mono text-xs text-foreground-muted">{live.ip}</span>}
+      </div>
+      {live.online && (
+        <div className="grid grid-cols-2 gap-3">
+          <div className="rounded-lg bg-background-tertiary/50 p-3">
+            <p className="text-[10px] uppercase tracking-wider text-foreground-muted">Download now</p>
+            <p className="text-lg font-semibold text-accent-primary tabular-nums">{formatBps(live.rate_down_bps)}</p>
+          </div>
+          <div className="rounded-lg bg-background-tertiary/50 p-3">
+            <p className="text-[10px] uppercase tracking-wider text-foreground-muted">Upload now</p>
+            <p className="text-lg font-semibold text-teal-500 tabular-nums">{formatBps(live.rate_up_bps)}</p>
+          </div>
+        </div>
+      )}
+      {live.online && (
+        <div className="text-xs space-y-1">
+          <p className={QUEUE_STATUS_TONE[live.queue_status]}>{QUEUE_STATUS_LABEL[live.queue_status]}</p>
+          {live.max_limit && (
+            <p className="text-foreground-muted">Speed limit in effect: {formatMaxLimit(live.max_limit)}</p>
+          )}
+        </div>
+      )}
+      {routerId && (
+        <Link href={`/routers/${routerId}/live`} className="text-xs text-accent-primary hover:underline">
+          Open router live view →
+        </Link>
       )}
     </div>
   );
