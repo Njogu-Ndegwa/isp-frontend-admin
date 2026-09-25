@@ -1447,6 +1447,7 @@ export interface CustomerUsageLive {
 }
 
 export interface RouterLiveDevice {
+  kind: 'hotspot' | 'pppoe';
   customer_id: number | null;
   customer_name: string | null;
   mac: string;
