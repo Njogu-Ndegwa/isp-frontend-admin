@@ -23,21 +23,23 @@ import PortsUsageCard from './components/PortsUsageCard';
 import { subscriptionAlertMessage } from '../lib/subscriptionAlert';
 import { useT, type TFunction } from '../lib/i18n';
 
+// Small stagger only. These used to be 1.5-8 s apart so the page didn't hit a
+// router with several live RouterOS reads at once; router cards are now served
+// from the router's own push report and the database (~0.3-0.6 s each), so a
+// long delay only made the page feel slow.
 const DASHBOARD_LOAD_DELAYS_MS = {
-  mikrotik: 1500,
-  subscription: 3000,
-  topUsers: 4500,
-  usage: 5500,
-  bandwidth: 6500,
-  portMap: 7500,
-  onboarding: 8000,
+  mikrotik: 0,
+  portMap: 100,
+  bandwidth: 200,
+  topUsers: 300,
+  usage: 400,
+  subscription: 600,
+  onboarding: 1500,
 } as const;
 
-const MIKROTIK_REFRESH_INTERVAL_MS = 60_000;
-// Port analytics does heavy live RouterOS reads (60s backend cache) — refresh slowly.
-const PORT_MAP_REFRESH_INTERVAL_MS = 120_000;
-const TOP_USERS_REFRESH_INTERVAL_MS = 60_000;
-const BANDWIDTH_REFRESH_INTERVAL_MS = 120_000;
+// No refresh timers: router cards load when the dashboard opens (or the router
+// / period changes) and when the user presses Refresh, so server load follows
+// actual views rather than open tabs.
 const STALE_HEALTH_RETRY_MIN_SECONDS = 20;
 const STALE_HEALTH_RETRY_MAX_SECONDS = 60;
 
@@ -226,7 +228,7 @@ export default function DashboardPage() {
     loadAnalytics();
   }, [loadAnalytics]);
 
-  // MikroTik metrics - auto-refresh while the dashboard is visible.
+  // MikroTik metrics - loaded when the dashboard opens or the router changes.
   useEffect(() => {
     if (!selectedRouterId) return;
 
@@ -235,11 +237,7 @@ export default function DashboardPage() {
     };
 
     const timeout = window.setTimeout(refresh, DASHBOARD_LOAD_DELAYS_MS.mikrotik);
-    const interval = window.setInterval(refresh, MIKROTIK_REFRESH_INTERVAL_MS);
-    return () => {
-      window.clearTimeout(timeout);
-      window.clearInterval(interval);
-    };
+    return () => window.clearTimeout(timeout);
   }, [loadMikrotik, selectedRouterId]);
 
   useEffect(() => {
@@ -282,10 +280,8 @@ export default function DashboardPage() {
       : window.setTimeout(refresh, DASHBOARD_LOAD_DELAYS_MS.bandwidth);
     if (fetchImmediately) refresh();
 
-    const interval = window.setInterval(refresh, BANDWIDTH_REFRESH_INTERVAL_MS);
     return () => {
       if (timeout !== undefined) window.clearTimeout(timeout);
-      window.clearInterval(interval);
     };
   }, [loadBandwidth, selectedRouterId, downloadUsagePeriod]);
 
@@ -297,14 +293,10 @@ export default function DashboardPage() {
     };
 
     const timeout = window.setTimeout(refresh, DASHBOARD_LOAD_DELAYS_MS.topUsers);
-    const interval = window.setInterval(refresh, TOP_USERS_REFRESH_INTERVAL_MS);
-    return () => {
-      window.clearTimeout(timeout);
-      window.clearInterval(interval);
-    };
+    return () => window.clearTimeout(timeout);
   }, [loadTopUsers, selectedRouterId]);
 
-  // Port map — staggered load, slow refresh while the dashboard is visible.
+  // Port map — loaded when the dashboard opens or the router changes.
   useEffect(() => {
     if (!selectedRouterId) return;
 
@@ -313,11 +305,7 @@ export default function DashboardPage() {
     };
 
     const timeout = window.setTimeout(refresh, DASHBOARD_LOAD_DELAYS_MS.portMap);
-    const interval = window.setInterval(refresh, PORT_MAP_REFRESH_INTERVAL_MS);
-    return () => {
-      window.clearTimeout(timeout);
-      window.clearInterval(interval);
-    };
+    return () => window.clearTimeout(timeout);
   }, [loadPortMap, selectedRouterId]);
 
   // Load monthly top FUP usage (reseller-wide)
