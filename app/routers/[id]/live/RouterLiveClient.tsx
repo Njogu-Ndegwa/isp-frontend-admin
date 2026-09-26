@@ -161,6 +161,9 @@ export default function RouterLiveClient() {
                           {d.customer_name || `Customer ${d.customer_id}`}
                         </Link>
                       ) : d.mac}
+                      {d.kind === 'pppoe' && (
+                        <span className="ml-2 rounded bg-accent-primary/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-accent-primary">PPPoE</span>
+                      )}
                       <p className="font-mono text-[11px] text-foreground-muted">{d.ip || d.mac}</p>
                     </td>
                     <td className="p-3">

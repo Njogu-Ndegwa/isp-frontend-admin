@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { api } from '../lib/api';
-import { DashboardAnalytics, MikroTikMetrics, BandwidthHistory, TopUsersResponse, SubscriptionAlert, ResellerTopUsageEntry, SubscriptionOverview, PortAnalyticsResponse } from '../lib/types';
+import { DashboardAnalytics, MikroTikMetrics, BandwidthHistory, TopUsersResponse, TopUsersWindow, SubscriptionAlert, SubscriptionOverview, PortAnalyticsResponse } from '../lib/types';
 import { useAuth } from '../context/AuthContext';
 import SubscriptionAlertBanner from '../components/SubscriptionAlertBanner';
 import OnboardingChecklist from '../components/OnboardingChecklist';
@@ -23,21 +23,23 @@ import PortsUsageCard from './components/PortsUsageCard';
 import { subscriptionAlertMessage } from '../lib/subscriptionAlert';
 import { useT, type TFunction } from '../lib/i18n';
 
+// Small stagger only. These used to be 1.5-8 s apart so the page didn't hit a
+// router with several live RouterOS reads at once; router cards are now served
+// from the router's own push report and the database (~0.3-0.6 s each), so a
+// long delay only made the page feel slow.
 const DASHBOARD_LOAD_DELAYS_MS = {
-  mikrotik: 1500,
-  subscription: 3000,
-  topUsers: 4500,
-  usage: 5500,
-  bandwidth: 6500,
-  portMap: 7500,
-  onboarding: 8000,
+  mikrotik: 0,
+  portMap: 100,
+  bandwidth: 200,
+  topUsers: 300,
+  usage: 400,
+  subscription: 600,
+  onboarding: 1500,
 } as const;
 
-const MIKROTIK_REFRESH_INTERVAL_MS = 60_000;
-// Port analytics does heavy live RouterOS reads (60s backend cache) — refresh slowly.
-const PORT_MAP_REFRESH_INTERVAL_MS = 120_000;
-const TOP_USERS_REFRESH_INTERVAL_MS = 60_000;
-const BANDWIDTH_REFRESH_INTERVAL_MS = 120_000;
+// No refresh timers: router cards load when the dashboard opens (or the router
+// / period changes) and when the user presses Refresh, so server load follows
+// actual views rather than open tabs.
 const STALE_HEALTH_RETRY_MIN_SECONDS = 20;
 const STALE_HEALTH_RETRY_MAX_SECONDS = 60;
 
@@ -80,8 +82,7 @@ export default function DashboardPage() {
   const [portMapError, setPortMapError] = useState<string | null>(null);
 
   // Top FUP usage state (reseller-wide, monthly)
-  const [topUsageThisMonth, setTopUsageThisMonth] = useState<ResellerTopUsageEntry[] | null>(null);
-  const [topUsageLoading, setTopUsageLoading] = useState(true);
+  const [topUsersWindow, setTopUsersWindow] = useState<TopUsersWindow>('today');
 
   // UI state - use DateFilter type for flexibility
   const [dateFilter, setDateFilter] = useState<DateFilter>({ type: 'preset', preset: 'today' });
@@ -172,20 +173,20 @@ export default function DashboardPage() {
     }
   }, [downloadUsagePeriod, selectedRouterId]);
 
-  // Fetch top users (non-blocking) — only when a router is selected
+  // Top users by data used in the chosen window (this router, or all of the
+  // account's routers when none is selected).
   const loadTopUsers = useCallback(async () => {
-    if (!selectedRouterId) return;
     try {
       setTopUsersLoading(true);
       setTopUsersError(null);
-      const users = await api.getTopUsers(10, selectedRouterId);
+      const users = await api.getTopUsers(10, selectedRouterId ?? undefined, topUsersWindow);
       setTopUsers(users);
     } catch (err) {
       setTopUsersError(err instanceof Error ? err.message : 'Failed to load top users');
     } finally {
       setTopUsersLoading(false);
     }
-  }, [selectedRouterId]);
+  }, [selectedRouterId, topUsersWindow]);
 
   // Fetch port analytics (non-blocking) — only when a router is selected
   const loadPortMap = useCallback(async () => {
@@ -226,7 +227,7 @@ export default function DashboardPage() {
     loadAnalytics();
   }, [loadAnalytics]);
 
-  // MikroTik metrics - auto-refresh while the dashboard is visible.
+  // MikroTik metrics - loaded when the dashboard opens or the router changes.
   useEffect(() => {
     if (!selectedRouterId) return;
 
@@ -235,11 +236,7 @@ export default function DashboardPage() {
     };
 
     const timeout = window.setTimeout(refresh, DASHBOARD_LOAD_DELAYS_MS.mikrotik);
-    const interval = window.setInterval(refresh, MIKROTIK_REFRESH_INTERVAL_MS);
-    return () => {
-      window.clearTimeout(timeout);
-      window.clearInterval(interval);
-    };
+    return () => window.clearTimeout(timeout);
   }, [loadMikrotik, selectedRouterId]);
 
   useEffect(() => {
@@ -282,29 +279,21 @@ export default function DashboardPage() {
       : window.setTimeout(refresh, DASHBOARD_LOAD_DELAYS_MS.bandwidth);
     if (fetchImmediately) refresh();
 
-    const interval = window.setInterval(refresh, BANDWIDTH_REFRESH_INTERVAL_MS);
     return () => {
       if (timeout !== undefined) window.clearTimeout(timeout);
-      window.clearInterval(interval);
     };
   }, [loadBandwidth, selectedRouterId, downloadUsagePeriod]);
 
   useEffect(() => {
-    if (!selectedRouterId) return;
-
     const refresh = () => {
       if (isDashboardVisible()) void loadTopUsers();
     };
 
     const timeout = window.setTimeout(refresh, DASHBOARD_LOAD_DELAYS_MS.topUsers);
-    const interval = window.setInterval(refresh, TOP_USERS_REFRESH_INTERVAL_MS);
-    return () => {
-      window.clearTimeout(timeout);
-      window.clearInterval(interval);
-    };
-  }, [loadTopUsers, selectedRouterId]);
+    return () => window.clearTimeout(timeout);
+  }, [loadTopUsers]);
 
-  // Port map — staggered load, slow refresh while the dashboard is visible.
+  // Port map — loaded when the dashboard opens or the router changes.
   useEffect(() => {
     if (!selectedRouterId) return;
 
@@ -313,32 +302,9 @@ export default function DashboardPage() {
     };
 
     const timeout = window.setTimeout(refresh, DASHBOARD_LOAD_DELAYS_MS.portMap);
-    const interval = window.setInterval(refresh, PORT_MAP_REFRESH_INTERVAL_MS);
-    return () => {
-      window.clearTimeout(timeout);
-      window.clearInterval(interval);
-    };
+    return () => window.clearTimeout(timeout);
   }, [loadPortMap, selectedRouterId]);
 
-  // Load monthly top FUP usage (reseller-wide)
-  useEffect(() => {
-    let cancelled = false;
-    const timeout = window.setTimeout(() => {
-      setTopUsageLoading(true);
-      api.getResellerTopUsage(10).then((rows) => {
-        if (!cancelled) setTopUsageThisMonth(rows);
-      }).catch(() => {
-        if (!cancelled) setTopUsageThisMonth([]);
-      }).finally(() => {
-        if (!cancelled) setTopUsageLoading(false);
-      });
-    }, DASHBOARD_LOAD_DELAYS_MS.usage);
-
-    return () => {
-      cancelled = true;
-      window.clearTimeout(timeout);
-    };
-  }, []);
 
   const refreshAll = () => {
     loadAnalytics();
@@ -420,7 +386,7 @@ export default function DashboardPage() {
             {/* Row 4 — Bandwidth History (6) + Top Users (6) side by side.
                 Top Users spans full width only when there's no router (Bandwidth hidden). */}
             {selectedRouterId && <div className="xl:col-span-6 min-w-0"><BandwidthSection data={bandwidth} loading={bandwidthLoading} error={bandwidthError} onRetry={loadBandwidth} /></div>}
-            <div className={`min-w-0 ${selectedRouterId ? 'xl:col-span-6' : 'xl:col-span-12'}`}><TopUsers selectedRouterId={selectedRouterId} live={topUsers} liveLoading={topUsersLoading} liveError={topUsersError} onRetryLive={loadTopUsers} period={topUsageThisMonth} periodLoading={topUsageLoading} /></div>
+            <div className={`min-w-0 ${selectedRouterId ? 'xl:col-span-6' : 'xl:col-span-12'}`}><TopUsers selectedRouterId={selectedRouterId} data={topUsers} loading={topUsersLoading} error={topUsersError} onRetry={loadTopUsers} window={topUsersWindow} onWindowChange={setTopUsersWindow} /></div>
 
             {/* Row 6 — collapsible detail (full width) */}
             {!analyticsError && !analyticsLoading && data && (

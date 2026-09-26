@@ -211,6 +211,7 @@ import {
   CustomerUsageResponse,
   CustomerUsagePeriod,
   RouterLive,
+  TopUsersWindow,
   ResellerTopUsageEntry,
   PortalSettingsResponse,
   PublicPortalResponse,
@@ -241,6 +242,7 @@ import {
   OpsHealthResponse,
   OpsHealthHistory,
   OpsHealthWindowReport,
+  OpsHealthProblemRoutersSection,
   AdminSubscriptionCollectionsSummary,
   AdminSubscriptionPaymentsResponse,
   OwnerBankDestination,
@@ -528,6 +530,15 @@ class ApiClient {
     } catch { return null; }
   }
 
+  // GET /api/admin/ops-health/problem-routers?hours=N (1..72) -> problem routers
+  // judged live on the last N hours, with the rules used (`criteria`).
+  async getOpsHealthProblemRouters(hours: number): Promise<OpsHealthProblemRoutersSection | null> {
+    try {
+      const response = await fetch(`${BASE_URL}/admin/ops-health/problem-routers?hours=${hours}`, { headers: this.getHeaders() });
+      return await this.handleResponse<OpsHealthProblemRoutersSection>(response);
+    } catch { return null; }
+  }
+
   // GET /api/admin/ops-health/history?hours=N -> { points: [...] }
   async getOpsHealthHistory(hours = 24): Promise<OpsHealthHistory | null> {
     try {
@@ -677,10 +688,11 @@ class ApiClient {
   }
 
   // Top Users by Bandwidth
-  async getTopUsers(limit = 10, routerId?: number): Promise<TopUsersResponse> {
+  async getTopUsers(limit = 10, routerId?: number, window: TopUsersWindow = 'today'): Promise<TopUsersResponse> {
     if (this.isDemoMode()) return (await loadDemo()).demoTopUsers;
     const params = new URLSearchParams();
     params.append('limit', limit.toString());
+    params.append('window', window);
     if (routerId) {
       params.append('router_id', routerId.toString());
     }

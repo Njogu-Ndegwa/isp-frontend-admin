@@ -386,7 +386,8 @@ export interface OpsHealthProblemRouter {
   reason: string;
   /** Present when the router's management tunnel was changed in the last 7 days. */
   fix: { tunnel: string; label: string; at: string; at_short: string } | null;
-  window: 'since_fix' | 'last_24h';
+  /** since_fix: judged since a tunnel change; last_24h: snapshot; last_window: the chosen window. */
+  window: 'since_fix' | 'last_24h' | 'last_window';
   after: OpsHealthProblemWindow;
   before: OpsHealthProblemWindow;
   last_online_at: string | null;
@@ -431,6 +432,15 @@ export interface OpsHealthProblemRoutersSection {
   waiting_routers?: number;
   routers: OpsHealthProblemRouter[];
   routers_total: number;
+  /** Present on GET /admin/ops-health/problem-routers?hours=N (a chosen window). */
+  window_hours?: number;
+  window_label?: string;
+  paid_not_connected_window?: number;
+  /** Average lost per window-length over the rest of the week. */
+  paid_not_connected_avg_before?: number;
+  /** The rules the routers were judged by, in plain words. */
+  criteria?: string[];
+  generated_at?: string;
 }
 
 export interface OpsHealthControlPath {
@@ -1473,6 +1483,7 @@ export interface CustomerUsageLive {
 }
 
 export interface RouterLiveDevice {
+  kind: 'hotspot' | 'pppoe';
   customer_id: number | null;
   customer_name: string | null;
   mac: string;
@@ -2462,10 +2473,20 @@ export interface TopUser {
   customerId: number;
 }
 
+export type TopUsersWindow = '1h' | 'today' | '7d' | '30d';
+
 export interface TopUsersResponse {
   topUsers: TopUser[];
   totalQueues: number;
   generatedAt: string;
+  window?: TopUsersWindow;
+  windowLabel?: string;
+  windowStart?: string;
+  windowEnd?: string;
+  /** First hour of per-customer history in scope; windows reaching further back are partial. */
+  historySince?: string | null;
+  windowFullyCovered?: boolean;
+  totalTracked?: number;
 }
 
 // Advertiser Types

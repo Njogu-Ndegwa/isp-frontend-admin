@@ -91,6 +91,17 @@ function ownerLabel(router: Router): string {
   return router.owner_name || (router.owner_user_id ? `User #${router.owner_user_id}` : '-');
 }
 
+// Suspended is where lapsed trials and unpaid subscriptions end up, so these
+// owners are almost always not real users any more.
+const LAPSED_OWNER_STATUSES = new Set(['suspended', 'inactive']);
+
+function hasLapsedOwner(router: Router): boolean {
+  return (
+    router.owner_role === 'reseller' &&
+    LAPSED_OWNER_STATUSES.has(router.owner_subscription_status ?? '')
+  );
+}
+
 function backupStatusLabel(status?: string | null): string {
   switch (status) {
     case 'verified':
@@ -432,7 +443,7 @@ export default function RoutersPage() {
 // ---------------------------------------------------------------------------
 
 function RoutersTab({
-  routers,
+  routers: allRouters,
   loading,
   error,
   selectedRouter,
@@ -543,6 +554,11 @@ function RoutersTab({
   );
   const batchPreviewReady = Boolean(batchPreview && batchPreviewMatchesControls);
   const batchRunning = batchJob ? ['queued', 'running'].includes(batchJob.status) : false;
+  const [showLapsedOwners, setShowLapsedOwners] = useState(false);
+  const lapsedOwnerCount = canManageBackupVpn ? allRouters.filter(hasLapsedOwner).length : 0;
+  const routers = canManageBackupVpn && !showLapsedOwners
+    ? allRouters.filter((router) => !hasLapsedOwner(router))
+    : allRouters;
   const onlineRouters = routers.filter((router) => router.status === 'online');
   const backupRouters = routers.filter(hasKnownBackup);
   const onlineBackupRouters = onlineRouters.filter(hasKnownBackup);
@@ -1004,6 +1020,16 @@ function RoutersTab({
           <span className="text-sm">
             {routers.length} routers visible{canManageBackupVpn ? `, ${onlineRouters.length} online` : ''}
           </span>
+          {lapsedOwnerCount > 0 && (
+            <button
+              onClick={() => setShowLapsedOwners((v) => !v)}
+              className="text-xs text-accent-primary hover:underline"
+            >
+              {showLapsedOwners
+                ? 'Hide expired/suspended owners'
+                : `+${lapsedOwnerCount} from expired/suspended owners`}
+            </button>
+          )}
         </div>
         <div className="flex items-center gap-2">
           <button onClick={loadRouters} className="btn-secondary flex items-center gap-2 text-sm">
