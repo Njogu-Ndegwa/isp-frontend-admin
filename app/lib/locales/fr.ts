@@ -60,6 +60,9 @@ export const FR: Record<string, string> = {
   'Overdue': 'En retard',
   'Due Soon': 'Bientôt dû',
   'Thanks, we have your card payment': 'Merci, nous avons reçu votre paiement par carte',
+  'Payment confirmed, your subscription is active': 'Paiement confirmé, votre abonnement est actif',
+  'Thank you! Your card payment went through.': 'Merci ! Votre paiement par carte a bien été effectué.',
+  'Confirming your card payment...': 'Confirmation de votre paiement par carte...',
   "Your subscription will be activated as soon as the payment is confirmed. You don't need to pay again.":
     "Votre abonnement sera activé dès que le paiement sera confirmé. Vous n'avez pas besoin de payer à nouveau.",
   'Pay Invoice': 'Payer la facture',

@@ -44,6 +44,9 @@ export default function SubscriptionSettingsPage() {
   const [requestingInvoice, setRequestingInvoice] = useState(false);
   const [requestInvoiceMsg, setRequestInvoiceMsg] = useState<string | null>(null);
   const [returnedFromCard, setReturnedFromCard] = useState(false);
+  // After checkout we ask the backend to verify with Paystack a few times.
+  // 'manual' = no Paystack key configured, an admin confirms instead.
+  const [cardCheck, setCardCheck] = useState<'checking' | 'activated' | 'pending' | 'manual' | null>(null);
 
   const fetchData = useCallback(async () => {
     try {
@@ -88,6 +91,7 @@ export default function SubscriptionSettingsPage() {
       const params = new URLSearchParams(window.location.search);
       if (params.get('card') === 'returned') {
         setReturnedFromCard(true);
+        setCardCheck('checking');
         params.delete('card');
         const rest = params.toString();
         window.history.replaceState(null, '', window.location.pathname + (rest ? `?${rest}` : ''));
@@ -97,7 +101,28 @@ export default function SubscriptionSettingsPage() {
     }
   }, []);
 
-  if (loading) return <PageLoader />;
+  useEffect(() => {
+    if (cardCheck !== 'checking') return;
+    let cancelled = false;
+    (async () => {
+      // Paystack can take a few seconds to settle the transaction.
+      for (let attempt = 0; attempt < 6 && !cancelled; attempt++) {
+        try {
+          const result = await api.verifyCardPayment();
+          if (cancelled) return;
+          if (!result.auto_verify) { setCardCheck('manual'); return; }
+          if (result.activated) { setCardCheck('activated'); fetchData(); return; }
+        } catch {
+          // keep trying; the background job also catches it later
+        }
+        await new Promise((resolve) => setTimeout(resolve, 4000));
+      }
+      if (!cancelled) setCardCheck('pending');
+    })();
+    return () => { cancelled = true; };
+  }, [cardCheck, fetchData]);
+
+  if (loading && !data) return <PageLoader />;
 
   if (error) {
     return (
@@ -147,7 +172,19 @@ export default function SubscriptionSettingsPage() {
   return (
     <div className="space-y-5 pb-24 md:pb-6">
 
-      {returnedFromCard && (
+      {returnedFromCard && cardCheck === 'activated' && (
+        <div className="rounded-2xl p-4 sm:p-5 bg-emerald-500/10 border border-emerald-500/25 text-sm text-foreground">
+          <p className="font-semibold text-emerald-500">{t('Payment confirmed, your subscription is active')}</p>
+          <p className="mt-1 text-foreground-muted">{t('Thank you! Your card payment went through.')}</p>
+        </div>
+      )}
+      {returnedFromCard && cardCheck === 'checking' && (
+        <div className="rounded-2xl p-4 sm:p-5 bg-amber-500/10 border border-amber-500/25 text-sm text-foreground flex items-center gap-3">
+          <span className="w-4 h-4 border-2 border-amber-500/30 border-t-amber-500 rounded-full animate-spin flex-shrink-0" />
+          <p>{t('Confirming your card payment...')}</p>
+        </div>
+      )}
+      {returnedFromCard && (cardCheck === 'pending' || cardCheck === 'manual') && (
         <div className="rounded-2xl p-4 sm:p-5 bg-emerald-500/10 border border-emerald-500/25 text-sm text-foreground">
           <p className="font-semibold text-emerald-500">{t('Thanks, we have your card payment')}</p>
           <p className="mt-1 text-foreground-muted">
