@@ -22,38 +22,120 @@ const STYLE: Record<OpsHealthProblemState, { dot: string; chip: string; label: s
 };
 const ORDER: OpsHealthProblemState[] = ['attention', 'recovering', 'fixed'];
 
-// What the live probe (TCP connects + one API login + the router's own push)
-// says is wrong. Unknown ailments from a newer backend fall back to a neutral chip.
-const AILMENT: Record<string, { label: string; chip: string }> = {
-  overloaded: { label: 'Overloaded router', chip: 'bg-orange-500/10 text-orange-500 border-orange-500/30' },
-  lossy_line: { label: 'Line losing packets', chip: 'bg-amber-500/10 text-amber-500 border-amber-500/30' },
-  udp_blocked: { label: 'UDP blocked', chip: 'bg-violet-500/10 text-violet-500 border-violet-500/30' },
-  tunnel_down: { label: 'Tunnel down', chip: 'bg-violet-500/10 text-violet-500 border-violet-500/30' },
-  offline: { label: 'Offline', chip: 'bg-red-500/10 text-red-500 border-red-500/30' },
-  healthy_now: { label: 'Healthy now', chip: 'bg-emerald-500/10 text-emerald-500 border-emerald-500/30' },
-  login_rejected: { label: 'Login rejected', chip: 'bg-red-500/10 text-red-500 border-red-500/30' },
-  inconclusive: { label: 'Inconclusive', chip: 'bg-background-tertiary text-foreground-muted border-border' },
+// What the diagnosis probe (timed TCP connects, at most one API login, the
+// router's push / check-in and payments) says is wrong. Admin only: these are
+// inferences. The backend sends the title; the local label is the fallback for
+// older backends, and unknown ailments from a newer one get a neutral chip.
+const AILMENT: Record<string, { label: string; chip: string; meaning: string }> = {
+  overloaded: {
+    label: 'Router overloaded', chip: 'bg-orange-500/10 text-orange-500 border-orange-500/30',
+    meaning: 'CPU 90%+ or under ~10 MB free, or the API login times out on a clean line.',
+  },
+  isp_blocks_server: {
+    label: 'ISP blocks our server', chip: 'bg-fuchsia-500/10 text-fuchsia-500 border-fuchsia-500/30',
+    meaning: 'Tunnel to Hetzner never handshakes while the AWS one works: reachable only via the fallback.',
+  },
+  replaced_router: {
+    label: 'Probably replaced', chip: 'bg-slate-500/10 text-slate-400 border-slate-500/30',
+    meaning: 'No payments for a day while another router of the same reseller took them over.',
+  },
+  congested_line: {
+    label: 'Internet line congested', chip: 'bg-yellow-500/10 text-yellow-600 border-yellow-500/30',
+    meaning: "Connects get through but slowly or erratically: the site line is saturated. SSTP won't fix it.",
+  },
+  lossy_line: {
+    label: 'Line dropping packets', chip: 'bg-amber-500/10 text-amber-500 border-amber-500/30',
+    meaning: 'Only some connects get through.',
+  },
+  udp_blocked: {
+    label: 'Tunnel blocked, site online', chip: 'bg-violet-500/10 text-violet-500 border-violet-500/30',
+    meaning: 'UDP tunnel dead, but the site shows life (push, check-in, payments).',
+  },
+  tunnel_down: {
+    label: 'Tunnel down, site online', chip: 'bg-violet-500/10 text-violet-500 border-violet-500/30',
+    meaning: 'Tunnel dead, but the site shows life (push, check-in, payments).',
+  },
+  offline: {
+    label: 'Site dark', chip: 'bg-red-500/10 text-red-500 border-red-500/30',
+    meaning: 'No tunnel, no push, no check-in, no recent payments: power or internet is down.',
+  },
+  healthy_now: {
+    label: 'Reachable now', chip: 'bg-emerald-500/10 text-emerald-500 border-emerald-500/30',
+    meaning: 'It answered; waiting payments will retry.',
+  },
+  login_rejected: {
+    label: 'API login rejected', chip: 'bg-rose-500/10 text-rose-500 border-rose-500/30',
+    meaning: 'The router refuses the stored API credentials.',
+  },
+  inconclusive: {
+    label: 'Inconclusive', chip: 'bg-background-tertiary text-foreground-muted border-border',
+    meaning: 'No verdict this round; it retries.',
+  },
 };
 const NEUTRAL_CHIP = 'bg-background-tertiary text-foreground-muted border-border';
+const chipBase = 'inline-flex items-center px-1.5 py-0.5 rounded border text-[10px] font-medium';
 
-function Diagnosis({ d }: { d: OpsHealthRouterDiagnosis }) {
+export function Diagnosis({ d, initialOpen = false }: { d: OpsHealthRouterDiagnosis; initialOpen?: boolean }) {
+  const [open, setOpen] = useState(initialOpen);
   const style = AILMENT[d.ailment];
+  const title = d.title || style?.label || d.ailment;
+  const facts = d.facts?.length ? d.facts : [d.evidence];
+  const hints = d.hints ?? [];
+  const hover = [...hints, d.evidence, `Next: ${d.action}`].join('\n');
   return (
     <div className="mt-0.5" data-testid="problem-router-diagnosis" data-ailment={d.ailment}>
       <div className="flex items-center gap-1 flex-wrap">
-        <span className={`inline-flex items-center px-1.5 py-0.5 rounded border text-[10px] font-medium ${style?.chip ?? NEUTRAL_CHIP}`}>
-          {style?.label ?? d.ailment}
-        </span>
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          aria-expanded={open}
+          title={hover}
+          className={`${chipBase} ${style?.chip ?? NEUTRAL_CHIP} hover:opacity-80`}
+          data-testid="problem-router-ailment"
+        >
+          {title}
+        </button>
         {d.sstp_candidate && (
-          <span className="inline-flex items-center px-1.5 py-0.5 rounded border border-sky-500/30 bg-sky-500/10 text-[10px] font-medium text-sky-500" data-testid="problem-router-sstp-candidate">
+          <span className={`${chipBase} border-sky-500/30 bg-sky-500/10 text-sky-500`} data-testid="problem-router-sstp-candidate">
             SSTP candidate
           </span>
         )}
+        {!open && hints[0] && (
+          <span className="text-[11px] text-foreground-muted truncate" data-testid="problem-router-hint">{hints[0]}</span>
+        )}
       </div>
-      <p className="text-[11px] text-foreground-muted break-words" title={d.probed_at ? `Probed ${d.probed_at}` : undefined}>
-        {d.evidence} · {d.action}
-      </p>
+      {open && (
+        <div className="mt-0.5 text-[11px] text-foreground-muted" data-testid="problem-router-diagnosis-detail">
+          {hints.length > 0 && (
+            <ul className="list-disc pl-4">{hints.map((h) => <li key={h} className="text-foreground">{h}</li>)}</ul>
+          )}
+          <p className="break-words">
+            <span className="font-medium">Evidence:</span> {facts.join(' · ')}
+          </p>
+          <p className="break-words">
+            <span className="font-medium">Next:</span> {d.action}
+          </p>
+          {d.probed_at && (
+            <p className="text-[10px]">
+              Probed {new Date(d.probed_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+            </p>
+          )}
+        </div>
+      )}
     </div>
+  );
+}
+
+export function DiagnosisLegend() {
+  return (
+    <ul className="mt-1 space-y-0.5" data-testid="problem-routers-legend">
+      {Object.entries(AILMENT).map(([key, a]) => (
+        <li key={key} className="flex items-start gap-1.5 text-[11px] text-foreground-muted">
+          <span className={`${chipBase} ${a.chip} flex-shrink-0`}>{a.label}</span>
+          <span>{a.meaning}</span>
+        </li>
+      ))}
+    </ul>
   );
 }
 
@@ -118,6 +200,7 @@ export default function ProblemRoutersCard({ section, onOpen, tunnelLabels = {},
 }) {
   const [showOutcomes, setShowOutcomes] = useState(false);
   const [showRules, setShowRules] = useState(false);
+  const [showLegend, setShowLegend] = useState(false);
   const [hours, setHours] = useState(initialHours);
   // Live result for `hours`; null means "use the snapshot" (24h) or "not loaded yet".
   const [live, setLive] = useState<OpsHealthProblemRoutersSection | null>(null);
@@ -173,6 +256,7 @@ export default function ProblemRoutersCard({ section, onOpen, tunnelLabels = {},
   const better = lost <= avg;
   const waiting = view?.waiting_now ?? 0;
   const waitingRouters = view?.waiting_routers ?? 0;
+  const diagnosed = !!view?.routers.some((r) => r.diagnosis);
   const pickedLabel = PROBLEM_WINDOWS.find((w) => w.hours === hours)?.label ?? `${hours}h`;
   return (
     <div className="rounded-xl border border-border bg-background-tertiary/40 p-3 mb-3" data-testid="ops-health-problem-routers">
@@ -271,6 +355,20 @@ export default function ProblemRoutersCard({ section, onOpen, tunnelLabels = {},
           {showOutcomes && (
             <ul className="mt-1">{outcomes.map((r) => <Row key={r.router_id} r={r} onOpen={onOpen} tunnelLabels={tunnelLabels} />)}</ul>
           )}
+        </div>
+      )}
+      {diagnosed && (
+        <div className="mt-2">
+          <button
+            type="button"
+            onClick={() => setShowLegend((v) => !v)}
+            aria-expanded={showLegend}
+            className="text-[11px] text-foreground-muted hover:text-foreground underline decoration-dotted underline-offset-2"
+            data-testid="problem-routers-legend-toggle"
+          >
+            What the labels mean
+          </button>
+          {showLegend && <DiagnosisLegend />}
         </div>
       )}
       {loadWindow && (

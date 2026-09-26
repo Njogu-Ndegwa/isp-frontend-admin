@@ -400,6 +400,9 @@ export interface OpsHealthProblemRouter {
 
 export type OpsHealthRouterAilment =
   | 'overloaded'
+  | 'isp_blocks_server'
+  | 'replaced_router'
+  | 'congested_line'
   | 'lossy_line'
   | 'udp_blocked'
   | 'tunnel_down'
@@ -408,17 +411,24 @@ export type OpsHealthRouterAilment =
   | 'login_rejected'
   | 'inconclusive';
 
+/** Admin-only inference (the reseller UI shows facts, not verdicts). */
 export interface OpsHealthRouterDiagnosis {
   /** Unknown values from a newer backend render as a neutral chip. */
   ailment: OpsHealthRouterAilment;
+  /** Short plain-English label, e.g. "ISP blocks our server". Older backends omit it. */
+  title?: string;
   /** Short human evidence, e.g. "TCP 5/5, API login timed out, CPU 100% (push 3 min ago)". */
   evidence: string;
+  /** The same evidence as separate facts. */
+  facts?: string[];
   /** Suggested next step. */
   action: string;
+  /** Why, when known, e.g. "RouterOS 7 too heavy for this board (hAP lite, 7.24.1)". */
+  hints?: string[];
   /** True when moving management to SSTP is the likely fix. */
   sstp_candidate: boolean;
   tcp_ok?: number;
-  login?: 'ok' | 'timeout' | 'rejected' | 'error' | 'skipped';
+  login?: 'ok' | 'timeout' | 'rejected' | 'error' | 'skipped' | 'spared';
   probed_at?: string;
 }
 

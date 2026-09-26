@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
-import ProblemRoutersCard from '../ProblemRoutersCard';
+import ProblemRoutersCard, { Diagnosis, DiagnosisLegend } from '../ProblemRoutersCard';
 import type { OpsHealthProblemRouter, OpsHealthProblemRoutersSection, OpsHealthRouterAilment } from '../../lib/types';
 
 const win = { payments: 0, lost: 0, first_try_pct: null, reach_pct: null, drops: 0 };
@@ -78,15 +78,18 @@ describe('ProblemRoutersCard', () => {
     expect(html).not.toContain('problem-routers-waiting');
   });
 
-  it('shows what is ailing each router: badge, SSTP candidate, evidence and next step', () => {
+  it('shows what is ailing each router as a chip, with evidence and next step on hover', () => {
     const html = render(section({
       counts: { attention: 3, recovering: 0, fixed: 0 },
       routers: [
-        router(101, 'attention', '4 paid customers not connected in the last 24h', {
+        router(483, 'attention', '4 paid customers not connected in the last 24h', {
           diagnosis: {
             ailment: 'overloaded',
-            evidence: 'TCP 5/5, API login timed out, CPU 100% (push 3 min ago)',
-            action: 'Reboot the router; if it recurs, upgrade hardware or RouterOS',
+            title: 'Router overloaded',
+            evidence: 'TCP 5/5, API login ok, no push, CPU 100% (at login), 5 MB free',
+            facts: ['TCP 5/5', 'API login ok', 'no push', 'CPU 100% (at login)', '5 MB free'],
+            action: 'Clear the stuck script jobs and check the schedulers, then reboot if needed',
+            hints: ['Scripts piling up (17 running jobs)', 'Hardware too small (hAP lite, 32 MB RAM)'],
             sstp_candidate: false,
             probed_at: '2026-09-25T12:00:00Z',
           },
@@ -101,29 +104,87 @@ describe('ProblemRoutersCard', () => {
         router(103, 'attention', '2 paid customers not connected in the last 24h'),
       ],
     }));
-    expect(html).toContain('Overloaded router');
-    expect(html).toContain('TCP 5/5, API login timed out, CPU 100% (push 3 min ago) · Reboot the router');
-    expect(html).toContain('Line losing packets');
-    expect(html).toContain('Move management to SSTP');
+    expect(html).toContain('>Router overloaded</button>');
+    // Hover carries the hints, the evidence and the next step.
+    expect(html).toContain('title="Scripts piling up (17 running jobs)\nHardware too small (hAP lite, 32 MB RAM)\n'
+      + 'TCP 5/5, API login ok, no push, CPU 100% (at login), 5 MB free\n'
+      + 'Next: Clear the stuck script jobs and check the schedulers, then reboot if needed"');
+    // Collapsed: the first hint is shown inline, details are not.
+    expect(html).toContain('>Scripts piling up (17 running jobs)</span>');
+    expect(html).not.toContain('problem-router-diagnosis-detail');
+    expect(html).toMatch(/aria-expanded="false"[^>]*>Router overloaded</);
+    // Older backend (no title): the local label is used.
+    expect(html).toContain('>Line dropping packets</button>');
     expect(html.match(/data-testid="problem-router-sstp-candidate"/g)).toHaveLength(1);
     expect(html.indexOf('SSTP candidate')).toBeGreaterThan(html.indexOf('R102'));
     // A row the probe has not reached yet renders exactly as before.
     expect(html.match(/data-testid="problem-router-diagnosis"/g)).toHaveLength(2);
   });
 
+  it('expands to the hints, the evidence facts and the next step', () => {
+    const html = renderToStaticMarkup(<Diagnosis initialOpen d={{
+      ailment: 'isp_blocks_server',
+      title: 'ISP blocks our server',
+      evidence: 'TCP 5/5, API login ok, no push, wg-hz handshake 9h47m ago, wg-aws handshake 40s ago',
+      facts: ['TCP 5/5', 'API login ok', 'no push', 'wg-hz handshake 9h47m ago', 'wg-aws handshake 40s ago'],
+      action: "The site's ISP drops our Hetzner server's replies — use the alternate server IP, or ask the reseller to contact the ISP",
+      hints: ['Reachable only through the AWS fallback'],
+      sstp_candidate: false,
+      probed_at: '2026-09-26T12:00:00Z',
+    }} />);
+    expect(html).toContain('data-testid="problem-router-diagnosis-detail"');
+    expect(html).toContain('Reachable only through the AWS fallback</li>');
+    expect(html).toContain('wg-hz handshake 9h47m ago · wg-aws handshake 40s ago');
+    expect(html).toContain('use the alternate server IP');
+    expect(html).toMatch(/aria-expanded="true"[^>]*>ISP blocks our server</);
+    expect(html).not.toContain('problem-router-hint'); // not repeated inline when open
+  });
+
   it.each<[OpsHealthRouterAilment, string]>([
-    ['udp_blocked', 'UDP blocked'],
-    ['offline', 'Offline'],
-    ['healthy_now', 'Healthy now'],
-  ])('labels the %s ailment as "%s"', (ailment, label) => {
+    ['overloaded', 'Router overloaded'],
+    ['isp_blocks_server', 'ISP blocks our server'],
+    ['replaced_router', 'Probably replaced'],
+    ['congested_line', 'Internet line congested'],
+    ['lossy_line', 'Line dropping packets'],
+    ['udp_blocked', 'Tunnel blocked, site online'],
+    ['tunnel_down', 'Tunnel down, site online'],
+    ['offline', 'Site dark'],
+    ['healthy_now', 'Reachable now'],
+    ['login_rejected', 'API login rejected'],
+    ['inconclusive', 'Inconclusive'],
+  ])('labels the %s ailment as "%s" and explains it in the legend', (ailment, label) => {
     const html = render(section({
       routers: [router(7, 'attention', 'x', {
         diagnosis: { ailment, evidence: 'TCP 0/5, no push', action: 'Do the thing', sstp_candidate: false },
       })],
     }));
     expect(html).toContain(`data-ailment="${ailment}"`);
-    expect(html).toContain(`>${label}<`);
+    expect(html).toContain(`>${label}</button>`);
     expect(html).not.toContain('SSTP candidate');
+    expect(renderToStaticMarkup(<DiagnosisLegend />)).toContain(`>${label}</span>`);
+  });
+
+  it('shows an unknown ailment from a newer backend by its title in a neutral chip', () => {
+    const html = render(section({
+      routers: [router(7, 'attention', 'x', {
+        diagnosis: {
+          ailment: 'l2tp_nat_collision' as OpsHealthRouterAilment, title: 'Two routers, one IP',
+          evidence: 'e', action: 'a', sstp_candidate: false,
+        },
+      })],
+    }));
+    expect(html).toContain('>Two routers, one IP</button>');
+  });
+
+  it('offers the label legend only when some row has a diagnosis', () => {
+    const withDiag = render(section({
+      routers: [router(7, 'attention', 'x', {
+        diagnosis: { ailment: 'offline', evidence: 'e', action: 'a', sstp_candidate: false },
+      })],
+    }));
+    expect(withDiag).toContain('What the labels mean');
+    expect(withDiag).not.toContain('data-testid="problem-routers-legend"'); // collapsed
+    expect(render(section())).not.toContain('What the labels mean');
   });
 
   it('renders rows unchanged when the backend sends no diagnosis (null or absent)', () => {
