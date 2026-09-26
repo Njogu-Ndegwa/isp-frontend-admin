@@ -78,6 +78,42 @@ describe('ProblemRoutersCard', () => {
     expect(html).not.toContain('problem-routers-waiting');
   });
 
+  it('offers the time windows with 24h (the snapshot) picked, plus the rules toggle', () => {
+    const html = renderToStaticMarkup(
+      <ProblemRoutersCard section={section()} onOpen={() => {}} loadWindow={async () => null} />);
+    for (const label of ['1h', '3h', '6h', '12h', '24h', '3 days']) expect(html).toContain(`>${label}</button>`);
+    expect(html).toMatch(/aria-pressed="true"[^>]*>24h</);
+    expect(html).toContain('How is this judged?');
+    expect(html).toContain('15 paid customers not connected'); // snapshot shown straight away
+  });
+
+  it('hides the picker when no loader is wired, as before', () => {
+    expect(render(section())).not.toContain('problem-routers-window');
+  });
+
+  it('shows a checking state until a non-snapshot window has loaded', () => {
+    const html = renderToStaticMarkup(
+      <ProblemRoutersCard section={section()} onOpen={() => {}} loadWindow={async () => null} initialHours={1} />);
+    expect(html).toContain('Checking the last 1h…');
+    expect(html).not.toContain('R281');
+    expect(html).toMatch(/aria-pressed="true"[^>]*>1h</);
+  });
+
+  it('words the headline for the chosen window', () => {
+    const windowed = section({
+      window_hours: 1, window_label: '1h', paid_not_connected_window: 0, paid_not_connected_avg_before: 0.4,
+      counts: { attention: 0, recovering: 0, fixed: 1 },
+      routers: [router(383, 'fixed', 'Clean in the last 1h: 2 payments, all connected (before: 3 not connected)',
+        { window: 'last_window' })],
+      criteria: ['Needs attention: ...'],
+    });
+    const html = render(windowed);
+    expect(html).toContain('0 paid customers not connected');
+    expect(html).toContain('in the last 1h · down from 0.4 per 1h before');
+    expect(html).toContain('No router is costing customers in the last 1h.');
+    expect(html).toContain('Fixes and recoveries (1)');
+  });
+
   it('renders nothing for snapshots taken before the backend shipped the section', () => {
     expect(render(undefined)).toBe('');
   });

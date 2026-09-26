@@ -410,6 +410,7 @@ export default function OpsHealthPanel() {
     setLookbackRouterId(id);
     setDetail('lookback');
   }, []);
+  const loadProblemWindow = useCallback((hours: number) => api.getOpsHealthProblemRouters(hours), []);
   const [now, setNow] = useState<number>(() => Date.now());
   const inFlightRef = useRef(false);
 
@@ -650,7 +651,7 @@ export default function OpsHealthPanel() {
       </div>
 
       {/* Problem routers: the routers costing paying customers, and whether fixes held */}
-      <ProblemRoutersCard section={sec?.problem_routers} onOpen={openRouterLookback} tunnelLabels={TUNNEL_LABEL} />
+      <ProblemRoutersCard section={sec?.problem_routers} onOpen={openRouterLookback} tunnelLabels={TUNNEL_LABEL} loadWindow={loadProblemWindow} />
 
       {/* Routers by tunnel */}
       <div className="rounded-xl border border-border bg-background-tertiary/40 p-3 mb-3">
