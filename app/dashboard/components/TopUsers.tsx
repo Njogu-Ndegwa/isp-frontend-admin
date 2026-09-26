@@ -1,93 +1,72 @@
 'use client';
-import React, { useState } from 'react';
-import SectionCard, { SectionEmpty } from './SectionCard';
+import React from 'react';
+import SectionCard from './SectionCard';
 import { TopDownloadersBody } from './TopDownloaders';
-import { TopUsageBody } from './TopUsageThisPeriod';
-import type { TopUsersResponse, ResellerTopUsageEntry } from '../../lib/types';
+import type { TopUsersResponse, TopUsersWindow } from '../../lib/types';
 import { useT } from '../../lib/i18n';
 
-type Mode = 'live' | 'period';
+const WINDOWS: { key: TopUsersWindow; label: string }[] = [
+  { key: '1h', label: 'Last hour' },
+  { key: 'today', label: 'Today' },
+  { key: '7d', label: '7 days' },
+  { key: '30d', label: '30 days' },
+];
 
-// Unified "Top Users" card with a Live | Period toggle.
-//  - Live   = current per-router bandwidth (MikroTik queue counters).
-//  - Period = account-wide data-cap / FUP usage for the billing period.
-// NOTE: Period is account-wide because the FUP endpoint has no router filter;
-// making it per-router needs a backend change (add router_id to /resellers/me/usage/top).
+// Top users by data actually used in the chosen window (hourly per-customer
+// ledger on the backend). Replaces the old "Live" list, which ranked lifetime
+// router counters and could put a customer who expired months ago at the top.
 export default function TopUsers({
   selectedRouterId,
-  live,
-  liveLoading,
-  liveError,
-  onRetryLive,
-  period,
-  periodLoading,
+  data,
+  loading,
+  error,
+  onRetry,
+  window: usageWindow,
+  onWindowChange,
 }: {
   selectedRouterId: number | null;
-  live: TopUsersResponse | null;
-  liveLoading: boolean;
-  liveError: string | null;
-  onRetryLive: () => void;
-  period: ResellerTopUsageEntry[] | null;
-  periodLoading: boolean;
+  data: TopUsersResponse | null;
+  loading: boolean;
+  error: string | null;
+  onRetry: () => void;
+  window: TopUsersWindow;
+  onWindowChange: (w: TopUsersWindow) => void;
 }): React.ReactElement {
   const t = useT();
-  const [mode, setMode] = useState<Mode>('live');
-  // Live needs a router; fall back to Period when none is selected.
-  const effectiveMode: Mode = mode === 'live' && !selectedRouterId ? 'period' : mode;
+  const active = WINDOWS.find((w) => w.key === usageWindow) ?? WINDOWS[1];
+  const scope = selectedRouterId ? t('this router') : t('all routers');
+  const historyNote =
+    data && data.windowFullyCovered === false && data.historySince
+      ? t('data since {date}', { date: new Date(data.historySince + 'Z').toLocaleDateString() })
+      : null;
 
-  const meta =
-    effectiveMode === 'live' ? (
-      <span className="flex items-center gap-1.5">
-        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-        {t('this router · live')}
-      </span>
-    ) : (
-      <span>{t('all routers · this period')}</span>
-    );
+  const meta = (
+    <span>
+      {scope} · {t(data?.windowLabel || active.label)}
+      {historyNote ? ` · ${historyNote}` : ''}
+    </span>
+  );
 
   const controls = (
     <div className="flex gap-1 p-1 bg-background-tertiary rounded-lg">
-      <button
-        type="button"
-        onClick={() => setMode('live')}
-        disabled={!selectedRouterId}
-        title={selectedRouterId ? t('Live bandwidth on the selected router') : t('Select a router to see live usage')}
-        className={`period-pill whitespace-nowrap ${
-          effectiveMode === 'live' ? 'period-pill-active' : 'period-pill-inactive'
-        } ${!selectedRouterId ? 'opacity-40 cursor-not-allowed' : ''}`}
-      >
-        {t('Live')}
-      </button>
-      <button
-        type="button"
-        onClick={() => setMode('period')}
-        title={t('Data-cap / FUP usage this billing period (all routers)')}
-        className={`period-pill whitespace-nowrap ${
-          effectiveMode === 'period' ? 'period-pill-active' : 'period-pill-inactive'
-        }`}
-      >
-        {t('Period')}
-      </button>
+      {WINDOWS.map((w) => (
+        <button
+          key={w.key}
+          type="button"
+          onClick={() => onWindowChange(w.key)}
+          className={`period-pill whitespace-nowrap ${
+            usageWindow === w.key ? 'period-pill-active' : 'period-pill-inactive'
+          }`}
+        >
+          {t(w.label)}
+        </button>
+      ))}
     </div>
   );
 
   return (
-    <SectionCard
-      title={t('Top Users')}
-      accent="violet"
-      controls={controls}
-      meta={meta}
-      loading={effectiveMode === 'live' ? liveLoading : periodLoading}
-    >
-      {effectiveMode === 'live' ? (
-        selectedRouterId ? (
-          <TopDownloadersBody data={live} loading={liveLoading} error={liveError} onRetry={onRetryLive} />
-        ) : (
-          <SectionEmpty message={t('Select a router to see live usage')} />
-        )
-      ) : (
-        <TopUsageBody data={period} loading={periodLoading} />
-      )}
+    <SectionCard title={t('Top Users')} accent="violet" controls={controls} meta={meta} loading={loading}>
+      <TopDownloadersBody data={data} loading={loading} error={error} onRetry={onRetry} />
     </SectionCard>
   );
 }

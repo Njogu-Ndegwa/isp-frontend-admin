@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { api } from '../lib/api';
-import { DashboardAnalytics, MikroTikMetrics, BandwidthHistory, TopUsersResponse, SubscriptionAlert, ResellerTopUsageEntry, SubscriptionOverview, PortAnalyticsResponse } from '../lib/types';
+import { DashboardAnalytics, MikroTikMetrics, BandwidthHistory, TopUsersResponse, TopUsersWindow, SubscriptionAlert, SubscriptionOverview, PortAnalyticsResponse } from '../lib/types';
 import { useAuth } from '../context/AuthContext';
 import SubscriptionAlertBanner from '../components/SubscriptionAlertBanner';
 import OnboardingChecklist from '../components/OnboardingChecklist';
@@ -82,8 +82,7 @@ export default function DashboardPage() {
   const [portMapError, setPortMapError] = useState<string | null>(null);
 
   // Top FUP usage state (reseller-wide, monthly)
-  const [topUsageThisMonth, setTopUsageThisMonth] = useState<ResellerTopUsageEntry[] | null>(null);
-  const [topUsageLoading, setTopUsageLoading] = useState(true);
+  const [topUsersWindow, setTopUsersWindow] = useState<TopUsersWindow>('today');
 
   // UI state - use DateFilter type for flexibility
   const [dateFilter, setDateFilter] = useState<DateFilter>({ type: 'preset', preset: 'today' });
@@ -174,20 +173,20 @@ export default function DashboardPage() {
     }
   }, [downloadUsagePeriod, selectedRouterId]);
 
-  // Fetch top users (non-blocking) — only when a router is selected
+  // Top users by data used in the chosen window (this router, or all of the
+  // account's routers when none is selected).
   const loadTopUsers = useCallback(async () => {
-    if (!selectedRouterId) return;
     try {
       setTopUsersLoading(true);
       setTopUsersError(null);
-      const users = await api.getTopUsers(10, selectedRouterId);
+      const users = await api.getTopUsers(10, selectedRouterId ?? undefined, topUsersWindow);
       setTopUsers(users);
     } catch (err) {
       setTopUsersError(err instanceof Error ? err.message : 'Failed to load top users');
     } finally {
       setTopUsersLoading(false);
     }
-  }, [selectedRouterId]);
+  }, [selectedRouterId, topUsersWindow]);
 
   // Fetch port analytics (non-blocking) — only when a router is selected
   const loadPortMap = useCallback(async () => {
@@ -286,15 +285,13 @@ export default function DashboardPage() {
   }, [loadBandwidth, selectedRouterId, downloadUsagePeriod]);
 
   useEffect(() => {
-    if (!selectedRouterId) return;
-
     const refresh = () => {
       if (isDashboardVisible()) void loadTopUsers();
     };
 
     const timeout = window.setTimeout(refresh, DASHBOARD_LOAD_DELAYS_MS.topUsers);
     return () => window.clearTimeout(timeout);
-  }, [loadTopUsers, selectedRouterId]);
+  }, [loadTopUsers]);
 
   // Port map — loaded when the dashboard opens or the router changes.
   useEffect(() => {
@@ -308,25 +305,6 @@ export default function DashboardPage() {
     return () => window.clearTimeout(timeout);
   }, [loadPortMap, selectedRouterId]);
 
-  // Load monthly top FUP usage (reseller-wide)
-  useEffect(() => {
-    let cancelled = false;
-    const timeout = window.setTimeout(() => {
-      setTopUsageLoading(true);
-      api.getResellerTopUsage(10).then((rows) => {
-        if (!cancelled) setTopUsageThisMonth(rows);
-      }).catch(() => {
-        if (!cancelled) setTopUsageThisMonth([]);
-      }).finally(() => {
-        if (!cancelled) setTopUsageLoading(false);
-      });
-    }, DASHBOARD_LOAD_DELAYS_MS.usage);
-
-    return () => {
-      cancelled = true;
-      window.clearTimeout(timeout);
-    };
-  }, []);
 
   const refreshAll = () => {
     loadAnalytics();
@@ -408,7 +386,7 @@ export default function DashboardPage() {
             {/* Row 4 — Bandwidth History (6) + Top Users (6) side by side.
                 Top Users spans full width only when there's no router (Bandwidth hidden). */}
             {selectedRouterId && <div className="xl:col-span-6 min-w-0"><BandwidthSection data={bandwidth} loading={bandwidthLoading} error={bandwidthError} onRetry={loadBandwidth} /></div>}
-            <div className={`min-w-0 ${selectedRouterId ? 'xl:col-span-6' : 'xl:col-span-12'}`}><TopUsers selectedRouterId={selectedRouterId} live={topUsers} liveLoading={topUsersLoading} liveError={topUsersError} onRetryLive={loadTopUsers} period={topUsageThisMonth} periodLoading={topUsageLoading} /></div>
+            <div className={`min-w-0 ${selectedRouterId ? 'xl:col-span-6' : 'xl:col-span-12'}`}><TopUsers selectedRouterId={selectedRouterId} data={topUsers} loading={topUsersLoading} error={topUsersError} onRetry={loadTopUsers} window={topUsersWindow} onWindowChange={setTopUsersWindow} /></div>
 
             {/* Row 6 — collapsible detail (full width) */}
             {!analyticsError && !analyticsLoading && data && (

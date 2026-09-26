@@ -211,6 +211,7 @@ import {
   CustomerUsageResponse,
   CustomerUsagePeriod,
   RouterLive,
+  TopUsersWindow,
   ResellerTopUsageEntry,
   PortalSettingsResponse,
   PublicPortalResponse,
@@ -677,10 +678,11 @@ class ApiClient {
   }
 
   // Top Users by Bandwidth
-  async getTopUsers(limit = 10, routerId?: number): Promise<TopUsersResponse> {
+  async getTopUsers(limit = 10, routerId?: number, window: TopUsersWindow = 'today'): Promise<TopUsersResponse> {
     if (this.isDemoMode()) return (await loadDemo()).demoTopUsers;
     const params = new URLSearchParams();
     params.append('limit', limit.toString());
+    params.append('window', window);
     if (routerId) {
       params.append('router_id', routerId.toString());
     }
