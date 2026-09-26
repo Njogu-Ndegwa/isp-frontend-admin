@@ -241,6 +241,7 @@ import {
   OpsHealthResponse,
   OpsHealthHistory,
   OpsHealthWindowReport,
+  OpsHealthProblemRoutersSection,
   AdminSubscriptionCollectionsSummary,
   AdminSubscriptionPaymentsResponse,
   OwnerBankDestination,
@@ -525,6 +526,15 @@ class ApiClient {
       if (owner && owner.trim()) params.set('owner', owner.trim());
       const response = await fetch(`${BASE_URL}/admin/ops-health/window?${params.toString()}`, { headers: this.getHeaders() });
       return await this.handleResponse<OpsHealthWindowReport>(response);
+    } catch { return null; }
+  }
+
+  // GET /api/admin/ops-health/problem-routers?hours=N (1..72) -> problem routers
+  // judged live on the last N hours, with the rules used (`criteria`).
+  async getOpsHealthProblemRouters(hours: number): Promise<OpsHealthProblemRoutersSection | null> {
+    try {
+      const response = await fetch(`${BASE_URL}/admin/ops-health/problem-routers?hours=${hours}`, { headers: this.getHeaders() });
+      return await this.handleResponse<OpsHealthProblemRoutersSection>(response);
     } catch { return null; }
   }
 
