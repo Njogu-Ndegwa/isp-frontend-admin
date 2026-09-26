@@ -23,14 +23,18 @@ import PortsUsageCard from './components/PortsUsageCard';
 import { subscriptionAlertMessage } from '../lib/subscriptionAlert';
 import { useT, type TFunction } from '../lib/i18n';
 
+// Small stagger only. These used to be 1.5-8 s apart so the page didn't hit a
+// router with several live RouterOS reads at once; router cards are now served
+// from the router's own push report and the database (~0.3-0.6 s each), so a
+// long delay only made the page feel slow.
 const DASHBOARD_LOAD_DELAYS_MS = {
-  mikrotik: 1500,
-  subscription: 3000,
-  topUsers: 4500,
-  usage: 5500,
-  bandwidth: 6500,
-  portMap: 7500,
-  onboarding: 8000,
+  mikrotik: 0,
+  portMap: 100,
+  bandwidth: 200,
+  topUsers: 300,
+  usage: 400,
+  subscription: 600,
+  onboarding: 1500,
 } as const;
 
 const MIKROTIK_REFRESH_INTERVAL_MS = 60_000;
