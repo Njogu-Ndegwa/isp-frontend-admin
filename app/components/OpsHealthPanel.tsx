@@ -7,10 +7,13 @@ import { api } from '../lib/api';
 import OpsHealthLookback from './OpsHealthLookback';
 import StatCard from './StatCard';
 import ProblemRoutersCard from './ProblemRoutersCard';
+import { assignRouterColors, hasBreakdown, rankRouters } from '../lib/routerBreakdown';
 
 // Recharts is client-only and heavy; keep it out of the route's first paint.
 const TrendArea = dynamic(() => import('./OpsHealthCharts').then((m) => m.TrendArea), { ssr: false });
 const TunnelBars = dynamic(() => import('./OpsHealthCharts').then((m) => m.TunnelBars), { ssr: false });
+const StackedByRouter = dynamic(() => import('./OpsHealthRouterCharts').then((m) => m.StackedByRouter), { ssr: false });
+const OfflineTrend = dynamic(() => import('./OpsHealthRouterCharts').then((m) => m.OfflineTrend), { ssr: false });
 
 const ICONS = {
   payments: <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>,
@@ -523,6 +526,14 @@ export default function OpsHealthPanel() {
   );
   const sec = data.sections;
   const points = data.history?.points ?? [];
+  const routerNames = data.history?.router_names ?? {};
+  // One colour per router for the whole page: problem routers first, then the
+  // biggest contributors to each graph, so a router looks the same everywhere.
+  const routerColors = assignRouterColors([
+    ...(sec?.problem_routers?.routers ?? []).filter((r) => r.state === 'attention').map((r) => r.router_id),
+    ...rankRouters(points, 'retry_by_router').map((r) => r.id),
+    ...rankRouters(points, 'expiry_hot_by_router').map((r) => r.id),
+  ]);
 
   const prov = sec?.provisioning;
   const pay = sec?.payments;
@@ -639,13 +650,27 @@ export default function OpsHealthPanel() {
       {/* Trends over 24 h: one measure per chart, never two scales on one axis */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4 mb-3" data-testid="ops-health-trends">
         <div className="rounded-xl border border-border bg-background-tertiary/40 p-3">
-          <TrendArea points={points} dataKey="provisioning_retry_pending" label="Payments waiting for retry" />
+          {hasBreakdown(points, 'retry_by_router') ? (
+            <StackedByRouter points={points} breakdownKey="retry_by_router" totalKey="provisioning_retry_pending"
+              label="Payments waiting for retry" noun="waiting" names={routerNames} colors={routerColors} onOpen={openRouterLookback} />
+          ) : (
+            <TrendArea points={points} dataKey="provisioning_retry_pending" label="Payments waiting for retry" />
+          )}
         </div>
         <div className="rounded-xl border border-border bg-background-tertiary/40 p-3">
-          <TrendArea points={points} dataKey="expiry_active_hot" label="Expired customers still connected" color="#0891b2" />
+          {hasBreakdown(points, 'expiry_hot_by_router') ? (
+            <StackedByRouter points={points} breakdownKey="expiry_hot_by_router" totalKey="expiry_active_hot"
+              label="Expired customers still connected" noun="still connected" names={routerNames} colors={routerColors} onOpen={openRouterLookback} />
+          ) : (
+            <TrendArea points={points} dataKey="expiry_active_hot" label="Expired customers still connected" color="#0891b2" />
+          )}
         </div>
         <div className="rounded-xl border border-border bg-background-tertiary/40 p-3">
-          <TrendArea points={points} dataKey="tunnels_offline" label="Routers offline" color="#ef4444" />
+          {points.some((p) => p.offline_router_ids !== undefined) ? (
+            <OfflineTrend points={points} names={routerNames} onOpen={openRouterLookback} />
+          ) : (
+            <TrendArea points={points} dataKey="tunnels_offline" label="Routers offline" color="#ef4444" />
+          )}
         </div>
       </div>
 
