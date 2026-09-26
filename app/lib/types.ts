@@ -2446,10 +2446,20 @@ export interface TopUser {
   customerId: number;
 }
 
+export type TopUsersWindow = '1h' | 'today' | '7d' | '30d';
+
 export interface TopUsersResponse {
   topUsers: TopUser[];
   totalQueues: number;
   generatedAt: string;
+  window?: TopUsersWindow;
+  windowLabel?: string;
+  windowStart?: string;
+  windowEnd?: string;
+  /** First hour of per-customer history in scope; windows reaching further back are partial. */
+  historySince?: string | null;
+  windowFullyCovered?: boolean;
+  totalTracked?: number;
 }
 
 // Advertiser Types

@@ -18,13 +18,6 @@ export function TopDownloadersBody({
   onRetry: () => void;
 }): React.ReactElement {
   const t = useT();
-  const formatRate = (bps: number) => {
-    if (bps === 0) return '-';
-    const kbps = bps / 1000;
-    if (kbps < 1000) return `${kbps.toFixed(0)} Kbps`;
-    return `${(kbps / 1000).toFixed(1)} Mbps`;
-  };
-
   const formatUsage = (mb: number) => {
     if (mb >= 1024) return `${(mb / 1024).toFixed(1)} GB`;
     return `${mb.toFixed(0)} MB`;
@@ -49,8 +42,6 @@ export function TopDownloadersBody({
       {/* Mobile: Card layout */}
       <div className="md:hidden space-y-2">
         {data.topUsers.map((user, index) => {
-          const [uploadRate, downloadRate] = (user.currentRate || '0/0').split('/').map(Number);
-          const isActive = downloadRate > 0 || uploadRate > 0;
           const downloadPercent = (user.downloadMB / maxDownload) * 100;
           const rank = index + 1;
           const connectionType = user.connectionType || (user.mac?.startsWith('pppoe:') ? 'pppoe' : 'hotspot');
@@ -59,7 +50,7 @@ export function TopDownloadersBody({
           return (
             <div
               key={user.mac}
-              className={`p-3 rounded-xl border ${isActive ? 'border-emerald-500/20 bg-emerald-500/5' : 'border-border/50 bg-background-tertiary/50'}`}
+              className="p-3 rounded-xl border border-border/50 bg-background-tertiary/50"
             >
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2.5">
@@ -79,7 +70,6 @@ export function TopDownloadersBody({
                   }`}>
                     {serviceLabel}
                   </span>
-                  {isActive && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />}
                 </div>
                 <span className="text-sm font-semibold text-cyan-500">{formatUsage(user.downloadMB)}</span>
               </div>
@@ -92,7 +82,6 @@ export function TopDownloadersBody({
               <div className="flex items-center justify-between mt-2 text-xs text-foreground-muted">
                 <span>↑ {formatUsage(user.uploadMB)}</span>
                 <span>Total: {formatUsage(user.totalMB)}</span>
-                {isActive && <span className="text-emerald-500">{formatRate(downloadRate)}</span>}
               </div>
             </div>
           );
@@ -111,13 +100,10 @@ export function TopDownloadersBody({
               <th className="text-right pb-3 font-medium">{t('Download')}</th>
               <th className="text-right pb-3 font-medium">{t('Upload')}</th>
               <th className="text-right pb-3 font-medium">{t('Total')}</th>
-              <th className="text-right pb-3 font-medium">{t('Speed')}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-border/30">
             {data.topUsers.map((user, index) => {
-              const [uploadRate, downloadRate] = (user.currentRate || '0/0').split('/').map(Number);
-              const isActive = downloadRate > 0 || uploadRate > 0;
               const downloadPercent = (user.downloadMB / maxDownload) * 100;
               const rank = index + 1;
               const connectionType = user.connectionType || (user.mac?.startsWith('pppoe:') ? 'pppoe' : 'hotspot');
@@ -126,7 +112,7 @@ export function TopDownloadersBody({
               return (
                 <tr
                   key={user.mac}
-                  className={`${isActive ? 'bg-emerald-500/5' : ''} hover:bg-background-tertiary/50 transition-colors`}
+                  className="hover:bg-background-tertiary/50 transition-colors"
                 >
                   <td className="py-3">
                     <span className={`inline-flex w-7 h-7 rounded-full items-center justify-center text-xs font-bold ${
@@ -141,7 +127,6 @@ export function TopDownloadersBody({
                   <td className="py-3">
                     <div className="flex items-center gap-2">
                       <span className="font-mono text-sm text-foreground">{user.customerPhone}</span>
-                      {isActive && <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse flex-shrink-0" title={t('Active now')} />}
                     </div>
                     {user.customerName && user.customerName !== user.customerPhone && (
                       <p className="text-xs text-foreground-muted mt-0.5">{user.customerName}</p>
@@ -172,16 +157,6 @@ export function TopDownloadersBody({
                   </td>
                   <td className="py-3 text-right">
                     <span className="text-sm font-semibold text-foreground">{formatUsage(user.totalMB)}</span>
-                  </td>
-                  <td className="py-3 text-right">
-                    {isActive ? (
-                      <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-emerald-500/10 text-emerald-500 text-xs font-medium">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                        {formatRate(downloadRate)}
-                      </span>
-                    ) : (
-                      <span className="text-sm text-foreground-muted">{t('Idle')}</span>
-                    )}
                   </td>
                 </tr>
               );
