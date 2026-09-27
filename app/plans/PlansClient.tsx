@@ -20,6 +20,7 @@ import { DataCapUnit, dataCapInputToMb, splitDataCapMb } from './dataCap';
 import { normalizeDuration, describeDuration } from './duration';
 import { formatAmount, getDisplayCurrency } from '../lib/format';
 import { useT } from '../lib/i18n';
+import { pickDefaultRouterId, routerOptionLabel } from '../lib/routerPick';
 import PlanNameHint from '../components/PlanNameHint';
 import { MAX_PLAN_NAME_LENGTH, isPlanNameTooLong } from '../lib/planName';
 
@@ -105,7 +106,7 @@ export default function PlansPage() {
       const data = await api.getRouters();
       setRouters(data);
       if (data.length > 0 && !selectedEmergencyRouter) {
-        setSelectedEmergencyRouter(data[0].id);
+        setSelectedEmergencyRouter(pickDefaultRouterId(data));
       }
     } catch {
       // Non-critical, routers are only needed for emergency
@@ -271,7 +272,7 @@ export default function PlansPage() {
                 >
                   {routers.map((r) => (
                     <option key={r.id} value={r.id}>
-                      {r.name} {r.emergency_active ? t('(emergency)') : ''}
+                      {routerOptionLabel(r, routers, t)} {r.emergency_active ? t('(emergency)') : ''}
                     </option>
                   ))}
                 </select>
