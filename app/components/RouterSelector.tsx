@@ -3,6 +3,14 @@
 import { useEffect, useState } from 'react';
 import { api } from '../lib/api';
 import { Router } from '../lib/types';
+import { useAuth } from '../context/AuthContext';
+import { useT } from '../lib/i18n';
+import {
+  pickDefaultRouterId,
+  readRememberedRouterId,
+  rememberRouterId,
+  routerOptionLabel,
+} from '../lib/routerPick';
 
 interface RouterSelectorProps {
   selectedRouterId: number | null;
@@ -23,6 +31,9 @@ export default function RouterSelector({
   const [routers, setRouters] = useState<Router[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { user } = useAuth();
+  const t = useT();
+  const memoryKey = user?.id ?? null;
 
   const rootClass = `flex items-center gap-2${fullWidthOnMobile ? ' w-full md:w-auto' : ''}`;
 
@@ -35,7 +46,8 @@ export default function RouterSelector({
         setRouters(data);
         onRoutersLoaded?.(data);
         if (data.length > 0 && !selectedRouterId) {
-          onRouterChange(data[0].id);
+          const defaultId = pickDefaultRouterId(data, readRememberedRouterId(memoryKey));
+          if (defaultId != null) onRouterChange(defaultId);
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load routers');
@@ -84,13 +96,16 @@ export default function RouterSelector({
           value={selectedRouterId ?? ''}
           onChange={(e) => {
             const value = e.target.value;
-            if (value) onRouterChange(parseInt(value, 10));
+            if (!value) return;
+            const id = parseInt(value, 10);
+            rememberRouterId(memoryKey, id);
+            onRouterChange(id);
           }}
           className={`appearance-none px-3 py-2 pr-8 text-sm bg-background-tertiary border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-amber-500 cursor-pointer min-w-[160px] ${fullWidthOnMobile ? 'w-full md:w-auto' : ''}`}
         >
           {routers.map((router) => (
             <option key={router.id} value={router.id}>
-              {router.name}
+              {routerOptionLabel(router, routers, t)}
             </option>
           ))}
         </select>

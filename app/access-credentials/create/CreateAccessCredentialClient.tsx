@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { api } from '../../lib/api';
 import { copyText } from '../../lib/clipboard';
+import { pickDefaultRouterId, routerOptionLabel } from '../../lib/routerPick';
 import { CreateAccessCredentialRequest, Router as RouterType, CreateAccessCredentialResponse } from '../../lib/types';
 import { useAlert } from '../../context/AlertContext';
 import Header from '../../components/Header';
@@ -30,7 +31,7 @@ export default function CreateAccessCredentialPage() {
     api.getRouters().then((data) => {
       setRouters(data);
       if (data.length > 0) {
-        setFormData((f) => ({ ...f, router_id: data[0].id }));
+        setFormData((f) => ({ ...f, router_id: pickDefaultRouterId(data) ?? 0 }));
       }
     }).catch((err) => {
       showAlert('error', err instanceof Error ? err.message : 'Failed to load routers');
@@ -163,7 +164,7 @@ export default function CreateAccessCredentialPage() {
               >
                 <option value="" disabled>{routersLoading ? 'Loading…' : 'Select router'}</option>
                 {routers.map((r) => (
-                  <option key={r.id} value={r.id}>{r.name}</option>
+                  <option key={r.id} value={r.id}>{routerOptionLabel(r, routers)}</option>
                 ))}
               </select>
             </div>
