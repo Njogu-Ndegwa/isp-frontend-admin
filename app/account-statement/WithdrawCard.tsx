@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { api } from '../lib/api';
-import { PayoutFrequency, ResellerPayoutSettings } from '../lib/types';
+import { PayoutFrequency, ResellerPayoutSettings, SettlementMode } from '../lib/types';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { formatAmount } from '../lib/format';
 import { formatDateGMT3 } from '../lib/dateUtils';
@@ -26,6 +26,8 @@ export default function WithdrawCard({ onWithdrawn }: { onWithdrawn?: () => void
   const [savingFrequency, setSavingFrequency] = useState(false);
   const [customOpen, setCustomOpen] = useState(false);
   const [customDays, setCustomDays] = useState<string>('');
+  const [savingSettlement, setSavingSettlement] = useState(false);
+  const [directConfirmOpen, setDirectConfirmOpen] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -99,6 +101,29 @@ export default function WithdrawCard({ onWithdrawn }: { onWithdrawn?: () => void
     }
   };
 
+  const saveSettlementMode = async (mode: SettlementMode) => {
+    if (!settings || savingSettlement || mode === settings.settlement_mode) return;
+    const prev = settings.settlement_mode;
+    setError(null);
+    setNotice(null);
+    setSettings({ ...settings, settlement_mode: mode });
+    try {
+      setSavingSettlement(true);
+      await api.updateResellerSettlementMode(mode);
+      setNotice(
+        mode === 'direct'
+          ? 'Customer payments now go straight to your account.'
+          : 'Customer payments are now collected by Bitwave and paid out on your schedule.'
+      );
+    } catch (err) {
+      setSettings((s) => (s ? { ...s, settlement_mode: prev } : s));
+      setError(err instanceof Error ? err.message : 'Failed to update how you receive payments');
+    } finally {
+      setSavingSettlement(false);
+      setDirectConfirmOpen(false);
+    }
+  };
+
   const applyCustomInterval = async () => {
     if (!settings || savingFrequency) return;
     const days = parseInt(customDays, 10);
@@ -141,9 +166,71 @@ export default function WithdrawCard({ onWithdrawn }: { onWithdrawn?: () => void
   }
 
   const selectedOption = FREQUENCY_OPTIONS.find((o) => o.value === settings.payout_frequency);
+  const isDirect = settings.settlement_mode === 'direct';
+  const destinationText = settings.payment_method
+    ? `${settings.payment_method.label}${settings.payment_method.destination ? ` (${settings.payment_method.destination})` : ''}`
+    : 'your account';
 
   return (
     <div className="card p-4 sm:p-5">
+      {/* How customer payments reach the reseller */}
+      <div className="mb-5 pb-5 border-b border-border">
+        <h3 className="text-sm font-semibold text-foreground mb-3">How you receive customer payments</h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-2">
+          <button
+            onClick={() => { if (!isDirect) setDirectConfirmOpen(true); }}
+            disabled={savingSettlement || (!isDirect && !settings.direct_settlement_available)}
+            className={`px-3 py-2.5 rounded-xl border text-left transition-colors disabled:opacity-60 ${
+              isDirect
+                ? 'border-accent-primary bg-accent-primary/10'
+                : 'border-border hover:bg-background-tertiary'
+            }`}
+          >
+            <span className={`block text-sm font-medium ${isDirect ? 'text-accent-primary' : 'text-foreground'}`}>
+              Directly to my account
+            </span>
+            <span className="block text-xs text-foreground-muted mt-0.5">
+              Instant. No payout fees, nothing to withdraw.
+            </span>
+          </button>
+          <button
+            onClick={() => saveSettlementMode('platform')}
+            disabled={savingSettlement}
+            className={`px-3 py-2.5 rounded-xl border text-left transition-colors disabled:opacity-60 ${
+              !isDirect
+                ? 'border-accent-primary bg-accent-primary/10'
+                : 'border-border hover:bg-background-tertiary'
+            }`}
+          >
+            <span className={`block text-sm font-medium ${!isDirect ? 'text-accent-primary' : 'text-foreground'}`}>
+              Collected by Bitwave
+            </span>
+            <span className="block text-xs text-foreground-muted mt-0.5">
+              Paid out on your schedule below. Transaction fees apply.
+            </span>
+          </button>
+        </div>
+        {savingSettlement ? (
+          <p className="text-xs text-foreground-muted">Saving...</p>
+        ) : isDirect ? (
+          <p className="text-xs text-foreground-muted">
+            Each M-Pesa payment goes straight into {destinationText} the moment your customer pays.
+            Received directly in the last 30 days:{' '}
+            <span className="font-medium text-foreground">{formatAmount(settings.direct_received_30d)}</span>.
+            Any balance collected earlier is still paid out on your schedule.
+          </p>
+        ) : !settings.direct_settlement_available ? (
+          <p className="text-xs text-amber-500">
+            To receive payments directly, add an M-Pesa paybill, till or bank account (with its account number) in{' '}
+            <Link href="/settings/payment-methods" className="underline font-medium">Payment Methods</Link>.
+          </p>
+        ) : (
+          <p className="text-xs text-foreground-muted">
+            Customers pay Bitwave&apos;s paybill and your balance is paid out to {destinationText} on the schedule below.
+          </p>
+        )}
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
         {/* Withdraw */}
         <div>
@@ -292,6 +379,21 @@ export default function WithdrawCard({ onWithdrawn }: { onWithdrawn?: () => void
           `you'll receive ${formatAmount(settings.fee_preview.net_payout)}.`
         }
         confirmLabel="Withdraw"
+      />
+
+      <ConfirmDialog
+        isOpen={directConfirmOpen}
+        onClose={() => { if (!savingSettlement) setDirectConfirmOpen(false); }}
+        onConfirm={() => saveSettlementMode('direct')}
+        loading={savingSettlement}
+        title="Receive payments directly?"
+        message={
+          `From now on, every customer M-Pesa payment goes straight into ${destinationText} ` +
+          `the moment they pay, with no payout fees. The M-Pesa prompt your customers see ` +
+          `shows Bitwave's name with your business as the account. Refunds to customers ` +
+          `will be yours to make. You can switch back at any time.`
+        }
+        confirmLabel="Receive directly"
       />
     </div>
   );
