@@ -163,7 +163,7 @@ body {
   }
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: none;
   }
 }
 
@@ -174,7 +174,7 @@ body {
   }
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: none;
   }
 }
 
@@ -185,7 +185,7 @@ body {
   }
   to {
     opacity: 1;
-    transform: scale(1);
+    transform: none;
   }
 }
 
@@ -610,7 +610,7 @@ tbody tr:last-child td {
   }
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: none;
   }
 }
 
@@ -1006,4 +1006,72 @@ nav[class*="fixed bottom-0"] {
 }
 .dtp-action-primary:hover {
   background: var(--accent-primary-hover);
+}
+
+/* Overlays must always cover the viewport.
+   A position:fixed element is laid out against its nearest ancestor that has a
+   transform, filter, backdrop-filter or will-change - not the viewport - and
+   gets clipped by that ancestor's overflow. Cards lift with a transform on
+   hover, so a modal opened from inside a card jumped in and out of the card's
+   box on every mouse move (the Account Statement "flutter", 2026-09-28).
+   Shared dialogs portal to <body>; this guard covers every other overlay by
+   neutralising those effects on any such ancestor while it contains one.
+   !important also beats running animations and :hover. */
+.card:has(.fixed),
+.card-glass:has(.fixed),
+.card-highlight:has(.fixed),
+.mobile-card:has(.fixed),
+.chart-bar:has(.fixed),
+[class*="animate-"]:has(.fixed),
+[class*="count-up"]:has(.fixed),
+[class*="translate-"]:not(.fixed):has(.fixed),
+[class*="scale-"]:not(.fixed):has(.fixed),
+[class*="blur"]:not(.fixed):has(.fixed),
+[class*="transform"]:not(.fixed):has(.fixed),
+[class*="will-change"]:not(.fixed):has(.fixed),
+nav[class*="fixed bottom-0"]:has(.fixed) {
+  transform: none !important;
+  filter: none !important;
+  /* no easing back from the hover lift: a transition would keep the overlay
+     trapped for its whole duration */
+  transition: none !important;
+  backdrop-filter: none !important;
+  will-change: auto !important;
+  perspective: none !important;
+  contain: none !important;
+}
+
+/* Kept in its own rule on purpose: the CSS optimizer merges transform +
+   translate/scale/rotate declared together into a single identity
+   `transform: translate3d(0,0,0) ...` - which itself traps fixed children. */
+.card:has(.fixed),
+.card-glass:has(.fixed),
+.card-highlight:has(.fixed),
+.mobile-card:has(.fixed),
+.chart-bar:has(.fixed),
+[class*="animate-"]:has(.fixed),
+[class*="count-up"]:has(.fixed),
+[class*="translate-"]:not(.fixed):has(.fixed),
+[class*="scale-"]:not(.fixed):has(.fixed),
+[class*="blur"]:not(.fixed):has(.fixed),
+[class*="transform"]:not(.fixed):has(.fixed),
+[class*="will-change"]:not(.fixed):has(.fixed),
+nav[class*="fixed bottom-0"]:has(.fixed) {
+  translate: none !important;
+}
+
+.card:has(.fixed),
+.card-glass:has(.fixed),
+.card-highlight:has(.fixed),
+.mobile-card:has(.fixed),
+.chart-bar:has(.fixed),
+[class*="animate-"]:has(.fixed),
+[class*="count-up"]:has(.fixed),
+[class*="translate-"]:not(.fixed):has(.fixed),
+[class*="scale-"]:not(.fixed):has(.fixed),
+[class*="blur"]:not(.fixed):has(.fixed),
+[class*="transform"]:not(.fixed):has(.fixed),
+[class*="will-change"]:not(.fixed):has(.fixed),
+nav[class*="fixed bottom-0"]:has(.fixed) {
+  scale: none !important;
 }

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
+import { createPortal } from 'react-dom';
 
 interface ConfirmDialogProps {
   isOpen: boolean;
@@ -50,7 +51,12 @@ export default function ConfirmDialog({
     ? 'bg-amber-500 hover:bg-amber-600 text-[#09090b]'
     : 'btn-primary';
 
-  return (
+  // Rendered into <body>, never in place: a `fixed` overlay inside a
+  // transformed ancestor (every .card lifts with translateY on hover) is laid
+  // out against that card instead of the viewport and clipped by its
+  // overflow:hidden. Hovering the card then made the dialog jump in and out of
+  // the card's box on every mouse move — the Account Statement "flutter".
+  const dialog = (
     <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
       <div
@@ -87,4 +93,6 @@ export default function ConfirmDialog({
       </div>
     </div>
   );
+
+  return typeof document === 'undefined' ? dialog : createPortal(dialog, document.body);
 }
