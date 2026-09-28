@@ -30,9 +30,9 @@ const ROUTER_ASSIGNMENT_COLUMNS: DataTableColumn[] = [
 ];
 
 const PAYMENT_METHOD_TYPES: { value: PaymentMethodType; label: string; description: string }[] = [
-  { value: 'bank_account', label: 'Bank Account', description: 'Bank paybill and account number' },
-  { value: 'mpesa_paybill', label: 'M-Pesa Paybill', description: 'System collects via paybill — admin pays you later' },
-  { value: 'mpesa_till', label: 'M-Pesa Till (Buy Goods)', description: 'System collects — payouts go to your Buy Goods till' },
+  { value: 'bank_account', label: 'Bank Account', description: 'Bank paybill and account number — paid directly or on your payout schedule' },
+  { value: 'mpesa_paybill', label: 'M-Pesa Paybill', description: 'Your paybill — paid directly or on your payout schedule' },
+  { value: 'mpesa_till', label: 'M-Pesa Till (Buy Goods)', description: 'Your Buy Goods till — paid directly or on your payout schedule' },
   { value: 'mpesa_paybill_with_keys', label: 'M-Pesa Direct', description: 'Direct STK Push using your own M-Pesa API keys' },
   { value: 'zenopay', label: 'ZenoPay (Tanzania)', description: 'Tanzanian mobile money via ZenoPay' },
   { value: 'mtn_momo', label: 'MTN Mobile Money', description: 'MTN MoMo RequestToPay using your own API User credentials' },

@@ -132,6 +132,7 @@ import {
   ResellerAccountStatement,
   ResellerPayoutSettings,
   ResellerWithdrawResponse,
+  SettlementMode,
   DeleteResellerPreview,
   DeleteResellerResponse,
   AdminResellerStats,
@@ -2279,12 +2280,27 @@ class ApiClient {
         can_withdraw: false,
         blocked_reason: 'balance_too_low',
         pending_withdrawal: null,
+        settlement_mode: 'direct',
+        direct_settlement_available: false,
+        direct_received_30d: 0,
       };
     }
     const response = await fetch(`${BASE_URL}/reseller/payout-settings`, {
       headers: this.getHeaders(),
     });
     return this.handleResponse<ResellerPayoutSettings>(response);
+  }
+
+  async updateResellerSettlementMode(
+    settlementMode: SettlementMode,
+  ): Promise<{ settlement_mode: SettlementMode }> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(`${BASE_URL}/reseller/settlement-mode`, {
+      method: 'PUT',
+      headers: this.getHeaders(),
+      body: JSON.stringify({ settlement_mode: settlementMode }),
+    });
+    return this.handleResponse<{ settlement_mode: SettlementMode }>(response);
   }
 
   async updateResellerPayoutSettings(

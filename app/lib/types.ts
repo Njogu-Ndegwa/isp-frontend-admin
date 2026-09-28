@@ -3756,6 +3756,10 @@ export interface ResellerAccountStatement {
 
 export type PayoutFrequency = 'daily' | 'weekly' | 'monthly' | 'custom' | 'manual';
 
+// 'direct': customer M-Pesa payments go straight into the reseller's own
+// paybill/till/bank. 'platform': collected by Bitwave, paid out on schedule.
+export type SettlementMode = 'direct' | 'platform';
+
 export interface ResellerWithdrawalTxn {
   id: number;
   amount: number;
@@ -3791,6 +3795,10 @@ export interface ResellerPayoutSettings {
   can_withdraw: boolean;
   blocked_reason: 'pending_withdrawal' | 'no_payment_method' | 'balance_too_low' | 'cooldown' | null;
   pending_withdrawal: ResellerWithdrawalTxn | null;
+  settlement_mode: SettlementMode;
+  // True when payment_method can receive customer payments directly.
+  direct_settlement_available: boolean;
+  direct_received_30d: number;
 }
 
 export interface ResellerWithdrawTransfer extends ResellerWithdrawalTxn {
