@@ -6,7 +6,6 @@ import { ResellerAccountStatement } from '../lib/types';
 import { formatDateGMT3 } from '../lib/dateUtils';
 import { useAuth } from '../context/AuthContext';
 import Header from '../components/Header';
-import StatCard from '../components/StatCard';
 import DataTable from '../components/DataTable';
 import MobileDataCard from '../components/MobileDataCard';
 import FilterDatePicker from '../components/FilterDatePicker';
@@ -97,12 +96,12 @@ export default function AccountStatementPage() {
     <div className="space-y-4 pb-24 md:pb-6">
       <Header
         title="Account Statement"
-        subtitle="Your balance, payouts, and charges"
+        subtitle="Money sent straight to you, and your balance with Bitwave"
       />
 
       {loading ? (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          {Array.from({ length: 4 }).map((_, i) => <SkeletonCard key={i} />)}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
+          {Array.from({ length: 2 }).map((_, i) => <SkeletonCard key={i} />)}
         </div>
       ) : error ? (
         <div className="card p-8 text-center">
@@ -111,64 +110,69 @@ export default function AccountStatementPage() {
         </div>
       ) : data ? (
         <>
-          {/* Balance Overview */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <StatCard
-              title="Revenue Collected"
-              value={formatAmount(data.balance.total_system_collected)}
-              accent="success"
-              icon={<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8V7m0 10v1" /></svg>}
-            />
-            <StatCard
-              title="Paid to You"
-              value={formatAmount(data.balance.total_paid_to_you)}
-              accent="info"
-              icon={<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
-            />
-            <StatCard
-              title="Charges / Fees"
-              value={formatAmount(data.balance.total_transaction_charges)}
-              accent="warning"
-              icon={<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 12H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
-            />
-            <StatCard
-              title="Unpaid Balance"
-              value={formatAmount(data.balance.unpaid_balance)}
-              accent="primary"
-              icon={<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" /></svg>}
-            />
+          {/* Money overview: what went straight to the reseller vs what Bitwave holds */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
+            <section className="card p-4 sm:p-5 relative overflow-hidden">
+              <div className="absolute inset-y-0 left-0 w-1 bg-emerald-500" aria-hidden="true" />
+              <div className="flex items-center gap-2.5">
+                <span className="w-9 h-9 rounded-xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center shrink-0">
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                </span>
+                <div className="min-w-0">
+                  <h2 className="text-sm font-semibold text-foreground">Sent directly to you</h2>
+                  <p className="text-xs text-foreground-muted">Already in your paybill, till or bank</p>
+                </div>
+              </div>
+              <p className="mt-4 text-2xl sm:text-3xl font-bold tracking-tight text-emerald-500 break-words">
+                {formatAmount(data.balance.total_direct_received ?? 0)}
+              </p>
+              <p className="mt-2 text-xs text-foreground-muted leading-relaxed">
+                Customer payments that landed in your own account the moment they paid.
+                Nothing to withdraw, and never part of your Bitwave balance.
+              </p>
+            </section>
+
+            <section className="card p-4 sm:p-5 relative overflow-hidden">
+              <div className="absolute inset-y-0 left-0 w-1 bg-amber-500" aria-hidden="true" />
+              <div className="flex items-center gap-2.5">
+                <span className="w-9 h-9 rounded-xl bg-amber-500/10 text-amber-500 flex items-center justify-center shrink-0">
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M3 10l9-6 9 6M5 10v8m4-8v8m6-8v8m4-8v8M3 20h18" /></svg>
+                </span>
+                <div className="min-w-0">
+                  <h2 className="text-sm font-semibold text-foreground">Held by Bitwave for you</h2>
+                  <p className="text-xs text-foreground-muted">Your balance, paid out on your schedule</p>
+                </div>
+              </div>
+              <p className="mt-4 text-2xl sm:text-3xl font-bold tracking-tight text-foreground break-words">
+                {formatAmount(data.balance.unpaid_balance)}
+              </p>
+              <dl className="mt-3 space-y-1.5 text-xs sm:text-sm">
+                <div className="flex items-center justify-between gap-3">
+                  <dt className="text-foreground-muted">Collected by Bitwave</dt>
+                  <dd className="font-medium text-foreground tabular-nums">{formatAmount(data.balance.total_system_collected)}</dd>
+                </div>
+                <div className="flex items-center justify-between gap-3">
+                  <dt className="text-foreground-muted">Paid out to you</dt>
+                  <dd className="font-medium text-blue-500 tabular-nums">- {formatAmount(data.balance.total_paid_to_you)}</dd>
+                </div>
+                <div className="flex items-center justify-between gap-3">
+                  <dt className="text-foreground-muted">Payout fees and charges</dt>
+                  <dd className="font-medium text-orange-500 tabular-nums">- {formatAmount(data.balance.total_transaction_charges)}</dd>
+                </div>
+              </dl>
+            </section>
           </div>
 
           {/* Withdraw + payout schedule */}
           <WithdrawCard onWithdrawn={() => fetchStatement(1)} />
 
-          {/* Balance Breakdown */}
-          <div className="card p-4 sm:p-5">
-            <h3 className="text-sm font-semibold text-foreground mb-3">Balance Breakdown</h3>
-            <div className="space-y-2 text-sm">
-              <div className="flex items-center justify-between">
-                <span className="text-foreground-muted">M-Pesa Revenue (system collected)</span>
-                <span className="font-medium text-emerald-500">{formatAmount(data.balance.total_system_collected)}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-foreground-muted">Payouts (paid to you)</span>
-                <span className="font-medium text-blue-500">- {formatAmount(data.balance.total_paid_to_you)}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-foreground-muted">Transaction Charges (fees)</span>
-                <span className="font-medium text-orange-500">- {formatAmount(data.balance.total_transaction_charges)}</span>
-              </div>
-              <div className="border-t border-border pt-2 flex items-center justify-between">
-                <span className="font-semibold">Net Unpaid Balance</span>
-                <span className="font-bold text-lg">{formatAmount(data.balance.unpaid_balance)}</span>
-              </div>
-            </div>
-          </div>
-
           {/* Period Filter & Entries */}
           <div className="card p-4 sm:p-5">
             <div className="flex flex-wrap items-center gap-2 mb-3">
-              <h3 className="text-sm font-semibold text-foreground">Statement Entries</h3>
+              <div className="min-w-0">
+                <h3 className="text-sm font-semibold text-foreground">Payouts and charges</h3>
+                <p className="text-xs text-foreground-muted">Movements on your Bitwave balance. Direct payments are listed on Transactions.</p>
+              </div>
               <div className="flex flex-wrap items-center gap-2 ml-auto">
                 <span className="text-xs text-foreground-muted">Filter:</span>
                 <FilterDatePicker value={startDate} onChange={setStartDate} />
@@ -191,18 +195,22 @@ export default function AccountStatementPage() {
 
             {/* Period Summary (show when date filters active) */}
             {(startDate || endDate) && (
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
                 <div className="card p-3 bg-background-tertiary/50">
-                  <p className="text-xs text-foreground-muted mb-0.5">Period Payouts</p>
+                  <p className="text-xs text-foreground-muted mb-0.5">Sent directly to you</p>
+                  <p className="text-lg font-bold text-emerald-500">{formatAmount(data.period_summary.direct_received ?? 0)}</p>
+                </div>
+                <div className="card p-3 bg-background-tertiary/50">
+                  <p className="text-xs text-foreground-muted mb-0.5">Collected by Bitwave</p>
+                  <p className="text-lg font-bold text-foreground">{formatAmount(data.period_summary.system_collected ?? 0)}</p>
+                </div>
+                <div className="card p-3 bg-background-tertiary/50">
+                  <p className="text-xs text-foreground-muted mb-0.5">Paid out to you</p>
                   <p className="text-lg font-bold text-emerald-500">{formatAmount(data.period_summary.total_payouts)}</p>
                 </div>
                 <div className="card p-3 bg-background-tertiary/50">
-                  <p className="text-xs text-foreground-muted mb-0.5">Period Charges</p>
+                  <p className="text-xs text-foreground-muted mb-0.5">Fees and charges</p>
                   <p className="text-lg font-bold text-amber-500">{formatAmount(data.period_summary.total_charges)}</p>
-                </div>
-                <div className="card p-3 bg-background-tertiary/50">
-                  <p className="text-xs text-foreground-muted mb-0.5">Net</p>
-                  <p className="text-lg font-bold">{formatAmount(data.period_summary.net)}</p>
                 </div>
               </div>
             )}

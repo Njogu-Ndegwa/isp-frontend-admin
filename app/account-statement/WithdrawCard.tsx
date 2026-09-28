@@ -7,6 +7,7 @@ import { PayoutFrequency, ResellerPayoutSettings, SettlementMode } from '../lib/
 import ConfirmDialog from '../components/ConfirmDialog';
 import { formatAmount } from '../lib/format';
 import { formatDateGMT3 } from '../lib/dateUtils';
+import SettlementModeCard from './SettlementModeCard';
 
 const FREQUENCY_OPTIONS: { value: PayoutFrequency; label: string; hint: string }[] = [
   { value: 'daily', label: 'Daily', hint: 'Your balance is paid out automatically every night.' },
@@ -166,84 +167,26 @@ export default function WithdrawCard({ onWithdrawn }: { onWithdrawn?: () => void
   }
 
   const selectedOption = FREQUENCY_OPTIONS.find((o) => o.value === settings.payout_frequency);
-  const isDirect = settings.settlement_mode === 'direct';
   const destinationText = settings.payment_method
     ? `${settings.payment_method.label}${settings.payment_method.destination ? ` (${settings.payment_method.destination})` : ''}`
     : 'your account';
 
   return (
-    <div className="card p-4 sm:p-5">
-      {/* How customer payments reach the reseller */}
-      <div className="mb-5 pb-5 border-b border-border">
-        <h3 className="text-sm font-semibold text-foreground mb-3">How you receive customer payments</h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-2">
-          <button
-            onClick={() => { if (!isDirect) setDirectConfirmOpen(true); }}
-            disabled={savingSettlement || (!isDirect && !settings.direct_settlement_available)}
-            className={`px-3 py-2.5 rounded-xl border text-left transition-colors disabled:opacity-60 ${
-              isDirect
-                ? 'border-accent-primary bg-accent-primary/10'
-                : 'border-border hover:bg-background-tertiary'
-            }`}
-          >
-            <span className={`block text-sm font-medium ${isDirect ? 'text-accent-primary' : 'text-foreground'}`}>
-              Directly to my account
-            </span>
-            <span className="block text-xs text-foreground-muted mt-0.5">
-              Instant. No payout fees, nothing to withdraw.
-            </span>
-          </button>
-          <button
-            onClick={() => saveSettlementMode('platform')}
-            disabled={savingSettlement}
-            className={`px-3 py-2.5 rounded-xl border text-left transition-colors disabled:opacity-60 ${
-              !isDirect
-                ? 'border-accent-primary bg-accent-primary/10'
-                : 'border-border hover:bg-background-tertiary'
-            }`}
-          >
-            <span className={`block text-sm font-medium ${!isDirect ? 'text-accent-primary' : 'text-foreground'}`}>
-              Collected by Bitwave
-            </span>
-            <span className="block text-xs text-foreground-muted mt-0.5">
-              Paid out on your schedule below. Transaction fees apply.
-            </span>
-          </button>
-        </div>
-        {savingSettlement ? (
-          <p className="text-xs text-foreground-muted">Saving...</p>
-        ) : isDirect && !settings.direct_settlement_available ? (
-          // New accounts start on direct, usually before any payout account
-          // exists — until one does, Bitwave collects and holds the money.
-          <p className="text-xs text-amber-500">
-            Add an M-Pesa paybill, till or bank account (with its account number) in{' '}
-            <Link href="/settings/payment-methods" className="underline font-medium">Payment Methods</Link>{' '}
-            to start receiving payments directly. Until then, customer payments are collected by
-            Bitwave and paid out on your schedule below.
-          </p>
-        ) : isDirect ? (
-          <p className="text-xs text-foreground-muted">
-            Each M-Pesa payment goes straight into {destinationText} the moment your customer pays.
-            Received directly in the last 30 days:{' '}
-            <span className="font-medium text-foreground">{formatAmount(settings.direct_received_30d)}</span>.
-            Any balance collected earlier is still paid out on your schedule.
-          </p>
-        ) : !settings.direct_settlement_available ? (
-          <p className="text-xs text-amber-500">
-            To receive payments directly, add an M-Pesa paybill, till or bank account (with its account number) in{' '}
-            <Link href="/settings/payment-methods" className="underline font-medium">Payment Methods</Link>.
-          </p>
-        ) : (
-          <p className="text-xs text-foreground-muted">
-            Customers pay Bitwave&apos;s paybill and your balance is paid out to {destinationText} on the schedule below.
-          </p>
-        )}
-      </div>
+    <>
+    <SettlementModeCard
+      settings={settings}
+      saving={savingSettlement}
+      onChoose={(mode) => (mode === 'direct' ? setDirectConfirmOpen(true) : saveSettlementMode('platform'))}
+    />
 
+    <div className="card p-4 sm:p-5">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
         {/* Withdraw */}
         <div>
-          <h3 className="text-sm font-semibold text-foreground mb-3">Withdraw Funds</h3>
+          <h3 className="text-sm font-semibold text-foreground">Withdraw your Bitwave balance</h3>
+          <p className="text-xs text-foreground-muted mt-0.5 mb-3">
+            Money Bitwave collected for you. Direct payments are already in your account.
+          </p>
 
           <div className="space-y-1.5 text-sm mb-4">
             <div className="flex items-center justify-between">
@@ -405,5 +348,6 @@ export default function WithdrawCard({ onWithdrawn }: { onWithdrawn?: () => void
         confirmLabel="Receive directly"
       />
     </div>
+    </>
   );
 }

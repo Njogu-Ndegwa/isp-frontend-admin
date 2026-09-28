@@ -1709,6 +1709,9 @@ export interface MpesaTransaction {
   manual_provision_supported: boolean;
   manual_provision_reason: string | null;
   counts_as_revenue?: boolean;
+  // M-Pesa only: 'direct' = paid straight into the reseller's own account,
+  // 'platform' = collected by Bitwave and paid out on schedule.
+  settlement?: 'direct' | 'platform';
 }
 
 export interface ManualProvisionResponse {
@@ -1762,6 +1765,10 @@ export interface TransactionSummary {
   };
   router_breakdown: Record<string, RouterBreakdown>;
   compensation_total?: number;
+  settlement_breakdown?: {
+    direct: StatusBreakdown;
+    platform: StatusBreakdown;
+  };
   period: {
     date?: string;
     start_date: string;
@@ -3724,12 +3731,16 @@ export interface AccountStatementBalance {
   total_paid_to_you: number;
   total_transaction_charges: number;
   unpaid_balance: number;
+  // M-Pesa paid straight into the reseller's own account (never in the balance).
+  total_direct_received?: number;
 }
 
 export interface AccountStatementPeriodSummary {
   total_payouts: number;
   total_charges: number;
   net: number;
+  direct_received?: number;
+  system_collected?: number;
 }
 
 export interface AccountStatementEntry {

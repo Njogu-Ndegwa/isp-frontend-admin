@@ -204,12 +204,24 @@ export const demoTransactions: MpesaTransaction[] = Array.from({ length: 25 }, (
     plan: { id: plan.id, name: plan.name, price: plan.price, duration_value: plan.duration_value, duration_unit: plan.duration_unit, connection_type: (plan.connection_type as 'hotspot' | 'pppoe') ?? null },
     manual_provision_supported: status === 'completed',
     manual_provision_reason: null,
+    // The demo reseller switched to direct settlement a few days ago: the
+    // newest M-Pesa payments went straight to their account.
+    settlement: methods[i] === 'mobile_money' ? (i < 14 ? 'direct' : 'platform') : undefined,
   };
 });
+
+const demoSettlementTotals = (settlement: 'direct' | 'platform') => {
+  const rows = demoTransactions.filter((t) => t.settlement === settlement && t.status === 'completed');
+  return { count: rows.length, amount: rows.reduce((s, t) => s + t.amount, 0) };
+};
 
 export const demoTransactionSummary: TransactionSummary = {
   total_transactions: 25,
   total_amount: demoTransactions.reduce((s, t) => s + t.amount, 0),
+  settlement_breakdown: {
+    direct: demoSettlementTotals('direct'),
+    platform: demoSettlementTotals('platform'),
+  },
   status_breakdown: {
     completed: { count: 19, amount: 38500 },
     pending: { count: 2, amount: 600 },
