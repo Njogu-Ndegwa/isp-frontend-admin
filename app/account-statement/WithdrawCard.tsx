@@ -29,6 +29,7 @@ export default function WithdrawCard({ onWithdrawn }: { onWithdrawn?: () => void
   const [customDays, setCustomDays] = useState<string>('');
   const [savingSettlement, setSavingSettlement] = useState(false);
   const [directConfirmOpen, setDirectConfirmOpen] = useState(false);
+  const [platformConfirmOpen, setPlatformConfirmOpen] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -122,6 +123,7 @@ export default function WithdrawCard({ onWithdrawn }: { onWithdrawn?: () => void
     } finally {
       setSavingSettlement(false);
       setDirectConfirmOpen(false);
+      setPlatformConfirmOpen(false);
     }
   };
 
@@ -176,7 +178,9 @@ export default function WithdrawCard({ onWithdrawn }: { onWithdrawn?: () => void
     <SettlementModeCard
       settings={settings}
       saving={savingSettlement}
-      onChoose={(mode) => (mode === 'direct' ? setDirectConfirmOpen(true) : saveSettlementMode('platform'))}
+      // Both directions confirm: one mis-tap must never silently reroute
+      // every customer payment.
+      onChoose={(mode) => (mode === 'direct' ? setDirectConfirmOpen(true) : setPlatformConfirmOpen(true))}
     />
 
     <div className="card p-4 sm:p-5">
@@ -346,6 +350,20 @@ export default function WithdrawCard({ onWithdrawn }: { onWithdrawn?: () => void
           `will be yours to make. You can switch back at any time.`
         }
         confirmLabel="Receive directly"
+      />
+
+      <ConfirmDialog
+        isOpen={platformConfirmOpen}
+        onClose={() => { if (!savingSettlement) setPlatformConfirmOpen(false); }}
+        onConfirm={() => saveSettlementMode('platform')}
+        loading={savingSettlement}
+        title="Let Bitwave collect your payments?"
+        message={
+          `From now on, customer M-Pesa payments go to Bitwave's paybill instead of ` +
+          `${destinationText}. Bitwave holds your earnings and pays them out on your ` +
+          `schedule, and payout fees apply. You can switch back at any time.`
+        }
+        confirmLabel="Switch to Bitwave"
       />
     </div>
     </>
