@@ -212,6 +212,15 @@ export default function WithdrawCard({ onWithdrawn }: { onWithdrawn?: () => void
         </div>
         {savingSettlement ? (
           <p className="text-xs text-foreground-muted">Saving...</p>
+        ) : isDirect && !settings.direct_settlement_available ? (
+          // New accounts start on direct, usually before any payout account
+          // exists — until one does, Bitwave collects and holds the money.
+          <p className="text-xs text-amber-500">
+            Add an M-Pesa paybill, till or bank account (with its account number) in{' '}
+            <Link href="/settings/payment-methods" className="underline font-medium">Payment Methods</Link>{' '}
+            to start receiving payments directly. Until then, customer payments are collected by
+            Bitwave and paid out on your schedule below.
+          </p>
         ) : isDirect ? (
           <p className="text-xs text-foreground-muted">
             Each M-Pesa payment goes straight into {destinationText} the moment your customer pays.
