@@ -1002,7 +1002,8 @@ class ApiClient {
     paymentMethod?: string,
     date?: string,
     page = 1,
-    perPage = 20
+    perPage = 20,
+    settlement?: 'direct' | 'platform'
   ): Promise<PaginatedResponse<MpesaTransaction>> {
     if (this.isDemoMode()) {
       const all = (await loadDemo()).demoTransactions;
@@ -1023,6 +1024,7 @@ class ApiClient {
     if (status) params.append('status', status);
     if (paymentMethod) params.append('payment_method', paymentMethod);
     if (date) params.append('date', date);
+    if (settlement) params.append('settlement', settlement);
     params.append('page', page.toString());
     params.append('per_page', perPage.toString());
 
@@ -2244,8 +2246,17 @@ class ApiClient {
   ): Promise<ResellerAccountStatement> {
     if (this.isDemoMode()) {
       return {
-        balance: { total_system_collected: 0, total_paid_to_you: 0, total_transaction_charges: 0, unpaid_balance: 0 },
-        period_summary: { total_payouts: 0, total_charges: 0, net: 0 },
+        balance: {
+          total_system_collected: 18450,
+          total_paid_to_you: 15200,
+          total_transaction_charges: 310,
+          unpaid_balance: 2940,
+          total_direct_received: 26780,
+        },
+        period_summary: {
+          total_payouts: 15200, total_charges: 310, net: 14890,
+          direct_received: 26780, system_collected: 18450,
+        },
         page: 1, per_page: 50, total_entries: 0, total_pages: 1,
         entries: [],
       };
@@ -2272,17 +2283,17 @@ class ApiClient {
         custom_interval_min_days: 1,
         custom_interval_max_days: 90,
         available_frequencies: ['daily', 'weekly', 'monthly', 'custom', 'manual'],
-        unpaid_balance: 0,
+        unpaid_balance: 2940,
         minimum_withdrawal: 2,
         cooldown_seconds_remaining: 0,
-        fee_preview: { safaricom_fee: 0, kadogo_surcharge: 0, total_fee: 0, net_payout: 0 },
-        payment_method: null,
-        can_withdraw: false,
-        blocked_reason: 'balance_too_low',
+        fee_preview: { safaricom_fee: 25, kadogo_surcharge: 0, total_fee: 25, net_payout: 2915 },
+        payment_method: { id: 1, label: 'Equity Bank', method_type: 'bank_account', destination: '247247' },
+        can_withdraw: true,
+        blocked_reason: null,
         pending_withdrawal: null,
         settlement_mode: 'direct',
-        direct_settlement_available: false,
-        direct_received_30d: 0,
+        direct_settlement_available: true,
+        direct_received_30d: 26780,
       };
     }
     const response = await fetch(`${BASE_URL}/reseller/payout-settings`, {

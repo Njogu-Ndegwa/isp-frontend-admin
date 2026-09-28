@@ -19,6 +19,38 @@ import { scopedSummaryDates, thisMonthCardTitle, scopeCaption } from './summaryS
 
 type StatusFilter = 'all' | 'completed' | 'pending' | 'failed' | 'expired';
 type PaymentMethodFilter = 'all' | 'mobile_money' | 'cash';
+type SettlementFilter = 'all' | 'direct' | 'platform';
+
+const SETTLEMENT_LABELS: Record<'direct' | 'platform', { label: string; title: string; className: string }> = {
+  direct: {
+    label: 'Direct',
+    title: 'Paid straight into your own paybill, till or bank',
+    className: 'text-emerald-500 bg-emerald-500/10 border-emerald-500/25',
+  },
+  platform: {
+    label: 'Via Bitwave',
+    title: 'Collected by Bitwave and paid out to you on your schedule',
+    className: 'text-foreground-muted bg-gray-500/10 border-gray-500/20',
+  },
+};
+
+function SettlementBadge({ settlement }: { settlement?: 'direct' | 'platform' }) {
+  if (!settlement) return null;
+  const info = SETTLEMENT_LABELS[settlement];
+  return (
+    <span
+      title={info.title}
+      className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full border text-[10px] font-semibold whitespace-nowrap ${info.className}`}
+    >
+      {settlement === 'direct' && (
+        <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M13 10V3L4 14h7v7l9-11h-7z" />
+        </svg>
+      )}
+      {info.label}
+    </span>
+  );
+}
 
 const TRANSACTION_COLUMNS: DataTableColumn[] = [
   { key: 'id', label: 'ID' },
@@ -94,6 +126,7 @@ export default function TransactionsPage() {
   const [error, setError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [methodFilter, setMethodFilter] = useState<PaymentMethodFilter>('all');
+  const [settlementFilter, setSettlementFilter] = useState<SettlementFilter>('all');
   const [dateFilter, setDateFilter] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedTx, setExpandedTx] = useState<number | null>(null);
@@ -128,7 +161,7 @@ export default function TransactionsPage() {
         const exactDate = dateFilter || undefined;
         const { startDate, endDate, date } = scopedSummaryDates(dateFilter, getCurrentTimeGMT3());
         const [txResult, summaryData] = await Promise.all([
-          api.getTransactions(1, undefined, undefined, undefined, status, controller.signal, method, exactDate, page, perPage),
+          api.getTransactions(1, undefined, undefined, undefined, status, controller.signal, method, exactDate, page, perPage, settlementFilter === 'all' ? undefined : settlementFilter),
           api.getTransactionSummary(1, undefined, startDate, endDate, controller.signal, method, date),
         ]);
         if (!controller.signal.aborted) {
@@ -145,7 +178,7 @@ export default function TransactionsPage() {
     };
     load();
     return () => controller.abort();
-  }, [statusFilter, methodFilter, dateFilter, page, perPage, hasSearchFilter, refreshKey]);
+  }, [statusFilter, methodFilter, settlementFilter, dateFilter, page, perPage, hasSearchFilter, refreshKey]);
 
   useEffect(() => {
     if (!hasSearchFilter) return;
@@ -159,7 +192,7 @@ export default function TransactionsPage() {
         const exactDate = dateFilter || undefined;
         const { startDate, endDate, date } = scopedSummaryDates(dateFilter, getCurrentTimeGMT3());
         const [txResult, summaryData] = await Promise.all([
-          api.getTransactions(1, undefined, undefined, undefined, status, controller.signal, method, exactDate, 1, 10000),
+          api.getTransactions(1, undefined, undefined, undefined, status, controller.signal, method, exactDate, 1, 10000, settlementFilter === 'all' ? undefined : settlementFilter),
           api.getTransactionSummary(1, undefined, startDate, endDate, controller.signal, method, date),
         ]);
         if (!controller.signal.aborted) {
@@ -175,7 +208,7 @@ export default function TransactionsPage() {
     };
     load();
     return () => controller.abort();
-  }, [statusFilter, methodFilter, dateFilter, hasSearchFilter, refreshKey]);
+  }, [statusFilter, methodFilter, settlementFilter, dateFilter, hasSearchFilter, refreshKey]);
 
   // All-time revenue card: unfiltered, fetched once (and on manual refresh).
   useEffect(() => {
@@ -234,6 +267,12 @@ export default function TransactionsPage() {
     : filteredTransactions;
 
   const effectiveTotal = hasSearchFilter ? filteredTransactions.length : totalItems;
+
+  // Only resellers who have ever received money directly see the split; for
+  // everyone else every row would read "Via Bitwave" and add nothing.
+  const showSettlement =
+    (allTimeSummary?.settlement_breakdown?.direct?.count ?? 0) > 0 || settlementFilter !== 'all';
+  const settlementSplit = summary?.settlement_breakdown;
 
   const getStatusBadge = (status: MpesaTransaction['status']) => {
     const badges = {
@@ -342,6 +381,71 @@ export default function TransactionsPage() {
               />
             </div>
           </div>
+
+          {showSettlement && settlementSplit && (() => {
+            const direct = settlementSplit.direct.amount || 0;
+            const platform = settlementSplit.platform.amount || 0;
+            const total = direct + platform;
+            const directPct = total > 0 ? Math.round((direct / total) * 100) : 0;
+            return (
+              <div className="card mt-3 sm:mt-4 p-3 sm:p-4">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <p className="text-xs font-medium text-foreground">Where your M-Pesa money went</p>
+                  <p className="text-[11px] text-foreground-muted">{scopeCaption(dateFilter, getCurrentTimeGMT3())}</p>
+                </div>
+                <div
+                  className="mt-2.5 h-2.5 w-full rounded-full bg-gray-500/15 overflow-hidden flex"
+                  role="img"
+                  aria-label={`${directPct}% sent directly to you, ${100 - directPct}% collected by Bitwave`}
+                >
+                  <div className="h-full bg-emerald-500 transition-all" style={{ width: `${directPct}%` }} />
+                  <div className="h-full bg-amber-500/70 transition-all" style={{ width: `${total > 0 ? 100 - directPct : 0}%` }} />
+                </div>
+                <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-4">
+                  <button
+                    type="button"
+                    onClick={() => { setSettlementFilter(settlementFilter === 'direct' ? 'all' : 'direct'); setPage(1); }}
+                    className={`flex items-center justify-between gap-3 rounded-xl px-3 py-2 text-left transition-colors ${
+                      settlementFilter === 'direct' ? 'bg-emerald-500/10 ring-1 ring-emerald-500/30' : 'hover:bg-background-tertiary'
+                    }`}
+                  >
+                    <span className="flex items-center gap-2 min-w-0">
+                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shrink-0" aria-hidden="true" />
+                      <span className="min-w-0">
+                        <span className="block text-xs text-foreground-muted truncate">Sent directly to you</span>
+                        <span className="block text-[11px] text-foreground-muted/70">
+                          {settlementSplit.direct.count} {settlementSplit.direct.count === 1 ? 'payment' : 'payments'}
+                        </span>
+                      </span>
+                    </span>
+                    <span className="text-sm font-semibold text-foreground tabular-nums whitespace-nowrap">
+                      {formatAmount(direct)}
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setSettlementFilter(settlementFilter === 'platform' ? 'all' : 'platform'); setPage(1); }}
+                    className={`flex items-center justify-between gap-3 rounded-xl px-3 py-2 text-left transition-colors ${
+                      settlementFilter === 'platform' ? 'bg-amber-500/10 ring-1 ring-amber-500/30' : 'hover:bg-background-tertiary'
+                    }`}
+                  >
+                    <span className="flex items-center gap-2 min-w-0">
+                      <span className="w-2.5 h-2.5 rounded-full bg-amber-500/70 shrink-0" aria-hidden="true" />
+                      <span className="min-w-0">
+                        <span className="block text-xs text-foreground-muted truncate">Collected by Bitwave</span>
+                        <span className="block text-[11px] text-foreground-muted/70">
+                          {settlementSplit.platform.count} {settlementSplit.platform.count === 1 ? 'payment' : 'payments'}
+                        </span>
+                      </span>
+                    </span>
+                    <span className="text-sm font-semibold text-foreground tabular-nums whitespace-nowrap">
+                      {formatAmount(platform)}
+                    </span>
+                  </button>
+                </div>
+              </div>
+            );
+          })()}
         </div>
       )}
 
@@ -365,6 +469,17 @@ export default function TransactionsPage() {
                 { value: 'cash', label: 'Cash' },
               ]}
             />
+            {showSettlement && (
+              <FilterSelect
+                value={settlementFilter}
+                onChange={(v) => { setSettlementFilter(v as SettlementFilter); setPage(1); }}
+                options={[
+                  { value: 'all', label: 'Direct & Bitwave' },
+                  { value: 'direct', label: 'Sent directly to you' },
+                  { value: 'platform', label: 'Collected by Bitwave' },
+                ]}
+              />
+            )}
             <FilterSelect
               value={statusFilter}
               onChange={(v) => { setStatusFilter(v as StatusFilter); setPage(1); }}
@@ -384,7 +499,7 @@ export default function TransactionsPage() {
         </div>
 
         {/* Active Filters */}
-        {(methodFilter !== 'all' || statusFilter !== 'all' || dateFilter) && (
+        {(methodFilter !== 'all' || settlementFilter !== 'all' || statusFilter !== 'all' || dateFilter) && (
           <div className="flex items-center gap-2 mt-3 flex-wrap">
             <span className="text-xs text-foreground-muted">Filters:</span>
             {methodFilter !== 'all' && (
@@ -393,6 +508,15 @@ export default function TransactionsPage() {
                 className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-accent-primary/10 text-accent-primary hover:bg-accent-primary/20 transition-colors"
               >
                 {PAYMENT_METHOD_LABELS[methodFilter]?.label || methodFilter}
+                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            )}
+            {settlementFilter !== 'all' && (
+              <button
+                onClick={() => setSettlementFilter('all')}
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-accent-primary/10 text-accent-primary hover:bg-accent-primary/20 transition-colors"
+              >
+                {settlementFilter === 'direct' ? 'Sent directly to you' : 'Collected by Bitwave'}
                 <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
               </button>
             )}
@@ -421,7 +545,7 @@ export default function TransactionsPage() {
               );
             })()}
             <button
-              onClick={() => { setMethodFilter('all'); setStatusFilter('all'); setDateFilter(''); setPage(1); }}
+              onClick={() => { setMethodFilter('all'); setSettlementFilter('all'); setStatusFilter('all'); setDateFilter(''); setPage(1); }}
               className="text-xs text-foreground-muted hover:text-foreground transition-colors underline underline-offset-2"
             >
               Clear all
@@ -464,14 +588,17 @@ export default function TransactionsPage() {
                     }}
                     secondary={{
                       left: (
-                        <span className="flex items-center gap-1.5">
+                        <span className="flex items-center gap-1.5 min-w-0 pr-2">
                           {getPaymentMethodBadge(tx.payment_method)}
+                          {showSettlement && tx.payment_method === 'mobile_money' && (
+                            <SettlementBadge settlement={tx.settlement} />
+                          )}
                           {tx.counts_as_revenue === false && (
                             <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-semibold text-foreground-muted bg-gray-500/15 border border-gray-500/20">
                               Free
                             </span>
                           )}
-                          <span>{tx.plan?.name || '-'}</span>
+                          <span className="truncate min-w-0">{tx.plan?.name || '-'}</span>
                         </span>
                       ),
                       right: formatTransactionDate(tx)
@@ -596,7 +723,14 @@ export default function TransactionsPage() {
                 case 'id':
                   return <span className="font-mono text-sm text-foreground-muted">#{tx.transaction_id}</span>;
                 case 'type':
-                  return getPaymentMethodBadge(tx.payment_method);
+                  return (
+                    <div className="flex flex-col items-start gap-1">
+                      {getPaymentMethodBadge(tx.payment_method)}
+                      {showSettlement && tx.payment_method === 'mobile_money' && (
+                        <SettlementBadge settlement={tx.settlement} />
+                      )}
+                    </div>
+                  );
                 case 'phone':
                   return <span className="font-mono text-sm text-foreground-muted">{tx.phone_number || tx.customer?.name || '-'}</span>;
                 case 'plan':
