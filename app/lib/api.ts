@@ -73,6 +73,7 @@ import {
   UpdatePlainPortsResponse,
   UpdateDualPortsRequest,
   UpdateDualPortsResponse,
+  PortConfigJob,
   LoadBalancingStatus,
   LoadBalancingPreflightRequest,
   LoadBalancingPreflightResponse,
@@ -1670,34 +1671,84 @@ class ApiClient {
     return this.handleResponse<RouterInterfacesResponse>(response);
   }
 
-  async updatePPPoEPorts(routerId: number, data: UpdatePPPoEPortsRequest): Promise<UpdatePPPoEPortsResponse> {
-    if (this.isDemoMode()) this.demoBlock();
-    const response = await fetch(`${BASE_URL}/routers/${routerId}/pppoe-ports`, {
+  // Port-mode changes can take minutes on a slow router. Past ~75 s the backend
+  // answers 202 with a job id (Cloudflare cuts requests at 100 s) and keeps
+  // working; poll the job until the router has finished.
+  private async sendPortConfig<T>(
+    routerId: number,
+    path: 'pppoe-ports' | 'plain-ports' | 'dual-ports',
+    data: unknown,
+    onPending?: () => void,
+  ): Promise<T> {
+    const response = await fetch(`${BASE_URL}/routers/${routerId}/${path}`, {
       method: 'PUT',
       headers: this.getHeaders(),
       body: JSON.stringify(data),
     });
-    return this.handleResponse<UpdatePPPoEPortsResponse>(response);
+    if ([502, 504, 524].includes(response.status)) {
+      throw new ApiError(
+        'The router took too long to answer. The change may still be applying — reopen Port Configuration in a few minutes to check before saving again.',
+        response.status,
+      );
+    }
+    if (response.status !== 202) return this.handleResponse<T>(response, false, true);
+
+    const { job_id: jobId } = (await response.json()) as { job_id: string };
+    onPending?.();
+    const deadline = Date.now() + 10 * 60 * 1000;
+    while (Date.now() < deadline) {
+      await new Promise((resolve) => setTimeout(resolve, 4000));
+      let job: PortConfigJob<T>;
+      try {
+        const statusResponse = await fetch(
+          `${BASE_URL}/routers/${routerId}/port-config-jobs/${jobId}`,
+          { headers: this.getHeaders() },
+        );
+        job = await this.handleResponse<PortConfigJob<T>>(statusResponse, false, true);
+      } catch (err) {
+        if (err instanceof ApiError && err.status < 500) throw err;
+        continue; // transient network/proxy error: keep polling
+      }
+      if (job.status === 'done' && job.result) return job.result;
+      if (job.status === 'failed') {
+        const detail = job.error;
+        const message = typeof detail === 'string'
+          ? detail
+          : (typeof detail?.message === 'string' && detail.message) || 'The router rejected the port change';
+        throw new ApiError(message, job.status_code ?? 500, typeof detail === 'object' ? detail : undefined);
+      }
+    }
+    throw new ApiError(
+      'The router is still applying the change. Reopen Port Configuration in a few minutes to confirm.',
+      202,
+    );
   }
 
-  async updatePlainPorts(routerId: number, data: UpdatePlainPortsRequest): Promise<UpdatePlainPortsResponse> {
+  async updatePPPoEPorts(
+    routerId: number,
+    data: UpdatePPPoEPortsRequest,
+    onPending?: () => void,
+  ): Promise<UpdatePPPoEPortsResponse> {
     if (this.isDemoMode()) this.demoBlock();
-    const response = await fetch(`${BASE_URL}/routers/${routerId}/plain-ports`, {
-      method: 'PUT',
-      headers: this.getHeaders(),
-      body: JSON.stringify(data),
-    });
-    return this.handleResponse<UpdatePlainPortsResponse>(response);
+    return this.sendPortConfig<UpdatePPPoEPortsResponse>(routerId, 'pppoe-ports', data, onPending);
   }
 
-  async updateDualPorts(routerId: number, data: UpdateDualPortsRequest): Promise<UpdateDualPortsResponse> {
+  async updatePlainPorts(
+    routerId: number,
+    data: UpdatePlainPortsRequest,
+    onPending?: () => void,
+  ): Promise<UpdatePlainPortsResponse> {
     if (this.isDemoMode()) this.demoBlock();
-    const response = await fetch(`${BASE_URL}/routers/${routerId}/dual-ports`, {
-      method: 'PUT',
-      headers: this.getHeaders(),
-      body: JSON.stringify(data),
-    });
-    return this.handleResponse<UpdateDualPortsResponse>(response);
+    return this.sendPortConfig<UpdatePlainPortsResponse>(routerId, 'plain-ports', data, onPending);
+  }
+
+  async updateDualPorts(
+    routerId: number,
+    data: UpdateDualPortsRequest,
+    onPending?: () => void,
+  ): Promise<UpdateDualPortsResponse> {
+    if (this.isDemoMode()) this.demoBlock();
+    return this.sendPortConfig<UpdateDualPortsResponse>(routerId, 'dual-ports', data, onPending);
   }
 
   // Load Balancing (Multi-WAN) — per-router PCC balancing across 2+ uplinks.

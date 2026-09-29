@@ -851,6 +851,7 @@ export interface UpdatePPPoEPortsResponse {
   router_name: string;
   pppoe_ports: string[];
   message: string;
+  warnings?: string[];
 }
 
 export interface UpdatePlainPortsRequest {
@@ -863,6 +864,18 @@ export interface UpdatePlainPortsResponse {
   plain_ports: string[];
   warnings: string[];
   message: string;
+}
+
+// A port-mode change still running on the router after the inline wait.
+export interface PortConfigJob<T> {
+  job_id: string;
+  router_id: number;
+  mode: 'pppoe' | 'plain' | 'dual';
+  status: 'applying' | 'done' | 'failed';
+  elapsed_seconds: number;
+  result?: T;
+  status_code?: number;
+  error?: string | { message?: string; [key: string]: unknown };
 }
 
 export interface UpdateDualPortsRequest {

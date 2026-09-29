@@ -2660,10 +2660,27 @@ function PortConfigModal({
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [warnings, setWarnings] = useState<string[]>([]);
+  const [savingNote, setSavingNote] = useState<string | null>(null);
 
   useEffect(() => {
     loadInterfaces();
   }, [router.id]);
+
+  const modesFrom = (data: Awaited<ReturnType<typeof api.getRouterInterfaces>>) => {
+    const modes: Record<string, PortMode> = {};
+    const pppoe = data.pppoe_ports ?? [];
+    const plain = data.plain_ports ?? router.plain_ports ?? [];
+    const dual = data.dual_ports ?? (router.dual_ports ?? []);
+    for (const iface of data.interfaces) {
+      if (iface.type !== 'ether' || iface.name === 'ether1') continue;
+      if (lbWanPorts.includes(iface.name)) continue; // WAN uplinks are managed by load balancing
+      if (dual.includes(iface.name)) modes[iface.name] = 'dual';
+      else if (pppoe.includes(iface.name)) modes[iface.name] = 'pppoe';
+      else if (plain.includes(iface.name)) modes[iface.name] = 'plain';
+      else modes[iface.name] = 'hotspot';
+    }
+    return modes;
+  };
 
   const loadInterfaces = async () => {
     try {
@@ -2671,18 +2688,7 @@ function PortConfigModal({
       setError(null);
       const data = await api.getRouterInterfaces(router.id);
       setInterfaces(data.interfaces);
-      const modes: Record<string, PortMode> = {};
-      const pppoe = data.pppoe_ports ?? [];
-      const plain = data.plain_ports ?? router.plain_ports ?? [];
-      const dual = data.dual_ports ?? (router.dual_ports ?? []);
-      for (const iface of data.interfaces) {
-        if (iface.type !== 'ether' || iface.name === 'ether1') continue;
-        if (lbWanPorts.includes(iface.name)) continue; // WAN uplinks are managed by load balancing
-        if (dual.includes(iface.name)) modes[iface.name] = 'dual';
-        else if (pppoe.includes(iface.name)) modes[iface.name] = 'pppoe';
-        else if (plain.includes(iface.name)) modes[iface.name] = 'plain';
-        else modes[iface.name] = 'hotspot';
-      }
+      const modes = modesFrom(data);
       setPortModes({ ...modes });
       setSavedModes({ ...modes });
     } catch (err) {
@@ -2729,13 +2735,16 @@ function PortConfigModal({
       setError(null);
       setSuccess(null);
       setWarnings([]);
+      setSavingNote(null);
 
       const results: string[] = [];
       const allWarnings: string[] = [];
       const migrationInfo: string[] = [];
+      const onPending = () =>
+        setSavingNote('Still applying on the router. Slower routers can take a few minutes — keep this window open.');
 
       if (dualChanged) {
-        const res = await api.updateDualPorts(router.id, { ports: dualPorts });
+        const res = await api.updateDualPorts(router.id, { ports: dualPorts }, onPending);
         results.push(res.message || 'Dual-mode ports updated');
         if (res.warnings?.length) allWarnings.push(...res.warnings);
         if (res.migrated_from_pppoe?.length) {
@@ -2747,12 +2756,13 @@ function PortConfigModal({
       }
 
       if (pppoeChanged) {
-        const res = await api.updatePPPoEPorts(router.id, { ports: pppoePorts });
+        const res = await api.updatePPPoEPorts(router.id, { ports: pppoePorts }, onPending);
         results.push(res.message || 'PPPoE ports updated');
+        if (res.warnings?.length) allWarnings.push(...res.warnings);
       }
 
       if (plainChanged) {
-        const res = await api.updatePlainPorts(router.id, { ports: plainPorts });
+        const res = await api.updatePlainPorts(router.id, { ports: plainPorts }, onPending);
         results.push(res.message || 'Plain ports updated');
         if (res.warnings?.length) allWarnings.push(...res.warnings);
       }
@@ -2764,8 +2774,16 @@ function PortConfigModal({
       setSuccess(results.join('. ') || 'Port configuration updated');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to update port configuration');
+      // Earlier steps may have landed before this one failed: re-read what the
+      // router really has so the next Apply only sends what is still different.
+      try {
+        setSavedModes(modesFrom(await api.getRouterInterfaces(router.id)));
+      } catch {
+        // keep the previous saved state; the error above already explains the failure
+      }
     } finally {
       setSaving(false);
+      setSavingNote(null);
     }
   };
 
@@ -2836,6 +2854,12 @@ function PortConfigModal({
           {warnings.length > 0 && (
             <div className="mt-4 p-3 rounded-lg bg-warning/10 border border-warning/20 text-sm text-warning space-y-1">
               {warnings.map((w, i) => <p key={i}>{w}</p>)}
+            </div>
+          )}
+          {saving && savingNote && (
+            <div className="mt-4 p-3 rounded-lg bg-accent-primary/10 border border-accent-primary/20 text-sm text-foreground flex items-center gap-2">
+              <div className="w-4 h-4 flex-shrink-0 border-2 border-accent-primary/30 border-t-accent-primary rounded-full animate-spin" />
+              {savingNote}
             </div>
           )}
         </div>
