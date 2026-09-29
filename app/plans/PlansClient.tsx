@@ -22,6 +22,7 @@ import { formatAmount, getDisplayCurrency } from '../lib/format';
 import { useT } from '../lib/i18n';
 import { pickDefaultRouterId, routerOptionLabel } from '../lib/routerPick';
 import PlanNameHint from '../components/PlanNameHint';
+import SpeedInputHint from '../components/SpeedInputHint';
 import { MAX_PLAN_NAME_LENGTH, isPlanNameTooLong } from '../lib/planName';
 
 type FilterTab = 'all' | 'regular' | 'emergency';
@@ -839,6 +840,7 @@ function EditPlanModal({
                   className="input"
                   placeholder="e.g., 5M/2M"
                 />
+                <SpeedInputHint value={formData.speed} />
               </div>
             </div>
 
@@ -992,8 +994,9 @@ function EditPlanModal({
                       className="input"
                       placeholder="e.g., 5M/2M"
                     />
+                    {formData.fup_throttle_profile ? <SpeedInputHint value={formData.fup_throttle_profile} /> : null}
                     <p className="mt-1 text-xs text-foreground-muted">
-                      Speed to apply after the data cap is reached; blank uses 1M/1M
+                      Speed after the data cap is reached, download/upload; blank uses 1M/1M
                     </p>
                   </div>
                 </div>

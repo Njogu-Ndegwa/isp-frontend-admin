@@ -8,6 +8,7 @@ import { CreatePlanRequest, Router as RouterDevice } from '../../lib/types';
 import PlanRouterScope, { isRouterScopeIncomplete } from '../../components/PlanRouterScope';
 import { useAlert } from '../../context/AlertContext';
 import Header from '../../components/Header';
+import SpeedInputHint from '../../components/SpeedInputHint';
 import { gmt3InputToISO } from '../../lib/dateUtils';
 import { DataCapUnit, dataCapInputToMb } from '../dataCap';
 import { normalizeDuration, describeDuration } from '../duration';
@@ -164,6 +165,7 @@ export default function CreatePlanPage() {
                   placeholder="e.g., 5M/2M"
                   required
                 />
+                <SpeedInputHint value={formData.speed} />
               </div>
             </div>
 

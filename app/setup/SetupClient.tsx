@@ -9,6 +9,7 @@ import { fullOnboardingCheck } from '../hooks/useOnboardingStatus';
 import DeviceModeTroubleshoot from '../components/DeviceModeTroubleshoot';
 import HotspotPackageTroubleshoot from '../components/HotspotPackageTroubleshoot';
 import PlanNameHint from '../components/PlanNameHint';
+import SpeedInputHint from '../components/SpeedInputHint';
 import { MAX_PLAN_NAME_LENGTH, isPlanNameTooLong } from '../lib/planName';
 import type {
   VpnType,
@@ -640,7 +641,7 @@ function PlanStep({ onComplete }: { onComplete: () => void }) {
       <div className="card p-4 space-y-4">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
-            <label className="block text-sm font-medium text-foreground mb-1.5">Speed</label>
+            <label className="block text-sm font-medium text-foreground mb-1.5">Speed (Down/Up)</label>
             <input
               type="text"
               value={form.speed}
@@ -649,6 +650,7 @@ function PlanStep({ onComplete }: { onComplete: () => void }) {
               placeholder="e.g. 10M/5M"
               required
             />
+            <SpeedInputHint value={form.speed} />
           </div>
           <div>
             <label className="block text-sm font-medium text-foreground mb-1.5">Price (KES)</label>
