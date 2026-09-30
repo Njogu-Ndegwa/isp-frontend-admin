@@ -4,8 +4,9 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { api } from '../../lib/api';
-import { CreatePlanRequest, Router as RouterDevice } from '../../lib/types';
+import { CreatePlanRequest, PlanType, Router as RouterDevice } from '../../lib/types';
 import PlanRouterScope, { isRouterScopeIncomplete } from '../../components/PlanRouterScope';
+import TrialFrequencyPicker from '../../components/TrialFrequencyPicker';
 import { useAlert } from '../../context/AlertContext';
 import Header from '../../components/Header';
 import SpeedInputHint from '../../components/SpeedInputHint';
@@ -15,6 +16,7 @@ import { normalizeDuration, describeDuration } from '../duration';
 import { getDisplayCurrency } from '../../lib/format';
 import PlanNameHint from '../../components/PlanNameHint';
 import { MAX_PLAN_NAME_LENGTH, isPlanNameTooLong } from '../../lib/planName';
+import { applyPlanType } from '../planType';
 
 export default function CreatePlanPage() {
   const router = useRouter();
@@ -34,6 +36,7 @@ export default function CreatePlanPage() {
     original_price: null,
     valid_until: null,
     max_shared_users: 1,
+    trial_once_per_customer: true,
     data_cap_mb: null,
     fup_action: null,
     fup_throttle_profile: null,
@@ -44,6 +47,9 @@ export default function CreatePlanPage() {
   const [durationInput, setDurationInput] = useState(String(formData.duration_value));
   const [routers, setRouters] = useState<RouterDevice[]>([]);
   const [routerScope, setRouterScope] = useState<number[] | null>(null);
+  // Last price typed for a paid plan, put back if the reseller leaves Free Trial.
+  const [paidPrice, setPaidPrice] = useState(formData.price);
+  const [paidSharedUsers, setPaidSharedUsers] = useState(formData.max_shared_users ?? 1);
 
   useEffect(() => {
     api.getRouters()
@@ -52,6 +58,7 @@ export default function CreatePlanPage() {
   }, []);
 
   const isPPPoE = formData.connection_type === 'pppoe';
+  const isFreeTrial = formData.plan_type === 'free_trial';
   const dataCapMb = dataCapInputToMb(dataCapValue, dataCapUnit);
 
   const parsedDuration = parseFloat(durationInput);
@@ -83,12 +90,19 @@ export default function CreatePlanPage() {
         return;
       }
       payload.router_ids = routerScope;
+      if (isFreeTrial) {
+        // The backend rejects a free trial that isn't free or isn't hotspot.
+        payload.price = 0;
+        payload.original_price = null;
+        payload.connection_type = 'hotspot';
+        payload.max_shared_users = 1;
+      }
       payload.duration_value = normalized.value;
       payload.duration_unit = normalized.unit;
       if (!payload.badge_text) payload.badge_text = null;
       if (!payload.original_price) payload.original_price = null;
       payload.valid_until = payload.valid_until ? gmt3InputToISO(payload.valid_until) : null;
-      payload.max_shared_users = isPPPoE ? 1 : Math.max(1, Math.min(50, Number(payload.max_shared_users) || 1));
+      payload.max_shared_users = isPPPoE || isFreeTrial ? 1 : Math.max(1, Math.min(50, Number(payload.max_shared_users) || 1));
       payload.data_cap_mb = showFup ? dataCapMb : null;
       // Clear FUP fields when the plan is uncapped.
       if (!payload.data_cap_mb) {
@@ -142,15 +156,26 @@ export default function CreatePlanPage() {
                 <label htmlFor="price" className="block text-sm font-medium text-foreground-muted mb-1.5">
                   Price ({getDisplayCurrency()})
                 </label>
-                <input
-                  id="price"
-                  type="number"
-                  value={formData.price || ''}
-                  onChange={(e) => setFormData({ ...formData, price: parseInt(e.target.value) || 0 })}
-                  className="input"
-                  min={1}
-                  required
-                />
+                {isFreeTrial ? (
+                  <>
+                    <input id="price" type="text" value="Free" className="input" disabled readOnly />
+                    <p className="mt-1 text-xs text-foreground-muted">Free trials always cost 0.</p>
+                  </>
+                ) : (
+                  <input
+                    id="price"
+                    type="number"
+                    value={formData.price || ''}
+                    onChange={(e) => {
+                      const price = parseInt(e.target.value) || 0;
+                      setPaidPrice(price);
+                      setFormData({ ...formData, price });
+                    }}
+                    className="input"
+                    min={1}
+                    required
+                  />
+                )}
               </div>
               <div>
                 <label htmlFor="speed" className="block text-sm font-medium text-foreground-muted mb-1.5">
@@ -224,10 +249,14 @@ export default function CreatePlanPage() {
                     });
                   }}
                   className="select"
+                  disabled={isFreeTrial}
                 >
                   <option value="hotspot">Hotspot</option>
-                  <option value="pppoe">PPPoE</option>
+                  <option value="pppoe" disabled={isFreeTrial}>PPPoE</option>
                 </select>
+                {isFreeTrial && (
+                  <p className="mt-1 text-xs text-foreground-muted">Free trials are claimed on the hotspot login page, so they are hotspot only.</p>
+                )}
               </div>
               <div>
                 <label htmlFor="router_profile" className="block text-sm font-medium text-foreground-muted mb-1.5">
@@ -258,14 +287,28 @@ export default function CreatePlanPage() {
               <select
                 id="plan_type"
                 value={formData.plan_type || 'regular'}
-                onChange={(e) => setFormData({ ...formData, plan_type: e.target.value as 'regular' | 'emergency' })}
+                onChange={(e) => setFormData(applyPlanType(formData, e.target.value as PlanType, { price: paidPrice, maxSharedUsers: paidSharedUsers }))}
                 className="select"
               >
                 <option value="regular">Regular</option>
                 <option value="emergency">Emergency</option>
+                <option value="free_trial">Free Trial</option>
               </select>
-              <p className="mt-1 text-xs text-foreground-muted">Emergency plans only appear on the portal while emergency mode is active on a router.</p>
+              <p className="mt-1 text-xs text-foreground-muted">
+                {isFreeTrial
+                  ? 'Customers claim this plan for free from the hotspot login page. It is not counted as revenue.'
+                  : 'Emergency plans only appear on the portal while emergency mode is active on a router.'}
+              </p>
             </div>
+
+            {isFreeTrial && (
+              <TrialFrequencyPicker
+                value={formData.trial_once_per_customer ?? true}
+                onChange={(once) => setFormData({ ...formData, trial_once_per_customer: once })}
+                disabled={loading}
+                labelClassName="block text-sm font-medium text-foreground-muted mb-1.5"
+              />
+            )}
 
             {!isPPPoE && (
               <div>
@@ -276,13 +319,20 @@ export default function CreatePlanPage() {
                   id="max_shared_users"
                   type="number"
                   value={formData.max_shared_users ?? 1}
-                  onChange={(e) => setFormData({ ...formData, max_shared_users: e.target.value === '' ? 1 : (parseInt(e.target.value, 10) || 1) })}
+                  onChange={(e) => {
+                    const maxSharedUsers = e.target.value === '' ? 1 : (parseInt(e.target.value, 10) || 1);
+                    setPaidSharedUsers(maxSharedUsers);
+                    setFormData({ ...formData, max_shared_users: maxSharedUsers });
+                  }}
                   onBlur={() => setFormData((prev) => ({ ...prev, max_shared_users: Math.max(1, Math.min(50, Number(prev.max_shared_users) || 1)) }))}
+                  disabled={isFreeTrial}
                   className="input"
                   min={1}
                   max={50}
                 />
-                <p className="mt-1 text-xs text-foreground-muted">1 disables sharing. 2 allows the owner plus one extra device.</p>
+                <p className="mt-1 text-xs text-foreground-muted">
+                  {isFreeTrial ? 'Free trials are for one device.' : '1 disables sharing. 2 allows the owner plus one extra device.'}
+                </p>
               </div>
             )}
 

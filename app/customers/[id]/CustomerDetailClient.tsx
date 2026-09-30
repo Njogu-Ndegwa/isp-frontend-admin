@@ -15,6 +15,7 @@ import { PageLoader } from '../../components/LoadingSpinner';
 import DateTimePicker from '../../components/DateTimePicker';
 import { utcToGMT3Input, gmt3InputToISO } from '../../lib/dateUtils';
 import { formatAmount } from '../../lib/format';
+import { isFreeTrialPlan } from '../../plans/planType';
 
 
 export default function EditCustomerPage() {
@@ -284,7 +285,7 @@ export default function EditCustomerPage() {
                 <option value="" disabled>Select plan</option>
                 {plans.map((plan) => (
                   <option key={plan.id} value={plan.id}>
-                    {plan.name} — {formatAmount(plan.price)} ({plan.connection_type === 'pppoe' ? 'PPPoE' : 'Hotspot'})
+                    {plan.name} — {isFreeTrialPlan(plan) ? 'Free trial' : formatAmount(plan.price)} ({plan.connection_type === 'pppoe' ? 'PPPoE' : 'Hotspot'})
                   </option>
                 ))}
               </select>

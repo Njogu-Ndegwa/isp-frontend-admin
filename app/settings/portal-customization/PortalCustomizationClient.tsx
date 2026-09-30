@@ -241,6 +241,7 @@ export default function PortalCustomizationPage() {
         id: p.id,
         name: p.name,
         price: p.price,
+        free: p.plan_type === 'free_trial',
         duration: `${p.duration_value} ${label}`.toUpperCase(),
         speed: p.speed || `${p.download_speed}M/${p.upload_speed}M`,
         popular: featuredIds.includes(p.id),

@@ -1120,6 +1120,12 @@ export interface RebootRouterResponse {
 // Plan Types
 export type FupAction = 'throttle' | 'block' | 'notify_only';
 
+/**
+ * free_trial plans cost 0, are hotspot-only, and are claimed from the captive
+ * portal. Claims are logged as KES 0 payments that do not count as revenue.
+ */
+export type PlanType = 'regular' | 'emergency' | 'free_trial';
+
 export interface Plan {
   id: number;
   name: string;
@@ -1134,12 +1140,15 @@ export interface Plan {
   user_id?: number;
   created_at?: string;
   is_hidden?: boolean;
-  plan_type?: 'regular' | 'emergency';
+  plan_type?: PlanType;
   badge_text?: string | null;
   original_price?: number | null;
   valid_until?: string | null;
   max_shared_users?: number;
   sharing_enabled?: boolean;
+  // Free-trial plans only. true = a device can claim the trial once; false =
+  // it can claim again each time its previous trial has ended.
+  trial_once_per_customer?: boolean;
   // Routers this plan is offered on. null/undefined = every router you own.
   router_ids?: number[] | null;
   all_routers?: boolean;
@@ -1167,12 +1176,14 @@ export interface CreatePlanRequest {
   connection_type: 'hotspot' | 'pppoe';
   router_profile?: string;
   user_id?: number;
-  plan_type?: 'regular' | 'emergency';
+  plan_type?: PlanType;
   is_hidden?: boolean;
   badge_text?: string | null;
   original_price?: number | null;
   valid_until?: string | null;
   max_shared_users?: number;
+  // Free-trial plans only; the backend defaults it to true.
+  trial_once_per_customer?: boolean;
   // Omit or send null to offer the plan on every router you own.
   router_ids?: number[] | null;
   data_cap_mb?: number | null;
