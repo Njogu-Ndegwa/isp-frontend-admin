@@ -13,6 +13,8 @@ import {
   LoadBalancingDisableResponse,
   LoadBalancingVerifyResponse,
   LoadBalancingStep,
+  LoadBalancingPortCheck,
+  LoadBalancingPortCheckRaw,
 } from '../lib/types';
 import { useAlert } from '../context/AlertContext';
 import ConfirmDialog from './ConfirmDialog';
@@ -82,7 +84,28 @@ function parseStructuredError(message: string): {
 function errorText(err: unknown, fallback: string): string {
   const message = err instanceof Error ? err.message : fallback;
   const structured = parseStructuredError(message);
+  // A 502 is {"message":"command_failed","error":"<the real reason>"} — show the reason.
+  if (structured?.message === 'command_failed' && structured.error) return structured.error;
   return structured?.message || structured?.detail || structured?.error || message || fallback;
+}
+
+/** RouterOS reports booleans as the strings "true"/"false". */
+function rosBool(value: unknown): boolean | undefined {
+  if (value === undefined || value === null || value === '') return undefined;
+  return value === true || value === 'true';
+}
+
+/** Normalise the backend's raw per-port pre-check into display flags. */
+function toPortCheck(raw: LoadBalancingPortCheckRaw): LoadBalancingPortCheck {
+  const macs = raw.macs_learned ?? [];
+  const upstream = raw.upstream_devices?.length ?? 0;
+  return {
+    link: rosBool(raw.link),
+    in_bridge: raw.in_bridge === undefined ? undefined : Boolean(raw.in_bridge) && raw.in_bridge !== 'false',
+    client_macs: raw.macs_learned === undefined ? undefined : Math.max(0, macs.length - upstream),
+    upstream_devices: upstream || undefined,
+    dhcp_bound: raw.dhcp ? raw.dhcp.status === 'bound' : undefined,
+  };
 }
 
 function formatDetail(detail: unknown): string {
@@ -403,7 +426,9 @@ export default function LoadBalancingControls({
     ...(interfacesData?.dual_ports ?? []),
   ]);
   const allBlockers = [...(preflight?.blockers ?? []), ...serverBlockers];
-  const perPortChecks = preflight?.preflight?.per_port ?? {};
+  const perPortChecks: Record<string, LoadBalancingPortCheck> = Object.fromEntries(
+    Object.entries(preflight?.preflight?.per_port ?? {}).map(([name, raw]) => [name, toPortCheck(raw)]),
+  );
   // Enable steps live under apply.steps plus each convert[port].steps.
   const enableSteps: LoadBalancingStep[] = enableResult
     ? [
@@ -575,8 +600,8 @@ export default function LoadBalancingControls({
                     <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4">
                       {dormantPorts.map((p) => (
                         <p key={p} className="text-xs text-foreground-muted">
-                          <span className="font-mono text-amber-500">{p}</span> has no cable yet — traffic
-                          fails over to the active line until it&apos;s plugged in.
+                          <span className="font-mono text-amber-500">{p}</span> isn&apos;t carrying traffic yet
+                          (no cable, or its modem gave no address) — traffic uses the active line meanwhile.
                         </p>
                       ))}
                     </div>
@@ -801,6 +826,11 @@ export default function LoadBalancingControls({
                             {check.client_macs !== undefined && (
                               <span className={`text-[10px] font-medium rounded px-1.5 py-0.5 ${check.client_macs > 0 ? 'bg-amber-500/10 text-amber-500' : 'bg-emerald-500/10 text-emerald-500'}`}>
                                 {check.client_macs} client{check.client_macs === 1 ? '' : 's'}
+                              </span>
+                            )}
+                            {check.upstream_devices !== undefined && (
+                              <span className="text-[10px] font-medium rounded px-1.5 py-0.5 bg-sky-500/10 text-sky-500">
+                                modem detected
                               </span>
                             )}
                             {check.dhcp_bound !== undefined && (
