@@ -913,10 +913,22 @@ export interface LoadBalancingPreflightRequest {
   wan_ports: string[];
 }
 
+/** Per-port pre-check exactly as the backend sends it (RouterOS strings). */
+export interface LoadBalancingPortCheckRaw {
+  wan_index?: number;
+  link?: string | boolean | null;
+  in_bridge?: string | boolean | null;
+  macs_learned?: string[];
+  dhcp?: { status?: string | null; address?: string | null; gateway?: string | null } | null;
+  upstream_devices?: { mac: string; addresses: string[] }[];
+}
+
+/** Normalised per-port pre-check for display. */
 export interface LoadBalancingPortCheck {
   link?: boolean;
   in_bridge?: boolean;
   client_macs?: number;
+  upstream_devices?: number;
   dhcp_bound?: boolean;
 }
 
@@ -929,7 +941,7 @@ export interface LoadBalancingStep {
 /** Detailed preflight sub-report. Sub-fields can be partial — read defensively. */
 export interface LoadBalancingPreflightReport {
   steps?: LoadBalancingStep[];
-  per_port?: Record<string, LoadBalancingPortCheck>;
+  per_port?: Record<string, LoadBalancingPortCheckRaw>;
   version?: string;
   hotspot?: unknown;
   fasttrack?: unknown;
