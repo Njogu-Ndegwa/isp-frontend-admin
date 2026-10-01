@@ -259,6 +259,10 @@ import {
   C2BRegisterResponse,
   SmsCreditInfo,
   ExpirySmsSettings,
+  CustomerEventSmsSettings,
+  CustomerEventSmsSettingsInput,
+  CustomerSmsEvent,
+  CustomerSmsPreview,
   SmsPurchaseResponse,
   SmsRecipientsResponse,
   SmsSendRequest,
@@ -292,6 +296,26 @@ const loadDemo = (): Promise<DemoModule> => (demoModulePromise ??= import('./dem
 
 // Kept local so the synchronous demoBlock() doesn't need the module.
 const DEMO_WRITE_ERROR = 'This action is not available in demo mode. Sign up for a free account to get started!';
+
+const DEMO_CUSTOMER_EVENT_SMS_SETTINGS: CustomerEventSmsSettings = {
+  payment_receipt_enabled: false,
+  receipt_include_hotspot: false,
+  welcome_enabled: false,
+  templates: { payment_receipt: null, welcome: null, reminder: null, expiry: null },
+  defaults: {
+    payment_receipt: 'Payment of {amount} received. Your {plan} is active until {expiry}. Ref {reference}. - {brand}',
+    welcome: 'Welcome to {brand}! Your internet login: Username {username}, Password {password}. To activate, pay via M-Pesa Paybill {paybill}, Account {account}.',
+    reminder: 'Reminder: Your internet expires soon. Pay via M-Pesa Paybill {paybill}, Account {account} to avoid disconnection. - {brand}',
+    expiry: 'Your internet has expired. Pay via M-Pesa Paybill {paybill}, Account {account} to restore service. - {brand}',
+  },
+  placeholders: {
+    payment_receipt: ['name', 'brand', 'plan', 'expiry', 'account', 'paybill', 'support_phone', 'amount', 'reference'],
+    welcome: ['name', 'brand', 'plan', 'expiry', 'account', 'paybill', 'support_phone', 'username', 'password'],
+    reminder: ['name', 'brand', 'plan', 'expiry', 'account', 'paybill', 'support_phone'],
+    expiry: ['name', 'brand', 'plan', 'expiry', 'account', 'paybill', 'support_phone'],
+  },
+  max_length: 480,
+};
 
 const DEFAULT_API_BASE_URL = 'https://isp.bitwavetechnologies.com/api';
 
@@ -3581,6 +3605,39 @@ class ApiClient {
       body: JSON.stringify(settings),
     });
     return this.handleResponse<ExpirySmsSettings>(response);
+  }
+
+  async getCustomerEventSmsSettings(): Promise<CustomerEventSmsSettings> {
+    if (this.isDemoMode()) return DEMO_CUSTOMER_EVENT_SMS_SETTINGS;
+    const response = await fetch(`${BASE_URL}/messaging/customer-events`, {
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<CustomerEventSmsSettings>(response);
+  }
+
+  async updateCustomerEventSmsSettings(
+    settings: CustomerEventSmsSettingsInput,
+  ): Promise<CustomerEventSmsSettings> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(`${BASE_URL}/messaging/customer-events`, {
+      method: 'PUT',
+      headers: this.getHeaders(),
+      body: JSON.stringify(settings),
+    });
+    return this.handleResponse<CustomerEventSmsSettings>(response);
+  }
+
+  async previewCustomerEventSms(event: CustomerSmsEvent, body: string | null): Promise<CustomerSmsPreview> {
+    if (this.isDemoMode()) {
+      const text = body ?? DEMO_CUSTOMER_EVENT_SMS_SETTINGS.defaults[event];
+      return { text, characters: text.length, segments: Math.max(1, Math.ceil(text.length / 153)) };
+    }
+    const response = await fetch(`${BASE_URL}/messaging/customer-events/preview`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify({ event, body }),
+    });
+    return this.handleResponse<CustomerSmsPreview>(response);
   }
 
   async purchaseSmsCredits(quantity: number, phone_number: string): Promise<SmsPurchaseResponse> {

@@ -5301,6 +5301,28 @@ export interface ExpirySmsSettings {
   send_at_expiry: boolean;
 }
 
+export type CustomerSmsEvent = 'payment_receipt' | 'welcome' | 'reminder' | 'expiry';
+
+export interface CustomerEventSmsSettingsInput {
+  payment_receipt_enabled: boolean;
+  receipt_include_hotspot: boolean;
+  welcome_enabled: boolean;
+  /** Reseller wording per event; null means the built-in default. */
+  templates: Record<CustomerSmsEvent, string | null>;
+}
+
+export interface CustomerEventSmsSettings extends CustomerEventSmsSettingsInput {
+  defaults: Record<CustomerSmsEvent, string>;
+  placeholders: Record<CustomerSmsEvent, string[]>;
+  max_length: number;
+}
+
+export interface CustomerSmsPreview {
+  text: string;
+  characters: number;
+  segments: number;
+}
+
 export interface SmsPurchaseResponse {
   message: string;
   order_id: number;

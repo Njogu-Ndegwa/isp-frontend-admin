@@ -19,7 +19,7 @@ const FALLBACK_SETTINGS: ExpirySmsSettings = {
   send_at_expiry: true,
 };
 
-function SettingsToggle({
+export function SettingsToggle({
   checked,
   disabled = false,
   label,
