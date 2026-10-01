@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { api } from '../lib/api';
-import { Plan, UpdatePlanRequest, Router, FupAction } from '../lib/types';
+import { Plan, PlanType, UpdatePlanRequest, Router, FupAction } from '../lib/types';
 import Header from '../components/Header';
 import { PageLoader } from '../components/LoadingSpinner';
 import PullToRefresh from '../components/PullToRefresh';
@@ -15,6 +15,7 @@ import PlanRouterScope, {
   describeRouterScope,
   isRouterScopeIncomplete,
 } from '../components/PlanRouterScope';
+import TrialFrequencyPicker from '../components/TrialFrequencyPicker';
 import { formatDateGMT3, utcToGMT3Input, gmt3InputToISO } from '../lib/dateUtils';
 import { DataCapUnit, dataCapInputToMb, splitDataCapMb } from './dataCap';
 import { normalizeDuration, describeDuration } from './duration';
@@ -24,8 +25,19 @@ import { pickDefaultRouterId, routerOptionLabel } from '../lib/routerPick';
 import PlanNameHint from '../components/PlanNameHint';
 import SpeedInputHint from '../components/SpeedInputHint';
 import { MAX_PLAN_NAME_LENGTH, isPlanNameTooLong } from '../lib/planName';
+import {
+  PLAN_TYPE_AVATAR,
+  PLAN_TYPE_AVATAR_CLASS,
+  PLAN_TYPE_BADGE,
+  PLAN_TYPE_LABEL,
+  PLAN_TYPE_TITLE,
+  applyPlanType,
+  getPlanType,
+  isFreeTrialPlan,
+  trialFrequencyLabel,
+} from './planType';
 
-type FilterTab = 'all' | 'regular' | 'emergency';
+type FilterTab = 'all' | PlanType;
 type ConnectionFilter = 'all' | 'hotspot' | 'pppoe';
 type VisibilityFilter = 'all' | 'visible' | 'hidden';
 
@@ -170,7 +182,8 @@ export default function PlansPage() {
       cap ? `FUP ${cap}` : null,
       sharing,
       scope,
-      plan.plan_type === 'emergency' ? t('Emergency') : t('Regular'),
+      t(PLAN_TYPE_TITLE[getPlanType(plan)]),
+      isFreeTrialPlan(plan) ? t(trialFrequencyLabel(plan)) : null,
     ].filter(Boolean).join(' - ');
   };
 
@@ -179,8 +192,7 @@ export default function PlansPage() {
   const selectedRouterInEmergency = routers.find((r) => r.id === selectedEmergencyRouter)?.emergency_active ?? false;
 
   const filteredPlans = plans.filter((plan) => {
-    if (activeTab === 'regular' && plan.plan_type === 'emergency') return false;
-    if (activeTab === 'emergency' && plan.plan_type !== 'emergency') return false;
+    if (activeTab !== 'all' && (activeTab as string) !== 'hidden' && getPlanType(plan) !== activeTab) return false;
     if (connectionFilter !== 'all' && plan.connection_type !== connectionFilter) return false;
     if (visibilityFilter === 'visible' && plan.is_hidden) return false;
     if (visibilityFilter === 'hidden' && !plan.is_hidden) return false;
@@ -260,7 +272,7 @@ export default function PlansPage() {
           <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
           </svg>
-          <span>{t('{count} plans', { count: filteredPlans.length })}{activeTab !== 'all' ? ` (${t(activeTab)})` : ''}</span>
+          <span>{t('{count} plans', { count: filteredPlans.length })}{activeTab !== 'all' ? ` (${t(PLAN_TYPE_LABEL[activeTab] ?? activeTab)})` : ''}</span>
         </div>
         <div className="flex gap-2 flex-wrap">
           {hasEmergencyPlans && routers.length > 0 && (
@@ -331,6 +343,7 @@ export default function PlansPage() {
                 { value: 'all', label: t('All Plans') },
                 { value: 'regular', label: t('Regular') },
                 { value: 'emergency', label: t('Emergency') },
+                { value: 'free_trial', label: t('Free trial') },
                 { value: 'hidden', label: t('Hidden') },
               ]}
             />
@@ -364,7 +377,7 @@ export default function PlansPage() {
                 onClick={() => setActiveTab('all')}
                 className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-accent-primary/10 text-accent-primary hover:bg-accent-primary/20 transition-colors capitalize"
               >
-                {t(activeTab)}
+                {t(PLAN_TYPE_LABEL[activeTab] ?? activeTab)}
                 <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
               </button>
             )}
@@ -426,9 +439,7 @@ export default function PlansPage() {
                   return (
                     <div className="flex items-center gap-3 max-w-[200px]">
                       <div className={`w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center font-medium text-sm ${
-                        plan.plan_type === 'emergency'
-                          ? 'bg-warning/10 text-warning'
-                          : 'bg-accent-primary/10 text-accent-primary'
+                        PLAN_TYPE_AVATAR_CLASS[getPlanType(plan)]
                       }`}>
                         {plan.name.charAt(0).toUpperCase()}
                       </div>
@@ -456,6 +467,14 @@ export default function PlansPage() {
                     </div>
                   );
                 case 'price':
+                  if (isFreeTrialPlan(plan)) {
+                    return (
+                      <div>
+                        <span className="badge badge-cyan">{t('Free trial')}</span>
+                        <p className="text-xs text-foreground-muted mt-1">{t(trialFrequencyLabel(plan))}</p>
+                      </div>
+                    );
+                  }
                   return (
                     <div>
                       <span className="font-semibold text-foreground">{formatAmount(plan.price)}</span>
@@ -499,10 +518,8 @@ export default function PlansPage() {
                 }
                 case 'type':
                   return (
-                    <span className={`badge ${
-                      plan.plan_type === 'emergency' ? 'badge-warning' : 'badge-success'
-                    } capitalize`}>
-                      {t(plan.plan_type || 'regular')}
+                    <span className={`badge ${PLAN_TYPE_BADGE[getPlanType(plan)]} capitalize`}>
+                      {t(PLAN_TYPE_LABEL[getPlanType(plan)])}
                     </span>
                   );
                 case 'status': {
@@ -572,7 +589,7 @@ export default function PlansPage() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
                 </svg>
               ),
-              message: searchQuery ? t('No plans match your search') : activeTab === 'all' ? t('No plans yet') : activeTab === 'emergency' ? t('No emergency plans') : (activeTab as string) === 'hidden' ? t('No hidden plans') : t('No regular plans'),
+              message: searchQuery ? t('No plans match your search') : activeTab === 'all' ? t('No plans yet') : activeTab === 'emergency' ? t('No emergency plans') : activeTab === 'free_trial' ? t('No free trial plans') : (activeTab as string) === 'hidden' ? t('No hidden plans') : t('No regular plans'),
             }}
           />
 
@@ -583,7 +600,7 @@ export default function PlansPage() {
                 <svg className="w-12 h-12 mx-auto mb-4 text-foreground-muted/50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
                 </svg>
-                {searchQuery ? t('No plans match your search') : activeTab === 'all' ? t('No plans yet') : activeTab === 'emergency' ? t('No emergency plans') : (activeTab as string) === 'hidden' ? t('No hidden plans') : t('No regular plans')}
+                {searchQuery ? t('No plans match your search') : activeTab === 'all' ? t('No plans yet') : activeTab === 'emergency' ? t('No emergency plans') : activeTab === 'free_trial' ? t('No free trial plans') : (activeTab as string) === 'hidden' ? t('No hidden plans') : t('No regular plans')}
               </div>
             ) : (
               filteredPlans.map((plan) => (
@@ -594,7 +611,7 @@ export default function PlansPage() {
                     subtitle={`↓${getPlanSpeed(plan).down} / ↑${getPlanSpeed(plan).up}`}
                     avatar={{
                       text: plan.name.charAt(0).toUpperCase(),
-                      color: plan.plan_type === 'emergency' ? 'warning' : 'primary',
+                      color: PLAN_TYPE_AVATAR[getPlanType(plan)],
                     }}
                     badge={{ label: plan.connection_type === 'pppoe' ? 'PPPoE' : 'Hotspot' }}
                     status={{
@@ -602,7 +619,7 @@ export default function PlansPage() {
                       variant: plan.is_hidden ? 'neutral' : 'success',
                     }}
                     value={{
-                      text: formatAmount(plan.price),
+                      text: isFreeTrialPlan(plan) ? t('Free trial') : formatAmount(plan.price),
                       highlight: true,
                     }}
                     secondary={{
@@ -708,6 +725,7 @@ function EditPlanModal({
     original_price: plan.original_price ?? null,
     valid_until: utcToGMT3Input(plan.valid_until) || null,
     max_shared_users: Math.max(1, Number(plan.max_shared_users) || 1),
+    trial_once_per_customer: plan.trial_once_per_customer ?? true,
     data_cap_mb: plan.data_cap_mb ?? null,
     fup_action: plan.fup_action ?? null,
     fup_throttle_profile: plan.fup_throttle_profile ?? null,
@@ -720,8 +738,12 @@ function EditPlanModal({
     || Boolean(plan.fup_throttle_profile)
   );
   const [durationInput, setDurationInput] = useState(String(plan.duration_value));
+  // Last price for a paid plan, put back if the reseller leaves Free Trial.
+  const [paidPrice, setPaidPrice] = useState(plan.price > 0 ? plan.price : 0);
+  const [paidSharedUsers, setPaidSharedUsers] = useState(Math.max(1, Number(plan.max_shared_users) || 1));
 
   const isPPPoE = formData.connection_type === 'pppoe';
+  const isFreeTrial = formData.plan_type === 'free_trial';
   const dataCapMb = dataCapInputToMb(dataCapValue, dataCapUnit);
 
   const durationUnit = formData.duration_unit || 'HOURS';
@@ -756,13 +778,25 @@ function EditPlanModal({
         setError(`Plan name is too long. Keep it to ${MAX_PLAN_NAME_LENGTH} characters so it fits on the customer's portal.`);
         return;
       }
+      // A trial turned back into a paid plan has no price yet.
+      if (isFreeTrialPlan(plan) && !isFreeTrial && !(Number(payload.price) > 0)) {
+        setError('Enter a price for this plan.');
+        return;
+      }
       payload.router_ids = routerScope;
+      if (isFreeTrial) {
+        // The backend rejects a free trial that isn't free or isn't hotspot.
+        payload.price = 0;
+        payload.original_price = null;
+        payload.connection_type = 'hotspot';
+        payload.max_shared_users = 1;
+      }
       payload.duration_value = normalized.value;
       payload.duration_unit = normalized.unit;
       if (!payload.badge_text) payload.badge_text = null;
       if (!payload.original_price) payload.original_price = null;
       payload.valid_until = payload.valid_until ? gmt3InputToISO(payload.valid_until) : null;
-      payload.max_shared_users = isPPPoE ? 1 : Math.max(1, Math.min(50, Number(payload.max_shared_users) || 1));
+      payload.max_shared_users = isPPPoE || isFreeTrial ? 1 : Math.max(1, Math.min(50, Number(payload.max_shared_users) || 1));
       payload.data_cap_mb = showFup ? dataCapMb : null;
       if (!payload.data_cap_mb) {
         payload.data_cap_mb = null;
@@ -823,13 +857,24 @@ function EditPlanModal({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-foreground mb-2">Price ({getDisplayCurrency()})</label>
-                <input
-                  type="number"
-                  value={formData.price || ''}
-                  onChange={(e) => setFormData({ ...formData, price: parseInt(e.target.value) || 0 })}
-                  className="input"
-                  min={1}
-                />
+                {isFreeTrial ? (
+                  <>
+                    <input type="text" value="Free" className="input" disabled readOnly aria-label="Price" />
+                    <p className="mt-1 text-xs text-foreground-muted">Free trials always cost 0.</p>
+                  </>
+                ) : (
+                  <input
+                    type="number"
+                    value={formData.price || ''}
+                    onChange={(e) => {
+                      const price = parseInt(e.target.value) || 0;
+                      setPaidPrice(price);
+                      setFormData({ ...formData, price });
+                    }}
+                    className="input"
+                    min={1}
+                  />
+                )}
               </div>
               <div>
                 <label className="block text-sm font-medium text-foreground mb-2">Speed (Down/Up)</label>
@@ -889,10 +934,14 @@ function EditPlanModal({
                     });
                   }}
                   className="select"
+                  disabled={isFreeTrial}
                 >
                   <option value="hotspot">Hotspot</option>
-                  <option value="pppoe">PPPoE</option>
+                  <option value="pppoe" disabled={isFreeTrial}>PPPoE</option>
                 </select>
+                {isFreeTrial && (
+                  <p className="mt-1 text-xs text-foreground-muted">Free trials are claimed on the hotspot login page, so they are hotspot only.</p>
+                )}
               </div>
               <div>
                 <label className="block text-sm font-medium text-foreground mb-2">Router Profile</label>
@@ -917,14 +966,27 @@ function EditPlanModal({
               <label className="block text-sm font-medium text-foreground mb-2">Plan Type</label>
               <select
                 value={formData.plan_type || 'regular'}
-                onChange={(e) => setFormData({ ...formData, plan_type: e.target.value as 'regular' | 'emergency' })}
+                onChange={(e) => setFormData(applyPlanType(formData, e.target.value as PlanType, { price: paidPrice, maxSharedUsers: paidSharedUsers }))}
                 className="select"
               >
                 <option value="regular">Regular</option>
                 <option value="emergency">Emergency</option>
+                <option value="free_trial">Free Trial</option>
               </select>
-              <p className="mt-1 text-xs text-foreground-muted">Emergency plans only appear on the portal while emergency mode is active on a router.</p>
+              <p className="mt-1 text-xs text-foreground-muted">
+                {isFreeTrial
+                  ? 'Customers claim this plan for free from the hotspot login page. It is not counted as revenue.'
+                  : 'Emergency plans only appear on the portal while emergency mode is active on a router.'}
+              </p>
             </div>
+
+            {isFreeTrial && (
+              <TrialFrequencyPicker
+                value={formData.trial_once_per_customer ?? true}
+                onChange={(once) => setFormData({ ...formData, trial_once_per_customer: once })}
+                disabled={loading}
+              />
+            )}
 
             {!isPPPoE && (
               <div>
@@ -932,13 +994,20 @@ function EditPlanModal({
                 <input
                   type="number"
                   value={formData.max_shared_users ?? 1}
-                  onChange={(e) => setFormData({ ...formData, max_shared_users: e.target.value === '' ? 1 : (parseInt(e.target.value, 10) || 1) })}
+                  onChange={(e) => {
+                    const maxSharedUsers = e.target.value === '' ? 1 : (parseInt(e.target.value, 10) || 1);
+                    setPaidSharedUsers(maxSharedUsers);
+                    setFormData({ ...formData, max_shared_users: maxSharedUsers });
+                  }}
                   onBlur={() => setFormData((prev) => ({ ...prev, max_shared_users: Math.max(1, Math.min(50, Number(prev.max_shared_users) || 1)) }))}
+                  disabled={isFreeTrial}
                   className="input"
                   min={1}
                   max={50}
                 />
-                <p className="mt-1 text-xs text-foreground-muted">1 disables sharing. 2 allows the owner plus one extra device.</p>
+                <p className="mt-1 text-xs text-foreground-muted">
+                  {isFreeTrial ? 'Free trials are for one device.' : '1 disables sharing. 2 allows the owner plus one extra device.'}
+                </p>
               </div>
             )}
 

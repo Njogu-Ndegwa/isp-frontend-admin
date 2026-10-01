@@ -30,6 +30,7 @@ import PullToRefresh from '../components/PullToRefresh';
 import DataTable, { DataTableColumn } from '../components/DataTable';
 import MobileDataCard from '../components/MobileDataCard';
 import { formatDateGMT3 } from '../lib/dateUtils';
+import { isFreeTrialPlan } from '../plans/planType';
 import DeviceModeTroubleshoot from '../components/DeviceModeTroubleshoot';
 import HotspotPackageTroubleshoot from '../components/HotspotPackageTroubleshoot';
 import InsuranceTunnelBadge from '../components/InsuranceTunnelBadge';
@@ -3170,7 +3171,7 @@ function RouterPlansModal({
                     <div className="min-w-0">
                       <p className="truncate text-sm font-medium text-foreground">{plan.name}</p>
                       <p className="text-xs text-foreground-muted">
-                        KES {plan.price} - {plan.duration_value} {plan.duration_unit.toLowerCase()}
+                        {isFreeTrialPlan(plan) ? 'Free trial' : `KES ${plan.price}`} - {plan.duration_value} {plan.duration_unit.toLowerCase()}
                       </p>
                     </div>
                     <div className="flex flex-shrink-0 items-center gap-1.5">

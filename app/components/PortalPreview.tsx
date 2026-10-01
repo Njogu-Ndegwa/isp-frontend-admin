@@ -8,6 +8,8 @@ export interface PreviewPlan {
   /** The package name as typed in the admin panel; the portal prints it verbatim. */
   name?: string;
   price: number;
+  /** Free-trial plan: shown as FREE instead of a price */
+  free?: boolean;
   duration: string;
   speed: string;
   popular: boolean;
@@ -222,8 +224,14 @@ export default function PortalPreview({ settings, palette, plans, fullscreen = f
             {planName && <div className="pp-plan-name">{planName}</div>}
             <div className={`pp-plan-duration${planName ? ' pp-has-name' : ''}`}>{plan.duration}</div>
             <div className="pp-plan-price">
-              <span className="pp-plan-currency">KSH</span>
-              {plan.price}
+              {plan.free ? (
+                'FREE'
+              ) : (
+                <>
+                  <span className="pp-plan-currency">KSH</span>
+                  {plan.price}
+                </>
+              )}
             </div>
             {settings.show_plan_speed !== false && (
               <div className="pp-plan-speed">{plan.speed}</div>
