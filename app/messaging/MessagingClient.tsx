@@ -14,6 +14,7 @@ import CreditsView from './components/CreditsView';
 import { TemplatesView } from './components/TemplatesView';
 import { AlertsView } from './components/AlertsView';
 import { ExpiryRemindersView } from './components/ExpiryRemindersView';
+import { CustomerEventsView } from './components/CustomerEventsView';
 import { GatewayView } from './components/GatewayView';
 
 // ─── Tab type ─────────────────────────────────────────────────────────────────
@@ -107,7 +108,7 @@ export default function MessagingClient() {
     { value: 'activity', label: 'Activity' },
     { value: 'templates', label: 'Templates' },
     { value: 'credits', label: 'Credits' },
-    { value: 'expiry', label: 'Expiry' },
+    { value: 'expiry', label: 'Automatic' },
     { value: 'alerts', label: 'Alerts' },
     { value: 'gateway', label: 'Gateway' },
   ];
@@ -155,7 +156,15 @@ export default function MessagingClient() {
             <CreditsView credits={credits} onRefresh={loadCredits} />
           )}
           {activeTab === 'expiry' && (
-            <ExpiryRemindersView onBuyCredits={() => setActiveTab('credits')} />
+            <div className="space-y-8">
+              <ExpiryRemindersView onBuyCredits={() => setActiveTab('credits')} />
+              <section aria-labelledby="customer-event-messages" className="space-y-3">
+                <h2 id="customer-event-messages" className="text-xs font-semibold uppercase tracking-wide text-foreground-muted">
+                  Receipts, welcome &amp; wording
+                </h2>
+                <CustomerEventsView onBuyCredits={() => setActiveTab('credits')} />
+              </section>
+            </div>
           )}
           {activeTab === 'alerts' && (
             <AlertsView credits={credits} onBuyCredits={() => setActiveTab('credits')} />
