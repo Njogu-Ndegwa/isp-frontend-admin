@@ -304,7 +304,7 @@ const DEMO_CUSTOMER_EVENT_SMS_SETTINGS: CustomerEventSmsSettings = {
   templates: { payment_receipt: null, welcome: null, reminder: null, expiry: null },
   defaults: {
     payment_receipt: 'Payment of {amount} received. Your {plan} is active until {expiry}. Ref {reference}. - {brand}',
-    welcome: 'Welcome to {brand}! Your internet login: Username {username}, Password {password}. To activate, pay via M-Pesa Paybill {paybill}, Account {account}.',
+    welcome: 'Welcome to {brand}! Username: {username} Password: {password}. Pay via M-Pesa Paybill {paybill}, Account {account} to activate.',
     reminder: 'Reminder: Your internet expires soon. Pay via M-Pesa Paybill {paybill}, Account {account} to avoid disconnection. - {brand}',
     expiry: 'Your internet has expired. Pay via M-Pesa Paybill {paybill}, Account {account} to restore service. - {brand}',
   },
