@@ -29,6 +29,7 @@ import DataTable, { DataTableColumn } from '../components/DataTable';
 import Pagination from '../components/Pagination';
 import { formatAmount } from '../lib/format';
 import { useT } from '../lib/i18n';
+import { phoneMatches } from '../lib/phoneSearch';
 
 const TransferPPPoEModal = dynamic(() => import('../components/TransferPPPoEModal'), {
   ssr: false,
@@ -383,7 +384,7 @@ export default function CustomersPage() {
         const query = searchQuery.toLowerCase();
         return (
           (customer.name?.toLowerCase() || '').includes(query) ||
-          (customer.phone || '').includes(query) ||
+          phoneMatches(customer.phone, searchQuery) ||
           (customer.account_number || '').includes(query) ||
           (customer.mac_address?.toLowerCase() || '').includes(query) ||
           (customer.pppoe_username?.toLowerCase() || '').includes(query)

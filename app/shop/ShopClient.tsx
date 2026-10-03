@@ -18,6 +18,7 @@ import MobileDataCard from '../components/MobileDataCard';
 import { PageLoader } from '../components/LoadingSpinner';
 import Tabs, { TabItem } from '../components/Tabs';
 import { useAlert } from '../context/AlertContext';
+import { phoneMatches } from '../lib/phoneSearch';
 
 // ─── helpers ─────────────────────────────────────────────────────────
 
@@ -542,7 +543,7 @@ export default function ShopPage() {
     return (
       o.order_number.toLowerCase().includes(q) ||
       o.buyer_name.toLowerCase().includes(q) ||
-      o.buyer_phone.includes(q)
+      phoneMatches(o.buyer_phone, orderSearch)
     );
   });
 
