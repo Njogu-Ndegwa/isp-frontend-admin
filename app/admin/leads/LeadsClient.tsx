@@ -13,6 +13,7 @@ import LeadBackfillDialog from '../../components/LeadBackfillDialog';
 import { api } from '../../lib/api';
 import { useCurrentLead } from '../../lib/useCurrentLead';
 import type { Lead, LeadSource, LeadPipelineSummary, LeadStage, CreateLeadRequest } from '../../lib/types';
+import { phoneMatches } from '../../lib/phoneSearch';
 
 // ───── Types ─────────────────────────────────────────────
 type ViewMode = 'kanban' | 'list';
@@ -278,7 +279,7 @@ export default function LeadsPage() {
       const q = search.toLowerCase();
       result = result.filter(l =>
         l.name.toLowerCase().includes(q) ||
-        (l.phone && l.phone.includes(q)) ||
+        phoneMatches(l.phone, search) ||
         (l.email && l.email.toLowerCase().includes(q)) ||
         (l.social_handle && l.social_handle.toLowerCase().includes(q))
       );

@@ -23,6 +23,7 @@ import { PageLoader } from '../components/LoadingSpinner';
 import { useAuth } from '../context/AuthContext';
 import { useAlert } from '../context/AlertContext';
 import { formatDateGMT3 } from '../lib/dateUtils';
+import { phoneMatches } from '../lib/phoneSearch';
 
 type StatusFilter = 'all' | 'online' | 'offline';
 type SortBy = 'status' | 'download' | 'upload' | 'usage' | 'name';
@@ -569,7 +570,7 @@ export default function PPPoEMonitorPage() {
       users = users.filter((u) =>
         u.username.toLowerCase().includes(q) ||
         (u.customer?.name ?? '').toLowerCase().includes(q) ||
-        (u.customer?.phone ?? '').includes(q) ||
+        phoneMatches(u.customer?.phone, searchQuery) ||
         (u.customer?.account_number ?? '').includes(q)
       );
     }

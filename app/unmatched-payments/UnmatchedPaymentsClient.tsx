@@ -11,6 +11,7 @@ import MobileDataCard from '../components/MobileDataCard';
 import Tabs from '../components/Tabs';
 import SearchInput from '../components/SearchInput';
 import { PageLoader } from '../components/LoadingSpinner';
+import { phoneMatches } from '../lib/phoneSearch';
 
 // ─── Constants ──────────────────────────────────────────────────────
 
@@ -111,7 +112,7 @@ export default function UnmatchedPaymentsPage() {
         const q = customerSearch.toLowerCase();
         return (
           c.name.toLowerCase().includes(q) ||
-          c.phone.toLowerCase().includes(q) ||
+          phoneMatches(c.phone, customerSearch) ||
           (c.account_number && c.account_number.toLowerCase().includes(q))
         );
       })

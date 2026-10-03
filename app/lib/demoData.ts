@@ -99,6 +99,7 @@ import type {
   SmsCampaignDetail,
   InboxResponse,
 } from './types';
+import { phoneMatches } from './phoneSearch';
 
 const now = new Date();
 const iso = (daysAgo = 0, hoursAgo = 0) => {
@@ -1440,7 +1441,7 @@ export function demoLeadsListResponse(params?: {
     const q = params.search.toLowerCase();
     filtered = filtered.filter(l =>
       l.name.toLowerCase().includes(q) ||
-      (l.phone && l.phone.includes(q)) ||
+      phoneMatches(l.phone, q) ||
       (l.email && l.email.toLowerCase().includes(q)) ||
       (l.social_handle && l.social_handle.toLowerCase().includes(q))
     );
@@ -2920,7 +2921,7 @@ export function demoSmsRecipients(opts: { filter?: string; planId?: number; sear
   if (opts.planId) list = list.filter(c => c.plan.id === opts.planId);
   if (opts.search) {
     const q = opts.search.toLowerCase();
-    list = list.filter(c => c.name.toLowerCase().includes(q) || c.phone.includes(q));
+    list = list.filter(c => c.name.toLowerCase().includes(q) || phoneMatches(c.phone, q));
   }
   if (opts.excludeIds?.length) list = list.filter(c => !opts.excludeIds!.includes(c.id));
   const offset = opts.offset ?? 0;
