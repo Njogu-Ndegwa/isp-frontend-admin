@@ -606,9 +606,11 @@ function RoutersTab({
       showAlert('success', `${router.name}: ${result.message}`);
       if (result.status_alerts_enabled) {
         // Alert SMS are charged per send — warn now if the balance can't cover any.
+        // A reseller on their own SMS gateway is not charged credits, so a zero
+        // balance does not stop their alert SMS.
         api.getSmsCredits()
           .then((c) => {
-            if (c.balance === 0) {
+            if (c.balance === 0 && c.bills_platform_credits !== false) {
               showAlert('warning',
                 'You have 0 SMS credits, so this alert will arrive in your app inbox only. '
                 + 'Buy credits on the Messaging page to also get it by SMS.', 9000);
