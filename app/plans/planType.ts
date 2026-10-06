@@ -72,11 +72,11 @@ export interface PaidPlanValues {
 /**
  * Switch a plan form to a new plan type.
  *
- * Free trials must cost 0, be hotspot plans and cover one device (the backend
- * rejects anything else), so choosing one zeroes the price, drops any "was"
- * price, forces hotspot and sets sharing to 1. Leaving free trial puts back the
- * reseller's last paid price and device count; a price of 0 is left at 0 so the
- * price field asks for one.
+ * Free trials must cost 0 and be hotspot plans (the backend rejects anything
+ * else), so choosing one zeroes the price, drops any "was" price and forces
+ * hotspot. The device count is kept: a trial can cover several devices. Leaving
+ * free trial puts back the reseller's last paid price and device count; a price
+ * of 0 is left at 0 so the price field asks for one.
  */
 export function applyPlanType<T extends PlanTypeFields>(form: T, planType: PlanType, paid: PaidPlanValues): T {
   if (planType === 'free_trial') {
@@ -86,7 +86,6 @@ export function applyPlanType<T extends PlanTypeFields>(form: T, planType: PlanT
       price: 0,
       original_price: null,
       connection_type: 'hotspot',
-      max_shared_users: 1,
       trial_once_per_customer: form.trial_once_per_customer ?? true,
     };
   }
