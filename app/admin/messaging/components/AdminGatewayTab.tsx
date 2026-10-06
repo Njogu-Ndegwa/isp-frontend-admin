@@ -82,8 +82,8 @@ export default function AdminGatewayTab({
         <p className="text-xs text-foreground-muted">
           With this off, only you can put a reseller on their own SMS provider.
           Resellers can still see which gateway their messages go out on.
-          Note that a reseller on their own gateway is still charged portal SMS
-          credits.
+          A reseller on their own gateway pays their SMS provider directly and is
+          not charged portal SMS credits.
         </p>
       </div>
 
