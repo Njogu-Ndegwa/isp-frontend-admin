@@ -48,13 +48,14 @@ describe('applyPlanType', () => {
   };
   const typed = { price: 50, maxSharedUsers: 3 };
 
-  it('forces a free, hotspot, one-device, once-per-customer plan when switching to free trial', () => {
+  it('forces a free, hotspot, once-per-customer plan when switching to free trial', () => {
     expect(applyPlanType(paid, 'free_trial', typed)).toEqual({
       plan_type: 'free_trial',
       price: 0,
       original_price: null,
       connection_type: 'hotspot',
-      max_shared_users: 1,
+      // Trials may cover several devices; the device count is left alone.
+      max_shared_users: 3,
       trial_once_per_customer: true,
     });
   });

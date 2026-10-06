@@ -95,14 +95,13 @@ export default function CreatePlanPage() {
         payload.price = 0;
         payload.original_price = null;
         payload.connection_type = 'hotspot';
-        payload.max_shared_users = 1;
       }
       payload.duration_value = normalized.value;
       payload.duration_unit = normalized.unit;
       if (!payload.badge_text) payload.badge_text = null;
       if (!payload.original_price) payload.original_price = null;
       payload.valid_until = payload.valid_until ? gmt3InputToISO(payload.valid_until) : null;
-      payload.max_shared_users = isPPPoE || isFreeTrial ? 1 : Math.max(1, Math.min(50, Number(payload.max_shared_users) || 1));
+      payload.max_shared_users = isPPPoE ? 1 : Math.max(1, Math.min(50, Number(payload.max_shared_users) || 1));
       payload.data_cap_mb = showFup ? dataCapMb : null;
       // Clear FUP fields when the plan is uncapped.
       if (!payload.data_cap_mb) {
@@ -325,13 +324,14 @@ export default function CreatePlanPage() {
                     setFormData({ ...formData, max_shared_users: maxSharedUsers });
                   }}
                   onBlur={() => setFormData((prev) => ({ ...prev, max_shared_users: Math.max(1, Math.min(50, Number(prev.max_shared_users) || 1)) }))}
-                  disabled={isFreeTrial}
                   className="input"
                   min={1}
                   max={50}
                 />
                 <p className="mt-1 text-xs text-foreground-muted">
-                  {isFreeTrial ? 'Free trials are for one device.' : '1 disables sharing. 2 allows the owner plus one extra device.'}
+                  {isFreeTrial
+                    ? 'Devices one claimed trial covers. 1 = only the device that claimed it.'
+                    : '1 disables sharing. 2 allows the owner plus one extra device.'}
                 </p>
               </div>
             )}
