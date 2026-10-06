@@ -4127,6 +4127,62 @@ export interface AdminExpiringSoon {
   }[];
 }
 
+/** Reminder stage keys, persisted by the backend: ~3 days, ~24 h, ~2 h before expiry. */
+export type SubscriptionReminderStage = 't72' | 't24' | 't2';
+
+/** sms_status: an SmsMessageStatus, or no_phone / not_sent for inbox-only reminders. */
+export type SubscriptionReminderSmsStatus =
+  | 'queued' | 'sent' | 'delivered' | 'failed' | 'no_phone' | 'not_sent';
+
+export interface SubscriptionReminderUpcoming {
+  reseller_id: number;
+  organization_name: string;
+  email: string;
+  phone: string | null;
+  subscription_status: string;
+  market: string;
+  subscription_expires_at: string;
+  hours_until_expiry: number;
+  stages_sent: { stage: SubscriptionReminderStage; label: string; sent_at: string | null }[];
+  next_stage: SubscriptionReminderStage | null;
+  next_stage_label: string | null;
+  /** When the next reminder goes out (quiet hours applied). Equals generated_at when due now. */
+  next_send_at: string | null;
+}
+
+export interface SubscriptionReminderLogEntry {
+  id: number;
+  reseller_id: number;
+  organization_name: string;
+  email: string;
+  stage: SubscriptionReminderStage;
+  stage_label: string;
+  subscription_expires_at: string;
+  sent_at: string | null;
+  phone: string | null;
+  sms_status: SubscriptionReminderSmsStatus;
+  sms_error: string | null;
+  inbox_sent: boolean;
+}
+
+export interface AdminSubscriptionReminders {
+  enabled: boolean;
+  days: number;
+  generated_at: string;
+  stages: { stage: SubscriptionReminderStage; label: string; hours_before: number }[];
+  summary: {
+    upcoming: number;
+    upcoming_without_phone: number;
+    sent_last_7_days: number;
+    sms_sent_last_7_days: number;
+    sms_failed_last_7_days: number;
+    sms_pending_last_7_days: number;
+    inbox_only_last_7_days: number;
+  };
+  upcoming: SubscriptionReminderUpcoming[];
+  recent: SubscriptionReminderLogEntry[];
+}
+
 export interface AdminSubscriptionDetail {
   reseller: {
     id: number;
@@ -5439,6 +5495,8 @@ export interface MessagingSettings {
   welcome_subject: string;
   welcome_message_body: string;
   welcome_support_phone: string | null;
+  /** Absent on older backends. */
+  subscription_reminders_enabled?: boolean;
 }
 
 export interface MessagingSettingsUpdate {
@@ -5453,6 +5511,7 @@ export interface MessagingSettingsUpdate {
   welcome_subject?: string;
   welcome_message_body?: string;
   welcome_support_phone?: string | null;
+  subscription_reminders_enabled?: boolean;
 }
 
 // SMS gateway providers.

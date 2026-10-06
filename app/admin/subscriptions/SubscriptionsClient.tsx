@@ -136,9 +136,14 @@ export default function AdminSubscriptionsPage() {
         title="Subscriptions"
         subtitle={`${total} reseller subscriptions`}
         action={
-          <Link href="/admin/subscriptions/revenue" className="btn-primary text-sm px-4 py-2">
-            Revenue
-          </Link>
+          <div className="flex items-center gap-2">
+            <Link href="/admin/subscriptions/reminders" className="btn-secondary text-sm px-4 py-2">
+              Reminders
+            </Link>
+            <Link href="/admin/subscriptions/revenue" className="btn-primary text-sm px-4 py-2">
+              Revenue
+            </Link>
+          </div>
         }
       />
 
