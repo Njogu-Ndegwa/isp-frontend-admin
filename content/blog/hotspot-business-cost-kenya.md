@@ -1,6 +1,6 @@
 ---
-title: "Hotspot Business Cost in Kenya: Can KSh 500 Work?"
-description: "Hotspot business cost in Kenya: about KSh 20,000, not KSh 500. Full starter kit list with prices: internet, MikroTik hAP lite, access point, cables."
+title: Hotspot Business Cost in Kenya: Can KSh 500 Work?
+description: Hotspot business cost in Kenya: about KSh 20,000, not KSh 500. Full starter kit list with prices: internet, MikroTik hAP lite, access point, cables.
 date: 2026-10-06
 tags: hotspot business, hotspot business cost, mikrotik hap lite, wifi business kenya
 category: hotspot
