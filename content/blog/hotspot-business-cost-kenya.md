@@ -1,6 +1,6 @@
 ---
-title: Can You Start a Hotspot Business With KSh 500? The Real Cost in Kenya (2026)
-description: Can you start a hotspot business with KSh 500? No. The real hotspot business cost in Kenya is about KSh 20,000. Here is the full kit list with prices.
+title: "Hotspot Business Cost in Kenya: Can KSh 500 Work?"
+description: "Hotspot business cost in Kenya: about KSh 20,000, not KSh 500. Full starter kit list with prices: internet, MikroTik hAP lite, access point, cables."
 date: 2026-10-06
 tags: hotspot business, hotspot business cost, mikrotik hap lite, wifi business kenya
 category: hotspot
