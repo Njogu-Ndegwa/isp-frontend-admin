@@ -9,10 +9,6 @@ imageAlt: MikroTik routers stacked on a table beside an RB951-series retail box,
 published: true
 ---
 
-<!-- Cover source: Biwavte photo library / equipment_mikrotik-boxes-table_20260515_we-supply-and-install-mikrotik_00-03.jpg (720x1280 source, cropped 720x405 above the caption band) -->
-
-<!-- VERIFY: add a link to the "Can you start a hotspot business with KSh 500?" TikTok here once it is live, e.g. *This list follows our [TikTok on starting with KSh 500](https://www.tiktok.com/@bitwavetechnologies/video/...).* -->
-
 No. KSh 500 gets you the billing system, not the business. The real hotspot business cost in Kenya is about KSh 20,000 for the minimum kit: an internet connection of roughly 10 Mbps, a MikroTik hAP lite, a basic access point, cables and labour, and a small buffer for the things you forget. Here's the full list.
 
 This is the starter list we send to everyone who comments "HELP" on our TikTok, with the price of each item and what it does.
@@ -42,7 +38,7 @@ Each item does one job. The internet source brings the connection in, the MikroT
 - **MikroTik hAP lite, KSh 4,000.** The router that runs the hotspot. It shows customers the login page, applies each package's speed and time limits, and cuts users off when their package expires. It is the cheapest MikroTik that does the job.
 - **Access point, KSh 5,000.** It carries the WiFi signal to where your customers are, such as a plot, a row of shops or a stage. It doesn't need to be a fancy one.
 - **Cables and labour, KSh 5,000.** Ethernet cable, connectors and someone to run and mount everything neatly.
-- **Miscellaneous, KSh 4,000.** Things that are easy to forget: extension sockets, clips, mounting brackets, transport, a replacement connector. <!-- VERIFY: Dennis, are these the right examples for the miscellaneous line? -->
+- **Miscellaneous, KSh 4,000.** Things that are easy to forget, for example extension sockets, clips, mounting brackets, transport and spare connectors.
 
 ## Which costs are one-off and which are monthly?
 
@@ -58,7 +54,7 @@ Buy in this order, and only spend on the next item once the previous one is sort
 
 1. **Confirm internet at the exact site.** If no provider can connect the building, the rest of the list is wasted money.
 2. **Buy the MikroTik hAP lite.** Everything else plugs into it.
-3. **Set up billing and test.** Bitwave configures the MikroTik for you at no charge, so you can buy a test package from your own phone before any customer does. <!-- VERIFY: confirm "free installation" on /pricing means remote MikroTik configuration only, not on-site cabling -->
+3. **Set up billing and test.** Bitwave configures the MikroTik for you at no charge, so you can buy a test package from your own phone before any customer does.
 4. **Add the access point, cables and labour.** Do this once you know where customers will sit and how far the signal has to reach.
 
 Doing it in this order keeps your money in your pocket until each step works. If you're new to the whole setup, our guide on [how to start a WiFi hotspot business in Kenya](/blog/how-to-start-wifi-hotspot-business-kenya) covers locations, package pricing and keeping the network up.
@@ -67,13 +63,13 @@ Doing it in this order keeps your money in your pocket until each step works. If
 
 KSh 500 is the minimum monthly charge for Bitwave hotspot billing. It doesn't buy hardware or internet. What it pays for is the system that turns your router into a business: the captive portal, M-Pesa payments that activate customers automatically, vouchers, and automatic disconnection when a package runs out.
 
-Without a billing system, you would be checking M-Pesa messages and adding users by hand. That works for five customers and falls apart at fifty. When your hardware is ready, you can [create a free Bitwave account](/signup) and have the billing side running the same day. <!-- VERIFY: "same day" is a claim; adjust or remove if setup usually takes longer -->
+Without a billing system, you would be checking M-Pesa messages and adding users by hand. That works for five customers and falls apart at fifty. When your hardware is ready, you can [create a free Bitwave account](/signup) and get the billing side set up while you finish the hardware.
 
 ## FAQ
 
 **Can I start a hotspot business with less than KSh 20,000?**
 
-Possibly, but not with KSh 500. Some people start with only the internet line and a MikroTik hAP lite, using the router's own WiFi to serve the room or plot right around it, then add an access point once customers start paying. The coverage is small, but it lets you test demand before spending the full amount. <!-- VERIFY: Dennis, happy recommending a hAP-lite-only pilot? -->
+Not with KSh 500. About KSh 20,000 is the realistic minimum for a proper first site. Shopping around for the access point and cabling can bring the total down a little, but budget for the full list so the hotspot works reliably from day one.
 
 **Is the KSh 2,000 for internet a monthly cost?**
 
