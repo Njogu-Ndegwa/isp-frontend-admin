@@ -18,8 +18,12 @@ export const viewport: Viewport = {
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://bitwavetechnologies.com"),
-  title: "ISP Billing Admin | Bitwave Technologies",
-  description: "Manage your ISP billing, customers, plans, and transactions",
+  // The fallback for any page without its own metadata. Public pages that fell
+  // through to it were indexed by Google as "ISP Billing Admin", which tells a
+  // searcher (or an answer engine) nothing about what Bitwave is.
+  title: "Bitwave Technologies | ISP Billing Software for Kenya",
+  description:
+    "ISP billing for WiFi hotspots and PPPoE in Kenya: M-Pesa payments, hotspot vouchers and automatic MikroTik configuration.",
 };
 
 export default function RootLayout({
