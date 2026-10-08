@@ -4127,8 +4127,12 @@ export interface AdminExpiringSoon {
   }[];
 }
 
-/** Reminder stage keys, persisted by the backend: ~3 days, ~24 h, ~2 h before expiry. */
-export type SubscriptionReminderStage = 't72' | 't24' | 't2';
+/**
+ * Reminder stage keys, persisted by the backend: ~3 days, ~24 h, ~2 h before expiry,
+ * and `expired`, the one notice sent after the suspension run. `expired` only appears
+ * in the sent log (`recent`), never in `upcoming` or `stages`.
+ */
+export type SubscriptionReminderStage = 't72' | 't24' | 't2' | 'expired';
 
 /** sms_status: an SmsMessageStatus, or no_phone / not_sent for inbox-only reminders. */
 export type SubscriptionReminderSmsStatus =
