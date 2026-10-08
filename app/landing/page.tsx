@@ -3,7 +3,10 @@ import Image from 'next/image';
 import Link from 'next/link';
 import DemoButton from './DemoButton';
 import LandingDeferredSections from './LandingDeferredSections';
+import LandingFaq from './LandingFaq';
+import LandingFooter from './LandingFooter';
 import LandingHeader from './LandingHeader';
+import { LANDING_JSONLD } from './structuredData';
 import FloatingContact from '../components/FloatingContact';
 
 const HERO_PHOTO = 'https://images.unsplash.com/photo-1558494949-ef010cbdcc31?w=1920&q=80';
@@ -22,6 +25,10 @@ function Reveal({ children, className = '' }: { children: ReactNode; className?:
 export default function LandingPage() {
   return (
     <div className="min-h-screen bg-background text-foreground overflow-x-hidden">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(LANDING_JSONLD) }}
+      />
       <LandingHeader />
 
       <section className="relative min-h-[92vh] flex items-center justify-center overflow-hidden">
@@ -88,6 +95,8 @@ export default function LandingPage() {
       </section>
 
       <LandingDeferredSections />
+      <LandingFaq />
+      <LandingFooter />
       <FloatingContact />
     </div>
   );

@@ -8,42 +8,12 @@ export const metadata: Metadata = {
   alternates: { canonical: '/' },
 };
 
-const ORGANIZATION_JSONLD = {
-  '@context': 'https://schema.org',
-  '@type': 'Organization',
-  name: 'Bitwave Technologies',
-  url: 'https://bitwavetechnologies.com',
-  sameAs: [],
-};
-
-const SOFTWARE_JSONLD = {
-  '@context': 'https://schema.org',
-  '@type': 'SoftwareApplication',
-  name: 'Bitwave ISP Billing',
-  applicationCategory: 'BusinessApplication',
-  operatingSystem: 'Web',
-  description:
-    'ISP billing platform for Kenyan WISPs: M-Pesa payments, hotspot vouchers, PPPoE management, MikroTik router integration and customer analytics.',
-  offers: { '@type': 'Offer', price: '0', priceCurrency: 'KES' },
-  url: 'https://bitwavetechnologies.com',
-};
-
+// Structured data lives in the page (see structuredData.ts) so it also reaches
+// `/`, which renders the page without this layout.
 export default function LandingLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  return (
-    <>
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(ORGANIZATION_JSONLD) }}
-      />
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(SOFTWARE_JSONLD) }}
-      />
-      {children}
-    </>
-  );
+  return <>{children}</>;
 }

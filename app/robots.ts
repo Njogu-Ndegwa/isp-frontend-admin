@@ -36,11 +36,16 @@ const AI_CRAWLERS = [
   'OAI-SearchBot', // ChatGPT search index
   'ChatGPT-User', // ChatGPT live browsing
   'ClaudeBot', // Anthropic crawler
-  'Claude-Web', // Claude live browsing
+  'Claude-SearchBot', // Claude search index
+  'Claude-User', // Claude live browsing
+  'Claude-Web', // legacy Claude browsing agent
   'anthropic-ai',
   'PerplexityBot',
   'Perplexity-User',
   'Google-Extended', // Gemini training/grounding
+  'bingbot', // Bing index — ChatGPT search and Copilot answer from it
+  'DuckAssistBot', // DuckDuckGo AI answers
+  'MistralAI-User', // Le Chat live browsing
   'Applebot-Extended',
   'meta-externalagent',
   'Amazonbot',
