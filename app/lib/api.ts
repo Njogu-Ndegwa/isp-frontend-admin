@@ -157,6 +157,7 @@ import {
   AdminSubscriptionsResponse,
   AdminSubscriptionRevenue,
   AdminExpiringSoon,
+  AdminSubscriptionReminders,
   AdminSubscriptionDetail,
   EditSubscriptionRequest,
   EditSubscriptionResponse,
@@ -2665,6 +2666,13 @@ class ApiClient {
       headers: this.getHeaders(),
     });
     return this.handleResponse<AdminExpiringSoon>(response);
+  }
+
+  async getAdminSubscriptionReminders(days = 7): Promise<AdminSubscriptionReminders> {
+    const response = await fetch(`${BASE_URL}/admin/subscription-reminders?days=${days}`, {
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<AdminSubscriptionReminders>(response);
   }
 
   async getAdminSubscriptionDetail(resellerId: number): Promise<AdminSubscriptionDetail> {

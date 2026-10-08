@@ -6,6 +6,7 @@ import { API_ORIGIN, api } from '../lib/api';
 import {
   AdminDashboard,
   AdminExpiringSoon,
+  AdminSubscriptionReminders,
   AdminResellerStats,
   AdminResellerStatsPeriod,
   AdminMRRMetrics,
@@ -28,6 +29,7 @@ import StatCard from '../components/StatCard';
 import DataTable from '../components/DataTable';
 import MobileDataCard from '../components/MobileDataCard';
 import { SkeletonCard } from '../components/LoadingSpinner';
+import { reminderSummary } from './subscriptions/reminders/reminderDisplay';
 import DbPoolMonitor from '../components/DbPoolMonitor';
 import dynamic from 'next/dynamic';
 import {
@@ -417,6 +419,7 @@ export default function AdminDashboardPage() {
   // Existing endpoint data
   const [data, setData] = useState<AdminDashboard | null>(null);
   const [expiring, setExpiring] = useState<AdminExpiringSoon | null>(null);
+  const [reminders, setReminders] = useState<AdminSubscriptionReminders | null>(null);
 
   // New metric endpoint data (nullable until backend ready)
   const [mrr, setMrr] = useState<AdminMRRMetrics | null>(null);
@@ -444,14 +447,18 @@ export default function AdminDashboardPage() {
       const [
         dashResult,
         expiringResult,
+        remindersResult,
       ] = await Promise.all([
         api.getAdminDashboard(),
         api.getAdminExpiringSoon(7).catch(() => null),
+        // Older backends have no reminders endpoint; the card just omits the line.
+        api.getAdminSubscriptionReminders(7).catch(() => null),
       ]);
 
       if (loadSeqRef.current !== loadSeq) return;
       setData(dashResult);
       setExpiring(expiringResult);
+      setReminders(remindersResult);
       setLoading(false);
 
       // Secondary analytics load after the first paint so slow reports do not block the page.
@@ -984,24 +991,44 @@ export default function AdminDashboardPage() {
                 <h3 className="text-sm font-semibold text-amber-500">
                   {expiring.total} subscription{expiring.total !== 1 ? 's' : ''} expiring in {expiring.days_threshold} days
                 </h3>
-                <Link href="/admin/subscriptions" className="text-xs text-amber-500 hover:underline">View all</Link>
+                <div className="flex items-center gap-3">
+                  <Link href="/admin/subscriptions/reminders" className="text-xs text-amber-500 hover:underline">Reminders</Link>
+                  <Link href="/admin/subscriptions" className="text-xs text-amber-500 hover:underline">View all</Link>
+                </div>
               </div>
+              {reminders && (
+                <p className="text-xs text-foreground-muted mb-3">
+                  {reminders.enabled
+                    ? `Reminders on · ${reminders.summary.sent_last_7_days} sent in the last 7 days`
+                      + (reminders.summary.sms_failed_last_7_days ? `, ${reminders.summary.sms_failed_last_7_days} SMS failed` : '')
+                    : 'Reminders are OFF — resellers are not being warned before they expire'}
+                </p>
+              )}
               <div className="space-y-2">
-                {expiring.resellers.slice(0, 5).map((r) => (
-                  <Link
-                    key={r.id}
-                    href={`/admin/subscriptions/${r.id}`}
-                    className="flex items-center justify-between p-3 rounded-xl bg-background-tertiary/50 hover:bg-background-tertiary transition-colors"
-                  >
-                    <div>
-                      <p className="text-sm font-medium text-foreground">{r.organization_name}</p>
-                      <p className="text-xs text-foreground-muted">{r.email}</p>
-                    </div>
-                    <span className="text-xs font-semibold text-amber-500">
-                      {r.days_until_expiry} day{r.days_until_expiry !== 1 ? 's' : ''} left
-                    </span>
-                  </Link>
-                ))}
+                {expiring.resellers.slice(0, 5).map((r) => {
+                  const planned = reminders?.upcoming.find((u) => u.reseller_id === r.id);
+                  const line = planned && reminders?.enabled ? reminderSummary(planned, reminders.generated_at) : null;
+                  return (
+                    <Link
+                      key={r.id}
+                      href={`/admin/subscriptions/${r.id}`}
+                      className="flex items-center justify-between gap-3 p-3 rounded-xl bg-background-tertiary/50 hover:bg-background-tertiary transition-colors"
+                    >
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-foreground">{r.organization_name}</p>
+                        <p className="text-xs text-foreground-muted">{r.email}</p>
+                        {line && (
+                          <p className={`text-xs mt-0.5 truncate ${line.tone === 'warning' ? 'text-amber-500' : 'text-foreground-muted'}`}>
+                            {line.text}
+                          </p>
+                        )}
+                      </div>
+                      <span className="text-xs font-semibold text-amber-500 shrink-0">
+                        {r.days_until_expiry} day{r.days_until_expiry !== 1 ? 's' : ''} left
+                      </span>
+                    </Link>
+                  );
+                })}
               </div>
             </div>
           )}
