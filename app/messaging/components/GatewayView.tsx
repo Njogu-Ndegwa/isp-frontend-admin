@@ -6,10 +6,12 @@ import {
   SmsProviderField,
   SmsProviderAccount,
   SmsEffectiveGateway,
+  SmsGatewayStatus,
 } from '../../lib/types';
 import { useAlert } from '../../context/AlertContext';
 import { PageLoader } from '../../components/LoadingSpinner';
 import FilterSelect from '../../components/FilterSelect';
+import GatewayStatusCard from './GatewayStatusCard';
 
 // ─── SMS gateway ───────────────────────────────────────────────────────────
 // Two choices, in this order:
@@ -28,12 +30,30 @@ interface GatewayViewProps {
   admin?: boolean;
   /** Admin only: whose gateway to manage. Omit for the platform's own. */
   targetUserId?: number | null;
+  /** Reseller page: the status report the page already loaded. */
+  gatewayStatus?: SmsGatewayStatus | null;
+  onReloadGatewayStatus?: (refresh: boolean) => void | Promise<void>;
+  /** Called after the gateway is saved, switched or tested. */
+  onGatewayChanged?: () => void;
 }
 
 type Mode = 'platform' | 'own';
 
-export function GatewayView({ admin = false, targetUserId }: GatewayViewProps) {
+export function GatewayView({
+  admin = false,
+  targetUserId,
+  gatewayStatus,
+  onReloadGatewayStatus,
+  onGatewayChanged,
+}: GatewayViewProps) {
   const { showAlert } = useAlert();
+  // Bumped after a save/switch/test so the admin status card refetches.
+  const [statusVersion, setStatusVersion] = useState(0);
+  const afterGatewayChange = () => {
+    setStatusVersion((v) => v + 1);
+    onReloadGatewayStatus?.(true);
+    onGatewayChanged?.();
+  };
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -149,6 +169,7 @@ export function GatewayView({ admin = false, targetUserId }: GatewayViewProps) {
       showAlert('success', 'Switched to the platform gateway');
       setMode('platform');
       await load();
+      afterGatewayChange();
     } catch (err) {
       showAlert('error', err instanceof Error ? err.message : 'Could not switch gateway');
     } finally {
@@ -196,6 +217,7 @@ export function GatewayView({ admin = false, targetUserId }: GatewayViewProps) {
       }
       showAlert('success', 'Gateway saved');
       await load();
+      afterGatewayChange();
     } catch (err) {
       showAlert('error', err instanceof Error ? err.message : 'Could not save gateway');
     } finally {
@@ -214,6 +236,7 @@ export function GatewayView({ admin = false, targetUserId }: GatewayViewProps) {
       if (result.ok) showAlert('success', `Test message accepted by ${result.provider}`);
       else showAlert('error', result.error || 'Test message was rejected');
       await load();
+      afterGatewayChange();
     } catch (err) {
       showAlert('error', err instanceof Error ? err.message : 'Test send failed');
     } finally {
@@ -235,6 +258,13 @@ export function GatewayView({ admin = false, targetUserId }: GatewayViewProps) {
 
   return (
     <div className="space-y-4">
+      {!admin && gatewayStatus !== undefined && (
+        <GatewayStatusCard status={gatewayStatus} onReload={onReloadGatewayStatus} />
+      )}
+      {admin && targetUserId != null && (
+        <GatewayStatusCard key={statusVersion} resellerId={targetUserId} />
+      )}
+
       {effective && (
         <div className="rounded-xl border border-border bg-background-secondary p-4">
           <p className="text-xs text-foreground-muted">Your messages go out via</p>

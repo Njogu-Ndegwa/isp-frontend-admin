@@ -1,7 +1,8 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { api } from '../../lib/api';
-import { SmsCreditInfo, SmsCreditTransaction } from '../../lib/types';
+import { SmsCreditInfo, SmsCreditTransaction, SmsGatewayStatus } from '../../lib/types';
+import GatewayStatusCard from './GatewayStatusCard';
 import { useAuth } from '../../context/AuthContext';
 import BuySmsCreditsModal from '../../components/BuySmsCreditsModal';
 import { LedgerList } from './LedgerList';
@@ -100,7 +101,17 @@ function TransactionLedger() {
 }
 
 // ─── CreditsView ──────────────────────────────────────────────────────────
-export default function CreditsView({ credits, onRefresh }: { credits: SmsCreditInfo; onRefresh: () => void }) {
+export default function CreditsView({
+  credits,
+  onRefresh,
+  gatewayStatus,
+  onReloadGatewayStatus,
+}: {
+  credits: SmsCreditInfo;
+  onRefresh: () => void;
+  gatewayStatus?: SmsGatewayStatus | null;
+  onReloadGatewayStatus?: (refresh: boolean) => void | Promise<void>;
+}) {
   const { user } = useAuth();
   const [buyModal, setBuyModal] = useState<{ quantity: number; amountKes: number } | null>(null);
   const [customQty, setCustomQty] = useState('');
@@ -131,10 +142,15 @@ export default function CreditsView({ credits, onRefresh }: { credits: SmsCredit
           </p>
           <p className="text-xs text-foreground-muted">
             Your messages are billed by your SMS provider, not here, so they use
-            no portal credits. The balance below only applies if you switch back
-            to the platform gateway.
+            no portal credits. Your real SMS balance is the one your provider
+            holds, shown below. The portal balance further down only applies if
+            you switch back to the platform gateway.
           </p>
         </div>
+      )}
+
+      {onOwnGateway && gatewayStatus !== undefined && (
+        <GatewayStatusCard status={gatewayStatus} onReload={onReloadGatewayStatus} />
       )}
 
       {/* Balance summary */}
