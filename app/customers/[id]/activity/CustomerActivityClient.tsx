@@ -73,7 +73,7 @@ const FIELD_LABEL: Record<string, string> = {
 };
 
 // Machine values read better in monospace; prose and dates do not.
-const MONO_LABELS = new Set(['IP', 'Previous IP', 'Caller-id (MAC)', 'MAC', 'Router time', 'Reference', 'Result code']);
+const MONO_LABELS = new Set(['IP', 'Previous IP', 'Device MAC', 'MAC', 'Router time', 'Reference', 'Result code']);
 
 const PAGE_SIZE = 150;
 // Every control in the toolbar shares this height so they line up.
@@ -127,7 +127,9 @@ const COLLAPSE_MIN = 3;
 type Row = { kind: 'item'; item: CustomerAuditItem } | { kind: 'run'; items: CustomerAuditItem[] };
 
 function runKey(item: CustomerAuditItem): string {
-  return item.category === 'router_log' ? `log:${explainRouterLog(item.message)?.meaning ?? item.message}` : item.event_type;
+  return item.event_type === 'router_log'
+    ? `log:${explainRouterLog(item.message)?.meaning ?? item.message}`
+    : item.event_type;
 }
 
 function collapseRuns(items: CustomerAuditItem[]): Row[] {
@@ -147,8 +149,11 @@ function collapseRuns(items: CustomerAuditItem[]): Row[] {
 }
 
 function csvCell(value: unknown): string {
-  const text = value === null || value === undefined ? '' : String(value);
-  return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+  let text = value === null || value === undefined ? '' : String(value);
+  // A cell starting with = + - @ is a formula to Excel; hotspot log lines
+  // often start with "->:". A leading apostrophe makes it plain text.
+  if (/^[=+\-@\t\r]/.test(text)) text = `'${text}`;
+  return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
 }
 
 function downloadCsv(items: CustomerAuditItem[], name: string) {
@@ -161,13 +166,24 @@ function downloadCsv(items: CustomerAuditItem[], name: string) {
     i.actor ?? '',
     i.severity,
   ].map(csvCell).join(','));
-  const blob = new Blob([[header.join(','), ...lines].join('\n')], { type: 'text/csv;charset=utf-8' });
+  // The BOM tells Excel on Windows the file is UTF-8 (otherwise "—" shows as "â€”").
+  const blob = new Blob(['\uFEFF', [header.join(','), ...lines].join('\r\n')], { type: 'text/csv;charset=utf-8' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
   a.download = `${name.replace(/[^\w-]+/g, '_') || 'customer'}-activity.csv`;
   a.click();
   URL.revokeObjectURL(url);
+}
+
+// The live tile is the router's last report; older than this it is history.
+const LIVE_STALE_MS = 5 * 60_000;
+
+function ageMs(iso: string | null | undefined): number | null {
+  if (!iso) return null;
+  const ts = iso.endsWith('Z') || iso.includes('+') ? iso : `${iso}Z`;
+  const t = new Date(ts).getTime();
+  return isNaN(t) ? null : Date.now() - t;
 }
 
 function isPast(iso: string | null | undefined): boolean {
@@ -207,7 +223,7 @@ function detailRows(item: CustomerAuditItem): [string, string][] {
       add('Uploaded', formatBytes(s.upload_bytes));
       add('IP', d.ip);
       if (prev) add('Previous IP', prev.ip);
-      add('Caller-id (MAC)', d.caller_id);
+      add('Device MAC', d.caller_id);
       add('MAC', d.mac);
       break;
     }
@@ -256,6 +272,8 @@ export default function CustomerActivityClient() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [pulling, setPulling] = useState(false);
   const [confirmReset, setConfirmReset] = useState(false);
+  const reloadTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (reloadTimer.current) clearTimeout(reloadTimer.current); }, []);
   const [resetting, setResetting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -325,6 +343,22 @@ export default function CustomerActivityClient() {
     }
   };
 
+  const resetButtonRef = useRef<HTMLButtonElement | null>(null);
+  const dialogConfirmRef = useRef<HTMLButtonElement | null>(null);
+  useEffect(() => {
+    if (!confirmReset) return;
+    dialogConfirmRef.current?.focus();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !resetting) setConfirmReset(false);
+    };
+    document.addEventListener('keydown', onKey);
+    const opener = resetButtonRef.current;
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      opener?.focus();
+    };
+  }, [confirmReset, resetting]);
+
   const resetSession = async () => {
     setResetting(true);
     try {
@@ -337,7 +371,8 @@ export default function CustomerActivityClient() {
       );
       setConfirmReset(false);
       // Give the router a moment to report the new session before reloading.
-      setTimeout(() => { void loadRef.current(); }, 4000);
+      if (reloadTimer.current) clearTimeout(reloadTimer.current);
+      reloadTimer.current = setTimeout(() => { void loadRef.current(); }, 4000);
     } catch (err) {
       showAlert('error', err instanceof Error ? err.message : 'Could not reset the session');
     } finally {
@@ -386,7 +421,11 @@ export default function CustomerActivityClient() {
   const canPull = Boolean(customer?.router_id && (customer?.pppoe_username || customer?.mac_address));
   const canReset = Boolean(isPPPoE && customer?.router_id && customer?.pppoe_username);
   const identity = isPPPoE ? customer?.pppoe_username : customer?.mac_address;
-  const live = data?.live;
+  const reportAge = ageMs(data?.router_reported_at);
+  // A router that stopped reporting leaves its last state in memory; past a
+  // few minutes that is history, not "now".
+  const live = data?.live && reportAge !== null && reportAge <= LIVE_STALE_MS ? data.live : null;
+  const liveIsStale = Boolean(data?.live) && !live;
   const summary = data?.summary;
 
   return (
@@ -407,12 +446,14 @@ export default function CustomerActivityClient() {
                   {live.online ? 'Online' : 'Offline'}
                 </span>
               ) : (
-                <span className="text-foreground-muted">Not reported</span>
+                <span className="text-foreground-muted">{liveIsStale ? 'Unknown' : 'Not reported'}</span>
               )}
               <SummaryHint>
-                {live?.online
-                  ? [live.ip, live.uptime && `up ${live.uptime}`].filter(Boolean).join(' · ') || '—'
-                  : live?.seen_at ? `seen ${formatTimeSinceUTC(live.seen_at) ?? '—'}` : '—'}
+                {liveIsStale
+                  ? `router silent since ${formatTimeSinceUTC(data?.router_reported_at) ?? '—'}`
+                  : live?.online
+                    ? [live.ip, live.uptime && `up ${live.uptime}`].filter(Boolean).join(' · ') || '—'
+                    : live?.seen_at ? `seen ${formatTimeSinceUTC(live.seen_at) ?? '—'}` : '—'}
               </SummaryHint>
             </SummaryTile>
             <SummaryTile label="Status">
@@ -487,8 +528,8 @@ export default function CustomerActivityClient() {
             className="w-full flex-wrap"
           />
 
-          <div className="flex flex-col sm:flex-row gap-2">
-            <div className="flex-1 min-w-0 [&_.input]:h-11 [&_.input]:py-0 [&_.input]:text-sm">
+          <div className="flex flex-col lg:flex-row gap-2">
+            <div className="flex-1 min-w-0 lg:min-w-[14rem] [&_.input]:h-11 [&_.input]:py-0 [&_.input]:text-sm">
               <DateTimePicker value={jumpTo} onChange={setJumpTo} />
             </div>
             {jumpTo && (
@@ -502,6 +543,7 @@ export default function CustomerActivityClient() {
             )}
             {canReset && (
               <button
+                ref={resetButtonRef}
                 type="button"
                 onClick={() => setConfirmReset(true)}
                 className={`btn-secondary ${CONTROL_H} py-0 inline-flex items-center justify-center gap-2 whitespace-nowrap`}
@@ -537,7 +579,8 @@ export default function CustomerActivityClient() {
                 ? 'Showing activity up to the chosen time (EAT).'
                 : 'Pick a date and time (EAT) to jump to a moment.'}{' '}
               Routers only remember their last ~1000 log lines; pulling saves them here.
-              Sessions and router log lines are kept for 60 days, everything else for good.
+              Sessions and router log lines are kept for 60 days, router status for 14 days,
+              payments and changes for good.
             </p>
             {items.length > 0 && (
               <button
@@ -545,7 +588,7 @@ export default function CustomerActivityClient() {
                 onClick={() => downloadCsv(items, customer?.name || `customer-${customerId}`)}
                 className="text-xs font-medium text-accent-primary hover:underline whitespace-nowrap self-start"
               >
-                Export CSV
+                Export {items.length} row{items.length === 1 ? '' : 's'} (CSV)
               </button>
             )}
           </div>
@@ -562,7 +605,7 @@ export default function CustomerActivityClient() {
               Try again
             </button>
           </div>
-        ) : loading ? (
+        ) : loading && items.length === 0 ? (
           <div className="card p-8 flex justify-center">
             <span className="w-5 h-5 border-2 border-foreground-muted/30 border-t-accent-primary rounded-full animate-spin" />
           </div>
@@ -635,6 +678,7 @@ export default function CustomerActivityClient() {
                 Cancel
               </button>
               <button
+                ref={dialogConfirmRef}
                 type="button"
                 onClick={() => void resetSession()}
                 disabled={resetting}
@@ -709,7 +753,7 @@ function ActivityRow({ item }: { item: CustomerAuditItem }) {
       </div>
       {rows.length > 0 && (
         <svg
-          className="w-4 h-4 mt-0.5 flex-shrink-0 text-foreground-muted transition-transform group-open:rotate-90"
+          className="w-4 h-4 mt-0.5 flex-shrink-0 text-foreground-muted transition-transform group-open/row:rotate-90"
           fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden
         >
           <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
@@ -723,7 +767,7 @@ function ActivityRow({ item }: { item: CustomerAuditItem }) {
   }
   return (
     <li>
-      <details className="group">
+      <details className="group/row">
         <summary className="list-none cursor-pointer px-4 py-3 hover:bg-background-tertiary/40 transition-colors [&::-webkit-details-marker]:hidden">
           {body}
         </summary>
@@ -756,12 +800,12 @@ function RepeatedRow({ items }: { items: CustomerAuditItem[] }) {
   const last = items[0];
   const worst = items.some((i) => i.severity === 'error') ? 'error' : items.some((i) => i.severity === 'warning') ? 'warning' : 'info';
   const isRawLine = first.event_type === 'router_log';
-  const label = RUN_LABEL[first.event_type] ?? (isRawLine ? 'Router said this' : 'Repeated');
-  const what = isRawLine ? first.message : 'Each one is listed when you open this row.';
-  const hint = isRawLine ? explainRouterLog(first.message) : null;
+  const label = RUN_LABEL[first.event_type] ?? (isRawLine ? 'Similar router lines' : 'Repeated');
+  const what = isRawLine ? `Latest: ${last.message}` : 'Each one is listed when you open this row.';
+  const hint = isRawLine ? explainRouterLog(last.message) : null;
   return (
     <li>
-      <details className="group">
+      <details className="group/run">
         <summary className="list-none cursor-pointer px-4 py-3 hover:bg-background-tertiary/40 transition-colors [&::-webkit-details-marker]:hidden">
           <div className="flex items-start gap-3 min-w-0">
             <time
@@ -784,7 +828,7 @@ function RepeatedRow({ items }: { items: CustomerAuditItem[] }) {
               </p>
             </div>
             <svg
-              className="w-4 h-4 mt-0.5 flex-shrink-0 text-foreground-muted transition-transform group-open:rotate-90"
+              className="w-4 h-4 mt-0.5 flex-shrink-0 text-foreground-muted transition-transform group-open/run:rotate-90"
               fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden
             >
               <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
