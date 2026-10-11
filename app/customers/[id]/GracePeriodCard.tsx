@@ -6,7 +6,7 @@ import { Customer, SetCustomerGraceResponse } from '../../lib/types';
 import { useAlert } from '../../context/AlertContext';
 import { formatDateGMT3 } from '../../lib/dateUtils';
 import {
-  GRACE_PRESETS, GraceUnit, MAX_GRACE_MINUTES, formatGrace, graceToMinutes, splitGraceMinutes,
+  GRACE_PRESETS, GraceUnit, MAX_GRACE_MINUTES, formatGrace, graceDeadlineISO, graceToMinutes, splitGraceMinutes,
 } from '../../lib/grace';
 
 const DATE_FMT: Intl.DateTimeFormatOptions = {
@@ -35,6 +35,11 @@ export default function GracePeriodCard({
 
   const minutes = value.trim() === '' ? null : graceToMinutes(Number(value), unit);
   const dirty = minutes !== null && minutes !== current;
+  const rangeHint = `Enter a grace period between 0 and ${MAX_GRACE_MINUTES / (24 * 60)} days`;
+  // Say why Save is disabled instead of leaving the button silently grey.
+  const invalid = value.trim() !== '' && minutes === null;
+  const shownError = error ?? (invalid ? rangeHint : null);
+  const preview = dirty && minutes > 0 ? graceDeadlineISO(customer.expiry, minutes) : null;
 
   const applyPreset = (presetMinutes: number) => {
     const split = splitGraceMinutes(presetMinutes);
@@ -45,7 +50,7 @@ export default function GracePeriodCard({
 
   const save = async () => {
     if (minutes === null) {
-      setError(`Enter a grace period between 0 and ${MAX_GRACE_MINUTES / (24 * 60)} days`);
+      setError(rangeHint);
       return;
     }
     try {
@@ -95,7 +100,7 @@ export default function GracePeriodCard({
             key={p.label}
             type="button"
             onClick={() => applyPreset(p.minutes)}
-            className={`px-3 py-1 rounded-full text-xs border transition-colors ${
+            className={`min-h-9 px-3.5 py-1.5 rounded-full text-xs border transition-colors active:opacity-70 ${
               minutes === p.minutes
                 ? 'border-accent-primary bg-accent-primary/10 text-accent-primary'
                 : 'border-border text-foreground-muted hover:text-foreground'
@@ -131,7 +136,19 @@ export default function GracePeriodCard({
         </div>
       </div>
 
-      {error && <p className="text-xs text-danger">{error}</p>}
+      {shownError && <p className="text-xs text-danger">{shownError}</p>}
+      {!shownError && preview && (
+        <p className="text-xs text-foreground-muted">
+          After saving, access ends on{' '}
+          <span className="font-medium text-foreground">{formatDateGMT3(preview, DATE_FMT)}</span>
+          {' '}if they don&apos;t pay.
+        </p>
+      )}
+      {!shownError && dirty && minutes === 0 && current > 0 && (
+        <p className="text-xs text-foreground-muted">
+          After saving, access ends at the plan expiry.{customer.in_grace ? ' This customer is in grace now and will be disconnected within a minute.' : ''}
+        </p>
+      )}
 
       <button
         type="button"

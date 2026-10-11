@@ -42,3 +42,12 @@ export function formatGrace(minutes: number | null | undefined): string {
   if (mins) parts.push(`${mins} min`);
   return parts.join(' ');
 }
+
+/** When access would end with this grace: expiry + minutes, as a UTC ISO string. */
+export function graceDeadlineISO(expiry: string | null | undefined, minutes: number): string | null {
+  if (!expiry) return null;
+  const hasZone = expiry.endsWith('Z') || expiry.includes('+') || expiry.includes('-', 10);
+  const ms = Date.parse(hasZone ? expiry : `${expiry}Z`);
+  if (Number.isNaN(ms)) return null;
+  return new Date(ms + minutes * 60_000).toISOString();
+}

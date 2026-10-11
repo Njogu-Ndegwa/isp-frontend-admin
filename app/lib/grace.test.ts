@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { MAX_GRACE_MINUTES, formatGrace, graceToMinutes, splitGraceMinutes } from './grace';
+import { MAX_GRACE_MINUTES, formatGrace, graceDeadlineISO, graceToMinutes, splitGraceMinutes } from './grace';
 
 describe('splitGraceMinutes', () => {
   it('shows whole days in days', () => {
@@ -34,5 +34,15 @@ describe('formatGrace', () => {
     expect(formatGrace(24 * 60)).toBe('1 day');
     expect(formatGrace(30 * 60)).toBe('1 day 6 hours');
     expect(formatGrace(5 * 60)).toBe('5 hours');
+  });
+});
+
+describe('graceDeadlineISO', () => {
+  it('adds grace to a naive UTC expiry', () => {
+    expect(graceDeadlineISO('2026-10-11T09:00:00', 2 * 24 * 60)).toBe('2026-10-13T09:00:00.000Z');
+  });
+  it('handles missing or broken expiry', () => {
+    expect(graceDeadlineISO(null, 60)).toBeNull();
+    expect(graceDeadlineISO('not a date', 60)).toBeNull();
   });
 });
