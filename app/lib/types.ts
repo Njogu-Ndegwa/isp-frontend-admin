@@ -1520,6 +1520,35 @@ export interface CustomerUsagePeriod {
   closed_at: string | null;
 }
 
+/** One slot of a customer's usage chart: an hour, or a local (EAT) day. */
+export interface CustomerUsageTimelinePoint {
+  /** UTC start of the slot. */
+  start: string;
+  upload_mb: number;
+  download_mb: number;
+  total_mb: number;
+}
+
+export type UsageTimelineGranularity = 'hour' | 'day';
+
+/** GET /customers/{id}/usage/timeline — zero-filled, oldest first. */
+export interface CustomerUsageTimeline {
+  customer_id: number;
+  granularity: UsageTimelineGranularity;
+  days: number;
+  window_start: string;
+  window_end: string;
+  timezone_offset_hours: number;
+  /** Earliest hour on record for this customer; null if nothing tracked yet. */
+  history_since: string | null;
+  retention_days: number;
+  upload_mb: number;
+  download_mb: number;
+  total_mb: number;
+  peak: CustomerUsageTimelinePoint | null;
+  points: CustomerUsageTimelinePoint[];
+}
+
 export interface CustomerUsageResponse {
   customer_id: number;
   connection_type: 'hotspot' | 'pppoe' | null;
