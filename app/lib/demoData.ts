@@ -83,6 +83,9 @@ import type {
   HotspotMonitorUser,
   CustomerUsageResponse,
   CustomerUsagePeriod,
+  CustomerUsageTimeline,
+  CustomerUsageTimelinePoint,
+  UsageTimelineGranularity,
   AccessCredential,
   AccessCredentialsListResponse,
   AccessCredentialFilters,
@@ -2796,6 +2799,58 @@ export function demoCustomerUsage(customerId: number): CustomerUsageResponse {
 
 export function demoCustomerUsageHistory(customerId: number, limit = 6): CustomerUsagePeriod[] {
   return Array.from({ length: limit }, (_, i) => usagePeriod(customerId, i));
+}
+
+export function demoCustomerUsageTimeline(
+  customerId: number,
+  days = 7,
+  granularity?: UsageTimelineGranularity,
+): CustomerUsageTimeline {
+  const g: UsageTimelineGranularity = granularity ?? (days <= 2 ? 'hour' : 'day');
+  const HOUR = 3_600_000;
+  const OFFSET = 3 * HOUR;
+  const now = Date.now();
+  const stepMs = g === 'hour' ? HOUR : 24 * HOUR;
+  const count = g === 'hour' ? days * 24 : days;
+  // Last slot = current hour, or today's EAT midnight (in UTC).
+  const lastStart = g === 'hour'
+    ? Math.floor(now / HOUR) * HOUR
+    : Math.floor((now + OFFSET) / (24 * HOUR)) * 24 * HOUR - OFFSET;
+  const points: CustomerUsageTimelinePoint[] = Array.from({ length: count }, (_, i) => {
+    const start = lastStart - (count - 1 - i) * stepMs;
+    const localHour = new Date(start + OFFSET).getUTCHours();
+    const evening = g === 'hour' ? Math.max(0, Math.sin(((localHour - 6) / 24) * Math.PI * 2)) : 1;
+    const seed = Math.sin(customerId * 97 + i * 13) * 0.5 + 0.5;
+    const download = g === 'hour'
+      ? (localHour < 6 ? seed * 20 : 40 + evening * 380 * seed)
+      : 600 + seed * 2800;
+    const r = (n: number) => Math.round(n * 100) / 100;
+    return {
+      start: new Date(start).toISOString(),
+      download_mb: r(download),
+      upload_mb: r(download * 0.18),
+      total_mb: r(download * 1.18),
+    };
+  });
+  const sum = (k: 'upload_mb' | 'download_mb' | 'total_mb') =>
+    Math.round(points.reduce((t, p) => t + p[k], 0) * 100) / 100;
+  const peak = points.reduce<CustomerUsageTimelinePoint | null>(
+    (best, p) => (!best || p.total_mb > best.total_mb ? p : best), null);
+  return {
+    customer_id: customerId,
+    granularity: g,
+    days,
+    window_start: points[0].start,
+    window_end: new Date(lastStart + stepMs).toISOString(),
+    timezone_offset_hours: 3,
+    history_since: iso(34),
+    retention_days: 35,
+    upload_mb: sum('upload_mb'),
+    download_mb: sum('download_mb'),
+    total_mb: sum('total_mb'),
+    peak,
+    points,
+  };
 }
 
 // ─── Access Credentials ─────────────────────────────────────────────
