@@ -14,7 +14,9 @@ const ADMIN_DISALLOW = [
   '/ads',
   '/advertisers',
   '/customers',
-  '/dashboard',
+  // '/dashboard' is deliberately not blocked: Google indexed it bare while it
+  // was disallowed, and it has to be crawlable for the X-Robots-Tag noindex
+  // header (next.config.ts) to be seen and drop it from the index.
   '/diagnostics',
   '/login',
   '/messaging',
