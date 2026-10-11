@@ -271,6 +271,7 @@ import {
   SmsTemplate,
   SmsCampaign,
   SmsCampaignDetail,
+  SmsGatewayStatus,
   SmsCreditTransaction,
   InboxResponse,
   MessagingSettings,
@@ -294,6 +295,26 @@ import { buildTransferRequest, type BuildTransferRequestOptions } from './pppoeT
 type DemoModule = typeof import('./demoData');
 let demoModulePromise: Promise<DemoModule> | null = null;
 const loadDemo = (): Promise<DemoModule> => (demoModulePromise ??= import('./demoData'));
+
+// Demo accounts send on the platform gateway and everything is healthy.
+function demoGatewayStatus(): SmsGatewayStatus {
+  const now = new Date().toISOString();
+  const win = (sent: number) => ({ sent, failed: 0, total: sent, success_rate: sent ? 1 : null });
+  return {
+    gateway: {
+      source: 'platform', provider: null, provider_label: null, sender_id: null,
+      account_id: null, bills_platform_credits: true, label: null,
+      settings_changed_at: null, last_test_at: null, last_test_ok: null, last_test_error: null,
+    },
+    health: { state: 'ok', reason: null, consecutive_failures: 0, failing_since: null,
+              message: 'Messages are going out normally.' },
+    metrics: { windows: { '24h': win(12), '7d': win(86), '30d': win(340) },
+               last_sent_at: now, last_failed_at: null },
+    failure_reasons: [],
+    balance: { available: false, unavailable_reason: 'platform_gateway' },
+    generated_at: now,
+  };
+}
 
 // Kept local so the synchronous demoBlock() doesn't need the module.
 const DEMO_WRITE_ERROR = 'This action is not available in demo mode. Sign up for a free account to get started!';
@@ -3589,6 +3610,24 @@ class ApiClient {
       headers: this.getHeaders(),
     });
     return this.handleResponse<SmsCreditInfo>(response);
+  }
+
+  /** Is SMS going out, and if not, why. `refresh` re-checks the gateway balance now. */
+  async getSmsGatewayStatus(refresh = false): Promise<SmsGatewayStatus> {
+    if (this.isDemoMode()) return demoGatewayStatus();
+    const response = await fetch(
+      `${BASE_URL}/messaging/gateway/status${refresh ? '?refresh=true' : ''}`,
+      { headers: this.getHeaders() },
+    );
+    return this.handleResponse<SmsGatewayStatus>(response);
+  }
+
+  async getAdminResellerGatewayStatus(resellerId: number, refresh = false): Promise<SmsGatewayStatus> {
+    const response = await fetch(
+      `${BASE_URL}/admin/messaging/resellers/${resellerId}/gateway-status${refresh ? '?refresh=true' : ''}`,
+      { headers: this.getHeaders() },
+    );
+    return this.handleResponse<SmsGatewayStatus>(response);
   }
 
   async getExpirySmsSettings(): Promise<ExpirySmsSettings> {

@@ -5459,11 +5459,29 @@ export interface SmsCampaignCounts {
   delivered: number;
 }
 
+/** Why an SMS failed, in words a reseller can act on (backend failure_reasons.py). */
+export interface SmsFailureReason {
+  code: string;               // invalid_credentials|low_balance|sender_id|invalid_recipient|...
+  title: string;
+  explanation: string;
+  action: string;
+  /** blocking: every message fails until fixed · per_message: this recipient only · temporary: may clear */
+  severity: 'blocking' | 'per_message' | 'temporary';
+  raw_error?: string | null;
+}
+
+export interface SmsFailureReasonSummary extends SmsFailureReason {
+  count: number;
+  last_seen?: string | null;
+}
+
 export interface SmsCampaignMessage {
   phone: string;
   name: string | null;
   status: string;             // queued|sent|delivered|failed
   error: string | null;
+  /** Present on failed messages from backends that classify failures. */
+  reason?: SmsFailureReason | null;
 }
 
 export interface SmsCampaignDetail {
@@ -5471,6 +5489,52 @@ export interface SmsCampaignDetail {
   status: string;
   counts: SmsCampaignCounts;
   messages: SmsCampaignMessage[];
+  failure_reasons?: SmsFailureReasonSummary[];
+}
+
+export type SmsGatewayHealthState = 'ok' | 'degraded' | 'failing' | 'unverified' | 'idle';
+
+export interface SmsGatewayWindowStats {
+  sent: number;
+  failed: number;
+  total: number;
+  success_rate: number | null;
+}
+
+/** GET /messaging/gateway/status: is SMS going out, and if not, why. */
+export interface SmsGatewayStatus {
+  gateway: SmsGatewaySummary & {
+    label: string | null;
+    settings_changed_at: string | null;
+    last_test_at: string | null;
+    last_test_ok: boolean | null;
+    last_test_error: string | null;
+  };
+  health: {
+    state: SmsGatewayHealthState;
+    reason: SmsFailureReason | null;
+    consecutive_failures: number;
+    failing_since: string | null;
+    message: string;
+  };
+  metrics: {
+    windows: { '24h': SmsGatewayWindowStats; '7d': SmsGatewayWindowStats; '30d': SmsGatewayWindowStats };
+    last_sent_at: string | null;
+    last_failed_at: string | null;
+  };
+  failure_reasons: SmsFailureReasonSummary[];
+  /** Live balance of the reseller's own gateway. available=false on the platform gateway. */
+  balance: {
+    available: boolean;
+    unavailable_reason?: 'platform_gateway' | 'not_supported' | 'config_error' | null;
+    ok?: boolean;
+    balance?: number | null;
+    unit?: string | null;
+    error?: string | null;
+    failure?: SmsFailureReason;
+    checked_at?: string | null;
+  };
+  generated_at: string;
 }
 
 export interface InboxMessage {

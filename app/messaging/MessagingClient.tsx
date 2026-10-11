@@ -16,6 +16,7 @@ import { AlertsView } from './components/AlertsView';
 import { ExpiryRemindersView } from './components/ExpiryRemindersView';
 import { CustomerEventsView } from './components/CustomerEventsView';
 import { GatewayView } from './components/GatewayView';
+import { GatewayFailureBanner, useGatewayStatus } from './components/GatewayStatusCard';
 
 // ─── Tab type ─────────────────────────────────────────────────────────────────
 type TabValue = 'compose' | 'activity' | 'templates' | 'credits' | 'expiry' | 'alerts' | 'gateway';
@@ -28,6 +29,9 @@ export default function MessagingClient() {
   const [credits, setCredits] = useState<SmsCreditInfo | null>(null);
   const [creditsLoading, setCreditsLoading] = useState(true);
   const [focusCampaignId, setFocusCampaignId] = useState<number | undefined>(undefined);
+  // One status fetch for the page: drives the failure banner, the header chip
+  // on an own gateway, and the status cards in the Credits and Gateway tabs.
+  const gatewayStatus = useGatewayStatus(null, user?.role === 'reseller');
 
   const loadCredits = useCallback(async () => {
     try {
@@ -92,15 +96,41 @@ export default function MessagingClient() {
     );
   }
 
-  // Balance chip for Header action
+  // Balance chip for Header action. On their own gateway portal credits are
+  // not what pays for SMS, so show the gateway's own balance (or that it is
+  // failing) instead of a misleading "0 credits".
+  const status = gatewayStatus.status;
+  const onOwnGateway = credits?.gateway?.bills_platform_credits === false;
   const balance = credits?.balance ?? 0;
+  let chipValue = balance.toLocaleString();
+  let chipLabel = 'credits';
+  let chipBad = balance < 10;
+  if (onOwnGateway) {
+    const gw = status?.balance;
+    chipLabel = credits?.gateway?.provider_label ?? 'gateway';
+    if (status?.health.state === 'failing') {
+      chipValue = 'Not sending';
+      chipBad = true;
+    } else if (gw?.available && gw.ok && gw.balance != null) {
+      chipValue = `${gw.unit ? `${gw.unit} ` : ''}${gw.balance.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
+      chipBad = gw.balance <= 0;
+    } else {
+      chipValue = 'Own gateway';
+      chipLabel = '';
+      chipBad = false;
+    }
+  }
   const balanceChip = (
-    <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-background-tertiary border border-border">
-      <span className={`text-xs font-semibold ${balance < 10 ? 'text-danger' : 'text-success'}`}>
-        {balance.toLocaleString()}
+    <button
+      type="button"
+      onClick={() => handleTabChange(onOwnGateway ? 'gateway' : 'credits')}
+      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-background-tertiary border border-border"
+    >
+      <span className={`text-xs font-semibold ${chipBad ? 'text-danger' : 'text-success'}`}>
+        {chipValue}
       </span>
-      <span className="text-xs text-foreground-muted">credits</span>
-    </div>
+      {chipLabel && <span className="text-xs text-foreground-muted">{chipLabel}</span>}
+    </button>
   );
 
   const tabs: TabItem<TabValue>[] = [
@@ -118,6 +148,8 @@ export default function MessagingClient() {
     setFocusCampaignId(campaignId);
     setActiveTab('activity');
     loadCredits();
+    // Sends dispatch in the background; recheck once they have had time to settle.
+    window.setTimeout(() => { gatewayStatus.reload(false); }, 8000);
   };
 
   // When leaving Activity, clear the focus id so re-entering is neutral
@@ -131,6 +163,13 @@ export default function MessagingClient() {
   return (
     <div className="space-y-6 pb-24 md:pb-6">
       <Header title="Messaging" action={balanceChip} />
+
+      {activeTab !== 'gateway' && (
+        <GatewayFailureBanner
+          status={status}
+          onOpenDetails={() => handleTabChange('gateway')}
+        />
+      )}
 
       <div className="space-y-5">
         <Tabs<TabValue>
@@ -153,7 +192,12 @@ export default function MessagingClient() {
           )}
           {activeTab === 'templates' && <TemplatesView />}
           {activeTab === 'credits' && credits && (
-            <CreditsView credits={credits} onRefresh={loadCredits} />
+            <CreditsView
+              credits={credits}
+              onRefresh={loadCredits}
+              gatewayStatus={status}
+              onReloadGatewayStatus={gatewayStatus.reload}
+            />
           )}
           {activeTab === 'expiry' && (
             <div className="space-y-8">
@@ -169,7 +213,13 @@ export default function MessagingClient() {
           {activeTab === 'alerts' && (
             <AlertsView credits={credits} onBuyCredits={() => setActiveTab('credits')} />
           )}
-          {activeTab === 'gateway' && <GatewayView />}
+          {activeTab === 'gateway' && (
+            <GatewayView
+              gatewayStatus={status}
+              onReloadGatewayStatus={gatewayStatus.reload}
+              onGatewayChanged={loadCredits}
+            />
+          )}
         </div>
       </div>
     </div>

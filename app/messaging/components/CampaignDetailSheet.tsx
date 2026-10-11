@@ -204,6 +204,24 @@ export function CampaignDetailSheet({ campaignId, onClose }: { campaignId: numbe
                 )}
               </div>
 
+              {/* Why messages failed — one entry per reason, with the fix */}
+              {(detail.failure_reasons?.length ?? 0) > 0 && (
+                <div className="rounded-xl border border-red-500/30 bg-red-500/5 p-3 mb-4 space-y-3">
+                  {detail.failure_reasons!.map((r) => (
+                    <div key={r.code} className="space-y-1">
+                      <p className="text-sm font-semibold text-foreground">
+                        {r.title}
+                        <span className="font-normal text-foreground-muted"> · {r.count} failed</span>
+                      </p>
+                      <p className="text-xs text-foreground-muted">{r.explanation}</p>
+                      <p className="text-xs text-foreground">
+                        <span className="font-semibold">How to fix: </span>{r.action}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
+
               {/* Filter tabs */}
               <div className="flex gap-1 mb-3">
                 {filterTabs.map((tab) => (
@@ -242,7 +260,14 @@ export function CampaignDetailSheet({ campaignId, onClose }: { campaignId: numbe
                         ) : (
                           <p className="text-sm text-foreground font-mono">{msg.phone}</p>
                         )}
-                        {msg.error && (
+                        {msg.reason ? (
+                          <p className="text-xs text-danger mt-0.5">
+                            {msg.reason.title}
+                            {msg.error && (
+                              <span className="text-foreground-muted"> · {msg.error}</span>
+                            )}
+                          </p>
+                        ) : msg.error && (
                           <p className="text-xs text-danger mt-0.5">{msg.error}</p>
                         )}
                       </div>
