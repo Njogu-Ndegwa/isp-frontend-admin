@@ -114,18 +114,21 @@ export default function GracePeriodCard({
           inputMode="decimal"
           value={value}
           onChange={(e) => { setValue(e.target.value); setError(null); }}
-          className="input flex-1"
+          className="input min-w-0 flex-1"
           aria-label="Grace period length"
         />
-        <select
-          value={unit}
-          onChange={(e) => setUnit(e.target.value as GraceUnit)}
-          className="select w-28"
-          aria-label="Grace period unit"
-        >
-          <option value="hours">Hours</option>
-          <option value="days">Days</option>
-        </select>
+        {/* .select is full-width; the wrapper fixes its size. */}
+        <div className="w-28 shrink-0">
+          <select
+            value={unit}
+            onChange={(e) => setUnit(e.target.value as GraceUnit)}
+            className="select"
+            aria-label="Grace period unit"
+          >
+            <option value="hours">Hours</option>
+            <option value="days">Days</option>
+          </select>
+        </div>
       </div>
 
       {error && <p className="text-xs text-danger">{error}</p>}
