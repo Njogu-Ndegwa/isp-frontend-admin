@@ -16,6 +16,7 @@ import DateTimePicker from '../../components/DateTimePicker';
 import { utcToGMT3Input, gmt3InputToISO } from '../../lib/dateUtils';
 import { formatAmount } from '../../lib/format';
 import { isFreeTrialPlan } from '../../plans/planType';
+import UsageHistoryPanel from './UsageHistoryPanel';
 
 
 export default function EditCustomerPage() {
@@ -199,6 +200,7 @@ export default function EditCustomerPage() {
           <LivePanel live={usage.live} routerId={customer.router_id ?? customer.router?.id ?? null} />
         )}
         {tracksUsage && usage && <UsagePanel usage={usage} />}
+        {tracksUsage && <UsageHistoryPanel customerId={customer.id} />}
 
         {isPPPoE && (
           <div className="card p-4 space-y-3">
