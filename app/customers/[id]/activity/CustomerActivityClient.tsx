@@ -255,6 +255,8 @@ export default function CustomerActivityClient() {
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [pulling, setPulling] = useState(false);
+  const [confirmReset, setConfirmReset] = useState(false);
+  const [resetting, setResetting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const categories = useMemo(() => (filter === 'all' ? undefined : [filter]), [filter]);
@@ -323,6 +325,26 @@ export default function CustomerActivityClient() {
     }
   };
 
+  const resetSession = async () => {
+    setResetting(true);
+    try {
+      const res = await api.resetCustomerSession(customerId);
+      showAlert(
+        'success',
+        res.disconnected > 0
+          ? "Session reset. The customer's router should reconnect within a minute."
+          : 'The customer had no active session to reset.',
+      );
+      setConfirmReset(false);
+      // Give the router a moment to report the new session before reloading.
+      setTimeout(() => { void loadRef.current(); }, 4000);
+    } catch (err) {
+      showAlert('error', err instanceof Error ? err.message : 'Could not reset the session');
+    } finally {
+      setResetting(false);
+    }
+  };
+
   const pullRouterLogs = async () => {
     setPulling(true);
     try {
@@ -362,6 +384,7 @@ export default function CustomerActivityClient() {
   const customer = data?.customer;
   const isPPPoE = customer?.connection_type === 'pppoe';
   const canPull = Boolean(customer?.router_id && (customer?.pppoe_username || customer?.mac_address));
+  const canReset = Boolean(isPPPoE && customer?.router_id && customer?.pppoe_username);
   const identity = isPPPoE ? customer?.pppoe_username : customer?.mac_address;
   const live = data?.live;
   const summary = data?.summary;
@@ -477,6 +500,18 @@ export default function CustomerActivityClient() {
                 Back to latest
               </button>
             )}
+            {canReset && (
+              <button
+                type="button"
+                onClick={() => setConfirmReset(true)}
+                className={`btn-secondary ${CONTROL_H} py-0 inline-flex items-center justify-center gap-2 whitespace-nowrap`}
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5.636 5.636a9 9 0 1012.728 0M12 3v9" />
+                </svg>
+                Reset session
+              </button>
+            )}
             {canPull && (
               <button
                 type="button"
@@ -572,6 +607,46 @@ export default function CustomerActivityClient() {
           </div>
         )}
       </div>
+
+      {confirmReset && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
+          onClick={() => !resetting && setConfirmReset(false)}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="reset-title"
+            className="card p-6 w-full max-w-sm space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 id="reset-title" className="text-lg font-semibold text-foreground">Reset this session?</h3>
+            <p className="text-sm text-foreground-muted">
+              {customer?.name || 'The customer'} will be disconnected for a few seconds while their router dials
+              again. Their account is not changed. Use this when they are connected but have no internet.
+            </p>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => setConfirmReset(false)}
+                disabled={resetting}
+                className={`btn-secondary ${CONTROL_H} py-0 flex-1`}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => void resetSession()}
+                disabled={resetting}
+                className={`btn-primary ${CONTROL_H} py-0 flex-1 inline-flex items-center justify-center gap-2 disabled:opacity-50`}
+              >
+                {resetting && <span className="w-4 h-4 border-2 border-black/20 border-t-black/70 rounded-full animate-spin" />}
+                {resetting ? 'Resetting…' : 'Reset session'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

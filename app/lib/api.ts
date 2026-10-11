@@ -3233,6 +3233,15 @@ class ApiClient {
     return this.handleResponse<CustomerAuditLogResponse>(response);
   }
 
+  async resetCustomerSession(customerId: number): Promise<{ customer_id: number; router_id: number; disconnected: number }> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(`${BASE_URL}/customers/${customerId}/reset-session`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<{ customer_id: number; router_id: number; disconnected: number }>(response);
+  }
+
   async pullCustomerRouterLogs(customerId: number): Promise<CustomerRouterLogPullResponse> {
     if (this.isDemoMode()) this.demoBlock();
     const response = await fetch(`${BASE_URL}/customers/${customerId}/audit-log/router-logs`, {
