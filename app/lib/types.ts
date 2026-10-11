@@ -5806,3 +5806,53 @@ export interface OutageApplyRequest extends OutageWindowRequest {
   note?: string;
   allow_duplicate?: boolean;
 }
+
+// ─── Customer audit log ─────────────────────────────────────────────
+
+export type CustomerAuditCategory = 'session' | 'router_log' | 'change' | 'billing' | 'provisioning';
+
+export interface CustomerAuditItem {
+  id: string | null;
+  occurred_at: string | null;
+  category: CustomerAuditCategory;
+  event_type: string;
+  severity: 'info' | 'warning' | 'error';
+  source: string;
+  actor: string | null;
+  router_id: number | null;
+  message: string;
+  details: Record<string, unknown>;
+}
+
+export interface CustomerAuditLogResponse {
+  customer: {
+    id: number;
+    name: string | null;
+    phone: string | null;
+    status: string | null;
+    expiry: string | null;
+    connection_type: 'pppoe' | 'hotspot' | string | null;
+    plan: string | null;
+    pppoe_username: string | null;
+    mac_address: string | null;
+    router_id: number | null;
+    router_name: string | null;
+  };
+  live: { online: boolean; ip: string | null; uptime: string | null; seen_at: string | null } | null;
+  items: CustomerAuditItem[];
+  count: number;
+  has_more: boolean;
+  next_before: string | null;
+  generated_at: string;
+}
+
+export interface CustomerRouterLogPullResponse {
+  customer_id: number;
+  router_id: number;
+  lines_read: number;
+  matched: number;
+  stored: number;
+  router_log_starts_at: string | null;
+  router_clock_trusted: boolean;
+  router_gmt_offset_minutes: number;
+}

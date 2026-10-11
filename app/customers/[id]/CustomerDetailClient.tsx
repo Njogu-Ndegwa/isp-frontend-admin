@@ -183,6 +183,21 @@ export default function EditCustomerPage() {
       />
 
       <div className="max-w-lg mx-auto space-y-4">
+        <Link
+          href={`/customers/${customer.id}/activity`}
+          className="card p-4 flex items-center justify-between gap-3 hover:bg-background-tertiary/50 transition-colors"
+        >
+          <div>
+            <p className="text-sm font-semibold text-foreground">Activity log</p>
+            <p className="text-xs text-foreground-muted">
+              Connections, drops, payments, changes{isPPPoE ? ' and what the PPPoE server said' : ' and router messages'}
+            </p>
+          </div>
+          <svg className="w-5 h-5 text-foreground-muted flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+          </svg>
+        </Link>
+
         {tracksUsage && usage && (
           <div className="flex justify-end">
             <button

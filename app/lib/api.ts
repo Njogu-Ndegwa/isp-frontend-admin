@@ -212,6 +212,8 @@ import {
   CreateAccessCredentialResponse,
   UpdateAccessCredentialRequest,
   CustomerUsageResponse,
+  CustomerAuditLogResponse,
+  CustomerRouterLogPullResponse,
   CustomerUsagePeriod,
   RouterLive,
   TopUsersWindow,
@@ -3177,6 +3179,44 @@ class ApiClient {
       body: JSON.stringify({ customer_ids: customerIds }),
     });
     return this.handleResponse<CustomerUsageResponse[]>(response);
+  }
+
+  // ─── Customer audit log ────────────────────────────────────────────
+
+  async getCustomerAuditLog(
+    customerId: number,
+    opts: { before?: string | null; categories?: string[]; limit?: number } = {},
+  ): Promise<CustomerAuditLogResponse> {
+    if (this.isDemoMode()) {
+      return {
+        customer: {
+          id: customerId, name: null, phone: null, status: null, expiry: null,
+          connection_type: null, plan: null, pppoe_username: null, mac_address: null,
+          router_id: null, router_name: null,
+        },
+        live: null, items: [], count: 0, has_more: false, next_before: null,
+        generated_at: new Date().toISOString(),
+      };
+    }
+    const params = new URLSearchParams();
+    if (opts.before) params.set('before', opts.before);
+    if (opts.categories?.length) params.set('categories', opts.categories.join(','));
+    if (opts.limit) params.set('limit', String(opts.limit));
+    const qs = params.toString();
+    const response = await fetch(
+      `${BASE_URL}/customers/${customerId}/audit-log${qs ? `?${qs}` : ''}`,
+      { headers: this.getHeaders() },
+    );
+    return this.handleResponse<CustomerAuditLogResponse>(response);
+  }
+
+  async pullCustomerRouterLogs(customerId: number): Promise<CustomerRouterLogPullResponse> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(`${BASE_URL}/customers/${customerId}/audit-log/router-logs`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<CustomerRouterLogPullResponse>(response);
   }
 
   // ─── Real-time push pilot ──────────────────────────────────────────
