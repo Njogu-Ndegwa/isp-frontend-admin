@@ -760,6 +760,9 @@ export interface Customer {
   effective_expiry?: string | null;
   /** Paid time has ended but the grace window is still open. */
   in_grace?: boolean;
+  // Set on companion devices (TV, console…) that ride another customer's
+  // subscription instead of paying for their own.
+  subscription_owner_id?: number | null;
 }
 
 export interface SetCustomerGraceResponse {
@@ -1797,6 +1800,46 @@ export interface MpesaTransaction {
   // M-Pesa only: 'direct' = paid straight into the reseller's own account,
   // 'platform' = collected by Bitwave and paid out on schedule.
   settlement?: 'direct' | 'platform';
+  // Where the payment came from; null for cash/bank/card entered by hand.
+  source?: TransactionSource | null;
+  days_paid_for?: number | null;
+  notes?: string | null;
+  delivery?: DeliveryAttemptStatus | null;
+  // Paybill only: the customer's wallet credit before/after this payment was
+  // applied. Estimated for payments from before the balances were stored.
+  wallet_before_kes?: number | null;
+  wallet_after_kes?: number | null;
+  wallet_estimated?: boolean;
+}
+
+export type TransactionSource =
+  | 'mpesa_stk'
+  | 'c2b_paybill'
+  | 'voucher'
+  | 'free_trial'
+  | 'zenopay'
+  | 'mtn_momo'
+  | 'fapshi';
+
+export interface CustomerOutageCredit {
+  id: number;
+  credited_at: string | null;
+  seconds_credited: number;
+  expiry_before: string | null;
+  expiry_after: string | null;
+  reprovision_state: string | null;
+  reprovision_error: string | null;
+  note: string | null;
+}
+
+export interface CustomerPaymentSummary {
+  customer_id: number;
+  total_paid: number;
+  paid_count: number;
+  last_paid_at: string | null;
+  not_charged_total: number;
+  not_charged_count: number;
+  outage_credits: CustomerOutageCredit[];
 }
 
 export interface ManualProvisionResponse {
