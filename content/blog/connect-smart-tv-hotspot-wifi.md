@@ -1,8 +1,9 @@
 ---
-title: How to Connect a Smart TV to Hotspot WiFi in Kenya
-description: Learn how to connect a smart TV to hotspot WiFi in Kenya using its MAC address, a phone and a captive portal when the TV cannot open the login page.
+title: How to Pay for Hotspot WiFi on a Smart TV in Kenya
+description: How to pay for hotspot WiFi on a smart TV in Kenya: register the TV's MAC address from your phone, pay with M-Pesa, then connect the TV. No TV browser needed.
 date: 2026-08-29
-tags: smart TV, hotspot WiFi, captive portal, MAC address, Kenya
+updated: 2026-10-11
+tags: smart TV, pay for WiFi, hotspot WiFi, captive portal, MAC address, Kenya
 category: hotspot
 image: /blog-images/connect-smart-tv-hotspot-wifi/cover-crisp.webp
 imageAlt: Smartphone held in front of a smart TV for hotspot WiFi setup
@@ -11,13 +12,13 @@ published: true
 
 <!-- Cover source: https://www.pexels.com/photo/modern-living-room-with-smart-tv-and-smartphone-35490296/ | License: https://www.pexels.com/license/ -->
 
-If you are asking **how to connect a smart TV to hotspot WiFi**, the reliable method is to register the TV’s Wi-Fi MAC address from a phone or laptop, choose an internet plan, then connect the TV to the same hotspot network. This avoids the captive-portal problem that stops many TVs from reaching the payment page.
+If you are asking **how to pay for WiFi on a smart TV** or how to connect a smart TV to hotspot WiFi, the reliable method is to register the TV’s Wi-Fi MAC address from a phone or laptop, choose an internet plan, then connect the TV to the same hotspot network. This avoids the captive-portal problem that stops many TVs from reaching the payment page.
 
 For a Kenyan hotspot operator, TV support makes one connection useful to a whole household. Customers can buy access for a television without keeping a phone hotspot running or calling for manual activation. With Bitwave Technologies, you can [let customers register a TV from the captive portal](/signup) and attach the selected package to that device.
 
-## How to connect a smart TV to hotspot WiFi
+## How to pay for hotspot WiFi on a smart TV
 
-To connect a smart TV to hotspot WiFi, first find the TV’s Wi-Fi MAC address. On a phone or laptop, join the same hotspot, open its captive portal, choose the option for connecting a TV, enter the MAC address, select a package and complete the purchase. Then reconnect the TV to that hotspot.
+To pay for hotspot WiFi on a smart TV, first find the TV’s Wi-Fi MAC address. On a phone or laptop, join the same hotspot, open its captive portal, choose the option for connecting a TV, enter the MAC address, select a package and complete the purchase. Then reconnect the TV to that hotspot.
 
 1. **Find the TV’s device MAC address.** Open the TV settings and locate the network or device-status screen. Write down the address exactly, including every number, letter and colon.
 2. **Join the hotspot from a phone or laptop.** Use a device that can open the captive portal and complete the normal login or payment flow.
@@ -80,6 +81,10 @@ TV access is especially useful in apartments, hostels, furnished rentals and sha
 Before changing your package list, test the complete flow on at least one real television and one phone. Check that the address is accepted, the plan appears correctly, the TV reconnects and internet access ends when the plan expires. You can also [review Bitwave Technologies pricing for your hotspot size](/#pricing) before rolling the feature out.
 
 ## FAQ
+
+**How do I buy WiFi for my smart TV if it can't open the payment page?**
+
+Pay from your phone instead. Join the same hotspot on the phone, open the captive portal, choose the option for connecting a TV, enter the TV's Wi-Fi MAC address and pay for the plan. Then reconnect the TV. The plan is attached to the TV, so the TV never has to load the payment page itself.
 
 **Can a smart TV open a hotspot captive portal by itself?**
 

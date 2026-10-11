@@ -31,6 +31,33 @@ const securityHeaders = [
   },
 ];
 
+// The logged-in admin app must never appear in Google. robots.txt alone can't
+// guarantee that: a disallowed URL Google finds through a link gets indexed
+// bare (it happened to /dashboard), because the crawler can't fetch the page
+// to learn it shouldn't. This header is what actually keeps them out.
+const ADMIN_PATHS = [
+  "/access-credentials",
+  "/account-statement",
+  "/admin",
+  "/ads",
+  "/advertisers",
+  "/customers",
+  "/dashboard",
+  "/diagnostics",
+  "/messaging",
+  "/plans",
+  "/pppoe-monitor",
+  "/ratings",
+  "/routers",
+  "/settings",
+  "/setup",
+  "/shop",
+  "/transactions",
+  "/unmatched-payments",
+  "/vouchers",
+  "/walled-garden",
+];
+
 const nextConfig: NextConfig = {
   // Opt-in standalone build, used only by the self-hosted Hetzner origin.
   // Left unset on Vercel (which builds its own output format), so this is a
@@ -50,7 +77,13 @@ const nextConfig: NextConfig = {
     ],
   },
   async headers() {
-    return [{ source: "/(.*)", headers: securityHeaders }];
+    return [
+      { source: "/(.*)", headers: securityHeaders },
+      ...ADMIN_PATHS.map((p) => ({
+        source: `${p}/:path*`,
+        headers: [{ key: "X-Robots-Tag", value: "noindex, nofollow" }],
+      })),
+    ];
   },
   async redirects() {
     // Canonical host is the apex; www carries no history worth keeping.
