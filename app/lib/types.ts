@@ -754,6 +754,26 @@ export interface Customer {
   static_ip?: string;
   account_number?: string;
   wallet_credit_kes?: number;
+  /** Standing grace: access continues this long past `expiry`. 0 = none. */
+  grace_period_minutes?: number;
+  /** When access actually ends (expiry + grace). */
+  effective_expiry?: string | null;
+  /** Paid time has ended but the grace window is still open. */
+  in_grace?: boolean;
+}
+
+export interface SetCustomerGraceResponse {
+  success: boolean;
+  customer_id: number;
+  status: Customer['status'];
+  expiry: string | null;
+  grace_period_minutes: number;
+  effective_expiry: string | null;
+  in_grace: boolean;
+  access_until: string | null;
+  /** The new grace reopened access for a customer who had been cut off. */
+  restored: boolean;
+  companions_updated: number;
 }
 
 export interface UpdateCustomerRequest {

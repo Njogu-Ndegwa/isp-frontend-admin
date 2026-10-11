@@ -1073,9 +1073,14 @@ export default function CustomersPage() {
                   return <span className="text-foreground-muted">{customer.router?.name || '-'}</span>;
                 case 'status':
                   return (
-                    <span className={`badge ${getStatusBadge(customer.status)} capitalize`}>
-                      {t(customer.status)}
-                    </span>
+                    <div className="flex flex-wrap items-center gap-1">
+                      <span className={`badge ${getStatusBadge(customer.status)} capitalize`}>
+                        {t(customer.status)}
+                      </span>
+                      {customer.in_grace && (
+                        <span className="badge badge-warning whitespace-nowrap">{t('In grace')}</span>
+                      )}
+                    </div>
                   );
                 case 'expiry':
                   return customer.status === 'active' ? (
@@ -1088,7 +1093,18 @@ export default function CustomersPage() {
                           minute: '2-digit',
                         })}
                       </p>
-                      {customer.hours_remaining !== undefined && (
+                      {customer.in_grace && customer.effective_expiry ? (
+                        <p className="text-xs font-medium text-warning">
+                          {t('Grace until {date}', {
+                            date: formatDateGMT3(customer.effective_expiry, {
+                              month: 'short',
+                              day: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            }),
+                          })}
+                        </p>
+                      ) : customer.hours_remaining !== undefined && (
                         <p className={`text-xs font-medium ${getTimeRemainingColor(customer.hours_remaining)}`}>
                           {formatTimeRemaining(customer.hours_remaining)}
                         </p>
@@ -1383,7 +1399,10 @@ export default function CustomersPage() {
                       ? { label: 'PPPoE', variant: 'info' as const }
                       : { label: 'Hotspot', variant: 'neutral' as const }
                   }
-                  status={{
+                  status={customer.in_grace ? {
+                    label: t('In grace'),
+                    variant: 'warning',
+                  } : {
                     label: t(customer.status),
                     variant: customer.status === 'active' ? 'success' : customer.status === 'expired' ? 'danger' : 'neutral',
                   }}

@@ -16,6 +16,7 @@ import DateTimePicker from '../../components/DateTimePicker';
 import { utcToGMT3Input, gmt3InputToISO } from '../../lib/dateUtils';
 import { formatAmount } from '../../lib/format';
 import { isFreeTrialPlan } from '../../plans/planType';
+import GracePeriodCard from './GracePeriodCard';
 
 
 export default function EditCustomerPage() {
@@ -243,6 +244,17 @@ export default function EditCustomerPage() {
             </div>
           </div>
         )}
+
+        <GracePeriodCard
+          customer={customer}
+          onSaved={(result) => setCustomer({
+            ...customer,
+            status: result.status,
+            grace_period_minutes: result.grace_period_minutes,
+            effective_expiry: result.effective_expiry,
+            in_grace: result.in_grace,
+          })}
+        />
 
         <div className="card p-6">
           {formError && (
