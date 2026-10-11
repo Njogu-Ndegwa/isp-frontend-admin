@@ -83,6 +83,9 @@ import type {
   HotspotMonitorUser,
   CustomerUsageResponse,
   CustomerUsagePeriod,
+  CustomerUsageTimeline,
+  CustomerUsageTimelinePoint,
+  UsageTimelineGranularity,
   AccessCredential,
   AccessCredentialsListResponse,
   AccessCredentialFilters,
@@ -172,6 +175,10 @@ export const demoCustomers: Customer[] = names.map((name, i) => {
     router: { id: router.id, name: router.name },
     connection_type: isPPPoE ? 'pppoe' : 'hotspot',
     ...(isPPPoE ? { pppoe_username: `pppoe-${name.split(' ')[0].toLowerCase()}` } : {}),
+    // The last demo customer is a smart TV riding customer 1's subscription.
+    subscription_owner_id: i === names.length - 1 ? 1 : null,
+    // Matches the paybill overpayment in demoTransactions.
+    ...(i === 4 ? { wallet_credit_kes: 500 } : {}),
   };
 });
 
@@ -208,8 +215,36 @@ export const demoTransactions: MpesaTransaction[] = Array.from({ length: 25 }, (
     // The demo reseller switched to direct settlement a few days ago: the
     // newest M-Pesa payments went straight to their account.
     settlement: methods[i] === 'mobile_money' ? (i < 14 ? 'direct' : 'platform') : undefined,
+    source: methods[i] === 'mobile_money' ? 'mpesa_stk' : null,
+    // One paid customer whose router was offline when the money landed.
+    delivery: i === 15
+      ? { attempt_id: 9015, delivery_status: 'needs_attention', last_error: 'Router offline when the payment arrived' }
+      : null,
   };
 });
+
+// A PPPoE customer who overpaid on the paybill: the extra went to their wallet.
+const demoPaybillBase = demoTransactions.find((t) => t.customer?.id === 5 && t.status === 'completed');
+if (demoPaybillBase) {
+  demoTransactions.push({
+    ...demoPaybillBase,
+    transaction_id: 6001,
+    checkout_request_id: null,
+    amount: 3500,
+    reference: 'BW-0005',
+    payment_reference: 'SK4DEMO01',
+    mpesa_receipt_number: 'SK4DEMO01',
+    transaction_date: iso(1, 3),
+    created_at: iso(1, 3),
+    source: 'c2b_paybill',
+    settlement: 'direct',
+    delivery: null,
+    manual_provision_supported: false,
+    wallet_before_kes: 0,
+    wallet_after_kes: 500,
+    wallet_estimated: false,
+  });
+}
 
 const demoSettlementTotals = (settlement: 'direct' | 'platform') => {
   const rows = demoTransactions.filter((t) => t.settlement === settlement && t.status === 'completed');
@@ -2764,6 +2799,58 @@ export function demoCustomerUsage(customerId: number): CustomerUsageResponse {
 
 export function demoCustomerUsageHistory(customerId: number, limit = 6): CustomerUsagePeriod[] {
   return Array.from({ length: limit }, (_, i) => usagePeriod(customerId, i));
+}
+
+export function demoCustomerUsageTimeline(
+  customerId: number,
+  days = 7,
+  granularity?: UsageTimelineGranularity,
+): CustomerUsageTimeline {
+  const g: UsageTimelineGranularity = granularity ?? (days <= 2 ? 'hour' : 'day');
+  const HOUR = 3_600_000;
+  const OFFSET = 3 * HOUR;
+  const now = Date.now();
+  const stepMs = g === 'hour' ? HOUR : 24 * HOUR;
+  const count = g === 'hour' ? days * 24 : days;
+  // Last slot = current hour, or today's EAT midnight (in UTC).
+  const lastStart = g === 'hour'
+    ? Math.floor(now / HOUR) * HOUR
+    : Math.floor((now + OFFSET) / (24 * HOUR)) * 24 * HOUR - OFFSET;
+  const points: CustomerUsageTimelinePoint[] = Array.from({ length: count }, (_, i) => {
+    const start = lastStart - (count - 1 - i) * stepMs;
+    const localHour = new Date(start + OFFSET).getUTCHours();
+    const evening = g === 'hour' ? Math.max(0, Math.sin(((localHour - 6) / 24) * Math.PI * 2)) : 1;
+    const seed = Math.sin(customerId * 97 + i * 13) * 0.5 + 0.5;
+    const download = g === 'hour'
+      ? (localHour < 6 ? seed * 20 : 40 + evening * 380 * seed)
+      : 600 + seed * 2800;
+    const r = (n: number) => Math.round(n * 100) / 100;
+    return {
+      start: new Date(start).toISOString(),
+      download_mb: r(download),
+      upload_mb: r(download * 0.18),
+      total_mb: r(download * 1.18),
+    };
+  });
+  const sum = (k: 'upload_mb' | 'download_mb' | 'total_mb') =>
+    Math.round(points.reduce((t, p) => t + p[k], 0) * 100) / 100;
+  const peak = points.reduce<CustomerUsageTimelinePoint | null>(
+    (best, p) => (!best || p.total_mb > best.total_mb ? p : best), null);
+  return {
+    customer_id: customerId,
+    granularity: g,
+    days,
+    window_start: points[0].start,
+    window_end: new Date(lastStart + stepMs).toISOString(),
+    timezone_offset_hours: 3,
+    history_since: iso(34),
+    retention_days: 35,
+    upload_mb: sum('upload_mb'),
+    download_mb: sum('download_mb'),
+    total_mb: sum('total_mb'),
+    peak,
+    points,
+  };
 }
 
 // ─── Access Credentials ─────────────────────────────────────────────

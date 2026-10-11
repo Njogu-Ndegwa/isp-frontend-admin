@@ -26,6 +26,7 @@ import {
   PlanPerformanceResponse,
   MpesaTransaction,
   ManualProvisionResponse,
+  CustomerPaymentSummary,
   TransactionSummary,
   Router,
   CreateRouterRequest,
@@ -215,6 +216,8 @@ import {
   CustomerAuditLogResponse,
   CustomerRouterLogPullResponse,
   CustomerUsagePeriod,
+  CustomerUsageTimeline,
+  UsageTimelineGranularity,
   RouterLive,
   TopUsersWindow,
   ResellerTopUsageEntry,
@@ -3272,6 +3275,61 @@ class ApiClient {
       { headers: this.getHeaders() }
     );
     return this.handleResponse<CustomerUsagePeriod[]>(response);
+  }
+
+  // Every payment attempt by one customer (M-Pesa, paybill, cash, voucher…),
+  // newest first — the customer's account history.
+  async getCustomerPayments(customerId: number, limit = 500): Promise<MpesaTransaction[]> {
+    if (this.isDemoMode()) {
+      return (await loadDemo()).demoTransactions
+        .filter((tx) => tx.customer?.id === customerId)
+        .slice(0, limit);
+    }
+    const response = await fetch(
+      `${BASE_URL}/mpesa/transactions?customer_id=${customerId}&limit=${limit}`,
+      { headers: this.getHeaders() }
+    );
+    const rows = await this.handleResponse<MpesaTransaction[]>(response);
+    // A backend without the customer_id filter returns the whole ledger —
+    // never let another customer's payments show up here.
+    return rows.filter((tx) => tx.customer?.id === customerId);
+  }
+
+  async getCustomerPaymentSummary(customerId: number): Promise<CustomerPaymentSummary> {
+    if (this.isDemoMode()) {
+      const rows = (await loadDemo()).demoTransactions.filter((tx) => tx.customer?.id === customerId);
+      const paid = rows.filter((tx) => tx.status === 'completed' && tx.counts_as_revenue !== false);
+      const last = paid.map((tx) => tx.transaction_date || tx.created_at).sort().pop() ?? null;
+      return {
+        customer_id: customerId,
+        total_paid: paid.reduce((sum, tx) => sum + tx.amount, 0),
+        paid_count: paid.length,
+        last_paid_at: last,
+        not_charged_total: 0,
+        not_charged_count: 0,
+        outage_credits: [],
+      };
+    }
+    const response = await fetch(
+      `${BASE_URL}/customers/${customerId}/payment-summary`,
+      { headers: this.getHeaders() }
+    );
+    return this.handleResponse<CustomerPaymentSummary>(response);
+  }
+
+  async getCustomerUsageTimeline(
+    customerId: number,
+    days = 7,
+    granularity?: UsageTimelineGranularity,
+  ): Promise<CustomerUsageTimeline> {
+    if (this.isDemoMode()) return (await loadDemo()).demoCustomerUsageTimeline(customerId, days, granularity);
+    const params = new URLSearchParams({ days: String(days) });
+    if (granularity) params.set('granularity', granularity);
+    const response = await fetch(
+      `${BASE_URL}/customers/${customerId}/usage/timeline?${params}`,
+      { headers: this.getHeaders() }
+    );
+    return this.handleResponse<CustomerUsageTimeline>(response);
   }
 
   async getResellerTopUsage(limit = 20): Promise<ResellerTopUsageEntry[]> {
