@@ -16,6 +16,8 @@ import DateTimePicker from '../../components/DateTimePicker';
 import { utcToGMT3Input, gmt3InputToISO } from '../../lib/dateUtils';
 import { formatAmount } from '../../lib/format';
 import { isFreeTrialPlan } from '../../plans/planType';
+import PaymentHistoryPanel from './PaymentHistoryPanel';
+import RelatedAccounts from './RelatedAccounts';
 import UsageHistoryPanel from './UsageHistoryPanel';
 
 
@@ -26,6 +28,7 @@ export default function EditCustomerPage() {
   const customerId = Number(params.id);
 
   const [customer, setCustomer] = useState<Customer | null>(null);
+  const [allCustomers, setAllCustomers] = useState<Customer[]>([]);
   const [plans, setPlans] = useState<Plan[]>([]);
   const [routers, setRouters] = useState<RouterType[]>([]);
   const [pageLoading, setPageLoading] = useState(true);
@@ -57,6 +60,7 @@ export default function EditCustomerPage() {
         return;
       }
       setCustomer(found);
+      setAllCustomers(customers);
       setPlans(plansData);
       setRouters(routersData);
       setFormData({
@@ -245,6 +249,9 @@ export default function EditCustomerPage() {
             </div>
           </div>
         )}
+
+        <RelatedAccounts customer={customer} customers={allCustomers} />
+        <PaymentHistoryPanel key={customer.id} customerId={customer.id} />
 
         <div className="card p-6">
           {formError && (
