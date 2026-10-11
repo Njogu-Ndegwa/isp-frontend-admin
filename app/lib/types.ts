@@ -5809,7 +5809,7 @@ export interface OutageApplyRequest extends OutageWindowRequest {
 
 // ─── Customer audit log ─────────────────────────────────────────────
 
-export type CustomerAuditCategory = 'session' | 'router_log' | 'change' | 'billing' | 'provisioning';
+export type CustomerAuditCategory = 'session' | 'router_log' | 'change' | 'billing' | 'provisioning' | 'messages';
 
 export interface CustomerAuditItem {
   id: string | null;
