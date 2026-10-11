@@ -5809,7 +5809,7 @@ export interface OutageApplyRequest extends OutageWindowRequest {
 
 // ─── Customer audit log ─────────────────────────────────────────────
 
-export type CustomerAuditCategory = 'session' | 'router_log' | 'change' | 'billing' | 'provisioning' | 'messages';
+export type CustomerAuditCategory = 'session' | 'router_log' | 'router' | 'change' | 'billing' | 'provisioning' | 'messages';
 
 export interface CustomerAuditItem {
   id: string | null;
@@ -5839,6 +5839,14 @@ export interface CustomerAuditLogResponse {
     router_name: string | null;
   };
   live: { online: boolean; ip: string | null; uptime: string | null; seen_at: string | null } | null;
+  /** When the router last pushed a report; session entries are only this fresh. */
+  router_reported_at?: string | null;
+  summary?: {
+    last_drop: { at: string; message: string } | null;
+    last_problem: { at: string; message: string } | null;
+    drops_24h: number;
+    last_payment: { at: string | null; amount: number } | null;
+  };
   items: CustomerAuditItem[];
   count: number;
   has_more: boolean;

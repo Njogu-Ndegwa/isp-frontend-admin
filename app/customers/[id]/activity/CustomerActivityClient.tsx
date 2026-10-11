@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { api } from '../../../lib/api';
 import {
@@ -11,6 +11,8 @@ import Header from '../../../components/Header';
 import { PageLoader } from '../../../components/LoadingSpinner';
 import FilterPills from '../../../components/FilterPills';
 import DateTimePicker from '../../../components/DateTimePicker';
+import { explainRouterLog } from '../../../lib/routerLogHints';
+import { formatAmount } from '../../../lib/format';
 import {
   formatGMT3Date, formatTimeSinceUTC, gmt3InputToISO, parseUTCToGMT3,
 } from '../../../lib/dateUtils';
@@ -21,6 +23,7 @@ const FILTERS: { value: Filter; label: string }[] = [
   { value: 'all', label: 'All' },
   { value: 'session', label: 'Sessions' },
   { value: 'router_log', label: 'Router log' },
+  { value: 'router', label: 'Router status' },
   { value: 'billing', label: 'Payments' },
   { value: 'messages', label: 'SMS' },
   { value: 'provisioning', label: 'Provisioning' },
@@ -30,6 +33,7 @@ const FILTERS: { value: Filter; label: string }[] = [
 const CATEGORY_LABEL: Record<CustomerAuditCategory, string> = {
   session: 'Session',
   router_log: 'Router log',
+  router: 'Router status',
   billing: 'Payment',
   messages: 'SMS',
   provisioning: 'Provisioning',
@@ -48,8 +52,28 @@ const SEVERITY_TEXT: Record<CustomerAuditItem['severity'], string> = {
   error: 'text-danger',
 };
 
+// Read out by screen readers; the colour alone means nothing to them.
+const SEVERITY_SR: Record<CustomerAuditItem['severity'], string> = {
+  info: '',
+  warning: 'Warning: ',
+  error: 'Problem: ',
+};
+
+// Field names in the backend's edit diff, as a reseller would say them.
+const FIELD_LABEL: Record<string, string> = {
+  name: 'Name',
+  phone: 'Phone',
+  plan_id: 'Plan',
+  router_id: 'Router',
+  mac_address: 'MAC',
+  pppoe_username: 'PPPoE username',
+  pppoe_password: 'PPPoE password',
+  static_ip: 'Static IP',
+  expiry: 'Expiry',
+};
+
 // Machine values read better in monospace; prose and dates do not.
-const MONO_LABELS = new Set(['IP', 'Caller-id (MAC)', 'MAC', 'Router time', 'Topics', 'Reference', 'Result code']);
+const MONO_LABELS = new Set(['IP', 'Previous IP', 'Caller-id (MAC)', 'MAC', 'Router time', 'Reference', 'Result code']);
 
 const PAGE_SIZE = 150;
 // Every control in the toolbar shares this height so they line up.
@@ -57,23 +81,100 @@ const CONTROL_H = 'h-11';
 
 const pad = (n: number) => String(n).padStart(2, '0');
 
+function safeParse(iso: string | null | undefined): Date | null {
+  if (!iso) return null;
+  try {
+    const d = parseUTCToGMT3(iso);
+    return isNaN(d.getTime()) ? null : d;
+  } catch {
+    return null;
+  }
+}
+
 function dayKey(iso: string): string {
-  const d = parseUTCToGMT3(iso);
-  return `${d.getUTCFullYear()}-${d.getUTCMonth()}-${d.getUTCDate()}`;
+  const d = safeParse(iso);
+  return d ? `${d.getUTCFullYear()}-${d.getUTCMonth()}-${d.getUTCDate()}` : 'unknown';
 }
 
 function dayLabel(iso: string): string {
-  return formatGMT3Date(parseUTCToGMT3(iso), { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+  const d = safeParse(iso);
+  return d ? formatGMT3Date(d, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }) : 'Unknown date';
 }
 
-function timeLabel(iso: string, seconds = true): string {
-  const d = parseUTCToGMT3(iso);
+function timeLabel(iso: string | null | undefined, seconds = true): string {
+  const d = safeParse(iso);
+  if (!d) return seconds ? '--:--:--' : '--:--';
   const hm = `${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`;
   return seconds ? `${hm}:${pad(d.getUTCSeconds())}` : hm;
 }
 
-function dateTimeLabel(iso: string): string {
-  return `${formatGMT3Date(parseUTCToGMT3(iso), { day: 'numeric', month: 'short' })}, ${timeLabel(iso, false)}`;
+function dateTimeLabel(iso: string | null | undefined): string {
+  const d = safeParse(iso);
+  return d ? `${formatGMT3Date(d, { day: 'numeric', month: 'short' })}, ${timeLabel(iso, false)}` : '—';
+}
+
+function fullStamp(iso: string | null | undefined): string {
+  const d = safeParse(iso);
+  return d
+    ? `${formatGMT3Date(d, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}, ${timeLabel(iso)} EAT`
+    : '';
+}
+
+// Three or more of these in a row (a flapping line) fold into one row.
+const COLLAPSIBLE = new Set(['session_disconnected', 'session_reconnected', 'session_connected', 'router_log', 'device_offline', 'device_online']);
+const COLLAPSE_MIN = 3;
+
+type Row = { kind: 'item'; item: CustomerAuditItem } | { kind: 'run'; items: CustomerAuditItem[] };
+
+function runKey(item: CustomerAuditItem): string {
+  return item.category === 'router_log' ? `log:${explainRouterLog(item.message)?.meaning ?? item.message}` : item.event_type;
+}
+
+function collapseRuns(items: CustomerAuditItem[]): Row[] {
+  const out: Row[] = [];
+  let i = 0;
+  while (i < items.length) {
+    const item = items[i];
+    let j = i + 1;
+    if (COLLAPSIBLE.has(item.event_type)) {
+      while (j < items.length && runKey(items[j]) === runKey(item)) j += 1;
+    }
+    if (j - i >= COLLAPSE_MIN) out.push({ kind: 'run', items: items.slice(i, j) });
+    else for (let k = i; k < j; k += 1) out.push({ kind: 'item', item: items[k] });
+    i = j;
+  }
+  return out;
+}
+
+function csvCell(value: unknown): string {
+  const text = value === null || value === undefined ? '' : String(value);
+  return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+}
+
+function downloadCsv(items: CustomerAuditItem[], name: string) {
+  const header = ['Time (EAT)', 'Category', 'What happened', 'Plain meaning', 'By', 'Severity'];
+  const lines = items.map((i) => [
+    fullStamp(i.occurred_at),
+    CATEGORY_LABEL[i.category] ?? i.category,
+    i.message,
+    i.category === 'router_log' ? explainRouterLog(i.message)?.meaning ?? '' : '',
+    i.actor ?? '',
+    i.severity,
+  ].map(csvCell).join(','));
+  const blob = new Blob([[header.join(','), ...lines].join('\n')], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${name.replace(/[^\w-]+/g, '_') || 'customer'}-activity.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function isPast(iso: string | null | undefined): boolean {
+  if (!iso) return false;
+  const ts = iso.endsWith('Z') || iso.includes('+') ? iso : `${iso}Z`;
+  const t = new Date(ts).getTime();
+  return !isNaN(t) && t < Date.now();
 }
 
 function formatBytes(value: unknown): string | null {
@@ -95,9 +196,7 @@ function detailRows(item: CustomerAuditItem): [string, string][] {
   switch (item.category) {
     case 'router_log':
       add('Router time', d.router_time);
-      add('Topics', d.topics);
-      add('Matched on', d.matched_on === 'mac' ? 'MAC / caller-id' : 'Username');
-      if (d.time_estimated) add('Note', 'Router clock was not set; time is when the line was read');
+      if (d.time_estimated) add('Note', 'The router clock was not set, so this is when the line was read');
       break;
     case 'session': {
       const prev = (d.previous ?? null) as Record<string, unknown> | null;
@@ -107,6 +206,7 @@ function detailRows(item: CustomerAuditItem): [string, string][] {
       add('Downloaded', formatBytes(s.download_bytes));
       add('Uploaded', formatBytes(s.upload_bytes));
       add('IP', d.ip);
+      if (prev) add('Previous IP', prev.ip);
       add('Caller-id (MAC)', d.caller_id);
       add('MAC', d.mac);
       break;
@@ -114,7 +214,10 @@ function detailRows(item: CustomerAuditItem): [string, string][] {
     case 'change':
       if (d.changes && typeof d.changes === 'object') {
         for (const [field, pair] of Object.entries(d.changes as Record<string, [string, string]>)) {
-          add(field.replace(/_/g, ' '), `${pair[0]} → ${pair[1]}`);
+          add(
+            FIELD_LABEL[field] ?? field.replace(/_/g, ' '),
+            field === 'pppoe_password' ? 'changed' : `${pair?.[0] ?? '—'} → ${pair?.[1] ?? '—'}`,
+          );
         }
       }
       break;
@@ -156,22 +259,37 @@ export default function CustomerActivityClient() {
 
   const categories = useMemo(() => (filter === 'all' ? undefined : [filter]), [filter]);
 
+  // Every load bumps this and a response from an older request is dropped,
+  // so a slow answer for the previous filter never overwrites the current one.
+  const requestSeq = useRef(0);
+
   const load = useCallback(async () => {
+    const seq = ++requestSeq.current;
     setLoading(true);
+    setLoadingMore(false);
     setError(null);
     try {
       const res = await api.getCustomerAuditLog(customerId, { before: anchor, categories, limit: PAGE_SIZE });
+      if (seq !== requestSeq.current) return;
       setData(res);
       setItems(res.items);
       setNextBefore(res.next_before);
     } catch (err) {
+      if (seq !== requestSeq.current) return;
+      setItems([]);
+      setNextBefore(null);
       setError(err instanceof Error ? err.message : 'Failed to load activity');
     } finally {
-      setLoading(false);
+      if (seq === requestSeq.current) setLoading(false);
     }
   }, [customerId, anchor, categories]);
 
   useEffect(() => { void load(); }, [load]);
+
+  // The pull waits several seconds on the router; by then the filter may have
+  // changed, so it reloads through this ref to use the current one.
+  const loadRef = useRef(load);
+  useEffect(() => { loadRef.current = load; }, [load]);
 
   // The picker reports every click (day, hour, minute); wait for it to settle
   // before reloading. The chosen minute itself is included.
@@ -185,15 +303,23 @@ export default function CustomerActivityClient() {
 
   const loadMore = async () => {
     if (!nextBefore) return;
+    const seq = requestSeq.current;
     setLoadingMore(true);
     try {
-      const res = await api.getCustomerAuditLog(customerId, { before: nextBefore, categories, limit: PAGE_SIZE });
-      setItems((prev) => [...prev, ...res.items]);
+      // The cursor is inclusive so rows sharing the boundary second are not
+      // skipped; the ones already on screen are dropped by id.
+      const res = await api.getCustomerAuditLog(customerId, { cursor: nextBefore, categories, limit: PAGE_SIZE });
+      if (seq !== requestSeq.current) return;
+      setItems((prev) => {
+        const seen = new Set(prev.map((i) => i.id));
+        return [...prev, ...res.items.filter((i) => !i.id || !seen.has(i.id))];
+      });
       setNextBefore(res.next_before);
     } catch (err) {
+      if (seq !== requestSeq.current) return;
       showAlert('error', err instanceof Error ? err.message : 'Failed to load older activity');
     } finally {
-      setLoadingMore(false);
+      if (seq === requestSeq.current) setLoadingMore(false);
     }
   };
 
@@ -204,13 +330,14 @@ export default function CustomerActivityClient() {
       const reach = res.router_log_starts_at
         ? ` The router's log goes back to ${dateTimeLabel(res.router_log_starts_at)}.`
         : '';
+      const hidden = anchor && res.stored > 0 ? ' Clear the chosen time to see the newest lines.' : '';
       showAlert(
         'success',
         res.stored > 0
-          ? `Saved ${res.stored} new router log line${res.stored === 1 ? '' : 's'}.${reach}`
+          ? `Saved ${res.stored} new router log line${res.stored === 1 ? '' : 's'}.${reach}${hidden}`
           : `Nothing new about this customer in the router log.${reach}`,
       );
-      await load();
+      await loadRef.current();
     } catch (err) {
       showAlert('error', err instanceof Error ? err.message : 'Could not read the router log');
     } finally {
@@ -230,12 +357,14 @@ export default function CustomerActivityClient() {
     return out;
   }, [items]);
 
-  if (loading && !data) return <PageLoader />;
+  if (loading && !data && !error) return <PageLoader />;
 
   const customer = data?.customer;
   const isPPPoE = customer?.connection_type === 'pppoe';
   const canPull = Boolean(customer?.router_id && (customer?.pppoe_username || customer?.mac_address));
   const identity = isPPPoE ? customer?.pppoe_username : customer?.mac_address;
+  const live = data?.live;
+  const summary = data?.summary;
 
   return (
     <div>
@@ -246,30 +375,30 @@ export default function CustomerActivityClient() {
       />
 
       <div className="max-w-4xl space-y-4 pb-8">
-        {error && (
-          <div className="p-3 rounded-lg bg-danger/10 border border-danger/30 text-danger text-sm">{error}</div>
-        )}
-
         {customer && (
-          <div className="card grid grid-cols-2 sm:grid-cols-4 divide-border [&>div]:p-4 sm:divide-x">
+          <div className="card grid grid-cols-2 sm:grid-cols-4 [&>div]:p-4 sm:divide-x divide-border">
             <SummaryTile label="Connection">
-              {data?.live ? (
-                <span className={`inline-flex items-center gap-1.5 ${data.live.online ? 'text-emerald-500' : 'text-foreground-muted'}`}>
-                  <span className={`w-2 h-2 rounded-full ${data.live.online ? 'bg-emerald-500' : 'bg-foreground-muted/40'}`} />
-                  {data.live.online ? 'Online' : 'Offline'}
+              {live ? (
+                <span className={`inline-flex items-center gap-1.5 ${live.online ? 'text-success' : 'text-foreground-muted'}`}>
+                  <span className={`w-2 h-2 rounded-full ${live.online ? 'bg-success' : 'bg-foreground-muted/40'}`} />
+                  {live.online ? 'Online' : 'Offline'}
                 </span>
               ) : (
                 <span className="text-foreground-muted">Not reported</span>
               )}
               <SummaryHint>
-                {data?.live?.online
-                  ? [data.live.ip, data.live.uptime && `up ${data.live.uptime}`].filter(Boolean).join(' · ')
-                  : data?.live?.seen_at ? `seen ${formatTimeSinceUTC(data.live.seen_at)}` : '—'}
+                {live?.online
+                  ? [live.ip, live.uptime && `up ${live.uptime}`].filter(Boolean).join(' · ') || '—'
+                  : live?.seen_at ? `seen ${formatTimeSinceUTC(live.seen_at) ?? '—'}` : '—'}
               </SummaryHint>
             </SummaryTile>
             <SummaryTile label="Status">
               <span className="capitalize">{customer.status ?? '—'}</span>
-              <SummaryHint>{customer.expiry ? `until ${dateTimeLabel(customer.expiry)}` : 'no expiry'}</SummaryHint>
+              <SummaryHint>
+                {!customer.expiry
+                  ? 'no expiry'
+                  : `${isPast(customer.expiry) ? 'expired' : 'until'} ${dateTimeLabel(customer.expiry)}`}
+              </SummaryHint>
             </SummaryTile>
             <SummaryTile label="Plan">
               <span className="truncate block">{customer.plan ?? '—'}</span>
@@ -277,9 +406,53 @@ export default function CustomerActivityClient() {
             </SummaryTile>
             <SummaryTile label="Router">
               <span className="truncate block">{customer.router_name ?? '—'}</span>
-              <SummaryHint>{identity ?? '—'}</SummaryHint>
+              <SummaryHint>
+                {data?.router_reported_at
+                  ? `reported ${formatTimeSinceUTC(data.router_reported_at) ?? '—'}`
+                  : 'no live reports'}
+              </SummaryHint>
             </SummaryTile>
           </div>
+        )}
+
+        {summary && (
+          <dl className="card divide-y divide-border text-sm">
+            <QuickFact label="Drops in last 24 h">
+              <span className={summary.drops_24h >= 3 ? 'text-warning font-medium' : 'text-foreground'}>
+                {summary.drops_24h}
+              </span>
+              {summary.drops_24h >= 3 && (
+                <span className="text-foreground-muted"> — the line is unstable; check the router log below</span>
+              )}
+            </QuickFact>
+            <QuickFact label="Last drop">
+              {summary.last_drop ? (
+                <>
+                  <span title={fullStamp(summary.last_drop.at)}>{dateTimeLabel(summary.last_drop.at)}</span>
+                  <span className="text-foreground-muted"> · {summary.last_drop.message}</span>
+                </>
+              ) : 'None recorded'}
+            </QuickFact>
+            <QuickFact label="Last router warning">
+              {summary.last_problem ? (
+                <>
+                  <span title={fullStamp(summary.last_problem.at)}>{dateTimeLabel(summary.last_problem.at)}</span>
+                  <span className="text-foreground-muted">
+                    {' · '}
+                    {explainRouterLog(summary.last_problem.message)?.meaning ?? summary.last_problem.message}
+                  </span>
+                </>
+              ) : 'None recorded'}
+            </QuickFact>
+            <QuickFact label="Last payment">
+              {summary.last_payment?.at ? (
+                <>
+                  <span title={fullStamp(summary.last_payment.at)}>{dateTimeLabel(summary.last_payment.at)}</span>
+                  <span className="text-foreground-muted"> · {formatAmount(summary.last_payment.amount)}</span>
+                </>
+              ) : 'None recorded'}
+            </QuickFact>
+          </dl>
         )}
 
         <div className="card p-4 space-y-3">
@@ -288,11 +461,11 @@ export default function CustomerActivityClient() {
             onChange={setFilter}
             options={FILTERS}
             ariaLabel="Filter activity"
-            className="w-full"
+            className="w-full flex-wrap"
           />
 
           <div className="flex flex-col sm:flex-row gap-2">
-            <div className={`flex-1 min-w-0 [&_.input]:h-11 [&_.input]:py-0 [&_.input]:text-sm`}>
+            <div className="flex-1 min-w-0 [&_.input]:h-11 [&_.input]:py-0 [&_.input]:text-sm">
               <DateTimePicker value={jumpTo} onChange={setJumpTo} />
             </div>
             {jumpTo && (
@@ -314,7 +487,7 @@ export default function CustomerActivityClient() {
                 {pulling ? (
                   <span className="w-4 h-4 border-2 border-black/20 border-t-black/70 rounded-full animate-spin" />
                 ) : (
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                   </svg>
                 )}
@@ -323,24 +496,47 @@ export default function CustomerActivityClient() {
             )}
           </div>
 
-          <p className="text-xs text-foreground-muted">
-            {jumpTo
-              ? 'Showing activity up to the chosen time (EAT).'
-              : 'Pick a date and time (EAT) to jump to a moment.'}{' '}
-            The router keeps only its last ~1000 log lines, so router log entries appear here once they have been pulled.
-          </p>
+          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
+            <p className="text-xs text-foreground-muted">
+              {anchor
+                ? 'Showing activity up to the chosen time (EAT).'
+                : 'Pick a date and time (EAT) to jump to a moment.'}{' '}
+              Routers only remember their last ~1000 log lines; pulling saves them here.
+              Sessions and router log lines are kept for 60 days, everything else for good.
+            </p>
+            {items.length > 0 && (
+              <button
+                type="button"
+                onClick={() => downloadCsv(items, customer?.name || `customer-${customerId}`)}
+                className="text-xs font-medium text-accent-primary hover:underline whitespace-nowrap self-start"
+              >
+                Export CSV
+              </button>
+            )}
+          </div>
         </div>
 
-        {loading && data ? (
+        {error ? (
+          <div className="card p-6 text-center space-y-3" role="alert">
+            <p className="text-sm text-danger">Could not load the activity log. {error}</p>
+            <button
+              type="button"
+              onClick={() => void load()}
+              className={`btn-secondary ${CONTROL_H} py-0 px-6 inline-flex items-center justify-center`}
+            >
+              Try again
+            </button>
+          </div>
+        ) : loading ? (
           <div className="card p-8 flex justify-center">
             <span className="w-5 h-5 border-2 border-foreground-muted/30 border-t-accent-primary rounded-full animate-spin" />
           </div>
         ) : groups.length === 0 ? (
           <div className="card p-8 text-center">
             <p className="text-sm text-foreground">
-              {jumpTo ? 'Nothing recorded before this time.' : 'Nothing recorded yet.'}
+              {anchor ? 'Nothing recorded before this time.' : 'Nothing recorded yet.'}
             </p>
-            {canPull && !jumpTo && (
+            {canPull && !anchor && (
               <p className="mt-1 text-xs text-foreground-muted">
                 Pull router logs to save what the router is saying about this customer.
               </p>
@@ -353,15 +549,17 @@ export default function CustomerActivityClient() {
                 {group.label}
               </h3>
               <ol className="divide-y divide-border">
-                {group.items.map((item, idx) => (
-                  <ActivityRow key={item.id ?? `${group.key}-${idx}`} item={item} />
+                {collapseRuns(group.items).map((row, idx) => (
+                  row.kind === 'item'
+                    ? <ActivityRow key={row.item.id ?? `${group.key}-${idx}`} item={row.item} />
+                    : <RepeatedRow key={`run-${row.items[0].id ?? idx}`} items={row.items} />
                 ))}
               </ol>
             </section>
           ))
         )}
 
-        {nextBefore && !loading && (
+        {nextBefore && !loading && !error && (
           <div className="flex justify-center">
             <button
               type="button"
@@ -387,24 +585,48 @@ function SummaryTile({ label, children }: { label: string; children: React.React
   );
 }
 
+function QuickFact({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="px-4 py-2.5 flex flex-col sm:flex-row sm:gap-4">
+      <dt className="sm:w-44 flex-shrink-0 text-xs text-foreground-muted sm:pt-0.5">{label}</dt>
+      <dd className="min-w-0 break-words [overflow-wrap:anywhere]">{children}</dd>
+    </div>
+  );
+}
+
 function SummaryHint({ children }: { children: React.ReactNode }) {
   return <p className="mt-0.5 text-xs font-normal text-foreground-muted truncate">{children}</p>;
 }
 
 function ActivityRow({ item }: { item: CustomerAuditItem }) {
   const rows = detailRows(item);
-  const isLog = item.category === 'router_log';
+  // Raw router lines read as code; our own sentences (last disconnect) do not.
+  const isRawLine = item.event_type === 'router_log';
+  const hint = isRawLine ? explainRouterLog(item.message) : null;
 
   const body = (
     <div className="flex items-start gap-3 min-w-0">
-      <span className="w-[4.25rem] flex-shrink-0 pt-0.5 font-mono text-xs text-foreground-muted tabular-nums">
-        {item.occurred_at ? timeLabel(item.occurred_at) : '--:--:--'}
-      </span>
-      <span className={`mt-[7px] w-2 h-2 rounded-full flex-shrink-0 ${SEVERITY_DOT[item.severity] ?? SEVERITY_DOT.info}`} />
+      <time
+        dateTime={item.occurred_at ?? undefined}
+        title={fullStamp(item.occurred_at)}
+        className="w-[4.25rem] flex-shrink-0 pt-0.5 font-mono text-xs text-foreground-muted tabular-nums"
+      >
+        {timeLabel(item.occurred_at)}
+      </time>
+      <span
+        className={`mt-[7px] w-2 h-2 rounded-full flex-shrink-0 ${SEVERITY_DOT[item.severity] ?? SEVERITY_DOT.info}`}
+        aria-hidden
+      />
       <div className="min-w-0 flex-1">
-        <p className={`text-sm leading-snug break-words ${isLog ? 'font-mono text-[13px]' : ''} ${SEVERITY_TEXT[item.severity] ?? ''}`}>
+        <p className={`text-sm leading-snug break-words [overflow-wrap:anywhere] ${isRawLine ? 'font-mono text-[13px]' : ''} ${SEVERITY_TEXT[item.severity] ?? ''}`}>
+          {SEVERITY_SR[item.severity] && <span className="sr-only">{SEVERITY_SR[item.severity]}</span>}
           {item.message}
         </p>
+        {hint && (
+          <p className="mt-1 text-xs text-foreground-muted leading-snug">
+            {hint.meaning}{hint.action && <> {hint.action}</>}
+          </p>
+        )}
         <p className="mt-1 text-[11px] text-foreground-muted">
           {CATEGORY_LABEL[item.category] ?? item.category}
           {item.actor && <> · by {item.actor}</>}
@@ -430,14 +652,73 @@ function ActivityRow({ item }: { item: CustomerAuditItem }) {
         <summary className="list-none cursor-pointer px-4 py-3 hover:bg-background-tertiary/40 transition-colors [&::-webkit-details-marker]:hidden">
           {body}
         </summary>
-        <dl className="mr-4 mb-3 ml-4 sm:ml-[6.5rem] rounded-lg bg-background-tertiary/60 px-3 py-2 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-xs">
+        <dl className="mr-4 mb-3 ml-4 sm:ml-[6.5rem] rounded-lg bg-background-tertiary/60 px-3 py-2 grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1.5 text-xs">
           {rows.map(([label, value]) => (
             <div key={label} className="contents">
-              <dt className="text-foreground-muted capitalize whitespace-nowrap">{label}</dt>
-              <dd className={`text-foreground break-words ${MONO_LABELS.has(label) ? 'font-mono' : 'whitespace-pre-wrap'}`}>{value}</dd>
+              <dt className="text-foreground-muted whitespace-nowrap">{label}</dt>
+              <dd className={`min-w-0 text-foreground break-words [overflow-wrap:anywhere] ${MONO_LABELS.has(label) ? 'font-mono' : 'whitespace-pre-wrap'}`}>
+                {value}
+              </dd>
             </div>
           ))}
         </dl>
+      </details>
+    </li>
+  );
+}
+
+const RUN_LABEL: Record<string, string> = {
+  session_reconnected: 'Dropped and reconnected',
+  session_disconnected: 'Session ended',
+  session_connected: 'Connected',
+  device_offline: 'Left the hotspot',
+  device_online: 'Came online',
+};
+
+function RepeatedRow({ items }: { items: CustomerAuditItem[] }) {
+  // Newest first, so the run spans from the last item to the first.
+  const first = items[items.length - 1];
+  const last = items[0];
+  const worst = items.some((i) => i.severity === 'error') ? 'error' : items.some((i) => i.severity === 'warning') ? 'warning' : 'info';
+  const isRawLine = first.event_type === 'router_log';
+  const label = RUN_LABEL[first.event_type] ?? (isRawLine ? 'Router said this' : 'Repeated');
+  const what = isRawLine ? first.message : 'Each one is listed when you open this row.';
+  const hint = isRawLine ? explainRouterLog(first.message) : null;
+  return (
+    <li>
+      <details className="group">
+        <summary className="list-none cursor-pointer px-4 py-3 hover:bg-background-tertiary/40 transition-colors [&::-webkit-details-marker]:hidden">
+          <div className="flex items-start gap-3 min-w-0">
+            <time
+              dateTime={last.occurred_at ?? undefined}
+              title={fullStamp(last.occurred_at)}
+              className="w-[4.25rem] flex-shrink-0 pt-0.5 font-mono text-xs text-foreground-muted tabular-nums"
+            >
+              {timeLabel(last.occurred_at)}
+            </time>
+            <span className={`mt-[7px] w-2 h-2 rounded-full flex-shrink-0 ${SEVERITY_DOT[worst]}`} aria-hidden />
+            <div className="min-w-0 flex-1">
+              <p className={`text-sm leading-snug break-words [overflow-wrap:anywhere] ${SEVERITY_TEXT[worst]}`}>
+                {SEVERITY_SR[worst] && <span className="sr-only">{SEVERITY_SR[worst]}</span>}
+                {label} {items.length}× between {timeLabel(first.occurred_at, false)} and {timeLabel(last.occurred_at, false)}
+              </p>
+              <p className={`mt-1 text-xs text-foreground-muted leading-snug break-words [overflow-wrap:anywhere] ${isRawLine ? 'font-mono' : ''}`}>{what}</p>
+              {hint && <p className="mt-1 text-xs text-foreground-muted leading-snug">{hint.meaning}{hint.action && <> {hint.action}</>}</p>}
+              <p className="mt-1 text-[11px] text-foreground-muted">
+                {CATEGORY_LABEL[first.category] ?? first.category} · tap to see each
+              </p>
+            </div>
+            <svg
+              className="w-4 h-4 mt-0.5 flex-shrink-0 text-foreground-muted transition-transform group-open:rotate-90"
+              fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+            </svg>
+          </div>
+        </summary>
+        <ol className="border-t border-border bg-background-tertiary/30 divide-y divide-border">
+          {items.map((item, idx) => <ActivityRow key={item.id ?? idx} item={item} />)}
+        </ol>
       </details>
     </li>
   );
