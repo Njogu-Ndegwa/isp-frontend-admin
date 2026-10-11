@@ -213,6 +213,8 @@ import {
   UpdateAccessCredentialRequest,
   CustomerUsageResponse,
   CustomerUsagePeriod,
+  CustomerUsageTimeline,
+  UsageTimelineGranularity,
   RouterLive,
   TopUsersWindow,
   ResellerTopUsageEntry,
@@ -3200,6 +3202,21 @@ class ApiClient {
       { headers: this.getHeaders() }
     );
     return this.handleResponse<CustomerUsagePeriod[]>(response);
+  }
+
+  async getCustomerUsageTimeline(
+    customerId: number,
+    days = 7,
+    granularity?: UsageTimelineGranularity,
+  ): Promise<CustomerUsageTimeline> {
+    if (this.isDemoMode()) return (await loadDemo()).demoCustomerUsageTimeline(customerId, days, granularity);
+    const params = new URLSearchParams({ days: String(days) });
+    if (granularity) params.set('granularity', granularity);
+    const response = await fetch(
+      `${BASE_URL}/customers/${customerId}/usage/timeline?${params}`,
+      { headers: this.getHeaders() }
+    );
+    return this.handleResponse<CustomerUsageTimeline>(response);
   }
 
   async getResellerTopUsage(limit = 20): Promise<ResellerTopUsageEntry[]> {
