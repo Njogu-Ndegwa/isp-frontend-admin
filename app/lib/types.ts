@@ -1756,6 +1756,11 @@ export interface MpesaTransaction {
   days_paid_for?: number | null;
   notes?: string | null;
   delivery?: DeliveryAttemptStatus | null;
+  // Paybill only: the customer's wallet credit before/after this payment was
+  // applied. Estimated for payments from before the balances were stored.
+  wallet_before_kes?: number | null;
+  wallet_after_kes?: number | null;
+  wallet_estimated?: boolean;
 }
 
 export type TransactionSource =

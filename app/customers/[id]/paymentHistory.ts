@@ -86,6 +86,21 @@ export function describePayment(tx: MpesaTransaction): PaymentDescription {
   };
 }
 
+export interface WalletChange {
+  before: number;
+  after: number;
+  estimated: boolean;
+}
+
+// Only paybill payments move the wallet. Rows where it stayed at zero say
+// nothing useful, so they get no wallet line.
+export function walletChange(tx: MpesaTransaction): WalletChange | null {
+  const before = tx.wallet_before_kes;
+  const after = tx.wallet_after_kes;
+  if (before == null || after == null || (before === 0 && after === 0)) return null;
+  return { before, after, estimated: Boolean(tx.wallet_estimated) };
+}
+
 export function formatCreditedTime(seconds: number): string {
   const mins = Math.round(seconds / 60);
   if (mins < 60) return `${mins}m`;

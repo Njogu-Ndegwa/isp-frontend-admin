@@ -174,6 +174,8 @@ export const demoCustomers: Customer[] = names.map((name, i) => {
     ...(isPPPoE ? { pppoe_username: `pppoe-${name.split(' ')[0].toLowerCase()}` } : {}),
     // The last demo customer is a smart TV riding customer 1's subscription.
     subscription_owner_id: i === names.length - 1 ? 1 : null,
+    // Matches the paybill overpayment in demoTransactions.
+    ...(i === 4 ? { wallet_credit_kes: 500 } : {}),
   };
 });
 
@@ -217,6 +219,29 @@ export const demoTransactions: MpesaTransaction[] = Array.from({ length: 25 }, (
       : null,
   };
 });
+
+// A PPPoE customer who overpaid on the paybill: the extra went to their wallet.
+const demoPaybillBase = demoTransactions.find((t) => t.customer?.id === 5 && t.status === 'completed');
+if (demoPaybillBase) {
+  demoTransactions.push({
+    ...demoPaybillBase,
+    transaction_id: 6001,
+    checkout_request_id: null,
+    amount: 3500,
+    reference: 'BW-0005',
+    payment_reference: 'SK4DEMO01',
+    mpesa_receipt_number: 'SK4DEMO01',
+    transaction_date: iso(1, 3),
+    created_at: iso(1, 3),
+    source: 'c2b_paybill',
+    settlement: 'direct',
+    delivery: null,
+    manual_provision_supported: false,
+    wallet_before_kes: 0,
+    wallet_after_kes: 500,
+    wallet_estimated: false,
+  });
+}
 
 const demoSettlementTotals = (settlement: 'direct' | 'platform') => {
   const rows = demoTransactions.filter((t) => t.settlement === settlement && t.status === 'completed');

@@ -8,7 +8,7 @@ import { formatDateGMT3 } from '../../lib/dateUtils';
 import { formatAmount } from '../../lib/format';
 import { useAlert } from '../../context/AlertContext';
 import {
-  PaymentTag, buildTimeline, describePayment, formatCreditedTime, summarizePayments,
+  PaymentTag, buildTimeline, describePayment, formatCreditedTime, summarizePayments, walletChange,
 } from './paymentHistory';
 
 const COLLAPSED_ROWS = 5;
@@ -173,6 +173,7 @@ export default function PaymentHistoryPanel({ customerId }: { customerId: number
               const d = describePayment(tx);
               const receipt = tx.mpesa_receipt_number || tx.payment_reference || tx.reference;
               const showNotes = !tx.source && tx.payment_method !== 'mobile_money' && tx.notes;
+              const wallet = walletChange(tx);
               return (
                 <li key={`${tx.source || tx.payment_method}-${tx.transaction_id}`} className="py-2.5 flex items-start justify-between gap-3">
                   <div className="min-w-0">
@@ -186,6 +187,15 @@ export default function PaymentHistoryPanel({ customerId }: { customerId: number
                     </p>
                     {receipt && <p className="text-[11px] font-mono text-foreground-muted truncate">{receipt}</p>}
                     {showNotes && <p className="text-[11px] text-foreground-muted truncate">{tx.notes}</p>}
+                    {wallet && (
+                      <p
+                        className="text-[11px] text-foreground-muted"
+                        title={wallet.estimated ? 'Worked out from the amounts paid and plan prices; a plan price change since then would make it differ.' : undefined}
+                      >
+                        Wallet {wallet.estimated ? '≈ ' : ''}{formatAmount(wallet.before)} → <span className={wallet.after > wallet.before ? 'text-success' : 'text-foreground'}>{formatAmount(wallet.after)}</span>
+                        {wallet.estimated && ' (estimated)'}
+                      </p>
+                    )}
                   </div>
                   <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
                     <span className={`text-sm font-semibold tabular-nums whitespace-nowrap ${d.counted ? 'text-foreground' : 'text-foreground-muted line-through'}`}>

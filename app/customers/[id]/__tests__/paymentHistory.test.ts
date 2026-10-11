@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { MpesaTransaction } from '../../../lib/types';
 import {
-  buildTimeline, describePayment, formatCreditedTime, phoneKey, summarizePayments,
+  buildTimeline, describePayment, formatCreditedTime, phoneKey, summarizePayments, walletChange,
 } from '../paymentHistory';
 
 const tx = (over: Partial<MpesaTransaction>): MpesaTransaction => ({
@@ -90,5 +90,19 @@ describe('formatCreditedTime / phoneKey', () => {
   it('matches phone numbers across saved prefixes', () => {
     expect(phoneKey('0712345678')).toBe(phoneKey('+254 712 345 678'));
     expect(phoneKey('123')).toBeNull();
+  });
+});
+
+describe('walletChange', () => {
+  it('reports the wallet move on paybill rows', () => {
+    expect(walletChange(tx({ wallet_before_kes: 0, wallet_after_kes: 300 })))
+      .toEqual({ before: 0, after: 300, estimated: false });
+    expect(walletChange(tx({ wallet_before_kes: 300, wallet_after_kes: 0, wallet_estimated: true })))
+      .toEqual({ before: 300, after: 0, estimated: true });
+  });
+
+  it('stays quiet when the wallet never moved or is unknown', () => {
+    expect(walletChange(tx({ wallet_before_kes: 0, wallet_after_kes: 0 }))).toBeNull();
+    expect(walletChange(tx({}))).toBeNull();
   });
 });
