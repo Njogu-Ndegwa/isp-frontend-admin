@@ -30,6 +30,7 @@ import Pagination from '../components/Pagination';
 import { formatAmount } from '../lib/format';
 import { useT } from '../lib/i18n';
 import { phoneMatches } from '../lib/phoneSearch';
+import { connectionTypeLabel } from '../lib/connectionType';
 
 const TransferPPPoEModal = dynamic(() => import('../components/TransferPPPoEModal'), {
   ssr: false,
@@ -82,6 +83,7 @@ function canMonitorLive(customer: Customer): boolean {
   if (!routerId) return false;
   const connectionType = getConnectionType(customer);
   if (connectionType === 'pppoe') return Boolean(customer.pppoe_username);
+  if (connectionType === 'static_ip') return Boolean(customer.static_ip);
   return Boolean(normalizeMacForLookup(customer.mac_address));
 }
 
@@ -92,6 +94,7 @@ function getHotspotLiveForCustomer(
 ): HotspotMonitorUser | undefined {
   const pushed = pushLive?.get(customer.id);
   if (pushed) return pushLiveToMonitorUser(customer, pushed);
+  if (getConnectionType(customer) === 'static_ip') return undefined;
   return hotspotLive.get(`customer:${customer.id}`)
     ?? hotspotLive.get(normalizeMacForLookup(customer.mac_address));
 }
@@ -249,7 +252,7 @@ export default function CustomersPage() {
   // tab or runs a search). Kept in its own state so the counts stay visible
   // on the tabs even after the user switches back to the "All" connection
   // view (which clears the cache to use server-side pagination).
-  const [connCounts, setConnCounts] = useState<{ pppoe: number; hotspot: number } | null>(null);
+  const [connCounts, setConnCounts] = useState<{ pppoe: number; hotspot: number; static_ip: number } | null>(null);
 
   const hasClientFilters = searchQuery.trim() !== '' || connectionFilter !== 'all';
 
@@ -387,7 +390,8 @@ export default function CustomersPage() {
           phoneMatches(customer.phone, searchQuery) ||
           (customer.account_number || '').includes(query) ||
           (customer.mac_address?.toLowerCase() || '').includes(query) ||
-          (customer.pppoe_username?.toLowerCase() || '').includes(query)
+          (customer.pppoe_username?.toLowerCase() || '').includes(query) ||
+          (customer.static_ip || '').includes(query)
         );
       }
       return true;
@@ -403,11 +407,13 @@ export default function CustomersPage() {
     if (allCustomersCache.length === 0) return;
     let pppoe = 0;
     let hotspot = 0;
+    let static_ip = 0;
     for (const c of allCustomersCache) {
       if (getConnectionType(c) === 'pppoe') pppoe++;
+      else if (getConnectionType(c) === 'static_ip') static_ip++;
       else hotspot++;
     }
-    setConnCounts({ pppoe, hotspot });
+    setConnCounts({ pppoe, hotspot, static_ip });
   }, [allCustomersCache]);
 
   // Status pill counts must reflect the current connection tab. On the
@@ -949,6 +955,7 @@ export default function CustomersPage() {
         className="mb-4 animate-fade-in"
         tabs={[
           { value: 'all', label: t('All'), count: totalAll || undefined },
+          { value: 'static_ip', label: 'Static IP', count: connCounts?.static_ip },
           {
             value: 'hotspot',
             label: 'Hotspot',
@@ -1037,7 +1044,7 @@ export default function CustomersPage() {
               const live: LiveMonitorUser | undefined = connectionType === 'pppoe'
                 ? getPPPoELiveForCustomer(customer, pppoeLive, pushLive)
                 : getHotspotLiveForCustomer(customer, hotspotLive, pushLive);
-              const liveLoaded = (connectionType === 'pppoe' ? pppoeLiveLoaded : hotspotLiveLoaded) || pushLive.has(customer.id);
+              const liveLoaded = (connectionType === 'pppoe' ? pppoeLiveLoaded : connectionType === 'hotspot' ? hotspotLiveLoaded : false) || pushLive.has(customer.id);
               const liveMonitorable = canMonitorLive(customer);
               const usage = usageMap.get(customer.id);
               const liveness = routerLiveness.get(customer.router_id ?? customer.router?.id ?? -1);
@@ -1057,6 +1064,7 @@ export default function CustomersPage() {
                         {customer.pppoe_username && (
                           <p className="text-xs font-mono text-foreground-muted">{customer.pppoe_username}</p>
                         )}
+                        {connectionType === 'static_ip' && <p className="text-xs font-mono text-foreground-muted">Static IP · {customer.static_ip}</p>}
                       </div>
                     </div>
                   );
@@ -1336,7 +1344,7 @@ export default function CustomersPage() {
                 const liveCard: LiveMonitorUser | undefined = connectionTypeCard === 'pppoe'
                   ? getPPPoELiveForCustomer(customer, pppoeLive, pushLive)
                   : getHotspotLiveForCustomer(customer, hotspotLive, pushLive);
-                const liveLoadedCard = (connectionTypeCard === 'pppoe' ? pppoeLiveLoaded : hotspotLiveLoaded) || pushLive.has(customer.id);
+                const liveLoadedCard = (connectionTypeCard === 'pppoe' ? pppoeLiveLoaded : connectionTypeCard === 'hotspot' ? hotspotLiveLoaded : false) || pushLive.has(customer.id);
                 const liveMonitorableCard = canMonitorLive(customer);
                 const usageCard = usageMap.get(customer.id);
                 const livenessCard = routerLiveness.get(customer.router_id ?? customer.router?.id ?? -1);
@@ -1354,7 +1362,7 @@ export default function CustomersPage() {
                   key={customer.id}
                   id={customer.id}
                   title={customer.name || t('Unknown')}
-                  subtitle={customer.account_number ? `4159825 — ${customer.account_number}` : (customer.pppoe_username || customer.phone || undefined)}
+                  subtitle={connectionTypeCard === 'static_ip' ? `Static IP · ${customer.static_ip}` : customer.account_number ? `4159825 — ${customer.account_number}` : (customer.pppoe_username || customer.phone || undefined)}
                   avatar={{
                     text: (customer.name || '?').charAt(0).toUpperCase(),
                     color: routerDownCard
@@ -1381,7 +1389,7 @@ export default function CustomersPage() {
                         : { label: t('Offline'), variant: 'neutral' as const }
                       : connectionTypeCard === 'pppoe'
                       ? { label: 'PPPoE', variant: 'info' as const }
-                      : { label: 'Hotspot', variant: 'neutral' as const }
+                      : { label: connectionTypeLabel(connectionTypeCard), variant: 'neutral' as const }
                   }
                   status={{
                     label: t(customer.status),
@@ -1691,6 +1699,7 @@ export default function CustomersPage() {
             <p className="text-sm text-foreground-muted text-center">
               Are you sure you want to delete <span className="font-medium text-foreground">{deleteConfirm.name}</span>? This action cannot be undone.
               {getConnectionType(deleteConfirm) === 'pppoe' && ' Any active PPPoE session will be de-provisioned from the router.'}
+              {getConnectionType(deleteConfirm) === 'static_ip' && ' Static-IP access must be removed from the router before this record can be deleted.'}
             </p>
             <div className="flex gap-3 pt-2">
               <button onClick={() => setDeleteConfirm(null)} className="btn-secondary flex-1">Cancel</button>

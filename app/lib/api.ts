@@ -1788,6 +1788,15 @@ class ApiClient {
     return this.handleResponse<StaticActionResponse>(response);
   }
 
+  async resumeStatic(customerId: number): Promise<StaticActionResponse> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(`${BASE_URL}/customers/${customerId}/resume-static`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<StaticActionResponse>(response);
+  }
+
   async syncStatic(customerId: number): Promise<StaticActionResponse> {
     if (this.isDemoMode()) this.demoBlock();
     const response = await fetch(`${BASE_URL}/customers/${customerId}/static/sync`, {

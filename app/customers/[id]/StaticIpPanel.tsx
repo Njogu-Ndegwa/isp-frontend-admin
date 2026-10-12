@@ -68,6 +68,9 @@ export default function StaticIpPanel({ customer, onChanged }: { customer: Custo
   const r = status?.router;
   const pinned = status?.static_mac || r?.pinned_mac || null;
   const access = status?.actual_access ?? null;
+  const canResume = (status?.status ?? customer.status) === 'inactive'
+    && !!(status?.expiry ?? customer.expiry)
+    && new Date(`${(status?.expiry ?? customer.expiry).replace(/Z$/, '')}Z`).getTime() > Date.now();
 
   return (
     <div className="card p-5 space-y-4">
@@ -130,6 +133,12 @@ export default function StaticIpPanel({ customer, onChanged }: { customer: Custo
       )}
 
       <div className="grid grid-cols-2 gap-2">
+        {canResume && (
+          <button type="button" className="btn-secondary col-span-2" disabled={!!busy}
+            onClick={() => void run('resume', () => api.resumeStatic(customer.id), 'Access resumed; expiry and payments unchanged')}>
+            {busy === 'resume' ? 'Resuming…' : 'Resume remaining access'}
+          </button>
+        )}
         <button type="button" className="btn-primary col-span-2" disabled={!!busy} onClick={() => setPayOpen(true)}>
           Record payment &amp; activate
         </button>
@@ -207,8 +216,9 @@ export default function StaticIpPanel({ customer, onChanged }: { customer: Custo
               {customer.plan?.name || 'the plan'}, extends the expiry and opens access on the router.
             </p>
             <div>
-              <label className="block text-sm font-medium text-foreground-muted mb-1.5">Payment method</label>
+              <label htmlFor="static-payment-method" className="block text-sm font-medium text-foreground-muted mb-1.5">Payment method</label>
               <select
+                id="static-payment-method"
                 className="select"
                 value={payForm.payment_method}
                 onChange={(e) => setPayForm({ ...payForm, payment_method: e.target.value as ActivatePPPoERequest['payment_method'] })}
@@ -218,8 +228,9 @@ export default function StaticIpPanel({ customer, onChanged }: { customer: Custo
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-foreground-muted mb-1.5">Reference (optional)</label>
+              <label htmlFor="static-payment-reference" className="block text-sm font-medium text-foreground-muted mb-1.5">Reference (optional)</label>
               <input
+                id="static-payment-reference"
                 className="input"
                 value={payForm.payment_reference || ''}
                 onChange={(e) => setPayForm({ ...payForm, payment_reference: e.target.value })}
