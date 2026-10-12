@@ -571,6 +571,7 @@ export const demoPlanPerformance: PlanPerformanceResponse = {
 
 // ─── Router Uptime ──────────────────────────────────────────────────
 export function demoRouterUptime(routerId: number, hours = 24): RouterUptimeResponse {
+  const ago = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
   const router = demoRouters.find(r => r.id === routerId) ?? demoRouters[0];
   // One hour-long outage 9 hours ago, plus a 2-hour one 5 days ago that only
   // the longer windows include, so changing the window visibly changes the numbers.
@@ -614,6 +615,12 @@ export function demoRouterUptime(routerId: number, hours = 24): RouterUptimeResp
       measured_seconds: hours * 3600, downtime_seconds: down, outage_count: outages.length,
     },
     outages,
+    // The tunnel failed for 75 minutes 4 hours ago while the router kept
+    // calling over the internet: shown apart, not counted as downtime.
+    tunnel_outages: [{
+      started_at: ago(315), ended_at: ago(240), duration_seconds: 4500,
+      public_contacts: 9, first_contact_at: ago(300), last_contact_at: ago(255),
+    }],
     timeline,
     recent_checks: Array.from({ length: 90 }, (_, i) => ({
       checked_at: iso(0, (89 - i) * 0.5), is_online: i !== 23 && i !== 24 && i !== 61, source: 'usage_push',
