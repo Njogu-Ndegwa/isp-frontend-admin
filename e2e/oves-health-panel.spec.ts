@@ -117,13 +117,33 @@ for (const width of [375, 1280]) {
     await expect(hero.getByTestId('oves-codegen-errors-list')).toContainText('E11000 duplicate key');
     await expect(hero.getByTestId('oves-path-shadow_api')).toContainText('Shadow API');
     await expect(hero.getByTestId('oves-path-thing_make')).toContainText('2/2 pods');
-    await expect(panel.getByTestId('oves-tile-api')).toContainText('1/9');
+    await expect(panel.getByTestId('oves-tile-api')).toContainText('1 failing');
+    await expect(panel.getByTestId('oves-tile-api')).toContainText('Event 100%');
 
-    await panel.getByTestId('oves-toggle').click();
+    // "See the error" on an API alert opens the Errors tab ON that error: Event's failing mutation.
+    await panel.getByTestId('oves-alert-open-oves.gql.Event-Microservice-Prod').click();
     await expect(panel.getByTestId('oves-details')).toBeVisible();
-    // Errors tab (default): Studio-style, shadow graph first, platform errors shown, caller errors behind a toggle.
     const gql = panel.getByTestId('oves-gql');
-    await expect(gql).toBeVisible();
+    await expect(gql.getByTestId('oves-gql-errors')).toContainText('microserviceEvents_2024');
+    // HTTP errors come first, with endpoints and what each service logged.
+    const http = gql.getByTestId('oves-http-errors');
+    await expect(http.getByTestId('oves-http-shadow-api')).toContainText('336 from bots / scanners');
+    await expect(http.getByTestId('oves-http-shadow-api')).toContainText('POST /otp/daysCode');
+    await expect(http.getByTestId('oves-http-shadow-api')).not.toContainText('/.env');
+    await http.getByTestId('oves-http-bots-shadow-api').click();
+    await expect(http.getByTestId('oves-http-shadow-api')).toContainText('GET /.env');
+    await expect(http.getByTestId('oves-http-auth-microservice')).toContainText('Failed to post log to microserviceEvents_2024');
+    await page.waitForTimeout(300);
+    await shot(page, `oves-error-detail-${width}`);
+
+    // The API errors tile is a shortcut to the same place.
+    await panel.getByTestId('oves-toggle').click();
+    await expect(panel.getByTestId('oves-details')).toHaveCount(0);
+    await panel.getByTestId('oves-tile-api').click();
+    await expect(panel.getByTestId('oves-gql-errors')).toContainText('microserviceEvents_2024');
+
+    // Studio-style graph view: shadow graph, platform errors shown, caller errors behind a toggle.
+    await gql.getByRole('tab', { name: /^Thing \(make\)/ }).click();
     await expect(gql.getByTestId('oves-gql-errors')).toContainText('E11000 duplicate key');
     await expect(gql.getByTestId('oves-gql-errors')).not.toContainText('Minimum time lapse');
     await gql.getByTestId('oves-gql-show-caller').check();

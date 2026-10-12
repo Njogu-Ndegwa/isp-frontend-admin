@@ -6092,10 +6092,25 @@ export interface OvesDbHost {
   status_check_failed: number | null;
 }
 
+export interface OvesHttpFailure {
+  method: string;
+  route: string;
+  status: number;
+  count: number;
+  bots: boolean;
+}
+
 export interface OvesTraffic {
   requests: number;
   status_5xx: number;
   p95_ms: number | null;
+  error_rate?: number | null;
+  real_requests?: number;
+  real_5xx?: number;
+  bot_5xx?: number;
+  real_error_rate?: number | null;
+  top_failures?: OvesHttpFailure[];
+  log_errors?: { message: string; count: number }[];
 }
 
 export interface OvesHealthResponse {
