@@ -11,7 +11,6 @@ const DESKTOP_SIDEBAR_ROUTES = [
   { path: '/account-statement', title: 'Account Statement', proof: 'Revenue Collected' },
   { path: '/messaging', title: 'Messaging', proof: 'Compose' },
   { path: '/routers', title: 'Routers', proof: 'Kilimani Tower' },
-  { path: '/pppoe-monitor', title: 'PPPoE Monitor', proof: /Total Users|Kilimani Tower/i },
   { path: '/diagnostics', title: 'Network Diagnostics', proof: /PPPoE Infrastructure|Select a router/i },
   { path: '/walled-garden', title: 'Walled Garden', proof: /safaricom\.co\.ke|Allowed/i },
   { path: '/settings/profile', title: 'Settings', proof: /Demo ISP Network|Profile/i },

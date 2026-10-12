@@ -35,6 +35,7 @@ import DeviceModeTroubleshoot from '../components/DeviceModeTroubleshoot';
 import HotspotPackageTroubleshoot from '../components/HotspotPackageTroubleshoot';
 import InsuranceTunnelBadge from '../components/InsuranceTunnelBadge';
 import LoadBalancingControls from '../components/LoadBalancingControls';
+import RouterUnbilledLogins from './RouterUnbilledLogins';
 
 const formatSafeDate = (dateStr: string | null | undefined): string => {
   try {
@@ -206,7 +207,7 @@ export default function RoutersPage() {
   // PPPoE sessions state
   const [pppoeData, setPppoeData] = useState<PPPoEActiveResponse | null>(null);
   const [pppoeLoading, setPppoeLoading] = useState(false);
-  const [usersSubTab, setUsersSubTab] = useState<'hotspot' | 'pppoe'>('hotspot');
+  const [usersSubTab, setUsersSubTab] = useState<'hotspot' | 'pppoe' | 'unbilled'>('hotspot');
 
   // Port configuration state (unified PPPoE + Plain)
   const [portConfigRouter, setPortConfigRouter] = useState<Router | null>(null);
@@ -496,8 +497,8 @@ function RoutersTab({
   pppoeData: PPPoEActiveResponse | null;
   pppoeLoading: boolean;
   loadPPPoESessions: (routerId: number) => Promise<void>;
-  usersSubTab: 'hotspot' | 'pppoe';
-  setUsersSubTab: (tab: 'hotspot' | 'pppoe') => void;
+  usersSubTab: 'hotspot' | 'pppoe' | 'unbilled';
+  setUsersSubTab: (tab: 'hotspot' | 'pppoe' | 'unbilled') => void;
   uptimeRouter: number | null;
   uptimeData: RouterUptimeResponse | null;
   uptimeLoading: boolean;
@@ -1348,9 +1349,17 @@ function RoutersTab({
                           >
                             PPPoE Sessions
                           </button>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setUsersSubTab('unbilled'); }}
+                            className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${usersSubTab === 'unbilled' ? 'bg-background-secondary text-foreground shadow-sm' : 'text-foreground-muted'}`}
+                          >
+                            No customer
+                          </button>
                         </div>
 
-                        {usersSubTab === 'hotspot' ? (
+                        {usersSubTab === 'unbilled' ? (
+                          <RouterUnbilledLogins routerId={router.id} routerName={router.name} />
+                        ) : usersSubTab === 'hotspot' ? (
                           routerUsers ? (
                             <>
                               <div className="flex items-center justify-between mb-3">
@@ -1557,6 +1566,12 @@ function RoutersTab({
                     >
                       PPPoE Sessions
                     </button>
+                    <button
+                      onClick={() => setUsersSubTab('unbilled')}
+                      className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${usersSubTab === 'unbilled' ? 'bg-background-secondary text-foreground shadow-sm' : 'text-foreground-muted hover:text-foreground'}`}
+                    >
+                      No customer
+                    </button>
                   </div>
                 </div>
                 <div className="flex items-center gap-4">
@@ -1589,7 +1604,12 @@ function RoutersTab({
                 </div>
               </div>
 
-              {usersSubTab === 'hotspot' ? (
+              {usersSubTab === 'unbilled' ? (
+                <RouterUnbilledLogins
+                  routerId={selectedRouter}
+                  routerName={routers.find(r => r.id === selectedRouter)?.name ?? 'router'}
+                />
+              ) : usersSubTab === 'hotspot' ? (
                 routerUsers ? (
                   routerUsers.users.length === 0 ? (
                     <p className="text-center text-foreground-muted py-4">No hotspot users found</p>

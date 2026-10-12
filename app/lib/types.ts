@@ -3139,8 +3139,19 @@ export interface PPPoECustomerPresenceResponse {
     active_sessions?: PPPoEDevice[];
     session_count?: number;
     profile_detail: { name?: string; only_one?: string; rate_limit?: string } | null;
+    secret?: { name: string; profile: string; disabled: boolean } | null;
   };
   verdict: { code: string; message: string; our_side_confirmed: boolean };
+  /** Set when the login exists but nobody is connected and the router kept a reason. */
+  last_disconnect?: {
+    reason: string;
+    /** Router-local time (EAT), as RouterOS prints it. */
+    at: string;
+    caller_id: string;
+    category: string;
+    probable_cause: string;
+    technician_action: string;
+  } | null;
 }
 
 /** Why a monitor response is not a live reading, when it isn't one. */

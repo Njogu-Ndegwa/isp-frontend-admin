@@ -2763,6 +2763,24 @@ export function demoPPPoEMonitor(routerId: number): PPPoEMonitorResponse {
       },
     };
   });
+  // Logins left on the router with no billing customer behind them.
+  users.push(
+    {
+      username: 'pppoe_0722418830', service: 'pppoe', profile: 'pppoe_10M', disabled: false,
+      comment: 'CID:41|Peter Kamau|2026-07-02', online: true, address: `10.20.${router.id}.77`,
+      uptime: '3d04:12:09', caller_id: 'B4:2E:99:10:7C:31', upload_bytes: 410_000_000,
+      download_bytes: 5_300_000_000, upload_rate: '310000', download_rate: '2400000', max_limit: '10M/10M',
+      profile_only_one: 'yes', session_count: 1, sessions: [], last_logged_out: '', last_disconnect_reason: '',
+      last_caller_id: 'B4:2E:99:10:7C:31', customer: null,
+    },
+    {
+      username: 'test-pppoe', service: 'pppoe', profile: 'default-pppoe', disabled: false,
+      comment: '', online: false, address: null, uptime: null, caller_id: null, upload_bytes: 0,
+      download_bytes: 0, upload_rate: '0', download_rate: '0', max_limit: '', profile_only_one: 'yes',
+      session_count: 0, sessions: [], last_logged_out: 'oct/02/2026 18:40:11',
+      last_disconnect_reason: 'peer-not-responding', last_caller_id: '', customer: null,
+    },
+  );
   const online = users.filter(u => u.online).length;
   return {
     router_id: router.id, router_name: router.name, generated_at: iso(),
@@ -2806,6 +2824,15 @@ export function demoPPPoECustomerPresence(customerId: number): PPPoECustomerPres
       active_sessions: sessions,
       session_count: sessions.length,
       profile_detail: { name: 'pppoe-home', only_one: multi ? 'no' : 'yes', rate_limit: planSpeed },
+      secret: { name: c.pppoe_username ?? '', profile: 'pppoe-home', disabled: false },
+    },
+    last_disconnect: online ? null : {
+      reason: 'peer-not-responding',
+      at: 'oct/12/2026 21:04:11',
+      caller_id: c.mac_address,
+      category: 'physical_or_cpe',
+      probable_cause: 'Client CPE is unreachable or link is unstable',
+      technician_action: 'Check cable, switch port, CPE power, and link flaps',
     },
     verdict: online
       ? { code: 'present_and_online', message: 'The PPP secret exists on the router and the customer has an active PPPoE session.', our_side_confirmed: true }

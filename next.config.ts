@@ -94,6 +94,14 @@ const nextConfig: NextConfig = {
         destination: "https://bitwavetechnologies.com/:path*",
         permanent: true,
       },
+      // The PPPoE monitor page was removed: devices, the account check and
+      // Diagnose live on the customer page; logins with no customer on the
+      // router's "No customer" tab.
+      {
+        source: "/pppoe-monitor",
+        destination: "/customers",
+        permanent: false,
+      },
     ];
   },
 };
