@@ -93,6 +93,7 @@ import {
   PPPoELogsResponse,
   PPPoESecretsResponse,
   PPPoEMonitorResponse,
+  PPPoECustomerPresenceResponse,
   PPPoECleanupResponse,
   PPPoECleanupError,
   HotspotMonitorResponse,
@@ -2005,6 +2006,16 @@ class ApiClient {
       headers: this.getHeaders(),
     });
     return this.handleResponse<PPPoEMonitorResponse>(response);
+  }
+
+  /** One PPPoE customer's secret on their router, with every connected device. */
+  async getPPPoECustomerPresence(customerId: number, refresh = false): Promise<PPPoECustomerPresenceResponse> {
+    if (this.isDemoMode()) return (await loadDemo()).demoPPPoECustomerPresence(customerId);
+    const params = refresh ? '?refresh=true' : '';
+    const response = await fetch(`${BASE_URL}/pppoe/customers/${customerId}/presence${params}`, {
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<PPPoECustomerPresenceResponse>(response);
   }
 
   // Hotspot User Monitoring (bandwidth & online status)

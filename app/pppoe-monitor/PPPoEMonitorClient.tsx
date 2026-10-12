@@ -19,13 +19,14 @@ import MobileDataCard from '../components/MobileDataCard';
 import SearchInput from '../components/SearchInput';
 import FilterSelect from '../components/FilterSelect';
 import Pagination from '../components/Pagination';
+import PPPoEDeviceList from '../components/PPPoEDeviceList';
 import { PageLoader } from '../components/LoadingSpinner';
 import { useAuth } from '../context/AuthContext';
 import { useAlert } from '../context/AlertContext';
 import { formatDateGMT3 } from '../lib/dateUtils';
 import { phoneMatches } from '../lib/phoneSearch';
 
-type StatusFilter = 'all' | 'online' | 'offline';
+type StatusFilter = 'all' | 'online' | 'offline' | 'multi';
 type SortBy = 'status' | 'download' | 'upload' | 'usage' | 'name';
 
 function formatRate(bpsStr: string): string {
@@ -69,6 +70,7 @@ const STATUS_FILTER_OPTIONS = [
   { value: 'all', label: 'All Status' },
   { value: 'online', label: 'Online' },
   { value: 'offline', label: 'Offline' },
+  { value: 'multi', label: 'Multiple devices' },
 ];
 
 const SORT_OPTIONS = [
@@ -78,6 +80,65 @@ const SORT_OPTIONS = [
   { value: 'usage', label: 'Sort: Session Usage ↓' },
   { value: 'name', label: 'Sort: Name A-Z' },
 ];
+
+function deviceCount(user: PPPoEMonitorUser): number {
+  return user.session_count ?? (user.online ? 1 : 0);
+}
+
+function DevicesBadge({ user, onClick }: { user: PPPoEMonitorUser; onClick: () => void }) {
+  const count = deviceCount(user);
+  if (count < 2) return null;
+  return (
+    <button
+      type="button"
+      onClick={(e) => { e.stopPropagation(); onClick(); }}
+      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wide whitespace-nowrap bg-info/10 text-info border border-info/20 hover:bg-info/20 transition-colors"
+      title="Show every device on this username"
+    >
+      {count} devices
+    </button>
+  );
+}
+
+function DevicesDialog({ user, onClose }: { user: PPPoEMonitorUser; onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={onClose}>
+      <div className="card p-6 w-full max-w-2xl max-h-[85vh] overflow-y-auto space-y-4" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h3 className="text-lg font-semibold text-foreground truncate">
+              {user.customer?.name ?? user.username}
+            </h3>
+            <p className="text-xs font-mono text-foreground-muted">{user.username}</p>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-1 rounded-md hover:bg-background-tertiary text-foreground-muted"
+            aria-label="Close"
+          >
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+        <PPPoEDeviceList
+          devices={user.sessions ?? []}
+          onlyOne={user.profile_only_one}
+          planSpeed={user.customer?.plan_speed}
+        />
+        {user.customer && (
+          <Link
+            href={`/customers/${user.customer.id}`}
+            className="inline-block text-xs text-accent-primary hover:underline"
+            onClick={onClose}
+          >
+            Open customer →
+          </Link>
+        )}
+      </div>
+    </div>
+  );
+}
 
 function StatusDot({ online, disabled }: { online: boolean; disabled: boolean }) {
   if (disabled) {
@@ -502,6 +563,7 @@ export default function PPPoEMonitorPage() {
   const [sortBy, setSortBy] = useState<SortBy>('status');
   const [diagnoseUser, setDiagnoseUser] = useState<string | null>(null);
   const [cleanupUser, setCleanupUser] = useState<PPPoEMonitorUser | null>(null);
+  const [devicesUser, setDevicesUser] = useState<PPPoEMonitorUser | null>(null);
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(20);
 
@@ -564,6 +626,7 @@ export default function PPPoEMonitorPage() {
 
     if (statusFilter === 'online') users = users.filter((u) => u.online);
     else if (statusFilter === 'offline') users = users.filter((u) => !u.online);
+    else if (statusFilter === 'multi') users = users.filter((u) => deviceCount(u) > 1);
 
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
@@ -637,9 +700,29 @@ export default function PPPoEMonitorPage() {
           </div>
         );
       case 'status':
-        return <StatusDot online={user.online} disabled={user.disabled} />;
-      case 'ip':
-        return <span className="font-mono text-sm text-foreground-muted">{user.address ?? '—'}</span>;
+        return (
+          <div className="flex flex-col items-start gap-1">
+            <StatusDot online={user.online} disabled={user.disabled} />
+            <DevicesBadge user={user} onClick={() => setDevicesUser(user)} />
+          </div>
+        );
+      case 'ip': {
+        const extra = deviceCount(user) - 1;
+        return (
+          <div className="font-mono text-sm text-foreground-muted">
+            <div>{user.address ?? '—'}</div>
+            {extra > 0 && (
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); setDevicesUser(user); }}
+                className="text-xs text-info hover:underline"
+              >
+                +{extra} more
+              </button>
+            )}
+          </div>
+        );
+      }
       case 'uptime':
         return <span className="text-sm text-foreground-muted">{user.uptime ?? '—'}</span>;
       case 'download':
@@ -701,7 +784,7 @@ export default function PPPoEMonitorPage() {
     return err;
   };
 
-  const STATUS_LABELS: Record<string, string> = { online: 'Online', offline: 'Offline' };
+  const STATUS_LABELS: Record<string, string> = { online: 'Online', offline: 'Offline', multi: 'Multiple devices' };
   const SORT_LABELS: Record<string, string> = { download: 'Download ↓', upload: 'Upload ↓', usage: 'Session Usage ↓', name: 'Name A-Z' };
 
   if (!isAuthenticated) return null;
@@ -799,6 +882,11 @@ export default function PPPoEMonitorPage() {
             <StatCard
               title="Online"
               value={data.summary.online}
+              subtitle={
+                (data.summary.online_sessions ?? 0) > data.summary.online
+                  ? `${data.summary.online_sessions} devices · ${data.summary.multi_device_users} on 2+`
+                  : undefined
+              }
               icon={
                 <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -1026,6 +1114,7 @@ export default function PPPoEMonitorPage() {
                           {user.online && (
                             <span className="text-xs text-foreground-muted font-mono">{user.address}</span>
                           )}
+                          <DevicesBadge user={user} onClick={() => setDevicesUser(user)} />
                           <span className="text-xs text-foreground-muted">{user.max_limit || '—'}</span>
                         </div>
                       }
@@ -1082,6 +1171,10 @@ export default function PPPoEMonitorPage() {
           routerId={selectedRouterId}
           onClose={() => setDiagnoseUser(null)}
         />
+      )}
+
+      {devicesUser && (
+        <DevicesDialog user={devicesUser} onClose={() => setDevicesUser(null)} />
       )}
 
       {/* Cleanup Dialog — orphan removal */}

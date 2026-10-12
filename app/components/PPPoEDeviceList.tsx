@@ -1,0 +1,95 @@
+'use client';
+
+import type { PPPoEDevice } from '../lib/types';
+import { formatBps, formatBytes, formatMaxLimit } from '../lib/live';
+
+function rateBps(rate: string): number {
+  return parseInt(rate, 10) || 0;
+}
+
+/**
+ * Every device logged in under one PPPoE username, with its IP and MAC.
+ *
+ * `onlyOne` is the secret's profile `only-one` setting. When it is `yes` the
+ * router rejects a second login, so the list can only ever show one device.
+ */
+export default function PPPoEDeviceList({
+  devices,
+  onlyOne,
+  planSpeed,
+}: {
+  devices: PPPoEDevice[];
+  onlyOne?: string | null;
+  planSpeed?: string | null;
+}) {
+  const totalDown = devices.reduce((t, d) => t + rateBps(d.download_rate), 0);
+  const totalUp = devices.reduce((t, d) => t + rateBps(d.upload_rate), 0);
+  const limited = devices.filter((d) => d.has_queue && d.max_limit);
+  const blocksSecondDevice = onlyOne === 'yes';
+
+  return (
+    <div className="space-y-3" data-testid="pppoe-device-list">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-foreground-muted">
+        <span>
+          <span className="font-semibold text-foreground">{devices.length}</span>{' '}
+          device{devices.length === 1 ? '' : 's'} connected
+        </span>
+        {devices.length > 1 && (
+          <span>
+            Combined <span className="text-accent-primary font-medium">↓ {formatBps(totalDown)}</span>{' '}
+            <span className="text-teal-500 font-medium">↑ {formatBps(totalUp)}</span>
+          </span>
+        )}
+        {planSpeed && <span>Plan {planSpeed}</span>}
+        {onlyOne && (
+          <span className="font-mono">only-one={onlyOne}</span>
+        )}
+      </div>
+
+      {devices.length === 0 ? (
+        <p className="text-sm text-foreground-muted">No device is connected with this username right now.</p>
+      ) : (
+        <ul className="divide-y divide-border rounded-lg border border-border">
+          {devices.map((d, i) => (
+            <li key={d.id || `${d.address}-${i}`} className="p-3 grid grid-cols-2 sm:grid-cols-[2rem_minmax(0,1.3fr)_minmax(0,1fr)_minmax(0,1fr)] gap-x-3 gap-y-1.5 items-center text-sm">
+              <span className="hidden sm:flex w-6 h-6 rounded-full bg-success/10 text-success text-xs font-semibold items-center justify-center">
+                {i + 1}
+              </span>
+              <div className="min-w-0">
+                <p className="font-mono text-foreground truncate" title="IP address">{d.address || '—'}</p>
+                <p className="font-mono text-xs text-foreground-muted truncate" title="MAC address (caller-id)">
+                  {d.caller_id || 'MAC unknown'}
+                </p>
+              </div>
+              <div className="text-right sm:text-left">
+                <p>
+                  <span className="text-accent-primary whitespace-nowrap">↓ {formatBps(rateBps(d.download_rate))}</span>{' '}
+                  <span className="text-teal-500 whitespace-nowrap">↑ {formatBps(rateBps(d.upload_rate))}</span>
+                </p>
+                <p className="text-xs text-foreground-muted">up {d.uptime || '—'}</p>
+              </div>
+              <div className="col-span-2 sm:col-span-1 text-xs text-foreground-muted sm:text-right">
+                <p>↓ {formatBytes(d.download_bytes)} / ↑ {formatBytes(d.upload_bytes)} this session</p>
+                <p className={d.has_queue ? '' : 'text-warning'}>
+                  {d.has_queue ? `Limit ${formatMaxLimit(d.max_limit)}` : 'No speed limit queue'}
+                </p>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {devices.length > 1 && limited.length === devices.length && (
+        <p className="text-xs text-foreground-muted">
+          Each device has its own speed limit, so together they can use up to {devices.length}× the plan speed.
+        </p>
+      )}
+      {blocksSecondDevice && (
+        <p className="text-xs text-foreground-muted">
+          This profile has <span className="font-mono">only-one=yes</span>: the router rejects a second device
+          logging in with the same username.
+        </p>
+      )}
+    </div>
+  );
+}

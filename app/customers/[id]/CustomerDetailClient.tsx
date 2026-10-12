@@ -19,6 +19,7 @@ import { isFreeTrialPlan } from '../../plans/planType';
 import PaymentHistoryPanel from './PaymentHistoryPanel';
 import RelatedAccounts from './RelatedAccounts';
 import UsageHistoryPanel from './UsageHistoryPanel';
+import ConnectedDevicesPanel from './ConnectedDevicesPanel';
 
 
 export default function EditCustomerPage() {
@@ -217,6 +218,7 @@ export default function EditCustomerPage() {
           {usage?.live && customer && (
             <LivePanel live={usage.live} routerId={customer.router_id ?? customer.router?.id ?? null} />
           )}
+          {isPPPoE && customer.pppoe_username && <ConnectedDevicesPanel customerId={customer.id} />}
           {tracksUsage && usage && <UsagePanel usage={usage} onRefresh={loadUsage} refreshing={usageLoading} />}
           {tracksUsage && <UsageHistoryPanel customerId={customer.id} />}
 

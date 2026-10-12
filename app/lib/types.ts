@@ -3055,6 +3055,26 @@ export interface PPPoEMonitorCustomer {
   account_number?: string;
 }
 
+/**
+ * One device logged in under a PPPoE username. A username can hold several
+ * sessions at once when its PPP profile has `only-one=no`; each gets its own
+ * address and its own dynamic queue.
+ */
+export interface PPPoEDevice {
+  /** RouterOS `/ppp/active` id, e.g. `*1A`. */
+  id: string;
+  address: string;
+  /** For PPPoE this is the device's MAC address. */
+  caller_id: string;
+  uptime: string;
+  upload_bytes: number;
+  download_bytes: number;
+  upload_rate: string;
+  download_rate: string;
+  max_limit: string;
+  has_queue: boolean;
+}
+
 export interface PPPoEMonitorUser {
   username: string;
   service: string;
@@ -3074,6 +3094,13 @@ export interface PPPoEMonitorUser {
   last_disconnect_reason: string;
   last_caller_id: string;
   customer: PPPoEMonitorCustomer | null;
+  /** Every connected device, longest-connected first. The scalar address /
+   *  uptime / caller_id above describe `sessions[0]`; bytes and rates are the
+   *  total across all devices. Absent on older backends. */
+  sessions?: PPPoEDevice[];
+  session_count?: number;
+  /** The secret's profile `only-one` setting: `yes` blocks a second device. */
+  profile_only_one?: string;
 }
 
 export interface PPPoEMonitorSummary {
@@ -3081,8 +3108,39 @@ export interface PPPoEMonitorSummary {
   online: number;
   offline: number;
   disabled: number;
+  /** Connected devices; differs from `online` when a username is on several. */
+  online_sessions?: number;
+  multi_device_users?: number;
   total_upload_rate_bps: number;
   total_download_rate_bps: number;
+}
+
+/** GET /api/pppoe/customers/{id}/presence — the fields the UI reads. */
+export interface PPPoECustomerPresenceResponse {
+  cached: boolean;
+  success: boolean;
+  generated_at: string;
+  customer: {
+    id: number;
+    name: string;
+    plan: string | null;
+    plan_speed: string | null;
+    pppoe_username: string;
+  };
+  router: { id: number; name: string };
+  speed_enforcement: {
+    expected_rate_limit: string;
+    profile_rate_limit: string;
+  };
+  mikrotik: {
+    present_on_router: boolean;
+    online: boolean | null;
+    state: 'missing' | 'disabled' | 'online' | 'offline' | 'session_unknown';
+    active_sessions?: PPPoEDevice[];
+    session_count?: number;
+    profile_detail: { name?: string; only_one?: string; rate_limit?: string } | null;
+  };
+  verdict: { code: string; message: string; our_side_confirmed: boolean };
 }
 
 /** Why a monitor response is not a live reading, when it isn't one. */
