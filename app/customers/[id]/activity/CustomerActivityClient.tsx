@@ -306,6 +306,12 @@ export default function CustomerActivityClient() {
 
   useEffect(() => { void load(); }, [load]);
 
+  // Read the router's log once when the page opens, so "Router log" is not
+  // empty just because nobody pressed the button. Quiet: a failure only
+  // shows as a note, never as an error toast.
+  const [autoRead, setAutoRead] = useState<'idle' | 'reading' | 'done' | 'failed'>('idle');
+  const autoReadStarted = useRef(false);
+
   // The pull waits several seconds on the router; by then the filter may have
   // changed, so it reloads through this ref to use the current one.
   const loadRef = useRef(load);
@@ -402,6 +408,21 @@ export default function CustomerActivityClient() {
     }
   };
 
+  const customerForRead = data?.customer;
+  useEffect(() => {
+    const c = customerForRead;
+    if (!c || autoReadStarted.current || api.isDemoMode()) return;
+    if (!c.router_id || !(c.pppoe_username || c.mac_address)) return;
+    autoReadStarted.current = true;
+    setAutoRead('reading');
+    api.pullCustomerRouterLogs(c.id)
+      .then((res) => {
+        setAutoRead('done');
+        if (res.stored > 0) void loadRef.current();
+      })
+      .catch(() => setAutoRead('failed'));
+  }, [customerForRead]);
+
   const groups = useMemo(() => {
     const out: { key: string; label: string; items: CustomerAuditItem[] }[] = [];
     for (const item of items) {
@@ -436,219 +457,238 @@ export default function CustomerActivityClient() {
         backHref={`/customers/${customerId}`}
       />
 
-      <div className="max-w-4xl space-y-4 pb-8">
-        {customer && (
-          <div className="card grid grid-cols-2 sm:grid-cols-4 [&>div]:p-4 sm:divide-x divide-border">
-            <SummaryTile label="Connection">
-              {live ? (
-                <span className={`inline-flex items-center gap-1.5 ${live.online ? 'text-success' : 'text-foreground-muted'}`}>
-                  <span className={`w-2 h-2 rounded-full ${live.online ? 'bg-success' : 'bg-foreground-muted/40'}`} />
-                  {live.online ? 'Online' : 'Offline'}
-                </span>
-              ) : (
-                <span className="text-foreground-muted">{liveIsStale ? 'Unknown' : 'Not reported'}</span>
-              )}
-              <SummaryHint>
-                {liveIsStale
-                  ? `router silent since ${formatTimeSinceUTC(data?.router_reported_at) ?? '—'}`
-                  : live?.online
-                    ? [live.ip, live.uptime && `up ${live.uptime}`].filter(Boolean).join(' · ') || '—'
-                    : live?.seen_at ? `seen ${formatTimeSinceUTC(live.seen_at) ?? '—'}` : '—'}
-              </SummaryHint>
-            </SummaryTile>
-            <SummaryTile label="Status">
-              <span className="capitalize">{customer.status ?? '—'}</span>
-              <SummaryHint>
-                {!customer.expiry
-                  ? 'no expiry'
-                  : `${isPast(customer.expiry) ? 'expired' : 'until'} ${dateTimeLabel(customer.expiry)}`}
-              </SummaryHint>
-            </SummaryTile>
-            <SummaryTile label="Plan">
-              <span className="truncate block">{customer.plan ?? '—'}</span>
-              <SummaryHint>{isPPPoE ? 'PPPoE' : customer.connection_type === 'hotspot' ? 'Hotspot' : '—'}</SummaryHint>
-            </SummaryTile>
-            <SummaryTile label="Router">
-              <span className="truncate block">{customer.router_name ?? '—'}</span>
-              <SummaryHint>
-                {data?.router_reported_at
-                  ? `reported ${formatTimeSinceUTC(data.router_reported_at) ?? '—'}`
-                  : 'no live reports'}
-              </SummaryHint>
-            </SummaryTile>
-          </div>
-        )}
-
-        {summary && (
-          <dl className="card divide-y divide-border text-sm">
-            <QuickFact label="Drops in last 24 h">
-              <span className={summary.drops_24h >= 3 ? 'text-warning font-medium' : 'text-foreground'}>
-                {summary.drops_24h}
-              </span>
-              {summary.drops_24h >= 3 && (
-                <span className="text-foreground-muted"> — the line is unstable; check the router log below</span>
-              )}
-            </QuickFact>
-            <QuickFact label="Last drop">
-              {summary.last_drop ? (
-                <>
-                  <span title={fullStamp(summary.last_drop.at)}>{dateTimeLabel(summary.last_drop.at)}</span>
-                  <span className="text-foreground-muted"> · {summary.last_drop.message}</span>
-                </>
-              ) : 'None recorded'}
-            </QuickFact>
-            <QuickFact label="Last router warning">
-              {summary.last_problem ? (
-                <>
-                  <span title={fullStamp(summary.last_problem.at)}>{dateTimeLabel(summary.last_problem.at)}</span>
-                  <span className="text-foreground-muted">
-                    {' · '}
-                    {explainRouterLog(summary.last_problem.message)?.meaning ?? summary.last_problem.message}
+      {/* Phones: summary on top, then the timeline. From 1024px: the
+          timeline fills the width and the summary sits in a sidebar that
+          stays in view while you scroll. */}
+      <div className="pb-8 space-y-4 lg:space-y-0 lg:grid lg:grid-cols-[minmax(0,1fr)_300px] xl:grid-cols-[minmax(0,1fr)_360px] lg:gap-6 lg:items-start">
+        <aside className="space-y-4 min-w-0 lg:order-2 lg:sticky lg:top-4">
+          {customer && (
+            <div className="card grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-2 [&>div]:p-4 sm:divide-x lg:divide-x-0 divide-border">
+              <SummaryTile label="Connection">
+                {live ? (
+                  <span className={`inline-flex items-center gap-1.5 ${live.online ? 'text-success' : 'text-foreground-muted'}`}>
+                    <span className={`w-2 h-2 rounded-full ${live.online ? 'bg-success' : 'bg-foreground-muted/40'}`} />
+                    {live.online ? 'Online' : 'Offline'}
                   </span>
-                </>
-              ) : 'None recorded'}
-            </QuickFact>
-            <QuickFact label="Last payment">
-              {summary.last_payment?.at ? (
-                <>
-                  <span title={fullStamp(summary.last_payment.at)}>{dateTimeLabel(summary.last_payment.at)}</span>
-                  <span className="text-foreground-muted"> · {formatAmount(summary.last_payment.amount)}</span>
-                </>
-              ) : 'None recorded'}
-            </QuickFact>
-          </dl>
-        )}
-
-        <div className="card p-4 space-y-3">
-          <FilterPills<Filter>
-            value={filter}
-            onChange={setFilter}
-            options={FILTERS}
-            ariaLabel="Filter activity"
-            className="w-full flex-wrap"
-          />
-
-          <div className="flex flex-col lg:flex-row gap-2">
-            <div className="flex-1 min-w-0 lg:min-w-[14rem] [&_.input]:h-11 [&_.input]:py-0 [&_.input]:text-sm">
-              <DateTimePicker value={jumpTo} onChange={setJumpTo} />
-            </div>
-            {jumpTo && (
-              <button
-                type="button"
-                onClick={() => setJumpTo('')}
-                className={`btn-secondary ${CONTROL_H} py-0 inline-flex items-center justify-center whitespace-nowrap`}
-              >
-                Back to latest
-              </button>
-            )}
-            {canReset && (
-              <button
-                ref={resetButtonRef}
-                type="button"
-                onClick={() => setConfirmReset(true)}
-                className={`btn-secondary ${CONTROL_H} py-0 inline-flex items-center justify-center gap-2 whitespace-nowrap`}
-              >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M5.636 5.636a9 9 0 1012.728 0M12 3v9" />
-                </svg>
-                Reset session
-              </button>
-            )}
-            {canPull && (
-              <button
-                type="button"
-                onClick={pullRouterLogs}
-                disabled={pulling}
-                className={`btn-primary ${CONTROL_H} py-0 inline-flex items-center justify-center gap-2 whitespace-nowrap disabled:opacity-50`}
-              >
-                {pulling ? (
-                  <span className="w-4 h-4 border-2 border-black/20 border-t-black/70 rounded-full animate-spin" />
                 ) : (
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                  </svg>
+                  <span className="text-foreground-muted">{liveIsStale ? 'Unknown' : 'Not reported'}</span>
                 )}
-                {pulling ? 'Reading router…' : 'Pull router logs'}
-              </button>
-            )}
+                <SummaryHint>
+                  {liveIsStale
+                    ? `router silent since ${formatTimeSinceUTC(data?.router_reported_at) ?? '—'}`
+                    : live?.online
+                      ? [live.ip, live.uptime && `up ${live.uptime}`].filter(Boolean).join(' · ') || '—'
+                      : live?.seen_at ? `seen ${formatTimeSinceUTC(live.seen_at) ?? '—'}` : '—'}
+                </SummaryHint>
+              </SummaryTile>
+              <SummaryTile label="Status">
+                <span className="capitalize">{customer.status ?? '—'}</span>
+                <SummaryHint>
+                  {!customer.expiry
+                    ? 'no expiry'
+                    : `${isPast(customer.expiry) ? 'expired' : 'until'} ${dateTimeLabel(customer.expiry)}`}
+                </SummaryHint>
+              </SummaryTile>
+              <SummaryTile label="Plan">
+                <span className="truncate block">{customer.plan ?? '—'}</span>
+                <SummaryHint>{isPPPoE ? 'PPPoE' : customer.connection_type === 'hotspot' ? 'Hotspot' : '—'}</SummaryHint>
+              </SummaryTile>
+              <SummaryTile label="Router">
+                <span className="truncate block">{customer.router_name ?? '—'}</span>
+                <SummaryHint>
+                  {data?.router_reported_at
+                    ? `reported ${formatTimeSinceUTC(data.router_reported_at) ?? '—'}`
+                    : 'no live reports'}
+                </SummaryHint>
+              </SummaryTile>
+            </div>
+          )}
+
+          {summary && (
+            <dl className="card divide-y divide-border text-sm">
+              <QuickFact label="Drops in last 24 h">
+                <span className={summary.drops_24h >= 3 ? 'text-warning font-medium' : 'text-foreground'}>
+                  {summary.drops_24h}
+                </span>
+                {summary.drops_24h >= 3 && (
+                  <span className="text-foreground-muted"> — the line is unstable; check the router log below</span>
+                )}
+              </QuickFact>
+              <QuickFact label="Last drop">
+                {summary.last_drop ? (
+                  <>
+                    <span title={fullStamp(summary.last_drop.at)}>{dateTimeLabel(summary.last_drop.at)}</span>
+                    <span className="text-foreground-muted"> · {summary.last_drop.message}</span>
+                  </>
+                ) : 'None recorded'}
+              </QuickFact>
+              <QuickFact label="Last router warning">
+                {summary.last_problem ? (
+                  <>
+                    <span title={fullStamp(summary.last_problem.at)}>{dateTimeLabel(summary.last_problem.at)}</span>
+                    <span className="text-foreground-muted">
+                      {' · '}
+                      {explainRouterLog(summary.last_problem.message)?.meaning ?? summary.last_problem.message}
+                    </span>
+                  </>
+                ) : 'None recorded'}
+              </QuickFact>
+              <QuickFact label="Last payment">
+                {summary.last_payment?.at ? (
+                  <>
+                    <span title={fullStamp(summary.last_payment.at)}>{dateTimeLabel(summary.last_payment.at)}</span>
+                    <span className="text-foreground-muted"> · {formatAmount(summary.last_payment.amount)}</span>
+                  </>
+                ) : 'None recorded'}
+              </QuickFact>
+            </dl>
+          )}
+
+        </aside>
+
+        <div className="space-y-4 min-w-0 lg:order-1">
+          <div className="card p-4 space-y-3">
+            <FilterPills<Filter>
+              value={filter}
+              onChange={setFilter}
+              options={FILTERS}
+              ariaLabel="Filter activity"
+              className="w-full flex-wrap"
+            />
+
+            <div className="flex flex-col xl:flex-row gap-2">
+              <div className="flex-1 min-w-0 xl:min-w-[14rem] [&_.input]:h-11 [&_.input]:py-0 [&_.input]:text-sm">
+                <DateTimePicker value={jumpTo} onChange={setJumpTo} />
+              </div>
+              {jumpTo && (
+                <button
+                  type="button"
+                  onClick={() => setJumpTo('')}
+                  className={`btn-secondary ${CONTROL_H} py-0 inline-flex items-center justify-center whitespace-nowrap`}
+                >
+                  Back to latest
+                </button>
+              )}
+              {canReset && (
+                <button
+                  ref={resetButtonRef}
+                  type="button"
+                  onClick={() => setConfirmReset(true)}
+                  className={`btn-secondary ${CONTROL_H} py-0 inline-flex items-center justify-center gap-2 whitespace-nowrap`}
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5.636 5.636a9 9 0 1012.728 0M12 3v9" />
+                  </svg>
+                  Reset session
+                </button>
+              )}
+              {canPull && (
+                <button
+                  type="button"
+                  onClick={pullRouterLogs}
+                  disabled={pulling}
+                  className={`btn-primary ${CONTROL_H} py-0 inline-flex items-center justify-center gap-2 whitespace-nowrap disabled:opacity-50`}
+                >
+                  {pulling ? (
+                    <span className="w-4 h-4 border-2 border-black/20 border-t-black/70 rounded-full animate-spin" />
+                  ) : (
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                  )}
+                  {pulling ? 'Reading router…' : 'Pull router logs'}
+                </button>
+              )}
+            </div>
+
+            <div className="flex flex-col xl:flex-row xl:items-start xl:justify-between gap-2">
+              <p className="text-xs text-foreground-muted">
+                {anchor
+                  ? 'Showing activity up to the chosen time (EAT).'
+                  : 'Pick a date and time (EAT) to jump to a moment.'}{' '}
+                {autoRead === 'reading' && <span className="text-foreground">Reading the router&rsquo;s log… </span>}
+              {autoRead === 'done' && <span className="text-foreground">Router log read just now. </span>}
+              {autoRead === 'failed' && <span className="text-warning">Could not read the router&rsquo;s log right now. </span>}
+              Routers only remember their last ~1000 log lines; each read saves them here.
+                Sessions and router log lines are kept for 60 days, router status for 14 days,
+                payments and changes for good.
+              </p>
+              {items.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => downloadCsv(items, customer?.name || `customer-${customerId}`)}
+                  className="text-xs font-medium text-accent-primary hover:underline whitespace-nowrap self-start"
+                >
+                  Export {items.length} row{items.length === 1 ? '' : 's'} (CSV)
+                </button>
+              )}
+            </div>
           </div>
 
-          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
-            <p className="text-xs text-foreground-muted">
-              {anchor
-                ? 'Showing activity up to the chosen time (EAT).'
-                : 'Pick a date and time (EAT) to jump to a moment.'}{' '}
-              Routers only remember their last ~1000 log lines; pulling saves them here.
-              Sessions and router log lines are kept for 60 days, router status for 14 days,
-              payments and changes for good.
-            </p>
-            {items.length > 0 && (
+          {error ? (
+            <div className="card p-6 text-center space-y-3" role="alert">
+              <p className="text-sm text-danger">Could not load the activity log. {error}</p>
               <button
                 type="button"
-                onClick={() => downloadCsv(items, customer?.name || `customer-${customerId}`)}
-                className="text-xs font-medium text-accent-primary hover:underline whitespace-nowrap self-start"
+                onClick={() => void load()}
+                className={`btn-secondary ${CONTROL_H} py-0 px-6 inline-flex items-center justify-center`}
               >
-                Export {items.length} row{items.length === 1 ? '' : 's'} (CSV)
+                Try again
               </button>
-            )}
-          </div>
-        </div>
-
-        {error ? (
-          <div className="card p-6 text-center space-y-3" role="alert">
-            <p className="text-sm text-danger">Could not load the activity log. {error}</p>
-            <button
-              type="button"
-              onClick={() => void load()}
-              className={`btn-secondary ${CONTROL_H} py-0 px-6 inline-flex items-center justify-center`}
-            >
-              Try again
-            </button>
-          </div>
-        ) : loading && items.length === 0 ? (
-          <div className="card p-8 flex justify-center">
-            <span className="w-5 h-5 border-2 border-foreground-muted/30 border-t-accent-primary rounded-full animate-spin" />
-          </div>
-        ) : groups.length === 0 ? (
-          <div className="card p-8 text-center">
-            <p className="text-sm text-foreground">
-              {anchor ? 'Nothing recorded before this time.' : 'Nothing recorded yet.'}
-            </p>
-            {canPull && !anchor && (
-              <p className="mt-1 text-xs text-foreground-muted">
-                Pull router logs to save what the router is saying about this customer.
+            </div>
+          ) : loading && items.length === 0 ? (
+            <div className="card p-8 flex justify-center">
+              <span className="w-5 h-5 border-2 border-foreground-muted/30 border-t-accent-primary rounded-full animate-spin" />
+            </div>
+          ) : groups.length === 0 ? (
+            <div className="card p-8 text-center">
+              <p className="text-sm text-foreground">
+                {anchor
+                  ? 'Nothing recorded before this time.'
+                  : filter === 'router_log'
+                    ? 'The router has said nothing about this customer yet.'
+                    : 'Nothing recorded yet.'}
               </p>
-            )}
-          </div>
-        ) : (
-          groups.map((group) => (
-            <section key={group.key} className="card overflow-hidden">
-              <h3 className="px-4 py-2.5 text-xs font-semibold uppercase tracking-wider text-foreground-muted border-b border-border">
-                {group.label}
-              </h3>
-              <ol className="divide-y divide-border">
-                {collapseRuns(group.items).map((row, idx) => (
-                  row.kind === 'item'
-                    ? <ActivityRow key={row.item.id ?? `${group.key}-${idx}`} item={row.item} />
-                    : <RepeatedRow key={`run-${row.items[0].id ?? idx}`} items={row.items} />
-                ))}
-              </ol>
-            </section>
-          ))
-        )}
+              {canPull && !anchor && (
+                <p className="mt-1 text-xs text-foreground-muted">
+                  {autoRead === 'reading'
+                    ? 'Reading the router\u2019s log now…'
+                    : filter === 'router_log'
+                      ? 'The router only logs logins, failed logins and drops. Lines appear here when the router is read, which happens each time this page opens.'
+                      : 'Pull router logs to save what the router is saying about this customer.'}
+                </p>
+              )}
+            </div>
+          ) : (
+            groups.map((group) => (
+              <section key={group.key} className="card overflow-hidden">
+                <h3 className="px-4 py-2.5 text-xs font-semibold uppercase tracking-wider text-foreground-muted border-b border-border">
+                  {group.label}
+                </h3>
+                <ol className="divide-y divide-border">
+                  {collapseRuns(group.items).map((row, idx) => (
+                    row.kind === 'item'
+                      ? <ActivityRow key={row.item.id ?? `${group.key}-${idx}`} item={row.item} />
+                      : <RepeatedRow key={`run-${row.items[0].id ?? idx}`} items={row.items} />
+                  ))}
+                </ol>
+              </section>
+            ))
+          )}
 
-        {nextBefore && !loading && !error && (
-          <div className="flex justify-center">
-            <button
-              type="button"
-              onClick={loadMore}
-              disabled={loadingMore}
-              className={`btn-secondary ${CONTROL_H} py-0 px-6 inline-flex items-center justify-center disabled:opacity-50`}
-            >
-              {loadingMore ? 'Loading…' : 'Load older activity'}
-            </button>
-          </div>
-        )}
+          {nextBefore && !loading && !error && (
+            <div className="flex justify-center">
+              <button
+                type="button"
+                onClick={loadMore}
+                disabled={loadingMore}
+                className={`btn-secondary ${CONTROL_H} py-0 px-6 inline-flex items-center justify-center disabled:opacity-50`}
+              >
+                {loadingMore ? 'Loading…' : 'Load older activity'}
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       {confirmReset && (
@@ -706,8 +746,8 @@ function SummaryTile({ label, children }: { label: string; children: React.React
 
 function QuickFact({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="px-4 py-2.5 flex flex-col sm:flex-row sm:gap-4">
-      <dt className="sm:w-44 flex-shrink-0 text-xs text-foreground-muted sm:pt-0.5">{label}</dt>
+    <div className="px-4 py-2.5 flex flex-col sm:flex-row sm:gap-4 lg:flex-col lg:gap-0.5">
+      <dt className="sm:w-44 lg:w-auto flex-shrink-0 text-xs text-foreground-muted sm:pt-0.5 lg:pt-0">{label}</dt>
       <dd className="min-w-0 break-words [overflow-wrap:anywhere]">{children}</dd>
     </div>
   );
