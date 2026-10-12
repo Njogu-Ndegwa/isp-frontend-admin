@@ -15,6 +15,7 @@ import {
   PPPoESession,
   RouterInterfaceInfo,
   RouterUptimeResponse,
+  UptimeTimelineSlice,
   InsuranceTunnelBatchJob,
   InsuranceTunnelBatchPreview,
   InsuranceWireGuardVerification,
@@ -1839,6 +1840,35 @@ function formatDowntime(seconds: number | undefined): string {
   return `${Math.floor(h / 24)}d ${h % 24}h`;
 }
 
+// Each bar needs about 4px (3px + 1px gap). On a phone the 84 slices of a
+// 7- or 30-day window do not fit, so neighbours are merged: a merged slice is
+// "down" only if all of it was down, "up" only if all of it was up, and
+// "partly down" otherwise, so no outage disappears.
+const UPTIME_SLICE_PX = 4;
+
+function fitTimeline(slices: UptimeTimelineSlice[], width: number): UptimeTimelineSlice[] {
+  const fit = Math.max(1, Math.floor(width / UPTIME_SLICE_PX));
+  if (!width || slices.length <= fit) return slices;
+  const groups = Math.ceil(slices.length / Math.ceil(slices.length / fit));
+  const size = Math.ceil(slices.length / groups);
+  const out: UptimeTimelineSlice[] = [];
+  for (let i = 0; i < slices.length; i += size) {
+    const group = slices.slice(i, i + size);
+    const statuses = new Set(group.map((g) => g.status));
+    const status: UptimeTimelineSlice['status'] =
+      statuses.size === 1 ? group[0].status
+        : [...statuses].every((st) => st === 'up' || st === 'no_data') ? 'up'
+          : 'partial';
+    out.push({
+      from: group[0].from,
+      to: group[group.length - 1].to,
+      status,
+      downtime_seconds: group.reduce((sum, g) => sum + g.downtime_seconds, 0),
+    });
+  }
+  return out;
+}
+
 function UptimePanel({ data }: { data: RouterUptimeResponse }) {
   const windowPct = data.window.uptime_percentage;
   const overallPct = data.overall.uptime_percentage;
@@ -1846,7 +1876,17 @@ function UptimePanel({ data }: { data: RouterUptimeResponse }) {
     ? `${data.window.hours / 24} day${data.window.hours === 24 ? '' : 's'}`
     : `${data.window.hours}h`;
   const outages = [...(data.outages ?? [])].reverse();
-  const timeline = data.timeline ?? [];
+  const hasTimeline = (data.timeline ?? []).length > 0;
+  const barRef = useRef<HTMLDivElement | null>(null);
+  const [barWidth, setBarWidth] = useState(0);
+  useEffect(() => {
+    const el = barRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver((entries) => setBarWidth(entries[0]?.contentRect.width ?? 0));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [hasTimeline]);
+  const timeline = fitTimeline(data.timeline ?? [], barWidth);
   const ignoredFailures = data.recent_checks.filter((c) => !c.is_online && c.counted_as_outage === false).length;
 
   const formatTime = (dateStr: string | null | undefined) => {
@@ -1925,13 +1965,13 @@ function UptimePanel({ data }: { data: RouterUptimeResponse }) {
         </div>
       </div>
 
-      {timeline.length > 0 ? (
+      {hasTimeline ? (
         <div>
           <div className="flex items-center justify-between mb-2">
             <p className="text-xs font-medium text-foreground-muted">{formatTime(timeline[0].from)}</p>
             <p className="text-xs font-medium text-foreground-muted">now</p>
           </div>
-          <div className="flex gap-[2px] h-10 items-end">
+          <div ref={barRef} className="flex gap-px sm:gap-[2px] h-10 items-end overflow-hidden">
             {timeline.map((slice) => (
               <div
                 key={slice.from}
