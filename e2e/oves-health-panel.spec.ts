@@ -105,9 +105,9 @@ for (const width of [375, 1280]) {
     const panel = page.getByTestId('oves-health-panel');
     await expect(panel).toBeVisible({ timeout: 30_000 });
     await expect(panel.getByRole('heading', { name: 'OVES platform health' })).toBeVisible();
-    // The exposure warnings open the details automatically and list as alerts.
+    // Alerts list on their own; the heavy details stay closed until asked for.
     await expect(panel.getByTestId('oves-alerts')).toContainText('open to the internet');
-    await expect(panel.getByTestId('oves-details')).toBeVisible();
+    await expect(panel.getByTestId('oves-details')).toHaveCount(0);
     // Code generation comes first, from Apollo: success, requests, operations, real messages, the path.
     const hero = panel.getByTestId('oves-codegen');
     await expect(hero).toBeVisible();
@@ -119,6 +119,8 @@ for (const width of [375, 1280]) {
     await expect(hero.getByTestId('oves-path-thing_make')).toContainText('2/2 pods');
     await expect(panel.getByTestId('oves-tile-api')).toContainText('1/9');
 
+    await panel.getByTestId('oves-toggle').click();
+    await expect(panel.getByTestId('oves-details')).toBeVisible();
     // Errors tab (default): Studio-style, shadow graph first, platform errors shown, caller errors behind a toggle.
     const gql = panel.getByTestId('oves-gql');
     await expect(gql).toBeVisible();

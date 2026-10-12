@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { api } from '../lib/api';
 import OvesClusterCard from './OvesClusterCard';
@@ -411,7 +411,10 @@ export default function OvesHealthPanel() {
   const [failed, setFailed] = useState(false);
   const [now, setNow] = useState<number>(() => Date.now());
   const [tab, setTab] = useState<Tab>('errors');
-  // null = automatic: open when something is wrong, closed otherwise.
+  // Details (charts, tables, the Apollo call) open only on click. Problems are
+  // already visible above them in the code-generation section and the alerts;
+  // auto-opening cost +4.7 s of main-thread work at 4x CPU (measured) on every
+  // visit while any standing warning exists.
   const [expanded, setExpanded] = useState<boolean | null>(null);
   const [hours, setHours] = useState(24);
   const [hist, setHist] = useState<OvesHistoryResponse | null>(null);
@@ -449,8 +452,7 @@ export default function OvesHealthPanel() {
     return () => { stop(); document.removeEventListener('visibilitychange', onVis); };
   }, [fetchLatest]);
 
-  const hasProblems = useMemo(() => (data?.alerts ?? []).some((a) => a.severity === 'critical' || a.severity === 'warning'), [data]);
-  const isOpen = expanded ?? hasProblems;
+  const isOpen = expanded ?? false;
 
   useEffect(() => {
     if (isOpen) fetchHistory(hours);
