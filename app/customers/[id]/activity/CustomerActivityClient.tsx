@@ -22,8 +22,8 @@ type Filter = 'all' | CustomerAuditCategory;
 const FILTERS: { value: Filter; label: string }[] = [
   { value: 'all', label: 'All' },
   { value: 'session', label: 'Sessions' },
-  { value: 'router_log', label: 'Router log' },
-  { value: 'router', label: 'Router status' },
+  { value: 'router_log', label: 'Router messages' },
+  { value: 'router', label: 'Site online/offline' },
   { value: 'billing', label: 'Payments' },
   { value: 'messages', label: 'SMS' },
   { value: 'provisioning', label: 'Provisioning' },
@@ -32,8 +32,8 @@ const FILTERS: { value: Filter; label: string }[] = [
 
 const CATEGORY_LABEL: Record<CustomerAuditCategory, string> = {
   session: 'Session',
-  router_log: 'Router log',
-  router: 'Router status',
+  router_log: 'Router message',
+  router: 'Site',
   billing: 'Payment',
   messages: 'SMS',
   provisioning: 'Provisioning',
@@ -306,7 +306,7 @@ export default function CustomerActivityClient() {
 
   useEffect(() => { void load(); }, [load]);
 
-  // Read the router's log once when the page opens, so "Router log" is not
+  // Read the router's log once when the page opens, so "Router messages" is not
   // empty just because nobody pressed the button. Quiet: a failure only
   // shows as a note, never as an error toast.
   const [autoRead, setAutoRead] = useState<'idle' | 'reading' | 'done' | 'failed'>('idle');
@@ -397,12 +397,12 @@ export default function CustomerActivityClient() {
       showAlert(
         'success',
         res.stored > 0
-          ? `Saved ${res.stored} new router log line${res.stored === 1 ? '' : 's'}.${reach}${hidden}`
-          : `Nothing new about this customer in the router log.${reach}`,
+          ? `Saved ${res.stored} new router message${res.stored === 1 ? '' : 's'}.${reach}${hidden}`
+          : `The router has nothing new about this customer.${reach}`,
       );
       await loadRef.current();
     } catch (err) {
-      showAlert('error', err instanceof Error ? err.message : 'Could not read the router log');
+      showAlert('error', err instanceof Error ? err.message : 'Could not reach the router');
     } finally {
       setPulling(false);
     }
@@ -511,7 +511,7 @@ export default function CustomerActivityClient() {
                   {summary.drops_24h}
                 </span>
                 {summary.drops_24h >= 3 && (
-                  <span className="text-foreground-muted"> — the line is unstable; check the router log below</span>
+                  <span className="text-foreground-muted"> — the line is unstable; see the router messages below</span>
                 )}
               </QuickFact>
               <QuickFact label="Last drop">
@@ -596,7 +596,7 @@ export default function CustomerActivityClient() {
                       <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                     </svg>
                   )}
-                  {pulling ? 'Reading router…' : 'Pull router logs'}
+                  {pulling ? 'Checking router…' : 'Check router again'}
                 </button>
               )}
             </div>
@@ -606,11 +606,11 @@ export default function CustomerActivityClient() {
                 {anchor
                   ? 'Showing activity up to the chosen time (EAT).'
                   : 'Pick a date and time (EAT) to jump to a moment.'}{' '}
-                {autoRead === 'reading' && <span className="text-foreground">Reading the router&rsquo;s log… </span>}
-              {autoRead === 'done' && <span className="text-foreground">Router log read just now. </span>}
-              {autoRead === 'failed' && <span className="text-warning">Could not read the router&rsquo;s log right now. </span>}
-              Routers only remember their last ~1000 log lines; each read saves them here.
-                Sessions and router log lines are kept for 60 days, router status for 14 days,
+                {autoRead === 'reading' && <span className="text-foreground">Checking the router… </span>}
+              {autoRead === 'done' && <span className="text-foreground">Router checked just now. </span>}
+              {autoRead === 'failed' && <span className="text-warning">Could not reach the router right now. </span>}
+              Routers only remember their last ~1000 messages; each check saves them here.
+                Sessions and router messages are kept for 60 days, site online/offline for 14 days,
                 payments and changes for good.
               </p>
               {items.length > 0 && (
@@ -652,10 +652,10 @@ export default function CustomerActivityClient() {
               {canPull && !anchor && (
                 <p className="mt-1 text-xs text-foreground-muted">
                   {autoRead === 'reading'
-                    ? 'Reading the router\u2019s log now…'
+                    ? 'Checking the router now…'
                     : filter === 'router_log'
-                      ? 'The router only logs logins, failed logins and drops. Lines appear here when the router is read, which happens each time this page opens.'
-                      : 'Pull router logs to save what the router is saying about this customer.'}
+                      ? 'The router only logs logins, failed logins and drops. Its messages appear here when the router is checked, which happens each time this page opens.'
+                      : 'Check the router to save what it is saying about this customer.'}
                 </p>
               )}
             </div>

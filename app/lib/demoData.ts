@@ -579,13 +579,26 @@ export function demoRouterUptime(routerId: number): RouterUptimeResponse {
       status_last_checked_at: iso(), last_online_at: iso(), status_source: 'health_check',
       availability_checks: 2880, availability_successes: 2870,
     },
-    overall: { total_checks: 2880, online_checks: 2870, uptime_percentage: 99.65 },
+    method: 'time',
+    judged_by: 'router_reports',
+    overall: {
+      days: 30, total_checks: 2880, online_checks: 2870, uptime_percentage: 99.82,
+      measured_seconds: 30 * 86400, downtime_seconds: 4680, outage_count: 3,
+    },
     window: {
       hours: 24, from: iso(1), to: iso(), first_check_at: iso(1), last_check_at: iso(),
-      total_checks: 288, online_checks: 286, uptime_percentage: 99.31,
+      total_checks: 288, online_checks: 286, uptime_percentage: 95.83,
+      measured_seconds: 86400, downtime_seconds: 3600, outage_count: 1,
     },
+    outages: [{ started_at: iso(0, 9), ended_at: iso(0, 8), duration_seconds: 3600 }],
+    timeline: Array.from({ length: 24 }, (_, i) => ({
+      from: iso(0, 24 - i), to: iso(0, 23 - i),
+      status: (i === 15 ? 'down' : 'up') as 'down' | 'up',
+      downtime_seconds: i === 15 ? 3600 : 0,
+    })),
     recent_checks: Array.from({ length: 90 }, (_, i) => ({
-      checked_at: iso(0, (89 - i) * 0.5), is_online: i !== 23 && i !== 24 && i !== 61, source: 'health_check',
+      checked_at: iso(0, (89 - i) * 0.5), is_online: i !== 23 && i !== 24 && i !== 61, source: 'usage_push',
+      counted_as_outage: false,
     })),
   };
 }

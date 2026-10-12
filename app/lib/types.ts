@@ -2031,6 +2031,31 @@ export interface UptimeCheck {
   checked_at: string;
   is_online: boolean;
   source: string;
+  /** False for a failed connection made while the router was reporting: it cost no uptime. */
+  counted_as_outage?: boolean;
+}
+
+export interface UptimeStats {
+  total_checks: number;
+  online_checks: number;
+  /** Share of TIME the router was up, over the part of the window with data. */
+  uptime_percentage: number | null;
+  measured_seconds?: number;
+  downtime_seconds?: number;
+  outage_count?: number;
+}
+
+export interface UptimeOutage {
+  started_at: string;
+  ended_at: string | null;
+  duration_seconds: number;
+}
+
+export interface UptimeTimelineSlice {
+  from: string;
+  to: string;
+  status: 'up' | 'partial' | 'down' | 'no_data';
+  downtime_seconds: number;
 }
 
 export interface RouterUptimeResponse {
@@ -2047,21 +2072,19 @@ export interface RouterUptimeResponse {
     availability_checks: number;
     availability_successes: number;
   };
-  overall: {
-    total_checks: number;
-    online_checks: number;
-    uptime_percentage: number;
-  };
-  window: {
+  method?: 'time';
+  /** "router_reports": judged by the router's own reports; "server_checks": by our connection checks. */
+  judged_by?: 'router_reports' | 'server_checks' | null;
+  overall: UptimeStats & { days?: number };
+  window: UptimeStats & {
     hours: number;
     from: string;
     to: string;
-    first_check_at: string;
-    last_check_at: string;
-    total_checks: number;
-    online_checks: number;
-    uptime_percentage: number;
+    first_check_at: string | null;
+    last_check_at: string | null;
   };
+  outages?: UptimeOutage[];
+  timeline?: UptimeTimelineSlice[];
   recent_checks: UptimeCheck[];
 }
 
