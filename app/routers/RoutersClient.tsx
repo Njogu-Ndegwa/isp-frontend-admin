@@ -311,16 +311,20 @@ export default function RoutersPage() {
     }
   };
 
+  // Switching the window (or router) quickly must not let a slower, older
+  // answer overwrite the newer one.
+  const uptimeRequest = useRef(0);
   const loadUptime = useCallback(async (routerId: number, hours = uptimeHours) => {
+    const seq = ++uptimeRequest.current;
     try {
       setUptimeLoading(true);
       setUptimeRouter(routerId);
       const data = await api.getRouterUptime(routerId, hours, 200);
-      setUptimeData(data);
-    } catch (err) {
-      setUptimeData(null);
+      if (seq === uptimeRequest.current) setUptimeData(data);
+    } catch {
+      if (seq === uptimeRequest.current) setUptimeData(null);
     } finally {
-      setUptimeLoading(false);
+      if (seq === uptimeRequest.current) setUptimeLoading(false);
     }
   }, [uptimeHours]);
 
@@ -1881,12 +1885,24 @@ function UptimePanel({ data }: { data: RouterUptimeResponse }) {
           <p className="text-[10px] uppercase tracking-wider text-foreground-muted mb-1">Uptime · {windowLabel}</p>
           <p className={`text-xl font-bold ${pctColor(windowPct)}`}>{pctText(windowPct)}</p>
         </div>
-        <div className="p-3 rounded-lg bg-background-tertiary">
-          <p className="text-[10px] uppercase tracking-wider text-foreground-muted mb-1">
-            Uptime · {data.overall.days ?? 30} days
-          </p>
-          <p className={`text-xl font-bold ${pctColor(overallPct)}`}>{pctText(overallPct)}</p>
-        </div>
+        {data.window.hours < (data.overall.days ?? 30) * 24 ? (
+          <div className="p-3 rounded-lg bg-background-tertiary">
+            <p className="text-[10px] uppercase tracking-wider text-foreground-muted mb-1">
+              Uptime · {data.overall.days ?? 30} days
+            </p>
+            <p className={`text-xl font-bold ${pctColor(overallPct)}`}>{pctText(overallPct)}</p>
+          </div>
+        ) : (
+          // The window already is the 30 days; show the worst outage instead of repeating it.
+          <div className="p-3 rounded-lg bg-background-tertiary">
+            <p className="text-[10px] uppercase tracking-wider text-foreground-muted mb-1">Longest outage</p>
+            <p className="text-xl font-bold text-foreground">
+              {outages.length
+                ? formatDowntime(Math.max(...outages.map((o) => o.duration_seconds)))
+                : 'none'}
+            </p>
+          </div>
+        )}
         <div className="p-3 rounded-lg bg-background-tertiary">
           <p className="text-[10px] uppercase tracking-wider text-foreground-muted mb-1">Outages · {windowLabel}</p>
           <p className="text-xl font-bold text-foreground">

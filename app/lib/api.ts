@@ -1213,7 +1213,7 @@ class ApiClient {
   }
 
   async getRouterUptime(routerId: number, hours = 24, recentChecks = 50): Promise<RouterUptimeResponse> {
-    if (this.isDemoMode()) return (await loadDemo()).demoRouterUptime(routerId);
+    if (this.isDemoMode()) return (await loadDemo()).demoRouterUptime(routerId, hours);
     const response = await fetch(`${BASE_URL}/routers/${routerId}/uptime?hours=${hours}&recent_checks=${recentChecks}`, {
       headers: this.getHeaders(true),
     });
