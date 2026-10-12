@@ -2,7 +2,7 @@
  "enabled": true,
  "snapshot_age_seconds": 12,
  "generated_at": "2026-10-12T15:20:00Z",
- "overall_status": "warning",
+ "overall_status": "critical",
  "sections": {
   "codes": {
    "status": "info",
@@ -141,7 +141,253 @@
     "streak": 0
    },
    "pods_watched": 9,
-   "note": "Successes = 'Request to generate* took N ms' (logged on success only). Failures = ERROR lines from CodeEvent*/Codegen*; JWT-guard rejections never reach them, so the failure count is a floor."
+   "note": "Successes = 'Request to generate* took N ms' (logged on success only). Failures = ERROR lines from CodeEvent*/Codegen*; JWT-guard rejections never reach them, so the failure count is a floor.",
+   "apollo_15m": {
+    "requests": 427,
+    "errors": 0,
+    "system_errors": 0,
+    "success_rate": 1.0,
+    "system_success_rate": 1.0,
+    "error_rate": 0.0,
+    "system_error_rate": 0.0
+   },
+   "apollo_operations": [
+    {
+     "name": "GenerateDaysCode_V2",
+     "label": "GenerateDaysCode_V2",
+     "type": "mutation",
+     "requests": 220,
+     "requests_per_min": 14.67,
+     "errors": 0,
+     "error_rate": 0.0,
+     "p50_ms": null,
+     "p95_ms": null,
+     "is_code": true,
+     "graph": "Thing-Microservice-Shadow-A",
+     "graph_label": "Thing (make) · shadow"
+    },
+    {
+     "name": "GenerateDaysCode",
+     "label": "GenerateDaysCode",
+     "type": "mutation",
+     "requests": 195,
+     "requests_per_min": 13.0,
+     "errors": 0,
+     "error_rate": 0.0,
+     "p50_ms": null,
+     "p95_ms": null,
+     "is_code": true,
+     "graph": "Thing-Microservice-Shadow-A",
+     "graph_label": "Thing (make) · shadow"
+    },
+    {
+     "name": "OpenTokenBatchCodeMutation",
+     "label": "OpenTokenBatchCodeMutation",
+     "type": "mutation",
+     "requests": 6,
+     "requests_per_min": 0.4,
+     "errors": 0,
+     "error_rate": 0.0,
+     "p50_ms": null,
+     "p95_ms": null,
+     "is_code": true,
+     "graph": "Thing-Micorservice-Make",
+     "graph_label": "Thing (use)"
+    },
+    {
+     "name": "GenerateFreeCodeSafe",
+     "label": "GenerateFreeCodeSafe",
+     "type": "mutation",
+     "requests": 4,
+     "requests_per_min": 0.27,
+     "errors": 0,
+     "error_rate": 0.0,
+     "p50_ms": null,
+     "p95_ms": null,
+     "is_code": true,
+     "graph": "Thing-Microservice-Shadow-A",
+     "graph_label": "Thing (make) · shadow"
+    },
+    {
+     "name": "GenerateFreeCode_V2",
+     "label": "GenerateFreeCode_V2",
+     "type": "mutation",
+     "requests": 1,
+     "requests_per_min": 0.07,
+     "errors": 0,
+     "error_rate": 0.0,
+     "p50_ms": null,
+     "p95_ms": null,
+     "is_code": true,
+     "graph": "Thing-Microservice-Shadow-A",
+     "graph_label": "Thing (make) · shadow"
+    },
+    {
+     "name": "GenerateDaysCode__thing_microservice_prodomnivoltaiccomgraphql__0",
+     "label": "GenerateDaysCode",
+     "type": "mutation",
+     "requests": 1,
+     "requests_per_min": 0.07,
+     "errors": 0,
+     "error_rate": 0.0,
+     "p50_ms": null,
+     "p95_ms": null,
+     "is_code": true,
+     "graph": "Thing-Microservice-Use",
+     "graph_label": "Thing · ERM / ble-app"
+    }
+   ],
+   "apollo_errors": [
+    {
+     "operation": "GenerateDaysCode",
+     "operation_label": "GenerateDaysCode",
+     "path": "generateDaysCode",
+     "code": null,
+     "service": null,
+     "count": 1,
+     "message": "E11000 duplicate key error collection: thing-microservice.codeevent index: codeType_1_codeDays_1_codeGenerator_1_codeDecString_1 dup key: { codeType: \"DAYSCODE\", codeDays: 2, codeGenerator: ObjectId('000000000000000000000000'), codeDecString: \"*000 000 000 000 000 0 00 000#\" }",
+     "reason": "duplicate_code",
+     "kind": "system",
+     "last_seen": "2026-10-12T08:13:00.000000000Z",
+     "is_code": true,
+     "graph": "Thing-Microservice-Shadow-A",
+     "graph_label": "Thing (make) · shadow"
+    },
+    {
+     "operation": "GenerateDaysCode_V2",
+     "operation_label": "GenerateDaysCode_V2",
+     "path": "generateDaysCode_v2",
+     "code": null,
+     "service": null,
+     "count": 38,
+     "message": "Error: Minimum time lapse between codes 6 seconds.",
+     "reason": "rate_limited",
+     "kind": "user",
+     "last_seen": "2026-10-12T15:16:00.000000000Z",
+     "is_code": true,
+     "graph": "Thing-Microservice-Shadow-A",
+     "graph_label": "Thing (make) · shadow"
+    },
+    {
+     "operation": "GenerateFreeCode_V2",
+     "operation_label": "GenerateFreeCode_V2",
+     "path": "generateFreeCode_v2",
+     "code": null,
+     "service": null,
+     "count": 9,
+     "message": "Error: Item is not found",
+     "reason": "not_found",
+     "kind": "user",
+     "last_seen": "2026-10-12T14:45:00.000000000Z",
+     "is_code": true,
+     "graph": "Thing-Microservice-Shadow-A",
+     "graph_label": "Thing (make) · shadow"
+    }
+   ],
+   "apollo_window": {
+    "from": "2026-10-12T17:30:00Z",
+    "to": "2026-10-12T17:45:00Z"
+   },
+   "path": [
+    {
+     "id": "shadow_api",
+     "label": "Shadow API",
+     "role": "Device OTP / code routes",
+     "status": "ok",
+     "pods": "3/3",
+     "restarts": 0,
+     "latency_ms": 1320.5,
+     "requests_15m": null,
+     "errors_15m": null,
+     "error_rate": null,
+     "platform_error_rate": null,
+     "note": null
+    },
+    {
+     "id": "thing_make",
+     "label": "Thing (make)",
+     "role": "Generates codes for shadow + devices",
+     "status": "ok",
+     "pods": "2/2",
+     "restarts": 0,
+     "latency_ms": 809.1,
+     "requests_15m": 422,
+     "errors_15m": 0,
+     "error_rate": 0.0,
+     "platform_error_rate": 0,
+     "note": null
+    },
+    {
+     "id": "thing",
+     "label": "Thing",
+     "role": "Codes for ERM admin + ble-app",
+     "status": "ok",
+     "pods": "5/5",
+     "restarts": 0,
+     "latency_ms": 847.4,
+     "requests_15m": 82,
+     "errors_15m": 0,
+     "error_rate": 0.0,
+     "platform_error_rate": 0,
+     "note": null
+    },
+    {
+     "id": "opentoken",
+     "label": "OpenToken",
+     "role": "OpenPAYGO algorithm",
+     "status": "ok",
+     "pods": "1/1",
+     "restarts": 0,
+     "latency_ms": 1165.9,
+     "requests_15m": null,
+     "errors_15m": null,
+     "error_rate": null,
+     "platform_error_rate": null,
+     "note": null
+    },
+    {
+     "id": "auth",
+     "label": "Auth",
+     "role": "Login + MQTT auth",
+     "status": "ok",
+     "pods": "3/3",
+     "restarts": 3,
+     "latency_ms": 2505.9,
+     "requests_15m": 512,
+     "errors_15m": 15,
+     "error_rate": 0.0293,
+     "platform_error_rate": 0,
+     "note": null
+    },
+    {
+     "id": "account",
+     "label": "Account",
+     "role": "Accounts + PAYG",
+     "status": "ok",
+     "pods": "2/2",
+     "restarts": 0,
+     "latency_ms": 2165.4,
+     "requests_15m": 6,
+     "errors_15m": 0,
+     "error_rate": 0.0,
+     "platform_error_rate": 0,
+     "note": null
+    },
+    {
+     "id": "mqtt",
+     "label": "MQTT broker",
+     "role": "Delivers codes to devices",
+     "status": "ok",
+     "pods": null,
+     "restarts": null,
+     "latency_ms": 280.0,
+     "requests_15m": null,
+     "errors_15m": null,
+     "error_rate": null,
+     "platform_error_rate": null,
+     "note": null
+    }
+   ]
   },
   "database": {
    "status": "ok",
@@ -1853,9 +2099,322 @@
      ]
     }
    ]
+  },
+  "graphql": {
+   "available": true,
+   "status": "critical",
+   "from": "2026-10-12T17:30:00Z",
+   "to": "2026-10-12T17:45:00Z",
+   "graphs": [
+    {
+     "graph": "Thing-Microservice-Shadow-A",
+     "label": "Thing (make) · shadow",
+     "role": "Codes for shadow API + devices",
+     "requests": 422,
+     "errors": 0,
+     "error_rate": 0.0,
+     "system_errors": 0,
+     "system_error_rate": 0.0,
+     "top_errors": []
+    },
+    {
+     "graph": "Thing-Microservice-Use",
+     "label": "Thing · ERM / ble-app",
+     "role": "Codes for ERM admin + ble-app",
+     "requests": 82,
+     "errors": 0,
+     "error_rate": 0.0,
+     "system_errors": 0,
+     "system_error_rate": 0.0,
+     "top_errors": []
+    },
+    {
+     "graph": "Auth-Microservice-Prod",
+     "label": "Auth",
+     "role": "Login, MQTT auth",
+     "requests": 512,
+     "errors": 15,
+     "error_rate": 0.0293,
+     "system_errors": 0,
+     "system_error_rate": 0.0,
+     "top_errors": [
+      {
+       "operation": "(unnamed)",
+       "operation_label": "(unnamed)",
+       "path": "signInUser",
+       "code": null,
+       "service": null,
+       "count": 15,
+       "message": "Invalid Credentials",
+       "reason": "unauthorized",
+       "kind": "user",
+       "last_seen": "2026-10-12T17:44:00.000000000Z",
+       "is_code": false
+      }
+     ]
+    },
+    {
+     "graph": "Account-Microservice-Prod",
+     "label": "Account",
+     "role": "Accounts, PAYG",
+     "requests": 6,
+     "errors": 0,
+     "error_rate": 0.0,
+     "system_errors": 0,
+     "system_error_rate": 0.0,
+     "top_errors": []
+    },
+    {
+     "graph": "Client-Microservice-Prod",
+     "label": "Client",
+     "role": "Customers, people",
+     "requests": 238,
+     "errors": 15,
+     "error_rate": 0.06303,
+     "system_errors": 0,
+     "system_error_rate": 0.0,
+     "top_errors": [
+      {
+       "operation": "signInClient",
+       "operation_label": "signInClient",
+       "path": "signInClient",
+       "code": null,
+       "service": null,
+       "count": 15,
+       "message": "Invalid Credentials",
+       "reason": "unauthorized",
+       "kind": "user",
+       "last_seen": "2026-10-12T17:44:00.000000000Z",
+       "is_code": false
+      }
+     ]
+    },
+    {
+     "graph": "Event-Microservice-Prod",
+     "label": "Event",
+     "role": "Events, telemetry",
+     "requests": 504,
+     "errors": 502,
+     "error_rate": 0.99603,
+     "system_errors": 502,
+     "system_error_rate": 0.99603,
+     "top_errors": [
+      {
+       "operation": "# GraphQLValidationFailure",
+       "operation_label": "# GraphQLValidationFailure",
+       "path": null,
+       "code": null,
+       "service": null,
+       "count": 1004,
+       "message": "Cannot query field \"microserviceEvents_2024\" on type \"Mutation\".",
+       "reason": "schema_mismatch",
+       "kind": "system",
+       "last_seen": "2026-10-12T17:44:00.000000000Z",
+       "is_code": false
+      }
+     ]
+    },
+    {
+     "graph": "Auth-Microservice-Shadow-AP",
+     "label": "Auth (use)",
+     "role": "auth-use-microservice",
+     "requests": 216,
+     "errors": 1,
+     "error_rate": 0.00463,
+     "system_errors": 0,
+     "system_error_rate": 0.0,
+     "top_errors": [
+      {
+       "operation": "(unnamed)",
+       "operation_label": "(unnamed)",
+       "path": null,
+       "code": null,
+       "service": null,
+       "count": 1,
+       "message": "Variable \"$signInCredentials\" got invalid value null at \"signInCredentials.email\"; Expected non-nullable type \"String!\" not to be null.",
+       "reason": "validation",
+       "kind": "user",
+       "last_seen": "2026-10-12T17:38:00.000000000Z",
+       "is_code": false
+      }
+     ]
+    },
+    {
+     "graph": "Client-Microservice-Shadow",
+     "label": "Client (use)",
+     "role": "client-use-microservice",
+     "requests": 2,
+     "errors": 0,
+     "error_rate": 0.0,
+     "system_errors": 0,
+     "system_error_rate": 0.0,
+     "top_errors": []
+    },
+    {
+     "graph": "Thing-Micorservice-Make",
+     "label": "Thing (use)",
+     "role": "thing-use-microservice",
+     "requests": 9,
+     "errors": 0,
+     "error_rate": 0.0,
+     "system_errors": 0,
+     "system_error_rate": 0.0,
+     "top_errors": []
+    }
+   ],
+   "failures": {},
+   "codes_15m": {
+    "requests": 427,
+    "errors": 0,
+    "system_errors": 0,
+    "success_rate": 1.0,
+    "system_success_rate": 1.0,
+    "error_rate": 0.0,
+    "system_error_rate": 0.0
+   },
+   "code_operations": [
+    {
+     "name": "GenerateDaysCode_V2",
+     "label": "GenerateDaysCode_V2",
+     "type": "mutation",
+     "requests": 220,
+     "requests_per_min": 14.67,
+     "errors": 0,
+     "error_rate": 0.0,
+     "p50_ms": null,
+     "p95_ms": null,
+     "is_code": true,
+     "graph": "Thing-Microservice-Shadow-A",
+     "graph_label": "Thing (make) · shadow"
+    },
+    {
+     "name": "GenerateDaysCode",
+     "label": "GenerateDaysCode",
+     "type": "mutation",
+     "requests": 195,
+     "requests_per_min": 13.0,
+     "errors": 0,
+     "error_rate": 0.0,
+     "p50_ms": null,
+     "p95_ms": null,
+     "is_code": true,
+     "graph": "Thing-Microservice-Shadow-A",
+     "graph_label": "Thing (make) · shadow"
+    },
+    {
+     "name": "OpenTokenBatchCodeMutation",
+     "label": "OpenTokenBatchCodeMutation",
+     "type": "mutation",
+     "requests": 6,
+     "requests_per_min": 0.4,
+     "errors": 0,
+     "error_rate": 0.0,
+     "p50_ms": null,
+     "p95_ms": null,
+     "is_code": true,
+     "graph": "Thing-Micorservice-Make",
+     "graph_label": "Thing (use)"
+    },
+    {
+     "name": "GenerateFreeCodeSafe",
+     "label": "GenerateFreeCodeSafe",
+     "type": "mutation",
+     "requests": 4,
+     "requests_per_min": 0.27,
+     "errors": 0,
+     "error_rate": 0.0,
+     "p50_ms": null,
+     "p95_ms": null,
+     "is_code": true,
+     "graph": "Thing-Microservice-Shadow-A",
+     "graph_label": "Thing (make) · shadow"
+    },
+    {
+     "name": "GenerateFreeCode_V2",
+     "label": "GenerateFreeCode_V2",
+     "type": "mutation",
+     "requests": 1,
+     "requests_per_min": 0.07,
+     "errors": 0,
+     "error_rate": 0.0,
+     "p50_ms": null,
+     "p95_ms": null,
+     "is_code": true,
+     "graph": "Thing-Microservice-Shadow-A",
+     "graph_label": "Thing (make) · shadow"
+    },
+    {
+     "name": "GenerateDaysCode__thing_microservice_prodomnivoltaiccomgraphql__0",
+     "label": "GenerateDaysCode",
+     "type": "mutation",
+     "requests": 1,
+     "requests_per_min": 0.07,
+     "errors": 0,
+     "error_rate": 0.0,
+     "p50_ms": null,
+     "p95_ms": null,
+     "is_code": true,
+     "graph": "Thing-Microservice-Use",
+     "graph_label": "Thing · ERM / ble-app"
+    }
+   ],
+   "code_errors": [
+    {
+     "operation": "GenerateDaysCode",
+     "operation_label": "GenerateDaysCode",
+     "path": "generateDaysCode",
+     "code": null,
+     "service": null,
+     "count": 1,
+     "message": "E11000 duplicate key error collection: thing-microservice.codeevent index: codeType_1_codeDays_1_codeGenerator_1_codeDecString_1 dup key: { codeType: \"DAYSCODE\", codeDays: 2, codeGenerator: ObjectId('000000000000000000000000'), codeDecString: \"*000 000 000 000 000 0 00 000#\" }",
+     "reason": "duplicate_code",
+     "kind": "system",
+     "last_seen": "2026-10-12T08:13:00.000000000Z",
+     "is_code": true,
+     "graph": "Thing-Microservice-Shadow-A",
+     "graph_label": "Thing (make) · shadow"
+    },
+    {
+     "operation": "GenerateDaysCode_V2",
+     "operation_label": "GenerateDaysCode_V2",
+     "path": "generateDaysCode_v2",
+     "code": null,
+     "service": null,
+     "count": 38,
+     "message": "Error: Minimum time lapse between codes 6 seconds.",
+     "reason": "rate_limited",
+     "kind": "user",
+     "last_seen": "2026-10-12T15:16:00.000000000Z",
+     "is_code": true,
+     "graph": "Thing-Microservice-Shadow-A",
+     "graph_label": "Thing (make) · shadow"
+    },
+    {
+     "operation": "GenerateFreeCode_V2",
+     "operation_label": "GenerateFreeCode_V2",
+     "path": "generateFreeCode_v2",
+     "code": null,
+     "service": null,
+     "count": 9,
+     "message": "Error: Item is not found",
+     "reason": "not_found",
+     "kind": "user",
+     "last_seen": "2026-10-12T14:45:00.000000000Z",
+     "is_code": true,
+     "graph": "Thing-Microservice-Shadow-A",
+     "graph_label": "Thing (make) · shadow"
+    }
+   ]
   }
  },
  "alerts": [
+  {
+   "key": "oves.gql.Event-Microservice-Prod",
+   "severity": "critical",
+   "title": "Event: 100 % of requests failing",
+   "message": "502/504 requests hit platform errors in 15 min; top: (unnamed): # GraphQLValidationFailure: Cannot query field \"microserviceEvents_2024\" on type \"Mutation\".",
+   "section": "graphql.Event-Microservice-Prod"
+  },
   {
    "key": "oves.exposure.public_ports",
    "severity": "warning",
@@ -1895,6 +2454,9 @@
    "state": "ok"
   },
   "probes": {
+   "state": "ok"
+  },
+  "apollo": {
    "state": "ok"
   }
  }

@@ -1,5 +1,6 @@
 import { expect, test, type Page, type Route } from '@playwright/test';
 import snapshot from './fixtures-oves-health.json';
+import graphql from './fixtures-oves-graphql.json';
 
 // The OVES platform health panel against a REAL snapshot: the fixture is the
 // output of the backend collector (isp-billing app/services/oves_health) run
@@ -58,9 +59,24 @@ async function authenticate(page: Page) {
 
 async function mockApi(page: Page, payload: unknown = snapshot) {
   const historyCalls: string[] = [];
+  const gqlCalls: string[] = [];
   await page.route('**/api/**', async (route) => {
     const url = new URL(route.request().url());
     if (url.pathname.endsWith('/admin/oves-health')) return json(route, payload);
+    if (url.pathname.endsWith('/admin/oves-health/graphql/graphs')) return json(route, { configured: true, graphs: graphql.graphs });
+    if (url.pathname.endsWith('/admin/oves-health/graphql')) {
+      gqlCalls.push(url.search);
+      const g = url.searchParams.get('graph');
+      if (g === 'Event-Microservice-Prod') return json(route, graphql.event_24h);
+      if (g === 'Thing-Microservice-Shadow-A') {
+        const base = Number(url.searchParams.get('hours')) >= 168 ? graphql.shadow_7d : graphql.shadow_24h;
+        const op = url.searchParams.get('operation');
+        if (!op) return json(route, base);
+        return json(route, { ...base, operation: op, error_groups: base.error_groups.filter((e) => e.operation === op),
+          requests: base.operations.find((o) => o.name === op)?.requests ?? 0 });
+      }
+      return json(route, { detail: 'Apollo GraphOS: HTTP 401' }, 502);
+    }
     if (url.pathname.endsWith('/admin/oves-health/history')) {
       historyCalls.push(url.search);
       return json(route, history(Number(url.searchParams.get('hours') ?? 24), url.searchParams.get('probe') ?? undefined));
@@ -71,7 +87,7 @@ async function mockApi(page: Page, payload: unknown = snapshot) {
     if (url.pathname.endsWith('/admin/db-pool')) return json(route, { detail: 'mocked out' }, 503);
     return json(route, {});
   });
-  return historyCalls;
+  return Object.assign(historyCalls, { gql: gqlCalls });
 }
 
 async function shot(page: Page, name: string) {
@@ -89,10 +105,38 @@ for (const width of [375, 1280]) {
     const panel = page.getByTestId('oves-health-panel');
     await expect(panel).toBeVisible({ timeout: 30_000 });
     await expect(panel.getByRole('heading', { name: 'OVES platform health' })).toBeVisible();
-    // The exposure warnings open the details automatically and list as alerts.
+    // Alerts list on their own; the heavy details stay closed until asked for.
     await expect(panel.getByTestId('oves-alerts')).toContainText('open to the internet');
+    await expect(panel.getByTestId('oves-details')).toHaveCount(0);
+    // Code generation comes first, from Apollo: success, requests, operations, real messages, the path.
+    const hero = panel.getByTestId('oves-codegen');
+    await expect(hero).toBeVisible();
+    await expect(hero.getByTestId('oves-codegen-success')).toContainText('100.0%');
+    await expect(hero.getByTestId('oves-codegen-requests')).toContainText('427');
+    await expect(hero.getByTestId('oves-codegen-ops')).toContainText('GenerateDaysCode_V2');
+    await expect(hero.getByTestId('oves-codegen-errors-list')).toContainText('E11000 duplicate key');
+    await expect(hero.getByTestId('oves-path-shadow_api')).toContainText('Shadow API');
+    await expect(hero.getByTestId('oves-path-thing_make')).toContainText('2/2 pods');
+    await expect(panel.getByTestId('oves-tile-api')).toContainText('1/9');
+
+    await panel.getByTestId('oves-toggle').click();
     await expect(panel.getByTestId('oves-details')).toBeVisible();
-    await expect(panel.getByTestId('oves-tile-success')).toContainText('100.0%');
+    // Errors tab (default): Studio-style, shadow graph first, platform errors shown, caller errors behind a toggle.
+    const gql = panel.getByTestId('oves-gql');
+    await expect(gql).toBeVisible();
+    await expect(gql.getByTestId('oves-gql-errors')).toContainText('E11000 duplicate key');
+    await expect(gql.getByTestId('oves-gql-errors')).not.toContainText('Minimum time lapse');
+    await gql.getByTestId('oves-gql-show-caller').check();
+    await expect(gql.getByTestId('oves-gql-errors')).toContainText('Minimum time lapse');
+    await expect(gql.getByTestId('oves-gql-ops')).toContainText('GenerateDaysCode');
+    await gql.getByTestId('oves-gql-ops').getByText('GenerateDaysCode_V2', { exact: true }).click();
+    await expect.poll(() => historyCalls.gql.some((q) => q.includes('operation=GenerateDaysCode_V2'))).toBe(true);
+    await expect(gql.getByTestId('oves-gql-clear-op')).toBeVisible();
+    await gql.getByRole('tab', { name: /^Event/ }).click();
+    await expect(gql.getByTestId('oves-gql-errors')).toContainText('microserviceEvents_2024');
+    await page.waitForTimeout(400);
+    await shot(page, `oves-errors-${width}`);
+    await panel.getByRole('tab', { name: 'Trends' }).click();
     await expect(panel.getByTestId('oves-tile-clusters')).toContainText('2/3');
 
     // Overview charts render from history; switching the range refetches it.
@@ -100,7 +144,7 @@ for (const width of [375, 1280]) {
     await panel.getByTestId('oves-range').getByRole('button', { name: '7d' }).click();
     await expect.poll(() => historyCalls.some((q) => q.includes('hours=168'))).toBe(true);
     await page.waitForTimeout(500);
-    await shot(page, `oves-overview-${width}`);
+    await shot(page, `oves-trends-${width}`);
 
     // Dependencies: grouped, Tencent present, one probe opens its own history.
     await panel.getByRole('tab', { name: 'Dependencies' }).click();
@@ -128,7 +172,7 @@ for (const width of [375, 1280]) {
     await expect(panel).toContainText('billing surplus');
     await shot(page, `oves-database-${width}`);
 
-    await panel.getByRole('tab', { name: 'Codes' }).click();
+    await panel.getByRole('tab', { name: 'Code logs' }).click();
     await expect(panel).toContainText('Failure reasons (60 min)');
     await shot(page, `oves-codes-${width}`);
 

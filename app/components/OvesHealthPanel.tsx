@@ -1,9 +1,11 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { api } from '../lib/api';
 import OvesClusterCard from './OvesClusterCard';
+import OvesCodeGeneration from './OvesCodeGeneration';
+import OvesGraphqlErrors from './OvesGraphqlErrors';
 import {
   OvesAlert,
   OvesCodeWindow,
@@ -30,10 +32,11 @@ const RANGES: { hours: number; label: string }[] = [
   { hours: 336, label: '14d' },
 ];
 
-type Tab = 'overview' | 'codes' | 'database' | 'clusters' | 'dependencies';
+type Tab = 'errors' | 'overview' | 'codes' | 'database' | 'clusters' | 'dependencies';
 const TABS: { id: Tab; label: string }[] = [
-  { id: 'overview', label: 'Overview' },
-  { id: 'codes', label: 'Codes' },
+  { id: 'errors', label: 'Errors' },
+  { id: 'overview', label: 'Trends' },
+  { id: 'codes', label: 'Code logs' },
   { id: 'database', label: 'Database' },
   { id: 'clusters', label: 'Clusters' },
   { id: 'dependencies', label: 'Dependencies' },
@@ -407,8 +410,11 @@ export default function OvesHealthPanel() {
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
   const [now, setNow] = useState<number>(() => Date.now());
-  const [tab, setTab] = useState<Tab>('overview');
-  // null = automatic: open when something is wrong, closed otherwise.
+  const [tab, setTab] = useState<Tab>('errors');
+  // Details (charts, tables, the Apollo call) open only on click. Problems are
+  // already visible above them in the code-generation section and the alerts;
+  // auto-opening cost +4.7 s of main-thread work at 4x CPU (measured) on every
+  // visit while any standing warning exists.
   const [expanded, setExpanded] = useState<boolean | null>(null);
   const [hours, setHours] = useState(24);
   const [hist, setHist] = useState<OvesHistoryResponse | null>(null);
@@ -446,8 +452,7 @@ export default function OvesHealthPanel() {
     return () => { stop(); document.removeEventListener('visibilitychange', onVis); };
   }, [fetchLatest]);
 
-  const hasProblems = useMemo(() => (data?.alerts ?? []).some((a) => a.severity === 'critical' || a.severity === 'warning'), [data]);
-  const isOpen = expanded ?? hasProblems;
+  const isOpen = expanded ?? false;
 
   useEffect(() => {
     if (isOpen) fetchHistory(hours);
@@ -504,8 +509,10 @@ export default function OvesHealthPanel() {
   const dbUp = dbChecks.filter((p) => p.status !== 'down').length;
 
   const w15 = codes?.last_15m;
-  const w60 = codes?.last_60m;
-  const codesStatus = !codes?.available ? 'unknown' : codes.status;
+  const gqlGraphs = data.sections.graphql?.graphs ?? [];
+  const apiBad = gqlGraphs.filter((g) => (g.requests ?? 0) >= 50 && (g.system_error_rate ?? 0) >= 0.02);
+  const apiStatus = !data.sections.graphql?.available ? 'unknown'
+    : apiBad.some((g) => (g.system_error_rate ?? 0) >= 0.10) ? 'critical' : apiBad.length ? 'warning' : 'ok';
 
   return (
     <div className={`card p-4 sm:p-5 space-y-4 ${st.border}`} data-testid="oves-health-panel">
@@ -527,18 +534,22 @@ export default function OvesHealthPanel() {
         </button>
       </div>
 
+      <OvesCodeGeneration
+        apollo={codes?.apollo_15m}
+        operations={codes?.apollo_operations ?? []}
+        errors={codes?.apollo_errors ?? []}
+        path={codes?.path ?? []}
+        logCodes={codes?.available && w15 ? { ok: w15.ok, failed: w15.failed, failed_system: w15.failed_system, p95_ms: w15.p95_ms } : null}
+        onOpenErrors={() => { setExpanded(true); setTab('errors'); }}
+      />
+
       <AlertList alerts={data.alerts} now={now} />
 
       {/* KPI tiles */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
-        <Tile testId="oves-tile-success" label="Success 15m" status={codesStatus}
-          value={codes?.available ? pct(w15?.system_success_rate ?? null) : '—'}
-          sub={codes?.available ? `${w15?.ok ?? 0} ok · ${w15?.failed ?? 0} failed · ${w15?.failed_system ?? 0} platform` : 'prod cluster not connected'} />
-        <Tile testId="oves-tile-rate" label="Codes / hour" status={codesStatus}
-          value={codes?.available ? String(w60?.ok ?? 0) : '—'}
-          sub={codes?.baseline_per_hour != null ? `usually ~${Math.round(codes.baseline_per_hour)}/h now` : 'baseline builds over 2 days'} />
-        <Tile testId="oves-tile-latency" label="Latency p95" status={(w15?.p95_ms ?? 0) > 8000 ? 'warning' : codesStatus}
-          value={secs(w15?.p95_ms)} sub={`p50 ${secs(w15?.p50_ms)} · 15 min`} />
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
+        <Tile testId="oves-tile-api" label="API errors · 15m" status={apiStatus}
+          value={gqlGraphs.length ? `${apiBad.length}/${gqlGraphs.length}` : '—'}
+          sub={gqlGraphs.length ? (apiBad.length ? `failing: ${apiBad.map((g) => `${g.label} ${pct(g.system_error_rate, 0)}`).slice(0, 2).join(', ')}` : 'all graphs under 2 % platform errors') : 'Apollo not connected'} />
         <Tile testId="oves-tile-db" label="Database" status={db?.status}
           value={`${dbUp}/${dbChecks.length}`} sub={db?.login ? `login ${db.login.status === 'up' ? 'ok' : db.login.status} · ${db.log_errors_60m} log errors 1h` : 'reachability checks'} />
         <Tile testId="oves-tile-clusters" label="Clusters" status={['prod', 'dev', 'tencent'].map((c) => clusters[c]?.status ?? 'unknown').reduce((a, b) => (['critical', 'warning'].includes(b) ? b : a), 'ok')}
@@ -560,7 +571,7 @@ export default function OvesHealthPanel() {
                 </button>
               ))}
             </div>
-            {(tab === 'overview' || tab === 'dependencies') && (
+            {(tab === 'errors' || tab === 'overview' || tab === 'dependencies') && (
               <div className="flex gap-1 rounded-lg border border-border p-0.5" data-testid="oves-range">
                 {RANGES.map((r) => (
                   <button key={r.hours} type="button" onClick={() => setHours(r.hours)}
@@ -589,6 +600,7 @@ export default function OvesHealthPanel() {
               </div>
             )
           )}
+          {tab === 'errors' && <OvesGraphqlErrors hours={hours} summary={gqlGraphs} />}
           {tab === 'codes' && <CodesTab data={data} now={now} />}
           {tab === 'database' && <DatabaseTab data={data} />}
           {tab === 'clusters' && (

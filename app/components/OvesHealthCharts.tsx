@@ -117,3 +117,59 @@ export function MetricArea({
     </div>
   );
 }
+
+type GqlPoint = { t: string; requests: number; errors: number; error_rate: number | null };
+
+/** Requests per bucket split into succeeded / failed (Studio's request-rate chart). */
+export function GqlRequestBars({ series, bucketMinutes }: { series: GqlPoint[]; bucketMinutes: number }) {
+  const data = series.map((p) => ({ t: p.t, ok: Math.max(0, p.requests - p.errors), failed: p.errors }));
+  const any = data.some((d) => d.ok || d.failed);
+  return (
+    <div className="min-w-0" data-testid="oves-gql-requests">
+      <p className="text-xs font-medium text-foreground mb-1">Requests</p>
+      {!any ? <Empty text="No requests in this window" /> : (
+        <ResponsiveContainer width="100%" height={150}>
+          <BarChart data={data} margin={{ top: 4, right: 4, left: -8, bottom: 0 }} barCategoryGap={1}>
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" vertical={false} />
+            <XAxis dataKey="t" tick={axisTick} tickFormatter={(v) => tickLabel(v, bucketMinutes)} minTickGap={40} axisLine={false} tickLine={false} />
+            <YAxis tick={axisTick} width={40} allowDecimals={false} axisLine={false} tickLine={false} />
+            <Tooltip {...tooltipStyle} labelFormatter={(v) => tickLabel(String(v), bucketMinutes)} cursor={{ fill: 'var(--color-background-tertiary)' }} />
+            <Bar dataKey="ok" name="Succeeded" stackId="r" fill={OVES_SERIES.good} isAnimationActive={false} />
+            <Bar dataKey="failed" name="With errors" stackId="r" fill={OVES_SERIES.serious} isAnimationActive={false} />
+          </BarChart>
+        </ResponsiveContainer>
+      )}
+    </div>
+  );
+}
+
+/** Error rate per bucket, as a percentage of requests. */
+export function GqlErrorRate({ series, bucketMinutes }: { series: GqlPoint[]; bucketMinutes: number }) {
+  const data = series.map((p) => ({ t: p.t, v: p.error_rate === null ? null : Number((p.error_rate * 100).toFixed(2)) }));
+  const numeric = data.filter((d) => d.v !== null);
+  return (
+    <div className="min-w-0" data-testid="oves-gql-error-rate">
+      <div className="flex items-baseline justify-between gap-2 mb-1">
+        <p className="text-xs font-medium text-foreground">Error rate</p>
+        <p className="text-xs tabular-nums text-foreground-muted">{numeric.length ? `latest ${numeric[numeric.length - 1].v}%` : 'no data'}</p>
+      </div>
+      {numeric.length < 2 ? <Empty text="Not enough requests to chart" /> : (
+        <ResponsiveContainer width="100%" height={150}>
+          <AreaChart data={data} margin={{ top: 4, right: 4, left: -8, bottom: 0 }}>
+            <defs>
+              <linearGradient id="oves-gql-rate" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor={OVES_SERIES.serious} stopOpacity={0.3} />
+                <stop offset="95%" stopColor={OVES_SERIES.serious} stopOpacity={0} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" vertical={false} />
+            <XAxis dataKey="t" tick={axisTick} tickFormatter={(v) => tickLabel(v, bucketMinutes)} minTickGap={40} axisLine={false} tickLine={false} />
+            <YAxis tick={axisTick} width={40} axisLine={false} tickLine={false} unit="%" domain={[0, 'auto']} />
+            <Tooltip {...tooltipStyle} labelFormatter={(v) => tickLabel(String(v), bucketMinutes)} formatter={(v) => [`${v}%`, 'Error rate']} />
+            <Area type="monotone" dataKey="v" stroke={OVES_SERIES.serious} strokeWidth={2} fill="url(#oves-gql-rate)" connectNulls isAnimationActive={false} />
+          </AreaChart>
+        </ResponsiveContainer>
+      )}
+    </div>
+  );
+}
