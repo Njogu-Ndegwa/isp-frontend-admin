@@ -17,6 +17,7 @@ import { getDisplayCurrency } from '../../lib/format';
 import PlanNameHint from '../../components/PlanNameHint';
 import { MAX_PLAN_NAME_LENGTH, isPlanNameTooLong } from '../../lib/planName';
 import { applyPlanType } from '../planType';
+import type { ConnectionType } from '../../lib/types';
 
 export default function CreatePlanPage() {
   const router = useRouter();
@@ -58,6 +59,8 @@ export default function CreatePlanPage() {
   }, []);
 
   const isPPPoE = formData.connection_type === 'pppoe';
+  // One device per subscription: sharing does not apply to PPPoE or static IP.
+  const noSharing = isPPPoE || formData.connection_type === 'static_ip';
   const isFreeTrial = formData.plan_type === 'free_trial';
   const dataCapMb = dataCapInputToMb(dataCapValue, dataCapUnit);
 
@@ -101,7 +104,7 @@ export default function CreatePlanPage() {
       if (!payload.badge_text) payload.badge_text = null;
       if (!payload.original_price) payload.original_price = null;
       payload.valid_until = payload.valid_until ? gmt3InputToISO(payload.valid_until) : null;
-      payload.max_shared_users = isPPPoE ? 1 : Math.max(1, Math.min(50, Number(payload.max_shared_users) || 1));
+      payload.max_shared_users = noSharing ? 1 : Math.max(1, Math.min(50, Number(payload.max_shared_users) || 1));
       payload.data_cap_mb = showFup ? dataCapMb : null;
       // Clear FUP fields when the plan is uncapped.
       if (!payload.data_cap_mb) {
@@ -240,11 +243,11 @@ export default function CreatePlanPage() {
                   id="connection_type"
                   value={formData.connection_type}
                   onChange={(e) => {
-                    const connectionType = e.target.value as 'hotspot' | 'pppoe';
+                    const connectionType = e.target.value as ConnectionType;
                     setFormData({
                       ...formData,
                       connection_type: connectionType,
-                      max_shared_users: connectionType === 'pppoe' ? 1 : (formData.max_shared_users ?? 1),
+                      max_shared_users: connectionType !== 'hotspot' ? 1 : (formData.max_shared_users ?? 1),
                     });
                   }}
                   className="select"
@@ -252,7 +255,11 @@ export default function CreatePlanPage() {
                 >
                   <option value="hotspot">Hotspot</option>
                   <option value="pppoe" disabled={isFreeTrial}>PPPoE</option>
+                  <option value="static_ip" disabled={isFreeTrial}>Static IP</option>
                 </select>
+                {formData.connection_type === 'static_ip' && (
+                  <p className="mt-1 text-xs text-foreground-muted">For devices with a fixed IP on your router. Paying opens access at this speed; expiry suspends it.</p>
+                )}
                 {isFreeTrial && (
                   <p className="mt-1 text-xs text-foreground-muted">Free trials are claimed on the hotspot login page, so they are hotspot only.</p>
                 )}
@@ -309,7 +316,7 @@ export default function CreatePlanPage() {
               />
             )}
 
-            {!isPPPoE && (
+            {!noSharing && (
               <div>
                 <label htmlFor="max_shared_users" className="block text-sm font-medium text-foreground-muted mb-1.5">
                   Subscription Devices

@@ -373,8 +373,8 @@ export const FR: Record<string, string> = {
   'Register Customer': 'Enregistrer un client',
   'Add': 'Ajouter',
   'Connection type': 'Type de connexion',
-  'Search by name, phone, account number, MAC, or PPPoE username...':
-    "Rechercher par nom, téléphone, numéro de compte, MAC ou nom d'utilisateur PPPoE...",
+  'Search by name, phone, account number, MAC, IP, or PPPoE username...':
+    "Rechercher par nom, téléphone, numéro de compte, MAC, IP ou nom d'utilisateur PPPoE...",
   'Filter by status': 'Filtrer par statut',
   '{name} is not reachable': "{name} n'est pas joignable",
   '{count} routers are not reachable': '{count} routeurs ne sont pas joignables',
@@ -404,6 +404,10 @@ export const FR: Record<string, string> = {
   'View Credentials': 'Voir les identifiants',
   'Activate PPPoE': 'Activer PPPoE',
   'Deactivate PPPoE': 'Désactiver PPPoE',
+  'Static IP': 'IP statique',
+  'Activate static IP': "Activer l'IP statique",
+  'Suspend static IP': "Suspendre l'IP statique",
+  'Suspend': 'Suspendre',
   'No customers match your search': 'Aucun client ne correspond à votre recherche',
   'No customers found': 'Aucun client trouvé',
   'Edit': 'Modifier',
