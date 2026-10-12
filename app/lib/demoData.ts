@@ -570,22 +570,54 @@ export const demoPlanPerformance: PlanPerformanceResponse = {
 };
 
 // ─── Router Uptime ──────────────────────────────────────────────────
-export function demoRouterUptime(routerId: number): RouterUptimeResponse {
+export function demoRouterUptime(routerId: number, hours = 24): RouterUptimeResponse {
   const router = demoRouters.find(r => r.id === routerId) ?? demoRouters[0];
+  // One hour-long outage 9 hours ago, plus a 2-hour one 5 days ago that only
+  // the longer windows include, so changing the window visibly changes the numbers.
+  const outages = [
+    { started_at: iso(5, 2), ended_at: iso(5, 0), duration_seconds: 7200 },
+    { started_at: iso(0, 9), ended_at: iso(0, 8), duration_seconds: 3600 },
+  ].filter(o => new Date(o.ended_at).getTime() > Date.now() - hours * 3600_000);
+  const down = outages.reduce((sum, o) => sum + o.duration_seconds, 0);
+  const slices = Math.min(84, Math.max(12, hours));
+  const sliceMs = (hours * 3600_000) / slices;
+  const start = Date.now() - hours * 3600_000;
+  const timeline = Array.from({ length: slices }, (_, i) => {
+    const from = start + i * sliceMs;
+    const to = from + sliceMs;
+    const overlap = outages.reduce((sum, o) => {
+      const a = Math.max(from, new Date(o.started_at).getTime());
+      const b = Math.min(to, new Date(o.ended_at).getTime());
+      return sum + Math.max(0, b - a) / 1000;
+    }, 0);
+    const status: 'up' | 'partial' | 'down' = overlap === 0 ? 'up' : overlap >= sliceMs / 1000 - 1 ? 'down' : 'partial';
+    return { from: new Date(from).toISOString(), to: new Date(to).toISOString(), status, downtime_seconds: Math.round(overlap) };
+  });
   return {
     router_id: router.id, router_name: router.name, generated_at: iso(),
     current_status: {
       status: router.status ?? 'online', status_is_stale: false, status_age_seconds: 30,
-      status_last_checked_at: iso(), last_online_at: iso(), status_source: 'health_check',
+      status_last_checked_at: iso(), last_online_at: iso(), status_source: 'usage_push',
       availability_checks: 2880, availability_successes: 2870,
     },
-    overall: { total_checks: 2880, online_checks: 2870, uptime_percentage: 99.65 },
-    window: {
-      hours: 24, from: iso(1), to: iso(), first_check_at: iso(1), last_check_at: iso(),
-      total_checks: 288, online_checks: 286, uptime_percentage: 99.31,
+    method: 'time',
+    judged_by: 'router_reports',
+    overall: {
+      days: 30, total_checks: 2880, online_checks: 2870,
+      uptime_percentage: Math.round((1 - 10800 / (30 * 86400)) * 10000) / 100,
+      measured_seconds: 30 * 86400, downtime_seconds: 10800, outage_count: 2,
     },
+    window: {
+      hours, from: new Date(start).toISOString(), to: iso(), first_check_at: new Date(start).toISOString(), last_check_at: iso(),
+      total_checks: hours * 12, online_checks: hours * 12 - 2,
+      uptime_percentage: Math.round((1 - down / (hours * 3600)) * 10000) / 100,
+      measured_seconds: hours * 3600, downtime_seconds: down, outage_count: outages.length,
+    },
+    outages,
+    timeline,
     recent_checks: Array.from({ length: 90 }, (_, i) => ({
-      checked_at: iso(0, (89 - i) * 0.5), is_online: i !== 23 && i !== 24 && i !== 61, source: 'health_check',
+      checked_at: iso(0, (89 - i) * 0.5), is_online: i !== 23 && i !== 24 && i !== 61, source: 'usage_push',
+      counted_as_outage: false,
     })),
   };
 }

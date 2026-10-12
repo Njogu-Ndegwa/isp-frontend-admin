@@ -73,7 +73,7 @@ export default function UsageHistoryPanel({ customerId }: { customerId: number }
     : null;
 
   return (
-    <div className="card p-4 space-y-4" data-testid="usage-history-panel">
+    <div className="card p-4 space-y-4 @container" data-testid="usage-history-panel">
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
           <h3 className="text-sm font-semibold text-foreground-muted uppercase tracking-wider">Usage History</h3>
@@ -88,7 +88,7 @@ export default function UsageHistoryPanel({ customerId }: { customerId: number }
         <div className="h-56 sm:h-64 w-full rounded-lg bg-background-tertiary animate-pulse" />
       ) : (
         <div className={`space-y-4 transition-opacity ${loading ? 'opacity-50' : ''}`}>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          <div className="grid grid-cols-2 @lg:grid-cols-4 gap-2">
             <Stat label="Total" value={formatUsageMb(timeline.total_mb)} strong />
             <Stat label="Download" value={formatUsageMb(timeline.download_mb)} />
             <Stat label="Upload" value={formatUsageMb(timeline.upload_mb)} />

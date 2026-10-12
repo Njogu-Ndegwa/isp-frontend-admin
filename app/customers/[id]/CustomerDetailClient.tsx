@@ -187,10 +187,10 @@ export default function EditCustomerPage() {
         backHref="/customers"
       />
 
-      {/* Phones and tablets: one column. Wide screens: what is happening with
+      {/* Phones and small tablets: one column. From 1024px: what is happening with
           the customer (activity, usage, payments) on the left, the details you
           edit on the right, instead of one narrow strip down the middle. */}
-      <div className="max-w-2xl mx-auto space-y-4 xl:max-w-none xl:mx-0 xl:space-y-0 xl:grid xl:grid-cols-[minmax(0,1fr)_minmax(360px,420px)] xl:gap-6 xl:items-start">
+      <div className="max-w-2xl mx-auto space-y-4 lg:max-w-none lg:mx-0 lg:space-y-0 lg:grid lg:grid-cols-[minmax(0,1fr)_300px] xl:grid-cols-[minmax(0,1fr)_380px] lg:gap-6 lg:items-start">
         <div className="space-y-4 min-w-0">
           <Link
             href={`/customers/${customer.id}/activity`}
