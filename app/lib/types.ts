@@ -2033,6 +2033,8 @@ export interface UptimeCheck {
   source: string;
   /** False for a failed connection made while the router was reporting: it cost no uptime. */
   counted_as_outage?: boolean;
+  /** Failed while the management tunnel was down but the site was online. */
+  in_tunnel_outage?: boolean;
 }
 
 export interface UptimeStats {
@@ -2049,6 +2051,13 @@ export interface UptimeOutage {
   started_at: string;
   ended_at: string | null;
   duration_seconds: number;
+}
+
+/** Bitwave could not reach the router, but it kept calling over the internet: the site was online. */
+export interface UptimeTunnelOutage extends UptimeOutage {
+  public_contacts: number;
+  first_contact_at: string;
+  last_contact_at: string;
 }
 
 export interface UptimeTimelineSlice {
@@ -2084,6 +2093,8 @@ export interface RouterUptimeResponse {
     last_check_at: string | null;
   };
   outages?: UptimeOutage[];
+  /** Not counted against uptime: the site was online, only the tunnel was down. */
+  tunnel_outages?: UptimeTunnelOutage[];
   timeline?: UptimeTimelineSlice[];
   recent_checks: UptimeCheck[];
 }
