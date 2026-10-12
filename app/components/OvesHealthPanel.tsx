@@ -111,19 +111,21 @@ function Meter({ value, warn = 80, crit = 90 }: { value: number | null | undefin
   );
 }
 
-function Tile({ label, value, sub, status, testId }: {
-  label: string; value: string; sub?: string; status?: string; testId?: string;
+function Tile({ label, value, sub, status, testId, onClick }: {
+  label: string; value: string; sub?: string; status?: string; testId?: string; onClick?: () => void;
 }) {
   const st = sevStyle(status);
+  const Wrapper = onClick ? 'button' : 'div';
   return (
-    <div className={`rounded-xl border bg-background-secondary/60 p-3 min-w-0 ${st.border || 'border-border'}`} data-testid={testId}>
+    <Wrapper type={onClick ? 'button' : undefined} onClick={onClick}
+      className={`rounded-xl border bg-background-secondary/60 p-3 min-w-0 text-left ${st.border || 'border-border'} ${onClick ? 'hover:bg-background-tertiary/60 cursor-pointer' : ''}`} data-testid={testId}>
       <div className="flex items-center gap-1.5">
         <span className={`w-1.5 h-1.5 rounded-full ${st.dot}`} />
         <p className="text-[11px] uppercase tracking-wider text-foreground-muted truncate">{label}</p>
       </div>
       <p className={`mt-1 text-lg sm:text-xl font-semibold tabular-nums truncate ${status === 'critical' ? 'text-red-500' : 'text-foreground'}`}>{value}</p>
       {sub && <p className="text-[11px] leading-snug text-foreground-muted mt-0.5 line-clamp-2" title={sub}>{sub}</p>}
-    </div>
+    </Wrapper>
   );
 }
 
@@ -156,7 +158,7 @@ function summaryLine(data: OvesHealthResponse): string {
 // sections
 // ---------------------------------------------------------------------------
 
-function AlertList({ alerts, now }: { alerts: OvesAlert[]; now: number }) {
+function AlertList({ alerts, now, onOpen }: { alerts: OvesAlert[]; now: number; onOpen?: (section: string) => void }) {
   const visible = alerts.filter((a) => a.severity === 'critical' || a.severity === 'warning');
   const info = alerts.filter((a) => a.severity === 'info');
   if (!visible.length && !info.length) return null;
@@ -164,6 +166,7 @@ function AlertList({ alerts, now }: { alerts: OvesAlert[]; now: number }) {
     <div className="space-y-1.5" data-testid="oves-alerts">
       {[...visible, ...info].map((a) => {
         const st = sevStyle(a.severity);
+        const linkable = !!onOpen && (a.section.startsWith('graphql') || a.section.startsWith('http.'));
         return (
           <div key={a.key} className={`flex items-start gap-2 rounded-lg border px-3 py-2 ${st.pill}`}>
             <span className={`mt-1.5 w-1.5 h-1.5 rounded-full flex-shrink-0 ${st.dot}`} />
@@ -171,7 +174,15 @@ function AlertList({ alerts, now }: { alerts: OvesAlert[]; now: number }) {
               <p className="text-xs font-semibold text-foreground">{a.title}</p>
               <p className="text-[11px] text-foreground-muted break-words">{a.message}</p>
             </div>
-            {a.notified_at && <span className="text-[10px] text-foreground-muted whitespace-nowrap">alerted {relative(a.notified_at, now)}</span>}
+            <div className="flex flex-col items-end gap-1 flex-shrink-0">
+              {a.notified_at && <span className="text-[10px] text-foreground-muted whitespace-nowrap">alerted {relative(a.notified_at, now)}</span>}
+              {linkable && (
+                <button type="button" onClick={() => onOpen!(a.section)} data-testid={`oves-alert-open-${a.key}`}
+                  className="text-[11px] font-medium text-foreground underline underline-offset-2 hover:opacity-80 whitespace-nowrap">
+                  See the error →
+                </button>
+              )}
+            </div>
           </div>
         );
       })}
@@ -411,6 +422,13 @@ export default function OvesHealthPanel() {
   const [failed, setFailed] = useState(false);
   const [now, setNow] = useState<number>(() => Date.now());
   const [tab, setTab] = useState<Tab>('errors');
+  // What the Errors tab should open on ("graphql.<graph>" / "http.<service>").
+  const [errorsFocus, setErrorsFocus] = useState<string | null>(null);
+  const openErrors = useCallback((section: string | null) => {
+    setErrorsFocus(section);
+    setExpanded(true);
+    setTab('errors');
+  }, []);
   // Details (charts, tables, the Apollo call) open only on click. Problems are
   // already visible above them in the code-generation section and the alerts;
   // auto-opening cost +4.7 s of main-thread work at 4x CPU (measured) on every
@@ -511,8 +529,13 @@ export default function OvesHealthPanel() {
   const w15 = codes?.last_15m;
   const gqlGraphs = data.sections.graphql?.graphs ?? [];
   const apiBad = gqlGraphs.filter((g) => (g.requests ?? 0) >= 50 && (g.system_error_rate ?? 0) >= 0.02);
-  const apiStatus = !data.sections.graphql?.available ? 'unknown'
-    : apiBad.some((g) => (g.system_error_rate ?? 0) >= 0.10) ? 'critical' : apiBad.length ? 'warning' : 'ok';
+  const trafficNow = data.sections.traffic?.last_5m ?? {};
+  const httpServices = Object.keys(trafficNow).length;
+  const httpBad = Object.entries(trafficNow).filter(([, t]) =>
+    (t.real_requests ?? t.requests) >= 20 && (t.real_error_rate ?? 0) > 0.05);
+  const apiStatus = !data.sections.graphql?.available && !httpServices ? 'unknown'
+    : apiBad.some((g) => (g.system_error_rate ?? 0) >= 0.10) ? 'critical'
+      : apiBad.length || httpBad.length ? 'warning' : 'ok';
 
   return (
     <div className={`card p-4 sm:p-5 space-y-4 ${st.border}`} data-testid="oves-health-panel">
@@ -540,16 +563,19 @@ export default function OvesHealthPanel() {
         errors={codes?.apollo_errors ?? []}
         path={codes?.path ?? []}
         logCodes={codes?.available && w15 ? { ok: w15.ok, failed: w15.failed, failed_system: w15.failed_system, p95_ms: w15.p95_ms } : null}
-        onOpenErrors={() => { setExpanded(true); setTab('errors'); }}
+        onOpenErrors={() => openErrors('graphql.Thing-Microservice-Shadow-A')}
       />
 
-      <AlertList alerts={data.alerts} now={now} />
+      <AlertList alerts={data.alerts} now={now} onOpen={openErrors} />
 
       {/* KPI tiles */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
-        <Tile testId="oves-tile-api" label="API errors · 15m" status={apiStatus}
-          value={gqlGraphs.length ? `${apiBad.length}/${gqlGraphs.length}` : '—'}
-          sub={gqlGraphs.length ? (apiBad.length ? `failing: ${apiBad.map((g) => `${g.label} ${pct(g.system_error_rate, 0)}`).slice(0, 2).join(', ')}` : 'all graphs under 2 % platform errors') : 'Apollo not connected'} />
+        <Tile testId="oves-tile-api" label="API errors · now" status={apiStatus}
+          onClick={() => openErrors(apiBad[0] ? `graphql.${apiBad[0].graph}` : httpBad[0] ? `http.${httpBad[0][0]}` : null)}
+          value={gqlGraphs.length || httpServices ? `${apiBad.length + httpBad.length} failing` : '—'}
+          sub={apiBad.length || httpBad.length
+            ? [...apiBad.map((g) => `${g.label} ${pct(g.system_error_rate, 0)}`), ...httpBad.map(([svc, t]) => `${svc.replace(/-microservice/, '')} ${pct(t.real_error_rate ?? null, 0)} 5xx`)].slice(0, 2).join(', ') + ' · tap to see'
+            : gqlGraphs.length ? 'no API failing (bots ignored)' : 'Apollo not connected'} />
         <Tile testId="oves-tile-db" label="Database" status={db?.status}
           value={`${dbUp}/${dbChecks.length}`} sub={db?.login ? `login ${db.login.status === 'up' ? 'ok' : db.login.status} · ${db.log_errors_60m} log errors 1h` : 'reachability checks'} />
         <Tile testId="oves-tile-clusters" label="Clusters" status={['prod', 'dev', 'tencent'].map((c) => clusters[c]?.status ?? 'unknown').reduce((a, b) => (['critical', 'warning'].includes(b) ? b : a), 'ok')}
@@ -600,7 +626,8 @@ export default function OvesHealthPanel() {
               </div>
             )
           )}
-          {tab === 'errors' && <OvesGraphqlErrors hours={hours} summary={gqlGraphs} />}
+          {tab === 'errors' && <OvesGraphqlErrors key={errorsFocus ?? 'auto'} hours={hours} summary={gqlGraphs}
+            traffic={data.sections.traffic?.last_5m} focus={errorsFocus} />}
           {tab === 'codes' && <CodesTab data={data} now={now} />}
           {tab === 'database' && <DatabaseTab data={data} />}
           {tab === 'clusters' && (
