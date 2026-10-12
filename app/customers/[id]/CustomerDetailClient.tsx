@@ -232,7 +232,9 @@ export default function EditCustomerPage() {
         </div>
 
         <div className="space-y-4 min-w-0">
-          {isPPPoE && (
+          {isStatic && <StaticIpPanel customer={customer} onChanged={loadData} />}
+          {/* Static-IP customers pay through the same paybill account as PPPoE. */}
+          {(isPPPoE || isStatic) && (
             <div className="card p-5 space-y-3">
               <h3 className="text-sm font-semibold text-foreground-muted uppercase tracking-wider">Paybill Payment Instructions</h3>
               <div className="space-y-2">
@@ -276,7 +278,6 @@ export default function EditCustomerPage() {
             </div>
           )}
 
-          {isStatic && <StaticIpPanel customer={customer} onChanged={loadData} />}
           <RelatedAccounts customer={customer} customers={allCustomers} />
           <div className="card p-5">
             <h3 className="text-sm font-semibold text-foreground-muted uppercase tracking-wider mb-4">Customer details</h3>

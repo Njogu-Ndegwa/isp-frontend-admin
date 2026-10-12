@@ -114,13 +114,14 @@ export default function StaticIpPanel({ customer, onChanged }: { customer: Custo
           </dd>
         </div>
         <div className="bg-background-tertiary rounded-lg p-3 col-span-2">
-          <dt className="text-xs text-foreground-muted uppercase tracking-wider">Pinned device (blocks anyone else using this IP)</dt>
+          <dt className="text-xs text-foreground-muted uppercase tracking-wider">Pinned device</dt>
           <dd className="font-mono text-foreground mt-1 flex items-center justify-between gap-2">
             <span>{pinned || 'Not pinned yet'}</span>
             {typeof r?.pin_hits === 'number' && r.pin_hits > 0 && (
               <span className="text-xs text-warning font-sans">{r.pin_hits} blocked packets</span>
             )}
           </dd>
+          <p className="text-xs text-foreground-muted mt-1">Any other device using this IP is blocked.</p>
         </div>
       </dl>
 
@@ -225,6 +226,7 @@ export default function StaticIpPanel({ customer, onChanged }: { customer: Custo
               >
                 <option value="cash">Cash</option>
                 <option value="mpesa">M-Pesa</option>
+                <option value="voucher">Voucher</option>
               </select>
             </div>
             <div>
@@ -235,6 +237,15 @@ export default function StaticIpPanel({ customer, onChanged }: { customer: Custo
                 value={payForm.payment_reference || ''}
                 onChange={(e) => setPayForm({ ...payForm, payment_reference: e.target.value })}
                 placeholder="e.g. M-Pesa code"
+              />
+            </div>
+            <div>
+              <label htmlFor="static-payment-notes" className="block text-sm font-medium text-foreground-muted mb-1.5">Notes (optional)</label>
+              <input
+                id="static-payment-notes"
+                className="input"
+                value={payForm.notes || ''}
+                onChange={(e) => setPayForm({ ...payForm, notes: e.target.value })}
               />
             </div>
             <div className="flex gap-3 pt-2">

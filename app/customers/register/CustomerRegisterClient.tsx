@@ -209,7 +209,7 @@ export default function RegisterCustomerPage() {
     <div>
       <Header
         title="Register Customer"
-        subtitle="Add a new hotspot or PPPoE customer"
+        subtitle="Add a new hotspot, PPPoE or static-IP customer"
         backHref="/customers"
       />
 

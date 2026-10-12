@@ -13,7 +13,7 @@ for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 
       localStorage.removeItem('demo_mode');
     }, user);
     const plan = { id: 1, name: 'Static 10M', connection_type: 'static_ip', speed: '10M/10M', price: 1500, duration_value: 30, duration_unit: 'days' };
-    const customer = { id: 101, name: 'Static Test', phone: 'N/A', connection_type: 'static_ip', static_ip: '192.168.2.24', static_mac: '50:0F:F5:C1:07:50', status: 'active', expiry: '2099-11-12T00:00:00', plan, plan_id: 1, router_id: 11, router: { id: 11, name: 'Test Router' } };
+    const customer = { id: 101, name: 'Static Test', phone: 'N/A', account_number: 'ST12345', connection_type: 'static_ip', static_ip: '192.168.2.24', static_mac: '50:0F:F5:C1:07:50', status: 'active', expiry: '2099-11-12T00:00:00', plan, plan_id: 1, router_id: 11, router: { id: 11, name: 'Test Router' } };
     const mutations: string[] = [];
     let registration: Record<string, unknown> | null = null;
     const live = { online: true, ip: customer.static_ip, rate_up_bps: 1000000, rate_down_bps: 2000000, max_limit: '10M/10M', queue_status: 'ok', stale: false, sample_age_seconds: 1 };
@@ -61,8 +61,11 @@ for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 
     await page.getByRole('tab', { name: /Static IP/ }).click();
     await expect(page.getByText('Static IP · 192.168.2.24').filter({ visible: true })).toBeVisible();
     await expect(page.getByText('Online', { exact: true }).filter({ visible: true }).first()).toBeVisible();
+    // Same quick actions as PPPoE: an active static customer can be suspended from the list.
+    await expect(page.getByTitle(/^(Suspend|Suspend static IP)$/).filter({ visible: true }).first()).toBeVisible();
     await page.goto('/customers/101');
     await expect(page.getByRole('heading', { name: 'Static IP control' })).toBeVisible();
+    await expect(page.getByText('Paybill Payment Instructions')).toBeVisible();
     await page.getByRole('button', { name: 'Suspend now' }).click();
     await page.getByRole('button', { name: 'Suspend', exact: true }).click();
     await expect(page.getByRole('button', { name: 'Resume remaining access' })).toBeVisible();
@@ -100,6 +103,8 @@ for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 
       const box = await nav.boundingBox();
       expect(box!.width).toBeGreaterThanOrEqual(389);
       await expect(nav.getByRole('link')).toHaveCount(5);
+      // The dev-tools badge (<nextjs-portal>) only exists in dev and can sit over the nav.
+      await page.evaluate(() => document.querySelectorAll('nextjs-portal').forEach(el => el.remove()));
       for (const link of await nav.getByRole('link').all()) await link.click({ trial: true });
     }
     expect(errors).toEqual([]);

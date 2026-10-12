@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { SectionEmpty } from './SectionCard';
 import type { ResellerTopUsageEntry } from '../../lib/types';
 import { useT } from '../../lib/i18n';
+import { connectionTypeLabel } from '../../lib/connectionType';
 
 // Account-wide data-cap / FUP usage for the billing period. Body only —
 // rendered inside the combined Top Users card.
@@ -47,7 +48,7 @@ export function TopUsageBody({
             ? 'bg-amber-500'
             : 'bg-purple-500';
     const connectionType = entry.connection_type ?? 'hotspot';
-    const serviceLabel = connectionType === 'pppoe' ? 'PPPoE' : 'Hotspot';
+    const serviceLabel = connectionTypeLabel(connectionType);
     const identifier = entry.identifier || entry.pppoe_username || t('No identifier');
     const usageText = `${formatMb(entry.total_mb)}${hasCap ? ` / ${formatMb(entry.cap_mb as number)}` : ''}`;
     return { hasCap, percent, barWidth, barColor, connectionType, serviceLabel, identifier, usageText };
@@ -84,6 +85,8 @@ export function TopUsageBody({
                     <span className={`inline-flex px-2 py-1 rounded-md text-xs font-medium ${
                       v.connectionType === 'pppoe'
                         ? 'bg-violet-500/10 text-violet-400'
+                        : v.connectionType === 'static_ip'
+                        ? 'bg-sky-500/10 text-sky-400'
                         : 'bg-amber-500/10 text-amber-400'
                     }`}>
                       {v.serviceLabel}
@@ -148,6 +151,8 @@ export function TopUsageBody({
                   <span className={`px-1.5 py-0.5 rounded text-[9px] font-medium ${
                     v.connectionType === 'pppoe'
                       ? 'bg-violet-500/10 text-violet-400'
+                      : v.connectionType === 'static_ip'
+                      ? 'bg-sky-500/10 text-sky-400'
                       : 'bg-amber-500/10 text-amber-400'
                   }`}>
                     {v.serviceLabel}
