@@ -182,239 +182,242 @@ export default function EditCustomerPage() {
   return (
     <div>
       <Header
-        title={`Edit ${customer.name || 'Customer'}`}
-        subtitle="Update customer details"
+        title={customer.name || 'Customer'}
+        subtitle="Usage, payments and account details"
         backHref="/customers"
       />
 
-      <div className="max-w-lg mx-auto space-y-4">
-        <Link
-          href={`/customers/${customer.id}/activity`}
-          className="card p-4 flex items-center justify-between gap-3 hover:bg-background-tertiary/50 transition-colors"
-        >
-          <div>
-            <p className="text-sm font-semibold text-foreground">Activity log</p>
-            <p className="text-xs text-foreground-muted">
-              Connections, drops, payments, changes{isPPPoE ? ' and what the PPPoE server said' : ' and router messages'}
-            </p>
-          </div>
-          <svg className="w-5 h-5 text-foreground-muted flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-          </svg>
-        </Link>
+      {/* Phones and tablets: one column. Wide screens: what is happening with
+          the customer (activity, usage, payments) on the left, the details you
+          edit on the right, instead of one narrow strip down the middle. */}
+      <div className="max-w-2xl mx-auto space-y-4 xl:max-w-none xl:mx-0 xl:space-y-0 xl:grid xl:grid-cols-[minmax(0,1fr)_minmax(360px,420px)] xl:gap-6 xl:items-start">
+        <div className="space-y-4 min-w-0">
+          <Link
+            href={`/customers/${customer.id}/activity`}
+            className="card p-4 flex items-center justify-between gap-3 hover:bg-background-tertiary/50 transition-colors"
+          >
+            <div>
+              <p className="text-sm font-semibold text-foreground">Activity log</p>
+              <p className="text-xs text-foreground-muted">
+                Connections, drops, payments, changes{isPPPoE ? ' and what the PPPoE server said' : ' and router messages'}
+              </p>
+            </div>
+            <svg className="w-5 h-5 text-foreground-muted flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+            </svg>
+          </Link>
 
-        {tracksUsage && usage && (
-          <div className="flex justify-end">
-            <button
-              type="button"
-              onClick={loadUsage}
-              disabled={usageLoading}
-              className="text-xs text-accent-primary hover:underline disabled:opacity-50"
-            >
-              {usageLoading ? 'Refreshing…' : 'Refresh usage'}
-            </button>
-          </div>
-        )}
-        {usage?.live && customer && (
-          <LivePanel live={usage.live} routerId={customer.router_id ?? customer.router?.id ?? null} />
-        )}
-        {tracksUsage && usage && <UsagePanel usage={usage} />}
-        {tracksUsage && <UsageHistoryPanel customerId={customer.id} />}
+          {/* The usage card carries its own Refresh; keep a standalone one
+              only when that card has nothing to show. */}
+          {tracksUsage && usage && !usage.period && !usage.plan_data_cap_mb && (
+            <div className="flex justify-end">
+              <RefreshButton onClick={loadUsage} refreshing={usageLoading} />
+            </div>
+          )}
+          {usage?.live && customer && (
+            <LivePanel live={usage.live} routerId={customer.router_id ?? customer.router?.id ?? null} />
+          )}
+          {tracksUsage && usage && <UsagePanel usage={usage} onRefresh={loadUsage} refreshing={usageLoading} />}
+          {tracksUsage && <UsageHistoryPanel customerId={customer.id} />}
 
-        {isPPPoE && (
-          <div className="card p-4 space-y-3">
-            <h3 className="text-sm font-semibold text-foreground-muted uppercase tracking-wider">Paybill Payment Instructions</h3>
-            <div className="space-y-2">
-              <div className="bg-background-tertiary rounded-lg p-3">
-                <label className="text-xs font-medium text-foreground-muted uppercase tracking-wider">Account Number</label>
-                {customer.account_number ? (
-                  <div className="flex items-center justify-between mt-1">
-                    <span className="font-mono text-sm text-foreground">{customer.account_number}</span>
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        const ok = await copyText(customer.account_number!);
-                        showAlert(ok ? 'success' : 'error', ok ? 'Account number copied' : 'Copy failed — select and copy manually');
-                      }}
-                      className="p-1.5 rounded-md hover:bg-background-secondary transition-colors text-foreground-muted hover:text-foreground"
-                    >
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                      </svg>
-                    </button>
+          <PaymentHistoryPanel key={customer.id} customerId={customer.id} />
+        </div>
+
+        <div className="space-y-4 min-w-0">
+          {isPPPoE && (
+            <div className="card p-5 space-y-3">
+              <h3 className="text-sm font-semibold text-foreground-muted uppercase tracking-wider">Paybill Payment Instructions</h3>
+              <div className="space-y-2">
+                <div className="bg-background-tertiary rounded-lg p-3">
+                  <label className="text-xs font-medium text-foreground-muted uppercase tracking-wider">Account Number</label>
+                  {customer.account_number ? (
+                    <div className="flex items-center justify-between mt-1">
+                      <span className="font-mono text-sm text-foreground">{customer.account_number}</span>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          const ok = await copyText(customer.account_number!);
+                          showAlert(ok ? 'success' : 'error', ok ? 'Account number copied' : 'Copy failed — select and copy manually');
+                        }}
+                        className="p-1.5 rounded-md hover:bg-background-secondary transition-colors text-foreground-muted hover:text-foreground"
+                      >
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                        </svg>
+                      </button>
+                    </div>
+                  ) : (
+                    <p className="text-xs text-foreground-muted mt-1">Not yet assigned — will be generated on next registration or payment</p>
+                  )}
+                </div>
+                <div className="bg-background-tertiary rounded-lg p-3">
+                  <label className="text-xs font-medium text-foreground-muted uppercase tracking-wider">Plan Amount</label>
+                  <div className="mt-1">
+                    <span className="text-sm font-medium text-foreground">{customer.plan?.price != null ? formatAmount(customer.plan.price) : '-'}</span>
                   </div>
-                ) : (
-                  <p className="text-xs text-foreground-muted mt-1">Not yet assigned — will be generated on next registration or payment</p>
+                </div>
+                {(customer.wallet_credit_kes ?? 0) > 0 && (
+                  <div className="bg-success/10 border border-success/20 rounded-lg p-3">
+                    <label className="text-xs font-medium text-success uppercase tracking-wider">Wallet Credit</label>
+                    <div className="mt-1">
+                      <span className="text-sm font-semibold text-success">{formatAmount(customer.wallet_credit_kes)}</span>
+                    </div>
+                  </div>
                 )}
               </div>
-              <div className="bg-background-tertiary rounded-lg p-3">
-                <label className="text-xs font-medium text-foreground-muted uppercase tracking-wider">Plan Amount</label>
-                <div className="mt-1">
-                  <span className="text-sm font-medium text-foreground">{customer.plan?.price != null ? formatAmount(customer.plan.price) : '-'}</span>
-                </div>
-              </div>
-              {(customer.wallet_credit_kes ?? 0) > 0 && (
-                <div className="bg-success/10 border border-success/20 rounded-lg p-3">
-                  <label className="text-xs font-medium text-success uppercase tracking-wider">Wallet Credit</label>
-                  <div className="mt-1">
-                    <span className="text-sm font-semibold text-success">{formatAmount(customer.wallet_credit_kes)}</span>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        <RelatedAccounts customer={customer} customers={allCustomers} />
-        <PaymentHistoryPanel key={customer.id} customerId={customer.id} />
-
-        <div className="card p-6">
-          {formError && (
-            <div className="mb-4 p-3 rounded-lg bg-danger/10 border border-danger/30 text-danger text-sm">
-              {formError}
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-4" autoComplete="off">
-            <div>
-              <label className="block text-sm font-medium text-foreground-muted mb-1.5">Name</label>
-              <input
-                type="text"
-                value={formData.name || ''}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                className="input"
-                placeholder="Customer name"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-foreground-muted mb-1.5">Phone</label>
-              <input
-                type="tel"
-                value={formData.phone || ''}
-                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                className="input"
-                placeholder="+254712345678"
-                inputMode="numeric"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-foreground-muted mb-1.5">Plan</label>
-              <select
-                value={formData.plan_id || ''}
-                onChange={(e) => setFormData({ ...formData, plan_id: Number(e.target.value) })}
-                className="select"
-              >
-                <option value="" disabled>Select plan</option>
-                {plans.map((plan) => (
-                  <option key={plan.id} value={plan.id}>
-                    {plan.name} — {isFreeTrialPlan(plan) ? 'Free trial' : formatAmount(plan.price)} ({plan.connection_type === 'pppoe' ? 'PPPoE' : 'Hotspot'})
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-foreground-muted mb-1.5">Router</label>
-              <select
-                value={formData.router_id || ''}
-                onChange={(e) => setFormData({ ...formData, router_id: Number(e.target.value) })}
-                className="select"
-              >
-                <option value="" disabled>Select router</option>
-                {routers.map((r) => (
-                  <option key={r.id} value={r.id}>
-                    {r.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-foreground-muted mb-1.5">MAC Address</label>
-              <input
-                type="text"
-                value={formData.mac_address || ''}
-                onChange={(e) => setFormData({ ...formData, mac_address: e.target.value })}
-                className="input font-mono"
-                placeholder="AA:BB:CC:DD:EE:FF"
-              />
-            </div>
-
-            <DateTimePicker
-              label="Expiry Date"
-              value={formData.expiry || ''}
-              onChange={(v) => setFormData({ ...formData, expiry: v })}
-            />
-
-            {isPPPoE && (
-              <div className="pt-4 border-t border-border">
-                <h3 className="text-sm font-semibold text-foreground-muted uppercase tracking-wider mb-4">PPPoE Settings</h3>
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-foreground-muted mb-1.5">PPPoE Username</label>
-                    <input
-                      type="text"
-                      value={formData.pppoe_username || ''}
-                      onChange={(e) => setFormData({ ...formData, pppoe_username: e.target.value })}
-                      className="input font-mono"
-                      placeholder="pppoe_username"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-foreground-muted mb-1.5">PPPoE Password</label>
-                    <input
-                      type="text"
-                      value={formData.pppoe_password || ''}
-                      onChange={(e) => setFormData({ ...formData, pppoe_password: e.target.value })}
-                      className="input font-mono"
-                      placeholder="Leave empty to keep current"
-                    />
-                    <p className="mt-1 text-xs text-foreground-muted">Only fill in to change the current password</p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-foreground-muted mb-1.5">Static IP</label>
-                    <input
-                      type="text"
-                      value={formData.static_ip || ''}
-                      onChange={(e) => setFormData({ ...formData, static_ip: e.target.value })}
-                      className="input font-mono"
-                      placeholder="Leave empty for dynamic"
-                    />
-                  </div>
-                </div>
+          <RelatedAccounts customer={customer} customers={allCustomers} />
+          <div className="card p-5">
+            <h3 className="text-sm font-semibold text-foreground-muted uppercase tracking-wider mb-4">Customer details</h3>
+            {formError && (
+              <div className="mb-4 p-3 rounded-lg bg-danger/10 border border-danger/30 text-danger text-sm">
+                {formError}
               </div>
             )}
 
-            <div className="flex gap-3 pt-4">
-              <Link href="/customers" className="btn-secondary flex-1 text-center">
-                Cancel
-              </Link>
-              <button type="submit" disabled={saving} className="btn-primary flex-1 flex items-center justify-center gap-2 disabled:opacity-50">
-                {saving ? (
-                  <>
-                    <div className="w-4 h-4 border-2 border-background/30 border-t-background rounded-full animate-spin" />
-                    Saving...
-                  </>
-                ) : (
-                  'Save Changes'
-                )}
+            <form onSubmit={handleSubmit} className="space-y-4" autoComplete="off">
+              <div>
+                <label className="block text-sm font-medium text-foreground-muted mb-1.5">Name</label>
+                <input
+                  type="text"
+                  value={formData.name || ''}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  className="input"
+                  placeholder="Customer name"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-foreground-muted mb-1.5">Phone</label>
+                <input
+                  type="tel"
+                  value={formData.phone || ''}
+                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                  className="input"
+                  placeholder="+254712345678"
+                  inputMode="numeric"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-foreground-muted mb-1.5">Plan</label>
+                <select
+                  value={formData.plan_id || ''}
+                  onChange={(e) => setFormData({ ...formData, plan_id: Number(e.target.value) })}
+                  className="select"
+                >
+                  <option value="" disabled>Select plan</option>
+                  {plans.map((plan) => (
+                    <option key={plan.id} value={plan.id}>
+                      {plan.name} — {isFreeTrialPlan(plan) ? 'Free trial' : formatAmount(plan.price)} ({plan.connection_type === 'pppoe' ? 'PPPoE' : 'Hotspot'})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-foreground-muted mb-1.5">Router</label>
+                <select
+                  value={formData.router_id || ''}
+                  onChange={(e) => setFormData({ ...formData, router_id: Number(e.target.value) })}
+                  className="select"
+                >
+                  <option value="" disabled>Select router</option>
+                  {routers.map((r) => (
+                    <option key={r.id} value={r.id}>
+                      {r.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-foreground-muted mb-1.5">MAC Address</label>
+                <input
+                  type="text"
+                  value={formData.mac_address || ''}
+                  onChange={(e) => setFormData({ ...formData, mac_address: e.target.value })}
+                  className="input font-mono"
+                  placeholder="AA:BB:CC:DD:EE:FF"
+                />
+              </div>
+
+              <DateTimePicker
+                label="Expiry Date"
+                value={formData.expiry || ''}
+                onChange={(v) => setFormData({ ...formData, expiry: v })}
+              />
+
+              {isPPPoE && (
+                <div className="pt-4 border-t border-border">
+                  <h3 className="text-sm font-semibold text-foreground-muted uppercase tracking-wider mb-4">PPPoE Settings</h3>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-foreground-muted mb-1.5">PPPoE Username</label>
+                      <input
+                        type="text"
+                        value={formData.pppoe_username || ''}
+                        onChange={(e) => setFormData({ ...formData, pppoe_username: e.target.value })}
+                        className="input font-mono"
+                        placeholder="pppoe_username"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-foreground-muted mb-1.5">PPPoE Password</label>
+                      <input
+                        type="text"
+                        value={formData.pppoe_password || ''}
+                        onChange={(e) => setFormData({ ...formData, pppoe_password: e.target.value })}
+                        className="input font-mono"
+                        placeholder="Leave empty to keep current"
+                      />
+                      <p className="mt-1 text-xs text-foreground-muted">Only fill in to change the current password</p>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-foreground-muted mb-1.5">Static IP</label>
+                      <input
+                        type="text"
+                        value={formData.static_ip || ''}
+                        onChange={(e) => setFormData({ ...formData, static_ip: e.target.value })}
+                        className="input font-mono"
+                        placeholder="Leave empty for dynamic"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className="flex gap-3 pt-4">
+                <Link href="/customers" className="btn-secondary flex-1 text-center">
+                  Cancel
+                </Link>
+                <button type="submit" disabled={saving} className="btn-primary flex-1 flex items-center justify-center gap-2 disabled:opacity-50">
+                  {saving ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-background/30 border-t-background rounded-full animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    'Save Changes'
+                  )}
+                </button>
+              </div>
+            </form>
+
+            {/* Delete section */}
+            <div className="mt-6 pt-6 border-t border-border">
+              <button
+                onClick={() => setConfirmDelete(true)}
+                className="w-full px-4 py-2.5 rounded-lg text-sm font-medium border border-danger/30 text-danger hover:bg-danger/10 transition-colors flex items-center justify-center gap-2"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+                Delete Customer
               </button>
             </div>
-          </form>
-
-          {/* Delete section */}
-          <div className="mt-6 pt-6 border-t border-border">
-            <button
-              onClick={() => setConfirmDelete(true)}
-              className="w-full px-4 py-2.5 rounded-lg text-sm font-medium border border-danger/30 text-danger hover:bg-danger/10 transition-colors flex items-center justify-center gap-2"
-            >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-              </svg>
-              Delete Customer
-            </button>
           </div>
         </div>
       </div>
@@ -504,14 +507,34 @@ function LivePanel({ live, routerId }: { live: CustomerUsageLive; routerId: numb
   );
 }
 
-function UsagePanel({ usage }: { usage: CustomerUsageResponse }) {
+function RefreshButton({ onClick, refreshing }: { onClick: () => void; refreshing: boolean }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={refreshing}
+      className="text-xs font-medium text-accent-primary hover:underline disabled:opacity-50 whitespace-nowrap"
+    >
+      {refreshing ? 'Refreshing…' : 'Refresh'}
+    </button>
+  );
+}
+
+function UsagePanel({ usage, onRefresh, refreshing }: {
+  usage: CustomerUsageResponse;
+  onRefresh: () => void;
+  refreshing: boolean;
+}) {
   const period = usage.period;
 
   if (!period) {
     if (!usage.plan_data_cap_mb) return null;
     return (
       <div className="card p-4">
-        <h3 className="text-sm font-semibold text-foreground-muted uppercase tracking-wider mb-2">Usage</h3>
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="text-sm font-semibold text-foreground-muted uppercase tracking-wider">Usage</h3>
+          <RefreshButton onClick={onRefresh} refreshing={refreshing} />
+        </div>
         <p className="text-sm text-foreground-muted">No billing period yet — usage tracking starts after the first renewal.</p>
       </div>
     );
@@ -550,11 +573,14 @@ function UsagePanel({ usage }: { usage: CustomerUsageResponse }) {
     <div className="card p-4 space-y-3">
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold text-foreground-muted uppercase tracking-wider">This Period Usage</h3>
-        {action && (
-          <span className="text-[10px] uppercase tracking-wider text-foreground-muted">
-            FUP: <span className="text-foreground font-medium">{action.replace('_', ' ')}</span>
-          </span>
-        )}
+        <div className="flex items-center gap-3">
+          {action && (
+            <span className="text-[10px] uppercase tracking-wider text-foreground-muted">
+              FUP: <span className="text-foreground font-medium">{action.replace('_', ' ')}</span>
+            </span>
+          )}
+          <RefreshButton onClick={onRefresh} refreshing={refreshing} />
+        </div>
       </div>
 
       {fupActive && (
