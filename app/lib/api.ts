@@ -65,6 +65,8 @@ import {
   UpdateCustomerResponse,
   DeleteCustomerResponse,
   ActivatePPPoERequest,
+  StaticActionResponse,
+  StaticStatusResponse,
   PPPoECredentials,
   PPPoEActiveResponse,
   RouterInterfacesResponse,
@@ -1763,6 +1765,55 @@ class ApiClient {
       headers: this.getHeaders(),
     });
     return this.handleResponse<{ message: string }>(response);
+  }
+
+  // ---- Static-IP customers ------------------------------------------------
+
+  async activateStatic(customerId: number, data: ActivatePPPoERequest = {}): Promise<StaticActionResponse> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(`${BASE_URL}/customers/${customerId}/activate-static`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify(data),
+    });
+    return this.handleResponse<StaticActionResponse>(response);
+  }
+
+  async suspendStatic(customerId: number): Promise<StaticActionResponse> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(`${BASE_URL}/customers/${customerId}/suspend-static`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<StaticActionResponse>(response);
+  }
+
+  async syncStatic(customerId: number): Promise<StaticActionResponse> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(`${BASE_URL}/customers/${customerId}/static/sync`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<StaticActionResponse>(response);
+  }
+
+  /** Pin the static IP to a device MAC; null clears the pin so it is re-learned. */
+  async pinStatic(customerId: number, mac: string | null): Promise<StaticActionResponse> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(`${BASE_URL}/customers/${customerId}/static/pin`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify({ mac }),
+    });
+    return this.handleResponse<StaticActionResponse>(response);
+  }
+
+  async getStaticStatus(customerId: number): Promise<StaticStatusResponse> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(`${BASE_URL}/customers/${customerId}/static/status`, {
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<StaticStatusResponse>(response);
   }
 
   async getPPPoECredentials(customerId: number): Promise<PPPoECredentials> {

@@ -19,6 +19,8 @@ import { isFreeTrialPlan } from '../../plans/planType';
 import PaymentHistoryPanel from './PaymentHistoryPanel';
 import RelatedAccounts from './RelatedAccounts';
 import UsageHistoryPanel from './UsageHistoryPanel';
+import StaticIpPanel from './StaticIpPanel';
+import { connectionTypeLabel } from '../../lib/connectionType';
 
 
 export default function EditCustomerPage() {
@@ -72,6 +74,7 @@ export default function EditCustomerPage() {
         pppoe_username: found.pppoe_username || '',
         pppoe_password: '',
         static_ip: found.static_ip || '',
+        static_mac: found.static_mac || '',
         expiry: utcToGMT3Input(found.expiry),
       });
     } catch (err) {
@@ -85,7 +88,8 @@ export default function EditCustomerPage() {
     ? (customer.connection_type ?? customer.plan?.connection_type ?? 'hotspot')
     : null;
   const isPPPoE = connectionType === 'pppoe';
-  const tracksUsage = connectionType === 'pppoe' || connectionType === 'hotspot';
+  const isStatic = connectionType === 'static_ip';
+  const tracksUsage = connectionType === 'pppoe' || connectionType === 'hotspot' || isStatic;
 
   // Fetched when the page opens and when the user presses Refresh — never on a
   // timer, so server cost follows actual views, not open tabs. The router
@@ -115,7 +119,8 @@ export default function EditCustomerPage() {
       if (formData.phone && formData.phone !== customer.phone) payload.phone = formData.phone;
       if (formData.plan_id && formData.plan_id !== (customer.plan_id ?? customer.plan?.id)) payload.plan_id = formData.plan_id;
       if (formData.router_id && formData.router_id !== (customer.router_id ?? customer.router?.id)) payload.router_id = formData.router_id;
-      if (formData.mac_address !== (customer.mac_address || '')) payload.mac_address = formData.mac_address;
+      if (!isStatic && formData.mac_address !== (customer.mac_address || '')) payload.mac_address = formData.mac_address;
+      if (isStatic && formData.static_mac !== (customer.static_mac || '')) payload.static_mac = formData.static_mac;
       if (formData.pppoe_username !== (customer.pppoe_username || '')) payload.pppoe_username = formData.pppoe_username;
       if (formData.pppoe_password) payload.pppoe_password = formData.pppoe_password;
       if (formData.static_ip !== (customer.static_ip || '')) payload.static_ip = formData.static_ip;
@@ -132,6 +137,9 @@ export default function EditCustomerPage() {
       showAlert('success', `${result.customer.name} updated successfully`);
       if (result.pppoe_reprovisioned === 'failed') {
         showAlert('warning', 'PPPoE re-provisioning failed — check router manually');
+      }
+      if (result.static_reprovisioned === 'failed') {
+        showAlert('warning', 'Saved, but the router was not updated yet. It retries automatically; use Re-sync to try now.');
       }
       router.push('/customers');
     } catch (err) {
@@ -268,6 +276,7 @@ export default function EditCustomerPage() {
             </div>
           )}
 
+          {isStatic && <StaticIpPanel customer={customer} onChanged={loadData} />}
           <RelatedAccounts customer={customer} customers={allCustomers} />
           <div className="card p-5">
             <h3 className="text-sm font-semibold text-foreground-muted uppercase tracking-wider mb-4">Customer details</h3>
@@ -311,7 +320,7 @@ export default function EditCustomerPage() {
                   <option value="" disabled>Select plan</option>
                   {plans.map((plan) => (
                     <option key={plan.id} value={plan.id}>
-                      {plan.name} — {isFreeTrialPlan(plan) ? 'Free trial' : formatAmount(plan.price)} ({plan.connection_type === 'pppoe' ? 'PPPoE' : 'Hotspot'})
+                      {plan.name} — {isFreeTrialPlan(plan) ? 'Free trial' : formatAmount(plan.price)} ({connectionTypeLabel(plan.connection_type)})
                     </option>
                   ))}
                 </select>
@@ -333,16 +342,42 @@ export default function EditCustomerPage() {
                 </select>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-foreground-muted mb-1.5">MAC Address</label>
-                <input
-                  type="text"
-                  value={formData.mac_address || ''}
-                  onChange={(e) => setFormData({ ...formData, mac_address: e.target.value })}
-                  className="input font-mono"
-                  placeholder="AA:BB:CC:DD:EE:FF"
-                />
-              </div>
+              {isStatic ? (
+                <>
+                  <div>
+                    <label className="block text-sm font-medium text-foreground-muted mb-1.5">Static IP</label>
+                    <input
+                      type="text"
+                      value={formData.static_ip || ''}
+                      onChange={(e) => setFormData({ ...formData, static_ip: e.target.value })}
+                      className="input font-mono"
+                      placeholder="192.168.2.24"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-foreground-muted mb-1.5">Pinned device MAC</label>
+                    <input
+                      type="text"
+                      value={formData.static_mac || ''}
+                      onChange={(e) => setFormData({ ...formData, static_mac: e.target.value })}
+                      className="input font-mono"
+                      placeholder="Learned automatically"
+                    />
+                    <p className="mt-1 text-xs text-foreground-muted">Only this device can use the IP. Clear it to re-learn after the customer changes router.</p>
+                  </div>
+                </>
+              ) : (
+                <div>
+                  <label className="block text-sm font-medium text-foreground-muted mb-1.5">MAC Address</label>
+                  <input
+                    type="text"
+                    value={formData.mac_address || ''}
+                    onChange={(e) => setFormData({ ...formData, mac_address: e.target.value })}
+                    className="input font-mono"
+                    placeholder="AA:BB:CC:DD:EE:FF"
+                  />
+                </div>
+              )}
 
               <DateTimePicker
                 label="Expiry Date"
@@ -435,6 +470,7 @@ export default function EditCustomerPage() {
             <p className="text-sm text-foreground-muted text-center">
               Are you sure you want to delete <span className="font-medium text-foreground">{customer.name}</span>? This action cannot be undone.
               {isPPPoE && ' Any active PPPoE session will be de-provisioned from the router.'}
+              {isStatic && ' The static IP\'s access, speed limit and device pin are removed from the router.'}
             </p>
             <div className="flex gap-3 pt-2">
               <button onClick={() => setConfirmDelete(false)} className="btn-secondary flex-1">Cancel</button>

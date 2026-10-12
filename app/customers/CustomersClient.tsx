@@ -42,7 +42,7 @@ const PPPoEImportModal = dynamic(() => import('../components/PPPoEImportModal'),
 });
 
 type FilterStatus = 'all' | 'active' | 'inactive';
-type ConnectionFilter = 'all' | 'hotspot' | 'pppoe';
+type ConnectionFilter = 'all' | 'hotspot' | 'pppoe' | 'static_ip';
 
 const STORAGE_KEY_STATUS = 'customers.filter.status';
 const STORAGE_KEY_CONNECTION = 'customers.filter.connection';
@@ -69,7 +69,7 @@ function isRouterDown(liveness: RouterLiveness | undefined): boolean {
   return liveness?.reachable === false;
 }
 
-function getConnectionType(customer: Customer): 'hotspot' | 'pppoe' {
+function getConnectionType(customer: Customer): 'hotspot' | 'pppoe' | 'static_ip' {
   return customer.connection_type ?? customer.plan?.connection_type ?? 'hotspot';
 }
 
@@ -262,7 +262,7 @@ export default function CustomersPage() {
         setFilter(savedStatus);
       }
       const savedConn = localStorage.getItem(STORAGE_KEY_CONNECTION);
-      if (savedConn === 'all' || savedConn === 'hotspot' || savedConn === 'pppoe') {
+      if (savedConn === 'all' || savedConn === 'hotspot' || savedConn === 'pppoe' || savedConn === 'static_ip') {
         setConnectionFilter(savedConn);
       }
     } catch {
@@ -615,7 +615,7 @@ export default function CustomersPage() {
     if (displayedCustomers.length === 0) return;
     const targets = displayedCustomers.filter((c) => {
       const connectionType = getConnectionType(c);
-      return connectionType === 'pppoe' || connectionType === 'hotspot';
+      return connectionType === 'pppoe' || connectionType === 'hotspot' || connectionType === 'static_ip';
     });
     if (targets.length === 0) return;
 

@@ -11,6 +11,8 @@ import Header from '../../components/Header';
 import { PageLoader } from '../../components/LoadingSpinner';
 import { formatAmount } from '../../lib/format';
 import { isFreeTrialPlan } from '../../plans/planType';
+import { connectionTypeLabel } from '../../lib/connectionType';
+import { looksLikeIPv4 } from '../[id]/staticIp';
 
 export default function RegisterCustomerPage() {
   const router = useRouter();
@@ -52,6 +54,7 @@ export default function RegisterCustomerPage() {
 
   const selectedPlan = plans.find((p) => p.id === formData.plan_id);
   const isPPPoE = selectedPlan?.connection_type === 'pppoe';
+  const isStatic = selectedPlan?.connection_type === 'static_ip';
 
   const update = <K extends keyof RegisterCustomerRequest>(field: K, value: RegisterCustomerRequest[K]) =>
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -74,6 +77,15 @@ export default function RegisterCustomerPage() {
       if (formData.pppoe_password) payload.pppoe_password = formData.pppoe_password;
       if (formData.mac_address) payload.mac_address = formData.mac_address;
       if (formData.static_ip) payload.static_ip = formData.static_ip;
+      if (isStatic) {
+        if (!formData.static_ip || !looksLikeIPv4(formData.static_ip)) {
+          showAlert('error', 'Enter the IP address set on the customer\'s device, e.g. 192.168.2.24');
+          setSubmitting(false);
+          return;
+        }
+        delete payload.mac_address;
+        if (formData.static_mac) payload.static_mac = formData.static_mac;
+      }
 
       const customer = await api.registerCustomer(payload);
       setRegisteredCustomer(customer);
@@ -249,7 +261,7 @@ export default function RegisterCustomerPage() {
                 <option value="" disabled>Select a plan</option>
                 {plans.map((plan) => (
                   <option key={plan.id} value={plan.id}>
-                    {plan.name} — {isFreeTrialPlan(plan) ? 'Free trial' : formatAmount(plan.price)} ({plan.connection_type === 'pppoe' ? 'PPPoE' : 'Hotspot'})
+                    {plan.name} — {isFreeTrialPlan(plan) ? 'Free trial' : formatAmount(plan.price)} ({connectionTypeLabel(plan.connection_type)})
                   </option>
                 ))}
               </select>
@@ -350,7 +362,42 @@ export default function RegisterCustomerPage() {
               </div>
             )}
 
-            {!isPPPoE && (
+            {isStatic && (
+              <>
+                <div>
+                  <label htmlFor="static_ip_main" className="block text-sm font-medium text-foreground-muted mb-1.5">
+                    Static IP address
+                  </label>
+                  <input
+                    id="static_ip_main"
+                    type="text"
+                    value={formData.static_ip || ''}
+                    onChange={(e) => update('static_ip', e.target.value || undefined)}
+                    className="input font-mono"
+                    placeholder="192.168.2.24"
+                    required
+                  />
+                  <p className="mt-1 text-xs text-foreground-muted">The fixed IP configured on the customer&apos;s device. Its gateway must be an address on this router.</p>
+                </div>
+                <div>
+                  <label htmlFor="static_mac" className="block text-sm font-medium text-foreground-muted mb-1.5">
+                    Device MAC (optional)
+                  </label>
+                  <input
+                    id="static_mac"
+                    type="text"
+                    value={formData.static_mac || ''}
+                    onChange={(e) => update('static_mac', e.target.value || undefined)}
+                    className="input font-mono"
+                    placeholder="Learned automatically"
+                  />
+                  <p className="mt-1 text-xs text-foreground-muted">Only this device may use the IP. Leave empty and it is pinned the first time the device is seen while paid up.</p>
+                </div>
+                <p className="text-xs text-foreground-muted">Registered as inactive. Record the first payment on the customer&apos;s page to open access.</p>
+              </>
+            )}
+
+            {!isPPPoE && !isStatic && (
               <div>
                 <label htmlFor="mac_address" className="block text-sm font-medium text-foreground-muted mb-1.5">
                   MAC Address

@@ -25,6 +25,8 @@ import { pickDefaultRouterId, routerOptionLabel } from '../lib/routerPick';
 import PlanNameHint from '../components/PlanNameHint';
 import SpeedInputHint from '../components/SpeedInputHint';
 import { MAX_PLAN_NAME_LENGTH, isPlanNameTooLong } from '../lib/planName';
+import { connectionTypeLabel, toConnectionType } from '../lib/connectionType';
+import type { ConnectionType } from '../lib/types';
 import {
   PLAN_TYPE_AVATAR,
   PLAN_TYPE_AVATAR_CLASS,
@@ -38,7 +40,7 @@ import {
 } from './planType';
 
 type FilterTab = 'all' | PlanType;
-type ConnectionFilter = 'all' | 'hotspot' | 'pppoe';
+type ConnectionFilter = 'all' | 'hotspot' | 'pppoe' | 'static_ip';
 type VisibilityFilter = 'all' | 'visible' | 'hidden';
 
 const PLAN_COLUMNS: DataTableColumn[] = [
@@ -354,6 +356,7 @@ export default function PlansPage() {
                 { value: 'all', label: t('All Types') },
                 { value: 'hotspot', label: 'Hotspot' },
                 { value: 'pppoe', label: 'PPPoE' },
+                { value: 'static_ip', label: 'Static IP' },
               ]}
             />
             <FilterSelect
@@ -500,13 +503,13 @@ export default function PlansPage() {
                 case 'connection':
                   return (
                     <span className={`badge ${
-                      plan.connection_type === 'pppoe' ? 'badge-info' : 'badge-neutral'
+                      plan.connection_type === 'pppoe' || plan.connection_type === 'static_ip' ? 'badge-info' : 'badge-neutral'
                     }`}>
-                      {plan.connection_type === 'pppoe' ? 'PPPoE' : 'Hotspot'}
+                      {connectionTypeLabel(plan.connection_type)}
                     </span>
                   );
                 case 'sharing': {
-                  if (plan.connection_type === 'pppoe') {
+                  if (plan.connection_type === 'pppoe' || plan.connection_type === 'static_ip') {
                     return <span className="text-sm text-foreground-muted">-</span>;
                   }
                   const limit = getSharingLimit(plan);
@@ -613,7 +616,7 @@ export default function PlansPage() {
                       text: plan.name.charAt(0).toUpperCase(),
                       color: PLAN_TYPE_AVATAR[getPlanType(plan)],
                     }}
-                    badge={{ label: plan.connection_type === 'pppoe' ? 'PPPoE' : 'Hotspot' }}
+                    badge={{ label: connectionTypeLabel(plan.connection_type) }}
                     status={{
                       label: plan.is_hidden ? t('Hidden') : t('Visible'),
                       variant: plan.is_hidden ? 'neutral' : 'success',
@@ -717,7 +720,7 @@ function EditPlanModal({
     price: plan.price,
     duration_value: plan.duration_value,
     duration_unit: plan.duration_unit as 'HOURS' | 'DAYS' | 'MINUTES',
-    connection_type: (plan.connection_type as 'hotspot' | 'pppoe') || 'hotspot',
+    connection_type: toConnectionType(plan.connection_type),
     router_profile: plan.router_profile || '',
     plan_type: plan.plan_type || 'regular',
     is_hidden: plan.is_hidden || false,
@@ -743,6 +746,7 @@ function EditPlanModal({
   const [paidSharedUsers, setPaidSharedUsers] = useState(Math.max(1, Number(plan.max_shared_users) || 1));
 
   const isPPPoE = formData.connection_type === 'pppoe';
+  const noSharing = isPPPoE || formData.connection_type === 'static_ip';
   const isFreeTrial = formData.plan_type === 'free_trial';
   const dataCapMb = dataCapInputToMb(dataCapValue, dataCapUnit);
 
@@ -795,7 +799,7 @@ function EditPlanModal({
       if (!payload.badge_text) payload.badge_text = null;
       if (!payload.original_price) payload.original_price = null;
       payload.valid_until = payload.valid_until ? gmt3InputToISO(payload.valid_until) : null;
-      payload.max_shared_users = isPPPoE ? 1 : Math.max(1, Math.min(50, Number(payload.max_shared_users) || 1));
+      payload.max_shared_users = noSharing ? 1 : Math.max(1, Math.min(50, Number(payload.max_shared_users) || 1));
       payload.data_cap_mb = showFup ? dataCapMb : null;
       if (!payload.data_cap_mb) {
         payload.data_cap_mb = null;
@@ -925,11 +929,11 @@ function EditPlanModal({
                 <select
                   value={formData.connection_type || 'hotspot'}
                   onChange={(e) => {
-                    const connectionType = e.target.value as 'hotspot' | 'pppoe';
+                    const connectionType = e.target.value as ConnectionType;
                     setFormData({
                       ...formData,
                       connection_type: connectionType,
-                      max_shared_users: connectionType === 'pppoe' ? 1 : (formData.max_shared_users ?? 1),
+                      max_shared_users: connectionType !== 'hotspot' ? 1 : (formData.max_shared_users ?? 1),
                     });
                   }}
                   className="select"
@@ -937,7 +941,11 @@ function EditPlanModal({
                 >
                   <option value="hotspot">Hotspot</option>
                   <option value="pppoe" disabled={isFreeTrial}>PPPoE</option>
+                  <option value="static_ip" disabled={isFreeTrial}>Static IP</option>
                 </select>
+                {formData.connection_type === 'static_ip' && (
+                  <p className="mt-1 text-xs text-foreground-muted">For devices with a fixed IP on your router. Paying opens access at this speed; expiry suspends it.</p>
+                )}
                 {isFreeTrial && (
                   <p className="mt-1 text-xs text-foreground-muted">Free trials are claimed on the hotspot login page, so they are hotspot only.</p>
                 )}
@@ -987,7 +995,7 @@ function EditPlanModal({
               />
             )}
 
-            {!isPPPoE && (
+            {!noSharing && (
               <div>
                 <label className="block text-sm font-medium text-foreground mb-2">Subscription Devices</label>
                 <input
