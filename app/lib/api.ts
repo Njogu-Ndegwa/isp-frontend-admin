@@ -213,6 +213,8 @@ import {
   CreateAccessCredentialResponse,
   UpdateAccessCredentialRequest,
   CustomerUsageResponse,
+  CustomerAuditLogResponse,
+  CustomerRouterLogPullResponse,
   CustomerUsagePeriod,
   CustomerUsageTimeline,
   UsageTimelineGranularity,
@@ -354,6 +356,36 @@ export const API_BASE_URL = normalizeApiBaseUrl(
 );
 export const API_ORIGIN = API_BASE_URL.replace(/\/api$/, '');
 const BASE_URL = API_BASE_URL;
+
+// Sample activity for demo mode, so the page shows what it is for.
+function demoCustomerAuditLog(customerId: number, categories?: string[]): CustomerAuditLogResponse {
+  const at = (minutesAgo: number) => new Date(Date.now() - minutesAgo * 60_000).toISOString().replace('Z', '');
+  const all: CustomerAuditLogResponse['items'] = [
+    { id: 'd1', occurred_at: at(95), category: 'session', event_type: 'session_connected', severity: 'info', source: 'router_push', actor: null, router_id: 1,
+      message: 'PPPoE session connected (IP 10.10.0.23, from 3C:52:82:AA:BB:CC)', details: { ip: '10.10.0.23', caller_id: '3C:52:82:AA:BB:CC' } },
+    { id: 'd2', occurred_at: at(96), category: 'router_log', event_type: 'router_log', severity: 'info', source: 'router_log', actor: null, router_id: 1,
+      message: '<pppoe-jane_w>: authenticated', details: { router_time: '12:04:40' } },
+    { id: 'd3', occurred_at: at(102), category: 'router_log', event_type: 'router_log', severity: 'warning', source: 'router_log', actor: null, router_id: 1,
+      message: '<pppoe-jane_w>: terminating... - peer is not responding', details: { router_time: '11:58:40' } },
+    { id: 'd4', occurred_at: at(102), category: 'session', event_type: 'session_disconnected', severity: 'warning', source: 'router_push', actor: null, router_id: 1,
+      message: 'PPPoE session ended after 3d 4h, used 18.4 GB down / 1.2 GB up (IP 10.10.0.19)',
+      details: { ip: '10.10.0.19', started_at: at(4660), last_seen_at: at(103), download_bytes: 19756849561, upload_bytes: 1288490188 } },
+    { id: 'd5', occurred_at: at(1300), category: 'billing', event_type: 'payment_completed', severity: 'info', source: 'system', actor: null, router_id: 1,
+      message: 'Payment of 2,500 received by mobile money for 30 day(s) — Home 10Mbps', details: { reference: 'SJK12ABC9' } },
+    { id: 'd6', occurred_at: at(1304), category: 'billing', event_type: 'mpesa_failed', severity: 'warning', source: 'system', actor: null, router_id: null,
+      message: 'M-Pesa payment of 2,500 failed: Request cancelled by user', details: { phone: '254712345678' } },
+  ];
+  const items = categories?.length ? all.filter((i) => categories.includes(i.category)) : all;
+  return {
+    customer: {
+      id: customerId, name: 'Jane Wanjiku', phone: '254712345678', status: 'active', expiry: at(-60 * 24 * 12),
+      connection_type: 'pppoe', plan: 'Home 10Mbps', pppoe_username: 'jane_w', mac_address: null,
+      router_id: 1, router_name: 'Demo Tower',
+    },
+    live: { online: true, ip: '10.10.0.23', uptime: '1h35m', seen_at: at(0) },
+    items, count: items.length, has_more: false, next_before: null, generated_at: new Date().toISOString(),
+  };
+}
 
 const backendUrl = (path: string): string => {
   if (/^https?:\/\//i.test(path)) return path;
@@ -3180,6 +3212,46 @@ class ApiClient {
       body: JSON.stringify({ customer_ids: customerIds }),
     });
     return this.handleResponse<CustomerUsageResponse[]>(response);
+  }
+
+  // ─── Customer audit log ────────────────────────────────────────────
+
+  async getCustomerAuditLog(
+    customerId: number,
+    opts: { before?: string | null; cursor?: string | null; categories?: string[]; limit?: number } = {},
+  ): Promise<CustomerAuditLogResponse> {
+    if (this.isDemoMode()) return demoCustomerAuditLog(customerId, opts.categories);
+    const params = new URLSearchParams();
+    // before: strictly older (a chosen moment). cursor: this time and older,
+    // for "load older", so rows sharing the boundary second are not lost.
+    if (opts.before) params.set('before', opts.before);
+    if (opts.cursor) params.set('cursor', opts.cursor);
+    if (opts.categories?.length) params.set('categories', opts.categories.join(','));
+    if (opts.limit) params.set('limit', String(opts.limit));
+    const qs = params.toString();
+    const response = await fetch(
+      `${BASE_URL}/customers/${customerId}/audit-log${qs ? `?${qs}` : ''}`,
+      { headers: this.getHeaders() },
+    );
+    return this.handleResponse<CustomerAuditLogResponse>(response);
+  }
+
+  async resetCustomerSession(customerId: number): Promise<{ customer_id: number; router_id: number; disconnected: number }> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(`${BASE_URL}/customers/${customerId}/reset-session`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<{ customer_id: number; router_id: number; disconnected: number }>(response);
+  }
+
+  async pullCustomerRouterLogs(customerId: number): Promise<CustomerRouterLogPullResponse> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(`${BASE_URL}/customers/${customerId}/audit-log/router-logs`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<CustomerRouterLogPullResponse>(response);
   }
 
   // ─── Real-time push pilot ──────────────────────────────────────────
