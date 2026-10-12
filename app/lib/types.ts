@@ -6118,6 +6118,11 @@ export interface OvesHealthResponse {
       opentoken_probe?: OvesProbe;
       pods_watched: number;
       note: string;
+      apollo_15m?: OvesGqlCodes | null;
+      apollo_operations?: OvesGqlOperation[];
+      apollo_errors?: OvesGqlErrorGroup[];
+      apollo_window?: { from: string | null; to: string | null } | null;
+      path?: OvesCodePathItem[];
     };
     database?: {
       status: OvesSeverity;
@@ -6134,6 +6139,15 @@ export interface OvesHealthResponse {
     clusters?: Record<string, OvesCluster>;
     traffic?: { last_5m: Record<string, OvesTraffic> };
     dependencies?: { status: OvesSeverity; groups: { id: string; label: string; probes: OvesProbe[] }[] };
+    graphql?: {
+      available: boolean;
+      status: OvesSeverity;
+      from?: string;
+      to?: string;
+      graphs?: OvesGqlGraphSummary[];
+      failures?: Record<string, string>;
+      codes_15m?: OvesGqlCodes;
+    };
   };
 }
 
@@ -6167,4 +6181,92 @@ export interface OvesHistoryResponse {
   probe_uptime: Record<string, number>;
   probe_p95_ms: Record<string, number | null>;
   totals: { codes_ok: number; codes_failed: number; success_rate: number | null };
+}
+
+// --- OVES health: Apollo GraphOS insights (backend app/services/oves_health/apollo.py) ---
+
+export interface OvesGqlOperation {
+  name: string;
+  label: string;
+  type: string;
+  requests: number;
+  requests_per_min: number;
+  errors: number;
+  error_rate: number | null;
+  p50_ms: number | null;
+  p95_ms: number | null;
+  is_code: boolean;
+  graph?: string;
+  graph_label?: string;
+}
+
+export interface OvesGqlErrorGroup {
+  operation: string;
+  operation_label: string;
+  path: string | null;
+  code: string | null;
+  service: string | null;
+  count: number;
+  message: string;
+  reason: string;
+  kind: 'user' | 'system';
+  last_seen: string | null;
+  is_code: boolean;
+  graph?: string;
+  graph_label?: string;
+}
+
+export interface OvesGqlGraphSummary {
+  graph: string;
+  label: string;
+  role: string;
+  requests: number;
+  errors: number;
+  error_rate: number | null;
+  system_errors: number;
+  system_error_rate: number | null;
+  top_errors: OvesGqlErrorGroup[];
+}
+
+export interface OvesGqlCodes {
+  requests: number;
+  errors: number;
+  system_errors: number;
+  success_rate: number | null;
+  system_success_rate: number | null;
+  error_rate: number | null;
+  system_error_rate: number | null;
+}
+
+export interface OvesCodePathItem {
+  id: string;
+  label: string;
+  role: string;
+  status: OvesSeverity;
+  pods: string | null;
+  restarts: number | null;
+  latency_ms: number | null;
+  requests_15m: number | null;
+  errors_15m: number | null;
+  error_rate: number | null;
+  platform_error_rate: number | null;
+  note: string | null;
+}
+
+export interface OvesGqlInsights {
+  graph: string;
+  label: string;
+  role: string;
+  operation: string | null;
+  from: string;
+  to: string;
+  bucket_minutes: number;
+  requests: number;
+  errors: number;
+  error_rate: number | null;
+  system_errors: number;
+  operations: OvesGqlOperation[];
+  error_groups: OvesGqlErrorGroup[];
+  series: { t: string; requests: number; errors: number; error_rate: number | null }[];
+  studio_url: string;
 }

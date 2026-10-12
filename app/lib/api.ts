@@ -250,6 +250,7 @@ import {
   OpsHealthResponse,
   OvesHealthResponse,
   OvesHistoryResponse,
+  OvesGqlInsights,
   OpsHealthHistory,
   OpsHealthWindowReport,
   OpsHealthProblemRoutersSection,
@@ -610,6 +611,23 @@ class ApiClient {
       const response = await fetch(`${BASE_URL}/admin/oves-health`, { headers: this.getHeaders() });
       return await this.handleResponse<OvesHealthResponse>(response);
     } catch { return null; }
+  }
+
+  // GET /api/admin/oves-health/graphql/graphs -> Apollo graphs the errors view can show
+  async getOvesGraphqlGraphs(): Promise<{ configured: boolean; graphs: { graph: string; label: string; role: string }[] } | null> {
+    try {
+      const response = await fetch(`${BASE_URL}/admin/oves-health/graphql/graphs`, { headers: this.getHeaders() });
+      return await this.handleResponse(response);
+    } catch { return null; }
+  }
+
+  // GET /api/admin/oves-health/graphql?graph=G&hours=N[&operation=O] -> Studio-style insights.
+  // Throws with the backend detail so the view can say why (Apollo down, key revoked).
+  async getOvesGraphqlInsights(graph: string, hours: number, operation?: string): Promise<OvesGqlInsights> {
+    const params = new URLSearchParams({ graph, hours: String(hours) });
+    if (operation) params.set('operation', operation);
+    const response = await fetch(`${BASE_URL}/admin/oves-health/graphql?${params.toString()}`, { headers: this.getHeaders() });
+    return this.handleResponse<OvesGqlInsights>(response, false, true);
   }
 
   // GET /api/admin/oves-health/history?hours=N[&probe=id] -> bucketed history (max 14 days)
