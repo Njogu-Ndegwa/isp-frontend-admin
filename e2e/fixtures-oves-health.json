@@ -1,0 +1,1901 @@
+{
+ "enabled": true,
+ "snapshot_age_seconds": 12,
+ "generated_at": "2026-10-12T15:20:00Z",
+ "overall_status": "warning",
+ "sections": {
+  "codes": {
+   "status": "info",
+   "available": true,
+   "last_5m": {
+    "ok": 21,
+    "failed": 0,
+    "failed_system": 0,
+    "attempts": 21,
+    "success_rate": 1.0,
+    "system_success_rate": 1.0,
+    "by_type": {
+     "days": 21
+    },
+    "by_reason": {},
+    "p50_ms": 2526.0,
+    "p95_ms": 3742.0,
+    "max_ms": 3890.0,
+    "index_failures": 11,
+    "opentoken_retries": 0,
+    "integrity_warnings": 0,
+    "db_errors": 0
+   },
+   "last_15m": {
+    "ok": 21,
+    "failed": 0,
+    "failed_system": 0,
+    "attempts": 21,
+    "success_rate": 1.0,
+    "system_success_rate": 1.0,
+    "by_type": {
+     "days": 21
+    },
+    "by_reason": {},
+    "p50_ms": 2526.0,
+    "p95_ms": 3742.0,
+    "max_ms": 3890.0,
+    "index_failures": 11,
+    "opentoken_retries": 0,
+    "integrity_warnings": 0,
+    "db_errors": 0
+   },
+   "last_60m": {
+    "ok": 21,
+    "failed": 0,
+    "failed_system": 0,
+    "attempts": 21,
+    "success_rate": 1.0,
+    "system_success_rate": 1.0,
+    "by_type": {
+     "days": 21
+    },
+    "by_reason": {},
+    "p50_ms": 2526.0,
+    "p95_ms": 3742.0,
+    "max_ms": 3890.0,
+    "index_failures": 11,
+    "opentoken_retries": 0,
+    "integrity_warnings": 0,
+    "db_errors": 0
+   },
+   "baseline_per_hour": null,
+   "by_service": {
+    "thing-microservice-make": {
+     "ok": 18,
+     "failed": 0,
+     "failed_system": 0,
+     "attempts": 18,
+     "success_rate": 1.0,
+     "system_success_rate": 1.0,
+     "by_type": {
+      "days": 18
+     },
+     "by_reason": {},
+     "p50_ms": 2466.0,
+     "p95_ms": 3670.6,
+     "max_ms": 3742.0,
+     "index_failures": 8,
+     "opentoken_retries": 0,
+     "integrity_warnings": 0,
+     "db_errors": 0,
+     "recent_failures": []
+    },
+    "thing-microservice": {
+     "ok": 3,
+     "failed": 0,
+     "failed_system": 0,
+     "attempts": 3,
+     "success_rate": 1.0,
+     "system_success_rate": 1.0,
+     "by_type": {
+      "days": 3
+     },
+     "by_reason": {},
+     "p50_ms": 3412.0,
+     "p95_ms": 3842.2,
+     "max_ms": 3890.0,
+     "index_failures": 3,
+     "opentoken_retries": 0,
+     "integrity_warnings": 0,
+     "db_errors": 0,
+     "recent_failures": []
+    },
+    "thing-use-microservice": {
+     "ok": 0,
+     "failed": 0,
+     "failed_system": 0,
+     "attempts": 0,
+     "success_rate": null,
+     "system_success_rate": null,
+     "by_type": {},
+     "by_reason": {},
+     "p50_ms": null,
+     "p95_ms": null,
+     "max_ms": null,
+     "index_failures": 0,
+     "opentoken_retries": 0,
+     "integrity_warnings": 0,
+     "db_errors": 0,
+     "recent_failures": []
+    }
+   },
+   "recent_failures": [],
+   "opentoken_probe": {
+    "id": "opentoken_algo",
+    "name": "OpenToken code algorithm",
+    "group": "oves_prod",
+    "kind": "opentoken",
+    "target": "https://open-token.omnivoltaic.com/operate_token/",
+    "depends": "Every OpenToken (OpenPAYGO) code",
+    "critical": true,
+    "status": "up",
+    "latency_ms": 1165.9,
+    "http_status": 200,
+    "detail": "correct token",
+    "streak": 0
+   },
+   "pods_watched": 9,
+   "note": "Successes = 'Request to generate* took N ms' (logged on success only). Failures = ERROR lines from CodeEvent*/Codegen*; JWT-guard rejections never reach them, so the failure count is a floor."
+  },
+  "database": {
+   "status": "ok",
+   "login": {
+    "id": "login",
+    "name": "Login (auth -> MongoDB primary)",
+    "group": "oves_prod",
+    "kind": "login",
+    "target": "https://federated-graphql-api.omnivoltaic.com/graphql",
+    "depends": "Every ERM / distributor / app session",
+    "critical": true,
+    "status": "up",
+    "latency_ms": 2505.9,
+    "http_status": 200,
+    "detail": "rejected on merit (DB reachable)",
+    "streak": 0
+   },
+   "service_checks": [
+    {
+     "id": "thing_make_db",
+     "name": "Code generation service (thing-make)",
+     "group": "oves_prod",
+     "kind": "http",
+     "target": "https://alpha-thing-microservice.omnivoltaic.com/health/db",
+     "depends": "Device + shadow-API code generation",
+     "critical": true,
+     "status": "up",
+     "latency_ms": 809.1,
+     "http_status": 200,
+     "detail": "HTTP 200",
+     "streak": 0
+    },
+    {
+     "id": "account_db",
+     "name": "account-microservice",
+     "group": "oves_prod",
+     "kind": "http",
+     "target": "https://account-microservice-prod.omnivoltaic.com/health/db",
+     "depends": "",
+     "critical": false,
+     "status": "up",
+     "latency_ms": 2165.4,
+     "http_status": 200,
+     "detail": "HTTP 200",
+     "streak": 0
+    },
+    {
+     "id": "client_db",
+     "name": "client-microservice",
+     "group": "oves_prod",
+     "kind": "http",
+     "target": "https://client-microservice-prod.omnivoltaic.com/health/db",
+     "depends": "",
+     "critical": false,
+     "status": "up",
+     "latency_ms": 990.8,
+     "http_status": 200,
+     "detail": "HTTP 200",
+     "streak": 0
+    },
+    {
+     "id": "client_use_db",
+     "name": "client-use-microservice",
+     "group": "oves_prod",
+     "kind": "http",
+     "target": "https://client-use-microservice-prod.omnivoltaic.com/health/db",
+     "depends": "",
+     "critical": false,
+     "status": "up",
+     "latency_ms": 2887.1,
+     "http_status": 200,
+     "detail": "HTTP 200",
+     "streak": 0
+    },
+    {
+     "id": "event_db",
+     "name": "event-microservice",
+     "group": "oves_prod",
+     "kind": "http",
+     "target": "https://event-microservice-prod.omnivoltaic.com/health/db",
+     "depends": "",
+     "critical": false,
+     "status": "up",
+     "latency_ms": 986.0,
+     "http_status": 200,
+     "detail": "HTTP 200",
+     "streak": 0
+    },
+    {
+     "id": "auth_use_db",
+     "name": "auth-use-microservice",
+     "group": "oves_prod",
+     "kind": "http",
+     "target": "https://auth-use-microservice-prod.omnivoltaic.com/health/db",
+     "depends": "",
+     "critical": false,
+     "status": "up",
+     "latency_ms": 966.4,
+     "http_status": 200,
+     "detail": "HTTP 200",
+     "streak": 0
+    },
+    {
+     "id": "thing_use_db",
+     "name": "thing-use-microservice",
+     "group": "oves_prod",
+     "kind": "http",
+     "target": "https://thing-use-microservice-prod.omnivoltaic.com/health/db",
+     "depends": "",
+     "critical": false,
+     "status": "up",
+     "latency_ms": 1156.0,
+     "http_status": 200,
+     "detail": "HTTP 200",
+     "streak": 0
+    }
+   ],
+   "log_errors_5m": 0,
+   "log_errors_60m": 0,
+   "log_errors_by_service": {
+    "thing-microservice-make": 0,
+    "thing-microservice": 0,
+    "thing-use-microservice": 0,
+    "auth-microservice": 0,
+    "client-microservice": 0,
+    "account-microservice": 0
+   },
+   "hosts": [
+    {
+     "name": "mongo1 (10.0.1.19)",
+     "instance_id": "i-0d45d621c58b850c0",
+     "state": "running",
+     "system_status": "ok",
+     "instance_status": "ok",
+     "events": [],
+     "cpu_pct": 18.2,
+     "cpu_credits": 864.0,
+     "credit_mode": "unlimited",
+     "status_check_failed": 0.0
+    },
+    {
+     "name": "mongo (10.0.1.97)",
+     "instance_id": "i-0017ff94ab0464d93",
+     "state": "running",
+     "system_status": "ok",
+     "instance_status": "ok",
+     "events": [],
+     "cpu_pct": 12.4,
+     "cpu_credits": 864.0,
+     "credit_mode": "unlimited",
+     "status_check_failed": 0.0
+    },
+    {
+     "name": "mongo0 (10.0.1.129)",
+     "instance_id": "i-0dd1b03899e0bb058",
+     "state": "running",
+     "system_status": "ok",
+     "instance_status": "ok",
+     "events": [],
+     "cpu_pct": 61.5,
+     "cpu_credits": 0.0,
+     "credit_mode": "unlimited",
+     "status_check_failed": 0.0
+    }
+   ],
+   "hosts_available": true,
+   "replica_set": {
+    "available": false,
+    "note": "rs0 is private (eu-central-1). Member state comes from the login probe, /health/db and app-log errors."
+   },
+   "tencent_rs": {
+    "id": "tencent_mongo",
+    "name": "Tencent MongoDB rs0",
+    "group": "tencent",
+    "kind": "mongo_rs",
+    "target": "mongo-0.dev.global.omnivoltaic.com:27017,mongo-1.dev.global.omnivoltaic.com:27017,mongo-2.dev.global.omnivoltaic.com:27017",
+    "depends": "Tencent-hosted services",
+    "critical": false,
+    "status": "up",
+    "latency_ms": 294.3,
+    "http_status": null,
+    "detail": "primary mongodb-1.mongodb.data-services.svc.cluster.local:27017",
+    "members": [
+     {
+      "host": "mongo-0.dev.global.omnivoltaic.com:27017",
+      "latency_ms": 278.9,
+      "writable": false,
+      "secondary": true,
+      "set": "rs0",
+      "primary": "mongodb-1.mongodb.data-services.svc.cluster.local:27017",
+      "me": "mongodb-0.mongodb.data-services.svc.cluster.local:27017",
+      "last_write": "2026-10-12T15:22:05Z"
+     },
+     {
+      "host": "mongo-1.dev.global.omnivoltaic.com:27017",
+      "latency_ms": 277.7,
+      "writable": true,
+      "secondary": false,
+      "set": "rs0",
+      "primary": "mongodb-1.mongodb.data-services.svc.cluster.local:27017",
+      "me": "mongodb-1.mongodb.data-services.svc.cluster.local:27017",
+      "last_write": "2026-10-12T15:22:05Z"
+     },
+     {
+      "host": "mongo-2.dev.global.omnivoltaic.com:27017",
+      "latency_ms": 294.3,
+      "writable": false,
+      "secondary": true,
+      "set": "rs0",
+      "primary": "mongodb-1.mongodb.data-services.svc.cluster.local:27017",
+      "me": "mongodb-2.mongodb.data-services.svc.cluster.local:27017",
+      "last_write": "2026-10-12T15:22:05Z"
+     }
+    ],
+    "streak": 0
+   }
+  },
+  "clusters": {
+   "prod": {
+    "status": "ok",
+    "services": [
+     {
+      "label": "Shadow API",
+      "role": "Device OTP / code routes",
+      "namespace": "erm",
+      "name": "shadow-api",
+      "desired": 3,
+      "ready": 3,
+      "state": "ok",
+      "restarts": 0,
+      "dead_pods": 0,
+      "pods": [
+       {
+        "name": "shadow-api-5985f95947-5cxn5",
+        "state": "Ready",
+        "ok": true,
+        "restarts": 0,
+        "last_restart_reason": null,
+        "last_restart_ago_s": null,
+        "age_s": 10610,
+        "node": "ip-10-1-8-230.ec2.internal"
+       },
+       {
+        "name": "shadow-api-5985f95947-mdl9r",
+        "state": "Ready",
+        "ok": true,
+        "restarts": 0,
+        "last_restart_reason": null,
+        "last_restart_ago_s": null,
+        "age_s": 10559,
+        "node": "ip-10-1-59-128.ec2.internal"
+       },
+       {
+        "name": "shadow-api-5985f95947-vt6x5",
+        "state": "Ready",
+        "ok": true,
+        "restarts": 0,
+        "last_restart_reason": null,
+        "last_restart_ago_s": null,
+        "age_s": 10624,
+        "node": "ip-10-1-49-139.ec2.internal"
+       }
+      ]
+     },
+     {
+      "label": "Thing (make)",
+      "role": "Generates codes for shadow + devices",
+      "namespace": "erm",
+      "name": "thing-microservice-make",
+      "desired": 2,
+      "ready": 2,
+      "state": "ok",
+      "restarts": 0,
+      "dead_pods": 0,
+      "pods": [
+       {
+        "name": "thing-microservice-make-6964d4b69b-78nsh",
+        "state": "Ready",
+        "ok": true,
+        "restarts": 0,
+        "last_restart_reason": null,
+        "last_restart_ago_s": null,
+        "age_s": 22037,
+        "node": "ip-10-1-5-55.ec2.internal"
+       },
+       {
+        "name": "thing-microservice-make-6964d4b69b-klgqm",
+        "state": "Ready",
+        "ok": true,
+        "restarts": 0,
+        "last_restart_reason": null,
+        "last_restart_ago_s": null,
+        "age_s": 22036,
+        "node": "ip-10-1-8-230.ec2.internal"
+       }
+      ]
+     },
+     {
+      "label": "Auth",
+      "role": "Login, MQTT auth for shadow",
+      "namespace": "erm",
+      "name": "auth-microservice",
+      "desired": 3,
+      "ready": 3,
+      "state": "ok",
+      "restarts": 3,
+      "dead_pods": 0,
+      "pods": [
+       {
+        "name": "auth-microservice-5f98549b48-55fs9",
+        "state": "Ready",
+        "ok": true,
+        "restarts": 1,
+        "last_restart_reason": "Error",
+        "last_restart_ago_s": 1815362,
+        "age_s": 3320545,
+        "node": "ip-10-1-8-230.ec2.internal"
+       },
+       {
+        "name": "auth-microservice-5f98549b48-mckpl",
+        "state": "Ready",
+        "ok": true,
+        "restarts": 1,
+        "last_restart_reason": "Error",
+        "last_restart_ago_s": 1815353,
+        "age_s": 3320545,
+        "node": "ip-10-1-49-139.ec2.internal"
+       },
+       {
+        "name": "auth-microservice-5f98549b48-rpr6h",
+        "state": "Ready",
+        "ok": true,
+        "restarts": 1,
+        "last_restart_reason": "Error",
+        "last_restart_ago_s": 1193160,
+        "age_s": 2940672,
+        "node": "ip-10-1-38-140.ec2.internal"
+       }
+      ]
+     },
+     {
+      "label": "Account",
+      "role": "Accounts + PAYG for shadow",
+      "namespace": "erm",
+      "name": "account-microservice",
+      "desired": 2,
+      "ready": 2,
+      "state": "ok",
+      "restarts": 0,
+      "dead_pods": 0,
+      "pods": [
+       {
+        "name": "account-microservice-5747fd4755-cf675",
+        "state": "Ready",
+        "ok": true,
+        "restarts": 0,
+        "last_restart_reason": null,
+        "last_restart_ago_s": null,
+        "age_s": 22006,
+        "node": "ip-10-1-59-128.ec2.internal"
+       },
+       {
+        "name": "account-microservice-5747fd4755-pwkxz",
+        "state": "Ready",
+        "ok": true,
+        "restarts": 0,
+        "last_restart_reason": null,
+        "last_restart_ago_s": null,
+        "age_s": 21388,
+        "node": "ip-10-1-8-230.ec2.internal"
+       }
+      ]
+     },
+     {
+      "label": "Thing",
+      "role": "Codes for ERM admin + ble-app",
+      "namespace": "erm",
+      "name": "thing-microservice",
+      "desired": 5,
+      "ready": 5,
+      "state": "ok",
+      "restarts": 0,
+      "dead_pods": 0,
+      "pods": [
+       {
+        "name": "thing-microservice-7f98668f5d-55qbv",
+        "state": "Ready",
+        "ok": true,
+        "restarts": 0,
+        "last_restart_reason": null,
+        "last_restart_ago_s": null,
+        "age_s": 189974,
+        "node": "ip-10-1-5-55.ec2.internal"
+       },
+       {
+        "name": "thing-microservice-7f98668f5d-5nzxl",
+        "state": "Ready",
+        "ok": true,
+        "restarts": 0,
+        "last_restart_reason": null,
+        "last_restart_ago_s": null,
+        "age_s": 189991,
+        "node": "ip-10-1-38-140.ec2.internal"
+       },
+       {
+        "name": "thing-microservice-7f98668f5d-n5fp4",
+        "state": "Ready",
+        "ok": true,
+        "restarts": 0,
+        "last_restart_reason": null,
+        "last_restart_ago_s": null,
+        "age_s": 190006,
+        "node": "ip-10-1-59-128.ec2.internal"
+       },
+       {
+        "name": "thing-microservice-7f98668f5d-nx8qq",
+        "state": "Ready",
+        "ok": true,
+        "restarts": 0,
+        "last_restart_reason": null,
+        "last_restart_ago_s": null,
+        "age_s": 190014,
+        "node": "ip-10-1-49-139.ec2.internal"
+       },
+       {
+        "name": "thing-microservice-7f98668f5d-r9gdl",
+        "state": "Ready",
+        "ok": true,
+        "restarts": 0,
+        "last_restart_reason": null,
+        "last_restart_ago_s": null,
+        "age_s": 190014,
+        "node": "ip-10-1-5-55.ec2.internal"
+       }
+      ]
+     },
+     {
+      "label": "OpenToken",
+      "role": "OpenPAYGO code algorithm",
+      "namespace": "erm",
+      "name": "oves-open-token",
+      "desired": 1,
+      "ready": 1,
+      "state": "ok",
+      "restarts": 0,
+      "dead_pods": 0,
+      "pods": [
+       {
+        "name": "oves-open-token-75db7fdb-82p2g",
+        "state": "Ready",
+        "ok": true,
+        "restarts": 0,
+        "last_restart_reason": null,
+        "last_restart_ago_s": null,
+        "age_s": 5713290,
+        "node": "ip-10-1-59-128.ec2.internal"
+       }
+      ]
+     },
+     {
+      "label": "Gateway",
+      "role": "Federated GraphQL",
+      "namespace": "erm",
+      "name": "api-gateway-microservice",
+      "desired": 2,
+      "ready": 2,
+      "state": "ok",
+      "restarts": 0,
+      "dead_pods": 0,
+      "pods": [
+       {
+        "name": "api-gateway-microservice-74589b5c59-2z9bm",
+        "state": "Ready",
+        "ok": true,
+        "restarts": 0,
+        "last_restart_reason": null,
+        "last_restart_ago_s": null,
+        "age_s": 2937805,
+        "node": "ip-10-1-38-140.ec2.internal"
+       },
+       {
+        "name": "api-gateway-microservice-74589b5c59-br89t",
+        "state": "Ready",
+        "ok": true,
+        "restarts": 0,
+        "last_restart_reason": null,
+        "last_restart_ago_s": null,
+        "age_s": 2935427,
+        "node": "ip-10-1-38-140.ec2.internal"
+       }
+      ]
+     },
+     {
+      "label": "Client",
+      "role": "Customers, people",
+      "namespace": "erm",
+      "name": "client-microservice",
+      "desired": 2,
+      "ready": 2,
+      "state": "ok",
+      "restarts": 0,
+      "dead_pods": 0,
+      "pods": [
+       {
+        "name": "client-microservice-759d5f48c-59vnp",
+        "state": "Ready",
+        "ok": true,
+        "restarts": 0,
+        "last_restart_reason": null,
+        "last_restart_ago_s": null,
+        "age_s": 21930,
+        "node": "ip-10-1-49-139.ec2.internal"
+       },
+       {
+        "name": "client-microservice-759d5f48c-vpr2l",
+        "state": "Ready",
+        "ok": true,
+        "restarts": 0,
+        "last_restart_reason": null,
+        "last_restart_ago_s": null,
+        "age_s": 21931,
+        "node": "ip-10-1-59-128.ec2.internal"
+       }
+      ]
+     },
+     {
+      "label": "Event",
+      "role": "Events, telemetry",
+      "namespace": "erm",
+      "name": "event-microservice",
+      "desired": 2,
+      "ready": 2,
+      "state": "ok",
+      "restarts": 0,
+      "dead_pods": 0,
+      "pods": [
+       {
+        "name": "event-microservice-77f46dd444-29wng",
+        "state": "Ready",
+        "ok": true,
+        "restarts": 0,
+        "last_restart_reason": null,
+        "last_restart_ago_s": null,
+        "age_s": 84,
+        "node": "ip-10-1-5-55.ec2.internal"
+       },
+       {
+        "name": "event-microservice-77f46dd444-w25pl",
+        "state": "Ready",
+        "ok": true,
+        "restarts": 0,
+        "last_restart_reason": null,
+        "last_restart_ago_s": null,
+        "age_s": 29162,
+        "node": "ip-10-1-49-139.ec2.internal"
+       }
+      ]
+     },
+     {
+      "label": "Ingress",
+      "role": "Every public request",
+      "namespace": "ingress-nginx",
+      "name": "ingress-nginx-controller",
+      "desired": 1,
+      "ready": 1,
+      "state": "ok",
+      "restarts": 0,
+      "dead_pods": 0,
+      "pods": [
+       {
+        "name": "ingress-nginx-controller-c5686fd7b-sl975",
+        "state": "Ready",
+        "ok": true,
+        "restarts": 0,
+        "last_restart_reason": null,
+        "last_restart_ago_s": null,
+        "age_s": 5799882,
+        "node": "ip-10-1-59-128.ec2.internal"
+       }
+      ]
+     }
+    ],
+    "node_summary": {
+     "total": 6,
+     "ready": 6,
+     "cpu_max": 33.1,
+     "mem_max": 47.8,
+     "disk_max": 82.1,
+     "pressure": []
+    },
+    "workloads": {
+     "total": 49,
+     "ok": 49,
+     "degraded": 0,
+     "down": 0,
+     "problems": []
+    },
+    "pods": {
+     "total": 107,
+     "running": 104,
+     "restarted_1h": 0,
+     "oom_1h": 0,
+     "recent_restarts": [],
+     "crashloop": [],
+     "pending": []
+    },
+    "nodes": [
+     {
+      "name": "ip-10-1-11-196.ec2.internal",
+      "ready": true,
+      "pressure": [],
+      "instance_type": "t3.large",
+      "ip": "10.1.0.196",
+      "cpu_pct": 3.5,
+      "mem_pct": 23.1,
+      "disk_pct": 66.5
+     },
+     {
+      "name": "ip-10-1-38-140.ec2.internal",
+      "ready": true,
+      "pressure": [],
+      "instance_type": "t3.large",
+      "ip": "10.1.0.140",
+      "cpu_pct": 16.9,
+      "mem_pct": 42.7,
+      "disk_pct": 82.1
+     },
+     {
+      "name": "ip-10-1-49-139.ec2.internal",
+      "ready": true,
+      "pressure": [],
+      "instance_type": "t3.large",
+      "ip": "10.1.0.139",
+      "cpu_pct": 20.9,
+      "mem_pct": 47.8,
+      "disk_pct": 62.5
+     },
+     {
+      "name": "ip-10-1-5-55.ec2.internal",
+      "ready": true,
+      "pressure": [],
+      "instance_type": "t3.large",
+      "ip": "10.1.0.55",
+      "cpu_pct": 33.1,
+      "mem_pct": 45.5,
+      "disk_pct": 55.5
+     },
+     {
+      "name": "ip-10-1-59-128.ec2.internal",
+      "ready": true,
+      "pressure": [],
+      "instance_type": "t3.large",
+      "ip": "10.1.0.128",
+      "cpu_pct": 14.3,
+      "mem_pct": 42.9,
+      "disk_pct": 74.1
+     },
+     {
+      "name": "ip-10-1-8-230.ec2.internal",
+      "ready": true,
+      "pressure": [],
+      "instance_type": "t3.large",
+      "ip": "10.1.0.230",
+      "cpu_pct": 20.6,
+      "mem_pct": 45.4,
+      "disk_pct": 60.5
+     }
+    ]
+   },
+   "dev": {
+    "status": "ok",
+    "services": [
+     {
+      "label": "Keycloak",
+      "role": "Prod signup + SSO",
+      "namespace": "data-services",
+      "name": "keycloak",
+      "desired": 1,
+      "ready": 1,
+      "state": "ok",
+      "restarts": 0,
+      "dead_pods": 0,
+      "pods": [
+       {
+        "name": "keycloak-6ff79d587-rrv2r",
+        "state": "Ready",
+        "ok": true,
+        "restarts": 0,
+        "last_restart_reason": null,
+        "last_restart_ago_s": null,
+        "age_s": 28083008,
+        "node": "ip-10-0-40-177.ec2.internal"
+       }
+      ]
+     },
+     {
+      "label": "Elasticsearch",
+      "role": "Prod search, code index",
+      "namespace": "elk",
+      "name": "elasticsearch",
+      "desired": 1,
+      "ready": 1,
+      "state": "ok",
+      "restarts": 1,
+      "dead_pods": 1,
+      "pods": [
+       {
+        "name": "elasticsearch-76c89cbff7-5dkqs",
+        "state": "Ready",
+        "ok": true,
+        "restarts": 1,
+        "last_restart_reason": "Error",
+        "last_restart_ago_s": 1053556,
+        "age_s": 1646149,
+        "node": "ip-10-0-14-1.ec2.internal"
+       }
+      ]
+     },
+     {
+      "label": "InfluxDB",
+      "role": "Prod fleet buckets",
+      "namespace": "erm",
+      "name": "influxdb-cronjob",
+      "desired": 2,
+      "ready": 2,
+      "state": "ok",
+      "restarts": 0,
+      "dead_pods": 0,
+      "pods": [
+       {
+        "name": "influxdb-cronjob-57ffb44bd-fnxsw",
+        "state": "Ready",
+        "ok": true,
+        "restarts": 0,
+        "last_restart_reason": null,
+        "last_restart_ago_s": null,
+        "age_s": 22497670,
+        "node": "ip-10-0-10-213.ec2.internal"
+       },
+       {
+        "name": "influxdb-cronjob-57ffb44bd-l4ccn",
+        "state": "Ready",
+        "ok": true,
+        "restarts": 0,
+        "last_restart_reason": null,
+        "last_restart_ago_s": null,
+        "age_s": 27666197,
+        "node": "ip-10-0-30-237.ec2.internal"
+       }
+      ]
+     },
+     {
+      "label": "Vault",
+      "role": "Secrets",
+      "namespace": "vault",
+      "name": "vault-agent-injector",
+      "desired": 1,
+      "ready": 1,
+      "state": "ok",
+      "restarts": 0,
+      "dead_pods": 0,
+      "pods": [
+       {
+        "name": "vault-agent-injector-77c8bb559-px4d4",
+        "state": "Ready",
+        "ok": true,
+        "restarts": 0,
+        "last_restart_reason": null,
+        "last_restart_ago_s": null,
+        "age_s": 7571643,
+        "node": "ip-10-0-10-213.ec2.internal"
+       }
+      ]
+     }
+    ],
+    "node_summary": {
+     "total": 9,
+     "ready": 9,
+     "cpu_max": 100.0,
+     "mem_max": 51.9,
+     "disk_max": 82.5,
+     "pressure": []
+    },
+    "workloads": {
+     "total": 77,
+     "ok": 77,
+     "degraded": 0,
+     "down": 0,
+     "problems": []
+    },
+    "pods": {
+     "total": 273,
+     "running": 157,
+     "restarted_1h": 0,
+     "oom_1h": 0,
+     "recent_restarts": [],
+     "crashloop": [],
+     "pending": []
+    },
+    "nodes": [
+     {
+      "name": "ip-10-0-10-213.ec2.internal",
+      "ready": true,
+      "pressure": [],
+      "instance_type": "t3.large",
+      "ip": "10.0.0.213",
+      "cpu_pct": 6.1,
+      "mem_pct": 25.8,
+      "disk_pct": 73.2
+     },
+     {
+      "name": "ip-10-0-14-1.ec2.internal",
+      "ready": true,
+      "pressure": [],
+      "instance_type": "t3.large",
+      "ip": "10.0.0.1",
+      "cpu_pct": 11.0,
+      "mem_pct": 48.5,
+      "disk_pct": 82.5
+     },
+     {
+      "name": "ip-10-0-14-183.ec2.internal",
+      "ready": true,
+      "pressure": [],
+      "instance_type": "t3.large",
+      "ip": "10.0.0.183",
+      "cpu_pct": 100.0,
+      "mem_pct": 51.9,
+      "disk_pct": 81.6
+     },
+     {
+      "name": "ip-10-0-30-237.ec2.internal",
+      "ready": true,
+      "pressure": [],
+      "instance_type": "t3.large",
+      "ip": "10.0.0.237",
+      "cpu_pct": 9.9,
+      "mem_pct": 31.3,
+      "disk_pct": 75.0
+     },
+     {
+      "name": "ip-10-0-34-50.ec2.internal",
+      "ready": true,
+      "pressure": [],
+      "instance_type": "t3.large",
+      "ip": "10.0.0.50",
+      "cpu_pct": 19.2,
+      "mem_pct": 43.8,
+      "disk_pct": 78.6
+     },
+     {
+      "name": "ip-10-0-40-177.ec2.internal",
+      "ready": true,
+      "pressure": [],
+      "instance_type": "t3.large",
+      "ip": "10.0.0.177",
+      "cpu_pct": 6.4,
+      "mem_pct": 40.9,
+      "disk_pct": 71.0
+     },
+     {
+      "name": "ip-10-0-41-11.ec2.internal",
+      "ready": true,
+      "pressure": [],
+      "instance_type": "t3.large",
+      "ip": "10.0.0.11",
+      "cpu_pct": 15.3,
+      "mem_pct": 37.6,
+      "disk_pct": 68.8
+     },
+     {
+      "name": "ip-10-0-54-112.ec2.internal",
+      "ready": true,
+      "pressure": [],
+      "instance_type": "t3.large",
+      "ip": "10.0.0.112",
+      "cpu_pct": 7.6,
+      "mem_pct": 30.5,
+      "disk_pct": 71.9
+     },
+     {
+      "name": "ip-10-0-8-203.ec2.internal",
+      "ready": true,
+      "pressure": [],
+      "instance_type": "t3.large",
+      "ip": "10.0.0.203",
+      "cpu_pct": 19.8,
+      "mem_pct": 45.4,
+      "disk_pct": 81.3
+     }
+    ]
+   },
+   "tencent": {
+    "status": "unknown",
+    "not_configured": true
+   }
+  },
+  "traffic": {
+   "last_5m": {
+    "abs-platform": {
+     "requests": 1,
+     "status_5xx": 0,
+     "p95_ms": 3.0
+    },
+    "account-microservice": {
+     "requests": 13,
+     "status_5xx": 0,
+     "p95_ms": 3036.8
+    },
+    "api-gateway-microservice": {
+     "requests": 45,
+     "status_5xx": 0,
+     "p95_ms": 3875.8
+    },
+    "auth-microservice": {
+     "requests": 55,
+     "status_5xx": 0,
+     "p95_ms": 560.8
+    },
+    "auth-use-microservice": {
+     "requests": 8,
+     "status_5xx": 0,
+     "p95_ms": 2464.3
+    },
+    "client-microservice": {
+     "requests": 26,
+     "status_5xx": 0,
+     "p95_ms": 1909.75
+    },
+    "dirac-fed": {
+     "requests": 1,
+     "status_5xx": 0,
+     "p95_ms": 1.0
+    },
+    "event-microservice": {
+     "requests": 55,
+     "status_5xx": 0,
+     "p95_ms": 31.0
+    },
+    "open-token-microservice": {
+     "requests": 1,
+     "status_5xx": 1,
+     "p95_ms": 15.0
+    },
+    "oves-open-token": {
+     "requests": 1,
+     "status_5xx": 0,
+     "p95_ms": 2.0
+    },
+    "oves-waada": {
+     "requests": 1,
+     "status_5xx": 0,
+     "p95_ms": 2.0
+    },
+    "oves-waasa": {
+     "requests": 1,
+     "status_5xx": 0,
+     "p95_ms": 2.0
+    },
+    "shadow-api": {
+     "requests": 34,
+     "status_5xx": 0,
+     "p95_ms": 3870.85
+    },
+    "thing-microservice": {
+     "requests": 20,
+     "status_5xx": 0,
+     "p95_ms": 3444.95
+    },
+    "thing-microservice-make": {
+     "requests": 28,
+     "status_5xx": 0,
+     "p95_ms": 3772.4
+    },
+    "thing-use-microservice": {
+     "requests": 2,
+     "status_5xx": 0,
+     "p95_ms": 366.75
+    }
+   }
+  },
+  "dependencies": {
+   "status": "warning",
+   "groups": [
+    {
+     "id": "oves_prod",
+     "label": "OVES production",
+     "probes": [
+      {
+       "id": "abs_platform",
+       "name": "ABS platform",
+       "group": "oves_prod",
+       "kind": "http",
+       "target": "https://abs-platform-prod.omnivoltaic.com/",
+       "depends": "",
+       "critical": false,
+       "status": "up",
+       "latency_ms": 1059.8,
+       "http_status": 200,
+       "detail": "HTTP 200",
+       "streak": 0
+      },
+      {
+       "id": "thing_make_db",
+       "name": "Code generation service (thing-make)",
+       "group": "oves_prod",
+       "kind": "http",
+       "target": "https://alpha-thing-microservice.omnivoltaic.com/health/db",
+       "depends": "Device + shadow-API code generation",
+       "critical": true,
+       "status": "up",
+       "latency_ms": 809.1,
+       "http_status": 200,
+       "detail": "HTTP 200",
+       "streak": 0
+      },
+      {
+       "id": "erm_admin",
+       "name": "ERM admin",
+       "group": "oves_prod",
+       "kind": "http",
+       "target": "https://erm-admin.omnivoltaic.com/",
+       "depends": "",
+       "critical": false,
+       "status": "up",
+       "latency_ms": 819.7,
+       "http_status": 200,
+       "detail": "HTTP 200",
+       "streak": 0
+      },
+      {
+       "id": "erm_distributor",
+       "name": "ERM distributor",
+       "group": "oves_prod",
+       "kind": "http",
+       "target": "https://erm.omnivoltaic.com/",
+       "depends": "",
+       "critical": false,
+       "status": "up",
+       "latency_ms": 840.5,
+       "http_status": 200,
+       "detail": "HTTP 200",
+       "streak": 0
+      },
+      {
+       "id": "login",
+       "name": "Login (auth -> MongoDB primary)",
+       "group": "oves_prod",
+       "kind": "login",
+       "target": "https://federated-graphql-api.omnivoltaic.com/graphql",
+       "depends": "Every ERM / distributor / app session",
+       "critical": true,
+       "status": "up",
+       "latency_ms": 2505.9,
+       "http_status": 200,
+       "detail": "rejected on merit (DB reachable)",
+       "streak": 0
+      },
+      {
+       "id": "emqx_auth",
+       "name": "MQTT auth hook (EMQX -> auth)",
+       "group": "oves_prod",
+       "kind": "http",
+       "target": "https://auth-microservice-prod.omnivoltaic.com/emqx-auth",
+       "depends": "Every MQTT device connect",
+       "critical": true,
+       "status": "up",
+       "latency_ms": 860.5,
+       "http_status": 200,
+       "detail": "HTTP 200",
+       "streak": 0
+      },
+      {
+       "id": "opentoken_algo",
+       "name": "OpenToken code algorithm",
+       "group": "oves_prod",
+       "kind": "opentoken",
+       "target": "https://open-token.omnivoltaic.com/operate_token/",
+       "depends": "Every OpenToken (OpenPAYGO) code",
+       "critical": true,
+       "status": "up",
+       "latency_ms": 1165.9,
+       "http_status": 200,
+       "detail": "correct token",
+       "streak": 0
+      },
+      {
+       "id": "shadow_api",
+       "name": "Shadow API (devices)",
+       "group": "oves_prod",
+       "kind": "http",
+       "target": "https://api.omnivoltaic.com/",
+       "depends": "Device OTP / code routes",
+       "critical": false,
+       "status": "up",
+       "latency_ms": 1320.5,
+       "http_status": 200,
+       "detail": "HTTP 200",
+       "streak": 0
+      },
+      {
+       "id": "account_db",
+       "name": "account-microservice",
+       "group": "oves_prod",
+       "kind": "http",
+       "target": "https://account-microservice-prod.omnivoltaic.com/health/db",
+       "depends": "",
+       "critical": false,
+       "status": "up",
+       "latency_ms": 2165.4,
+       "http_status": 200,
+       "detail": "HTTP 200",
+       "streak": 0
+      },
+      {
+       "id": "auth_use_db",
+       "name": "auth-use-microservice",
+       "group": "oves_prod",
+       "kind": "http",
+       "target": "https://auth-use-microservice-prod.omnivoltaic.com/health/db",
+       "depends": "",
+       "critical": false,
+       "status": "up",
+       "latency_ms": 966.4,
+       "http_status": 200,
+       "detail": "HTTP 200",
+       "streak": 0
+      },
+      {
+       "id": "client_db",
+       "name": "client-microservice",
+       "group": "oves_prod",
+       "kind": "http",
+       "target": "https://client-microservice-prod.omnivoltaic.com/health/db",
+       "depends": "",
+       "critical": false,
+       "status": "up",
+       "latency_ms": 990.8,
+       "http_status": 200,
+       "detail": "HTTP 200",
+       "streak": 0
+      },
+      {
+       "id": "client_use_db",
+       "name": "client-use-microservice",
+       "group": "oves_prod",
+       "kind": "http",
+       "target": "https://client-use-microservice-prod.omnivoltaic.com/health/db",
+       "depends": "",
+       "critical": false,
+       "status": "up",
+       "latency_ms": 2887.1,
+       "http_status": 200,
+       "detail": "HTTP 200",
+       "streak": 0
+      },
+      {
+       "id": "dirac_fed",
+       "name": "dirac-fed",
+       "group": "oves_prod",
+       "kind": "http",
+       "target": "https://dirac-fed.omnivoltaic.com/",
+       "depends": "",
+       "critical": false,
+       "status": "up",
+       "latency_ms": 820.6,
+       "http_status": 200,
+       "detail": "HTTP 200",
+       "streak": 0
+      },
+      {
+       "id": "event_db",
+       "name": "event-microservice",
+       "group": "oves_prod",
+       "kind": "http",
+       "target": "https://event-microservice-prod.omnivoltaic.com/health/db",
+       "depends": "",
+       "critical": false,
+       "status": "up",
+       "latency_ms": 986.0,
+       "http_status": 200,
+       "detail": "HTTP 200",
+       "streak": 0
+      },
+      {
+       "id": "open_token_store",
+       "name": "open-token-microservice",
+       "group": "oves_prod",
+       "kind": "http",
+       "target": "https://open-token-microservice-prod.omnivoltaic.com/",
+       "depends": "OpenToken secret sharing",
+       "critical": false,
+       "status": "up",
+       "latency_ms": 1703.2,
+       "http_status": 500,
+       "detail": "HTTP 500",
+       "streak": 0
+      },
+      {
+       "id": "thing_prod_gql",
+       "name": "thing-microservice (GraphQL)",
+       "group": "oves_prod",
+       "kind": "http",
+       "target": "https://thing-microservice-prod.omnivoltaic.com/graphql",
+       "depends": "ERM admin + ble-app code generation",
+       "critical": true,
+       "status": "up",
+       "latency_ms": 847.4,
+       "http_status": 200,
+       "detail": "HTTP 200",
+       "streak": 0
+      },
+      {
+       "id": "thing_use_db",
+       "name": "thing-use-microservice",
+       "group": "oves_prod",
+       "kind": "http",
+       "target": "https://thing-use-microservice-prod.omnivoltaic.com/health/db",
+       "depends": "",
+       "critical": false,
+       "status": "up",
+       "latency_ms": 1156.0,
+       "http_status": 200,
+       "detail": "HTTP 200",
+       "streak": 0
+      }
+     ]
+    },
+    {
+     "id": "oves_dev",
+     "label": "AWS dev cluster (production depends on it)",
+     "probes": [
+      {
+       "id": "odoo_dev",
+       "name": "Odoo self-hosted (dev/test)",
+       "group": "oves_dev",
+       "kind": "http",
+       "target": "https://odoo.omnivoltaic.com/web/health",
+       "depends": "Dev/test only",
+       "critical": false,
+       "status": "down",
+       "latency_ms": 944.8,
+       "http_status": 502,
+       "detail": "HTTP 502",
+       "streak": 1
+      },
+      {
+       "id": "app_policy",
+       "name": "App policy server",
+       "group": "oves_dev",
+       "kind": "http",
+       "target": "https://app-policy.omnivoltaic.com/",
+       "depends": "",
+       "critical": false,
+       "status": "up",
+       "latency_ms": 1273.3,
+       "http_status": 200,
+       "detail": "HTTP 200",
+       "streak": 0
+      },
+      {
+       "id": "elasticsearch",
+       "name": "Elasticsearch",
+       "group": "oves_dev",
+       "kind": "http",
+       "target": "https://elasticsearch.omnivoltaic.com/_cluster/health",
+       "depends": "Prod agent + asset-account search, code-event index",
+       "critical": false,
+       "status": "up",
+       "latency_ms": 635.2,
+       "http_status": 200,
+       "detail": "HTTP 200",
+       "streak": 0
+      },
+      {
+       "id": "influxdb",
+       "name": "InfluxDB (fluxdb)",
+       "group": "oves_dev",
+       "kind": "http",
+       "target": "https://fluxdb.omnivoltaic.com/health",
+       "depends": "Prod createItemFleet (bucket per fleet), aaas-dashboard",
+       "critical": false,
+       "status": "up",
+       "latency_ms": 709.5,
+       "http_status": 200,
+       "detail": "HTTP 200",
+       "streak": 0
+      },
+      {
+       "id": "keycloak",
+       "name": "Keycloak",
+       "group": "oves_dev",
+       "kind": "http",
+       "target": "https://keycloak.omnivoltaic.com/realms/master/.well-known/openid-configuration",
+       "depends": "Prod client signup (signUpClient rolls back on failure), SSO",
+       "critical": true,
+       "status": "up",
+       "latency_ms": 641.1,
+       "http_status": 200,
+       "detail": "HTTP 200",
+       "streak": 0
+      },
+      {
+       "id": "node_red",
+       "name": "Node-RED biz flows",
+       "group": "oves_dev",
+       "kind": "http",
+       "target": "https://biz-flows.omnivoltaic.com/",
+       "depends": "",
+       "critical": false,
+       "status": "up",
+       "latency_ms": 915.4,
+       "http_status": 200,
+       "detail": "HTTP 200",
+       "streak": 0
+      },
+      {
+       "id": "rabbitmq",
+       "name": "RabbitMQ (dev)",
+       "group": "oves_dev",
+       "kind": "http",
+       "target": "https://rabbitmq.omnivoltaic.com/api/overview",
+       "depends": "",
+       "critical": false,
+       "status": "up",
+       "latency_ms": 972.3,
+       "http_status": 401,
+       "detail": "HTTP 401",
+       "streak": 0
+      },
+      {
+       "id": "vault",
+       "name": "Vault",
+       "group": "oves_dev",
+       "kind": "http",
+       "target": "https://vault.omnivoltaic.com/v1/sys/health",
+       "depends": "Secrets",
+       "critical": false,
+       "status": "up",
+       "latency_ms": 1233.4,
+       "http_status": 200,
+       "detail": "HTTP 200",
+       "streak": 0
+      },
+      {
+       "id": "n8n",
+       "name": "n8n flows",
+       "group": "oves_dev",
+       "kind": "http",
+       "target": "https://flows.omnivoltaic.com/healthz",
+       "depends": "",
+       "critical": false,
+       "status": "up",
+       "latency_ms": 988.4,
+       "http_status": 200,
+       "detail": "HTTP 200",
+       "streak": 0
+      }
+     ]
+    },
+    {
+     "id": "tencent",
+     "label": "Tencent Cloud (TKE oves-dev, Singapore)",
+     "probes": [
+      {
+       "id": "abs_dev",
+       "name": "ABS platform",
+       "group": "tencent",
+       "kind": "http",
+       "target": "https://abs-platform-dev.omnivoltaic.com/graphql",
+       "depends": "ble-app identify / serviceTopup, rider activity",
+       "critical": true,
+       "status": "up",
+       "latency_ms": 1213.3,
+       "http_status": 200,
+       "detail": "HTTP 200",
+       "streak": 0
+      },
+      {
+       "id": "dirac_portal",
+       "name": "DIRAC portal API",
+       "group": "tencent",
+       "kind": "http",
+       "target": "https://dirac-fed-dev.omnivoltaic.com/odoo-portal",
+       "depends": "portal.omnivoltaic.com, ble-app portal client",
+       "critical": true,
+       "status": "up",
+       "latency_ms": 761.8,
+       "http_status": 200,
+       "detail": "HTTP 200",
+       "streak": 0
+      },
+      {
+       "id": "dev_gateway_login",
+       "name": "Dev gateway login",
+       "group": "tencent",
+       "kind": "login",
+       "target": "https://dev-federated-graphql-api.omnivoltaic.com/graphql",
+       "depends": "ble-app on non-wvapp origins, ERM preview",
+       "critical": false,
+       "status": "up",
+       "latency_ms": 1415.3,
+       "http_status": 200,
+       "detail": "rejected on merit (DB reachable)",
+       "streak": 0
+      },
+      {
+       "id": "mqtt_8883",
+       "name": "MQTT TLS :8883",
+       "group": "tencent",
+       "kind": "tcp",
+       "target": "mqtt.omnivoltaic.com:8883",
+       "depends": "TLS devices (chain is self-signed: known defect)",
+       "critical": false,
+       "status": "up",
+       "latency_ms": 1.9,
+       "http_status": null,
+       "detail": "port open",
+       "streak": 0
+      },
+      {
+       "id": "mqtt_broker",
+       "name": "MQTT broker + auth (EMQX, production)",
+       "group": "tencent",
+       "kind": "mqtt_connect",
+       "target": "mqtt.omnivoltaic.com:1883",
+       "depends": "All device telemetry + code delivery (ble-app hard-codes 1883)",
+       "critical": true,
+       "status": "up",
+       "latency_ms": 280.0,
+       "http_status": null,
+       "detail": "broker + auth hook answered (CONNACK 5)",
+       "streak": 0
+      },
+      {
+       "id": "memo_cos",
+       "name": "Memo / deck site (COS + EdgeOne)",
+       "group": "tencent",
+       "kind": "http",
+       "target": "https://memo.omnivoltaic.cn/",
+       "depends": "Company memos",
+       "critical": false,
+       "status": "up",
+       "latency_ms": 266.1,
+       "http_status": 401,
+       "detail": "HTTP 401",
+       "streak": 0
+      },
+      {
+       "id": "tencent_postgres",
+       "name": "Postgres pooler",
+       "group": "tencent",
+       "kind": "tcp",
+       "target": "dev.postgres.global.omnivoltaic.com:5432",
+       "depends": "Tencent-hosted services",
+       "critical": false,
+       "status": "up",
+       "latency_ms": 1.8,
+       "http_status": null,
+       "detail": "port open",
+       "streak": 0
+      },
+      {
+       "id": "tencent_mongo",
+       "name": "Tencent MongoDB rs0",
+       "group": "tencent",
+       "kind": "mongo_rs",
+       "target": "mongo-0.dev.global.omnivoltaic.com:27017,mongo-1.dev.global.omnivoltaic.com:27017,mongo-2.dev.global.omnivoltaic.com:27017",
+       "depends": "Tencent-hosted services",
+       "critical": false,
+       "status": "up",
+       "latency_ms": 294.3,
+       "http_status": null,
+       "detail": "primary mongodb-1.mongodb.data-services.svc.cluster.local:27017",
+       "members": [
+        {
+         "host": "mongo-0.dev.global.omnivoltaic.com:27017",
+         "latency_ms": 278.9,
+         "writable": false,
+         "secondary": true,
+         "set": "rs0",
+         "primary": "mongodb-1.mongodb.data-services.svc.cluster.local:27017",
+         "me": "mongodb-0.mongodb.data-services.svc.cluster.local:27017",
+         "last_write": "2026-10-12T15:22:05Z"
+        },
+        {
+         "host": "mongo-1.dev.global.omnivoltaic.com:27017",
+         "latency_ms": 277.7,
+         "writable": true,
+         "secondary": false,
+         "set": "rs0",
+         "primary": "mongodb-1.mongodb.data-services.svc.cluster.local:27017",
+         "me": "mongodb-1.mongodb.data-services.svc.cluster.local:27017",
+         "last_write": "2026-10-12T15:22:05Z"
+        },
+        {
+         "host": "mongo-2.dev.global.omnivoltaic.com:27017",
+         "latency_ms": 294.3,
+         "writable": false,
+         "secondary": true,
+         "set": "rs0",
+         "primary": "mongodb-1.mongodb.data-services.svc.cluster.local:27017",
+         "me": "mongodb-2.mongodb.data-services.svc.cluster.local:27017",
+         "last_write": "2026-10-12T15:22:05Z"
+        }
+       ],
+       "streak": 0
+      },
+      {
+       "id": "wvapp",
+       "name": "wvapp (field app web layer)",
+       "group": "tencent",
+       "kind": "http",
+       "target": "https://wvapp.omnivoltaic.com/",
+       "depends": "Every field-staff applet in oves-app",
+       "critical": true,
+       "status": "up",
+       "latency_ms": 1251.0,
+       "http_status": 200,
+       "detail": "HTTP 200",
+       "streak": 0
+      }
+     ]
+    },
+    {
+     "id": "third_party",
+     "label": "Third-party services",
+     "probes": [
+      {
+       "id": "cloudflare_status",
+       "name": "Cloudflare",
+       "group": "third_party",
+       "kind": "statuspage",
+       "target": "https://www.cloudflarestatus.com/api/v2/status.json",
+       "depends": "DNS + proxy for both platforms",
+       "critical": false,
+       "status": "slow",
+       "latency_ms": null,
+       "http_status": 200,
+       "detail": "Partial System Outage",
+       "streak": 0
+      },
+      {
+       "id": "github_status",
+       "name": "GitHub",
+       "group": "third_party",
+       "kind": "statuspage",
+       "target": "https://www.githubstatus.com/api/v2/status.json",
+       "depends": "CI / deploys",
+       "critical": false,
+       "status": "up",
+       "latency_ms": null,
+       "http_status": 200,
+       "detail": "All Systems Operational",
+       "streak": 0
+      },
+      {
+       "id": "ghcr",
+       "name": "GitHub container registry",
+       "group": "third_party",
+       "kind": "http",
+       "target": "https://ghcr.io/v2/",
+       "depends": "Every OVES deploy and pod restart (image pulls)",
+       "critical": false,
+       "status": "up",
+       "latency_ms": 433.1,
+       "http_status": 401,
+       "detail": "HTTP 401",
+       "streak": 0
+      },
+      {
+       "id": "odoo_crm",
+       "name": "Odoo SaaS (crm-omnivoltaic)",
+       "group": "third_party",
+       "kind": "http",
+       "target": "https://crm-omnivoltaic.odoo.com/web/health",
+       "depends": "Portal orders, ble-app sales, dirac-fed",
+       "critical": true,
+       "status": "up",
+       "latency_ms": 255.3,
+       "http_status": 200,
+       "detail": "HTTP 200",
+       "streak": 0
+      },
+      {
+       "id": "tapd",
+       "name": "TAPD",
+       "group": "third_party",
+       "kind": "http",
+       "target": "https://www.tapd.cn/",
+       "depends": "Tasks, software-factory webhooks",
+       "critical": false,
+       "status": "up",
+       "latency_ms": 6360.4,
+       "http_status": 200,
+       "detail": "HTTP 200",
+       "streak": 0
+      },
+      {
+       "id": "wecom",
+       "name": "WeCom",
+       "group": "third_party",
+       "kind": "http",
+       "target": "https://work.weixin.qq.com/",
+       "depends": "Team comms + approvals",
+       "critical": false,
+       "status": "up",
+       "latency_ms": 831.3,
+       "http_status": 200,
+       "detail": "HTTP 200",
+       "streak": 0
+      }
+     ]
+    },
+    {
+     "id": "bitwave",
+     "label": "Bitwave platform dependencies",
+     "probes": [
+      {
+       "id": "aws_transit",
+       "name": "AWS standby (router transit)",
+       "group": "bitwave",
+       "kind": "tcp",
+       "target": "54.91.202.229:22",
+       "depends": "Routers without a native Hetzner path",
+       "critical": false,
+       "status": "up",
+       "latency_ms": 1.0,
+       "http_status": null,
+       "detail": "port open",
+       "streak": 0
+      },
+      {
+       "id": "mpesa_daraja",
+       "name": "M-Pesa Daraja API",
+       "group": "bitwave",
+       "kind": "http",
+       "target": "https://api.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials",
+       "depends": "STK push, C2B, B2B payouts",
+       "critical": true,
+       "status": "up",
+       "latency_ms": 124.4,
+       "http_status": 400,
+       "detail": "HTTP 400",
+       "streak": 0
+      }
+     ]
+    },
+    {
+     "id": "exposure",
+     "label": "Exposure checks",
+     "probes": [
+      {
+       "id": "exposed_dev_mongo",
+       "name": "AWS dev MongoDB EC2 :27017 public",
+       "group": "exposure",
+       "kind": "tcp_closed",
+       "target": "203.0.113.10:27017",
+       "depends": "Should not be reachable from the internet",
+       "critical": false,
+       "status": "down",
+       "latency_ms": 0.9,
+       "http_status": null,
+       "detail": "REACHABLE from the internet",
+       "streak": 1
+      },
+      {
+       "id": "exposed_redis",
+       "name": "Prod Redis :6379 public",
+       "group": "exposure",
+       "kind": "tcp_closed",
+       "target": "redis.omnivoltaic.com:6379",
+       "depends": "Should not be reachable from the internet",
+       "critical": false,
+       "status": "down",
+       "latency_ms": 1.8,
+       "http_status": null,
+       "detail": "REACHABLE from the internet",
+       "streak": 1
+      },
+      {
+       "id": "exposed_tencent_mongo",
+       "name": "Tencent dev MongoDB :27017 public",
+       "group": "exposure",
+       "kind": "tcp_closed",
+       "target": "mongo-1.dev.global.omnivoltaic.com:27017",
+       "depends": "Should not be reachable from the internet",
+       "critical": false,
+       "status": "down",
+       "latency_ms": 2.1,
+       "http_status": null,
+       "detail": "REACHABLE from the internet",
+       "streak": 1
+      },
+      {
+       "id": "exposed_mongodb",
+       "name": "data-services MongoDB :27017 public",
+       "group": "exposure",
+       "kind": "tcp_closed",
+       "target": "exposed-lb.example.com:27017",
+       "depends": "Should not be reachable from the internet",
+       "critical": false,
+       "status": "down",
+       "latency_ms": 1.9,
+       "http_status": null,
+       "detail": "REACHABLE from the internet",
+       "streak": 1
+      }
+     ]
+    }
+   ]
+  }
+ },
+ "alerts": [
+  {
+   "key": "oves.exposure.public_ports",
+   "severity": "warning",
+   "title": "4 database port(s) open to the internet",
+   "message": "data-services MongoDB :27017; Prod Redis :6379; Tencent dev MongoDB :27017; AWS dev MongoDB EC2 :27017",
+   "section": "dependencies"
+  },
+  {
+   "key": "oves.codes.index_failures",
+   "severity": "info",
+   "title": "Code history indexing failing",
+   "message": "11 of 21 codes not indexed in Elasticsearch (60 min); code search is incomplete",
+   "section": "codes"
+  },
+  {
+   "key": "oves.db.credits.mongo0",
+   "severity": "info",
+   "title": "DB host mongo0 (10.0.1.129) bursting on surplus credits",
+   "message": "T2 Unlimited, 0 credits banked at 62 % CPU: not throttled, but billed above baseline",
+   "section": "database"
+  }
+ ],
+ "sources": {
+  "k8s_prod": {
+   "state": "ok"
+  },
+  "code_logs": {
+   "state": "ok"
+  },
+  "k8s_dev": {
+   "state": "ok"
+  },
+  "k8s_tencent": {
+   "state": "not_configured"
+  },
+  "aws_db_hosts": {
+   "state": "ok"
+  },
+  "probes": {
+   "state": "ok"
+  }
+ }
+}

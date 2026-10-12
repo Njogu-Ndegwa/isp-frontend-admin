@@ -5959,3 +5959,212 @@ export interface CustomerRouterLogPullResponse {
   router_clock_trusted: boolean;
   router_gmt_offset_minutes: number;
 }
+
+// ---------------------------------------------------------------------------
+// OVES platform health - GET /api/admin/oves-health (+ /history)
+// Backend: isp-billing app/services/oves_health/service.py
+// ---------------------------------------------------------------------------
+
+export type OvesSeverity = 'ok' | 'info' | 'warning' | 'critical' | 'unknown';
+export type OvesProbeStatus = 'up' | 'slow' | 'down' | 'unknown';
+
+export interface OvesAlert {
+  key: string;
+  severity: OvesSeverity;
+  title: string;
+  message: string;
+  section: string;
+  notified_at?: string | null;
+}
+
+export interface OvesProbe {
+  id: string;
+  name: string;
+  group: string;
+  kind: string;
+  target: string;
+  depends: string;
+  critical: boolean;
+  status: OvesProbeStatus;
+  latency_ms: number | null;
+  http_status: number | null;
+  detail: string;
+  streak?: number;
+  members?: { host: string; writable?: boolean; error?: string; last_write?: string | null; latency_ms?: number }[];
+}
+
+export interface OvesCodeWindow {
+  ok: number;
+  failed: number;
+  failed_system: number;
+  attempts: number;
+  success_rate: number | null;
+  system_success_rate: number | null;
+  by_type: Record<string, number>;
+  by_reason: Record<string, number>;
+  p50_ms: number | null;
+  p95_ms: number | null;
+  max_ms: number | null;
+  index_failures: number;
+  opentoken_retries: number;
+  integrity_warnings: number;
+  db_errors: number;
+}
+
+export interface OvesCodeFailure {
+  at: string;
+  service: string;
+  reason: string;
+  kind: 'user' | 'system';
+  message: string;
+}
+
+export interface OvesNode {
+  name: string;
+  ready: boolean;
+  pressure: string[];
+  instance_type?: string | null;
+  ip?: string | null;
+  cpu_pct?: number;
+  mem_pct?: number;
+  disk_pct?: number;
+}
+
+export interface OvesWorkload {
+  namespace: string;
+  name: string;
+  kind: string;
+  desired: number;
+  ready: number;
+  state: 'ok' | 'degraded' | 'down';
+}
+
+export interface OvesPod {
+  name: string;
+  state: string;              // Ready | CrashLoopBackOff | Pending | ...
+  ok: boolean;
+  restarts: number;
+  last_restart_reason: string | null;
+  last_restart_ago_s: number | null;
+  age_s: number | null;
+  node?: string | null;
+}
+
+export interface OvesService {
+  label: string;
+  role: string;
+  namespace: string;
+  name: string;
+  desired: number;
+  ready: number;
+  state: 'ok' | 'restarting' | 'degraded' | 'down';
+  restarts: number;
+  dead_pods: number;
+  pods: OvesPod[];
+}
+
+export interface OvesCluster {
+  status: OvesSeverity;
+  error?: string;
+  not_configured?: boolean;
+  services?: OvesService[];
+  node_summary?: { total: number; ready: number; cpu_max: number | null; mem_max: number | null; disk_max: number | null; pressure: string[] };
+  workloads?: { total: number; ok: number; degraded: number; down: number; problems: OvesWorkload[] };
+  pods?: {
+    total: number; running: number; restarted_1h: number; oom_1h: number;
+    recent_restarts: { namespace: string; pod: string; reason: string; exit_code?: number; at: string; restarts: number }[];
+    crashloop: { namespace: string; pod: string; reason: string; restarts: number }[];
+    pending: { namespace: string; pod: string }[];
+  };
+  nodes?: OvesNode[];
+}
+
+export interface OvesDbHost {
+  name: string;
+  instance_id: string;
+  state: string | null;
+  system_status: string | null;
+  instance_status: string | null;
+  events: string[];
+  cpu_pct: number | null;
+  cpu_credits: number | null;
+  credit_mode?: 'standard' | 'unlimited' | null;
+  status_check_failed: number | null;
+}
+
+export interface OvesTraffic {
+  requests: number;
+  status_5xx: number;
+  p95_ms: number | null;
+}
+
+export interface OvesHealthResponse {
+  enabled: boolean;
+  generated_at: string | null;
+  snapshot_age_seconds: number | null;
+  overall_status: OvesSeverity;
+  alerts: OvesAlert[];
+  sources: Record<string, { state: 'ok' | 'error' | 'partial' | 'not_configured'; error?: string }>;
+  sections: {
+    codes?: {
+      status: OvesSeverity;
+      available: boolean;
+      last_5m: OvesCodeWindow;
+      last_15m: OvesCodeWindow;
+      last_60m: OvesCodeWindow;
+      baseline_per_hour: number | null;
+      by_service: Record<string, OvesCodeWindow>;
+      recent_failures: OvesCodeFailure[];
+      opentoken_probe?: OvesProbe;
+      pods_watched: number;
+      note: string;
+    };
+    database?: {
+      status: OvesSeverity;
+      login?: OvesProbe;
+      service_checks: OvesProbe[];
+      log_errors_5m: number;
+      log_errors_60m: number;
+      log_errors_by_service: Record<string, number>;
+      hosts: OvesDbHost[];
+      hosts_available: boolean;
+      replica_set: { available: boolean; note: string };
+      tencent_rs?: OvesProbe;
+    };
+    clusters?: Record<string, OvesCluster>;
+    traffic?: { last_5m: Record<string, OvesTraffic> };
+    dependencies?: { status: OvesSeverity; groups: { id: string; label: string; probes: OvesProbe[] }[] };
+  };
+}
+
+export interface OvesHistoryPoint {
+  t: string;
+  samples: number;
+  codes_ok?: number;
+  codes_failed?: number;
+  codes_failed_system?: number;
+  success_rate?: number | null;
+  code_p50_ms?: number | null;
+  code_p95_ms?: number | null;
+  index_failures?: number;
+  db_errors?: number;
+  probes_down?: number;
+  probe_uptime?: number | null;
+  probe_p95_ms?: number | null;
+  prod_cpu_max?: number;
+  prod_disk_max?: number;
+  dev_cpu_max?: number;
+  dev_disk_max?: number;
+  tencent_cpu_max?: number;
+  tencent_disk_max?: number;
+  [key: string]: number | string | null | undefined;
+}
+
+export interface OvesHistoryResponse {
+  hours: number;
+  bucket_minutes: number;
+  points: OvesHistoryPoint[];
+  probe_uptime: Record<string, number>;
+  probe_p95_ms: Record<string, number | null>;
+  totals: { codes_ok: number; codes_failed: number; success_rate: number | null };
+}

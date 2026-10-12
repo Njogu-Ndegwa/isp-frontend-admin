@@ -248,6 +248,8 @@ import {
   TransactionStatusFilter,
   DbPoolResponse,
   OpsHealthResponse,
+  OvesHealthResponse,
+  OvesHistoryResponse,
   OpsHealthHistory,
   OpsHealthWindowReport,
   OpsHealthProblemRoutersSection,
@@ -598,6 +600,25 @@ class ApiClient {
     try {
       const response = await fetch(`${BASE_URL}/admin/ops-health`, { headers: this.getHeaders() });
       return await this.handleResponse<OpsHealthResponse>(response);
+    } catch { return null; }
+  }
+
+  // OVES platform health - GET /api/admin/oves-health (admin only). Null on any
+  // failure so the panel renders "unavailable" instead of breaking the dashboard.
+  async getOvesHealth(): Promise<OvesHealthResponse | null> {
+    try {
+      const response = await fetch(`${BASE_URL}/admin/oves-health`, { headers: this.getHeaders() });
+      return await this.handleResponse<OvesHealthResponse>(response);
+    } catch { return null; }
+  }
+
+  // GET /api/admin/oves-health/history?hours=N[&probe=id] -> bucketed history (max 14 days)
+  async getOvesHealthHistory(hours: number, probe?: string): Promise<OvesHistoryResponse | null> {
+    try {
+      const params = new URLSearchParams({ hours: String(hours) });
+      if (probe) params.set('probe', probe);
+      const response = await fetch(`${BASE_URL}/admin/oves-health/history?${params.toString()}`, { headers: this.getHeaders() });
+      return await this.handleResponse<OvesHistoryResponse>(response);
     } catch { return null; }
   }
 

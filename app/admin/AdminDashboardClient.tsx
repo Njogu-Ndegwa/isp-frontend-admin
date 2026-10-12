@@ -76,6 +76,10 @@ const OpsHealthPanel = dynamic(() => import('../components/OpsHealthPanel'), {
   ssr: false,
   loading: () => <SkeletonCard />,
 });
+const OvesHealthPanel = dynamic(() => import('../components/OvesHealthPanel'), {
+  ssr: false,
+  loading: () => <SkeletonCard />,
+});
 
 type PeriodFilter = SharedPeriodFilter;
 
@@ -698,6 +702,9 @@ export default function AdminDashboardPage() {
 
       {/* Operations health — Admin only, above the KPI cards so incidents surface before revenue */}
       {user?.role === 'admin' && <OpsHealthPanel />}
+
+      {/* OVES platform health — Admin only: codes, MongoDB, clusters, dependencies */}
+      {user?.role === 'admin' && <OvesHealthPanel />}
 
       {loading ? (
         <div className="space-y-6">
