@@ -2484,6 +2484,24 @@ export interface LoginResponse {
   subscription_alert?: SubscriptionAlert;
 }
 
+/** POST /api/admin/impersonate/{reseller_id} — a read-only "View as reseller"
+ *  session. The token authenticates as the reseller; every write is refused
+ *  server-side with 403 `impersonation_read_only`. */
+export interface ImpersonationResponse {
+  access_token: string;
+  token_type: 'bearer' | string;
+  session_id: number;
+  /** ISO UTC with a trailing Z. Sessions last 30 minutes. */
+  expires_at: string;
+  read_only: true;
+  user: AuthUser;
+  impersonator: { id: number; email: string };
+}
+
+export interface EndImpersonationResponse {
+  ended: boolean;
+}
+
 export interface AuthState {
   token: string | null;
   user: AuthUser | null;

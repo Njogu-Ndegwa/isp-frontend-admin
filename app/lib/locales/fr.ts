@@ -470,4 +470,23 @@ export const FR: Record<string, string> = {
   'hours': 'heures',
   'days': 'jours',
   'minutes': 'minutes',
+
+  // Admin "View as reseller" (read-only)
+  'View as reseller': 'Voir en tant que revendeur',
+  "You'll see {name}'s full dashboard, read-only, for 30 minutes. This is logged.": "Vous verrez le tableau de bord complet de {name}, en lecture seule, pendant 30 minutes. Cette action est journalisée.",
+  'Saving, sending or deleting anything is blocked.': "Toute modification, tout envoi et toute suppression sont bloqués.",
+  'Use Exit in the banner to return to your admin account.': 'Utilisez Quitter dans le bandeau pour revenir à votre compte administrateur.',
+  'e.g. Support ticket: customers not showing': "ex. Ticket support : clients qui n'apparaissent pas",
+  'At least {min} characters. Saved in the audit log.': "Au moins {min} caractères. Enregistré dans le journal d'audit.",
+  'Could not start View as. Try again.': "Impossible de démarrer l'affichage. Réessayez.",
+  'Starting...': 'Démarrage...',
+  'Start': 'Démarrer',
+  'Viewing as {name}': 'Affichage en tant que {name}',
+  'read-only': 'lecture seule',
+  '{time} left': '{time} restantes',
+  'Exiting...': 'Fermeture...',
+  'Read-only: changes are disabled while viewing as.': 'Lecture seule : les modifications sont désactivées pendant cet affichage.',
+  'Cancel': 'Annuler',
+  'Exit': 'Quitter',
+  'Reason': 'Motif',
 };

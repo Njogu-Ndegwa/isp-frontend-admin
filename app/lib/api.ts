@@ -37,6 +37,8 @@ import {
   VpnType,
   LoginRequest,
   LoginResponse,
+  ImpersonationResponse,
+  EndImpersonationResponse,
   RegisterRequest,
   Advertiser,
   CreateAdvertiserRequest,
@@ -300,6 +302,13 @@ import {
   TransferPPPoEResponse,
 } from './types';
 import { buildTransferRequest, type BuildTransferRequestOptions } from './pppoeTransfer';
+import {
+  getImpersonation,
+  restoreAdmin,
+  isReturningToAdmin,
+  adminReturnPath,
+  IMPERSONATION_READ_ONLY_EVENT,
+} from './impersonation';
 // Demo fixtures are ~2,200 lines; load them on demand so real users never
 // download them as part of the baseline bundle.
 type DemoModule = typeof import('./demoData');
@@ -469,6 +478,19 @@ class ApiClient {
         if (this.isDemoMode()) {
           throw new Error('Endpoint not available in demo mode.');
         }
+        // Viewing as a reseller: the View-as session ended or expired. Put the
+        // admin's own session back instead of logging them out.
+        // Several requests fail at once when it ends: only the first one
+        // restores and redirects. Later ones (and any that land after Exit
+        // restored the admin) must not wipe the restored admin token.
+        if (getImpersonation()) {
+          const origin = restoreAdmin();
+          window.location.assign(adminReturnPath(origin, true));
+          throw new ApiError('View-as session ended', 401, { code: 'impersonation_ended' });
+        }
+        if (isReturningToAdmin()) {
+          throw new ApiError('View-as session ended', 401, { code: 'impersonation_ended' });
+        }
         localStorage.removeItem('auth_token');
         localStorage.removeItem('auth_user');
         window.location.href = '/login';
@@ -484,6 +506,13 @@ class ApiClient {
         : preferDetailMessage && typeof detailMessage === 'string' && detailMessage
           ? detailMessage
           : JSON.stringify(detail) || `HTTP error! status: ${response.status}`;
+      const errorCode = typeof error?.code === 'string' ? error.code : undefined;
+      if (response.status === 403 && errorCode === 'impersonation_read_only' && typeof window !== 'undefined') {
+        // Read-only View-as: the page shows the message where the action was
+        // taken; the banner also flags it in case a page swallows the error.
+        window.dispatchEvent(new CustomEvent(IMPERSONATION_READ_ONLY_EVENT, { detail: errorMessage }));
+        throw new ApiError(errorMessage, 403, { code: errorCode });
+      }
       if (response.status === 403 && typeof errorMessage === 'string' && errorMessage.includes('subscription') && typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent('subscription-blocked', { detail: errorMessage }));
       }
@@ -1412,6 +1441,27 @@ class ApiClient {
       body: JSON.stringify(credentials),
     });
     return this.handleResponse<LoginResponse>(response, true);
+  }
+
+  /** Admin only: start a read-only View-as session for a reseller. */
+  async startImpersonation(resellerId: number, reason: string): Promise<ImpersonationResponse> {
+    const response = await fetch(`${BASE_URL}/admin/impersonate/${resellerId}`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify({ reason }),
+    });
+    return this.handleResponse<ImpersonationResponse>(response);
+  }
+
+  /** End the View-as session. Uses the current (impersonation) token unless one
+   *  is passed — logout passes it because it clears storage straight after. */
+  async endImpersonation(token?: string): Promise<EndImpersonationResponse> {
+    const headers = token
+      ? { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }
+      : this.getHeaders();
+    const response = await fetch(`${BASE_URL}/impersonation/end`, { method: 'POST', headers });
+    // skipAuthRedirect: a 401 here just means the session already ended.
+    return this.handleResponse<EndImpersonationResponse>(response, true);
   }
 
   async register(data: RegisterRequest): Promise<{ message: string }> {

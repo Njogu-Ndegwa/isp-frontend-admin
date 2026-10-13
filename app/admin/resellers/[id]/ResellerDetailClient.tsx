@@ -28,6 +28,8 @@ import Pagination from '../../../components/Pagination';
 import BackupVpnControls from '../../../components/BackupVpnControls';
 import InsuranceTunnelBadge from '../../../components/InsuranceTunnelBadge';
 import { formatKES, formatMoney } from '../../../lib/format';
+import ViewAsResellerDialog, { EyeIcon } from '../../../components/ViewAsResellerDialog';
+import { getImpersonation } from '../../../lib/impersonation';
 
 const formatSafeDate = (dateStr: string | null | undefined): string => {
   try {
@@ -62,6 +64,21 @@ export default function ResellerDetailPage() {
   const resellerId = Number(params.id);
 
   const [detail, setDetail] = useState<AdminResellerDetail | null>(null);
+  const [showViewAs, setShowViewAs] = useState(false);
+  const closeViewAs = useCallback(() => setShowViewAs(false), []);
+
+  // Back from a View-as session that expired or was ended server-side.
+  useEffect(() => {
+    try {
+      const url = new URL(window.location.href);
+      if (url.searchParams.get('viewas') !== 'ended') return;
+      showAlert('info', 'View-as session ended. You are back in your admin account.');
+      url.searchParams.delete('viewas');
+      window.history.replaceState(window.history.state, '', url.pathname + url.search + url.hash);
+    } catch {
+      // Malformed URL: nothing to announce.
+    }
+  }, [showAlert]);
   // Each endpoint reports the currency of its own amounts (the reseller's
   // market currency); fall back to the detail's until a section has loaded.
   const [sectionCurrency, setSectionCurrency] = useState<
@@ -497,6 +514,9 @@ export default function ResellerDetailPage() {
     { key: 'charges', label: 'Charges' },
   ];
 
+  // Never offer a nested View-as (the page is admin-only anyway).
+  const canViewAs = !getImpersonation();
+
   // Everything about one reseller is in their market currency (KES, XAF, ...).
   const currency = (detail.currency || 'KES').toUpperCase();
   const money = (amount: number | null | undefined) => formatMoney(amount, currency);
@@ -509,6 +529,12 @@ export default function ResellerDetailPage() {
         backHref="/admin/resellers"
         action={
           <div className="flex items-center gap-2">
+            {canViewAs && (
+              <button onClick={() => setShowViewAs(true)} className="btn-secondary text-sm px-4 py-2 flex items-center gap-1.5">
+                <EyeIcon />
+                View as reseller
+              </button>
+            )}
             <button onClick={handleOpenB2BPayout} className="btn-primary text-sm px-4 py-2 flex items-center gap-1.5">
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" /></svg>
               Send Payout
@@ -518,6 +544,24 @@ export default function ResellerDetailPage() {
             </button>
           </div>
         }
+      />
+
+      {/* The mobile app bar has no room for header actions. */}
+      {canViewAs && (
+        <button
+          onClick={() => setShowViewAs(true)}
+          className="md:hidden btn-secondary w-full text-sm py-2.5 flex items-center justify-center gap-1.5 touch-manipulation active:opacity-70"
+        >
+          <EyeIcon />
+          View as reseller
+        </button>
+      )}
+
+      <ViewAsResellerDialog
+        isOpen={showViewAs}
+        onClose={closeViewAs}
+        resellerId={resellerId}
+        resellerName={detail.organization_name || detail.business_name || detail.email}
       />
 
       {/* Payment Methods */}
