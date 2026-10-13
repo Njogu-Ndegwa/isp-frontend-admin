@@ -1,5 +1,6 @@
 'use client';
 
+import { createPortal } from 'react-dom';
 import { useState } from 'react';
 import Link from 'next/link';
 import { api } from '../lib/api';
@@ -75,7 +76,7 @@ export default function CleanupDialog({
     }
   };
 
-  return (
+  const dialog = (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={onClose}>
       <div className="card p-6 w-full max-w-md space-y-4" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-start justify-between">
@@ -249,4 +250,7 @@ export default function CleanupDialog({
       </div>
     </div>
   );
+  // Portalled: a transformed ancestor (fade-in cards) would otherwise
+  // trap this fixed overlay inside its own box.
+  return typeof document === 'undefined' ? dialog : createPortal(dialog, document.body);
 }

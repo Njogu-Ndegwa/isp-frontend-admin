@@ -2236,7 +2236,7 @@ class ApiClient {
   async diagnosePPPoE(routerId: number, username: string): Promise<PPPoEDiagnoseResponse> {
     if (this.isDemoMode()) return {
       router_id: routerId, router_name: 'Demo Router', generated_at: new Date().toISOString(),
-      customer: null, success: true, username, status: 'connected', issues_count: 0,
+      customer: null, success: true, username, status: 'online', issues_count: 0,
       has_critical: false, issues: [], info: {},
     };
     const response = await fetch(`${BASE_URL}/pppoe/${routerId}/diagnose/${encodeURIComponent(username)}`, {

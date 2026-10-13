@@ -163,7 +163,7 @@ const macs = ['AA:BB:CC:11:22:33', 'DD:EE:FF:44:55:66', '11:22:33:AA:BB:CC', '44
 
 export const demoCustomers: Customer[] = names.map((name, i) => {
   const statuses: ('active' | 'inactive' | 'expired')[] = ['active', 'active', 'active', 'active', 'active', 'active', 'active', 'active', 'active', 'inactive', 'expired', 'active', 'active', 'inactive', 'expired'];
-  const planIdx = [3, 4, 0, 1, 5, 2, 4, 3, 6, 0, 1, 5, 2, 3, 0];
+  const planIdx = [3, 4, 0, 1, 5, 2, 4, 3, 6, 4, 1, 5, 2, 3, 0];
   const routerIdx = [0, 0, 0, 1, 1, 0, 2, 1, 0, 2, 1, 0, 2, 1, 0];
   const plan = demoPlans[planIdx[i]];
   const router = demoRouters[routerIdx[i]];

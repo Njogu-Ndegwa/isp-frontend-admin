@@ -110,7 +110,10 @@ export default function ConnectedDevicesPanel({ customerId }: { customerId: numb
             </span>
           </div>
 
-          {showDevices && (
+          {showDevices && devices.length === 0 && (
+            <p className="text-sm text-foreground-muted">No device is connected with this login right now.</p>
+          )}
+          {showDevices && devices.length > 0 && (
             <PPPoEDeviceList
               devices={devices}
               onlyOne={mikrotik.profile_detail?.only_one}

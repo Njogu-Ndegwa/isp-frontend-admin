@@ -1,5 +1,6 @@
 'use client';
 
+import { createPortal } from 'react-dom';
 import { useEffect, useState } from 'react';
 import { api } from '../lib/api';
 import type { PPPoEDiagnoseResponse } from '../lib/types';
@@ -47,7 +48,7 @@ export default function DiagnoseDialog({
     }
   };
 
-  return (
+  const dialog = (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={onClose}>
       <div className="card p-6 w-full max-w-lg max-h-[80vh] overflow-y-auto space-y-4" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between">
@@ -151,4 +152,7 @@ export default function DiagnoseDialog({
       </div>
     </div>
   );
+  // Portalled: a transformed ancestor (fade-in cards) would otherwise
+  // trap this fixed overlay inside its own box.
+  return typeof document === 'undefined' ? dialog : createPortal(dialog, document.body);
 }
