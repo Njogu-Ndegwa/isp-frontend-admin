@@ -174,7 +174,7 @@ export default function PlansPage() {
 
   const getMobilePlanMeta = (plan: Plan) => {
     const cap = formatDataCap(plan.data_cap_mb);
-    const sharing = plan.connection_type === 'hotspot'
+    const sharing = plan.connection_type !== 'static_ip'
       ? (getSharingLimit(plan) > 1 ? t('{count} devices', { count: getSharingLimit(plan) }) : t('No sharing'))
       : null;
     const scope = plan.router_ids && plan.router_ids.length > 0
@@ -509,7 +509,7 @@ export default function PlansPage() {
                     </span>
                   );
                 case 'sharing': {
-                  if (plan.connection_type === 'pppoe' || plan.connection_type === 'static_ip') {
+                  if (plan.connection_type === 'static_ip') {
                     return <span className="text-sm text-foreground-muted">-</span>;
                   }
                   const limit = getSharingLimit(plan);
@@ -746,7 +746,7 @@ function EditPlanModal({
   const [paidSharedUsers, setPaidSharedUsers] = useState(Math.max(1, Number(plan.max_shared_users) || 1));
 
   const isPPPoE = formData.connection_type === 'pppoe';
-  const noSharing = isPPPoE || formData.connection_type === 'static_ip';
+  const noSharing = formData.connection_type === 'static_ip';
   const isFreeTrial = formData.plan_type === 'free_trial';
   const dataCapMb = dataCapInputToMb(dataCapValue, dataCapUnit);
 
@@ -889,6 +889,13 @@ function EditPlanModal({
                   placeholder="e.g., 5M/2M"
                 />
                 <SpeedInputHint value={formData.speed} />
+                {formData.speed !== plan.speed && (formData.connection_type === 'pppoe' || formData.connection_type === 'hotspot') && (
+                  <p className="mt-1 text-xs text-foreground-muted">
+                    {formData.connection_type === 'pppoe'
+                      ? 'Active customers on this plan get the new speed right after saving; their devices reconnect once.'
+                      : 'Active customers get the new speed within about 2 hours, as each router is checked.'}
+                  </p>
+                )}
               </div>
             </div>
 
@@ -933,7 +940,7 @@ function EditPlanModal({
                     setFormData({
                       ...formData,
                       connection_type: connectionType,
-                      max_shared_users: connectionType !== 'hotspot' ? 1 : (formData.max_shared_users ?? 1),
+                      max_shared_users: connectionType === 'static_ip' ? 1 : (formData.max_shared_users ?? 1),
                     });
                   }}
                   className="select"
@@ -1014,7 +1021,9 @@ function EditPlanModal({
                 <p className="mt-1 text-xs text-foreground-muted">
                   {isFreeTrial
                     ? 'Devices one claimed trial covers. 1 = only the device that claimed it.'
-                    : '1 disables sharing. 2 allows the owner plus one extra device.'}
+                    : isPPPoE
+                      ? 'Devices that can be online at once with the same PPPoE username and password. Each gets the full plan speed; the data cap is shared. Changing it updates active customers’ routers; their devices reconnect once.'
+                      : '1 disables sharing. 2 allows the owner plus one extra device.'}
                 </p>
               </div>
             )}

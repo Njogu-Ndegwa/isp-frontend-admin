@@ -81,6 +81,8 @@ import type {
   PPPoEMonitorUser,
   PPPoEDevice,
   PPPoECustomerPresenceResponse,
+  CustomerDevice,
+  CustomerDevicesResponse,
   HotspotMonitorResponse,
   HotspotMonitorUser,
   CustomerUsageResponse,
@@ -2804,6 +2806,52 @@ export function demoPPPoEMonitor(routerId: number): PPPoEMonitorResponse {
   };
 }
 
+// Hotspot devices on one subscription: customer 1's phone, the smart TV that
+// rides their plan (the last demo customer), and a laptop.
+export function demoCustomerDevices(customerId: number): CustomerDevicesResponse {
+  const asked = demoCustomers.find(c => c.id === customerId) ?? demoCustomers[0];
+  const owner = demoCustomers.find(c => c.id === asked.subscription_owner_id) ?? asked;
+  const companions = demoCustomers.filter(c => c.subscription_owner_id === owner.id);
+  const online = owner.status === 'active';
+  const live = (ip: string | null, up: boolean, down = 0, upRate = 0) => ({
+    online: up, ip: up ? ip : null, uptime: up ? '3h12m' : null, idle_time: up ? '4s' : null,
+    rate_down_bps: up ? down : null, rate_up_bps: up ? upRate : null, source: 'push' as const,
+  });
+  const devices: CustomerDevice[] = [
+    {
+      pairing_id: null, is_main_device: true, device_mac: owner.mac_address, device_name: 'Main device',
+      device_type: 'other', added_at: null, customer_id: owner.id, period_usage_mb: 3480.4,
+      live: live('192.168.88.21', online, 2_400_000, 310_000),
+    },
+    ...companions.map((c, i) => ({
+      pairing_id: 900 + i, is_main_device: false, device_mac: c.mac_address, device_name: 'Living room TV',
+      device_type: 'tv', added_at: iso(3), customer_id: c.id, period_usage_mb: 9120.7,
+      live: live('192.168.88.37', online, 6_800_000, 120_000),
+    })),
+    ...(owner.id === 1 ? [{
+      pairing_id: 950, is_main_device: false, device_mac: '3C:22:FB:9A:10:4E', device_name: 'Laptop',
+      device_type: 'laptop', added_at: iso(1), customer_id: null, period_usage_mb: 1210.0,
+      live: live('192.168.88.44', false),
+    }] : []),
+  ];
+  const isHotspotShareable = owner.id === 1;
+  return {
+    owner_customer_id: owner.id,
+    owner_name: owner.name,
+    router_id: owner.router.id,
+    plan_name: owner.plan.name,
+    plan_max_devices: isHotspotShareable ? 3 : 1,
+    max_devices_override: null,
+    max_devices: isHotspotShareable ? 3 : 1,
+    subscription_active: online,
+    expiry: owner.expiry ?? null,
+    pooled_usage_mb: devices.reduce((t, d) => t + (d.period_usage_mb ?? 0), 0),
+    live_source: 'push',
+    live_error: null,
+    devices,
+  };
+}
+
 export function demoPPPoECustomerPresence(customerId: number): PPPoECustomerPresenceResponse {
   const c = demoCustomers.find(x => x.id === customerId) ?? demoCustomers[0];
   const pppoeCustomers = demoCustomers.filter(x => x.connection_type === 'pppoe');
@@ -2824,6 +2872,9 @@ export function demoPPPoECustomerPresence(customerId: number): PPPoECustomerPres
     },
     router: { id: c.router.id, name: c.router.name },
     speed_enforcement: { expected_rate_limit: planSpeed, profile_rate_limit: planSpeed },
+    device_limit: multi
+      ? { plan_max_devices: 1, max_devices_override: DEMO_MULTI_DEVICE_COUNT, max_devices: DEMO_MULTI_DEVICE_COUNT }
+      : { plan_max_devices: 1, max_devices_override: null, max_devices: 1 },
     mikrotik: {
       present_on_router: true,
       online,

@@ -21,6 +21,7 @@ import PaymentHistoryPanel from './PaymentHistoryPanel';
 import RelatedAccounts from './RelatedAccounts';
 import UsageHistoryPanel from './UsageHistoryPanel';
 import ConnectedDevicesPanel from './ConnectedDevicesPanel';
+import HotspotDevicesPanel from './HotspotDevicesPanel';
 import StaticIpPanel from './StaticIpPanel';
 import { connectionTypeLabel } from '../../lib/connectionType';
 
@@ -228,6 +229,7 @@ export default function EditCustomerPage() {
             <LivePanel live={usage.live} routerId={customer.router_id ?? customer.router?.id ?? null} />
           )}
           {isPPPoE && customer.pppoe_username && <ConnectedDevicesPanel customerId={customer.id} />}
+          {connectionType === 'hotspot' && <HotspotDevicesPanel customerId={customer.id} />}
           {tracksUsage && usage && <UsagePanel usage={usage} onRefresh={loadUsage} refreshing={usageLoading} />}
           {tracksUsage && <UsageHistoryPanel customerId={customer.id} />}
 

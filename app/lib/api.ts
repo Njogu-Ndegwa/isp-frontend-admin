@@ -99,6 +99,8 @@ import {
   PPPoESecretsResponse,
   PPPoEMonitorResponse,
   PPPoECustomerPresenceResponse,
+  CustomerDevicesResponse,
+  CustomerDeviceLimitResponse,
   PPPoECleanupResponse,
   PPPoECleanupError,
   HotspotMonitorResponse,
@@ -2173,6 +2175,52 @@ class ApiClient {
       headers: this.getHeaders(),
     });
     return this.handleResponse<PPPoEMonitorResponse>(response);
+  }
+
+  /** Every device on a hotspot customer's subscription, with live state. */
+  async getCustomerDevices(customerId: number): Promise<CustomerDevicesResponse> {
+    if (this.isDemoMode()) return (await loadDemo()).demoCustomerDevices(customerId);
+    const response = await fetch(`${BASE_URL}/customers/${customerId}/devices`, {
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<CustomerDevicesResponse>(response);
+  }
+
+  async addCustomerDevice(
+    customerId: number,
+    body: { mac_address: string; device_name?: string; device_type?: string },
+  ): Promise<{ success: boolean; message: string; device_mac: string }> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(`${BASE_URL}/customers/${customerId}/devices`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify(body),
+    });
+    // A full plan answers 409 with {error, message, devices}: show the message.
+    return this.handleResponse(response, false, true);
+  }
+
+  async removeCustomerDevice(
+    customerId: number,
+    pairingId: number,
+  ): Promise<{ success: boolean; message: string; cleanup_status: string }> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(`${BASE_URL}/customers/${customerId}/devices/${pairingId}`, {
+      method: 'DELETE',
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse(response);
+  }
+
+  /** null clears the override so the plan's allowance applies. */
+  async setCustomerDeviceLimit(customerId: number, maxDevices: number | null): Promise<CustomerDeviceLimitResponse> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(`${BASE_URL}/customers/${customerId}/device-limit`, {
+      method: 'PUT',
+      headers: this.getHeaders(),
+      body: JSON.stringify({ max_devices: maxDevices }),
+    });
+    return this.handleResponse<CustomerDeviceLimitResponse>(response);
   }
 
   /** One PPPoE customer's secret on their router, with every connected device. */
