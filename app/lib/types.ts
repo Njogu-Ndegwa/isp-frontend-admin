@@ -3288,6 +3288,58 @@ export interface PPPoEMonitorSummary {
   total_download_rate_bps: number;
 }
 
+/** One device on a hotspot customer's subscription (GET /api/customers/{id}/devices). */
+export interface CustomerDevice {
+  /** null for the paying customer's own (main) device. */
+  pairing_id: number | null;
+  is_main_device: boolean;
+  device_mac: string;
+  device_name: string | null;
+  device_type: string;
+  added_at: string | null;
+  /** The device's own customer row (companion devices are customers too). */
+  customer_id: number | null;
+  period_usage_mb: number | null;
+  live: {
+    online: boolean;
+    ip: string | null;
+    uptime: string | null;
+    idle_time: string | null;
+    rate_down_bps: number | null;
+    rate_up_bps: number | null;
+    source: 'push' | 'router';
+  } | null;
+}
+
+export interface CustomerDevicesResponse {
+  owner_customer_id: number;
+  owner_name: string;
+  router_id: number | null;
+  plan_name: string | null;
+  /** The plan's allowance (total devices, including the main one). */
+  plan_max_devices: number;
+  /** This customer's override; null = use the plan's. */
+  max_devices_override: number | null;
+  /** Effective allowance. */
+  max_devices: number;
+  subscription_active: boolean;
+  expiry: string | null;
+  /** Data used this period by every device together. */
+  pooled_usage_mb: number | null;
+  /** Where live state came from; null when none was available. */
+  live_source: 'push' | 'router' | null;
+  live_error: string | null;
+  devices: CustomerDevice[];
+}
+
+export interface CustomerDeviceLimitResponse {
+  success: boolean;
+  owner_customer_id: number;
+  max_devices_override: number | null;
+  max_devices: number;
+  plan_max_devices: number;
+}
+
 /** GET /api/pppoe/customers/{id}/presence — the fields the UI reads. */
 export interface PPPoECustomerPresenceResponse {
   cached: boolean;
