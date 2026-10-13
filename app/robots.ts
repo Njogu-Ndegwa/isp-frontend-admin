@@ -21,7 +21,6 @@ const ADMIN_DISALLOW = [
   '/login',
   '/messaging',
   '/plans',
-  '/pppoe-monitor',
   '/ratings',
   '/routers',
   '/settings',

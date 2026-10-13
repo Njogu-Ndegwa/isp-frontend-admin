@@ -79,6 +79,8 @@ import type {
   TransactionStatusFilter,
   PPPoEMonitorResponse,
   PPPoEMonitorUser,
+  PPPoEDevice,
+  PPPoECustomerPresenceResponse,
   HotspotMonitorResponse,
   HotspotMonitorUser,
   CustomerUsageResponse,
@@ -161,7 +163,7 @@ const macs = ['AA:BB:CC:11:22:33', 'DD:EE:FF:44:55:66', '11:22:33:AA:BB:CC', '44
 
 export const demoCustomers: Customer[] = names.map((name, i) => {
   const statuses: ('active' | 'inactive' | 'expired')[] = ['active', 'active', 'active', 'active', 'active', 'active', 'active', 'active', 'active', 'inactive', 'expired', 'active', 'active', 'inactive', 'expired'];
-  const planIdx = [3, 4, 0, 1, 5, 2, 4, 3, 6, 0, 1, 5, 2, 3, 0];
+  const planIdx = [3, 4, 0, 1, 5, 2, 4, 3, 6, 4, 1, 5, 2, 3, 0];
   const routerIdx = [0, 0, 0, 1, 1, 0, 2, 1, 0, 2, 1, 0, 2, 1, 0];
   const plan = demoPlans[planIdx[i]];
   const router = demoRouters[routerIdx[i]];
@@ -2710,11 +2712,36 @@ export function demoTransactionsDaily(options: {
 }
 
 // ─── PPPoE / Hotspot User Monitoring ────────────────────────────────
+// The first online PPPoE customer is logged in on three devices at once, so
+// the demo shows the multi-device view (one secret, `only-one=no`).
+const DEMO_MULTI_DEVICE_COUNT = 3;
+
+function demoPPPoEDevices(mac: string, routerId: number, index: number, count: number): PPPoEDevice[] {
+  return Array.from({ length: count }, (_, d) => ({
+    id: `*${(index * 10 + d + 1).toString(16).toUpperCase()}`,
+    address: `10.20.${routerId}.${10 + index + d * 100}`,
+    caller_id: d === 0 ? mac : `${mac.slice(0, -2)}${(0xa0 + d).toString(16).toUpperCase()}`,
+    uptime: `${Math.floor(Math.random() * 48 + 1) - d}h${Math.floor(Math.random() * 59)}m`,
+    upload_bytes: Math.floor(Math.random() * 700_000_000),
+    download_bytes: Math.floor(Math.random() * 3_000_000_000),
+    upload_rate: String(Math.floor(Math.random() * 700_000 + 50_000)),
+    download_rate: String(Math.floor(Math.random() * 4_000_000 + 200_000)),
+    max_limit: '20M/10M',
+    has_queue: true,
+  }));
+}
+
 export function demoPPPoEMonitor(routerId: number): PPPoEMonitorResponse {
   const router = demoRouters.find(r => r.id === routerId) ?? demoRouters[0];
   const pppoeCustomers = demoCustomers.filter(c => c.connection_type === 'pppoe');
+  const firstOnline = pppoeCustomers.findIndex(c => c.status === 'active');
   const users: PPPoEMonitorUser[] = pppoeCustomers.map((c, i) => {
     const online = c.status === 'active';
+    const multi = i === firstOnline;
+    const sessions = online
+      ? demoPPPoEDevices(c.mac_address, router.id, i, multi ? DEMO_MULTI_DEVICE_COUNT : 1)
+      : [];
+    const sum = (pick: (d: PPPoEDevice) => number) => sessions.reduce((t, d) => t + pick(d), 0);
     return {
       username: c.pppoe_username ?? `pppoe-${c.name.split(' ')[0].toLowerCase()}`,
       service: 'pppoe',
@@ -2722,14 +2749,17 @@ export function demoPPPoEMonitor(routerId: number): PPPoEMonitorResponse {
       disabled: c.status !== 'active',
       comment: c.name,
       online,
-      address: online ? `10.20.${router.id}.${10 + i}` : null,
-      uptime: online ? `${Math.floor(Math.random() * 48 + 1)}h${Math.floor(Math.random() * 59)}m` : null,
-      caller_id: online ? c.mac_address : null,
-      upload_bytes: Math.floor(Math.random() * 2_000_000_000),
-      download_bytes: Math.floor(Math.random() * 9_000_000_000),
-      upload_rate: online ? String(Math.floor(Math.random() * 2_000_000 + 100_000)) : '0',
-      download_rate: online ? String(Math.floor(Math.random() * 12_000_000 + 500_000)) : '0',
+      address: sessions[0]?.address ?? null,
+      uptime: sessions[0]?.uptime ?? null,
+      caller_id: sessions[0]?.caller_id ?? null,
+      upload_bytes: online ? sum(d => d.upload_bytes) : Math.floor(Math.random() * 2_000_000_000),
+      download_bytes: online ? sum(d => d.download_bytes) : Math.floor(Math.random() * 9_000_000_000),
+      upload_rate: String(sum(d => parseInt(d.upload_rate, 10))),
+      download_rate: String(sum(d => parseInt(d.download_rate, 10))),
       max_limit: c.plan.name.includes('Business') ? '50M/25M' : '20M/10M',
+      profile_only_one: multi ? 'no' : 'yes',
+      session_count: sessions.length,
+      sessions,
       last_logged_out: iso(Math.floor(Math.random() * 3)),
       last_disconnect_reason: online ? '' : 'session-timeout',
       last_caller_id: c.mac_address,
@@ -2740,6 +2770,24 @@ export function demoPPPoEMonitor(routerId: number): PPPoEMonitorResponse {
       },
     };
   });
+  // Logins left on the router with no billing customer behind them.
+  users.push(
+    {
+      username: 'pppoe_0722418830', service: 'pppoe', profile: 'pppoe_10M', disabled: false,
+      comment: 'CID:41|Peter Kamau|2026-07-02', online: true, address: `10.20.${router.id}.77`,
+      uptime: '3d04:12:09', caller_id: 'B4:2E:99:10:7C:31', upload_bytes: 410_000_000,
+      download_bytes: 5_300_000_000, upload_rate: '310000', download_rate: '2400000', max_limit: '10M/10M',
+      profile_only_one: 'yes', session_count: 1, sessions: [], last_logged_out: '', last_disconnect_reason: '',
+      last_caller_id: 'B4:2E:99:10:7C:31', customer: null,
+    },
+    {
+      username: 'test-pppoe', service: 'pppoe', profile: 'default-pppoe', disabled: false,
+      comment: '', online: false, address: null, uptime: null, caller_id: null, upload_bytes: 0,
+      download_bytes: 0, upload_rate: '0', download_rate: '0', max_limit: '', profile_only_one: 'yes',
+      session_count: 0, sessions: [], last_logged_out: 'oct/02/2026 18:40:11',
+      last_disconnect_reason: 'peer-not-responding', last_caller_id: '', customer: null,
+    },
+  );
   const online = users.filter(u => u.online).length;
   return {
     router_id: router.id, router_name: router.name, generated_at: iso(),
@@ -2747,9 +2795,55 @@ export function demoPPPoEMonitor(routerId: number): PPPoEMonitorResponse {
     summary: {
       total: users.length, online, offline: users.length - online,
       disabled: users.filter(u => u.disabled).length,
-      total_upload_rate_bps: 4_500_000, total_download_rate_bps: 28_000_000,
+      online_sessions: users.reduce((t, u) => t + (u.session_count ?? 0), 0),
+      multi_device_users: users.filter(u => (u.session_count ?? 0) > 1).length,
+      total_upload_rate_bps: users.reduce((t, u) => t + parseInt(u.upload_rate, 10), 0),
+      total_download_rate_bps: users.reduce((t, u) => t + parseInt(u.download_rate, 10), 0),
     },
     users,
+  };
+}
+
+export function demoPPPoECustomerPresence(customerId: number): PPPoECustomerPresenceResponse {
+  const c = demoCustomers.find(x => x.id === customerId) ?? demoCustomers[0];
+  const pppoeCustomers = demoCustomers.filter(x => x.connection_type === 'pppoe');
+  const index = Math.max(0, pppoeCustomers.findIndex(x => x.id === c.id));
+  const multi = index === pppoeCustomers.findIndex(x => x.status === 'active');
+  const online = c.status === 'active';
+  const sessions = online
+    ? demoPPPoEDevices(c.mac_address, c.router.id, index, multi ? DEMO_MULTI_DEVICE_COUNT : 1)
+    : [];
+  const planSpeed = c.plan.name.includes('Business') ? '50M/25M' : '20M/10M';
+  return {
+    cached: false,
+    success: true,
+    generated_at: iso(),
+    customer: {
+      id: c.id, name: c.name, plan: c.plan.name, plan_speed: planSpeed,
+      pppoe_username: c.pppoe_username ?? `pppoe-${c.name.split(' ')[0].toLowerCase()}`,
+    },
+    router: { id: c.router.id, name: c.router.name },
+    speed_enforcement: { expected_rate_limit: planSpeed, profile_rate_limit: planSpeed },
+    mikrotik: {
+      present_on_router: true,
+      online,
+      state: online ? 'online' : 'offline',
+      active_sessions: sessions,
+      session_count: sessions.length,
+      profile_detail: { name: 'pppoe-home', only_one: multi ? 'no' : 'yes', rate_limit: planSpeed },
+      secret: { name: c.pppoe_username ?? '', profile: 'pppoe-home', disabled: false },
+    },
+    last_disconnect: online ? null : {
+      reason: 'peer-not-responding',
+      at: 'oct/12/2026 21:04:11',
+      caller_id: c.mac_address,
+      category: 'physical_or_cpe',
+      probable_cause: 'Client CPE is unreachable or link is unstable',
+      technician_action: 'Check cable, switch port, CPE power, and link flaps',
+    },
+    verdict: online
+      ? { code: 'present_and_online', message: 'The PPP secret exists on the router and the customer has an active PPPoE session.', our_side_confirmed: true }
+      : { code: 'router_account_exists_but_customer_offline', message: 'The PPP secret exists and is enabled, but there is no active PPPoE session right now.', our_side_confirmed: true },
   };
 }
 

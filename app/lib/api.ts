@@ -97,6 +97,7 @@ import {
   PPPoELogsResponse,
   PPPoESecretsResponse,
   PPPoEMonitorResponse,
+  PPPoECustomerPresenceResponse,
   PPPoECleanupResponse,
   PPPoECleanupError,
   HotspotMonitorResponse,
@@ -2163,6 +2164,16 @@ class ApiClient {
     return this.handleResponse<PPPoEMonitorResponse>(response);
   }
 
+  /** One PPPoE customer's secret on their router, with every connected device. */
+  async getPPPoECustomerPresence(customerId: number, refresh = false): Promise<PPPoECustomerPresenceResponse> {
+    if (this.isDemoMode()) return (await loadDemo()).demoPPPoECustomerPresence(customerId);
+    const params = refresh ? '?refresh=true' : '';
+    const response = await fetch(`${BASE_URL}/pppoe/customers/${customerId}/presence${params}`, {
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<PPPoECustomerPresenceResponse>(response);
+  }
+
   // Hotspot User Monitoring (bandwidth & online status)
   async getHotspotUsers(routerId: number, refresh = false): Promise<HotspotMonitorResponse> {
     if (this.isDemoMode()) return (await loadDemo()).demoHotspotMonitor(routerId);
@@ -2225,7 +2236,7 @@ class ApiClient {
   async diagnosePPPoE(routerId: number, username: string): Promise<PPPoEDiagnoseResponse> {
     if (this.isDemoMode()) return {
       router_id: routerId, router_name: 'Demo Router', generated_at: new Date().toISOString(),
-      customer: null, success: true, username, status: 'connected', issues_count: 0,
+      customer: null, success: true, username, status: 'online', issues_count: 0,
       has_critical: false, issues: [], info: {},
     };
     const response = await fetch(`${BASE_URL}/pppoe/${routerId}/diagnose/${encodeURIComponent(username)}`, {

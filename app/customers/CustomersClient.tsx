@@ -110,8 +110,13 @@ function getPPPoELiveForCustomer(
   pushLive?: Map<number, CustomerUsageLive>,
 ): PPPoEMonitorUser | undefined {
   const pushed = pushLive?.get(customer.id);
+  const monitored = customer.pppoe_username ? pppoeLive.get(customer.pppoe_username) : undefined;
   if (pushed) {
     return {
+      // The router push reports one address per customer; the monitor knows
+      // every device logged in with the username.
+      sessions: monitored?.sessions,
+      session_count: monitored?.session_count,
       username: customer.pppoe_username ?? '',
       service: 'pppoe',
       profile: '',
@@ -132,7 +137,7 @@ function getPPPoELiveForCustomer(
       customer: null,
     };
   }
-  return customer.pppoe_username ? pppoeLive.get(customer.pppoe_username) : undefined;
+  return monitored;
 }
 
 // Real-time push pilot: the router reports every few seconds, so its live
@@ -1241,6 +1246,11 @@ export default function CustomersPage() {
                       )}
                       {live.online && live.address && (
                         <span className="font-mono text-[11px] text-foreground-muted">{live.address}</span>
+                      )}
+                      {live.online && 'session_count' in live && (live.session_count ?? 0) > 1 && (
+                        <span className="text-[11px] font-medium text-info">
+                          {t('{count} devices', { count: live.session_count ?? 0 })}
+                        </span>
                       )}
                       {live.online && live.uptime && (
                         <span className="text-[11px] text-foreground-muted">{t('up {uptime}', { uptime: live.uptime })}</span>
