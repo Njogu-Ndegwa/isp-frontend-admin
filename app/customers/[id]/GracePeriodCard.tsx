@@ -81,8 +81,8 @@ export default function GracePeriodCard({
         {customer.in_grace && <span className="badge badge-warning whitespace-nowrap">In grace</span>}
       </div>
       <p className="text-xs text-foreground-muted">
-        Keep this customer connected for a while after their plan expires. Their expiry date
-        stays the same, and when they pay, the new plan starts from the payment time.
+        Keep this customer connected for a while after their plan expires. Their billing date
+        doesn&apos;t change: if they pay during grace, the new plan runs on from their expiry date.
       </p>
 
       {current > 0 && accessUntil && (
