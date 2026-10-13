@@ -8,9 +8,18 @@ import { formatBps } from '../../lib/live';
 import { useAlert } from '../../context/AlertContext';
 import ConfirmDialog from '../../components/ConfirmDialog';
 import { formatUsageMb } from './usageFormat';
+import { formatDateGMT3 } from '../../lib/dateUtils';
 import DeviceLimitEditor from './DeviceLimitEditor';
 
 const MAC_PATTERN = /^([0-9A-Fa-f]{2}[:-]?){5}[0-9A-Fa-f]{2}$/;
+
+function formatAddedAt(iso: string): string {
+  try {
+    return formatDateGMT3(iso, { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+  } catch {
+    return '';
+  }
+}
 
 function deviceLabel(device: CustomerDevice): string {
   if (device.device_name && device.device_name.trim()) return device.device_name;
@@ -164,6 +173,9 @@ export default function HotspotDevicesPanel({ customerId }: { customerId: number
                   )}
                   {d.period_usage_mb !== null && <> · {formatUsageMb(d.period_usage_mb)} this period</>}
                 </p>
+                {!d.is_main_device && d.added_at && (
+                  <p className="text-xs text-foreground-muted">Added {formatAddedAt(d.added_at)}</p>
+                )}
               </div>
               {!d.is_main_device && d.pairing_id !== null && (
                 <button

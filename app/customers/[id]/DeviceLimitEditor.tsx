@@ -34,6 +34,8 @@ export default function DeviceLimitEditor({
       const result = await api.setCustomerDeviceLimit(customerId, limit);
       if (result.router_update === 'failed') {
         showAlert('warning', 'Limit saved, but the router could not be updated. It applies at the next renewal.');
+      } else if (result.router_update === 'deferred') {
+        showAlert('info', 'Limit saved. The customer is blocked for going over their data cap, so it applies at their next renewal.');
       } else {
         showAlert(
           'success',

@@ -340,7 +340,7 @@ export default function CreatePlanPage() {
                   {isFreeTrial
                     ? 'Devices one claimed trial covers. 1 = only the device that claimed it.'
                     : isPPPoE
-                      ? 'Devices that can be online at once with the same PPPoE username and password. Each gets the full plan speed; the data cap is shared.'
+                      ? 'Devices that can be online at once with the same PPPoE username and password. Each gets the full plan speed; the data cap is shared. Changing it updates active customers’ routers; their devices reconnect once.'
                       : '1 disables sharing. 2 allows the owner plus one extra device.'}
                 </p>
               </div>

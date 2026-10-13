@@ -3339,7 +3339,7 @@ export interface CustomerDeviceLimitResponse {
   max_devices: number;
   plan_max_devices: number;
   /** PPPoE only: whether the new limit was pushed to the router now. */
-  router_update?: 'applied' | 'failed' | null;
+  router_update?: 'applied' | 'failed' | 'deferred' | null;
 }
 
 /** GET /api/pppoe/customers/{id}/presence — the fields the UI reads. */
