@@ -1122,6 +1122,67 @@ export interface PPPoECustomerImportResponse {
   parse_report?: PPPoECustomerImportReport;
 }
 
+// Static-IP customer import — POST /routers/{router_id}/static-customers/import
+// (multipart). apply=false is a dry-run preview; any row error means apply
+// creates nothing.
+export type StaticCustomerImportAction = 'create' | 'skip' | 'error';
+
+export interface StaticCustomerImportRow {
+  row: number;
+  name: string | null;
+  static_ip: string | null;
+  mac: string | null;
+  phone: string | null;
+  plan_label: string | null;
+  plan_id: number | null;
+  plan_name: string | null;
+  expiry: string | null;
+  status: 'active' | 'inactive' | null;
+  action: StaticCustomerImportAction;
+  reason: string | null;
+}
+
+export interface StaticCustomerImportPlanToCreate {
+  label: string;
+  name: string;
+  speed: string;
+  price: number;
+}
+
+export interface StaticCustomerImportSummary {
+  rows_total: number;
+  to_create: number;
+  skipped: number;
+  errors: number;
+  active: number;
+  inactive: number;
+  plans_to_create: number;
+}
+
+export interface StaticCustomerImportResponse {
+  success: boolean;
+  stage: 'parse' | 'import';
+  router_id: number;
+  router_name: string;
+  source_file: string;
+  dry_run: boolean;
+  summary: StaticCustomerImportSummary;
+  plans_to_create: StaticCustomerImportPlanToCreate[];
+  rows: StaticCustomerImportRow[];
+  warnings: Array<{ row: number | null; message: string }>;
+  created_customer_ids: number[];
+}
+
+export interface StaticCustomerImportOptions {
+  apply: boolean;
+  createMissingPlans?: boolean;
+  /** Required (> 0) when createMissingPlans is on. */
+  defaultPlanPrice?: number;
+  /** Sheet plan label → existing plan id. */
+  planMapping?: Record<string, number>;
+  sourceTimezone?: string;
+}
+
 // PPPoE Router Transfer — move PPPoE customers from one router to a replacement.
 // Mirrors POST /routers/{source_router_id}/pppoe-customers/transfer.
 export interface TransferPPPoERequest {
