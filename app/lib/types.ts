@@ -725,11 +725,14 @@ export interface DashboardOverview {
 }
 
 // Customer Types
+/** How a customer connects. static_ip = a device with a fixed address on the router's LAN. */
+export type ConnectionType = 'hotspot' | 'pppoe' | 'static_ip';
+
 export interface CustomerPlan {
   id: number;
   name: string;
   price: number;
-  connection_type?: 'hotspot' | 'pppoe';
+  connection_type?: ConnectionType;
 }
 
 export interface CustomerRouter {
@@ -749,9 +752,11 @@ export interface Customer {
   plan_id?: number;
   router: CustomerRouter;
   router_id?: number;
-  connection_type?: 'hotspot' | 'pppoe';
+  connection_type?: ConnectionType;
   pppoe_username?: string;
   static_ip?: string;
+  /** Static-IP customers: the device MAC the IP is pinned to (anti-spoofing). */
+  static_mac?: string | null;
   account_number?: string;
   wallet_credit_kes?: number;
   /** Standing grace: access continues this long past `expiry`. 0 = none. */
@@ -788,6 +793,8 @@ export interface UpdateCustomerRequest {
   pppoe_username?: string;
   pppoe_password?: string;
   static_ip?: string;
+  /** Static IP only. Empty string clears the pin (re-learned on next sighting). */
+  static_mac?: string;
   expiry?: string;
 }
 
@@ -795,6 +802,7 @@ export interface UpdateCustomerResponse {
   success: boolean;
   customer: Customer;
   pppoe_reprovisioned: 'ok' | 'failed' | null;
+  static_reprovisioned?: 'ok' | 'failed' | null;
 }
 
 export interface DeleteCustomerResponse {
@@ -814,12 +822,67 @@ export interface RegisterCustomerRequest {
   pppoe_password?: string;
   mac_address?: string | null;
   static_ip?: string | null;
+  /** Static-IP plans: device MAC to pin the IP to (optional). */
+  static_mac?: string | null;
 }
 
 export interface ActivatePPPoERequest {
   payment_method?: 'cash' | 'mpesa' | 'voucher';
   payment_reference?: string;
   notes?: string;
+}
+
+/** Result of a static-IP router action (activate, suspend, sync, pin). */
+export interface StaticActionResponse {
+  success: boolean;
+  customer_id: number;
+  status?: string;
+  expiry?: string | null;
+  access?: 'enabled' | 'suspended';
+  static_mac?: string | null;
+  provision_result?: 'ok' | 'retry_pending';
+  router_result: 'ok' | 'failed';
+  router_error: string | null;
+  changes: string[];
+  gateway_ok: boolean | null;
+  pinned_mac: string | null;
+  observed_mac: string | null;
+  mac_mismatch: boolean;
+}
+
+/** What the router has for a static-IP customer right now. */
+export interface StaticRouterState {
+  success?: boolean;
+  error?: string;
+  reachable: boolean;
+  gateway_ok?: boolean;
+  binding?: { enabled: boolean; type: string; comment: string } | null;
+  queue?: {
+    name: string; max_limit: string; rate: string | null; bytes: string | null;
+    disabled: boolean; shadowed: boolean;
+  } | null;
+  pinned_mac?: string | null;
+  pin_hits?: number;
+  observed_mac?: string | null;
+  host?: {
+    mac: string; bypassed: boolean; idle_time: string | null; uptime: string | null;
+    bytes_in: string | null; bytes_out: string | null;
+  } | null;
+}
+
+export interface StaticStatusResponse {
+  customer_id: number;
+  static_ip: string;
+  static_mac: string | null;
+  status: string;
+  expiry: string | null;
+  expected_access: 'enabled' | 'suspended';
+  actual_access: 'enabled' | 'suspended' | null;
+  in_sync: boolean;
+  plan_speed: string;
+  router_id: number;
+  router_name: string;
+  router: StaticRouterState;
 }
 
 export interface PPPoECredentials {
@@ -1079,6 +1142,67 @@ export interface PPPoECustomerImportResponse {
   parse_report?: PPPoECustomerImportReport;
 }
 
+// Static-IP customer import — POST /routers/{router_id}/static-customers/import
+// (multipart). apply=false is a dry-run preview; any row error means apply
+// creates nothing.
+export type StaticCustomerImportAction = 'create' | 'skip' | 'error';
+
+export interface StaticCustomerImportRow {
+  row: number;
+  name: string | null;
+  static_ip: string | null;
+  mac: string | null;
+  phone: string | null;
+  plan_label: string | null;
+  plan_id: number | null;
+  plan_name: string | null;
+  expiry: string | null;
+  status: 'active' | 'inactive' | null;
+  action: StaticCustomerImportAction;
+  reason: string | null;
+}
+
+export interface StaticCustomerImportPlanToCreate {
+  label: string;
+  name: string;
+  speed: string;
+  price: number;
+}
+
+export interface StaticCustomerImportSummary {
+  rows_total: number;
+  to_create: number;
+  skipped: number;
+  errors: number;
+  active: number;
+  inactive: number;
+  plans_to_create: number;
+}
+
+export interface StaticCustomerImportResponse {
+  success: boolean;
+  stage: 'parse' | 'import';
+  router_id: number;
+  router_name: string;
+  source_file: string;
+  dry_run: boolean;
+  summary: StaticCustomerImportSummary;
+  plans_to_create: StaticCustomerImportPlanToCreate[];
+  rows: StaticCustomerImportRow[];
+  warnings: Array<{ row: number | null; message: string }>;
+  created_customer_ids: number[];
+}
+
+export interface StaticCustomerImportOptions {
+  apply: boolean;
+  createMissingPlans?: boolean;
+  /** Required (> 0) when createMissingPlans is on. */
+  defaultPlanPrice?: number;
+  /** Sheet plan label → existing plan id. */
+  planMapping?: Record<string, number>;
+  sourceTimezone?: string;
+}
+
 // PPPoE Router Transfer — move PPPoE customers from one router to a replacement.
 // Mirrors POST /routers/{source_router_id}/pppoe-customers/transfer.
 export interface TransferPPPoERequest {
@@ -1221,7 +1345,7 @@ export interface CreatePlanRequest {
   price: number;
   duration_value: number;
   duration_unit: 'HOURS' | 'DAYS' | 'MINUTES';
-  connection_type: 'hotspot' | 'pppoe';
+  connection_type: ConnectionType;
   router_profile?: string;
   user_id?: number;
   plan_type?: PlanType;
@@ -1554,7 +1678,7 @@ export interface CustomerUsageTimeline {
 
 export interface CustomerUsageResponse {
   customer_id: number;
-  connection_type: 'hotspot' | 'pppoe' | null;
+  connection_type: ConnectionType | null;
   pppoe_username: string | null;
   plan_name: string | null;
   plan_data_cap_mb: number | null;
@@ -1637,7 +1761,7 @@ export interface RouterLivePort {
 export interface ResellerTopUsageEntry {
   customer_id: number;
   customer_name: string | null;
-  connection_type: 'hotspot' | 'pppoe' | null;
+  connection_type: ConnectionType | null;
   pppoe_username: string | null;
   identifier: string | null;
   plan_name: string;
@@ -2051,6 +2175,40 @@ export interface UptimeCheck {
   checked_at: string;
   is_online: boolean;
   source: string;
+  /** False for a failed connection made while the router was reporting: it cost no uptime. */
+  counted_as_outage?: boolean;
+  /** Failed while the management tunnel was down but the site was online. */
+  in_tunnel_outage?: boolean;
+}
+
+export interface UptimeStats {
+  total_checks: number;
+  online_checks: number;
+  /** Share of TIME the router was up, over the part of the window with data. */
+  uptime_percentage: number | null;
+  measured_seconds?: number;
+  downtime_seconds?: number;
+  outage_count?: number;
+}
+
+export interface UptimeOutage {
+  started_at: string;
+  ended_at: string | null;
+  duration_seconds: number;
+}
+
+/** Bitwave could not reach the router, but it kept calling over the internet: the site was online. */
+export interface UptimeTunnelOutage extends UptimeOutage {
+  public_contacts: number;
+  first_contact_at: string;
+  last_contact_at: string;
+}
+
+export interface UptimeTimelineSlice {
+  from: string;
+  to: string;
+  status: 'up' | 'partial' | 'down' | 'no_data';
+  downtime_seconds: number;
 }
 
 export interface RouterUptimeResponse {
@@ -2067,21 +2225,21 @@ export interface RouterUptimeResponse {
     availability_checks: number;
     availability_successes: number;
   };
-  overall: {
-    total_checks: number;
-    online_checks: number;
-    uptime_percentage: number;
-  };
-  window: {
+  method?: 'time';
+  /** "router_reports": judged by the router's own reports; "server_checks": by our connection checks. */
+  judged_by?: 'router_reports' | 'server_checks' | null;
+  overall: UptimeStats & { days?: number };
+  window: UptimeStats & {
     hours: number;
     from: string;
     to: string;
-    first_check_at: string;
-    last_check_at: string;
-    total_checks: number;
-    online_checks: number;
-    uptime_percentage: number;
+    first_check_at: string | null;
+    last_check_at: string | null;
   };
+  outages?: UptimeOutage[];
+  /** Not counted against uptime: the site was online, only the tunnel was down. */
+  tunnel_outages?: UptimeTunnelOutage[];
+  timeline?: UptimeTimelineSlice[];
   recent_checks: UptimeCheck[];
 }
 
@@ -2405,6 +2563,24 @@ export interface LoginResponse {
   token_type: string;
   user: AuthUser;
   subscription_alert?: SubscriptionAlert;
+}
+
+/** POST /api/admin/impersonate/{reseller_id} — a read-only "View as reseller"
+ *  session. The token authenticates as the reseller; every write is refused
+ *  server-side with 403 `impersonation_read_only`. */
+export interface ImpersonationResponse {
+  access_token: string;
+  token_type: 'bearer' | string;
+  session_id: number;
+  /** ISO UTC with a trailing Z. Sessions last 30 minutes. */
+  expires_at: string;
+  read_only: true;
+  user: AuthUser;
+  impersonator: { id: number; email: string };
+}
+
+export interface EndImpersonationResponse {
+  ended: boolean;
 }
 
 export interface AuthState {
@@ -5897,4 +6073,388 @@ export interface OutageWindowRequest {
 export interface OutageApplyRequest extends OutageWindowRequest {
   note?: string;
   allow_duplicate?: boolean;
+}
+
+// ─── Customer audit log ─────────────────────────────────────────────
+
+export type CustomerAuditCategory = 'session' | 'router_log' | 'router' | 'change' | 'billing' | 'provisioning' | 'messages';
+
+export interface CustomerAuditItem {
+  id: string | null;
+  occurred_at: string | null;
+  category: CustomerAuditCategory;
+  event_type: string;
+  severity: 'info' | 'warning' | 'error';
+  source: string;
+  actor: string | null;
+  router_id: number | null;
+  message: string;
+  details: Record<string, unknown>;
+}
+
+export interface CustomerAuditLogResponse {
+  customer: {
+    id: number;
+    name: string | null;
+    phone: string | null;
+    status: string | null;
+    expiry: string | null;
+    connection_type: 'pppoe' | 'hotspot' | string | null;
+    plan: string | null;
+    pppoe_username: string | null;
+    mac_address: string | null;
+    router_id: number | null;
+    router_name: string | null;
+  };
+  live: { online: boolean; ip: string | null; uptime: string | null; seen_at: string | null } | null;
+  /** When the router last pushed a report; session entries are only this fresh. */
+  router_reported_at?: string | null;
+  summary?: {
+    last_drop: { at: string; message: string } | null;
+    last_problem: { at: string; message: string } | null;
+    drops_24h: number;
+    last_payment: { at: string | null; amount: number } | null;
+  };
+  items: CustomerAuditItem[];
+  count: number;
+  has_more: boolean;
+  next_before: string | null;
+  generated_at: string;
+}
+
+export interface CustomerRouterLogPullResponse {
+  customer_id: number;
+  router_id: number;
+  lines_read: number;
+  matched: number;
+  stored: number;
+  router_log_starts_at: string | null;
+  router_clock_trusted: boolean;
+  router_gmt_offset_minutes: number;
+}
+
+// ---------------------------------------------------------------------------
+// OVES platform health - GET /api/admin/oves-health (+ /history)
+// Backend: isp-billing app/services/oves_health/service.py
+// ---------------------------------------------------------------------------
+
+export type OvesSeverity = 'ok' | 'info' | 'warning' | 'critical' | 'unknown';
+export type OvesProbeStatus = 'up' | 'slow' | 'down' | 'unknown';
+
+export interface OvesAlert {
+  key: string;
+  severity: OvesSeverity;
+  title: string;
+  message: string;
+  section: string;
+  notified_at?: string | null;
+}
+
+export interface OvesProbe {
+  id: string;
+  name: string;
+  group: string;
+  kind: string;
+  target: string;
+  depends: string;
+  critical: boolean;
+  status: OvesProbeStatus;
+  latency_ms: number | null;
+  http_status: number | null;
+  detail: string;
+  streak?: number;
+  members?: { host: string; writable?: boolean; error?: string; last_write?: string | null; latency_ms?: number }[];
+}
+
+export interface OvesCodeWindow {
+  ok: number;
+  failed: number;
+  failed_system: number;
+  attempts: number;
+  success_rate: number | null;
+  system_success_rate: number | null;
+  by_type: Record<string, number>;
+  by_reason: Record<string, number>;
+  p50_ms: number | null;
+  p95_ms: number | null;
+  max_ms: number | null;
+  index_failures: number;
+  opentoken_retries: number;
+  integrity_warnings: number;
+  db_errors: number;
+}
+
+export interface OvesCodeFailure {
+  at: string;
+  service: string;
+  reason: string;
+  kind: 'user' | 'system';
+  message: string;
+}
+
+export interface OvesNode {
+  name: string;
+  ready: boolean;
+  pressure: string[];
+  instance_type?: string | null;
+  ip?: string | null;
+  cpu_pct?: number;
+  mem_pct?: number;
+  disk_pct?: number;
+}
+
+export interface OvesWorkload {
+  namespace: string;
+  name: string;
+  kind: string;
+  desired: number;
+  ready: number;
+  state: 'ok' | 'degraded' | 'down';
+}
+
+export interface OvesPod {
+  name: string;
+  state: string;              // Ready | CrashLoopBackOff | Pending | ...
+  ok: boolean;
+  restarts: number;
+  last_restart_reason: string | null;
+  last_restart_ago_s: number | null;
+  age_s: number | null;
+  node?: string | null;
+}
+
+export interface OvesService {
+  label: string;
+  role: string;
+  namespace: string;
+  name: string;
+  desired: number;
+  ready: number;
+  state: 'ok' | 'restarting' | 'degraded' | 'down';
+  restarts: number;
+  dead_pods: number;
+  pods: OvesPod[];
+}
+
+export interface OvesCluster {
+  status: OvesSeverity;
+  error?: string;
+  not_configured?: boolean;
+  services?: OvesService[];
+  node_summary?: { total: number; ready: number; cpu_max: number | null; mem_max: number | null; disk_max: number | null; pressure: string[] };
+  workloads?: { total: number; ok: number; degraded: number; down: number; problems: OvesWorkload[] };
+  pods?: {
+    total: number; running: number; restarted_1h: number; oom_1h: number;
+    recent_restarts: { namespace: string; pod: string; reason: string; exit_code?: number; at: string; restarts: number }[];
+    crashloop: { namespace: string; pod: string; reason: string; restarts: number }[];
+    pending: { namespace: string; pod: string }[];
+  };
+  nodes?: OvesNode[];
+}
+
+export interface OvesDbHost {
+  name: string;
+  instance_id: string;
+  state: string | null;
+  system_status: string | null;
+  instance_status: string | null;
+  events: string[];
+  cpu_pct: number | null;
+  cpu_credits: number | null;
+  credit_mode?: 'standard' | 'unlimited' | null;
+  status_check_failed: number | null;
+}
+
+export interface OvesHttpFailure {
+  method: string;
+  route: string;
+  status: number;
+  count: number;
+  bots: boolean;
+}
+
+export interface OvesTraffic {
+  requests: number;
+  status_5xx: number;
+  p95_ms: number | null;
+  error_rate?: number | null;
+  real_requests?: number;
+  real_5xx?: number;
+  bot_5xx?: number;
+  real_error_rate?: number | null;
+  top_failures?: OvesHttpFailure[];
+  log_errors?: { message: string; count: number }[];
+}
+
+export interface OvesHealthResponse {
+  enabled: boolean;
+  generated_at: string | null;
+  snapshot_age_seconds: number | null;
+  overall_status: OvesSeverity;
+  alerts: OvesAlert[];
+  sources: Record<string, { state: 'ok' | 'error' | 'partial' | 'not_configured'; error?: string }>;
+  sections: {
+    codes?: {
+      status: OvesSeverity;
+      available: boolean;
+      last_5m: OvesCodeWindow;
+      last_15m: OvesCodeWindow;
+      last_60m: OvesCodeWindow;
+      baseline_per_hour: number | null;
+      by_service: Record<string, OvesCodeWindow>;
+      recent_failures: OvesCodeFailure[];
+      opentoken_probe?: OvesProbe;
+      pods_watched: number;
+      note: string;
+      apollo_15m?: OvesGqlCodes | null;
+      apollo_operations?: OvesGqlOperation[];
+      apollo_errors?: OvesGqlErrorGroup[];
+      apollo_window?: { from: string | null; to: string | null } | null;
+      path?: OvesCodePathItem[];
+    };
+    database?: {
+      status: OvesSeverity;
+      login?: OvesProbe;
+      service_checks: OvesProbe[];
+      log_errors_5m: number;
+      log_errors_60m: number;
+      log_errors_by_service: Record<string, number>;
+      hosts: OvesDbHost[];
+      hosts_available: boolean;
+      replica_set: { available: boolean; note: string };
+      tencent_rs?: OvesProbe;
+    };
+    clusters?: Record<string, OvesCluster>;
+    traffic?: { last_5m: Record<string, OvesTraffic> };
+    dependencies?: { status: OvesSeverity; groups: { id: string; label: string; probes: OvesProbe[] }[] };
+    graphql?: {
+      available: boolean;
+      status: OvesSeverity;
+      from?: string;
+      to?: string;
+      graphs?: OvesGqlGraphSummary[];
+      failures?: Record<string, string>;
+      codes_15m?: OvesGqlCodes;
+    };
+  };
+}
+
+export interface OvesHistoryPoint {
+  t: string;
+  samples: number;
+  codes_ok?: number;
+  codes_failed?: number;
+  codes_failed_system?: number;
+  success_rate?: number | null;
+  code_p50_ms?: number | null;
+  code_p95_ms?: number | null;
+  index_failures?: number;
+  db_errors?: number;
+  probes_down?: number;
+  probe_uptime?: number | null;
+  probe_p95_ms?: number | null;
+  prod_cpu_max?: number;
+  prod_disk_max?: number;
+  dev_cpu_max?: number;
+  dev_disk_max?: number;
+  tencent_cpu_max?: number;
+  tencent_disk_max?: number;
+  [key: string]: number | string | null | undefined;
+}
+
+export interface OvesHistoryResponse {
+  hours: number;
+  bucket_minutes: number;
+  points: OvesHistoryPoint[];
+  probe_uptime: Record<string, number>;
+  probe_p95_ms: Record<string, number | null>;
+  totals: { codes_ok: number; codes_failed: number; success_rate: number | null };
+}
+
+// --- OVES health: Apollo GraphOS insights (backend app/services/oves_health/apollo.py) ---
+
+export interface OvesGqlOperation {
+  name: string;
+  label: string;
+  type: string;
+  requests: number;
+  requests_per_min: number;
+  errors: number;
+  error_rate: number | null;
+  p50_ms: number | null;
+  p95_ms: number | null;
+  is_code: boolean;
+  graph?: string;
+  graph_label?: string;
+}
+
+export interface OvesGqlErrorGroup {
+  operation: string;
+  operation_label: string;
+  path: string | null;
+  code: string | null;
+  service: string | null;
+  count: number;
+  message: string;
+  reason: string;
+  kind: 'user' | 'system';
+  last_seen: string | null;
+  is_code: boolean;
+  graph?: string;
+  graph_label?: string;
+}
+
+export interface OvesGqlGraphSummary {
+  graph: string;
+  label: string;
+  role: string;
+  requests: number;
+  errors: number;
+  error_rate: number | null;
+  system_errors: number;
+  system_error_rate: number | null;
+  top_errors: OvesGqlErrorGroup[];
+}
+
+export interface OvesGqlCodes {
+  requests: number;
+  errors: number;
+  system_errors: number;
+  success_rate: number | null;
+  system_success_rate: number | null;
+  error_rate: number | null;
+  system_error_rate: number | null;
+}
+
+export interface OvesCodePathItem {
+  id: string;
+  label: string;
+  role: string;
+  status: OvesSeverity;
+  pods: string | null;
+  restarts: number | null;
+  latency_ms: number | null;
+  requests_15m: number | null;
+  errors_15m: number | null;
+  error_rate: number | null;
+  platform_error_rate: number | null;
+  note: string | null;
+}
+
+export interface OvesGqlInsights {
+  graph: string;
+  label: string;
+  role: string;
+  operation: string | null;
+  from: string;
+  to: string;
+  bucket_minutes: number;
+  requests: number;
+  errors: number;
+  error_rate: number | null;
+  system_errors: number;
+  operations: OvesGqlOperation[];
+  error_groups: OvesGqlErrorGroup[];
+  series: { t: string; requests: number; errors: number; error_rate: number | null }[];
+  studio_url: string;
 }

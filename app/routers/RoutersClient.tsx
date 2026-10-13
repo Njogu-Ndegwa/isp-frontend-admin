@@ -15,7 +15,7 @@ import {
   PPPoESession,
   RouterInterfaceInfo,
   RouterUptimeResponse,
-  UptimeCheck,
+  UptimeTimelineSlice,
   InsuranceTunnelBatchJob,
   InsuranceTunnelBatchPreview,
   InsuranceWireGuardVerification,
@@ -312,16 +312,20 @@ export default function RoutersPage() {
     }
   };
 
+  // Switching the window (or router) quickly must not let a slower, older
+  // answer overwrite the newer one.
+  const uptimeRequest = useRef(0);
   const loadUptime = useCallback(async (routerId: number, hours = uptimeHours) => {
+    const seq = ++uptimeRequest.current;
     try {
       setUptimeLoading(true);
       setUptimeRouter(routerId);
       const data = await api.getRouterUptime(routerId, hours, 200);
-      setUptimeData(data);
-    } catch (err) {
-      setUptimeData(null);
+      if (seq === uptimeRequest.current) setUptimeData(data);
+    } catch {
+      if (seq === uptimeRequest.current) setUptimeData(null);
     } finally {
-      setUptimeLoading(false);
+      if (seq === uptimeRequest.current) setUptimeLoading(false);
     }
   }, [uptimeHours]);
 
@@ -1827,52 +1831,128 @@ function RoutersTab({
 // Uptime Kuma-style Bar Chart
 // ---------------------------------------------------------------------------
 
+function formatDowntime(seconds: number | undefined): string {
+  if (!seconds) return 'none';
+  const m = Math.round(seconds / 60);
+  if (m < 60) return `${m}m`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ${m % 60}m`;
+  return `${Math.floor(h / 24)}d ${h % 24}h`;
+}
+
+// Each bar needs about 4px (3px + 1px gap). On a phone the 84 slices of a
+// 7- or 30-day window do not fit, so neighbours are merged: a merged slice is
+// "down" only if all of it was down, "up" only if all of it was up, and
+// "partly down" otherwise, so no outage disappears.
+const UPTIME_SLICE_PX = 4;
+
+function fitTimeline(slices: UptimeTimelineSlice[], width: number): UptimeTimelineSlice[] {
+  const fit = Math.max(1, Math.floor(width / UPTIME_SLICE_PX));
+  if (!width || slices.length <= fit) return slices;
+  const groups = Math.ceil(slices.length / Math.ceil(slices.length / fit));
+  const size = Math.ceil(slices.length / groups);
+  const out: UptimeTimelineSlice[] = [];
+  for (let i = 0; i < slices.length; i += size) {
+    const group = slices.slice(i, i + size);
+    const statuses = new Set(group.map((g) => g.status));
+    const status: UptimeTimelineSlice['status'] =
+      statuses.size === 1 ? group[0].status
+        : [...statuses].every((st) => st === 'up' || st === 'no_data') ? 'up'
+          : 'partial';
+    out.push({
+      from: group[0].from,
+      to: group[group.length - 1].to,
+      status,
+      downtime_seconds: group.reduce((sum, g) => sum + g.downtime_seconds, 0),
+    });
+  }
+  return out;
+}
+
 function UptimePanel({ data }: { data: RouterUptimeResponse }) {
-  const checks = [...data.recent_checks].sort(
-    (a, b) => new Date(a.checked_at).getTime() - new Date(b.checked_at).getTime()
-  );
-
-  const uptimePct = data.window.uptime_percentage;
+  const windowPct = data.window.uptime_percentage;
   const overallPct = data.overall.uptime_percentage;
+  const windowLabel = data.window.hours >= 24 && data.window.hours % 24 === 0
+    ? `${data.window.hours / 24} day${data.window.hours === 24 ? '' : 's'}`
+    : `${data.window.hours}h`;
+  const outages = [...(data.outages ?? [])].reverse();
+  const hasTimeline = (data.timeline ?? []).length > 0;
+  const barRef = useRef<HTMLDivElement | null>(null);
+  const [barWidth, setBarWidth] = useState(0);
+  useEffect(() => {
+    const el = barRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver((entries) => setBarWidth(entries[0]?.contentRect.width ?? 0));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [hasTimeline]);
+  const timeline = fitTimeline(data.timeline ?? [], barWidth);
+  const tunnelOutages = [...(data.tunnel_outages ?? [])].reverse();
+  const ignoredFailures = data.recent_checks.filter(
+    (c) => !c.is_online && c.counted_as_outage === false && !c.in_tunnel_outage,
+  ).length;
 
-  const getBarColor = (check: UptimeCheck) =>
-    check.is_online ? 'bg-emerald-500' : 'bg-red-500';
-
-  const getBarHoverColor = (check: UptimeCheck) =>
-    check.is_online ? 'hover:bg-emerald-400' : 'hover:bg-red-400';
-
-  const formatCheckTime = (dateStr: string) => {
+  const formatTime = (dateStr: string | null | undefined) => {
+    if (!dateStr) return '-';
     try {
-      return formatDateGMT3(dateStr, {
-        day: '2-digit', month: 'short',
-        hour: '2-digit', minute: '2-digit',
-      });
+      return formatDateGMT3(dateStr, { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
     } catch { return '-'; }
   };
 
-  const pctColor = (pct: number) =>
+  const pctColor = (pct: number | null) =>
+    pct === null ? 'text-foreground-muted' :
     pct >= 99 ? 'text-emerald-500' :
     pct >= 95 ? 'text-emerald-400' :
     pct >= 90 ? 'text-amber-400' :
     'text-red-400';
 
+  const pctText = (pct: number | null) => (pct === null || pct === undefined ? '—' : `${pct.toFixed(2)}%`);
+
+  const SLICE_COLOR: Record<string, string> = {
+    up: 'bg-emerald-500 hover:bg-emerald-400',
+    partial: 'bg-amber-400 hover:bg-amber-300',
+    down: 'bg-red-500 hover:bg-red-400',
+    no_data: 'bg-foreground-muted/20',
+  };
+  const SLICE_LABEL: Record<string, string> = {
+    up: 'Up the whole time',
+    partial: 'Partly down',
+    down: 'Down',
+    no_data: 'No data yet',
+  };
+
   return (
     <div className="space-y-5">
-      {/* Stats row */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <div className="p-3 rounded-lg bg-background-tertiary">
-          <p className="text-[10px] uppercase tracking-wider text-foreground-muted mb-1">Window Uptime</p>
-          <p className={`text-xl font-bold ${pctColor(uptimePct)}`}>{uptimePct.toFixed(2)}%</p>
+          <p className="text-[10px] uppercase tracking-wider text-foreground-muted mb-1">Uptime · {windowLabel}</p>
+          <p className={`text-xl font-bold ${pctColor(windowPct)}`}>{pctText(windowPct)}</p>
         </div>
+        {data.window.hours < (data.overall.days ?? 30) * 24 ? (
+          <div className="p-3 rounded-lg bg-background-tertiary">
+            <p className="text-[10px] uppercase tracking-wider text-foreground-muted mb-1">
+              Uptime · {data.overall.days ?? 30} days
+            </p>
+            <p className={`text-xl font-bold ${pctColor(overallPct)}`}>{pctText(overallPct)}</p>
+          </div>
+        ) : (
+          // The window already is the 30 days; show the worst outage instead of repeating it.
+          <div className="p-3 rounded-lg bg-background-tertiary">
+            <p className="text-[10px] uppercase tracking-wider text-foreground-muted mb-1">Longest outage</p>
+            <p className="text-xl font-bold text-foreground">
+              {outages.length
+                ? formatDowntime(Math.max(...outages.map((o) => o.duration_seconds)))
+                : 'none'}
+            </p>
+          </div>
+        )}
         <div className="p-3 rounded-lg bg-background-tertiary">
-          <p className="text-[10px] uppercase tracking-wider text-foreground-muted mb-1">Overall Uptime</p>
-          <p className={`text-xl font-bold ${pctColor(overallPct)}`}>{overallPct.toFixed(2)}%</p>
-        </div>
-        <div className="p-3 rounded-lg bg-background-tertiary">
-          <p className="text-[10px] uppercase tracking-wider text-foreground-muted mb-1">Checks (Window)</p>
+          <p className="text-[10px] uppercase tracking-wider text-foreground-muted mb-1">Outages · {windowLabel}</p>
           <p className="text-xl font-bold text-foreground">
-            <span className="text-emerald-500">{data.window.online_checks}</span>
-            <span className="text-foreground-muted text-sm font-normal"> / {data.window.total_checks}</span>
+            {data.window.outage_count ?? 0}
+            <span className="text-foreground-muted text-sm font-normal">
+              {' · '}{formatDowntime(data.window.downtime_seconds)} down
+            </span>
           </p>
         </div>
         <div className="p-3 rounded-lg bg-background-tertiary">
@@ -1888,54 +1968,84 @@ function UptimePanel({ data }: { data: RouterUptimeResponse }) {
         </div>
       </div>
 
-      {/* Uptime bar (Uptime Kuma style) */}
-      {checks.length > 0 && (
+      {hasTimeline ? (
         <div>
           <div className="flex items-center justify-between mb-2">
-            <p className="text-xs font-medium text-foreground-muted">
-              {formatCheckTime(checks[0].checked_at)}
-            </p>
-            <p className="text-xs font-medium text-foreground-muted">
-              {formatCheckTime(checks[checks.length - 1].checked_at)}
-            </p>
+            <p className="text-xs font-medium text-foreground-muted">{formatTime(timeline[0].from)}</p>
+            <p className="text-xs font-medium text-foreground-muted">now</p>
           </div>
-          <div className="flex gap-[2px] h-10 items-end">
-            {checks.map((check, i) => (
+          <div ref={barRef} className="flex gap-px sm:gap-[2px] h-10 items-end overflow-hidden">
+            {timeline.map((slice) => (
               <div
-                key={i}
-                className={`flex-1 min-w-[3px] max-w-[8px] rounded-sm transition-all cursor-pointer ${getBarColor(check)} ${getBarHoverColor(check)} group relative`}
+                key={slice.from}
+                className={`flex-1 min-w-[3px] rounded-sm transition-colors cursor-default ${SLICE_COLOR[slice.status] ?? SLICE_COLOR.no_data} group relative`}
                 style={{ height: '100%' }}
-                title={`${formatCheckTime(check.checked_at)} — ${check.is_online ? 'Online' : 'Offline'} (${check.source})`}
-              >
-                <div className="hidden group-hover:block absolute bottom-full mb-2 left-1/2 -translate-x-1/2 z-10 whitespace-nowrap">
-                  <div className="bg-background-secondary border border-border rounded-lg shadow-lg px-3 py-2 text-xs">
-                    <p className="font-medium text-foreground">{check.is_online ? 'Online' : 'Offline'}</p>
-                    <p className="text-foreground-muted">{formatCheckTime(check.checked_at)}</p>
-                    <p className="text-foreground-muted">{check.source}</p>
-                  </div>
-                </div>
-              </div>
+                title={`${formatTime(slice.from)} – ${formatTime(slice.to)}: ${SLICE_LABEL[slice.status]}${slice.downtime_seconds ? ` (${formatDowntime(slice.downtime_seconds)} down)` : ''}`}
+              />
             ))}
           </div>
-          <div className="flex items-center justify-between mt-2">
-            <div className="flex items-center gap-3 text-[10px] text-foreground-muted">
-              <span className="flex items-center gap-1">
-                <span className="w-2 h-2 rounded-sm bg-emerald-500" /> Online
-              </span>
-              <span className="flex items-center gap-1">
-                <span className="w-2 h-2 rounded-sm bg-red-500" /> Offline
-              </span>
+          <div className="flex flex-wrap items-center justify-between gap-2 mt-2">
+            <div className="flex flex-wrap items-center gap-3 text-[10px] text-foreground-muted">
+              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-emerald-500" /> Up</span>
+              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-amber-400" /> Partly down</span>
+              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-red-500" /> Down</span>
+              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-foreground-muted/20" /> No data</span>
             </div>
-            <p className="text-[10px] text-foreground-muted">{checks.length} checks</p>
+            <p className="text-[10px] text-foreground-muted">Times in EAT</p>
           </div>
         </div>
-      )}
-
-      {checks.length === 0 && (
+      ) : (
         <div className="text-center py-6 text-foreground-muted text-sm">
           No check data available for this time window
         </div>
       )}
+
+      {outages.length > 0 && (
+        <div>
+          <p className="text-xs font-medium text-foreground-muted mb-2">Outages</p>
+          <ul className="divide-y divide-border rounded-lg bg-background-tertiary/50">
+            {outages.slice(0, 8).map((o) => (
+              <li key={o.started_at} className="flex items-center justify-between gap-3 px-3 py-2 text-xs">
+                <span className="text-foreground">
+                  {formatTime(o.started_at)} → {o.ended_at ? formatTime(o.ended_at) : 'still down'}
+                </span>
+                <span className={o.ended_at ? 'text-foreground-muted' : 'text-red-400 font-medium'}>
+                  {formatDowntime(o.duration_seconds)}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {tunnelOutages.length > 0 && (
+        <div>
+          <p className="text-xs font-medium text-foreground-muted mb-1">Management tunnel down, site online</p>
+          <p className="text-[11px] text-foreground-muted mb-2 leading-relaxed">
+            The router kept reaching Bitwave over the internet, but Bitwave could not reach it. Customers already
+            connected stayed online; new payments and changes waited for the tunnel. Not counted as downtime.
+          </p>
+          <ul className="divide-y divide-border rounded-lg bg-background-tertiary/50">
+            {tunnelOutages.slice(0, 8).map((o) => (
+              <li key={o.started_at} className="flex items-center justify-between gap-3 px-3 py-2 text-xs">
+                <span className="text-foreground">
+                  {formatTime(o.started_at)} → {o.ended_at ? formatTime(o.ended_at) : 'still down'}
+                </span>
+                <span className={o.ended_at ? 'text-foreground-muted' : 'text-amber-400 font-medium'}>
+                  {formatDowntime(o.duration_seconds)}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      <p className="text-[11px] text-foreground-muted leading-relaxed">
+        {data.judged_by === 'router_reports'
+          ? 'Uptime is judged by the router’s own reports, which it sends every few minutes. The router counts as down only when those reports stop for more than 15 minutes.'
+          : 'Uptime is judged by Bitwave’s connection checks. The router counts as down only after two failed checks in a row.'}
+        {ignoredFailures > 0 && ` ${ignoredFailures} failed connection attempt${ignoredFailures === 1 ? '' : 's'} while the router was still reporting did not count.`}
+      </p>
     </div>
   );
 }

@@ -1,0 +1,2129 @@
+{
+ "summary": {
+  "from": "2026-10-12T17:30:00Z",
+  "to": "2026-10-12T17:45:00Z",
+  "graphs": [
+   {
+    "graph": "Thing-Microservice-Shadow-A",
+    "label": "Thing (make) · shadow",
+    "role": "Codes for shadow API + devices",
+    "requests": 422,
+    "errors": 0,
+    "error_rate": 0.0,
+    "system_errors": 0,
+    "system_error_rate": 0.0,
+    "top_errors": []
+   },
+   {
+    "graph": "Thing-Microservice-Use",
+    "label": "Thing · ERM / ble-app",
+    "role": "Codes for ERM admin + ble-app",
+    "requests": 82,
+    "errors": 0,
+    "error_rate": 0.0,
+    "system_errors": 0,
+    "system_error_rate": 0.0,
+    "top_errors": []
+   },
+   {
+    "graph": "Auth-Microservice-Prod",
+    "label": "Auth",
+    "role": "Login, MQTT auth",
+    "requests": 512,
+    "errors": 15,
+    "error_rate": 0.0293,
+    "system_errors": 0,
+    "system_error_rate": 0.0,
+    "top_errors": [
+     {
+      "operation": "(unnamed)",
+      "operation_label": "(unnamed)",
+      "path": "signInUser",
+      "code": null,
+      "service": null,
+      "count": 15,
+      "message": "Invalid Credentials",
+      "reason": "unauthorized",
+      "kind": "user",
+      "last_seen": "2026-10-12T17:44:00.000000000Z",
+      "is_code": false
+     }
+    ]
+   },
+   {
+    "graph": "Account-Microservice-Prod",
+    "label": "Account",
+    "role": "Accounts, PAYG",
+    "requests": 6,
+    "errors": 0,
+    "error_rate": 0.0,
+    "system_errors": 0,
+    "system_error_rate": 0.0,
+    "top_errors": []
+   },
+   {
+    "graph": "Client-Microservice-Prod",
+    "label": "Client",
+    "role": "Customers, people",
+    "requests": 238,
+    "errors": 15,
+    "error_rate": 0.06303,
+    "system_errors": 0,
+    "system_error_rate": 0.0,
+    "top_errors": [
+     {
+      "operation": "signInClient",
+      "operation_label": "signInClient",
+      "path": "signInClient",
+      "code": null,
+      "service": null,
+      "count": 15,
+      "message": "Invalid Credentials",
+      "reason": "unauthorized",
+      "kind": "user",
+      "last_seen": "2026-10-12T17:44:00.000000000Z",
+      "is_code": false
+     }
+    ]
+   },
+   {
+    "graph": "Event-Microservice-Prod",
+    "label": "Event",
+    "role": "Events, telemetry",
+    "requests": 504,
+    "errors": 502,
+    "error_rate": 0.99603,
+    "system_errors": 502,
+    "system_error_rate": 0.99603,
+    "top_errors": [
+     {
+      "operation": "# GraphQLValidationFailure",
+      "operation_label": "# GraphQLValidationFailure",
+      "path": null,
+      "code": null,
+      "service": null,
+      "count": 1004,
+      "message": "Cannot query field \"microserviceEvents_2024\" on type \"Mutation\".",
+      "reason": "schema_mismatch",
+      "kind": "system",
+      "last_seen": "2026-10-12T17:44:00.000000000Z",
+      "is_code": false
+     }
+    ]
+   },
+   {
+    "graph": "Auth-Microservice-Shadow-AP",
+    "label": "Auth (use)",
+    "role": "auth-use-microservice",
+    "requests": 216,
+    "errors": 1,
+    "error_rate": 0.00463,
+    "system_errors": 0,
+    "system_error_rate": 0.0,
+    "top_errors": [
+     {
+      "operation": "(unnamed)",
+      "operation_label": "(unnamed)",
+      "path": null,
+      "code": null,
+      "service": null,
+      "count": 1,
+      "message": "Variable \"$signInCredentials\" got invalid value null at \"signInCredentials.email\"; Expected non-nullable type \"String!\" not to be null.",
+      "reason": "validation",
+      "kind": "user",
+      "last_seen": "2026-10-12T17:38:00.000000000Z",
+      "is_code": false
+     }
+    ]
+   },
+   {
+    "graph": "Client-Microservice-Shadow",
+    "label": "Client (use)",
+    "role": "client-use-microservice",
+    "requests": 2,
+    "errors": 0,
+    "error_rate": 0.0,
+    "system_errors": 0,
+    "system_error_rate": 0.0,
+    "top_errors": []
+   },
+   {
+    "graph": "Thing-Micorservice-Make",
+    "label": "Thing (use)",
+    "role": "thing-use-microservice",
+    "requests": 9,
+    "errors": 0,
+    "error_rate": 0.0,
+    "system_errors": 0,
+    "system_error_rate": 0.0,
+    "top_errors": []
+   }
+  ],
+  "failures": {},
+  "codes_15m": {
+   "requests": 427,
+   "errors": 0,
+   "system_errors": 0,
+   "success_rate": 1.0,
+   "system_success_rate": 1.0,
+   "error_rate": 0.0,
+   "system_error_rate": 0.0
+  },
+  "code_operations": [
+   {
+    "name": "GenerateDaysCode_V2",
+    "label": "GenerateDaysCode_V2",
+    "type": "mutation",
+    "requests": 220,
+    "requests_per_min": 14.67,
+    "errors": 0,
+    "error_rate": 0.0,
+    "p50_ms": null,
+    "p95_ms": null,
+    "is_code": true,
+    "graph": "Thing-Microservice-Shadow-A",
+    "graph_label": "Thing (make) · shadow"
+   },
+   {
+    "name": "GenerateDaysCode",
+    "label": "GenerateDaysCode",
+    "type": "mutation",
+    "requests": 195,
+    "requests_per_min": 13.0,
+    "errors": 0,
+    "error_rate": 0.0,
+    "p50_ms": null,
+    "p95_ms": null,
+    "is_code": true,
+    "graph": "Thing-Microservice-Shadow-A",
+    "graph_label": "Thing (make) · shadow"
+   },
+   {
+    "name": "OpenTokenBatchCodeMutation",
+    "label": "OpenTokenBatchCodeMutation",
+    "type": "mutation",
+    "requests": 6,
+    "requests_per_min": 0.4,
+    "errors": 0,
+    "error_rate": 0.0,
+    "p50_ms": null,
+    "p95_ms": null,
+    "is_code": true,
+    "graph": "Thing-Micorservice-Make",
+    "graph_label": "Thing (use)"
+   },
+   {
+    "name": "GenerateFreeCodeSafe",
+    "label": "GenerateFreeCodeSafe",
+    "type": "mutation",
+    "requests": 4,
+    "requests_per_min": 0.27,
+    "errors": 0,
+    "error_rate": 0.0,
+    "p50_ms": null,
+    "p95_ms": null,
+    "is_code": true,
+    "graph": "Thing-Microservice-Shadow-A",
+    "graph_label": "Thing (make) · shadow"
+   },
+   {
+    "name": "GenerateFreeCode_V2",
+    "label": "GenerateFreeCode_V2",
+    "type": "mutation",
+    "requests": 1,
+    "requests_per_min": 0.07,
+    "errors": 0,
+    "error_rate": 0.0,
+    "p50_ms": null,
+    "p95_ms": null,
+    "is_code": true,
+    "graph": "Thing-Microservice-Shadow-A",
+    "graph_label": "Thing (make) · shadow"
+   },
+   {
+    "name": "GenerateDaysCode__thing_microservice_prodomnivoltaiccomgraphql__0",
+    "label": "GenerateDaysCode",
+    "type": "mutation",
+    "requests": 1,
+    "requests_per_min": 0.07,
+    "errors": 0,
+    "error_rate": 0.0,
+    "p50_ms": null,
+    "p95_ms": null,
+    "is_code": true,
+    "graph": "Thing-Microservice-Use",
+    "graph_label": "Thing · ERM / ble-app"
+   }
+  ],
+  "code_errors": []
+ },
+ "graphs": [
+  {
+   "graph": "Thing-Microservice-Shadow-A",
+   "label": "Thing (make) · shadow",
+   "role": "Codes for shadow API + devices"
+  },
+  {
+   "graph": "Thing-Microservice-Use",
+   "label": "Thing · ERM / ble-app",
+   "role": "Codes for ERM admin + ble-app"
+  },
+  {
+   "graph": "Auth-Microservice-Prod",
+   "label": "Auth",
+   "role": "Login, MQTT auth"
+  },
+  {
+   "graph": "Account-Microservice-Prod",
+   "label": "Account",
+   "role": "Accounts, PAYG"
+  },
+  {
+   "graph": "Client-Microservice-Prod",
+   "label": "Client",
+   "role": "Customers, people"
+  },
+  {
+   "graph": "Event-Microservice-Prod",
+   "label": "Event",
+   "role": "Events, telemetry"
+  },
+  {
+   "graph": "Auth-Microservice-Shadow-AP",
+   "label": "Auth (use)",
+   "role": "auth-use-microservice"
+  },
+  {
+   "graph": "Client-Microservice-Shadow",
+   "label": "Client (use)",
+   "role": "client-use-microservice"
+  },
+  {
+   "graph": "Thing-Micorservice-Make",
+   "label": "Thing (use)",
+   "role": "thing-use-microservice"
+  }
+ ],
+ "shadow_24h": {
+  "graph": "Thing-Microservice-Shadow-A",
+  "label": "Thing (make) · shadow",
+  "role": "Codes for shadow API + devices",
+  "operation": null,
+  "from": "2026-10-11T17:45:00Z",
+  "to": "2026-10-12T17:45:00Z",
+  "bucket_minutes": 15,
+  "requests": 12416,
+  "errors": 48,
+  "error_rate": 0.00387,
+  "system_errors": 1,
+  "operations": [
+   {
+    "name": "GenerateDaysCode",
+    "label": "GenerateDaysCode",
+    "type": "mutation",
+    "requests": 7351,
+    "requests_per_min": 5.1,
+    "errors": 1,
+    "error_rate": 0.0,
+    "p50_ms": null,
+    "p95_ms": null,
+    "is_code": true
+   },
+   {
+    "name": "GenerateDaysCode_V2",
+    "label": "GenerateDaysCode_V2",
+    "type": "mutation",
+    "requests": 4576,
+    "requests_per_min": 3.18,
+    "errors": 38,
+    "error_rate": 8e-05,
+    "p50_ms": null,
+    "p95_ms": null,
+    "is_code": true
+   },
+   {
+    "name": "GenerateFreeCodeSafe",
+    "label": "GenerateFreeCodeSafe",
+    "type": "mutation",
+    "requests": 206,
+    "requests_per_min": 0.14,
+    "errors": 0,
+    "error_rate": 0.0,
+    "p50_ms": null,
+    "p95_ms": null,
+    "is_code": true
+   },
+   {
+    "name": "(unnamed)",
+    "label": "(unnamed)",
+    "type": "query",
+    "requests": 195,
+    "requests_per_min": 0.14,
+    "errors": 0,
+    "error_rate": 0.0,
+    "p50_ms": null,
+    "p95_ms": null,
+    "is_code": false
+   },
+   {
+    "name": "GenerateFreeCode_V2",
+    "label": "GenerateFreeCode_V2",
+    "type": "mutation",
+    "requests": 33,
+    "requests_per_min": 0.02,
+    "errors": 9,
+    "error_rate": 0.00273,
+    "p50_ms": null,
+    "p95_ms": null,
+    "is_code": true
+   },
+   {
+    "name": "getAllCodeEventsForSpecificItemByDistributor",
+    "label": "getAllCodeEventsForSpecificItemByDistributor",
+    "type": "query",
+    "requests": 23,
+    "requests_per_min": 0.02,
+    "errors": 0,
+    "error_rate": 0.0,
+    "p50_ms": null,
+    "p95_ms": null,
+    "is_code": false
+   },
+   {
+    "name": "GenerateFreeCode",
+    "label": "GenerateFreeCode",
+    "type": "mutation",
+    "requests": 18,
+    "requests_per_min": 0.01,
+    "errors": 0,
+    "error_rate": 0.0,
+    "p50_ms": null,
+    "p95_ms": null,
+    "is_code": true
+   },
+   {
+    "name": "GenerateResetCode",
+    "label": "GenerateResetCode",
+    "type": "mutation",
+    "requests": 11,
+    "requests_per_min": 0.01,
+    "errors": 0,
+    "error_rate": 0.0,
+    "p50_ms": null,
+    "p95_ms": null,
+    "is_code": true
+   },
+   {
+    "name": "GenerateResetCode_V2",
+    "label": "GenerateResetCode_V2",
+    "type": "mutation",
+    "requests": 3,
+    "requests_per_min": 0.0,
+    "errors": 0,
+    "error_rate": 0.0,
+    "p50_ms": null,
+    "p95_ms": null,
+    "is_code": true
+   }
+  ],
+  "error_groups": [
+   {
+    "operation": "GenerateDaysCode_V2",
+    "operation_label": "GenerateDaysCode_V2",
+    "path": "generateDaysCode_v2",
+    "code": null,
+    "service": null,
+    "count": 38,
+    "message": "Error: Minimum time lapse between codes 6 seconds.",
+    "reason": "rate_limited",
+    "kind": "user",
+    "last_seen": "2026-10-12T15:16:00.000000000Z",
+    "is_code": true
+   },
+   {
+    "operation": "GenerateFreeCode_V2",
+    "operation_label": "GenerateFreeCode_V2",
+    "path": "generateFreeCode_v2",
+    "code": null,
+    "service": null,
+    "count": 9,
+    "message": "Error: Item is not found",
+    "reason": "not_found",
+    "kind": "user",
+    "last_seen": "2026-10-12T14:45:00.000000000Z",
+    "is_code": true
+   },
+   {
+    "operation": "GenerateDaysCode",
+    "operation_label": "GenerateDaysCode",
+    "path": "generateDaysCode",
+    "code": null,
+    "service": null,
+    "count": 1,
+    "message": "E11000 duplicate key error collection: thing-microservice.codeevent index: codeType_1_codeDays_1_codeGenerator_1_codeDecString_1 dup key: { codeType: \"DAYSCODE\", codeDays: 2, codeGenerator: ObjectId('000000000000000000000000'), codeDecString: \"*000 000 000 000 000 0 00 000#\" }",
+    "reason": "duplicate_code",
+    "kind": "system",
+    "last_seen": "2026-10-12T08:13:00.000000000Z",
+    "is_code": true
+   }
+  ],
+  "series": [
+   {
+    "t": "2026-10-11T17:45:00Z",
+    "requests": 322,
+    "errors": 0,
+    "error_rate": 0.0
+   },
+   {
+    "t": "2026-10-11T18:00:00Z",
+    "requests": 254,
+    "errors": 0,
+    "error_rate": 0.0
+   },
+   {
+    "t": "2026-10-11T18:15:00Z",
+    "requests": 202,
+    "errors": 1,
+    "error_rate": 0.00495
+   },
+   {
+    "t": "2026-10-11T18:30:00Z",
+    "requests": 176,
+    "errors": 0,
+    "error_rate": 0.0
+   },
+   {
+    "t": "2026-10-11T18:45:00Z",
+    "requests": 149,
+    "errors": 0,
+    "error_rate": 0.0
+   },
+   {
+    "t": "2026-10-11T19:00:00Z",
+    "requests": 105,
+    "errors": 0,
+    "error_rate": 0.0
+   },
+   {
+    "t": "2026-10-11T19:15:00Z",
+    "requests": 95,
+    "errors": 0,
+    "error_rate": 0.0
+   },
+   {
+    "t": "2026-10-11T19:30:00Z",
+    "requests": 69,
+    "errors": 0,
+    "error_rate": 0.0
+   },
+   {
+    "t": "2026-10-11T19:45:00Z",
+    "requests": 56,
+    "errors": 0,
+    "error_rate": 0.0
+   },
+   {
+    "t": "2026-10-11T20:00:00Z",
+    "requests": 39,
+    "errors": 0,
+    "error_rate": 0.0
+   },
+   {
+    "t": "2026-10-11T20:15:00Z",
+    "requests": 27,
+    "errors": 0,
+    "error_rate": 0.0
+   },
+   {
+    "t": "2026-10-11T20:30:00Z",
+    "requests": 15,
+    "errors": 0,
+    "error_rate": 0.0
+   },
+   {
+    "t": "2026-10-11T20:45:00Z",
+    "requests": 11,
+    "errors": 0,
+    "error_rate": 0.0
+   },
+   {
+    "t": "2026-10-11T21:00:00Z",
+    "requests": 12,
+    "errors": 0,
+    "error_rate": 0.0
+   },
+   {
+    "t": "2026-10-11T21:15:00Z",
+    "requests": 11,
+    "errors": 0,
+    "error_rate": 0.0
+   },
+   {
+    "t": "2026-10-11T21:30:00Z",
+    "requests": 14,
+    "errors": 0,
+    "error_rate": 0.0
+   },
+   {
+    "t": "2026-10-11T21:45:00Z",
+    "requests": 7,
+    "errors": 0,
+    "error_rate": 0.0
+   },
+   {
+    "t": "2026-10-11T22:00:00Z",
+    "requests": 2,
+    "errors": 0,
+    "error_rate": 0.0
+   },
+   {
+    "t": "2026-10-11T22:15:00Z",
+    "requests": 7,
+    "errors": 0,
+    "error_rate": 0.0
+   },
+   {
+    "t": "2026-10-11T22:30:00Z",
+    "requests": 3,
+    "errors": 0,
+    "error_rate": 0.0
+   },
+   {
+    "t": "2026-10-11T22:45:00Z",
+    "requests": 3,
+    "errors": 0,
+    "error_rate": 0.0
+   },
+   {
+    "t": "2026-10-11T23:00:00Z",
+    "requests": 4,
+    "errors": 0,
+    "error_rate": 0.0
+   },
+   {
+    "t": "2026-10-11T23:15:00Z",
+    "requests": 3,
+    "errors": 0,
+    "error_rate": 0.0
+   },
+   {
+    "t": "2026-10-11T23:30:00Z",
+    "requests": 1,
+    "errors": 0,
+    "error_rate": 0.0
+   },
+   {
+    "t": "2026-10-11T23:45:00Z",
+    "requests": 2,
+    "errors": 0,
+    "error_rate": 0.0
+   },
+   {
+    "t": "2026-10-12T00:00:00Z",
+    "requests": 4,
+    "errors": 0,
+    "error_rate": 0.0
+   },
+   {
+    "t": "2026-10-12T00:15:00Z",
+    "requests": 3,
+    "errors": 0,
+    "error_rate": 0.0
+   },
+   {
+    "t": "2026-10-12T00:30:00Z",
+    "requests": 1,
+    "errors": 0,
+    "error_rate": 0.0
+   },
+   {
+    "t": "2026-10-12T00:45:00Z",
+    "requests": 2,
+    "errors": 0,
+    "error_rate": 0.0
+   },
+   {
+    "t": "2026-10-12T01:00:00Z",
+    "requests": 1,
+    "errors": 0,
+    "error_rate": 0.0
+   },
+   {
+    "t": "2026-10-12T01:15:00Z",
+    "requests": 7,
+    "errors": 0,
+    "error_rate": 0.0
+   },
+   {
+    "t": "2026-10-12T01:30:00Z",
+    "requests": 1,
+    "errors": 0,
+    "error_rate": 0.0
+   },
+   {
+    "t": "2026-10-12T01:45:00Z",
+    "requests": 3,
+    "errors": 0,
+    "error_rate": 0.0
+   },
+   {
+    "t": "2026-10-12T02:00:00Z",
+    "requests": 12,
+    "errors": 0,
+    "error_rate": 0.0
+   },
+   {
+    "t": "2026-10-12T02:15:00Z",
+    "requests": 11,
+    "errors": 0,
+    "error_rate": 0.0
+   },
+   {
+    "t": "2026-10-12T02:30:00Z",
+    "requests": 10,
+    "errors": 0,
+    "error_rate": 0.0
+   },
+   {
+    "t": "2026-10-12T02:45:00Z",
+    "requests": 19,
+    "errors": 0,
+    "error_rate": 0.0
+   },
+   {
+    "t": "2026-10-12T03:00:00Z",
+    "requests": 13,
+    "errors": 0,
+    "error_rate": 0.0
+   },
+   {
+    "t": "2026-10-12T03:15:00Z",
+    "requests": 5,
+    "errors": 0,
+    "error_rate": 0.0
+   },
+   {
+    "t": "2026-10-12T03:30:00Z",
+    "requests": 12,
+    "errors": 0,
+    "error_rate": 0.0
+   },
+   {
+    "t": "2026-10-12T03:45:00Z",
+    "requests": 10,
+    "errors": 0,
+    "error_rate": 0.0
+   },
+   {
+    "t": "2026-10-12T04:00:00Z",
+    "requests": 18,
+    "errors": 0,
+    "error_rate": 0.0
+   },
+   {
+    "t": "2026-10-12T04:15:00Z",
+    "requests": 37,
+    "errors": 0,
+    "error_rate": 0.0
+   },
+   {
+    "t": "2026-10-12T04:30:00Z",
+    "requests": 36,
+    "errors": 0,
+    "error_rate": 0.0
+   },
+   {
+    "t": "2026-10-12T04:45:00Z",
+    "requests": 46,
+    "errors": 0,
+    "error_rate": 0.0
+   },
+   {
+    "t": "2026-10-12T05:00:00Z",
+    "requests": 58,
+    "errors": 0,
+    "error_rate": 0.0
+   },
+   {
+    "t": "2026-10-12T05:15:00Z",
+    "requests": 51,
+    "errors": 0,
+    "error_rate": 0.0
+   },
+   {
+    "t": "2026-10-12T05:30:00Z",
+    "requests": 51,
+    "errors": 0,
+    "error_rate": 0.0
+   },
+   {
+    "t": "2026-10-12T05:45:00Z",
+    "requests": 50,
+    "errors": 0,
+    "error_rate": 0.0
+   },
+   {
+    "t": "2026-10-12T06:00:00Z",
+    "requests": 54,
+    "errors": 0,
+    "error_rate": 0.0
+   },
+   {
+    "t": "2026-10-12T06:15:00Z",
+    "requests": 59,
+    "errors": 0,
+    "error_rate": 0.0
+   },
+   {
+    "t": "2026-10-12T06:30:00Z",
+    "requests": 68,
+    "errors": 0,
+    "error_rate": 0.0
+   },
+   {
+    "t": "2026-10-12T06:45:00Z",
+    "requests": 68,
+    "errors": 0,
+    "error_rate": 0.0
+   },
+   {
+    "t": "2026-10-12T07:00:00Z",
+    "requests": 93,
+    "errors": 0,
+    "error_rate": 0.0
+   },
+   {
+    "t": "2026-10-12T07:15:00Z",
+    "requests": 75,
+    "errors": 0,
+    "error_rate": 0.0
+   },
+   {
+    "t": "2026-10-12T07:30:00Z",
+    "requests": 90,
+    "errors": 2,
+    "error_rate": 0.02222
+   },
+   {
+    "t": "2026-10-12T07:45:00Z",
+    "requests": 96,
+    "errors": 1,
+    "error_rate": 0.01042
+   },
+   {
+    "t": "2026-10-12T08:00:00Z",
+    "requests": 103,
+    "errors": 2,
+    "error_rate": 0.01942
+   },
+   {
+    "t": "2026-10-12T08:15:00Z",
+    "requests": 117,
+    "errors": 0,
+    "error_rate": 0.0
+   },
+   {
+    "t": "2026-10-12T08:30:00Z",
+    "requests": 124,
+    "errors": 1,
+    "error_rate": 0.00806
+   },
+   {
+    "t": "2026-10-12T08:45:00Z",
+    "requests": 123,
+    "errors": 0,
+    "error_rate": 0.0
+   },
+   {
+    "t": "2026-10-12T09:00:00Z",
+    "requests": 100,
+    "errors": 0,
+    "error_rate": 0.0
+   },
+   {
+    "t": "2026-10-12T09:15:00Z",
+    "requests": 109,
+    "errors": 0,
+    "error_rate": 0.0
+   },
+   {
+    "t": "2026-10-12T09:30:00Z",
+    "requests": 131,
+    "errors": 0,
+    "error_rate": 0.0
+   },
+   {
+    "t": "2026-10-12T09:45:00Z",
+    "requests": 116,
+    "errors": 0,
+    "error_rate": 0.0
+   },
+   {
+    "t": "2026-10-12T10:00:00Z",
+    "requests": 112,
+    "errors": 0,
+    "error_rate": 0.0
+   },
+   {
+    "t": "2026-10-12T10:15:00Z",
+    "requests": 125,
+    "errors": 0,
+    "error_rate": 0.0
+   },
+   {
+    "t": "2026-10-12T10:30:00Z",
+    "requests": 124,
+    "errors": 0,
+    "error_rate": 0.0
+   },
+   {
+    "t": "2026-10-12T10:45:00Z",
+    "requests": 142,
+    "errors": 0,
+    "error_rate": 0.0
+   },
+   {
+    "t": "2026-10-12T11:00:00Z",
+    "requests": 200,
+    "errors": 36,
+    "error_rate": 0.18
+   },
+   {
+    "t": "2026-10-12T11:15:00Z",
+    "requests": 176,
+    "errors": 0,
+    "error_rate": 0.0
+   },
+   {
+    "t": "2026-10-12T11:30:00Z",
+    "requests": 130,
+    "errors": 0,
+    "error_rate": 0.0
+   },
+   {
+    "t": "2026-10-12T11:45:00Z",
+    "requests": 173,
+    "errors": 0,
+    "error_rate": 0.0
+   },
+   {
+    "t": "2026-10-12T12:00:00Z",
+    "requests": 156,
+    "errors": 0,
+    "error_rate": 0.0
+   },
+   {
+    "t": "2026-10-12T12:15:00Z",
+    "requests": 149,
+    "errors": 0,
+    "error_rate": 0.0
+   },
+   {
+    "t": "2026-10-12T12:30:00Z",
+    "requests": 173,
+    "errors": 0,
+    "error_rate": 0.0
+   },
+   {
+    "t": "2026-10-12T12:45:00Z",
+    "requests": 185,
+    "errors": 0,
+    "error_rate": 0.0
+   },
+   {
+    "t": "2026-10-12T13:00:00Z",
+    "requests": 186,
+    "errors": 0,
+    "error_rate": 0.0
+   },
+   {
+    "t": "2026-10-12T13:15:00Z",
+    "requests": 182,
+    "errors": 0,
+    "error_rate": 0.0
+   },
+   {
+    "t": "2026-10-12T13:30:00Z",
+    "requests": 193,
+    "errors": 0,
+    "error_rate": 0.0
+   },
+   {
+    "t": "2026-10-12T13:45:00Z",
+    "requests": 231,
+    "errors": 0,
+    "error_rate": 0.0
+   },
+   {
+    "t": "2026-10-12T14:00:00Z",
+    "requests": 261,
+    "errors": 2,
+    "error_rate": 0.00766
+   },
+   {
+    "t": "2026-10-12T14:15:00Z",
+    "requests": 263,
+    "errors": 1,
+    "error_rate": 0.0038
+   },
+   {
+    "t": "2026-10-12T14:30:00Z",
+    "requests": 270,
+    "errors": 0,
+    "error_rate": 0.0
+   },
+   {
+    "t": "2026-10-12T14:45:00Z",
+    "requests": 267,
+    "errors": 1,
+    "error_rate": 0.00375
+   },
+   {
+    "t": "2026-10-12T15:00:00Z",
+    "requests": 271,
+    "errors": 0,
+    "error_rate": 0.0
+   },
+   {
+    "t": "2026-10-12T15:15:00Z",
+    "requests": 325,
+    "errors": 1,
+    "error_rate": 0.00308
+   },
+   {
+    "t": "2026-10-12T15:30:00Z",
+    "requests": 388,
+    "errors": 0,
+    "error_rate": 0.0
+   },
+   {
+    "t": "2026-10-12T15:45:00Z",
+    "requests": 476,
+    "errors": 0,
+    "error_rate": 0.0
+   },
+   {
+    "t": "2026-10-12T16:00:00Z",
+    "requests": 517,
+    "errors": 0,
+    "error_rate": 0.0
+   },
+   {
+    "t": "2026-10-12T16:15:00Z",
+    "requests": 540,
+    "errors": 0,
+    "error_rate": 0.0
+   },
+   {
+    "t": "2026-10-12T16:30:00Z",
+    "requests": 603,
+    "errors": 0,
+    "error_rate": 0.0
+   },
+   {
+    "t": "2026-10-12T16:45:00Z",
+    "requests": 550,
+    "errors": 0,
+    "error_rate": 0.0
+   },
+   {
+    "t": "2026-10-12T17:00:00Z",
+    "requests": 543,
+    "errors": 0,
+    "error_rate": 0.0
+   },
+   {
+    "t": "2026-10-12T17:15:00Z",
+    "requests": 507,
+    "errors": 0,
+    "error_rate": 0.0
+   },
+   {
+    "t": "2026-10-12T17:30:00Z",
+    "requests": 422,
+    "errors": 0,
+    "error_rate": 0.0
+   }
+  ],
+  "studio_url": "https://studio.apollographql.com/graph/Thing-Microservice-Shadow-A/variant/current/insights"
+ },
+ "shadow_7d": {
+  "graph": "Thing-Microservice-Shadow-A",
+  "label": "Thing (make) · shadow",
+  "role": "Codes for shadow API + devices",
+  "operation": null,
+  "from": "2026-10-05T17:45:00Z",
+  "to": "2026-10-12T17:45:00Z",
+  "bucket_minutes": 360,
+  "requests": 82598,
+  "errors": 840,
+  "error_rate": 0.01017,
+  "system_errors": 404,
+  "operations": [
+   {
+    "name": "GenerateDaysCode",
+    "label": "GenerateDaysCode",
+    "type": "mutation",
+    "requests": 48083,
+    "requests_per_min": 4.77,
+    "errors": 384,
+    "error_rate": 8e-05,
+    "p50_ms": null,
+    "p95_ms": null,
+    "is_code": true
+   },
+   {
+    "name": "GenerateDaysCode_V2",
+    "label": "GenerateDaysCode_V2",
+    "type": "mutation",
+    "requests": 31012,
+    "requests_per_min": 3.08,
+    "errors": 393,
+    "error_rate": 0.00013,
+    "p50_ms": null,
+    "p95_ms": null,
+    "is_code": true
+   },
+   {
+    "name": "(unnamed)",
+    "label": "(unnamed)",
+    "type": "query",
+    "requests": 1683,
+    "requests_per_min": 0.17,
+    "errors": 0,
+    "error_rate": 0.0,
+    "p50_ms": null,
+    "p95_ms": null,
+    "is_code": false
+   },
+   {
+    "name": "GenerateFreeCodeSafe",
+    "label": "GenerateFreeCodeSafe",
+    "type": "mutation",
+    "requests": 1358,
+    "requests_per_min": 0.13,
+    "errors": 20,
+    "error_rate": 0.00015,
+    "p50_ms": null,
+    "p95_ms": null,
+    "is_code": true
+   },
+   {
+    "name": "GenerateFreeCode_V2",
+    "label": "GenerateFreeCode_V2",
+    "type": "mutation",
+    "requests": 175,
+    "requests_per_min": 0.02,
+    "errors": 42,
+    "error_rate": 0.0024,
+    "p50_ms": null,
+    "p95_ms": null,
+    "is_code": true
+   },
+   {
+    "name": "getAllCodeEventsForSpecificItemByDistributor",
+    "label": "getAllCodeEventsForSpecificItemByDistributor",
+    "type": "query",
+    "requests": 164,
+    "requests_per_min": 0.02,
+    "errors": 0,
+    "error_rate": 0.0,
+    "p50_ms": null,
+    "p95_ms": null,
+    "is_code": false
+   },
+   {
+    "name": "GenerateResetCode",
+    "label": "GenerateResetCode",
+    "type": "mutation",
+    "requests": 71,
+    "requests_per_min": 0.01,
+    "errors": 0,
+    "error_rate": 0.0,
+    "p50_ms": null,
+    "p95_ms": null,
+    "is_code": true
+   },
+   {
+    "name": "GenerateFreeCode",
+    "label": "GenerateFreeCode",
+    "type": "mutation",
+    "requests": 40,
+    "requests_per_min": 0.0,
+    "errors": 0,
+    "error_rate": 0.0,
+    "p50_ms": null,
+    "p95_ms": null,
+    "is_code": true
+   },
+   {
+    "name": "GenerateResetCode_V2",
+    "label": "GenerateResetCode_V2",
+    "type": "mutation",
+    "requests": 9,
+    "requests_per_min": 0.0,
+    "errors": 0,
+    "error_rate": 0.0,
+    "p50_ms": null,
+    "p95_ms": null,
+    "is_code": true
+   },
+   {
+    "name": "Probes",
+    "label": "Probes",
+    "type": "query",
+    "requests": 1,
+    "requests_per_min": 0.0,
+    "errors": 1,
+    "error_rate": 0.01,
+    "p50_ms": null,
+    "p95_ms": null,
+    "is_code": false
+   },
+   {
+    "name": "IntrospectionQuery",
+    "label": "IntrospectionQuery",
+    "type": "query",
+    "requests": 1,
+    "requests_per_min": 0.0,
+    "errors": 0,
+    "error_rate": 0.0,
+    "p50_ms": null,
+    "p95_ms": null,
+    "is_code": false
+   },
+   {
+    "name": "IntrospectionQuery",
+    "label": "IntrospectionQuery",
+    "type": "query",
+    "requests": 1,
+    "requests_per_min": 0.0,
+    "errors": 0,
+    "error_rate": 0.0,
+    "p50_ms": null,
+    "p95_ms": null,
+    "is_code": false
+   }
+  ],
+  "error_groups": [
+   {
+    "operation": "GenerateDaysCode_V2",
+    "operation_label": "GenerateDaysCode_V2",
+    "path": "generateDaysCode_v2",
+    "code": null,
+    "service": null,
+    "count": 393,
+    "message": "Error: Minimum time lapse between codes 6 seconds.",
+    "reason": "rate_limited",
+    "kind": "user",
+    "last_seen": "2026-10-12T15:16:00.000000000Z",
+    "is_code": true
+   },
+   {
+    "operation": "GenerateDaysCode",
+    "operation_label": "GenerateDaysCode",
+    "path": "generateDaysCode",
+    "code": null,
+    "service": null,
+    "count": 384,
+    "message": "E11000 duplicate key error collection: thing-microservice.codeevent index: codeType_1_codeDays_1_codeGenerator_1_codeDecString_1 dup key: { codeType: \"DAYSCODE\", codeDays: 2, codeGenerator: ObjectId('000000000000000000000000'), codeDecString: \"*000 000 000 000 000 0 00 000#\" }",
+    "reason": "duplicate_code",
+    "kind": "system",
+    "last_seen": "2026-10-12T08:13:00.000000000Z",
+    "is_code": true
+   },
+   {
+    "operation": "GenerateFreeCode_V2",
+    "operation_label": "GenerateFreeCode_V2",
+    "path": "generateFreeCode_v2",
+    "code": null,
+    "service": null,
+    "count": 42,
+    "message": "Error: Item is not found",
+    "reason": "not_found",
+    "kind": "user",
+    "last_seen": "2026-10-12T14:45:00.000000000Z",
+    "is_code": true
+   },
+   {
+    "operation": "GenerateFreeCodeSafe",
+    "operation_label": "GenerateFreeCodeSafe",
+    "path": "generateFreeCodeSafe",
+    "code": null,
+    "service": null,
+    "count": 20,
+    "message": "Server selection timed out after 30000 ms",
+    "reason": "database",
+    "kind": "system",
+    "last_seen": "2026-10-10T05:48:00.000000000Z",
+    "is_code": true
+   },
+   {
+    "operation": "Probes",
+    "operation_label": "Probes",
+    "path": "a_getAllFleetsWithItemCount",
+    "code": null,
+    "service": null,
+    "count": 1,
+    "message": "Unauthorized",
+    "reason": "unauthorized",
+    "kind": "user",
+    "last_seen": "2026-10-10T00:40:00.000000000Z",
+    "is_code": false
+   }
+  ],
+  "series": [
+   {
+    "t": "2026-10-05T17:45:00Z",
+    "requests": 9941,
+    "errors": 24,
+    "error_rate": 0.00241
+   },
+   {
+    "t": "2026-10-05T23:45:00Z",
+    "requests": 509,
+    "errors": 0,
+    "error_rate": 0.0
+   },
+   {
+    "t": "2026-10-06T05:45:00Z",
+    "requests": 2393,
+    "errors": 2,
+    "error_rate": 0.00084
+   },
+   {
+    "t": "2026-10-06T11:45:00Z",
+    "requests": 7478,
+    "errors": 27,
+    "error_rate": 0.00361
+   },
+   {
+    "t": "2026-10-06T17:45:00Z",
+    "requests": 1571,
+    "errors": 45,
+    "error_rate": 0.02864
+   },
+   {
+    "t": "2026-10-06T23:45:00Z",
+    "requests": 492,
+    "errors": 0,
+    "error_rate": 0.0
+   },
+   {
+    "t": "2026-10-07T05:45:00Z",
+    "requests": 2300,
+    "errors": 1,
+    "error_rate": 0.00043
+   },
+   {
+    "t": "2026-10-07T11:45:00Z",
+    "requests": 7698,
+    "errors": 4,
+    "error_rate": 0.00052
+   },
+   {
+    "t": "2026-10-07T17:45:00Z",
+    "requests": 1684,
+    "errors": 1,
+    "error_rate": 0.00059
+   },
+   {
+    "t": "2026-10-07T23:45:00Z",
+    "requests": 464,
+    "errors": 0,
+    "error_rate": 0.0
+   },
+   {
+    "t": "2026-10-08T05:45:00Z",
+    "requests": 2486,
+    "errors": 11,
+    "error_rate": 0.00442
+   },
+   {
+    "t": "2026-10-08T11:45:00Z",
+    "requests": 7390,
+    "errors": 2,
+    "error_rate": 0.00027
+   },
+   {
+    "t": "2026-10-08T17:45:00Z",
+    "requests": 1606,
+    "errors": 5,
+    "error_rate": 0.00311
+   },
+   {
+    "t": "2026-10-08T23:45:00Z",
+    "requests": 467,
+    "errors": 0,
+    "error_rate": 0.0
+   },
+   {
+    "t": "2026-10-09T05:45:00Z",
+    "requests": 2224,
+    "errors": 12,
+    "error_rate": 0.0054
+   },
+   {
+    "t": "2026-10-09T11:45:00Z",
+    "requests": 7274,
+    "errors": 9,
+    "error_rate": 0.00124
+   },
+   {
+    "t": "2026-10-09T17:45:00Z",
+    "requests": 1847,
+    "errors": 55,
+    "error_rate": 0.02978
+   },
+   {
+    "t": "2026-10-09T23:45:00Z",
+    "requests": 1058,
+    "errors": 522,
+    "error_rate": 0.49338
+   },
+   {
+    "t": "2026-10-10T05:45:00Z",
+    "requests": 2896,
+    "errors": 36,
+    "error_rate": 0.01243
+   },
+   {
+    "t": "2026-10-10T11:45:00Z",
+    "requests": 8186,
+    "errors": 21,
+    "error_rate": 0.00257
+   },
+   {
+    "t": "2026-10-10T17:45:00Z",
+    "requests": 2290,
+    "errors": 2,
+    "error_rate": 0.00087
+   },
+   {
+    "t": "2026-10-10T23:45:00Z",
+    "requests": 449,
+    "errors": 12,
+    "error_rate": 0.02673
+   },
+   {
+    "t": "2026-10-11T05:45:00Z",
+    "requests": 886,
+    "errors": 1,
+    "error_rate": 0.00113
+   },
+   {
+    "t": "2026-10-11T11:45:00Z",
+    "requests": 4598,
+    "errors": 0,
+    "error_rate": 0.0
+   },
+   {
+    "t": "2026-10-11T17:45:00Z",
+    "requests": 1267,
+    "errors": 1,
+    "error_rate": 0.00079
+   },
+   {
+    "t": "2026-10-11T23:45:00Z",
+    "requests": 461,
+    "errors": 0,
+    "error_rate": 0.0
+   },
+   {
+    "t": "2026-10-12T05:45:00Z",
+    "requests": 2708,
+    "errors": 42,
+    "error_rate": 0.01551
+   },
+   {
+    "t": "2026-10-12T11:45:00Z",
+    "requests": 7665,
+    "errors": 5,
+    "error_rate": 0.00065
+   }
+  ],
+  "studio_url": "https://studio.apollographql.com/graph/Thing-Microservice-Shadow-A/variant/current/insights"
+ },
+ "event_24h": {
+  "graph": "Event-Microservice-Prod",
+  "label": "Event",
+  "role": "Events, telemetry",
+  "operation": null,
+  "from": "2026-10-11T17:45:00Z",
+  "to": "2026-10-12T17:45:00Z",
+  "bucket_minutes": 15,
+  "requests": 19700,
+  "errors": 19502,
+  "error_rate": 0.98995,
+  "system_errors": 19502,
+  "operations": [
+   {
+    "name": "# GraphQLValidationFailure",
+    "label": "# GraphQLValidationFailure",
+    "type": "",
+    "requests": 19501,
+    "requests_per_min": 13.54,
+    "errors": 19501,
+    "error_rate": 0.01,
+    "p50_ms": null,
+    "p95_ms": null,
+    "is_code": false
+   },
+   {
+    "name": "(unnamed)",
+    "label": "(unnamed)",
+    "type": "query",
+    "requests": 196,
+    "requests_per_min": 0.14,
+    "errors": 0,
+    "error_rate": 0.0,
+    "p50_ms": null,
+    "p95_ms": null,
+    "is_code": false
+   },
+   {
+    "name": "(unnamed)",
+    "label": "(unnamed)",
+    "type": "query",
+    "requests": 1,
+    "requests_per_min": 0.0,
+    "errors": 1,
+    "error_rate": 0.01,
+    "p50_ms": null,
+    "p95_ms": null,
+    "is_code": false
+   },
+   {
+    "name": "UpdateItemEventMutation",
+    "label": "UpdateItemEventMutation",
+    "type": "mutation",
+    "requests": 1,
+    "requests_per_min": 0.0,
+    "errors": 0,
+    "error_rate": 0.0,
+    "p50_ms": null,
+    "p95_ms": null,
+    "is_code": false
+   },
+   {
+    "name": "CreateItemEvent",
+    "label": "CreateItemEvent",
+    "type": "mutation",
+    "requests": 1,
+    "requests_per_min": 0.0,
+    "errors": 0,
+    "error_rate": 0.0,
+    "p50_ms": null,
+    "p95_ms": null,
+    "is_code": false
+   }
+  ],
+  "error_groups": [
+   {
+    "operation": "# GraphQLValidationFailure",
+    "operation_label": "# GraphQLValidationFailure",
+    "path": null,
+    "code": null,
+    "service": null,
+    "count": 39002,
+    "message": "Cannot query field \"microserviceEvents_2024\" on type \"Mutation\".",
+    "reason": "schema_mismatch",
+    "kind": "system",
+    "last_seen": "2026-10-12T17:44:00.000000000Z",
+    "is_code": false
+   },
+   {
+    "operation": "(unnamed)",
+    "operation_label": "(unnamed)",
+    "path": "getAllEvents",
+    "code": null,
+    "service": null,
+    "count": 1,
+    "message": "Unauthorized",
+    "reason": "unauthorized",
+    "kind": "user",
+    "last_seen": "2026-10-12T06:17:00.000000000Z",
+    "is_code": false
+   }
+  ],
+  "series": [
+   {
+    "t": "2026-10-11T17:45:00Z",
+    "requests": 383,
+    "errors": 380,
+    "error_rate": 0.99217
+   },
+   {
+    "t": "2026-10-11T18:00:00Z",
+    "requests": 319,
+    "errors": 316,
+    "error_rate": 0.9906
+   },
+   {
+    "t": "2026-10-11T18:15:00Z",
+    "requests": 275,
+    "errors": 272,
+    "error_rate": 0.98909
+   },
+   {
+    "t": "2026-10-11T18:30:00Z",
+    "requests": 232,
+    "errors": 230,
+    "error_rate": 0.99138
+   },
+   {
+    "t": "2026-10-11T18:45:00Z",
+    "requests": 225,
+    "errors": 222,
+    "error_rate": 0.98667
+   },
+   {
+    "t": "2026-10-11T19:00:00Z",
+    "requests": 169,
+    "errors": 166,
+    "error_rate": 0.98225
+   },
+   {
+    "t": "2026-10-11T19:15:00Z",
+    "requests": 140,
+    "errors": 137,
+    "error_rate": 0.97857
+   },
+   {
+    "t": "2026-10-11T19:30:00Z",
+    "requests": 118,
+    "errors": 115,
+    "error_rate": 0.97458
+   },
+   {
+    "t": "2026-10-11T19:45:00Z",
+    "requests": 79,
+    "errors": 76,
+    "error_rate": 0.96203
+   },
+   {
+    "t": "2026-10-11T20:00:00Z",
+    "requests": 64,
+    "errors": 61,
+    "error_rate": 0.95312
+   },
+   {
+    "t": "2026-10-11T20:15:00Z",
+    "requests": 45,
+    "errors": 42,
+    "error_rate": 0.93333
+   },
+   {
+    "t": "2026-10-11T20:30:00Z",
+    "requests": 38,
+    "errors": 35,
+    "error_rate": 0.92105
+   },
+   {
+    "t": "2026-10-11T20:45:00Z",
+    "requests": 31,
+    "errors": 28,
+    "error_rate": 0.90323
+   },
+   {
+    "t": "2026-10-11T21:00:00Z",
+    "requests": 15,
+    "errors": 12,
+    "error_rate": 0.8
+   },
+   {
+    "t": "2026-10-11T21:15:00Z",
+    "requests": 21,
+    "errors": 18,
+    "error_rate": 0.85714
+   },
+   {
+    "t": "2026-10-11T21:30:00Z",
+    "requests": 25,
+    "errors": 22,
+    "error_rate": 0.88
+   },
+   {
+    "t": "2026-10-11T21:45:00Z",
+    "requests": 11,
+    "errors": 8,
+    "error_rate": 0.72727
+   },
+   {
+    "t": "2026-10-11T22:00:00Z",
+    "requests": 92,
+    "errors": 91,
+    "error_rate": 0.98913
+   },
+   {
+    "t": "2026-10-11T22:15:00Z",
+    "requests": 217,
+    "errors": 217,
+    "error_rate": 1.0
+   },
+   {
+    "t": "2026-10-11T22:30:00Z",
+    "requests": 236,
+    "errors": 236,
+    "error_rate": 1.0
+   },
+   {
+    "t": "2026-10-11T22:45:00Z",
+    "requests": 177,
+    "errors": 177,
+    "error_rate": 1.0
+   },
+   {
+    "t": "2026-10-11T23:00:00Z",
+    "requests": 201,
+    "errors": 201,
+    "error_rate": 1.0
+   },
+   {
+    "t": "2026-10-11T23:15:00Z",
+    "requests": 146,
+    "errors": 146,
+    "error_rate": 1.0
+   },
+   {
+    "t": "2026-10-11T23:30:00Z",
+    "requests": 148,
+    "errors": 148,
+    "error_rate": 1.0
+   },
+   {
+    "t": "2026-10-11T23:45:00Z",
+    "requests": 6,
+    "errors": 6,
+    "error_rate": 1.0
+   },
+   {
+    "t": "2026-10-12T00:00:00Z",
+    "requests": 7,
+    "errors": 7,
+    "error_rate": 1.0
+   },
+   {
+    "t": "2026-10-12T00:15:00Z",
+    "requests": 4,
+    "errors": 4,
+    "error_rate": 1.0
+   },
+   {
+    "t": "2026-10-12T00:30:00Z",
+    "requests": 8,
+    "errors": 8,
+    "error_rate": 1.0
+   },
+   {
+    "t": "2026-10-12T00:45:00Z",
+    "requests": 6,
+    "errors": 6,
+    "error_rate": 1.0
+   },
+   {
+    "t": "2026-10-12T01:00:00Z",
+    "requests": 7,
+    "errors": 7,
+    "error_rate": 1.0
+   },
+   {
+    "t": "2026-10-12T01:15:00Z",
+    "requests": 22,
+    "errors": 22,
+    "error_rate": 1.0
+   },
+   {
+    "t": "2026-10-12T01:30:00Z",
+    "requests": 11,
+    "errors": 11,
+    "error_rate": 1.0
+   },
+   {
+    "t": "2026-10-12T01:45:00Z",
+    "requests": 76,
+    "errors": 76,
+    "error_rate": 1.0
+   },
+   {
+    "t": "2026-10-12T02:00:00Z",
+    "requests": 98,
+    "errors": 98,
+    "error_rate": 1.0
+   },
+   {
+    "t": "2026-10-12T02:15:00Z",
+    "requests": 14,
+    "errors": 14,
+    "error_rate": 1.0
+   },
+   {
+    "t": "2026-10-12T02:30:00Z",
+    "requests": 25,
+    "errors": 25,
+    "error_rate": 1.0
+   },
+   {
+    "t": "2026-10-12T02:45:00Z",
+    "requests": 53,
+    "errors": 53,
+    "error_rate": 1.0
+   },
+   {
+    "t": "2026-10-12T03:00:00Z",
+    "requests": 34,
+    "errors": 34,
+    "error_rate": 1.0
+   },
+   {
+    "t": "2026-10-12T03:15:00Z",
+    "requests": 56,
+    "errors": 56,
+    "error_rate": 1.0
+   },
+   {
+    "t": "2026-10-12T03:30:00Z",
+    "requests": 85,
+    "errors": 85,
+    "error_rate": 1.0
+   },
+   {
+    "t": "2026-10-12T03:45:00Z",
+    "requests": 44,
+    "errors": 44,
+    "error_rate": 1.0
+   },
+   {
+    "t": "2026-10-12T04:00:00Z",
+    "requests": 37,
+    "errors": 37,
+    "error_rate": 1.0
+   },
+   {
+    "t": "2026-10-12T04:15:00Z",
+    "requests": 44,
+    "errors": 44,
+    "error_rate": 1.0
+   },
+   {
+    "t": "2026-10-12T04:30:00Z",
+    "requests": 57,
+    "errors": 57,
+    "error_rate": 1.0
+   },
+   {
+    "t": "2026-10-12T04:45:00Z",
+    "requests": 74,
+    "errors": 74,
+    "error_rate": 1.0
+   },
+   {
+    "t": "2026-10-12T05:00:00Z",
+    "requests": 74,
+    "errors": 72,
+    "error_rate": 0.97297
+   },
+   {
+    "t": "2026-10-12T05:15:00Z",
+    "requests": 72,
+    "errors": 69,
+    "error_rate": 0.95833
+   },
+   {
+    "t": "2026-10-12T05:30:00Z",
+    "requests": 77,
+    "errors": 74,
+    "error_rate": 0.96104
+   },
+   {
+    "t": "2026-10-12T05:45:00Z",
+    "requests": 88,
+    "errors": 85,
+    "error_rate": 0.96591
+   },
+   {
+    "t": "2026-10-12T06:00:00Z",
+    "requests": 83,
+    "errors": 80,
+    "error_rate": 0.96386
+   },
+   {
+    "t": "2026-10-12T06:15:00Z",
+    "requests": 110,
+    "errors": 107,
+    "error_rate": 0.97273
+   },
+   {
+    "t": "2026-10-12T06:30:00Z",
+    "requests": 80,
+    "errors": 77,
+    "error_rate": 0.9625
+   },
+   {
+    "t": "2026-10-12T06:45:00Z",
+    "requests": 88,
+    "errors": 85,
+    "error_rate": 0.96591
+   },
+   {
+    "t": "2026-10-12T07:00:00Z",
+    "requests": 129,
+    "errors": 125,
+    "error_rate": 0.96899
+   },
+   {
+    "t": "2026-10-12T07:15:00Z",
+    "requests": 100,
+    "errors": 97,
+    "error_rate": 0.97
+   },
+   {
+    "t": "2026-10-12T07:30:00Z",
+    "requests": 117,
+    "errors": 114,
+    "error_rate": 0.97436
+   },
+   {
+    "t": "2026-10-12T07:45:00Z",
+    "requests": 122,
+    "errors": 119,
+    "error_rate": 0.97541
+   },
+   {
+    "t": "2026-10-12T08:00:00Z",
+    "requests": 309,
+    "errors": 306,
+    "error_rate": 0.99029
+   },
+   {
+    "t": "2026-10-12T08:15:00Z",
+    "requests": 350,
+    "errors": 347,
+    "error_rate": 0.99143
+   },
+   {
+    "t": "2026-10-12T08:30:00Z",
+    "requests": 304,
+    "errors": 301,
+    "error_rate": 0.99013
+   },
+   {
+    "t": "2026-10-12T08:45:00Z",
+    "requests": 405,
+    "errors": 402,
+    "error_rate": 0.99259
+   },
+   {
+    "t": "2026-10-12T09:00:00Z",
+    "requests": 294,
+    "errors": 291,
+    "error_rate": 0.9898
+   },
+   {
+    "t": "2026-10-12T09:15:00Z",
+    "requests": 332,
+    "errors": 329,
+    "error_rate": 0.99096
+   },
+   {
+    "t": "2026-10-12T09:30:00Z",
+    "requests": 399,
+    "errors": 396,
+    "error_rate": 0.99248
+   },
+   {
+    "t": "2026-10-12T09:45:00Z",
+    "requests": 338,
+    "errors": 335,
+    "error_rate": 0.99112
+   },
+   {
+    "t": "2026-10-12T10:00:00Z",
+    "requests": 326,
+    "errors": 323,
+    "error_rate": 0.9908
+   },
+   {
+    "t": "2026-10-12T10:15:00Z",
+    "requests": 172,
+    "errors": 169,
+    "error_rate": 0.98256
+   },
+   {
+    "t": "2026-10-12T10:30:00Z",
+    "requests": 162,
+    "errors": 159,
+    "error_rate": 0.98148
+   },
+   {
+    "t": "2026-10-12T10:45:00Z",
+    "requests": 158,
+    "errors": 155,
+    "error_rate": 0.98101
+   },
+   {
+    "t": "2026-10-12T11:00:00Z",
+    "requests": 263,
+    "errors": 260,
+    "error_rate": 0.98859
+   },
+   {
+    "t": "2026-10-12T11:15:00Z",
+    "requests": 304,
+    "errors": 302,
+    "error_rate": 0.99342
+   },
+   {
+    "t": "2026-10-12T11:30:00Z",
+    "requests": 149,
+    "errors": 146,
+    "error_rate": 0.97987
+   },
+   {
+    "t": "2026-10-12T11:45:00Z",
+    "requests": 190,
+    "errors": 187,
+    "error_rate": 0.98421
+   },
+   {
+    "t": "2026-10-12T12:00:00Z",
+    "requests": 216,
+    "errors": 211,
+    "error_rate": 0.97685
+   },
+   {
+    "t": "2026-10-12T12:15:00Z",
+    "requests": 185,
+    "errors": 182,
+    "error_rate": 0.98378
+   },
+   {
+    "t": "2026-10-12T12:30:00Z",
+    "requests": 199,
+    "errors": 196,
+    "error_rate": 0.98492
+   },
+   {
+    "t": "2026-10-12T12:45:00Z",
+    "requests": 232,
+    "errors": 229,
+    "error_rate": 0.98707
+   },
+   {
+    "t": "2026-10-12T13:00:00Z",
+    "requests": 288,
+    "errors": 285,
+    "error_rate": 0.98958
+   },
+   {
+    "t": "2026-10-12T13:15:00Z",
+    "requests": 292,
+    "errors": 289,
+    "error_rate": 0.98973
+   },
+   {
+    "t": "2026-10-12T13:30:00Z",
+    "requests": 273,
+    "errors": 273,
+    "error_rate": 1.0
+   },
+   {
+    "t": "2026-10-12T13:45:00Z",
+    "requests": 395,
+    "errors": 392,
+    "error_rate": 0.99241
+   },
+   {
+    "t": "2026-10-12T14:00:00Z",
+    "requests": 363,
+    "errors": 360,
+    "error_rate": 0.99174
+   },
+   {
+    "t": "2026-10-12T14:15:00Z",
+    "requests": 468,
+    "errors": 465,
+    "error_rate": 0.99359
+   },
+   {
+    "t": "2026-10-12T14:30:00Z",
+    "requests": 382,
+    "errors": 379,
+    "error_rate": 0.99215
+   },
+   {
+    "t": "2026-10-12T14:45:00Z",
+    "requests": 388,
+    "errors": 385,
+    "error_rate": 0.99227
+   },
+   {
+    "t": "2026-10-12T15:00:00Z",
+    "requests": 322,
+    "errors": 319,
+    "error_rate": 0.99068
+   },
+   {
+    "t": "2026-10-12T15:15:00Z",
+    "requests": 474,
+    "errors": 471,
+    "error_rate": 0.99367
+   },
+   {
+    "t": "2026-10-12T15:30:00Z",
+    "requests": 449,
+    "errors": 446,
+    "error_rate": 0.99332
+   },
+   {
+    "t": "2026-10-12T15:45:00Z",
+    "requests": 548,
+    "errors": 545,
+    "error_rate": 0.99453
+   },
+   {
+    "t": "2026-10-12T16:00:00Z",
+    "requests": 630,
+    "errors": 627,
+    "error_rate": 0.99524
+   },
+   {
+    "t": "2026-10-12T16:15:00Z",
+    "requests": 647,
+    "errors": 645,
+    "error_rate": 0.99691
+   },
+   {
+    "t": "2026-10-12T16:30:00Z",
+    "requests": 718,
+    "errors": 716,
+    "error_rate": 0.99721
+   },
+   {
+    "t": "2026-10-12T16:45:00Z",
+    "requests": 686,
+    "errors": 683,
+    "error_rate": 0.99563
+   },
+   {
+    "t": "2026-10-12T17:00:00Z",
+    "requests": 628,
+    "errors": 625,
+    "error_rate": 0.99522
+   },
+   {
+    "t": "2026-10-12T17:15:00Z",
+    "requests": 643,
+    "errors": 641,
+    "error_rate": 0.99689
+   },
+   {
+    "t": "2026-10-12T17:30:00Z",
+    "requests": 504,
+    "errors": 502,
+    "error_rate": 0.99603
+   }
+  ],
+  "studio_url": "https://studio.apollographql.com/graph/Event-Microservice-Prod/variant/current/insights"
+ }
+}

@@ -75,7 +75,7 @@ export default function GracePeriodCard({
   const accessUntil = customer.effective_expiry || customer.expiry;
 
   return (
-    <div className="card p-4 space-y-3" data-testid="grace-period-card">
+    <div className="card p-5 space-y-3" data-testid="grace-period-card">
       <div className="flex items-center justify-between gap-2">
         <h3 className="text-sm font-semibold text-foreground-muted uppercase tracking-wider">Grace Period</h3>
         {customer.in_grace && <span className="badge badge-warning whitespace-nowrap">In grace</span>}

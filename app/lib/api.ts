@@ -37,6 +37,8 @@ import {
   VpnType,
   LoginRequest,
   LoginResponse,
+  ImpersonationResponse,
+  EndImpersonationResponse,
   RegisterRequest,
   Advertiser,
   CreateAdvertiserRequest,
@@ -66,6 +68,8 @@ import {
   SetCustomerGraceResponse,
   DeleteCustomerResponse,
   ActivatePPPoERequest,
+  StaticActionResponse,
+  StaticStatusResponse,
   PPPoECredentials,
   PPPoEActiveResponse,
   RouterInterfacesResponse,
@@ -214,6 +218,8 @@ import {
   CreateAccessCredentialResponse,
   UpdateAccessCredentialRequest,
   CustomerUsageResponse,
+  CustomerAuditLogResponse,
+  CustomerRouterLogPullResponse,
   CustomerUsagePeriod,
   CustomerUsageTimeline,
   UsageTimelineGranularity,
@@ -247,6 +253,9 @@ import {
   TransactionStatusFilter,
   DbPoolResponse,
   OpsHealthResponse,
+  OvesHealthResponse,
+  OvesHistoryResponse,
+  OvesGqlInsights,
   OpsHealthHistory,
   OpsHealthWindowReport,
   OpsHealthProblemRoutersSection,
@@ -292,8 +301,18 @@ import {
   AdminSmsHistoryResponse,
   CompensationLimitSetting,
   TransferPPPoEResponse,
+  StaticCustomerImportOptions,
+  StaticCustomerImportResponse,
 } from './types';
 import { buildTransferRequest, type BuildTransferRequestOptions } from './pppoeTransfer';
+import { buildStaticImportFormData, filenameFromDisposition } from './staticImport';
+import {
+  getImpersonation,
+  restoreAdmin,
+  isReturningToAdmin,
+  adminReturnPath,
+  IMPERSONATION_READ_ONLY_EVENT,
+} from './impersonation';
 // Demo fixtures are ~2,200 lines; load them on demand so real users never
 // download them as part of the baseline bundle.
 type DemoModule = typeof import('./demoData');
@@ -355,6 +374,36 @@ export const API_BASE_URL = normalizeApiBaseUrl(
 );
 export const API_ORIGIN = API_BASE_URL.replace(/\/api$/, '');
 const BASE_URL = API_BASE_URL;
+
+// Sample activity for demo mode, so the page shows what it is for.
+function demoCustomerAuditLog(customerId: number, categories?: string[]): CustomerAuditLogResponse {
+  const at = (minutesAgo: number) => new Date(Date.now() - minutesAgo * 60_000).toISOString().replace('Z', '');
+  const all: CustomerAuditLogResponse['items'] = [
+    { id: 'd1', occurred_at: at(95), category: 'session', event_type: 'session_connected', severity: 'info', source: 'router_push', actor: null, router_id: 1,
+      message: 'PPPoE session connected (IP 10.10.0.23, from 3C:52:82:AA:BB:CC)', details: { ip: '10.10.0.23', caller_id: '3C:52:82:AA:BB:CC' } },
+    { id: 'd2', occurred_at: at(96), category: 'router_log', event_type: 'router_log', severity: 'info', source: 'router_log', actor: null, router_id: 1,
+      message: '<pppoe-jane_w>: authenticated', details: { router_time: '12:04:40' } },
+    { id: 'd3', occurred_at: at(102), category: 'router_log', event_type: 'router_log', severity: 'warning', source: 'router_log', actor: null, router_id: 1,
+      message: '<pppoe-jane_w>: terminating... - peer is not responding', details: { router_time: '11:58:40' } },
+    { id: 'd4', occurred_at: at(102), category: 'session', event_type: 'session_disconnected', severity: 'warning', source: 'router_push', actor: null, router_id: 1,
+      message: 'PPPoE session ended after 3d 4h, used 18.4 GB down / 1.2 GB up (IP 10.10.0.19)',
+      details: { ip: '10.10.0.19', started_at: at(4660), last_seen_at: at(103), download_bytes: 19756849561, upload_bytes: 1288490188 } },
+    { id: 'd5', occurred_at: at(1300), category: 'billing', event_type: 'payment_completed', severity: 'info', source: 'system', actor: null, router_id: 1,
+      message: 'Payment of 2,500 received by mobile money for 30 day(s) — Home 10Mbps', details: { reference: 'SJK12ABC9' } },
+    { id: 'd6', occurred_at: at(1304), category: 'billing', event_type: 'mpesa_failed', severity: 'warning', source: 'system', actor: null, router_id: null,
+      message: 'M-Pesa payment of 2,500 failed: Request cancelled by user', details: { phone: '254712345678' } },
+  ];
+  const items = categories?.length ? all.filter((i) => categories.includes(i.category)) : all;
+  return {
+    customer: {
+      id: customerId, name: 'Jane Wanjiku', phone: '254712345678', status: 'active', expiry: at(-60 * 24 * 12),
+      connection_type: 'pppoe', plan: 'Home 10Mbps', pppoe_username: 'jane_w', mac_address: null,
+      router_id: 1, router_name: 'Demo Tower',
+    },
+    live: { online: true, ip: '10.10.0.23', uptime: '1h35m', seen_at: at(0) },
+    items, count: items.length, has_more: false, next_before: null, generated_at: new Date().toISOString(),
+  };
+}
 
 const backendUrl = (path: string): string => {
   if (/^https?:\/\//i.test(path)) return path;
@@ -433,6 +482,19 @@ class ApiClient {
         if (this.isDemoMode()) {
           throw new Error('Endpoint not available in demo mode.');
         }
+        // Viewing as a reseller: the View-as session ended or expired. Put the
+        // admin's own session back instead of logging them out.
+        // Several requests fail at once when it ends: only the first one
+        // restores and redirects. Later ones (and any that land after Exit
+        // restored the admin) must not wipe the restored admin token.
+        if (getImpersonation()) {
+          const origin = restoreAdmin();
+          window.location.assign(adminReturnPath(origin, true));
+          throw new ApiError('View-as session ended', 401, { code: 'impersonation_ended' });
+        }
+        if (isReturningToAdmin()) {
+          throw new ApiError('View-as session ended', 401, { code: 'impersonation_ended' });
+        }
         localStorage.removeItem('auth_token');
         localStorage.removeItem('auth_user');
         window.location.href = '/login';
@@ -448,6 +510,13 @@ class ApiClient {
         : preferDetailMessage && typeof detailMessage === 'string' && detailMessage
           ? detailMessage
           : JSON.stringify(detail) || `HTTP error! status: ${response.status}`;
+      const errorCode = typeof error?.code === 'string' ? error.code : undefined;
+      if (response.status === 403 && errorCode === 'impersonation_read_only' && typeof window !== 'undefined') {
+        // Read-only View-as: the page shows the message where the action was
+        // taken; the banner also flags it in case a page swallows the error.
+        window.dispatchEvent(new CustomEvent(IMPERSONATION_READ_ONLY_EVENT, { detail: errorMessage }));
+        throw new ApiError(errorMessage, 403, { code: errorCode });
+      }
       if (response.status === 403 && typeof errorMessage === 'string' && errorMessage.includes('subscription') && typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent('subscription-blocked', { detail: errorMessage }));
       }
@@ -567,6 +636,42 @@ class ApiClient {
     try {
       const response = await fetch(`${BASE_URL}/admin/ops-health`, { headers: this.getHeaders() });
       return await this.handleResponse<OpsHealthResponse>(response);
+    } catch { return null; }
+  }
+
+  // OVES platform health - GET /api/admin/oves-health (admin only). Null on any
+  // failure so the panel renders "unavailable" instead of breaking the dashboard.
+  async getOvesHealth(): Promise<OvesHealthResponse | null> {
+    try {
+      const response = await fetch(`${BASE_URL}/admin/oves-health`, { headers: this.getHeaders() });
+      return await this.handleResponse<OvesHealthResponse>(response);
+    } catch { return null; }
+  }
+
+  // GET /api/admin/oves-health/graphql/graphs -> Apollo graphs the errors view can show
+  async getOvesGraphqlGraphs(): Promise<{ configured: boolean; graphs: { graph: string; label: string; role: string }[] } | null> {
+    try {
+      const response = await fetch(`${BASE_URL}/admin/oves-health/graphql/graphs`, { headers: this.getHeaders() });
+      return await this.handleResponse(response);
+    } catch { return null; }
+  }
+
+  // GET /api/admin/oves-health/graphql?graph=G&hours=N[&operation=O] -> Studio-style insights.
+  // Throws with the backend detail so the view can say why (Apollo down, key revoked).
+  async getOvesGraphqlInsights(graph: string, hours: number, operation?: string): Promise<OvesGqlInsights> {
+    const params = new URLSearchParams({ graph, hours: String(hours) });
+    if (operation) params.set('operation', operation);
+    const response = await fetch(`${BASE_URL}/admin/oves-health/graphql?${params.toString()}`, { headers: this.getHeaders() });
+    return this.handleResponse<OvesGqlInsights>(response, false, true);
+  }
+
+  // GET /api/admin/oves-health/history?hours=N[&probe=id] -> bucketed history (max 14 days)
+  async getOvesHealthHistory(hours: number, probe?: string): Promise<OvesHistoryResponse | null> {
+    try {
+      const params = new URLSearchParams({ hours: String(hours) });
+      if (probe) params.set('probe', probe);
+      const response = await fetch(`${BASE_URL}/admin/oves-health/history?${params.toString()}`, { headers: this.getHeaders() });
+      return await this.handleResponse<OvesHistoryResponse>(response);
     } catch { return null; }
   }
 
@@ -1182,7 +1287,7 @@ class ApiClient {
   }
 
   async getRouterUptime(routerId: number, hours = 24, recentChecks = 50): Promise<RouterUptimeResponse> {
-    if (this.isDemoMode()) return (await loadDemo()).demoRouterUptime(routerId);
+    if (this.isDemoMode()) return (await loadDemo()).demoRouterUptime(routerId, hours);
     const response = await fetch(`${BASE_URL}/routers/${routerId}/uptime?hours=${hours}&recent_checks=${recentChecks}`, {
       headers: this.getHeaders(true),
     });
@@ -1340,6 +1445,27 @@ class ApiClient {
       body: JSON.stringify(credentials),
     });
     return this.handleResponse<LoginResponse>(response, true);
+  }
+
+  /** Admin only: start a read-only View-as session for a reseller. */
+  async startImpersonation(resellerId: number, reason: string): Promise<ImpersonationResponse> {
+    const response = await fetch(`${BASE_URL}/admin/impersonate/${resellerId}`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify({ reason }),
+    });
+    return this.handleResponse<ImpersonationResponse>(response);
+  }
+
+  /** End the View-as session. Uses the current (impersonation) token unless one
+   *  is passed — logout passes it because it clears storage straight after. */
+  async endImpersonation(token?: string): Promise<EndImpersonationResponse> {
+    const headers = token
+      ? { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }
+      : this.getHeaders();
+    const response = await fetch(`${BASE_URL}/impersonation/end`, { method: 'POST', headers });
+    // skipAuthRedirect: a 401 here just means the session already ended.
+    return this.handleResponse<EndImpersonationResponse>(response, true);
   }
 
   async register(data: RegisterRequest): Promise<{ message: string }> {
@@ -1705,6 +1831,64 @@ class ApiClient {
     return this.handleResponse<{ message: string }>(response);
   }
 
+  // ---- Static-IP customers ------------------------------------------------
+
+  async activateStatic(customerId: number, data: ActivatePPPoERequest = {}): Promise<StaticActionResponse> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(`${BASE_URL}/customers/${customerId}/activate-static`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify(data),
+    });
+    return this.handleResponse<StaticActionResponse>(response);
+  }
+
+  async suspendStatic(customerId: number): Promise<StaticActionResponse> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(`${BASE_URL}/customers/${customerId}/suspend-static`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<StaticActionResponse>(response);
+  }
+
+  async resumeStatic(customerId: number): Promise<StaticActionResponse> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(`${BASE_URL}/customers/${customerId}/resume-static`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<StaticActionResponse>(response);
+  }
+
+  async syncStatic(customerId: number): Promise<StaticActionResponse> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(`${BASE_URL}/customers/${customerId}/static/sync`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<StaticActionResponse>(response);
+  }
+
+  /** Pin the static IP to a device MAC; null clears the pin so it is re-learned. */
+  async pinStatic(customerId: number, mac: string | null): Promise<StaticActionResponse> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(`${BASE_URL}/customers/${customerId}/static/pin`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify({ mac }),
+    });
+    return this.handleResponse<StaticActionResponse>(response);
+  }
+
+  async getStaticStatus(customerId: number): Promise<StaticStatusResponse> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(`${BASE_URL}/customers/${customerId}/static/status`, {
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<StaticStatusResponse>(response);
+  }
+
   async getPPPoECredentials(customerId: number): Promise<PPPoECredentials> {
     if (this.isDemoMode()) return (await loadDemo()).demoPPPoECredentials(customerId);
     const response = await fetch(`${BASE_URL}/customers/${customerId}/pppoe-credentials`, {
@@ -1899,6 +2083,49 @@ class ApiClient {
       body: formData,
     });
     return this.handleResponse<PPPoECustomerImportResponse>(response);
+  }
+
+  // Bulk-import static-IP customers from a .csv/.xlsx. apply=false returns a
+  // dry-run preview; apply=true creates them (nothing is created if any row
+  // has an error). Row errors come back as success=false with a 200.
+  async importStaticCustomers(
+    routerId: number,
+    file: File,
+    options: StaticCustomerImportOptions,
+  ): Promise<StaticCustomerImportResponse> {
+    if (this.isDemoMode()) this.demoBlock();
+    const headers = this.getHeaders() as Record<string, string>;
+    delete headers['Content-Type'];
+    const response = await fetch(`${BASE_URL}/routers/${routerId}/static-customers/import`, {
+      method: 'POST',
+      headers,
+      body: buildStaticImportFormData(file, options),
+    });
+    return this.handleResponse<StaticCustomerImportResponse>(response, false, true);
+  }
+
+  async downloadStaticImportTemplate(): Promise<void> {
+    if (this.isDemoMode()) this.demoBlock();
+    const headers = this.getHeaders() as Record<string, string>;
+    delete headers['Content-Type'];
+    const response = await fetch(`${BASE_URL}/static-customers/import-template`, { headers });
+    if (!response.ok) {
+      // Reuse the shared error path (401 redirect, detail message).
+      await this.handleResponse<never>(response, false, true);
+    }
+    const blob = await response.blob();
+    const filename = filenameFromDisposition(
+      response.headers.get('Content-Disposition'),
+      'static-ip-customers-template.csv',
+    );
+    const objectUrl = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = objectUrl;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(objectUrl);
   }
 
   // Move PPPoE customers from a source router to a replacement router. With
@@ -3191,6 +3418,46 @@ class ApiClient {
       body: JSON.stringify({ customer_ids: customerIds }),
     });
     return this.handleResponse<CustomerUsageResponse[]>(response);
+  }
+
+  // ─── Customer audit log ────────────────────────────────────────────
+
+  async getCustomerAuditLog(
+    customerId: number,
+    opts: { before?: string | null; cursor?: string | null; categories?: string[]; limit?: number } = {},
+  ): Promise<CustomerAuditLogResponse> {
+    if (this.isDemoMode()) return demoCustomerAuditLog(customerId, opts.categories);
+    const params = new URLSearchParams();
+    // before: strictly older (a chosen moment). cursor: this time and older,
+    // for "load older", so rows sharing the boundary second are not lost.
+    if (opts.before) params.set('before', opts.before);
+    if (opts.cursor) params.set('cursor', opts.cursor);
+    if (opts.categories?.length) params.set('categories', opts.categories.join(','));
+    if (opts.limit) params.set('limit', String(opts.limit));
+    const qs = params.toString();
+    const response = await fetch(
+      `${BASE_URL}/customers/${customerId}/audit-log${qs ? `?${qs}` : ''}`,
+      { headers: this.getHeaders() },
+    );
+    return this.handleResponse<CustomerAuditLogResponse>(response);
+  }
+
+  async resetCustomerSession(customerId: number): Promise<{ customer_id: number; router_id: number; disconnected: number }> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(`${BASE_URL}/customers/${customerId}/reset-session`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<{ customer_id: number; router_id: number; disconnected: number }>(response);
+  }
+
+  async pullCustomerRouterLogs(customerId: number): Promise<CustomerRouterLogPullResponse> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(`${BASE_URL}/customers/${customerId}/audit-log/router-logs`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<CustomerRouterLogPullResponse>(response);
   }
 
   // ─── Real-time push pilot ──────────────────────────────────────────
