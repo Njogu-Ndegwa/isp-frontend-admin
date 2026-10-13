@@ -42,6 +42,11 @@ const PPPoEImportModal = dynamic(() => import('../components/PPPoEImportModal'),
   loading: () => null,
 });
 
+const StaticIpImportModal = dynamic(() => import('../components/StaticIpImportModal'), {
+  ssr: false,
+  loading: () => null,
+});
+
 type FilterStatus = 'all' | 'active' | 'inactive';
 type ConnectionFilter = 'all' | 'hotspot' | 'pppoe' | 'static_ip';
 
@@ -218,6 +223,7 @@ export default function CustomersPage() {
   const [refreshKey, setRefreshKey] = useState(0);
   const [showImportModal, setShowImportModal] = useState(false);
   const [showTransferModal, setShowTransferModal] = useState(false);
+  const [showStaticImportModal, setShowStaticImportModal] = useState(false);
 
   // Live PPPoE monitoring — composed silently across ALL the user's routers
   // by polling /pppoe/{router}/users in parallel; per-router failures are
@@ -298,6 +304,13 @@ export default function CustomersPage() {
   });
 
   const refreshData = useCallback(() => setRefreshKey(k => k + 1), []);
+
+  // After a static-IP import lands, show the new customers where they live.
+  const handleStaticImported = useCallback(() => {
+    setConnectionFilter('static_ip');
+    setPage(1);
+    refreshData();
+  }, [refreshData]);
 
   const prevSearchRef = useRef(searchQuery);
   const prevConnFilterRef = useRef(connectionFilter);
@@ -908,6 +921,20 @@ export default function CustomersPage() {
               <span className="hidden sm:inline">{t('Import PPPoE')}</span>
               <span className="sm:hidden">{t('Import')}</span>
             </button>
+            <button
+              type="button"
+              onClick={() => setShowStaticImportModal(true)}
+              aria-label={t('Import Static IP')}
+              title={t('Import Static IP')}
+              className="btn-secondary flex items-center gap-2 whitespace-nowrap shrink-0"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 16V4m0 0l-4 4m4-4l4 4M4 20h16" />
+              </svg>
+              {/* Four header actions crowd the title below 1536px: short label there. */}
+              <span className="hidden 2xl:inline">{t('Import Static IP')}</span>
+              <span className="2xl:hidden">{t('Static IP')}</span>
+            </button>
             <Link
               href="/customers/register"
               className="btn-primary flex items-center gap-2 whitespace-nowrap shrink-0"
@@ -921,6 +948,32 @@ export default function CustomersPage() {
           </div>
         }
       />
+
+      {/* Mobile bulk actions — the Header action slot is desktop-only, so the
+          move/import tools get their own compact row on phones. */}
+      <div className="md:hidden grid grid-cols-3 gap-2 mb-4" data-testid="customers-mobile-actions">
+        <button
+          type="button"
+          onClick={() => setShowTransferModal(true)}
+          className="btn-secondary !px-2 !py-2 !text-xs flex items-center justify-center gap-1.5 leading-tight active:opacity-70 touch-manipulation"
+        >
+          {t('Move PPPoE')}
+        </button>
+        <button
+          type="button"
+          onClick={() => setShowImportModal(true)}
+          className="btn-secondary !px-2 !py-2 !text-xs flex items-center justify-center gap-1.5 leading-tight active:opacity-70 touch-manipulation"
+        >
+          {t('Import PPPoE')}
+        </button>
+        <button
+          type="button"
+          onClick={() => setShowStaticImportModal(true)}
+          className="btn-secondary !px-2 !py-2 !text-xs flex items-center justify-center gap-1.5 leading-tight active:opacity-70 touch-manipulation"
+        >
+          {t('Import Static IP')}
+        </button>
+      </div>
 
       {/* Summary Stats */}
       {totalAll > 0 && (
@@ -1587,6 +1640,14 @@ export default function CustomersPage() {
         <PPPoEImportModal
           onClose={() => setShowImportModal(false)}
           onImported={refreshData}
+        />
+      )}
+
+      {/* Static IP Import Modal */}
+      {showStaticImportModal && (
+        <StaticIpImportModal
+          onClose={() => setShowStaticImportModal(false)}
+          onImported={handleStaticImported}
         />
       )}
 

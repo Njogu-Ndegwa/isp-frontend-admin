@@ -300,8 +300,11 @@ import {
   AdminSmsHistoryResponse,
   CompensationLimitSetting,
   TransferPPPoEResponse,
+  StaticCustomerImportOptions,
+  StaticCustomerImportResponse,
 } from './types';
 import { buildTransferRequest, type BuildTransferRequestOptions } from './pppoeTransfer';
+import { buildStaticImportFormData, filenameFromDisposition } from './staticImport';
 import {
   getImpersonation,
   restoreAdmin,
@@ -2069,6 +2072,49 @@ class ApiClient {
       body: formData,
     });
     return this.handleResponse<PPPoECustomerImportResponse>(response);
+  }
+
+  // Bulk-import static-IP customers from a .csv/.xlsx. apply=false returns a
+  // dry-run preview; apply=true creates them (nothing is created if any row
+  // has an error). Row errors come back as success=false with a 200.
+  async importStaticCustomers(
+    routerId: number,
+    file: File,
+    options: StaticCustomerImportOptions,
+  ): Promise<StaticCustomerImportResponse> {
+    if (this.isDemoMode()) this.demoBlock();
+    const headers = this.getHeaders() as Record<string, string>;
+    delete headers['Content-Type'];
+    const response = await fetch(`${BASE_URL}/routers/${routerId}/static-customers/import`, {
+      method: 'POST',
+      headers,
+      body: buildStaticImportFormData(file, options),
+    });
+    return this.handleResponse<StaticCustomerImportResponse>(response, false, true);
+  }
+
+  async downloadStaticImportTemplate(): Promise<void> {
+    if (this.isDemoMode()) this.demoBlock();
+    const headers = this.getHeaders() as Record<string, string>;
+    delete headers['Content-Type'];
+    const response = await fetch(`${BASE_URL}/static-customers/import-template`, { headers });
+    if (!response.ok) {
+      // Reuse the shared error path (401 redirect, detail message).
+      await this.handleResponse<never>(response, false, true);
+    }
+    const blob = await response.blob();
+    const filename = filenameFromDisposition(
+      response.headers.get('Content-Disposition'),
+      'static-ip-customers-template.csv',
+    );
+    const objectUrl = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = objectUrl;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(objectUrl);
   }
 
   // Move PPPoE customers from a source router to a replacement router. With
