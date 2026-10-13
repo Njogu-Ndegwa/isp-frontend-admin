@@ -5,6 +5,7 @@ import type { LoginRequest, AuthUser, SubscriptionAlert } from '../lib/types';
 import { setDisplayCurrency } from '../lib/format';
 import { resolveLanguage, translate, type TFunction } from '../lib/i18n';
 import { subscriptionAlertMessage } from '../lib/subscriptionAlert';
+import { getImpersonation, clearImpersonation } from '../lib/impersonation';
 
 const DEMO_USER: AuthUser = {
   id: 0,
@@ -107,6 +108,7 @@ export function AuthProvider({
   const login = async (credentials: LoginRequest): Promise<SubscriptionAlert | undefined> => {
     const { api } = await import('../lib/api');
     const response = await api.login(credentials);
+    clearImpersonation();
     localStorage.removeItem('demo_mode');
     localStorage.removeItem('onboarding_dismissed');
     localStorage.removeItem('onboarding_completed');
@@ -145,6 +147,18 @@ export function AuthProvider({
   };
 
   const logout = () => {
+    // Logging out while viewing as a reseller ends the View-as session too and
+    // drops the parked admin token, so nothing of either session is left.
+    const viewAs = getImpersonation();
+    if (viewAs) {
+      const viewAsToken = localStorage.getItem('auth_token');
+      clearImpersonation();
+      if (viewAsToken) {
+        import('../lib/api')
+          .then(({ api }) => api.endImpersonation(viewAsToken))
+          .catch(() => { /* best effort: the session expires on its own */ });
+      }
+    }
     localStorage.removeItem('auth_token');
     localStorage.removeItem('auth_user');
     localStorage.removeItem('demo_mode');
