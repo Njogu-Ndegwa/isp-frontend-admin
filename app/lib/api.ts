@@ -65,6 +65,7 @@ import {
   RegisterCustomerRequest,
   UpdateCustomerRequest,
   UpdateCustomerResponse,
+  SetCustomerGraceResponse,
   DeleteCustomerResponse,
   ActivatePPPoERequest,
   StaticActionResponse,
@@ -1780,6 +1781,16 @@ class ApiClient {
       body: JSON.stringify(data),
     });
     return this.handleResponse<UpdateCustomerResponse>(response);
+  }
+
+  async setCustomerGracePeriod(customerId: number, graceMinutes: number): Promise<SetCustomerGraceResponse> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(`${BASE_URL}/customers/${customerId}/grace-period`, {
+      method: 'PUT',
+      headers: this.getHeaders(),
+      body: JSON.stringify({ grace_period_minutes: graceMinutes }),
+    });
+    return this.handleResponse<SetCustomerGraceResponse>(response);
   }
 
   async deleteCustomer(customerId: number): Promise<DeleteCustomerResponse> {

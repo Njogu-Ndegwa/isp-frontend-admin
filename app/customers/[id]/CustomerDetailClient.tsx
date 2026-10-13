@@ -16,6 +16,7 @@ import DateTimePicker from '../../components/DateTimePicker';
 import { utcToGMT3Input, gmt3InputToISO } from '../../lib/dateUtils';
 import { formatAmount } from '../../lib/format';
 import { isFreeTrialPlan } from '../../plans/planType';
+import GracePeriodCard from './GracePeriodCard';
 import PaymentHistoryPanel from './PaymentHistoryPanel';
 import RelatedAccounts from './RelatedAccounts';
 import UsageHistoryPanel from './UsageHistoryPanel';
@@ -280,6 +281,16 @@ export default function EditCustomerPage() {
             </div>
           )}
 
+          <GracePeriodCard
+            customer={customer}
+            onSaved={(result) => setCustomer({
+              ...customer,
+              status: result.status,
+              grace_period_minutes: result.grace_period_minutes,
+              effective_expiry: result.effective_expiry,
+              in_grace: result.in_grace,
+            })}
+          />
           <RelatedAccounts customer={customer} customers={allCustomers} />
           <div className="card p-5">
             <h3 className="text-sm font-semibold text-foreground-muted uppercase tracking-wider mb-4">Customer details</h3>

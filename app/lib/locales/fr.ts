@@ -470,6 +470,8 @@ export const FR: Record<string, string> = {
   'hours': 'heures',
   'days': 'jours',
   'minutes': 'minutes',
+  'In grace': 'En période de grâce',
+  'Grace until {date}': "Grâce jusqu'au {date}",
 
   // Admin "View as reseller" (read-only)
   'View as reseller': 'Voir en tant que revendeur',
