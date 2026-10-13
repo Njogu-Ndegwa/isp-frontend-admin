@@ -86,6 +86,8 @@ for (const viewport of [
     page.on('pageerror', (error) => pageErrors.push(error.message));
 
     await authenticate(page);
+    // Vercel serves this script in production; a local next start server does not.
+    await page.route('**/_vercel/insights/script.js', route => route.fulfill({ contentType: 'application/javascript', body: '' }));
     await page.setViewportSize({ width: viewport.width, height: viewport.height });
     await page.route('**/api/**', async (route) => {
       const request = route.request();

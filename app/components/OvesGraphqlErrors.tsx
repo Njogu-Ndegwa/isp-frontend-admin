@@ -1,9 +1,10 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { api } from '../lib/api';
-import { OvesGqlGraphSummary, OvesGqlInsights } from '../lib/types';
+import { OvesGqlGraphSummary, OvesGqlInsights, OvesTraffic } from '../lib/types';
+import OvesHttpErrors from './OvesHttpErrors';
 
 // Apollo Studio's Insights page, inside the dashboard: pick a graph (shadow
 // codes first), see requests vs errors and the error rate over the chosen
@@ -33,7 +34,13 @@ function rateClass(rate: number | null | undefined): string {
   return rate >= 0.10 ? 'text-red-500' : rate >= 0.02 ? 'text-amber-500' : 'text-foreground-muted';
 }
 
-export default function OvesGraphqlErrors({ hours, summary }: { hours: number; summary: OvesGqlGraphSummary[] }) {
+export default function OvesGraphqlErrors({ hours, summary, traffic, focus }: {
+  hours: number;
+  summary: OvesGqlGraphSummary[];
+  traffic?: Record<string, OvesTraffic>;
+  /** "graphql.<Graph-Id>" or "http.<service>" from the alert that was clicked */
+  focus?: string | null;
+}) {
   const [graphs, setGraphs] = useState<{ graph: string; label: string; role: string }[] | null>(null);
   const [graph, setGraph] = useState<string | null>(null);
   const [operation, setOperation] = useState<string | null>(null);
@@ -42,11 +49,22 @@ export default function OvesGraphqlErrors({ hours, summary }: { hours: number; s
   // Which request the shown data/error belongs to; loading = the current one has not landed yet.
   const [settledKey, setSettledKey] = useState<string | null>(null);
   const [showCaller, setShowCaller] = useState(false);
+  // Only the values at mount pick the first graph (the parent remounts us via `key` on a new focus).
+  const initial = useRef({ focus, summary });
 
   useEffect(() => {
+    const { focus, summary } = initial.current;
     api.getOvesGraphqlGraphs().then((g) => {
       setGraphs(g?.graphs ?? []);
-      if (g?.graphs?.length) setGraph((cur) => cur ?? g.graphs[0].graph);
+      if (g?.graphs?.length) {
+        // Open on what is actually failing: the clicked alert's graph, else the
+        // graph with the worst platform error rate, else the first (shadow codes).
+        const wanted = focus?.startsWith('graphql.') ? focus.slice(8) : null;
+        const worst = [...summary].filter((s) => (s.requests ?? 0) >= 50 && (s.system_error_rate ?? 0) >= 0.02)
+          .sort((a, b) => (b.system_error_rate ?? 0) - (a.system_error_rate ?? 0))[0]?.graph;
+        const pick = [wanted, worst].find((x) => x && g.graphs.some((gg) => gg.graph === x)) ?? g.graphs[0].graph;
+        setGraph((cur) => cur ?? pick);
+      }
     });
   }, []);
 
@@ -77,8 +95,11 @@ export default function OvesGraphqlErrors({ hours, summary }: { hours: number; s
     return <p className="text-xs text-foreground-muted">Apollo GraphOS is not connected. Set OVES_APOLLO_GRAPH_KEYS on the server to see errors per operation, like Apollo Studio.</p>;
   }
 
+  const httpFocus = focus?.startsWith('http.') ? focus.slice(5) : null;
   return (
     <div className="space-y-4" data-testid="oves-gql">
+      {traffic && <OvesHttpErrors traffic={traffic} focus={httpFocus} />}
+      <p className="text-[11px] uppercase tracking-wider text-foreground-muted -mb-2">GraphQL errors (Apollo GraphOS)</p>
       {/* graph picker, with each graph's 15-minute platform error rate */}
       <div className="flex gap-1.5 overflow-x-auto -mx-1 px-1 pb-1" role="tablist" aria-label="Graph">
         {graphs.map((g) => {

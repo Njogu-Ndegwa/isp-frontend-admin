@@ -1288,84 +1288,356 @@
   "traffic": {
    "last_5m": {
     "abs-platform": {
-     "requests": 1,
+     "requests": 12,
+     "status_4xx": 0,
      "status_5xx": 0,
-     "p95_ms": 3.0
+     "error_rate": 0.0,
+     "real_requests": 10,
+     "real_5xx": 0,
+     "bot_5xx": 0,
+     "real_error_rate": 0.0,
+     "p50_ms": 3.0,
+     "p95_ms": 7.25,
+     "top_failures": [],
+     "log_errors": []
     },
     "account-microservice": {
-     "requests": 13,
+     "requests": 12,
+     "status_4xx": 0,
      "status_5xx": 0,
-     "p95_ms": 3036.8
+     "error_rate": 0.0,
+     "real_requests": 10,
+     "real_5xx": 0,
+     "bot_5xx": 0,
+     "real_error_rate": 0.0,
+     "p50_ms": 97.0,
+     "p95_ms": 100.9,
+     "top_failures": [],
+     "log_errors": []
     },
     "api-gateway-microservice": {
-     "requests": 45,
+     "requests": 59,
+     "status_4xx": 0,
      "status_5xx": 0,
-     "p95_ms": 3875.8
+     "error_rate": 0.0,
+     "real_requests": 59,
+     "real_5xx": 0,
+     "bot_5xx": 0,
+     "real_error_rate": 0.0,
+     "p50_ms": 4063.0,
+     "p95_ms": 6137.2,
+     "top_failures": [],
+     "log_errors": []
     },
     "auth-microservice": {
-     "requests": 55,
+     "requests": 165,
+     "status_4xx": 0,
      "status_5xx": 0,
-     "p95_ms": 560.8
+     "error_rate": 0.0,
+     "real_requests": 160,
+     "real_5xx": 0,
+     "bot_5xx": 0,
+     "real_error_rate": 0.0,
+     "p50_ms": 516.0,
+     "p95_ms": 1553.2,
+     "top_failures": [],
+     "log_errors": [
+      {
+       "message": "[GraphQLLoggingInterceptor] Failed to post log to microserviceEvents_2024: Request failed with status code #",
+       "count": 17
+      }
+     ]
     },
     "auth-use-microservice": {
-     "requests": 8,
+     "requests": 53,
+     "status_4xx": 0,
      "status_5xx": 0,
-     "p95_ms": 2464.3
+     "error_rate": 0.0,
+     "real_requests": 51,
+     "real_5xx": 0,
+     "bot_5xx": 0,
+     "real_error_rate": 0.0,
+     "p50_ms": 2432.0,
+     "p95_ms": 8120.8,
+     "top_failures": [],
+     "log_errors": []
     },
     "client-microservice": {
-     "requests": 26,
+     "requests": 67,
+     "status_4xx": 0,
      "status_5xx": 0,
-     "p95_ms": 1909.75
+     "error_rate": 0.0,
+     "real_requests": 65,
+     "real_5xx": 0,
+     "bot_5xx": 0,
+     "real_error_rate": 0.0,
+     "p50_ms": 1748.0,
+     "p95_ms": 4300.0,
+     "top_failures": [],
+     "log_errors": []
     },
     "dirac-fed": {
-     "requests": 1,
+     "requests": 12,
+     "status_4xx": 2,
      "status_5xx": 0,
-     "p95_ms": 1.0
+     "error_rate": 0.0,
+     "real_requests": 10,
+     "real_5xx": 0,
+     "bot_5xx": 0,
+     "real_error_rate": 0.0,
+     "p50_ms": 2.0,
+     "p95_ms": 2.0,
+     "top_failures": [],
+     "log_errors": []
     },
     "event-microservice": {
-     "requests": 55,
+     "requests": 164,
+     "status_4xx": 152,
      "status_5xx": 0,
-     "p95_ms": 31.0
+     "error_rate": 0.0,
+     "real_requests": 162,
+     "real_5xx": 0,
+     "bot_5xx": 0,
+     "real_error_rate": 0.0,
+     "p50_ms": 8.0,
+     "p95_ms": 138.1,
+     "top_failures": [],
+     "log_errors": []
     },
     "open-token-microservice": {
-     "requests": 1,
-     "status_5xx": 1,
-     "p95_ms": 15.0
+     "requests": 13,
+     "status_4xx": 0,
+     "status_5xx": 11,
+     "error_rate": 0.8462,
+     "real_requests": 0,
+     "real_5xx": 0,
+     "bot_5xx": 11,
+     "real_error_rate": 0.0,
+     "p50_ms": 6.0,
+     "p95_ms": 27.6,
+     "top_failures": [
+      {
+       "method": "GET",
+       "route": "/",
+       "status": 500,
+       "count": 11,
+       "bots": true
+      }
+     ],
+     "log_errors": []
     },
     "oves-open-token": {
-     "requests": 1,
+     "requests": 10,
+     "status_4xx": 0,
      "status_5xx": 0,
-     "p95_ms": 2.0
+     "error_rate": 0.0,
+     "real_requests": 10,
+     "real_5xx": 0,
+     "bot_5xx": 0,
+     "real_error_rate": 0.0,
+     "p50_ms": 3.0,
+     "p95_ms": 5.65,
+     "top_failures": [],
+     "log_errors": []
     },
     "oves-waada": {
-     "requests": 1,
+     "requests": 12,
+     "status_4xx": 0,
      "status_5xx": 0,
-     "p95_ms": 2.0
+     "error_rate": 0.0,
+     "real_requests": 10,
+     "real_5xx": 0,
+     "bot_5xx": 0,
+     "real_error_rate": 0.0,
+     "p50_ms": 3.0,
+     "p95_ms": 4.0,
+     "top_failures": [],
+     "log_errors": []
     },
     "oves-waasa": {
-     "requests": 1,
+     "requests": 10,
+     "status_4xx": 0,
      "status_5xx": 0,
-     "p95_ms": 2.0
+     "error_rate": 0.0,
+     "real_requests": 10,
+     "real_5xx": 0,
+     "bot_5xx": 0,
+     "real_error_rate": 0.0,
+     "p50_ms": 2.5,
+     "p95_ms": 3.55,
+     "top_failures": [],
+     "log_errors": []
     },
     "shadow-api": {
-     "requests": 34,
-     "status_5xx": 0,
-     "p95_ms": 3870.85
+     "requests": 484,
+     "status_4xx": 1,
+     "status_5xx": 340,
+     "error_rate": 0.7025,
+     "real_requests": 146,
+     "real_5xx": 4,
+     "bot_5xx": 336,
+     "real_error_rate": 0.0274,
+     "p50_ms": 5.0,
+     "p95_ms": 4088.65,
+     "top_failures": [
+      {
+       "method": "POST",
+       "route": "/graphql",
+       "status": 500,
+       "count": 1,
+       "bots": false
+      },
+      {
+       "method": "POST",
+       "route": "/api/graphql",
+       "status": 500,
+       "count": 1,
+       "bots": false
+      },
+      {
+       "method": "POST",
+       "route": "/v1/graphql",
+       "status": 500,
+       "count": 1,
+       "bots": false
+      },
+      {
+       "method": "POST",
+       "route": "/otp/daysCode",
+       "status": 500,
+       "count": 1,
+       "bots": false
+      },
+      {
+       "method": "GET",
+       "route": "/.env",
+       "status": 500,
+       "count": 5,
+       "bots": true
+      },
+      {
+       "method": "GET",
+       "route": "/userfiles",
+       "status": 500,
+       "count": 4,
+       "bots": true
+      },
+      {
+       "method": "GET",
+       "route": "/.env.local",
+       "status": 500,
+       "count": 4,
+       "bots": true
+      },
+      {
+       "method": "GET",
+       "route": "/@fs/.env",
+       "status": 500,
+       "count": 4,
+       "bots": true
+      },
+      {
+       "method": "*",
+       "route": "(other bot / scanner URLs)",
+       "status": 0,
+       "count": 319,
+       "bots": true
+      }
+     ],
+     "log_errors": [
+      {
+       "message": "[LEGACY_API_DISABLED] The legacy system has been permanently closed. No request was made.",
+       "count": 341
+      },
+      {
+       "message": "error: Error: Legacy API is no longer available. The system has been permanently closed.",
+       "count": 340
+      }
+     ]
     },
     "thing-microservice": {
-     "requests": 20,
+     "requests": 62,
+     "status_4xx": 0,
      "status_5xx": 0,
-     "p95_ms": 3444.95
+     "error_rate": 0.0,
+     "real_requests": 54,
+     "real_5xx": 0,
+     "bot_5xx": 0,
+     "real_error_rate": 0.0,
+     "p50_ms": 3770.0,
+     "p95_ms": 5839.15,
+     "top_failures": [],
+     "log_errors": []
     },
     "thing-microservice-make": {
-     "requests": 28,
+     "requests": 107,
+     "status_4xx": 0,
      "status_5xx": 0,
-     "p95_ms": 3772.4
+     "error_rate": 0.0,
+     "real_requests": 100,
+     "real_5xx": 0,
+     "bot_5xx": 0,
+     "real_error_rate": 0.0,
+     "p50_ms": 2616.0,
+     "p95_ms": 4070.8,
+     "top_failures": [],
+     "log_errors": []
     },
     "thing-use-microservice": {
-     "requests": 2,
+     "requests": 21,
+     "status_4xx": 0,
      "status_5xx": 0,
-     "p95_ms": 366.75
+     "error_rate": 0.0,
+     "real_requests": 14,
+     "real_5xx": 0,
+     "bot_5xx": 0,
+     "real_error_rate": 0.0,
+     "p50_ms": 276.0,
+     "p95_ms": 2866.0,
+     "top_failures": [],
+     "log_errors": []
+    },
+    "client-use-microservice": {
+     "requests": 12,
+     "status_4xx": 0,
+     "status_5xx": 0,
+     "error_rate": 0.0,
+     "real_requests": 10,
+     "real_5xx": 0,
+     "bot_5xx": 0,
+     "real_error_rate": 0.0,
+     "p50_ms": 96.5,
+     "p95_ms": 278.35,
+     "top_failures": [],
+     "log_errors": []
+    },
+    "oves-bot-alt": {
+     "requests": 2,
+     "status_4xx": 2,
+     "status_5xx": 0,
+     "error_rate": 0.0,
+     "real_requests": 0,
+     "real_5xx": 0,
+     "bot_5xx": 0,
+     "real_error_rate": null,
+     "p50_ms": 2.5,
+     "p95_ms": 2.95,
+     "top_failures": [],
+     "log_errors": []
+    },
+    "argocd-argocd-server": {
+     "requests": 7,
+     "status_4xx": 1,
+     "status_5xx": 0,
+     "error_rate": 0.0,
+     "real_requests": 7,
+     "real_5xx": 0,
+     "bot_5xx": 0,
+     "real_error_rate": 0.0,
+     "p50_ms": 63.0,
+     "p95_ms": 3684.2,
+     "top_failures": [],
+     "log_errors": []
     }
    }
   },

@@ -37,6 +37,8 @@ import {
   VpnType,
   LoginRequest,
   LoginResponse,
+  ImpersonationResponse,
+  EndImpersonationResponse,
   RegisterRequest,
   Advertiser,
   CreateAdvertiserRequest,
@@ -65,6 +67,8 @@ import {
   UpdateCustomerResponse,
   DeleteCustomerResponse,
   ActivatePPPoERequest,
+  StaticActionResponse,
+  StaticStatusResponse,
   PPPoECredentials,
   PPPoEActiveResponse,
   RouterInterfacesResponse,
@@ -297,8 +301,18 @@ import {
   AdminSmsHistoryResponse,
   CompensationLimitSetting,
   TransferPPPoEResponse,
+  StaticCustomerImportOptions,
+  StaticCustomerImportResponse,
 } from './types';
 import { buildTransferRequest, type BuildTransferRequestOptions } from './pppoeTransfer';
+import { buildStaticImportFormData, filenameFromDisposition } from './staticImport';
+import {
+  getImpersonation,
+  restoreAdmin,
+  isReturningToAdmin,
+  adminReturnPath,
+  IMPERSONATION_READ_ONLY_EVENT,
+} from './impersonation';
 // Demo fixtures are ~2,200 lines; load them on demand so real users never
 // download them as part of the baseline bundle.
 type DemoModule = typeof import('./demoData');
@@ -468,6 +482,19 @@ class ApiClient {
         if (this.isDemoMode()) {
           throw new Error('Endpoint not available in demo mode.');
         }
+        // Viewing as a reseller: the View-as session ended or expired. Put the
+        // admin's own session back instead of logging them out.
+        // Several requests fail at once when it ends: only the first one
+        // restores and redirects. Later ones (and any that land after Exit
+        // restored the admin) must not wipe the restored admin token.
+        if (getImpersonation()) {
+          const origin = restoreAdmin();
+          window.location.assign(adminReturnPath(origin, true));
+          throw new ApiError('View-as session ended', 401, { code: 'impersonation_ended' });
+        }
+        if (isReturningToAdmin()) {
+          throw new ApiError('View-as session ended', 401, { code: 'impersonation_ended' });
+        }
         localStorage.removeItem('auth_token');
         localStorage.removeItem('auth_user');
         window.location.href = '/login';
@@ -483,6 +510,13 @@ class ApiClient {
         : preferDetailMessage && typeof detailMessage === 'string' && detailMessage
           ? detailMessage
           : JSON.stringify(detail) || `HTTP error! status: ${response.status}`;
+      const errorCode = typeof error?.code === 'string' ? error.code : undefined;
+      if (response.status === 403 && errorCode === 'impersonation_read_only' && typeof window !== 'undefined') {
+        // Read-only View-as: the page shows the message where the action was
+        // taken; the banner also flags it in case a page swallows the error.
+        window.dispatchEvent(new CustomEvent(IMPERSONATION_READ_ONLY_EVENT, { detail: errorMessage }));
+        throw new ApiError(errorMessage, 403, { code: errorCode });
+      }
       if (response.status === 403 && typeof errorMessage === 'string' && errorMessage.includes('subscription') && typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent('subscription-blocked', { detail: errorMessage }));
       }
@@ -1413,6 +1447,27 @@ class ApiClient {
     return this.handleResponse<LoginResponse>(response, true);
   }
 
+  /** Admin only: start a read-only View-as session for a reseller. */
+  async startImpersonation(resellerId: number, reason: string): Promise<ImpersonationResponse> {
+    const response = await fetch(`${BASE_URL}/admin/impersonate/${resellerId}`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify({ reason }),
+    });
+    return this.handleResponse<ImpersonationResponse>(response);
+  }
+
+  /** End the View-as session. Uses the current (impersonation) token unless one
+   *  is passed — logout passes it because it clears storage straight after. */
+  async endImpersonation(token?: string): Promise<EndImpersonationResponse> {
+    const headers = token
+      ? { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }
+      : this.getHeaders();
+    const response = await fetch(`${BASE_URL}/impersonation/end`, { method: 'POST', headers });
+    // skipAuthRedirect: a 401 here just means the session already ended.
+    return this.handleResponse<EndImpersonationResponse>(response, true);
+  }
+
   async register(data: RegisterRequest): Promise<{ message: string }> {
     const response = await fetch(`${BASE_URL}/users/register`, {
       method: 'POST',
@@ -1766,6 +1821,64 @@ class ApiClient {
     return this.handleResponse<{ message: string }>(response);
   }
 
+  // ---- Static-IP customers ------------------------------------------------
+
+  async activateStatic(customerId: number, data: ActivatePPPoERequest = {}): Promise<StaticActionResponse> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(`${BASE_URL}/customers/${customerId}/activate-static`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify(data),
+    });
+    return this.handleResponse<StaticActionResponse>(response);
+  }
+
+  async suspendStatic(customerId: number): Promise<StaticActionResponse> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(`${BASE_URL}/customers/${customerId}/suspend-static`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<StaticActionResponse>(response);
+  }
+
+  async resumeStatic(customerId: number): Promise<StaticActionResponse> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(`${BASE_URL}/customers/${customerId}/resume-static`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<StaticActionResponse>(response);
+  }
+
+  async syncStatic(customerId: number): Promise<StaticActionResponse> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(`${BASE_URL}/customers/${customerId}/static/sync`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<StaticActionResponse>(response);
+  }
+
+  /** Pin the static IP to a device MAC; null clears the pin so it is re-learned. */
+  async pinStatic(customerId: number, mac: string | null): Promise<StaticActionResponse> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(`${BASE_URL}/customers/${customerId}/static/pin`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify({ mac }),
+    });
+    return this.handleResponse<StaticActionResponse>(response);
+  }
+
+  async getStaticStatus(customerId: number): Promise<StaticStatusResponse> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(`${BASE_URL}/customers/${customerId}/static/status`, {
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<StaticStatusResponse>(response);
+  }
+
   async getPPPoECredentials(customerId: number): Promise<PPPoECredentials> {
     if (this.isDemoMode()) return (await loadDemo()).demoPPPoECredentials(customerId);
     const response = await fetch(`${BASE_URL}/customers/${customerId}/pppoe-credentials`, {
@@ -1960,6 +2073,49 @@ class ApiClient {
       body: formData,
     });
     return this.handleResponse<PPPoECustomerImportResponse>(response);
+  }
+
+  // Bulk-import static-IP customers from a .csv/.xlsx. apply=false returns a
+  // dry-run preview; apply=true creates them (nothing is created if any row
+  // has an error). Row errors come back as success=false with a 200.
+  async importStaticCustomers(
+    routerId: number,
+    file: File,
+    options: StaticCustomerImportOptions,
+  ): Promise<StaticCustomerImportResponse> {
+    if (this.isDemoMode()) this.demoBlock();
+    const headers = this.getHeaders() as Record<string, string>;
+    delete headers['Content-Type'];
+    const response = await fetch(`${BASE_URL}/routers/${routerId}/static-customers/import`, {
+      method: 'POST',
+      headers,
+      body: buildStaticImportFormData(file, options),
+    });
+    return this.handleResponse<StaticCustomerImportResponse>(response, false, true);
+  }
+
+  async downloadStaticImportTemplate(): Promise<void> {
+    if (this.isDemoMode()) this.demoBlock();
+    const headers = this.getHeaders() as Record<string, string>;
+    delete headers['Content-Type'];
+    const response = await fetch(`${BASE_URL}/static-customers/import-template`, { headers });
+    if (!response.ok) {
+      // Reuse the shared error path (401 redirect, detail message).
+      await this.handleResponse<never>(response, false, true);
+    }
+    const blob = await response.blob();
+    const filename = filenameFromDisposition(
+      response.headers.get('Content-Disposition'),
+      'static-ip-customers-template.csv',
+    );
+    const objectUrl = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = objectUrl;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(objectUrl);
   }
 
   // Move PPPoE customers from a source router to a replacement router. With

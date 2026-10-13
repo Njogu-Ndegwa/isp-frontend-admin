@@ -12,6 +12,8 @@ import ErrorBoundary from './ErrorBoundary';
 const CollapsibleSidebar = dynamic(() => import('./CollapsibleSidebar'), { ssr: false });
 const MobileBottomNav = dynamic(() => import('./MobileBottomNav'), { ssr: false });
 const SubscriptionBlockedModal = dynamic(() => import('./SubscriptionBlockedModal'), { ssr: false });
+// Client-only: it reads the View-as session from localStorage on first render.
+const ViewAsBanner = dynamic(() => import('./ViewAsBanner'), { ssr: false });
 
 const PUBLIC_PATHS = ['/', '/demo', '/login', '/landing', '/pricing', '/signup', '/forgot-password', '/reset-password'];
 const PUBLIC_PREFIXES = ['/store', '/r', '/blog'];
@@ -126,6 +128,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   return (
     <>
       {!isLoading && isDemo && <DemoBanner />}
+      {showAppChrome && !isLoading && !isDemo && isAuthenticated && <ViewAsBanner />}
       <main
         className="min-h-screen p-4 md:p-8 pb-24 md:pb-8 transition-[margin] duration-300 ease-in-out"
         style={{ marginLeft: showAppChrome ? 'var(--app-sidebar-w, 0px)' : 0 }}

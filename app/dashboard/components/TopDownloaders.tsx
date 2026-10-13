@@ -3,6 +3,7 @@ import React from 'react';
 import { SectionError, SectionEmpty } from './SectionCard';
 import type { TopUsersResponse } from '../../lib/types';
 import { useT } from '../../lib/i18n';
+import { connectionTypeLabel } from '../../lib/connectionType';
 
 // Live per-router top users (from MikroTik queue counters). Body only —
 // rendered inside the combined Top Users card, which owns the card chrome.
@@ -45,7 +46,7 @@ export function TopDownloadersBody({
           const downloadPercent = (user.downloadMB / maxDownload) * 100;
           const rank = index + 1;
           const connectionType = user.connectionType || (user.mac?.startsWith('pppoe:') ? 'pppoe' : 'hotspot');
-          const serviceLabel = connectionType === 'pppoe' ? 'PPPoE' : 'Hotspot';
+          const serviceLabel = connectionTypeLabel(connectionType);
 
           return (
             <div
@@ -66,6 +67,8 @@ export function TopDownloadersBody({
                   <span className={`px-1.5 py-0.5 rounded text-[9px] font-medium ${
                     connectionType === 'pppoe'
                       ? 'bg-violet-500/10 text-violet-400'
+                      : connectionType === 'static_ip'
+                      ? 'bg-sky-500/10 text-sky-400'
                       : 'bg-amber-500/10 text-amber-400'
                   }`}>
                     {serviceLabel}
@@ -107,7 +110,7 @@ export function TopDownloadersBody({
               const downloadPercent = (user.downloadMB / maxDownload) * 100;
               const rank = index + 1;
               const connectionType = user.connectionType || (user.mac?.startsWith('pppoe:') ? 'pppoe' : 'hotspot');
-              const serviceLabel = connectionType === 'pppoe' ? 'PPPoE' : 'Hotspot';
+              const serviceLabel = connectionTypeLabel(connectionType);
 
               return (
                 <tr
@@ -136,6 +139,8 @@ export function TopDownloadersBody({
                     <span className={`inline-flex px-2 py-1 rounded-md text-xs font-medium ${
                       connectionType === 'pppoe'
                         ? 'bg-violet-500/10 text-violet-400'
+                        : connectionType === 'static_ip'
+                        ? 'bg-sky-500/10 text-sky-400'
                         : 'bg-amber-500/10 text-amber-400'
                     }`}>
                       {serviceLabel}

@@ -725,11 +725,14 @@ export interface DashboardOverview {
 }
 
 // Customer Types
+/** How a customer connects. static_ip = a device with a fixed address on the router's LAN. */
+export type ConnectionType = 'hotspot' | 'pppoe' | 'static_ip';
+
 export interface CustomerPlan {
   id: number;
   name: string;
   price: number;
-  connection_type?: 'hotspot' | 'pppoe';
+  connection_type?: ConnectionType;
 }
 
 export interface CustomerRouter {
@@ -749,9 +752,11 @@ export interface Customer {
   plan_id?: number;
   router: CustomerRouter;
   router_id?: number;
-  connection_type?: 'hotspot' | 'pppoe';
+  connection_type?: ConnectionType;
   pppoe_username?: string;
   static_ip?: string;
+  /** Static-IP customers: the device MAC the IP is pinned to (anti-spoofing). */
+  static_mac?: string | null;
   account_number?: string;
   wallet_credit_kes?: number;
   // Set on companion devices (TV, console…) that ride another customer's
@@ -768,6 +773,8 @@ export interface UpdateCustomerRequest {
   pppoe_username?: string;
   pppoe_password?: string;
   static_ip?: string;
+  /** Static IP only. Empty string clears the pin (re-learned on next sighting). */
+  static_mac?: string;
   expiry?: string;
 }
 
@@ -775,6 +782,7 @@ export interface UpdateCustomerResponse {
   success: boolean;
   customer: Customer;
   pppoe_reprovisioned: 'ok' | 'failed' | null;
+  static_reprovisioned?: 'ok' | 'failed' | null;
 }
 
 export interface DeleteCustomerResponse {
@@ -794,12 +802,67 @@ export interface RegisterCustomerRequest {
   pppoe_password?: string;
   mac_address?: string | null;
   static_ip?: string | null;
+  /** Static-IP plans: device MAC to pin the IP to (optional). */
+  static_mac?: string | null;
 }
 
 export interface ActivatePPPoERequest {
   payment_method?: 'cash' | 'mpesa' | 'voucher';
   payment_reference?: string;
   notes?: string;
+}
+
+/** Result of a static-IP router action (activate, suspend, sync, pin). */
+export interface StaticActionResponse {
+  success: boolean;
+  customer_id: number;
+  status?: string;
+  expiry?: string | null;
+  access?: 'enabled' | 'suspended';
+  static_mac?: string | null;
+  provision_result?: 'ok' | 'retry_pending';
+  router_result: 'ok' | 'failed';
+  router_error: string | null;
+  changes: string[];
+  gateway_ok: boolean | null;
+  pinned_mac: string | null;
+  observed_mac: string | null;
+  mac_mismatch: boolean;
+}
+
+/** What the router has for a static-IP customer right now. */
+export interface StaticRouterState {
+  success?: boolean;
+  error?: string;
+  reachable: boolean;
+  gateway_ok?: boolean;
+  binding?: { enabled: boolean; type: string; comment: string } | null;
+  queue?: {
+    name: string; max_limit: string; rate: string | null; bytes: string | null;
+    disabled: boolean; shadowed: boolean;
+  } | null;
+  pinned_mac?: string | null;
+  pin_hits?: number;
+  observed_mac?: string | null;
+  host?: {
+    mac: string; bypassed: boolean; idle_time: string | null; uptime: string | null;
+    bytes_in: string | null; bytes_out: string | null;
+  } | null;
+}
+
+export interface StaticStatusResponse {
+  customer_id: number;
+  static_ip: string;
+  static_mac: string | null;
+  status: string;
+  expiry: string | null;
+  expected_access: 'enabled' | 'suspended';
+  actual_access: 'enabled' | 'suspended' | null;
+  in_sync: boolean;
+  plan_speed: string;
+  router_id: number;
+  router_name: string;
+  router: StaticRouterState;
 }
 
 export interface PPPoECredentials {
@@ -1059,6 +1122,67 @@ export interface PPPoECustomerImportResponse {
   parse_report?: PPPoECustomerImportReport;
 }
 
+// Static-IP customer import — POST /routers/{router_id}/static-customers/import
+// (multipart). apply=false is a dry-run preview; any row error means apply
+// creates nothing.
+export type StaticCustomerImportAction = 'create' | 'skip' | 'error';
+
+export interface StaticCustomerImportRow {
+  row: number;
+  name: string | null;
+  static_ip: string | null;
+  mac: string | null;
+  phone: string | null;
+  plan_label: string | null;
+  plan_id: number | null;
+  plan_name: string | null;
+  expiry: string | null;
+  status: 'active' | 'inactive' | null;
+  action: StaticCustomerImportAction;
+  reason: string | null;
+}
+
+export interface StaticCustomerImportPlanToCreate {
+  label: string;
+  name: string;
+  speed: string;
+  price: number;
+}
+
+export interface StaticCustomerImportSummary {
+  rows_total: number;
+  to_create: number;
+  skipped: number;
+  errors: number;
+  active: number;
+  inactive: number;
+  plans_to_create: number;
+}
+
+export interface StaticCustomerImportResponse {
+  success: boolean;
+  stage: 'parse' | 'import';
+  router_id: number;
+  router_name: string;
+  source_file: string;
+  dry_run: boolean;
+  summary: StaticCustomerImportSummary;
+  plans_to_create: StaticCustomerImportPlanToCreate[];
+  rows: StaticCustomerImportRow[];
+  warnings: Array<{ row: number | null; message: string }>;
+  created_customer_ids: number[];
+}
+
+export interface StaticCustomerImportOptions {
+  apply: boolean;
+  createMissingPlans?: boolean;
+  /** Required (> 0) when createMissingPlans is on. */
+  defaultPlanPrice?: number;
+  /** Sheet plan label → existing plan id. */
+  planMapping?: Record<string, number>;
+  sourceTimezone?: string;
+}
+
 // PPPoE Router Transfer — move PPPoE customers from one router to a replacement.
 // Mirrors POST /routers/{source_router_id}/pppoe-customers/transfer.
 export interface TransferPPPoERequest {
@@ -1201,7 +1325,7 @@ export interface CreatePlanRequest {
   price: number;
   duration_value: number;
   duration_unit: 'HOURS' | 'DAYS' | 'MINUTES';
-  connection_type: 'hotspot' | 'pppoe';
+  connection_type: ConnectionType;
   router_profile?: string;
   user_id?: number;
   plan_type?: PlanType;
@@ -1534,7 +1658,7 @@ export interface CustomerUsageTimeline {
 
 export interface CustomerUsageResponse {
   customer_id: number;
-  connection_type: 'hotspot' | 'pppoe' | null;
+  connection_type: ConnectionType | null;
   pppoe_username: string | null;
   plan_name: string | null;
   plan_data_cap_mb: number | null;
@@ -1617,7 +1741,7 @@ export interface RouterLivePort {
 export interface ResellerTopUsageEntry {
   customer_id: number;
   customer_name: string | null;
-  connection_type: 'hotspot' | 'pppoe' | null;
+  connection_type: ConnectionType | null;
   pppoe_username: string | null;
   identifier: string | null;
   plan_name: string;
@@ -2033,6 +2157,8 @@ export interface UptimeCheck {
   source: string;
   /** False for a failed connection made while the router was reporting: it cost no uptime. */
   counted_as_outage?: boolean;
+  /** Failed while the management tunnel was down but the site was online. */
+  in_tunnel_outage?: boolean;
 }
 
 export interface UptimeStats {
@@ -2049,6 +2175,13 @@ export interface UptimeOutage {
   started_at: string;
   ended_at: string | null;
   duration_seconds: number;
+}
+
+/** Bitwave could not reach the router, but it kept calling over the internet: the site was online. */
+export interface UptimeTunnelOutage extends UptimeOutage {
+  public_contacts: number;
+  first_contact_at: string;
+  last_contact_at: string;
 }
 
 export interface UptimeTimelineSlice {
@@ -2084,6 +2217,8 @@ export interface RouterUptimeResponse {
     last_check_at: string | null;
   };
   outages?: UptimeOutage[];
+  /** Not counted against uptime: the site was online, only the tunnel was down. */
+  tunnel_outages?: UptimeTunnelOutage[];
   timeline?: UptimeTimelineSlice[];
   recent_checks: UptimeCheck[];
 }
@@ -2408,6 +2543,24 @@ export interface LoginResponse {
   token_type: string;
   user: AuthUser;
   subscription_alert?: SubscriptionAlert;
+}
+
+/** POST /api/admin/impersonate/{reseller_id} — a read-only "View as reseller"
+ *  session. The token authenticates as the reseller; every write is refused
+ *  server-side with 403 `impersonation_read_only`. */
+export interface ImpersonationResponse {
+  access_token: string;
+  token_type: 'bearer' | string;
+  session_id: number;
+  /** ISO UTC with a trailing Z. Sessions last 30 minutes. */
+  expires_at: string;
+  read_only: true;
+  user: AuthUser;
+  impersonator: { id: number; email: string };
+}
+
+export interface EndImpersonationResponse {
+  ended: boolean;
 }
 
 export interface AuthState {
@@ -6161,10 +6314,25 @@ export interface OvesDbHost {
   status_check_failed: number | null;
 }
 
+export interface OvesHttpFailure {
+  method: string;
+  route: string;
+  status: number;
+  count: number;
+  bots: boolean;
+}
+
 export interface OvesTraffic {
   requests: number;
   status_5xx: number;
   p95_ms: number | null;
+  error_rate?: number | null;
+  real_requests?: number;
+  real_5xx?: number;
+  bot_5xx?: number;
+  real_error_rate?: number | null;
+  top_failures?: OvesHttpFailure[];
+  log_errors?: { message: string; count: number }[];
 }
 
 export interface OvesHealthResponse {

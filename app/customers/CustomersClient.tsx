@@ -30,6 +30,7 @@ import Pagination from '../components/Pagination';
 import { formatAmount } from '../lib/format';
 import { useT } from '../lib/i18n';
 import { phoneMatches } from '../lib/phoneSearch';
+import { connectionTypeLabel } from '../lib/connectionType';
 
 const TransferPPPoEModal = dynamic(() => import('../components/TransferPPPoEModal'), {
   ssr: false,
@@ -41,8 +42,13 @@ const PPPoEImportModal = dynamic(() => import('../components/PPPoEImportModal'),
   loading: () => null,
 });
 
+const StaticIpImportModal = dynamic(() => import('../components/StaticIpImportModal'), {
+  ssr: false,
+  loading: () => null,
+});
+
 type FilterStatus = 'all' | 'active' | 'inactive';
-type ConnectionFilter = 'all' | 'hotspot' | 'pppoe';
+type ConnectionFilter = 'all' | 'hotspot' | 'pppoe' | 'static_ip';
 
 const STORAGE_KEY_STATUS = 'customers.filter.status';
 const STORAGE_KEY_CONNECTION = 'customers.filter.connection';
@@ -69,7 +75,7 @@ function isRouterDown(liveness: RouterLiveness | undefined): boolean {
   return liveness?.reachable === false;
 }
 
-function getConnectionType(customer: Customer): 'hotspot' | 'pppoe' {
+function getConnectionType(customer: Customer): 'hotspot' | 'pppoe' | 'static_ip' {
   return customer.connection_type ?? customer.plan?.connection_type ?? 'hotspot';
 }
 
@@ -82,6 +88,7 @@ function canMonitorLive(customer: Customer): boolean {
   if (!routerId) return false;
   const connectionType = getConnectionType(customer);
   if (connectionType === 'pppoe') return Boolean(customer.pppoe_username);
+  if (connectionType === 'static_ip') return Boolean(customer.static_ip);
   return Boolean(normalizeMacForLookup(customer.mac_address));
 }
 
@@ -92,6 +99,7 @@ function getHotspotLiveForCustomer(
 ): HotspotMonitorUser | undefined {
   const pushed = pushLive?.get(customer.id);
   if (pushed) return pushLiveToMonitorUser(customer, pushed);
+  if (getConnectionType(customer) === 'static_ip') return undefined;
   return hotspotLive.get(`customer:${customer.id}`)
     ?? hotspotLive.get(normalizeMacForLookup(customer.mac_address));
 }
@@ -220,6 +228,7 @@ export default function CustomersPage() {
   const [refreshKey, setRefreshKey] = useState(0);
   const [showImportModal, setShowImportModal] = useState(false);
   const [showTransferModal, setShowTransferModal] = useState(false);
+  const [showStaticImportModal, setShowStaticImportModal] = useState(false);
 
   // Live PPPoE monitoring — composed silently across ALL the user's routers
   // by polling /pppoe/{router}/users in parallel; per-router failures are
@@ -254,7 +263,7 @@ export default function CustomersPage() {
   // tab or runs a search). Kept in its own state so the counts stay visible
   // on the tabs even after the user switches back to the "All" connection
   // view (which clears the cache to use server-side pagination).
-  const [connCounts, setConnCounts] = useState<{ pppoe: number; hotspot: number } | null>(null);
+  const [connCounts, setConnCounts] = useState<{ pppoe: number; hotspot: number; static_ip: number } | null>(null);
 
   const hasClientFilters = searchQuery.trim() !== '' || connectionFilter !== 'all';
 
@@ -267,7 +276,7 @@ export default function CustomersPage() {
         setFilter(savedStatus);
       }
       const savedConn = localStorage.getItem(STORAGE_KEY_CONNECTION);
-      if (savedConn === 'all' || savedConn === 'hotspot' || savedConn === 'pppoe') {
+      if (savedConn === 'all' || savedConn === 'hotspot' || savedConn === 'pppoe' || savedConn === 'static_ip') {
         setConnectionFilter(savedConn);
       }
     } catch {
@@ -300,6 +309,13 @@ export default function CustomersPage() {
   });
 
   const refreshData = useCallback(() => setRefreshKey(k => k + 1), []);
+
+  // After a static-IP import lands, show the new customers where they live.
+  const handleStaticImported = useCallback(() => {
+    setConnectionFilter('static_ip');
+    setPage(1);
+    refreshData();
+  }, [refreshData]);
 
   const prevSearchRef = useRef(searchQuery);
   const prevConnFilterRef = useRef(connectionFilter);
@@ -392,7 +408,8 @@ export default function CustomersPage() {
           phoneMatches(customer.phone, searchQuery) ||
           (customer.account_number || '').includes(query) ||
           (customer.mac_address?.toLowerCase() || '').includes(query) ||
-          (customer.pppoe_username?.toLowerCase() || '').includes(query)
+          (customer.pppoe_username?.toLowerCase() || '').includes(query) ||
+          (customer.static_ip || '').includes(query)
         );
       }
       return true;
@@ -408,11 +425,13 @@ export default function CustomersPage() {
     if (allCustomersCache.length === 0) return;
     let pppoe = 0;
     let hotspot = 0;
+    let static_ip = 0;
     for (const c of allCustomersCache) {
       if (getConnectionType(c) === 'pppoe') pppoe++;
+      else if (getConnectionType(c) === 'static_ip') static_ip++;
       else hotspot++;
     }
-    setConnCounts({ pppoe, hotspot });
+    setConnCounts({ pppoe, hotspot, static_ip });
   }, [allCustomersCache]);
 
   // Status pill counts must reflect the current connection tab. On the
@@ -620,7 +639,7 @@ export default function CustomersPage() {
     if (displayedCustomers.length === 0) return;
     const targets = displayedCustomers.filter((c) => {
       const connectionType = getConnectionType(c);
-      return connectionType === 'pppoe' || connectionType === 'hotspot';
+      return connectionType === 'pppoe' || connectionType === 'hotspot' || connectionType === 'static_ip';
     });
     if (targets.length === 0) return;
 
@@ -791,8 +810,17 @@ export default function CustomersPage() {
     if (!activateModal) return;
     try {
       setActionLoading(true);
-      await api.activatePPPoE(activateModal.id, activateForm);
-      showAlert('success', `${activateModal.name} activated successfully`);
+      if (getConnectionType(activateModal) === 'static_ip') {
+        const result = await api.activateStatic(activateModal.id, activateForm);
+        if (result.router_result === 'ok') {
+          showAlert('success', `${activateModal.name} activated successfully`);
+        } else {
+          showAlert('warning', `Payment recorded, but the router was not updated yet: ${result.router_error || 'unreachable'}. It will retry automatically.`);
+        }
+      } else {
+        await api.activatePPPoE(activateModal.id, activateForm);
+        showAlert('success', `${activateModal.name} activated successfully`);
+      }
       setActivateModal(null);
       setActivateForm({ payment_method: 'cash', payment_reference: '', notes: '' });
       refreshData();
@@ -807,8 +835,17 @@ export default function CustomersPage() {
     if (!deactivateConfirm) return;
     try {
       setActionLoading(true);
-      await api.deactivatePPPoE(deactivateConfirm.id);
-      showAlert('success', `${deactivateConfirm.name} deactivated`);
+      if (getConnectionType(deactivateConfirm) === 'static_ip') {
+        const result = await api.suspendStatic(deactivateConfirm.id);
+        if (result.router_result === 'ok') {
+          showAlert('success', `${deactivateConfirm.name} suspended`);
+        } else {
+          showAlert('warning', `Suspended, but the router was not updated yet: ${result.router_error || 'unreachable'}. It will retry automatically.`);
+        }
+      } else {
+        await api.deactivatePPPoE(deactivateConfirm.id);
+        showAlert('success', `${deactivateConfirm.name} deactivated`);
+      }
       setDeactivateConfirm(null);
       refreshData();
     } catch (err) {
@@ -889,6 +926,20 @@ export default function CustomersPage() {
               <span className="hidden sm:inline">{t('Import PPPoE')}</span>
               <span className="sm:hidden">{t('Import')}</span>
             </button>
+            <button
+              type="button"
+              onClick={() => setShowStaticImportModal(true)}
+              aria-label={t('Import Static IP')}
+              title={t('Import Static IP')}
+              className="btn-secondary flex items-center gap-2 whitespace-nowrap shrink-0"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 16V4m0 0l-4 4m4-4l4 4M4 20h16" />
+              </svg>
+              {/* Four header actions crowd the title below 1536px: short label there. */}
+              <span className="hidden 2xl:inline">{t('Import Static IP')}</span>
+              <span className="2xl:hidden">{t('Static IP')}</span>
+            </button>
             <Link
               href="/customers/register"
               className="btn-primary flex items-center gap-2 whitespace-nowrap shrink-0"
@@ -902,6 +953,32 @@ export default function CustomersPage() {
           </div>
         }
       />
+
+      {/* Mobile bulk actions — the Header action slot is desktop-only, so the
+          move/import tools get their own compact row on phones. */}
+      <div className="md:hidden grid grid-cols-3 gap-2 mb-4" data-testid="customers-mobile-actions">
+        <button
+          type="button"
+          onClick={() => setShowTransferModal(true)}
+          className="btn-secondary !px-2 !py-2 !text-xs flex items-center justify-center gap-1.5 leading-tight active:opacity-70 touch-manipulation"
+        >
+          {t('Move PPPoE')}
+        </button>
+        <button
+          type="button"
+          onClick={() => setShowImportModal(true)}
+          className="btn-secondary !px-2 !py-2 !text-xs flex items-center justify-center gap-1.5 leading-tight active:opacity-70 touch-manipulation"
+        >
+          {t('Import PPPoE')}
+        </button>
+        <button
+          type="button"
+          onClick={() => setShowStaticImportModal(true)}
+          className="btn-secondary !px-2 !py-2 !text-xs flex items-center justify-center gap-1.5 leading-tight active:opacity-70 touch-manipulation"
+        >
+          {t('Import Static IP')}
+        </button>
+      </div>
 
       {/* Summary Stats */}
       {totalAll > 0 && (
@@ -974,6 +1051,16 @@ export default function CustomersPage() {
               </svg>
             ),
           },
+          {
+            value: 'static_ip',
+            label: t('Static IP'),
+            count: connCounts?.static_ip,
+            icon: (
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01" />
+              </svg>
+            ),
+          },
         ]}
       />
 
@@ -984,7 +1071,7 @@ export default function CustomersPage() {
             <SearchInput
               value={searchQuery}
               onChange={setSearchQuery}
-              placeholder={t('Search by name, phone, account number, MAC, or PPPoE username...')}
+              placeholder={t('Search by name, phone, account number, MAC, IP, or PPPoE username...')}
             />
           </div>
         </div>
@@ -1042,7 +1129,7 @@ export default function CustomersPage() {
               const live: LiveMonitorUser | undefined = connectionType === 'pppoe'
                 ? getPPPoELiveForCustomer(customer, pppoeLive, pushLive)
                 : getHotspotLiveForCustomer(customer, hotspotLive, pushLive);
-              const liveLoaded = (connectionType === 'pppoe' ? pppoeLiveLoaded : hotspotLiveLoaded) || pushLive.has(customer.id);
+              const liveLoaded = (connectionType === 'pppoe' ? pppoeLiveLoaded : connectionType === 'hotspot' ? hotspotLiveLoaded : false) || pushLive.has(customer.id);
               const liveMonitorable = canMonitorLive(customer);
               const usage = usageMap.get(customer.id);
               const liveness = routerLiveness.get(customer.router_id ?? customer.router?.id ?? -1);
@@ -1062,6 +1149,7 @@ export default function CustomersPage() {
                         {customer.pppoe_username && (
                           <p className="text-xs font-mono text-foreground-muted">{customer.pppoe_username}</p>
                         )}
+                        {connectionType === 'static_ip' && <p className="text-xs font-mono text-foreground-muted">Static IP · {customer.static_ip}</p>}
                       </div>
                     </div>
                   );
@@ -1307,6 +1395,28 @@ export default function CustomersPage() {
                           )}
                         </>
                       )}
+                      {getConnectionType(customer) === 'static_ip' && (customer.status === 'inactive' || customer.status === 'expired') && (
+                        <button
+                          onClick={() => setActivateModal(customer)}
+                          className="p-1.5 rounded-md hover:bg-success/10 transition-colors text-success"
+                          title={t('Activate static IP')}
+                        >
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M5.636 18.364a9 9 0 010-12.728m12.728 0a9 9 0 010 12.728M9.172 14.828a4 4 0 010-5.656m5.656 0a4 4 0 010 5.656M12 12h.01" />
+                          </svg>
+                        </button>
+                      )}
+                      {getConnectionType(customer) === 'static_ip' && customer.status === 'active' && (
+                        <button
+                          onClick={() => setDeactivateConfirm(customer)}
+                          className="p-1.5 rounded-md hover:bg-danger/10 transition-colors text-danger"
+                          title={t('Suspend static IP')}
+                        >
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                          </svg>
+                        </button>
+                      )}
                     </div>
                   );
                 default:
@@ -1346,7 +1456,7 @@ export default function CustomersPage() {
                 const liveCard: LiveMonitorUser | undefined = connectionTypeCard === 'pppoe'
                   ? getPPPoELiveForCustomer(customer, pppoeLive, pushLive)
                   : getHotspotLiveForCustomer(customer, hotspotLive, pushLive);
-                const liveLoadedCard = (connectionTypeCard === 'pppoe' ? pppoeLiveLoaded : hotspotLiveLoaded) || pushLive.has(customer.id);
+                const liveLoadedCard = (connectionTypeCard === 'pppoe' ? pppoeLiveLoaded : connectionTypeCard === 'hotspot' ? hotspotLiveLoaded : false) || pushLive.has(customer.id);
                 const liveMonitorableCard = canMonitorLive(customer);
                 const usageCard = usageMap.get(customer.id);
                 const livenessCard = routerLiveness.get(customer.router_id ?? customer.router?.id ?? -1);
@@ -1364,7 +1474,7 @@ export default function CustomersPage() {
                   key={customer.id}
                   id={customer.id}
                   title={customer.name || t('Unknown')}
-                  subtitle={customer.account_number ? `4159825 — ${customer.account_number}` : (customer.pppoe_username || customer.phone || undefined)}
+                  subtitle={connectionTypeCard === 'static_ip' ? `Static IP · ${customer.static_ip}` : customer.account_number ? `4159825 — ${customer.account_number}` : (customer.pppoe_username || customer.phone || undefined)}
                   avatar={{
                     text: (customer.name || '?').charAt(0).toUpperCase(),
                     color: routerDownCard
@@ -1391,7 +1501,7 @@ export default function CustomersPage() {
                         : { label: t('Offline'), variant: 'neutral' as const }
                       : connectionTypeCard === 'pppoe'
                       ? { label: 'PPPoE', variant: 'info' as const }
-                      : { label: 'Hotspot', variant: 'neutral' as const }
+                      : { label: connectionTypeLabel(connectionTypeCard), variant: 'neutral' as const }
                   }
                   status={{
                     label: t(customer.status),
@@ -1484,7 +1594,7 @@ export default function CustomersPage() {
                           </svg>
                         </button>
                       )}
-                      {getConnectionType(customer) === 'pppoe' && (customer.status === 'inactive' || customer.status === 'expired') && (
+                      {(getConnectionType(customer) === 'pppoe' || getConnectionType(customer) === 'static_ip') && (customer.status === 'inactive' || customer.status === 'expired') && (
                         <button
                           onClick={(e) => { e.preventDefault(); e.stopPropagation(); setActivateModal(customer); }}
                           className="p-1.5 rounded-md hover:bg-success/10 transition-colors text-success active:opacity-70"
@@ -1495,11 +1605,11 @@ export default function CustomersPage() {
                           </svg>
                         </button>
                       )}
-                      {getConnectionType(customer) === 'pppoe' && customer.status === 'active' && (
+                      {(getConnectionType(customer) === 'pppoe' || getConnectionType(customer) === 'static_ip') && customer.status === 'active' && (
                         <button
                           onClick={(e) => { e.preventDefault(); e.stopPropagation(); setDeactivateConfirm(customer); }}
                           className="p-1.5 rounded-md hover:bg-danger/10 transition-colors text-danger active:opacity-70"
-                          title={t('Deactivate')}
+                          title={getConnectionType(customer) === 'static_ip' ? t('Suspend') : t('Deactivate')}
                         >
                           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                             <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
@@ -1540,6 +1650,14 @@ export default function CustomersPage() {
         <PPPoEImportModal
           onClose={() => setShowImportModal(false)}
           onImported={refreshData}
+        />
+      )}
+
+      {/* Static IP Import Modal */}
+      {showStaticImportModal && (
+        <StaticIpImportModal
+          onClose={() => setShowStaticImportModal(false)}
+          onImported={handleStaticImported}
         />
       )}
 
@@ -1599,9 +1717,12 @@ export default function CustomersPage() {
       {activateModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={() => setActivateModal(null)}>
           <div className="card p-6 w-full max-w-sm space-y-4" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-lg font-semibold text-foreground">Activate PPPoE</h3>
+            <h3 className="text-lg font-semibold text-foreground">
+              {getConnectionType(activateModal) === 'static_ip' ? 'Activate static IP' : 'Activate PPPoE'}
+            </h3>
             <p className="text-sm text-foreground-muted">
-              Activate <span className="font-medium text-foreground">{activateModal.name}</span> &mdash; records payment, sets expiry, and provisions the secret on the router.
+              Activate <span className="font-medium text-foreground">{activateModal.name}</span> &mdash; records payment, sets expiry, and{' '}
+              {getConnectionType(activateModal) === 'static_ip' ? 'opens access for the IP on the router.' : 'provisions the secret on the router.'}
             </p>
             <div className="space-y-3">
               <div>
@@ -1655,9 +1776,15 @@ export default function CustomersPage() {
       {deactivateConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={() => setDeactivateConfirm(null)}>
           <div className="card p-6 w-full max-w-sm space-y-4" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-lg font-semibold text-foreground">Deactivate PPPoE</h3>
+            <h3 className="text-lg font-semibold text-foreground">
+              {getConnectionType(deactivateConfirm) === 'static_ip' ? 'Suspend static IP' : 'Deactivate PPPoE'}
+            </h3>
             <p className="text-sm text-foreground-muted">
-              This will disconnect <span className="font-medium text-foreground">{deactivateConfirm.name}</span>&apos;s active session and remove the PPPoE secret from the router.
+              {getConnectionType(deactivateConfirm) === 'static_ip' ? (
+                <><span className="font-medium text-foreground">{deactivateConfirm.name}</span> loses internet now and sees the payment page until a payment is recorded.</>
+              ) : (
+                <>This will disconnect <span className="font-medium text-foreground">{deactivateConfirm.name}</span>&apos;s active session and remove the PPPoE secret from the router.</>
+              )}
             </p>
             <div className="flex gap-3 pt-2">
               <button onClick={() => setDeactivateConfirm(null)} className="btn-secondary flex-1">Cancel</button>
@@ -1668,6 +1795,8 @@ export default function CustomersPage() {
               >
                 {actionLoading ? (
                   <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : getConnectionType(deactivateConfirm) === 'static_ip' ? (
+                  'Suspend'
                 ) : (
                   'Deactivate'
                 )}
@@ -1701,6 +1830,7 @@ export default function CustomersPage() {
             <p className="text-sm text-foreground-muted text-center">
               Are you sure you want to delete <span className="font-medium text-foreground">{deleteConfirm.name}</span>? This action cannot be undone.
               {getConnectionType(deleteConfirm) === 'pppoe' && ' Any active PPPoE session will be de-provisioned from the router.'}
+              {getConnectionType(deleteConfirm) === 'static_ip' && ' Static-IP access must be removed from the router before this record can be deleted.'}
             </p>
             <div className="flex gap-3 pt-2">
               <button onClick={() => setDeleteConfirm(null)} className="btn-secondary flex-1">Cancel</button>

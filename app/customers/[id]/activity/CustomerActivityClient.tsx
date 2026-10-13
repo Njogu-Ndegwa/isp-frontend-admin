@@ -13,6 +13,7 @@ import FilterPills from '../../../components/FilterPills';
 import DateTimePicker from '../../../components/DateTimePicker';
 import { explainRouterLog } from '../../../lib/routerLogHints';
 import { formatAmount } from '../../../lib/format';
+import { connectionTypeLabel } from '../../../lib/connectionType';
 import {
   formatGMT3Date, formatTimeSinceUTC, gmt3InputToISO, parseUTCToGMT3,
 } from '../../../lib/dateUtils';
@@ -491,7 +492,7 @@ export default function CustomerActivityClient() {
               </SummaryTile>
               <SummaryTile label="Plan">
                 <span className="truncate block">{customer.plan ?? '—'}</span>
-                <SummaryHint>{isPPPoE ? 'PPPoE' : customer.connection_type === 'hotspot' ? 'Hotspot' : '—'}</SummaryHint>
+                <SummaryHint>{customer.connection_type ? connectionTypeLabel(customer.connection_type) : '—'}</SummaryHint>
               </SummaryTile>
               <SummaryTile label="Router">
                 <span className="truncate block">{customer.router_name ?? '—'}</span>

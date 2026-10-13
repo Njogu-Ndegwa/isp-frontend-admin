@@ -1907,7 +1907,10 @@ function UptimePanel({ data }: { data: RouterUptimeResponse }) {
     return () => ro.disconnect();
   }, [hasTimeline]);
   const timeline = fitTimeline(data.timeline ?? [], barWidth);
-  const ignoredFailures = data.recent_checks.filter((c) => !c.is_online && c.counted_as_outage === false).length;
+  const tunnelOutages = [...(data.tunnel_outages ?? [])].reverse();
+  const ignoredFailures = data.recent_checks.filter(
+    (c) => !c.is_online && c.counted_as_outage === false && !c.in_tunnel_outage,
+  ).length;
 
   const formatTime = (dateStr: string | null | undefined) => {
     if (!dateStr) return '-';
@@ -2027,6 +2030,28 @@ function UptimePanel({ data }: { data: RouterUptimeResponse }) {
                   {formatTime(o.started_at)} → {o.ended_at ? formatTime(o.ended_at) : 'still down'}
                 </span>
                 <span className={o.ended_at ? 'text-foreground-muted' : 'text-red-400 font-medium'}>
+                  {formatDowntime(o.duration_seconds)}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {tunnelOutages.length > 0 && (
+        <div>
+          <p className="text-xs font-medium text-foreground-muted mb-1">Management tunnel down, site online</p>
+          <p className="text-[11px] text-foreground-muted mb-2 leading-relaxed">
+            The router kept reaching Bitwave over the internet, but Bitwave could not reach it. Customers already
+            connected stayed online; new payments and changes waited for the tunnel. Not counted as downtime.
+          </p>
+          <ul className="divide-y divide-border rounded-lg bg-background-tertiary/50">
+            {tunnelOutages.slice(0, 8).map((o) => (
+              <li key={o.started_at} className="flex items-center justify-between gap-3 px-3 py-2 text-xs">
+                <span className="text-foreground">
+                  {formatTime(o.started_at)} → {o.ended_at ? formatTime(o.ended_at) : 'still down'}
+                </span>
+                <span className={o.ended_at ? 'text-foreground-muted' : 'text-amber-400 font-medium'}>
                   {formatDowntime(o.duration_seconds)}
                 </span>
               </li>
