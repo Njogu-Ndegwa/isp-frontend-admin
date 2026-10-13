@@ -5,6 +5,7 @@ import { api } from '../../lib/api';
 import type { PPPoECustomerPresenceResponse } from '../../lib/types';
 import PPPoEDeviceList from '../../components/PPPoEDeviceList';
 import PPPoEDiagnoseDialog from '../../components/PPPoEDiagnoseDialog';
+import DeviceLimitEditor from './DeviceLimitEditor';
 
 // Verdict codes from /api/pppoe/customers/{id}/presence. Anything not listed
 // as fine is a problem on our side that support should fix before blaming the
@@ -28,6 +29,7 @@ export default function ConnectedDevicesPanel({ customerId }: { customerId: numb
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [diagnosing, setDiagnosing] = useState(false);
+  const [editingLimit, setEditingLimit] = useState(false);
 
   const load = useCallback(async (refresh: boolean) => {
     try {
@@ -134,6 +136,38 @@ export default function ConnectedDevicesPanel({ customerId }: { customerId: numb
                 )}
               </p>
             </div>
+          )}
+
+          {presence.device_limit && (
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-foreground-muted">
+              <span>
+                Up to <span className="font-semibold text-foreground">{presence.device_limit.max_devices}</span>{' '}
+                device{presence.device_limit.max_devices === 1 ? '' : 's'} on this login
+                {presence.device_limit.max_devices_override !== null
+                  ? ` (set for this customer; plan allows ${presence.device_limit.plan_max_devices})`
+                  : ' (from the plan)'}
+              </span>
+              {!editingLimit && (
+                <button
+                  type="button"
+                  onClick={() => setEditingLimit(true)}
+                  className="font-medium text-accent-primary hover:underline"
+                >
+                  Change device limit
+                </button>
+              )}
+            </div>
+          )}
+          {editingLimit && presence.device_limit && (
+            <DeviceLimitEditor
+              customerId={customerId}
+              planMaxDevices={presence.device_limit.plan_max_devices}
+              overrideMaxDevices={presence.device_limit.max_devices_override}
+              maxDevices={presence.device_limit.max_devices}
+              note="Saving updates the router now; the customer's devices reconnect once. A device beyond the limit is refused when it dials, and devices already online stay on."
+              onSaved={() => { setEditingLimit(false); load(true); }}
+              onCancel={() => setEditingLimit(false)}
+            />
           )}
         </>
       )}

@@ -2872,6 +2872,9 @@ export function demoPPPoECustomerPresence(customerId: number): PPPoECustomerPres
     },
     router: { id: c.router.id, name: c.router.name },
     speed_enforcement: { expected_rate_limit: planSpeed, profile_rate_limit: planSpeed },
+    device_limit: multi
+      ? { plan_max_devices: 1, max_devices_override: DEMO_MULTI_DEVICE_COUNT, max_devices: DEMO_MULTI_DEVICE_COUNT }
+      : { plan_max_devices: 1, max_devices_override: null, max_devices: 1 },
     mikrotik: {
       present_on_router: true,
       online,

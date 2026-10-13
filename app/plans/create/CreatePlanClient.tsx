@@ -59,8 +59,9 @@ export default function CreatePlanPage() {
   }, []);
 
   const isPPPoE = formData.connection_type === 'pppoe';
-  // One device per subscription: sharing does not apply to PPPoE or static IP.
-  const noSharing = isPPPoE || formData.connection_type === 'static_ip';
+  // One device per subscription on static IP. Hotspot and PPPoE plans can
+  // cover several devices (PPPoE: several logins with the same username).
+  const noSharing = formData.connection_type === 'static_ip';
   const isFreeTrial = formData.plan_type === 'free_trial';
   const dataCapMb = dataCapInputToMb(dataCapValue, dataCapUnit);
 
@@ -247,7 +248,7 @@ export default function CreatePlanPage() {
                     setFormData({
                       ...formData,
                       connection_type: connectionType,
-                      max_shared_users: connectionType !== 'hotspot' ? 1 : (formData.max_shared_users ?? 1),
+                      max_shared_users: connectionType === 'static_ip' ? 1 : (formData.max_shared_users ?? 1),
                     });
                   }}
                   className="select"
@@ -338,7 +339,9 @@ export default function CreatePlanPage() {
                 <p className="mt-1 text-xs text-foreground-muted">
                   {isFreeTrial
                     ? 'Devices one claimed trial covers. 1 = only the device that claimed it.'
-                    : '1 disables sharing. 2 allows the owner plus one extra device.'}
+                    : isPPPoE
+                      ? 'Devices that can be online at once with the same PPPoE username and password. Each gets the full plan speed; the data cap is shared.'
+                      : '1 disables sharing. 2 allows the owner plus one extra device.'}
                 </p>
               </div>
             )}

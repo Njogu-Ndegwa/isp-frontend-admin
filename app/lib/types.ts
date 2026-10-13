@@ -3338,6 +3338,8 @@ export interface CustomerDeviceLimitResponse {
   max_devices_override: number | null;
   max_devices: number;
   plan_max_devices: number;
+  /** PPPoE only: whether the new limit was pushed to the router now. */
+  router_update?: 'applied' | 'failed' | null;
 }
 
 /** GET /api/pppoe/customers/{id}/presence — the fields the UI reads. */
@@ -3356,6 +3358,12 @@ export interface PPPoECustomerPresenceResponse {
   speed_enforcement: {
     expected_rate_limit: string;
     profile_rate_limit: string;
+  };
+  /** Devices this login may use at once (absent on older backends). */
+  device_limit?: {
+    plan_max_devices: number;
+    max_devices_override: number | null;
+    max_devices: number;
   };
   mikrotik: {
     present_on_router: boolean;

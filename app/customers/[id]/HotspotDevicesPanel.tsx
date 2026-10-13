@@ -8,6 +8,7 @@ import { formatBps } from '../../lib/live';
 import { useAlert } from '../../context/AlertContext';
 import ConfirmDialog from '../../components/ConfirmDialog';
 import { formatUsageMb } from './usageFormat';
+import DeviceLimitEditor from './DeviceLimitEditor';
 
 const MAC_PATTERN = /^([0-9A-Fa-f]{2}[:-]?){5}[0-9A-Fa-f]{2}$/;
 
@@ -32,7 +33,6 @@ export default function HotspotDevicesPanel({ customerId }: { customerId: number
   const [saving, setSaving] = useState(false);
 
   const [editingLimit, setEditingLimit] = useState(false);
-  const [limitInput, setLimitInput] = useState('');
 
   const [removing, setRemoving] = useState<CustomerDevice | null>(null);
   const [removeBusy, setRemoveBusy] = useState(false);
@@ -73,20 +73,6 @@ export default function HotspotDevicesPanel({ customerId }: { customerId: number
       await load();
     } catch (err) {
       showAlert('error', err instanceof Error ? err.message : 'Could not add the device');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const saveLimit = async (value: number | null) => {
-    try {
-      setSaving(true);
-      await api.setCustomerDeviceLimit(ownerId, value);
-      showAlert('success', value === null ? 'Back to the plan’s device limit' : `This customer can now use ${value} device${value === 1 ? '' : 's'}`);
-      setEditingLimit(false);
-      await load();
-    } catch (err) {
-      showAlert('error', err instanceof Error ? err.message : 'Could not change the limit');
     } finally {
       setSaving(false);
     }
@@ -210,7 +196,7 @@ export default function HotspotDevicesPanel({ customerId }: { customerId: number
           {!editingLimit && (
             <button
               type="button"
-              onClick={() => { setLimitInput(String(data.max_devices)); setEditingLimit(true); }}
+              onClick={() => setEditingLimit(true)}
               className="text-sm font-medium text-foreground-muted hover:text-foreground hover:underline"
             >
               Change device limit
@@ -258,46 +244,15 @@ export default function HotspotDevicesPanel({ customerId }: { customerId: number
       )}
 
       {editingLimit && data && (
-        <div className="rounded-lg border border-border p-3 space-y-2">
-          <label className="block text-xs text-foreground-muted" htmlFor="device-limit-input">
-            Devices this customer can use (plan allows {data.plan_max_devices})
-          </label>
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="w-24">
-              <input
-                id="device-limit-input"
-                type="number"
-                min={1}
-                max={50}
-                className="input"
-                value={limitInput}
-                onChange={(e) => setLimitInput(e.target.value)}
-              />
-            </div>
-            <button
-              type="button"
-              disabled={saving}
-              onClick={() => {
-                const n = Math.max(1, Math.min(50, parseInt(limitInput, 10) || 1));
-                saveLimit(n === data.plan_max_devices ? null : n);
-              }}
-              className="btn-primary text-sm"
-            >
-              Save
-            </button>
-            {data.max_devices_override !== null && (
-              <button type="button" disabled={saving} onClick={() => saveLimit(null)} className="btn-secondary text-sm">
-                Use plan limit
-              </button>
-            )}
-            <button type="button" disabled={saving} onClick={() => setEditingLimit(false)} className="text-sm text-foreground-muted hover:underline">
-              Cancel
-            </button>
-          </div>
-          <p className="text-xs text-foreground-muted">
-            Lowering it does not disconnect anyone now; extra devices are released at the next renewal, newest first.
-          </p>
-        </div>
+        <DeviceLimitEditor
+          customerId={ownerId}
+          planMaxDevices={data.plan_max_devices}
+          overrideMaxDevices={data.max_devices_override}
+          maxDevices={data.max_devices}
+          note="Lowering it does not disconnect anyone now; extra devices are released at the next renewal, newest first."
+          onSaved={() => { setEditingLimit(false); load(); }}
+          onCancel={() => setEditingLimit(false)}
+        />
       )}
 
       <ConfirmDialog
