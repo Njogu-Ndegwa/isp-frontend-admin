@@ -889,6 +889,13 @@ function EditPlanModal({
                   placeholder="e.g., 5M/2M"
                 />
                 <SpeedInputHint value={formData.speed} />
+                {formData.speed !== plan.speed && (formData.connection_type === 'pppoe' || formData.connection_type === 'hotspot') && (
+                  <p className="mt-1 text-xs text-foreground-muted">
+                    {formData.connection_type === 'pppoe'
+                      ? 'Active customers on this plan get the new speed right after saving; their devices reconnect once.'
+                      : 'Active customers get the new speed within about 2 hours, as each router is checked.'}
+                  </p>
+                )}
               </div>
             </div>
 
