@@ -276,6 +276,7 @@ export const FR: Record<string, string> = {
   'updated {minutes}m ago': 'mis à jour il y a {minutes} min',
   'snapshot': 'instantané',
   'Hotspot users — {age}': 'Utilisateurs hotspot — {age}',
+  'Static IP users — {age}': 'Utilisateurs IP fixe — {age}',
   'PPPoE users — live count': 'Utilisateurs PPPoE — décompte en direct',
   'live': 'en direct',
   '{count} active • online': '{count} actifs • en ligne',
