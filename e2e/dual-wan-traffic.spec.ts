@@ -40,7 +40,8 @@ async function openDashboard(page: Page, mode: 'flowing' | 'missing' | 'stale' |
     await route.fulfill({ json: body });
   });
   await page.goto('/dashboard');
-  await expect(page.getByRole('region', { name: 'Internet links' })).toBeVisible();
+  await expect(page.getByRole('button', { name: /ether2 · (Uplink|Down)/ })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Internet links' })).toHaveCount(0);
 }
 
 test('shows each modem rate, recognizes WAN2, and refreshes without live sampling', async ({ page }) => {
@@ -49,16 +50,18 @@ test('shows each modem rate, recognizes WAN2, and refreshes without live samplin
   const requests: string[] = [];
   page.on('request', request => requests.push(request.url()));
   await openDashboard(page);
-  await expect(page.getByTestId('ether1-wan-download')).toHaveText('80.0 Mbps');
-  await expect(page.getByTestId('ether2-wan-download')).toHaveText('76.0 Mbps');
-  await expect(page.getByTestId('ether2-wan-upload')).toHaveText('3.9 Mbps');
-  await expect(page.getByText('Traffic flowing', { exact: true })).toHaveCount(2);
-  await page.getByRole('button', { name: 'WAN 2 · ether2', exact: true }).click();
+  await expect(page.getByLabel('Ether2 traffic', { exact: true })).toBeHidden();
+  await page.getByRole('button', { name: /ether1 · Uplink/ }).click();
+  await expect(page.getByTestId('ether1-incoming-rate')).toHaveText('80.0 Mbps');
+  await page.getByRole('button', { name: /ether2 · Uplink/ }).click();
+  await expect(page.getByTestId('ether2-incoming-rate')).toHaveText('76.0 Mbps');
+  await expect(page.getByTestId('ether2-outgoing-rate')).toHaveText('3.9 Mbps');
+  await expect(page.getByLabel('Ether1 traffic', { exact: true })).toBeHidden();
   await expect(page.getByText('WAN uplink — brings the internet into this router.')).toBeVisible();
   await expect(page.getByRole('button', { name: /ether2 · Uplink/ })).toBeVisible();
   await expect(page.getByText('0 devices ·', { exact: false })).toHaveCount(0);
   await page.getByRole('button', { name: 'Refresh dashboard' }).click();
-  await expect(page.getByTestId('ether2-wan-download')).toHaveText('76.0 Mbps');
+  await expect(page.getByTestId('ether2-incoming-rate')).toHaveText('76.0 Mbps');
   expect(requests.filter(url => url.includes('/uplink-traffic'))).toHaveLength(0);
   expect(errors).toEqual([]);
 });
@@ -66,17 +69,21 @@ test('shows each modem rate, recognizes WAN2, and refreshes without live samplin
 for (const mode of ['missing', 'stale', 'down'] as const) {
   test(`${mode} report does not claim WAN2 is carrying traffic`, async ({ page }) => {
     await openDashboard(page, mode);
-    const card = page.getByLabel('WAN 2 · ether2', { exact: true });
-    await expect(card.getByText('Traffic flowing', { exact: true })).toHaveCount(0);
-    await expect(card.getByText(mode === 'missing' ? 'Waiting for traffic report' : mode === 'stale' ? 'Report is stale' : 'Link down', { exact: true })).toBeVisible();
-    if (mode !== 'stale') await expect(page.getByTestId('ether2-wan-download')).toHaveText('—');
+    await page.getByRole('button', { name: /ether2 · (Uplink|Down)/ }).click();
+    if (mode === 'down') {
+      await expect(page.getByText('No physical link on this port.')).toBeVisible();
+      await expect(page.getByLabel('Ether2 traffic', { exact: true })).toBeHidden();
+    } else {
+      const panel = page.getByLabel('Ether2 traffic', { exact: true });
+      await expect(panel.getByText(mode === 'missing' ? /No stored router report yet/ : /This report is stale/)).toBeVisible();
+      if (mode === 'missing') await expect(page.getByTestId('ether2-incoming-rate')).toHaveText('—');
+    }
   });
 }
 
-test('WAN cards and all five mobile navigation items remain usable after scrolling', async ({ page }) => {
+test('selected ether2 bandwidth and mobile navigation remain usable after scrolling', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await openDashboard(page);
-  await expect(page.getByTestId('ether2-wan-download')).toHaveText('76.0 Mbps');
   const nav = page.locator('nav.fixed.bottom-0');
   for (const y of [1800, 0]) {
     await page.evaluate(y => window.scrollTo(0, y), y);
@@ -88,12 +95,14 @@ test('WAN cards and all five mobile navigation items remain usable after scrolli
     await expect(links).toHaveCount(5);
     for (const link of await links.all()) await link.click({ trial: true });
   }
-  await page.getByRole('button', { name: 'WAN 2 · ether2', exact: true }).click();
+  await page.getByRole('button', { name: /ether2 · Uplink/ }).click();
+  await expect(page.getByTestId('ether2-incoming-rate')).toHaveText('76.0 Mbps');
   await expect(page.getByRole('button', { name: /ether2 · Uplink/ })).toHaveAttribute('aria-pressed', 'true');
   expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
   if (process.env.WAN_SCREENSHOT_DIR) {
-    await page.getByRole('region', { name: 'Internet links' }).evaluate(el => window.scrollBy(0, el.getBoundingClientRect().top - 190));
-    await page.screenshot({ path: `${process.env.WAN_SCREENSHOT_DIR}/wan-links-mobile.png` });
+    await page.addStyleTag({ content: 'html { scroll-behavior: auto !important; }' });
+    await page.getByLabel('Ether2 traffic', { exact: true }).evaluate(el => window.scrollBy(0, el.getBoundingClientRect().top - 400));
+    await page.screenshot({ path: `${process.env.WAN_SCREENSHOT_DIR}/ether2-bandwidth-mobile.png` });
   }
   await page.getByRole('button', { name: 'Open navigation menu' }).click();
   const diagnostics = page.getByRole('link', { name: 'Diagnostics', exact: true }).filter({ visible: true });

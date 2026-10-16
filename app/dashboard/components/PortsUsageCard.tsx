@@ -7,7 +7,7 @@ import PortFaceplate, { isUplinkPort, portVisualStatus } from '../../components/
 import { formatAmountCompact } from '../../lib/format';
 import { useT } from '../../lib/i18n';
 import { DownloadUsageBody } from './DownloadUsageSection';
-import WanLinksPanel from './WanLinksPanel';
+import { wanTraffic } from '../../lib/wanTraffic';
 import type { RouterLive } from '../../lib/types';
 import type { DateFilter } from '../dateFilter';
 import type {
@@ -27,9 +27,10 @@ import {
 
 type Mode = 'ports' | 'usage';
 type ReportedTraffic = {
-  rxBps: number;
-  txBps: number;
+  rxBps: number | null;
+  txBps: number | null;
   ageSeconds: number | null;
+  stale?: boolean;
 };
 
 const STATUS_BADGES: Record<string, { label: string; badge: string }> = {
@@ -216,10 +217,6 @@ function PortsBody({
 
   return (
     <div>
-      {wanPorts && (
-        <WanLinksPanel routerId={routerId} wanPorts={wanPorts} ports={data.ports}
-          report={wanReport ?? null} onSelect={onSelectPort} />
-      )}
       <PortFaceplate
         ports={data.ports}
         selectedPort={effectiveSelected}
@@ -244,30 +241,32 @@ function PortsBody({
           port={selected}
           detailsHref={detailsHref}
           tiered={tiered}
-          reportedTraffic={reportedTraffic}
-          showUplinkTraffic={!wanPorts}
+          reportedTraffic={wanPorts
+            ? wanTraffic(wanReport ?? null, routerId, selected.port)
+            : selected.port === 'ether1' ? reportedTraffic : null}
         />
       )}
     </div>
   );
 }
 
-function UplinkTrafficPanel({ reportedData }: { reportedData: ReportedTraffic | null }) {
+function UplinkTrafficPanel({ portName, reportedData }: { portName: string; reportedData: ReportedTraffic | null }) {
   const rxBps = reportedData?.rxBps;
   const txBps = reportedData?.txBps;
   const hasReading = rxBps != null && txBps != null;
   const reportAge = reportedData?.ageSeconds;
   const t = useT();
+  const label = portName.charAt(0).toUpperCase() + portName.slice(1);
 
   return (
     <div
-      aria-label={t('Ether1 traffic')}
+      aria-label={t('{port} traffic', { port: label })}
       className="mt-2 rounded-xl border border-sky-500/20 bg-sky-500/5 p-3"
     >
       <div className="mb-2 flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <span className="h-2 w-2 rounded-full bg-sky-500" />
-          <p className="text-xs font-medium text-foreground">{t('Ether1 internet traffic')}</p>
+          <p className="text-xs font-medium text-foreground">{t('{port} internet traffic', { port: label })}</p>
         </div>
         <span className="text-[10px] text-foreground-muted">
           {reportAge != null ? t('Latest report · {seconds}s ago', { seconds: Math.max(0, Math.round(reportAge)) }) : t('Latest report')}
@@ -278,13 +277,13 @@ function UplinkTrafficPanel({ reportedData }: { reportedData: ReportedTraffic | 
         <div className="grid grid-cols-2 gap-2">
           <div className="rounded-lg bg-background/60 p-2.5">
             <p className="text-[10px] uppercase tracking-wide text-sky-500">{t('Coming in ↓')}</p>
-            <p className="mt-0.5 font-mono text-lg font-semibold text-foreground" data-testid="ether1-incoming-rate">
+            <p className="mt-0.5 font-mono text-lg font-semibold text-foreground" data-testid={`${portName}-incoming-rate`}>
               {formatBitrate(rxBps)}
             </p>
           </div>
           <div className="rounded-lg bg-background/60 p-2.5">
             <p className="text-[10px] uppercase tracking-wide text-foreground-muted">{t('Going out ↑')}</p>
-            <p className="mt-0.5 font-mono text-lg font-semibold text-foreground" data-testid="ether1-outgoing-rate">
+            <p className="mt-0.5 font-mono text-lg font-semibold text-foreground" data-testid={`${portName}-outgoing-rate`}>
               {formatBitrate(txBps)}
             </p>
           </div>
@@ -293,17 +292,17 @@ function UplinkTrafficPanel({ reportedData }: { reportedData: ReportedTraffic | 
         <div className="grid grid-cols-2 gap-2">
           <div className="rounded-lg bg-background/60 p-2.5">
             <p className="text-[10px] uppercase tracking-wide text-sky-500">{t('Coming in ↓')}</p>
-            <p className="mt-0.5 font-mono text-lg font-semibold text-foreground-muted">—</p>
+            <p className="mt-0.5 font-mono text-lg font-semibold text-foreground-muted" data-testid={`${portName}-incoming-rate`}>—</p>
           </div>
           <div className="rounded-lg bg-background/60 p-2.5">
             <p className="text-[10px] uppercase tracking-wide text-foreground-muted">{t('Going out ↑')}</p>
-            <p className="mt-0.5 font-mono text-lg font-semibold text-foreground-muted">—</p>
+            <p className="mt-0.5 font-mono text-lg font-semibold text-foreground-muted" data-testid={`${portName}-outgoing-rate`}>—</p>
           </div>
         </div>
       )}
 
       <p className="mt-2 text-[10px] text-foreground-muted">
-        {hasReading
+        {reportedData?.stale ? t('This report is stale. Refresh to check for a newer reading.') : hasReading
           ? t('Recent average from the latest stored router report. This panel does not poll the router.')
           : t('No stored router report yet. The speed will appear after the router sends its next report.')}
       </p>
@@ -316,13 +315,11 @@ function SelectedPortPanel({
   detailsHref,
   tiered,
   reportedTraffic,
-  showUplinkTraffic,
 }: {
   port: PortAnalyticsPort;
   detailsHref: string;
   tiered: boolean;
   reportedTraffic: ReportedTraffic | null;
-  showUplinkTraffic: boolean;
 }) {
   const t = useT();
   const status = portVisualStatus(port);
@@ -362,7 +359,7 @@ function SelectedPortPanel({
       {status === 'uplink' ? (
         <>
           <p className="text-xs text-sky-500">{t('WAN uplink — brings the internet into this router.')}</p>
-          {showUplinkTraffic && <UplinkTrafficPanel reportedData={reportedTraffic} />}
+          <UplinkTrafficPanel portName={port.port} reportedData={reportedTraffic} />
         </>
       ) : status === 'down' ? (
         <p className="text-xs text-foreground-muted">{t('No physical link on this port.')}</p>
