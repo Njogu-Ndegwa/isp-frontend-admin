@@ -31,6 +31,7 @@ import MobileDataCard from '../components/MobileDataCard';
 import { SkeletonCard } from '../components/LoadingSpinner';
 import { reminderSummary } from './subscriptions/reminders/reminderDisplay';
 import DbPoolMonitor from '../components/DbPoolMonitor';
+import ExpiredOnlineMonitor from './ExpiredOnlineMonitor';
 import dynamic from 'next/dynamic';
 import {
   ReportingCurrencyToggle, formatReporting, useReportingCurrency,
@@ -699,6 +700,9 @@ export default function AdminDashboardPage() {
 
       {/* DB Pool Monitor — Admin only, shown above dashboard data so it's visible even on slow loads */}
       {user?.role === 'admin' && <DbPoolMonitor />}
+
+      {/* Checks the routers themselves; billing status cannot reveal stranded sessions. */}
+      {user?.role === 'admin' && <ExpiredOnlineMonitor />}
 
       {/* Operations health — Admin only, above the KPI cards so incidents surface before revenue */}
       {user?.role === 'admin' && <OpsHealthPanel />}

@@ -4082,6 +4082,30 @@ export interface AdminDashboard {
   kes_rates?: Record<string, number>;
 }
 
+export interface AdminExpiredOnlineAudit {
+  running: boolean;
+  started_at: string | null;
+  completed_at: string | null;
+  candidate_routers: number;
+  checked_routers: number;
+  failed_router_ids: number[];
+  count: number;
+  error: string | null;
+  customers: Array<{
+    customer_id: number;
+    customer_name: string;
+    router_id: number;
+    router_name: string;
+    reseller_id: number;
+    reseller_name: string;
+    status: string;
+    expiry: string;
+    mac: string;
+    uptime: string | null;
+    hotspot_user_present: boolean | null;
+  }>;
+}
+
 export interface AdminCreatePayoutRequest {
   amount: number;
   payment_method: string;

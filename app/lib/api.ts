@@ -124,6 +124,7 @@ import {
   AntiTetherRequest,
   AntiTetherResponse,
   AdminDashboard,
+  AdminExpiredOnlineAudit,
   AdminResellersParams,
   AdminResellersResponse,
   AdminResellerDetail,
@@ -2478,6 +2479,18 @@ class ApiClient {
       headers: this.getHeaders(),
     });
     return this.handleResponse<AdminDashboard>(response);
+  }
+
+  async getAdminExpiredOnlineAudit(): Promise<AdminExpiredOnlineAudit> {
+    if (this.isDemoMode()) return {
+      running: false, started_at: null, completed_at: null,
+      candidate_routers: 0, checked_routers: 0, failed_router_ids: [],
+      count: 0, error: null, customers: [],
+    };
+    const response = await fetch(`${BASE_URL}/admin/expired-online-audit`, {
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<AdminExpiredOnlineAudit>(response);
   }
 
   async getAdminResellers(params?: AdminResellersParams): Promise<AdminResellersResponse> {
