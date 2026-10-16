@@ -5,8 +5,9 @@ import { api } from '../../lib/api';
 import { useAlert } from '../../context/AlertContext';
 import ConfirmDialog from '../../components/ConfirmDialog';
 import { formatAmount } from '../../lib/format';
+import { formatBps, formatBytes } from '../../lib/live';
 import type { ActivatePPPoERequest, Customer, StaticActionResponse, StaticStatusResponse } from '../../lib/types';
-import { staticFindings, type StaticTone } from './staticIp';
+import { staticFindings, staticRate, staticTraffic, type StaticTone } from './staticIp';
 
 const TONE_CLASS: Record<StaticTone, string> = {
   success: 'bg-success/10 border-success/20 text-success',
@@ -67,6 +68,9 @@ export default function StaticIpPanel({ customer, onChanged }: { customer: Custo
   const findings = status ? staticFindings(status) : [];
   const r = status?.router;
   const pinned = status?.static_mac || r?.pinned_mac || null;
+  const observed = r?.reachable && !r.error ? r.observed_mac || r.host?.mac || null : null;
+  const traffic = status ? staticTraffic(status) : null;
+  const rate = status ? staticRate(status) : null;
   const access = status?.actual_access ?? null;
   const canResume = (status?.status ?? customer.status) === 'inactive'
     && !!(status?.expiry ?? customer.expiry)
@@ -75,7 +79,12 @@ export default function StaticIpPanel({ customer, onChanged }: { customer: Custo
   return (
     <div className="card p-5 space-y-4">
       <div className="flex items-center justify-between gap-2">
-        <h3 className="text-sm font-semibold text-foreground-muted uppercase tracking-wider">Static IP control</h3>
+        <div>
+          <h3 className="text-sm font-semibold text-foreground-muted uppercase tracking-wider">Connection &amp; devices</h3>
+          <p className="text-xs text-foreground-muted mt-0.5">
+            Static IP {customer.static_ip || '—'} on {status?.router_name || customer.router?.name || 'assigned router'}
+          </p>
+        </div>
         <button
           type="button"
           onClick={() => void load()}
@@ -84,6 +93,34 @@ export default function StaticIpPanel({ customer, onChanged }: { customer: Custo
         >
           {loading ? 'Reading router…' : 'Refresh'}
         </button>
+      </div>
+
+      <div className="rounded-lg border border-border p-3 space-y-2" data-testid="static-device-usage">
+        <div className="flex items-center justify-between gap-2 text-sm">
+          <span className="font-medium text-foreground">
+            {!status ? 'Checking device status…' : r?.reachable === false || r?.error ? 'Device status unavailable' : observed ? '1 device seen by access router' : 'No device seen by access router'}
+          </span>
+          {r?.reachable === false || r?.error ? <span className="text-warning text-xs">Router unavailable</span> : null}
+        </div>
+        {observed && <p className="font-mono text-xs text-foreground-muted break-all">{observed}</p>}
+        {traffic ? (
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+            <div><span className="text-foreground-muted">Downloaded</span><p className="font-medium text-foreground">{formatBytes(traffic.download)}</p></div>
+            <div><span className="text-foreground-muted">Uploaded</span><p className="font-medium text-foreground">{formatBytes(traffic.upload)}</p></div>
+            {rate && <>
+              <div><span className="text-foreground-muted">Download now</span><p className="font-medium text-foreground">{formatBps(rate.download)}</p></div>
+              <div><span className="text-foreground-muted">Upload now</span><p className="font-medium text-foreground">{formatBps(rate.upload)}</p></div>
+            </>}
+          </div>
+        ) : (
+          <p className="text-xs text-foreground-muted">{!status ? 'Checking traffic counters…' : 'Device traffic counters are unavailable from this router.'}</p>
+        )}
+        <p className="text-xs text-foreground-muted">
+          {traffic?.source === 'queue' ? 'Traffic for this static IP since its router queue was created or reset.' :
+            traffic?.source === 'host' ? 'Traffic recorded for this router host session.' :
+              'No per-device counter is available on the access router.'}
+        </p>
+        <p className="text-xs text-foreground-muted">The access router sees the customer router; phones and laptops behind its Wi-Fi or NAT need customer-router management to appear individually.</p>
       </div>
 
       <dl className="grid grid-cols-2 gap-3 text-sm">
@@ -106,10 +143,10 @@ export default function StaticIpPanel({ customer, onChanged }: { customer: Custo
         <div className="bg-background-tertiary rounded-lg p-3">
           <dt className="text-xs text-foreground-muted uppercase tracking-wider">Device seen</dt>
           <dd className="mt-1 text-foreground">
-            {r?.host ? (
-              <span className="font-mono text-xs">{r.host.mac}{r.host.idle_time ? ` · idle ${r.host.idle_time}` : ''}</span>
+            {observed ? (
+              <span className="font-mono text-xs">{observed}{r?.host?.idle_time ? ` · idle ${r.host.idle_time}` : ''}</span>
             ) : (
-              <span className="text-foreground-muted">{loading ? '…' : 'Not connected'}</span>
+              <span className="text-foreground-muted">{loading ? '…' : r?.reachable === false || r?.error ? 'Unknown' : 'Not seen'}</span>
             )}
           </dd>
         </div>

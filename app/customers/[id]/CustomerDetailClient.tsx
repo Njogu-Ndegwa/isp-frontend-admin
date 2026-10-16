@@ -229,6 +229,7 @@ export default function EditCustomerPage() {
             <LivePanel live={usage.live} routerId={customer.router_id ?? customer.router?.id ?? null} />
           )}
           {isPPPoE && customer.pppoe_username && <ConnectedDevicesPanel customerId={customer.id} />}
+          {isStatic && <StaticIpPanel customer={customer} onChanged={loadData} />}
           {connectionType === 'hotspot' && <HotspotDevicesPanel customerId={customer.id} />}
           {tracksUsage && usage && <UsagePanel usage={usage} onRefresh={loadUsage} refreshing={usageLoading} />}
           {tracksUsage && <UsageHistoryPanel customerId={customer.id} />}
@@ -237,7 +238,6 @@ export default function EditCustomerPage() {
         </div>
 
         <div className="space-y-4 min-w-0">
-          {isStatic && <StaticIpPanel customer={customer} onChanged={loadData} />}
           {/* Static-IP customers pay through the same paybill account as PPPoE. */}
           {(isPPPoE || isStatic) && (
             <div className="card p-5 space-y-3">

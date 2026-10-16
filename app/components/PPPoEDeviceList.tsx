@@ -8,7 +8,7 @@ function rateBps(rate: string): number {
 }
 
 /**
- * Every device logged in under one PPPoE username, with its IP and MAC.
+ * Every active session under one PPPoE username, with its IP and MAC.
  *
  * `onlyOne` is the secret's profile `only-one` setting. When it is `yes` the
  * router rejects a second login, so the list can only ever show one device.
@@ -24,6 +24,8 @@ export default function PPPoEDeviceList({
 }) {
   const totalDown = devices.reduce((t, d) => t + rateBps(d.download_rate), 0);
   const totalUp = devices.reduce((t, d) => t + rateBps(d.upload_rate), 0);
+  const totalDownloaded = devices.reduce((t, d) => t + (d.download_bytes || 0), 0);
+  const totalUploaded = devices.reduce((t, d) => t + (d.upload_bytes || 0), 0);
   const limited = devices.filter((d) => d.has_queue && d.max_limit);
   const blocksSecondDevice = onlyOne === 'yes';
 
@@ -32,7 +34,7 @@ export default function PPPoEDeviceList({
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-foreground-muted">
         <span>
           <span className="font-semibold text-foreground">{devices.length}</span>{' '}
-          device{devices.length === 1 ? '' : 's'} connected
+          PPPoE session{devices.length === 1 ? '' : 's'} active
         </span>
         {devices.length > 1 && (
           <span>
@@ -40,6 +42,9 @@ export default function PPPoEDeviceList({
             <span className="text-teal-500 font-medium">↑ {formatBps(totalUp)}</span>
           </span>
         )}
+        <span>
+          Session data <span className="font-medium text-foreground">↓ {formatBytes(totalDownloaded)} · ↑ {formatBytes(totalUploaded)}</span>
+        </span>
         {planSpeed && <span>Plan {planSpeed}</span>}
         {onlyOne && (
           <span className="font-mono">only-one={onlyOne}</span>
@@ -47,7 +52,7 @@ export default function PPPoEDeviceList({
       </div>
 
       {devices.length === 0 ? (
-        <p className="text-sm text-foreground-muted">No device is connected with this username right now.</p>
+        <p className="text-sm text-foreground-muted">No PPPoE session is active for this username right now.</p>
       ) : (
         <ul className="divide-y divide-border rounded-lg border border-border">
           {devices.map((d, i) => (
@@ -81,15 +86,18 @@ export default function PPPoEDeviceList({
 
       {devices.length > 1 && limited.length === devices.length && (
         <p className="text-xs text-foreground-muted">
-          Each device has its own speed limit, so together they can use up to {devices.length}× the plan speed.
+          Each session has its own speed limit, so together they can use up to {devices.length}× the plan speed.
         </p>
       )}
       {blocksSecondDevice && (
         <p className="text-xs text-foreground-muted">
-          This profile has <span className="font-mono">only-one=yes</span>: the router rejects a second device
+          This profile has <span className="font-mono">only-one=yes</span>: the router rejects a second session
           logging in with the same username.
         </p>
       )}
+      <p className="text-xs text-foreground-muted">
+        These are sessions connected with this PPPoE login. Phones and laptops behind one Wi-Fi router share its session and are not listed separately here. Data counters reset when a session reconnects.
+      </p>
     </div>
   );
 }

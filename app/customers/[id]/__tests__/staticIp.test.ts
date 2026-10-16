@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { gatewayGuess, looksLikeIPv4, staticFindings } from '../staticIp';
+import { gatewayGuess, looksLikeIPv4, staticFindings, staticRate, staticTraffic } from '../staticIp';
 import { connectionTypeLabel, toConnectionType } from '../../../lib/connectionType';
 import type { StaticStatusResponse } from '../../../lib/types';
 
@@ -71,6 +71,23 @@ describe('staticFindings', () => {
 });
 
 describe('helpers', () => {
+  it('shows static link traffic in upload/download order from the router queue', () => {
+    const live = status({}, { queue: {
+      name: 'plan_static:192.168.2.24', max_limit: '10M/10M', rate: '1000/2000',
+      bytes: '1048576/2097152', disabled: false, shadowed: false,
+    } });
+    expect(staticTraffic(live)).toEqual({ upload: 1048576, download: 2097152, source: 'queue' });
+    expect(staticRate(live)).toEqual({ upload: 1000, download: 2000 });
+  });
+  it('uses host counters only when a queue counter is unavailable', () => {
+    const live = status({}, {
+      queue: null,
+      host: { mac: '50:0F:F5:C1:07:50', bypassed: true, idle_time: null, uptime: '2h', bytes_in: '1200', bytes_out: '2400' },
+    });
+    expect(staticTraffic(live)).toEqual({ upload: 1200, download: 2400, source: 'host' });
+    expect(staticTraffic(status({}, { reachable: false }))).toBeNull();
+    expect(staticTraffic(status({}, { queue: null }))).toBeNull();
+  });
   it('gatewayGuess', () => {
     expect(gatewayGuess('10.5.7.99')).toBe('10.5.7.1/24');
   });
