@@ -7,6 +7,42 @@ export interface StaticFinding {
   text: string;
 }
 
+export interface StaticTraffic {
+  upload: number;
+  download: number;
+  source: 'queue' | 'host';
+}
+
+function bytePair(value: string | null | undefined, separator: string): [number, number] | null {
+  if (!value) return null;
+  const parts = value.split(separator).map((part) => part.trim());
+  if (parts.length !== 2 || parts.some((part) => !/^\d+$/.test(part))) return null;
+  const numbers = parts.map(Number);
+  return numbers.every(Number.isSafeInteger) ? [numbers[0], numbers[1]] : null;
+}
+
+/** RouterOS queue counters are upload/download; host counters are in/out. */
+export function staticTraffic(status: StaticStatusResponse): StaticTraffic | null {
+  if (!status.router.reachable || status.router.error) return null;
+  const queue = bytePair(status.router.queue?.bytes, '/');
+  if (queue) return { upload: queue[0], download: queue[1], source: 'queue' };
+  const host = status.router.host;
+  if (!host) return null;
+  const upload = host.bytes_in;
+  const download = host.bytes_out;
+  if (!upload || !download || !/^\d+$/.test(upload) || !/^\d+$/.test(download)) return null;
+  const up = Number(upload);
+  const down = Number(download);
+  if (!Number.isSafeInteger(up) || !Number.isSafeInteger(down)) return null;
+  return { upload: up, download: down, source: 'host' };
+}
+
+export function staticRate(status: StaticStatusResponse): { upload: number; download: number } | null {
+  if (!status.router.reachable || status.router.error) return null;
+  const pair = bytePair(status.router.queue?.rate, '/');
+  return pair ? { upload: pair[0], download: pair[1] } : null;
+}
+
 /**
  * Turn the router's view of a static-IP customer into plain findings, worst
  * first. Pure so it can be tested without rendering.

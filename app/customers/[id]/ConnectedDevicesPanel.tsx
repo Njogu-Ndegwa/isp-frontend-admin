@@ -57,7 +57,7 @@ export default function ConnectedDevicesPanel({ customerId }: { customerId: numb
     <div className="card p-4 space-y-3" data-testid="connected-devices">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <h3 className="text-sm font-semibold text-foreground-muted uppercase tracking-wider">Connection</h3>
+          <h3 className="text-sm font-semibold text-foreground-muted uppercase tracking-wider">Connection &amp; devices</h3>
           {presence && (
             <p className="text-xs text-foreground-muted truncate">
               <span className="font-mono">{presence.customer.pppoe_username}</span> on {presence.router.name}
