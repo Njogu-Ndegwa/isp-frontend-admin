@@ -5,9 +5,9 @@ import type { PortAnalyticsPort } from '../lib/types';
 
 // The WAN/uplink port brings the internet in — it legitimately has no
 // downstream MACs, so it must not be health-checked like an access port.
-// Heuristic: an unbridged ether1 is the uplink on our MikroTik deployments.
+// Prefer configured WAN roles; retain the ether1 fallback for older callers.
 export function isUplinkPort(port: PortAnalyticsPort): boolean {
-  return port.port.toLowerCase() === 'ether1' && !port.bridge;
+  return !port.bridge && (port.uplink ?? port.port.toLowerCase() === 'ether1');
 }
 
 export function portShortLabel(name: string): string {
@@ -23,6 +23,7 @@ export function portShortLabel(name: string): string {
 export type PortVisualStatus = 'uplink' | 'active' | 'silent_link' | 'down';
 
 export function portVisualStatus(port: PortAnalyticsPort): PortVisualStatus {
+  if (!port.link.up) return 'down';
   if (isUplinkPort(port)) return 'uplink';
   return port.health.status;
 }

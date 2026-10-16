@@ -117,9 +117,13 @@ export default function PortAnalyticsTab({
     ? Math.round(((data.system.total_memory - data.system.free_memory) / data.system.total_memory) * 100)
     : null;
 
-  // Uplink ports legitimately have no downstream MACs — drop their warnings.
+  // Ignore only the legacy MAC-learning warning on WANs, not real faults.
   const uplinkNames = new Set(data.ports.filter(isUplinkPort).map((p) => p.port));
-  const visibleWarnings = data.warnings.filter((w) => !uplinkNames.has(w.port));
+  const visibleWarnings = data.warnings.map((warning) => ({
+    ...warning,
+    warnings: warning.warnings.filter((message) =>
+      !uplinkNames.has(warning.port) || !message.includes('no downstream MACs')),
+  })).filter((warning) => warning.warnings.length > 0);
 
   const effectiveSelected = selectedPort && data.ports.some((p) => p.port === selectedPort)
     ? selectedPort

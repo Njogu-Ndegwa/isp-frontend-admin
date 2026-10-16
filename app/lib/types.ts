@@ -3676,6 +3676,8 @@ export interface PortWarning {
 
 export interface PortAnalyticsPort {
   port: string;
+  /** Enriched by the UI from the selected router's configured WAN ports. */
+  uplink?: boolean;
   bridge: string;
   bridge_status: string;
   link: {

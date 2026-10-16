@@ -7,6 +7,8 @@ import PortFaceplate, { isUplinkPort, portVisualStatus } from '../../components/
 import { formatAmountCompact } from '../../lib/format';
 import { useT } from '../../lib/i18n';
 import { DownloadUsageBody } from './DownloadUsageSection';
+import WanLinksPanel from './WanLinksPanel';
+import type { RouterLive } from '../../lib/types';
 import type { DateFilter } from '../dateFilter';
 import type {
   PortAnalyticsResponse,
@@ -73,6 +75,8 @@ export default function PortsUsageCard({
   usageError,
   onRetryUsage,
   reportedTraffic,
+  wanPorts,
+  wanReport,
   usagePeriod,
   onUsagePeriodChange,
   service,
@@ -88,6 +92,8 @@ export default function PortsUsageCard({
   usageError: string | null;
   onRetryUsage: () => void;
   reportedTraffic: ReportedTraffic | null;
+  wanPorts?: string[];
+  wanReport?: RouterLive | null;
   usagePeriod: DateFilter;
   onUsagePeriodChange: (filter: DateFilter) => void;
   service: DownloadUsageServiceFilter;
@@ -147,6 +153,8 @@ export default function PortsUsageCard({
           selectedPort={selectedPort}
           onSelectPort={setSelectedPort}
           reportedTraffic={reportedTraffic}
+          wanPorts={wanPorts}
+          wanReport={wanReport}
         />
       )}
     </SectionCard>
@@ -161,6 +169,8 @@ function PortsBody({
   selectedPort,
   onSelectPort,
   reportedTraffic,
+  wanPorts,
+  wanReport,
 }: {
   data: PortAnalyticsResponse | null;
   error: string | null;
@@ -169,6 +179,8 @@ function PortsBody({
   selectedPort: string | null;
   onSelectPort: (port: string) => void;
   reportedTraffic: ReportedTraffic | null;
+  wanPorts?: string[];
+  wanReport?: RouterLive | null;
 }) {
   const t = useT();
   if (error) {
@@ -198,10 +210,16 @@ function PortsBody({
   const tiered = responseHasDeviceTiers(data);
 
   const uplinkNames = new Set(data.ports.filter(isUplinkPort).map((p) => p.port));
-  const warningPorts = data.warnings.map((w) => w.port).filter((p) => !uplinkNames.has(p));
+  const warningPorts = data.warnings.filter((warning) =>
+    !uplinkNames.has(warning.port) || warning.warnings.some((message) => !message.includes('no downstream MACs'))
+  ).map((warning) => warning.port);
 
   return (
     <div>
+      {wanPorts && (
+        <WanLinksPanel routerId={routerId} wanPorts={wanPorts} ports={data.ports}
+          report={wanReport ?? null} onSelect={onSelectPort} />
+      )}
       <PortFaceplate
         ports={data.ports}
         selectedPort={effectiveSelected}
@@ -227,6 +245,7 @@ function PortsBody({
           detailsHref={detailsHref}
           tiered={tiered}
           reportedTraffic={reportedTraffic}
+          showUplinkTraffic={!wanPorts}
         />
       )}
     </div>
@@ -297,11 +316,13 @@ function SelectedPortPanel({
   detailsHref,
   tiered,
   reportedTraffic,
+  showUplinkTraffic,
 }: {
   port: PortAnalyticsPort;
   detailsHref: string;
   tiered: boolean;
   reportedTraffic: ReportedTraffic | null;
+  showUplinkTraffic: boolean;
 }) {
   const t = useT();
   const status = portVisualStatus(port);
@@ -341,7 +362,7 @@ function SelectedPortPanel({
       {status === 'uplink' ? (
         <>
           <p className="text-xs text-sky-500">{t('WAN uplink — brings the internet into this router.')}</p>
-          <UplinkTrafficPanel reportedData={reportedTraffic} />
+          {showUplinkTraffic && <UplinkTrafficPanel reportedData={reportedTraffic} />}
         </>
       ) : status === 'down' ? (
         <p className="text-xs text-foreground-muted">{t('No physical link on this port.')}</p>
