@@ -11,7 +11,7 @@ import { useT } from '../../lib/i18n';
 export default function DashboardToolbar(props: {
   selectedRouterId: number | null;
   onRouterChange: (id: number | null) => void;
-  onRoutersLoaded: (r: unknown[]) => void;
+  onRoutersLoaded: (r: Router[]) => void;
   dateFilter: DateFilter;
   onDateFilterChange: (f: DateFilter) => void;
   showCustomRange: boolean;
@@ -71,7 +71,7 @@ export default function DashboardToolbar(props: {
             <RouterSelector
               selectedRouterId={selectedRouterId}
               onRouterChange={onRouterChange}
-              onRoutersLoaded={onRoutersLoaded as (r: Router[]) => void}
+              onRoutersLoaded={onRoutersLoaded}
               userId={1}
               fullWidthOnMobile
             />

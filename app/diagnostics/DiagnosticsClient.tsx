@@ -27,6 +27,8 @@ import PullToRefresh from '../components/PullToRefresh';
 import { useAuth } from '../context/AuthContext';
 import { useAlert } from '../context/AlertContext';
 import { formatDateGMT3 } from '../lib/dateUtils';
+import type { Router } from '../lib/types';
+import { configuredWanPorts, withWanRoles } from '../lib/wanTraffic';
 
 type Tab = 'pppoe' | 'hotspot' | 'ports' | 'analytics';
 
@@ -40,6 +42,7 @@ function getQueryParam(name: string): string | null {
 }
 
 export default function DiagnosticsPage() {
+  const [routers, setRouters] = useState<Router[]>([]);
   const { isAuthenticated } = useAuth();
   const { showAlert } = useAlert();
   // Support deep links like /diagnostics?tab=analytics&router=3 (used by the dashboard Port Map board)
@@ -280,6 +283,7 @@ export default function DiagnosticsPage() {
           <RouterSelector
             selectedRouterId={selectedRouterId}
             onRouterChange={setSelectedRouterId}
+            onRoutersLoaded={setRouters}
           />
         </div>
 
@@ -369,7 +373,10 @@ export default function DiagnosticsPage() {
             {activeTab === 'analytics' && (
               <PortAnalyticsTab
                 key={selectedRouterId}
-                data={portAnalytics}
+                data={portAnalytics?.router.id === selectedRouterId ? {
+                  ...portAnalytics,
+                  ports: withWanRoles(portAnalytics.ports, configuredWanPorts(routers.find((r) => r.id === selectedRouterId))),
+                } : null}
                 loading={portAnalyticsLoading}
                 error={portAnalyticsError}
                 onRefresh={() => loadPortAnalytics(true)}

@@ -22,6 +22,8 @@ import InterfacesPanel from './components/InterfacesPanel';
 import PortsUsageCard from './components/PortsUsageCard';
 import { subscriptionAlertMessage } from '../lib/subscriptionAlert';
 import { useT, type TFunction } from '../lib/i18n';
+import type { Router, RouterLive } from '../lib/types';
+import { configuredWanPorts, withWanRoles } from '../lib/wanTraffic';
 
 // Small stagger only. These used to be 1.5-8 s apart so the page didn't hit a
 // router with several live RouterOS reads at once; router cards are now served
@@ -99,6 +101,24 @@ export default function DashboardPage() {
   // Router filter state (null until a router is loaded)
   const [selectedRouterId, setSelectedRouterId] = useState<number | null>(null);
   const [hasRouters, setHasRouters] = useState<boolean | null>(null); // null = still loading
+  const [routers, setRouters] = useState<Router[]>([]);
+  const [wanReport, setWanReport] = useState<RouterLive | null>(null);
+  const wanRequest = useRef(0);
+  const selectedRouter = routers.find((router) => router.id === selectedRouterId);
+  const wanPorts = configuredWanPorts(selectedRouter);
+  const hasMultiWan = Boolean(selectedRouter?.lb_enabled);
+  const loadWanReport = useCallback(async () => {
+    const request = ++wanRequest.current;
+    setWanReport(null);
+    if (!selectedRouterId || !hasMultiWan) return;
+    // This reads the existing push report; it never samples the router.
+    const report = await api.getRouterLive(selectedRouterId).catch(() => null);
+    if (request === wanRequest.current) setWanReport(report);
+  }, [selectedRouterId, hasMultiWan]);
+  useEffect(() => {
+    void loadWanReport();
+    return () => { wanRequest.current += 1; };
+  }, [loadWanReport]);
 
   // Custom date range state
   const [showCustomRange, setShowCustomRange] = useState(false);
@@ -307,6 +327,7 @@ export default function DashboardPage() {
 
 
   const refreshAll = () => {
+    void loadWanReport();
     loadAnalytics();
     loadMikrotik();
     loadBandwidth();
@@ -328,7 +349,7 @@ export default function DashboardPage() {
 
       <DashboardToolbar
         selectedRouterId={selectedRouterId} onRouterChange={setSelectedRouterId}
-        onRoutersLoaded={(routers) => setHasRouters(routers.length > 0)}
+        onRoutersLoaded={(loaded) => { setRouters(loaded); setHasRouters(loaded.length > 0); }}
         dateFilter={dateFilter} onDateFilterChange={(f) => { setDateFilter(f); setShowCustomRange(false); }}
         showCustomRange={showCustomRange} onToggleCustomRange={setShowCustomRange}
         customStartDate={customStartDate} customEndDate={customEndDate}
@@ -362,7 +383,10 @@ export default function DashboardPage() {
               <div className="xl:col-span-6 min-w-0">
                 <PortsUsageCard
                   routerId={selectedRouterId}
-                  portMap={portMap && portMap.router.id === selectedRouterId ? portMap : null}
+                  portMap={portMap && portMap.router.id === selectedRouterId
+                    ? { ...portMap, ports: withWanRoles(portMap.ports, wanPorts) } : null}
+                  wanPorts={hasMultiWan ? wanPorts : undefined}
+                  wanReport={wanReport}
                   portMapLoading={portMapLoading}
                   portMapError={portMapError}
                   onRetryPortMap={loadPortMap}
