@@ -190,7 +190,7 @@ export default function MessagingClient() {
           {activeTab === 'activity' && (
             <ActivityView focusCampaignId={focusCampaignId} />
           )}
-          {activeTab === 'templates' && <TemplatesView />}
+          {activeTab === 'templates' && <TemplatesView onOpenAutomatic={() => handleTabChange('expiry')} />}
           {activeTab === 'credits' && credits && (
             <CreditsView
               credits={credits}
@@ -201,13 +201,13 @@ export default function MessagingClient() {
           )}
           {activeTab === 'expiry' && (
             <div className="space-y-8">
-              <ExpiryRemindersView onBuyCredits={() => setActiveTab('credits')} />
               <section aria-labelledby="customer-event-messages" className="space-y-3">
                 <h2 id="customer-event-messages" className="text-xs font-semibold uppercase tracking-wide text-foreground-muted">
                   Receipts, welcome &amp; wording
                 </h2>
                 <CustomerEventsView onBuyCredits={() => setActiveTab('credits')} />
               </section>
+              <ExpiryRemindersView onBuyCredits={() => setActiveTab('credits')} />
             </div>
           )}
           {activeTab === 'alerts' && (
