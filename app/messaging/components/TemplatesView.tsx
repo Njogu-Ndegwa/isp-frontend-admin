@@ -7,7 +7,7 @@ import { useAlert } from '../../context/AlertContext';
 import { PageLoader } from '../../components/LoadingSpinner';
 
 // ─── TemplatesView ────────────────────────────────────────────────────────────
-export function TemplatesView() {
+export function TemplatesView({ onOpenAutomatic }: { onOpenAutomatic: () => void }) {
   const { showAlert } = useAlert();
   const [templates, setTemplates] = useState<SmsTemplate[]>([]);
   const [loading, setLoading] = useState(true);
@@ -67,6 +67,15 @@ export function TemplatesView() {
 
   return (
     <div className="space-y-6">
+      <div className="card p-4 sm:p-5">
+        <p className="text-sm font-medium text-foreground">Automatic customer messages</p>
+        <p className="mt-1 text-sm text-foreground-muted">
+          Edit payment receipts, PPPoE welcome messages and expiry notices under Automatic.
+        </p>
+        <button type="button" onClick={onOpenAutomatic} className="btn-secondary mt-3 text-sm">
+          Edit automatic messages
+        </button>
+      </div>
       {/* Create form */}
       <div className="card p-4 space-y-3">
         <p className="text-sm font-medium text-foreground">New template</p>

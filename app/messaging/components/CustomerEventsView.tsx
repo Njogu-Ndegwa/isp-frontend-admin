@@ -231,7 +231,7 @@ export function CustomerEventsView({ onBuyCredits }: { onBuyCredits: () => void 
           <div>
             <h3 className="text-sm font-semibold text-foreground">Payment receipts</h3>
             <p className="mt-1 text-xs leading-5 text-foreground-muted">
-              Text customers when their payment is received, with the plan and the new expiry time.
+              Text customers when their payment is received, with the amount and the new expiry time.
               Works for M-Pesa, vouchers and payments you record yourself.
             </p>
           </div>
