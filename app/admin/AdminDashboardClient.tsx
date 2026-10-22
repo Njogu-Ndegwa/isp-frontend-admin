@@ -2,7 +2,8 @@
 
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import Link from 'next/link';
-import { API_ORIGIN, api } from '../lib/api';
+import { api } from '../lib/api';
+import { c2bCallbackUrls } from '../lib/c2bUrls';
 import {
   AdminDashboard,
   AdminExpiringSoon,
@@ -378,8 +379,7 @@ export default function AdminDashboardPage() {
     setC2bResponse(null);
     try {
       const result = await api.registerPlatformPaybill({
-        confirmation_url: `${API_ORIGIN}/api/c2b/confirmation`,
-        validation_url: `${API_ORIGIN}/api/c2b/validation`,
+        ...c2bCallbackUrls(),
         response_type: 'Completed',
       });
       setC2bResponse(result as unknown as Record<string, unknown>);
