@@ -399,7 +399,16 @@ export default function PaymentMethodsPage() {
       setC2bRegisterId(null);
       loadData();
     } catch (err) {
-      showAlert('error', err instanceof Error ? err.message : 'C2B registration failed');
+      // fetch() throws a bare TypeError when the request never got an answer
+      // with CORS headers (network drop, or a proxy error page in front of the
+      // API), which would otherwise surface as the cryptic "Failed to fetch".
+      const message =
+        err instanceof TypeError
+          ? 'Could not reach the server or Safaricom, please try again'
+          : err instanceof Error
+            ? err.message
+            : 'C2B registration failed';
+      showAlert('error', message);
     } finally {
       setC2bRegisterLoading(false);
     }
