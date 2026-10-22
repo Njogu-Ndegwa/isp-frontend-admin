@@ -1,4 +1,13 @@
 import Link from 'next/link';
+import SolutionLinks from '../solutions/SolutionLinks';
+
+// The posts Google already sends readers to (Search Console, Oct 2026). A
+// homepage link is the strongest internal link the blog can get.
+const POPULAR_GUIDES = [
+  { href: '/blog/connect-smart-tv-hotspot-wifi', label: 'Pay for hotspot WiFi on a smart TV' },
+  { href: '/blog/best-isp-billing-system-kenya-2026', label: 'Best ISP billing system in Kenya' },
+  { href: '/blog/how-to-start-wifi-hotspot-business-kenya', label: 'Start a WiFi hotspot business' },
+];
 
 /**
  * Server-rendered so its links are crawlable without JavaScript, and so the
@@ -21,6 +30,18 @@ export default function LandingFooter() {
             <p className="text-sm text-foreground-muted">&copy; 2026 Bitwave Technologies. All rights reserved.</p>
           </div>
         </div>
+        <SolutionLinks className="mt-8 pt-8 border-t border-border" />
+        <nav aria-label="Popular guides" className="mt-4">
+          <ul className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2">
+            {POPULAR_GUIDES.map((guide) => (
+              <li key={guide.href}>
+                <Link href={guide.href} className="text-sm text-foreground-muted hover:text-foreground transition-colors">
+                  {guide.label}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </nav>
       </div>
     </footer>
   );

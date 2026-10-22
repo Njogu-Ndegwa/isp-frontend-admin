@@ -3,14 +3,18 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { notFound } from 'next/navigation';
 import { marked } from 'marked';
-import { extractFaq, getAllPosts, getPost } from '../posts';
-import { categoryStyle } from '../categories';
+import { extractFaq, getAllPosts, getPost, getRelatedPosts, unlinkUnpublishedPosts } from '../posts';
+import { CATEGORY_SOLUTION, categoryStyle } from '../categories';
 import { CategoryPill, PostMeta } from '../PostCard';
 import ShareRow from './ShareRow';
 import './post.css';
 
-export const dynamic = 'force-static';
-export const dynamicParams = false;
+// Hourly, so a post scheduled for today (see isLive in posts.ts) appears
+// without a deploy.
+export const revalidate = 3600;
+// A scheduled post isn't in the build's static params; once its date arrives
+// its URL renders on first request. Until then getPost() misses and it 404s.
+export const dynamicParams = true;
 
 const BASE_URL = 'https://bitwavetechnologies.com';
 
@@ -61,9 +65,10 @@ export default async function BlogPostPage({
   const post = getPost(slug);
   if (!post) notFound();
 
-  const html = (await marked.parse(post.content)).replace(
-    /<img /g,
-    '<img loading="lazy" decoding="async" ',
+  const livePosts = getAllPosts();
+  const html = unlinkUnpublishedPosts(
+    (await marked.parse(post.content)).replace(/<img /g, '<img loading="lazy" decoding="async" '),
+    new Set(livePosts.map((live) => live.slug)),
   );
   const url = `${BASE_URL}/blog/${post.slug}`;
   const jsonLd = {
@@ -78,6 +83,8 @@ export default async function BlogPostPage({
     publisher: { '@type': 'Organization', name: 'Bitwave Technologies' },
     mainEntityOfPage: url,
   };
+  const related = getRelatedPosts(post, livePosts);
+  const solution = CATEGORY_SOLUTION[post.category] ?? CATEGORY_SOLUTION.business;
   const faq = extractFaq(post.content);
   const faqJsonLd = faq.length
     ? {
@@ -146,13 +153,33 @@ export default async function BlogPostPage({
           Bitwave automates billing for 200+ ISP networks: M-Pesa payments, hotspot
           vouchers, PPPoE and MikroTik management in one dashboard.
         </p>
-        <Link
-          href="/signup"
-          className="mt-4 inline-block bg-gradient-to-r from-amber-500 to-orange-500 text-[#09090b] font-semibold px-6 py-2.5 rounded-lg hover:shadow-lg hover:shadow-amber-500/30 transition-all"
-        >
-          Start free
-        </Link>
+        <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-3">
+          <Link
+            href="/signup"
+            className="inline-block bg-gradient-to-r from-amber-500 to-orange-500 text-[#09090b] font-semibold px-6 py-2.5 rounded-lg hover:shadow-lg hover:shadow-amber-500/30 transition-all"
+          >
+            Start free
+          </Link>
+          <Link href={solution.path} className="text-sm text-amber-400 underline underline-offset-4 hover:text-amber-300">
+            {solution.cta}
+          </Link>
+        </div>
       </div>
+      {related.length > 0 && (
+        <nav aria-label="Keep reading" className="mt-12">
+          <h2 className="text-lg font-semibold">Keep reading</h2>
+          <ul className="mt-4 divide-y divide-white/10 border-y border-white/10">
+            {related.map((item) => (
+              <li key={item.slug}>
+                <Link href={`/blog/${item.slug}`} className="group flex flex-col gap-1 py-4">
+                  <span className="text-xs text-white/50">{categoryStyle(item.category).label}</span>
+                  <span className="font-medium group-hover:text-amber-400 transition-colors">{item.title}</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </nav>
+      )}
     </article>
   );
 }
