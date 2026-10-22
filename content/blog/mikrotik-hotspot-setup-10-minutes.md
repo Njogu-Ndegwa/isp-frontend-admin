@@ -1,12 +1,12 @@
 ---
 title: MikroTik Hotspot Setup in Under 10 Minutes (Works on hAP lite)
 description: Set up a MikroTik router for hotspot or PPPoE billing in under 10 minutes — reset, Winbox, one provisioning command. Works on RB951, hAP lite and hEX.
-date: 2026-07-15
+date: 2026-10-23
 tags: mikrotik, hotspot, winbox, setup
 category: mikrotik
 image: /blog-images/mikrotik-hotspot-setup-10-minutes/cover-crisp.webp
 imageAlt: Ethernet cables connected to networking equipment during MikroTik hotspot setup
-published: false
+published: true
 ---
 
 <!-- Cover source: https://www.pexels.com/photo/ethernet-cables-plugged-in-network-switch-2881224/ | License: https://www.pexels.com/license/ -->
