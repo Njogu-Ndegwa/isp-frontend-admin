@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { api } from '../../lib/api';
+import { c2bCallbackUrls, C2BCallbackUrls } from '../../lib/c2bUrls';
 import {
   PaymentMethodConfig,
   PaymentMethodType,
@@ -203,6 +204,9 @@ export default function PaymentMethodsPage() {
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [c2bRegisterId, setC2bRegisterId] = useState<number | null>(null);
   const [c2bRegisterLoading, setC2bRegisterLoading] = useState(false);
+  // URLs from the last successful C2B registration, shown so the reseller can
+  // see exactly where Safaricom will send payment notifications.
+  const [c2bRegistered, setC2bRegistered] = useState<(C2BCallbackUrls & { label: string }) | null>(null);
 
   // Confirmation modal
   const [confirmModal, setConfirmModal] = useState<{
@@ -378,14 +382,17 @@ export default function PaymentMethodsPage() {
   const handleC2BRegister = async (id: number) => {
     setC2bRegisterLoading(true);
     try {
-      const baseUrl = window.location.origin;
+      // Safaricom must call the backend, not the dashboard host the reseller
+      // happens to be on (the frontend 404s on /api/c2b/*).
+      const urls = c2bCallbackUrls();
       const result = await api.registerC2B(id, {
-        confirmation_url: `${baseUrl}/api/c2b/confirmation`,
-        validation_url: `${baseUrl}/api/c2b/validation`,
+        ...urls,
         response_type: 'Completed',
       });
       if (result.ResponseCode === '0') {
         showAlert('success', 'C2B registered successfully with Safaricom');
+        const method = methods.find(m => m.id === id);
+        setC2bRegistered({ label: method?.label || 'Paybill', ...urls });
       } else {
         showAlert('warning', `Safaricom response: ${result.ResponseDescription}`);
       }
@@ -579,6 +586,41 @@ export default function PaymentMethodsPage() {
           Show inactive methods
         </label>
       </div>
+
+      {c2bRegistered && (
+        <div className="mb-6 p-4 rounded-2xl border border-success/20 bg-success/5">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-foreground">
+                C2B registered for {c2bRegistered.label}
+              </p>
+              <p className="text-xs text-foreground-muted mt-0.5">
+                Safaricom will send payment notifications to these URLs:
+              </p>
+              <dl className="mt-2 space-y-1 text-xs">
+                <div className="flex flex-col sm:flex-row sm:gap-2">
+                  <dt className="text-foreground-muted shrink-0">Confirmation URL</dt>
+                  <dd className="font-mono text-foreground break-all">{c2bRegistered.confirmation_url}</dd>
+                </div>
+                <div className="flex flex-col sm:flex-row sm:gap-2">
+                  <dt className="text-foreground-muted shrink-0">Validation URL</dt>
+                  <dd className="font-mono text-foreground break-all">{c2bRegistered.validation_url}</dd>
+                </div>
+              </dl>
+            </div>
+            <button
+              onClick={() => setC2bRegistered(null)}
+              className="p-1 rounded-md text-foreground-muted hover:text-foreground hover:bg-background-secondary transition-colors"
+              title="Dismiss"
+              aria-label="Dismiss"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Payment Methods List */}
       {methods.length === 0 && !loading ? (
