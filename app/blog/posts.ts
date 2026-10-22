@@ -20,6 +20,24 @@ export interface BlogPost {
 
 const CONTENT_DIR = path.join(process.cwd(), 'content', 'blog');
 
+/**
+ * Today's date in Kenya (UTC+3, no DST) as YYYY-MM-DD — the clock a post's
+ * `date:` is written against.
+ */
+export function todayInKenya(now: Date = new Date()): string {
+  return new Date(now.getTime() + 3 * 60 * 60 * 1000).toISOString().slice(0, 10);
+}
+
+/**
+ * Scheduled publishing: a post whose `date:` is in the future stays hidden
+ * everywhere (index, category pages, sitemap, llms.txt, its own URL) until that
+ * day in Kenya. A batch of reviewed posts can be merged at once and still go out
+ * one or two a week; the blog pages revalidate hourly to pick each one up.
+ */
+export function isLive(post: Pick<BlogPost, 'date'>, today: string = todayInKenya()): boolean {
+  return post.date <= today;
+}
+
 // Minimal frontmatter parser: a leading `---` block of `key: value` lines.
 // Kept dependency-free so the TikTok->blog pipeline only has to emit plain
 // markdown files into content/blog/.
@@ -35,7 +53,8 @@ function parseFrontmatter(raw: string): { meta: Record<string, string>; body: st
   return { meta, body: raw.slice(match[0].length) };
 }
 
-export function getAllPosts(): BlogPost[] {
+/** Every post marked published, including ones scheduled for a future date. */
+export function getAllPostsIncludingScheduled(): BlogPost[] {
   if (!fs.existsSync(CONTENT_DIR)) return [];
   return fs
     .readdirSync(CONTENT_DIR)
@@ -64,6 +83,35 @@ export function getAllPosts(): BlogPost[] {
       ];
     })
     .sort((a, b) => (a.date < b.date ? 1 : -1));
+}
+
+/** Posts that are live today, newest first. */
+export function getAllPosts(today: string = todayInKenya()): BlogPost[] {
+  return getAllPostsIncludingScheduled().filter((post) => isLive(post, today));
+}
+
+/**
+ * Further reading for the end of a post: same category first (newest first),
+ * then the newest posts from other categories. Every article links onward, so
+ * no post is a dead end for readers or for crawlers.
+ */
+export function getRelatedPosts(post: BlogPost, posts: BlogPost[], limit = 3): BlogPost[] {
+  const others = posts.filter((candidate) => candidate.slug !== post.slug);
+  const sameCategory = others.filter((candidate) => candidate.category === post.category);
+  const rest = others.filter((candidate) => candidate.category !== post.category);
+  return [...sameCategory, ...rest].slice(0, limit);
+}
+
+/**
+ * Posts in a scheduled batch link to each other, and a link to a sibling that
+ * isn't live yet would 404. Render those links as plain text until the target
+ * publishes; the page revalidates hourly, so the link appears once it's live.
+ */
+export function unlinkUnpublishedPosts(html: string, liveSlugs: Set<string>): string {
+  return html.replace(
+    /<a href="\/blog\/([a-z0-9-]+)(?:#[^"]*)?"[^>]*>([\s\S]*?)<\/a>/g,
+    (link, slug: string, text: string) => (liveSlugs.has(slug) ? link : text),
+  );
 }
 
 export function getPost(slug: string): BlogPost | undefined {

@@ -8,6 +8,7 @@ import { useAuth } from '../context/AuthContext';
 import { trackContact } from '../lib/analytics';
 import { WHATSAPP_DEFAULT_MESSAGE, whatsappHref } from '../landing/contact';
 import ErrorBoundary from './ErrorBoundary';
+import { SOLUTION_PATHS } from '../solutions/paths';
 
 const CollapsibleSidebar = dynamic(() => import('./CollapsibleSidebar'), { ssr: false });
 const MobileBottomNav = dynamic(() => import('./MobileBottomNav'), { ssr: false });
@@ -15,7 +16,7 @@ const SubscriptionBlockedModal = dynamic(() => import('./SubscriptionBlockedModa
 // Client-only: it reads the View-as session from localStorage on first render.
 const ViewAsBanner = dynamic(() => import('./ViewAsBanner'), { ssr: false });
 
-const PUBLIC_PATHS = ['/', '/demo', '/login', '/landing', '/pricing', '/signup', '/forgot-password', '/reset-password'];
+const PUBLIC_PATHS = ['/', '/demo', '/login', '/landing', '/pricing', '/signup', '/forgot-password', '/reset-password', ...SOLUTION_PATHS];
 const PUBLIC_PREFIXES = ['/store', '/r', '/blog'];
 const FULLSCREEN_AUTH_PATHS = ['/setup'];
 

@@ -5,8 +5,10 @@ import { categoryStyle } from '../../categories';
 import CategoryChips from '../../CategoryChips';
 import { PostCard } from '../../PostCard';
 
-export const dynamic = 'force-static';
-export const dynamicParams = false;
+// Hourly, so a post scheduled for today (see isLive in posts.ts) appears
+// without a deploy.
+export const revalidate = 3600;
+export const dynamicParams = true;
 
 export function generateStaticParams() {
   const categories = Array.from(new Set(getAllPosts().map((post) => post.category)));

@@ -3,7 +3,9 @@ import { getAllPosts } from './posts';
 import CategoryChips from './CategoryChips';
 import { FeaturedPostCard, PostCard, PricingPromptCard } from './PostCard';
 
-export const dynamic = 'force-static';
+// Hourly, so a post scheduled for today (see isLive in posts.ts) appears
+// without a deploy.
+export const revalidate = 3600;
 
 export const metadata: Metadata = {
   title: 'Blog — Bitwave Technologies | ISP & Hotspot Business Guides for Kenya',

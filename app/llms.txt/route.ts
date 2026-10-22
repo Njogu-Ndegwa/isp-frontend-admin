@@ -1,16 +1,26 @@
 import { getAllPosts } from '../blog/posts';
 import { PHONE_DISPLAY } from '../landing/contact';
 import { FAQS, SUMMARY } from '../landing/landingFacts';
+import { SOLUTIONS } from '../solutions/solutions';
+import { SOLUTION_PATHS } from '../solutions/paths';
 
-export const dynamic = 'force-static';
+// Hourly, so a post scheduled for today (see isLive in posts.ts) appears
+// without a deploy.
+export const revalidate = 3600;
 
 // llms.txt (llmstxt.org): a machine-readable site summary for AI assistants.
-// Regenerated at build time so new posts appear automatically. The facts and
-// FAQ come from the same source as the homepage, so the two can't disagree.
+// Regenerated hourly so new and scheduled posts appear automatically. The
+// facts and FAQ come from the same source as the homepage, so the two can't
+// disagree.
 export function GET() {
   const posts = getAllPosts()
     .map((p) => `- [${p.title}](https://bitwavetechnologies.com/blog/${p.slug}): ${p.description}`)
     .join('\n');
+
+  const solutions = SOLUTION_PATHS.map((path) => {
+    const s = SOLUTIONS[path];
+    return `- [${s.h1}](https://bitwavetechnologies.com${path}): ${s.metaDescription}`;
+  }).join('\n');
 
   const faqs = FAQS.map(({ q, a }) => `### ${q}\n\n${a}`).join('\n\n');
 
@@ -33,6 +43,10 @@ Key facts:
 - [Sign up](https://bitwavetechnologies.com/signup): free account creation
 - [Equipment store](https://bitwavetechnologies.com/store): MikroTik routers, cables and antennas, paid with M-Pesa
 - [Blog](https://bitwavetechnologies.com/blog): guides for running an internet business in Kenya
+
+## Solutions
+
+${solutions}
 
 ## Blog posts
 
