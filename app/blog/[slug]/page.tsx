@@ -3,7 +3,14 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { notFound } from 'next/navigation';
 import { marked } from 'marked';
-import { extractFaq, getAllPosts, getPost, getRelatedPosts, unlinkUnpublishedPosts } from '../posts';
+import {
+  extractFaq,
+  getAllPosts,
+  getAllPostsIncludingScheduled,
+  getPost,
+  getRelatedPosts,
+  unlinkUnpublishedPosts,
+} from '../posts';
 import { CATEGORY_SOLUTION, categoryStyle } from '../categories';
 import { CategoryPill, PostMeta } from '../PostCard';
 import ShareRow from './ShareRow';
@@ -12,14 +19,17 @@ import './post.css';
 // Hourly, so a post scheduled for today (see isLive in posts.ts) appears
 // without a deploy.
 export const revalidate = 3600;
-// A scheduled post isn't in the build's static params; once its date arrives
-// its URL renders on first request. Until then getPost() misses and it 404s.
-export const dynamicParams = true;
+// Scheduled posts are prerendered too: before their date they render the
+// not-found page (noindex; nothing links to them and the sitemap leaves them
+// out), and the hourly regeneration turns each into the post on its day.
+// Keeping dynamicParams off means unknown slugs stay a real 404 — rendering
+// them on demand would answer 200, because the root loading.tsx streams first.
+export const dynamicParams = false;
 
 const BASE_URL = 'https://bitwavetechnologies.com';
 
 export function generateStaticParams() {
-  return getAllPosts().map((post) => ({ slug: post.slug }));
+  return getAllPostsIncludingScheduled().map((post) => ({ slug: post.slug }));
 }
 
 export async function generateMetadata({

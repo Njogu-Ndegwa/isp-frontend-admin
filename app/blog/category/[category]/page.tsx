@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { getAllPosts } from '../../posts';
+import { getAllPosts, getAllPostsIncludingScheduled } from '../../posts';
 import { categoryStyle } from '../../categories';
 import CategoryChips from '../../CategoryChips';
 import { PostCard } from '../../PostCard';
@@ -8,10 +8,14 @@ import { PostCard } from '../../PostCard';
 // Hourly, so a post scheduled for today (see isLive in posts.ts) appears
 // without a deploy.
 export const revalidate = 3600;
-export const dynamicParams = true;
+// Every category with a published post, scheduled ones included, is
+// prerendered; until its first post is live it renders the not-found page.
+export const dynamicParams = false;
 
 export function generateStaticParams() {
-  const categories = Array.from(new Set(getAllPosts().map((post) => post.category)));
+  const categories = Array.from(
+    new Set(getAllPostsIncludingScheduled().map((post) => post.category)),
+  );
   return categories.map((category) => ({ category }));
 }
 
