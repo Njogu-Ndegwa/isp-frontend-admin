@@ -310,6 +310,7 @@ import {
 } from './types';
 import { buildTransferRequest, type BuildTransferRequestOptions } from './pppoeTransfer';
 import { buildStaticImportFormData, filenameFromDisposition } from './staticImport';
+import type { SupportDeskResponse } from './supportDesk';
 import {
   getImpersonation,
   restoreAdmin,
@@ -2479,6 +2480,16 @@ class ApiClient {
       headers: this.getHeaders(),
     });
     return this.handleResponse<AdminDashboard>(response);
+  }
+
+  /** WhatsApp support desk snapshot. Backend serves it to the platform admin only. */
+  async getAdminSupportDesk(): Promise<SupportDeskResponse> {
+    if (this.isDemoMode()) throw new ApiError('No support desk snapshot yet', 404);
+    const response = await fetch(`${BASE_URL}/admin/support-desk`, {
+      headers: this.getHeaders(),
+      cache: 'no-store',
+    });
+    return this.handleResponse<SupportDeskResponse>(response);
   }
 
   async getAdminExpiredOnlineAudit(): Promise<AdminExpiredOnlineAudit> {
