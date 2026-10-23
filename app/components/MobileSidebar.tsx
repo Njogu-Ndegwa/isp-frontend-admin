@@ -18,7 +18,7 @@ interface NavGroup {
   items: { name: string; href: string; icon: React.ReactNode }[];
 }
 
-const resellerGroups: NavGroup[] = [
+export const resellerGroups: NavGroup[] = [
   {
     label: 'Billing & Customers',
     items: [
@@ -28,6 +28,15 @@ const resellerGroups: NavGroup[] = [
         icon: (
           <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+          </svg>
+        ),
+      },
+      {
+        name: 'Unmatched Payments',
+        href: '/unmatched-payments',
+        icon: (
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 15v-1a4 4 0 00-4-4H8m0 0l3 3m-3-3l3-3m9 14V5a2 2 0 00-2-2H6a2 2 0 00-2 2v16l4-2 4 2 4-2 4 2z" />
           </svg>
         ),
       },
@@ -135,7 +144,7 @@ const resellerGroups: NavGroup[] = [
   },
 ];
 
-const adminGroups: NavGroup[] = [
+export const adminGroups: NavGroup[] = [
   {
     label: 'Overview',
     items: [

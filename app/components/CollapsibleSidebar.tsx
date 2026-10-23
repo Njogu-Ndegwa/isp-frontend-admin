@@ -20,7 +20,7 @@ interface NavGroup {
   items: NavItem[];
 }
 
-const navGroups: NavGroup[] = [
+export const navGroups: NavGroup[] = [
   {
     id: 'standalone',
     items: [
@@ -63,6 +63,15 @@ const navGroups: NavGroup[] = [
         icon: (
           <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+          </svg>
+        ),
+      },
+      {
+        name: 'Unmatched Payments',
+        href: '/unmatched-payments',
+        icon: (
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 15v-1a4 4 0 00-4-4H8m0 0l3 3m-3-3l3-3m9 14V5a2 2 0 00-2-2H6a2 2 0 00-2 2v16l4-2 4 2 4-2 4 2z" />
           </svg>
         ),
       },
@@ -261,7 +270,7 @@ function groupHasActiveItem(pathname: string, group: NavGroup): boolean {
   return group.items.some((item) => isItemActive(pathname, item.href));
 }
 
-const adminNavGroups: NavGroup[] = [
+export const adminNavGroups: NavGroup[] = [
   {
     id: 'admin-standalone',
     items: [
