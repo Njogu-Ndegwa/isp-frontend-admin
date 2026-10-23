@@ -14,7 +14,9 @@ import type {
   Advertiser,
   Ad,
   AdsManageResponse,
+  AdsManageParams,
   AdStats,
+  AdAnalytics,
   Rating,
   RatingSummary,
   CustomerMapData,
@@ -530,7 +532,7 @@ const demoAd = (a: Partial<Ad> & Pick<Ad, 'id' | 'title' | 'seller_name' | 'phon
   advertiser_id: null, description: null, seller_location: null, whatsapp_number: null,
   price: null, price_value: null, category: null, badge_type: null, badge_text: null,
   placement: 'hero', media_type: 'image', image_url: null, video_url: null, poster_url: null,
-  image_fit: 'cover', bg_color: '#0F172A', slot: 'reseller', owner_user_id: 0, router_ids: null,
+  image_fit: 'cover', bg_color: '#0F172A', slot: 'reseller', owner_user_id: 0, owner_name: 'Demo ISP Network', router_ids: null,
   status: 'approved', review_note: null, reviewed_at: naive(6), is_active: true, priority: 0,
   starts_at: null, expires_at: null, created_at: naive(7), views_count: 0, clicks_count: 0,
   ...a,
@@ -577,10 +579,32 @@ export const demoAds: Ad[] = [
   }),
 ];
 
-export function demoManagedAds(params: { status?: string; placement?: string; page?: number; perPage?: number } = {}): AdsManageResponse {
-  const ads = demoAds.filter((a) =>
-    (!params.status || a.status === params.status) && (!params.placement || a.placement === params.placement));
-  return { ads, pagination: { page: 1, per_page: params.perPage ?? 50, total: ads.length, total_pages: 1 } };
+export function demoManagedAds(params: AdsManageParams = {}): AdsManageResponse {
+  const perPage = params.perPage ?? 50;
+  const page = params.page ?? 1;
+  const all = demoAds.filter((a) =>
+    (!params.status || a.status === params.status) && (!params.placement || a.placement === params.placement)
+    && !params.bitwave_only);
+  return {
+    ads: all.slice((page - 1) * perPage, page * perPage),
+    pagination: { page, per_page: perPage, total: all.length, total_pages: Math.max(1, Math.ceil(all.length / perPage)) },
+  };
+}
+
+export function demoAdAnalytics(): AdAnalytics {
+  const now = Date.now();
+  const live = demoAds.filter((a) => a.status === 'approved' && a.is_active
+    && (!a.expires_at || Date.parse(`${a.expires_at}Z`) > now));
+  return {
+    period_days: 30,
+    total_ads: demoAds.length,
+    active_ads: live.length,
+    total_clicks: demoAds.reduce((s, a) => s + a.clicks_count, 0),
+    clicks_by_type: {},
+    total_impressions: demoAds.reduce((s, a) => s + a.views_count, 0),
+    by_placement: {},
+    top_ads_by_clicks: [],
+  };
 }
 
 /** 30 days of views and taps that add up to the ad's counters. */

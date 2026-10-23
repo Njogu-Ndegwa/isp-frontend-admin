@@ -130,10 +130,10 @@ export default function AdEditor({ ad }: { ad?: Ad }) {
 
   useEffect(() => {
     api.getRouters().then(setRouters).catch(() => setRouters([]));
-    if (isAdmin && platform && !isEdit) {
+    if (isAdmin && platform) {
       api.getAdvertisers().then(setAdvertisers).catch(() => setAdvertisers([]));
     }
-  }, [isAdmin, platform, isEdit]);
+  }, [isAdmin, platform]);
 
   const set = <K extends keyof AdFormState>(key: K, value: AdFormState[K]) => {
     setForm((f) => ({ ...f, [key]: value }));
@@ -152,9 +152,9 @@ export default function AdEditor({ ad }: { ad?: Ad }) {
 
   const diff = useMemo(() => {
     if (!ad) return null;
-    const d = diffInput(formToInput(initial, platform), formToInput(form, platform));
-    delete d.advertiser_id; // not editable after creation (PUT doesn't take it)
-    return d;
+    // advertiser_id is only in the body for Bitwave ads (formToInput), which
+    // is exactly when PUT accepts it.
+    return diffInput(formToInput(initial, platform), formToInput(form, platform));
   }, [ad, initial, form, platform]);
 
   const willNeedReview = !isAdmin && (!isEdit || (diff !== null && changesNeedReview(diff) && ad?.status !== 'pending'));
@@ -284,7 +284,7 @@ export default function AdEditor({ ad }: { ad?: Ad }) {
                   <span className="badge badge-info flex-shrink-0">{t('Bitwave ad')}</span>
                   <span>{t('Platform ads go live as soon as you save and show before resellers’ own ads.')}</span>
                 </div>
-                {!isEdit && (
+                {isAdmin && (
                   <Field id="ad-advertiser_id" label={t('Advertiser (optional)')} hint={<>{t('Who paid for this ad.')} <Link href="/advertisers" className="text-accent-primary hover:underline">{t('Manage advertisers')}</Link></>}>
                     <select
                       {...aria('advertiser_id', true)}
@@ -296,6 +296,9 @@ export default function AdEditor({ ad }: { ad?: Ad }) {
                       {advertisers.map((a) => (
                         <option key={a.id} value={a.id}>{a.business_name ? `${a.business_name} (${a.name})` : a.name}</option>
                       ))}
+                      {form.advertiser_id !== null && !advertisers.some((a) => a.id === form.advertiser_id) && (
+                        <option value={form.advertiser_id}>{t('Advertiser #{id}', { id: form.advertiser_id })}</option>
+                      )}
                     </select>
                   </Field>
                 )}

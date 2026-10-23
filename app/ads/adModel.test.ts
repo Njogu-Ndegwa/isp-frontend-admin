@@ -22,7 +22,7 @@ const base: Ad = {
   phone_number: '0712000111', whatsapp_number: null, price: 'KSH 120 / kg', price_value: null,
   category: null, badge_type: null, badge_text: null, placement: 'hero', media_type: 'image',
   image_url: 'https://media.example/a.webp', video_url: null, poster_url: null,
-  image_fit: 'cover', bg_color: '#14532D', slot: 'house', owner_user_id: 7, router_ids: [51, 50],
+  image_fit: 'cover', bg_color: '#14532D', slot: 'house', owner_user_id: 7, owner_name: 'Acme WiFi', router_ids: [51, 50],
   status: 'approved', review_note: null, reviewed_at: null, is_active: true, priority: 0,
   starts_at: null, expires_at: '2026-11-01T21:00:00', created_at: '2026-10-20T09:00:00',
   views_count: 10, clicks_count: 1,
@@ -75,6 +75,12 @@ describe('formToInput / diffInput', () => {
     const input = formToInput(form, false);
     expect(input.image_url).toBeNull();
     expect(input.video_url).toBe('https://m/v.mp4');
+  });
+  it('lets an admin relink the advertiser on a Bitwave ad', () => {
+    const bitwave = { ...base, owner_user_id: null, owner_name: 'Bitwave', slot: 'platform' as const, advertiser_id: 2 };
+    const original = formToInput(adToForm(bitwave), true);
+    expect(diffInput(original, formToInput({ ...adToForm(bitwave), advertiser_id: 5 }, true))).toEqual({ advertiser_id: 5 });
+    expect(diffInput(original, formToInput({ ...adToForm(bitwave), advertiser_id: null }, true))).toEqual({ advertiser_id: null });
   });
   it('forces the platform slot for admins and sends advertiser_id', () => {
     const input = formToInput({ ...emptyAdForm(true), advertiser_id: 3 }, true);

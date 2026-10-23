@@ -144,7 +144,7 @@ export default function AdDetailClient() {
   const taps = stats?.clicks ?? ad.clicks_count;
   const ownerName = ad.owner_user_id === null
     ? 'Bitwave'
-    : routers.find((r) => r.owner_user_id === ad.owner_user_id)?.owner_name ?? (isAdmin ? `Reseller #${ad.owner_user_id}` : t('You'));
+    : ad.owner_name || (isAdmin ? `Reseller #${ad.owner_user_id}` : t('You'));
   const wifiName = isAdmin
     ? (ad.owner_user_id === null ? t('WiFi name') : ownerName)
     : (user?.business_name || user?.organization_name || t('Your WiFi'));

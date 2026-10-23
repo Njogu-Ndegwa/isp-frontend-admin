@@ -3,23 +3,28 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { api } from '../lib/api';
-import type { Ad, Router } from '../lib/types';
+import type { Ad, AdAnalytics, AdPlacement, AdReviewStatus, Router } from '../lib/types';
 import { useAuth } from '../context/AuthContext';
 import { useAlert } from '../context/AlertContext';
 import { useT } from '../lib/i18n';
 import Header from '../components/Header';
 import Tabs from '../components/Tabs';
-import SearchInput from '../components/SearchInput';
+import Pagination from '../components/Pagination';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { PageLoader } from '../components/LoadingSpinner';
 import { AdStatusChip, AdThumb } from './components/AdBits';
 import AdPreview from './components/AdPreview';
 import RejectAdDialog from './components/RejectAdDialog';
-import { adToForm, adDisplayStatus, formatCount, PLACEMENT_LABEL, slotLabel, STATUS_META, type AdDisplayStatus } from './adModel';
+import { adToForm, adDisplayStatus, formatCount, PLACEMENT_LABEL, slotLabel } from './adModel';
 import { formatTimeSinceUTC } from '../lib/dateUtils';
 
 type View = 'all' | 'review';
-const STATUS_ORDER: AdDisplayStatus[] = ['live', 'pending', 'scheduled', 'paused', 'ended', 'rejected'];
+/** Review states the server filters on; the chips show the finer state. */
+const STATUS_FILTERS: { value: AdReviewStatus; label: string }[] = [
+  { value: 'pending', label: 'Pending review' },
+  { value: 'approved', label: 'Approved' },
+  { value: 'rejected', label: 'Rejected' },
+];
 
 const PlusIcon = (
   <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5} aria-hidden="true">
@@ -27,9 +32,9 @@ const PlusIcon = (
   </svg>
 );
 
-function ownerLabel(ad: Ad, owners: Map<number, string>): string {
+function ownerLabel(ad: Ad): string {
   if (ad.owner_user_id === null) return 'Bitwave';
-  return owners.get(ad.owner_user_id) ?? `Reseller #${ad.owner_user_id}`;
+  return ad.owner_name || `Reseller #${ad.owner_user_id}`;
 }
 
 function routerScope(ad: Ad, routers: Router[], isAdmin: boolean): string {
@@ -96,7 +101,7 @@ function EmptyState({ isAdmin }: { isAdmin: boolean }) {
                 category: null, badge_type: null, badge_text: null, placement: 'hero', media_type: 'image',
                 image_url: 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=600&q=70&auto=format&fit=crop',
                 video_url: null, poster_url: null, image_fit: 'cover', bg_color: '#7C2D12', slot: 'reseller',
-                owner_user_id: 0, router_ids: null, status: 'approved', review_note: null, reviewed_at: null, is_active: true,
+                owner_user_id: 0, owner_name: null, router_ids: null, status: 'approved', review_note: null, reviewed_at: null, is_active: true,
                 priority: 0, starts_at: null, expires_at: null, created_at: null, views_count: 0, clicks_count: 0,
               }),
             }}
@@ -124,77 +129,81 @@ export default function AdsClient() {
   const isAdmin = user?.role === 'admin';
 
   const [ads, setAds] = useState<Ad[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [perPage, setPerPage] = useState(20);
+  const [pending, setPending] = useState<Ad[]>([]);
+  const [pendingTotal, setPendingTotal] = useState(0);
+  const [analytics, setAnalytics] = useState<AdAnalytics | null>(null);
   const [routers, setRouters] = useState<Router[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loaded, setLoaded] = useState(false);
+  const [listLoading, setListLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [view, setView] = useState<View>('all');
-  const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'' | AdDisplayStatus>('');
-  const [placementFilter, setPlacementFilter] = useState<'' | 'hero' | 'local'>('');
+  const [statusFilter, setStatusFilter] = useState<'' | AdReviewStatus>('');
+  const [placementFilter, setPlacementFilter] = useState<'' | AdPlacement>('');
+  /** '' = everyone, 'bitwave' = Bitwave's own ads, else a reseller's user id. */
   const [ownerFilter, setOwnerFilter] = useState('');
   const [busyId, setBusyId] = useState<number | null>(null);
   const [deleting, setDeleting] = useState<Ad | null>(null);
   const [rejecting, setRejecting] = useState<Ad | null>(null);
   const [now] = useState(() => Date.now());
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setLoadError(null);
+  // One page of ads, filtered on the server.
+  const loadList = useCallback(async () => {
+    setListLoading(true);
     try {
-      const [{ ads: list }, routerList] = await Promise.all([
-        api.getAllManagedAds(),
-        api.getRouters().catch(() => [] as Router[]),
-      ]);
-      setAds(list);
-      setRouters(routerList);
+      const res = await api.getManagedAds({
+        page,
+        perPage,
+        status: statusFilter || undefined,
+        placement: placementFilter || undefined,
+        bitwave_only: ownerFilter === 'bitwave' || undefined,
+        owner_user_id: ownerFilter && ownerFilter !== 'bitwave' ? Number(ownerFilter) : undefined,
+      });
+      setAds(res.ads);
+      setTotal(res.pagination.total);
+      setLoadError(null);
     } catch (err) {
       setLoadError(err instanceof Error ? err.message : t('Could not load your ads.'));
     } finally {
-      setLoading(false);
+      setListLoading(false);
+      setLoaded(true);
     }
-  }, [t]);
+  }, [page, perPage, statusFilter, placementFilter, ownerFilter, t]);
 
-  useEffect(() => { void load(); }, [load]);
+  // Totals for the tiles, the review queue and router names.
+  const loadSummary = useCallback(async () => {
+    const [totals, queue, routerList] = await Promise.all([
+      api.getAdAnalytics(30).catch(() => null),
+      api.getManagedAds({ status: 'pending', perPage: 100 }).catch(() => null),
+      api.getRouters().catch(() => [] as Router[]),
+    ]);
+    setAnalytics(totals);
+    if (queue) {
+      setPending([...queue.ads].sort((x, y) => String(x.created_at).localeCompare(String(y.created_at))));
+      setPendingTotal(queue.pagination.total);
+    }
+    setRouters(routerList);
+  }, []);
 
-  // Admins: name each reseller from the routers they own.
-  const owners = useMemo(() => {
-    const map = new Map<number, string>();
-    for (const r of routers) if (r.owner_user_id && r.owner_name) map.set(r.owner_user_id, r.owner_name);
-    return map;
-  }, [routers]);
+  useEffect(() => { void loadList(); }, [loadList]);
+  useEffect(() => { void loadSummary(); }, [loadSummary]);
 
-  const withStatus = useMemo(() => ads.map((ad) => ({ ad, status: adDisplayStatus(ad, now) })), [ads, now]);
-  const pending = useMemo(
-    () => withStatus.filter((x) => x.status === 'pending')
-      .sort((a, b) => String(a.ad.created_at).localeCompare(String(b.ad.created_at))),
-    [withStatus],
-  );
+  const refresh = () => { void loadList(); void loadSummary(); };
 
+  // Owner filter choices: resellers who own routers, plus any owner on screen.
   const ownerOptions = useMemo(() => {
-    const ids = Array.from(new Set(ads.map((a) => a.owner_user_id).filter((x): x is number => x !== null)));
-    return ids
-      .map((id) => ({ value: String(id), label: owners.get(id) ?? `Reseller #${id}` }))
-      .sort((a, b) => a.label.localeCompare(b.label));
-  }, [ads, owners]);
-
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    return withStatus.filter(({ ad, status }) => {
-      if (statusFilter && status !== statusFilter) return false;
-      if (placementFilter && ad.placement !== placementFilter) return false;
-      if (ownerFilter === 'bitwave' && ad.owner_user_id !== null) return false;
-      if (ownerFilter === 'resellers' && ad.owner_user_id === null) return false;
-      if (ownerFilter && !['bitwave', 'resellers'].includes(ownerFilter) && String(ad.owner_user_id) !== ownerFilter) return false;
-      if (q && ![ad.title, ad.seller_name, ad.phone_number, ad.seller_location].some((v) => v?.toLowerCase().includes(q))) return false;
-      return true;
-    });
-  }, [withStatus, search, statusFilter, placementFilter, ownerFilter]);
-
-  const totals = useMemo(() => ({
-    live: withStatus.filter((x) => x.status === 'live').length,
-    views: ads.reduce((s, a) => s + (a.views_count || 0), 0),
-    taps: ads.reduce((s, a) => s + (a.clicks_count || 0), 0),
-  }), [ads, withStatus]);
+    const map = new Map<number, string>();
+    for (const r of routers) {
+      if (r.owner_user_id && r.owner_name && r.owner_role !== 'admin') map.set(r.owner_user_id, r.owner_name);
+    }
+    for (const a of [...ads, ...pending]) {
+      if (a.owner_user_id !== null && !map.has(a.owner_user_id)) map.set(a.owner_user_id, ownerLabel(a));
+    }
+    return Array.from(map, ([id, name]) => ({ value: String(id), label: name }))
+      .sort((x, y) => x.label.localeCompare(y.label));
+  }, [routers, ads, pending]);
 
   const replace = (updated: Ad) => setAds((list) => list.map((a) => (a.id === updated.id ? { ...a, ...updated } : a)));
 
@@ -203,6 +212,7 @@ export default function AdsClient() {
     try {
       const updated = await api.updateAd(ad.id, { is_active: !ad.is_active });
       replace(updated);
+      void loadSummary();
       showAlert('success', updated.is_active ? t('Ad resumed.') : t('Ad paused. It no longer shows on portals.'));
     } catch (err) {
       showAlert('error', err instanceof Error ? err.message : t('Could not update the ad.'));
@@ -216,9 +226,10 @@ export default function AdsClient() {
     setBusyId(deleting.id);
     try {
       await api.deleteAd(deleting.id);
-      setAds((list) => list.filter((a) => a.id !== deleting.id));
       showAlert('success', t('Ad deleted.'));
       setDeleting(null);
+      if (ads.length === 1 && page > 1) setPage(page - 1);
+      refresh();
     } catch (err) {
       showAlert('error', err instanceof Error ? err.message : t('Could not delete the ad.'));
     } finally {
@@ -231,6 +242,9 @@ export default function AdsClient() {
     try {
       const updated = await api.reviewAd(ad.id, action, note);
       replace(updated);
+      setPending((list) => list.filter((a) => a.id !== ad.id));
+      setPendingTotal((n) => Math.max(0, n - 1));
+      void loadSummary();
       showAlert('success', action === 'approve' ? t('Approved. The ad is now live.') : t('Ad rejected. The reseller will see your reason.'));
       setRejecting(null);
     } catch (err) {
@@ -240,6 +254,10 @@ export default function AdsClient() {
     }
   };
 
+  const filtersActive = !!(statusFilter || placementFilter || ownerFilter);
+  const clearFilters = () => { setStatusFilter(''); setPlacementFilter(''); setOwnerFilter(''); setPage(1); };
+  const noAdsAtAll = loaded && !loadError && !filtersActive && total === 0 && (analytics?.total_ads ?? 0) === 0;
+
   const newButton = (
     <Link href="/ads/new" className="btn-primary inline-flex min-h-[44px] items-center gap-2">
       {PlusIcon}
@@ -247,16 +265,16 @@ export default function AdsClient() {
     </Link>
   );
 
-  if (loading) return <PageLoader />;
+  if (!loaded) return <PageLoader />;
 
-  if (loadError) {
+  if (loadError && ads.length === 0) {
     return (
       <div>
         <Header title={t('Ads')} />
         <div className="mx-auto max-w-md rounded-2xl border border-border bg-background-secondary p-8 text-center">
           <h2 className="text-lg font-semibold text-foreground">{t('Could not load your ads')}</h2>
           <p className="mt-1 text-sm text-foreground-muted">{loadError}</p>
-          <button onClick={() => void load()} className="btn-primary mt-4 min-h-[44px]">{t('Try again')}</button>
+          <button onClick={refresh} className="btn-primary mt-4 min-h-[44px]">{t('Try again')}</button>
         </div>
       </div>
     );
@@ -266,14 +284,13 @@ export default function AdsClient() {
     ? t('Every ad on Bitwave portals, and the reseller ads waiting for review')
     : t('Ads on your WiFi login page: your own promos and ads you sell');
 
-  const filtersActive = !!(search || statusFilter || placementFilter || ownerFilter);
   const selectCls = 'input !py-2.5 min-h-[44px] sm:!w-auto';
 
   return (
     <div className="pb-6">
-      <Header title={t('Ads')} subtitle={subtitle} action={ads.length > 0 ? newButton : undefined} />
+      <Header title={t('Ads')} subtitle={subtitle} action={noAdsAtAll ? undefined : newButton} />
 
-      {ads.length === 0 ? (
+      {noAdsAtAll ? (
         <EmptyState isAdmin={isAdmin} />
       ) : (
         <>
@@ -285,10 +302,10 @@ export default function AdsClient() {
           </div>
 
           <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
-            <StatTile label={t('Live now')} value={String(totals.live)} hint={t('{n} ads in total', { n: ads.length })} />
-            <StatTile label={t('Waiting for review')} value={String(pending.length)} hint={isAdmin ? t('Oldest first in Review') : t('Bitwave checks each ad')} />
-            <StatTile label={t('Views')} value={formatCount(totals.views)} hint={t('Phones that saw an ad, last 30 days')} />
-            <StatTile label={t('Taps')} value={formatCount(totals.taps)} hint={t('Calls and other taps, last 30 days')} />
+            <StatTile label={t('Live now')} value={analytics ? String(analytics.active_ads) : '–'} hint={analytics ? t('{n} ads in total', { n: analytics.total_ads }) : undefined} />
+            <StatTile label={t('Waiting for review')} value={String(pendingTotal)} hint={isAdmin ? t('Oldest first in Review') : t('Bitwave checks each ad')} />
+            <StatTile label={t('Views')} value={analytics ? formatCount(analytics.total_impressions) : '–'} hint={t('Phones that saw an ad, last 30 days')} />
+            <StatTile label={t('Taps')} value={analytics ? formatCount(analytics.total_clicks) : '–'} hint={t('Calls and other taps, last 30 days')} />
           </div>
 
           {isAdmin && (
@@ -298,8 +315,8 @@ export default function AdsClient() {
               onChange={setView}
               ariaLabel={t('Ads view')}
               tabs={[
-                { value: 'all', label: t('All ads'), count: ads.length },
-                { value: 'review', label: t('Review'), count: pending.length },
+                { value: 'all', label: t('All ads'), count: analytics?.total_ads ?? total },
+                { value: 'review', label: t('Review'), count: pendingTotal },
               ]}
             />
           )}
@@ -312,9 +329,12 @@ export default function AdsClient() {
               </div>
             ) : (
               <div className="space-y-4">
-                {pending.map(({ ad }) => (
+                {pendingTotal > pending.length && (
+                  <p className="text-xs text-foreground-muted">{t('Showing the oldest {n} of {total}. Approve or reject these to see the rest.', { n: pending.length, total: pendingTotal })}</p>
+                )}
+                {pending.map((ad) => (
                   <article key={ad.id} className="grid gap-5 rounded-2xl border border-border bg-background-secondary p-4 sm:p-5 lg:grid-cols-[340px_minmax(0,1fr)]">
-                    <AdPreview compact ad={adToForm(ad)} wifiName={owners.get(ad.owner_user_id ?? -1) ?? t('WiFi name')} />
+                    <AdPreview compact ad={adToForm(ad)} wifiName={ad.owner_name || t('WiFi name')} />
                     <div className="flex min-w-0 flex-col">
                       <div className="flex flex-wrap items-center gap-2">
                         <AdStatusChip status="pending" />
@@ -328,7 +348,7 @@ export default function AdsClient() {
                         {ad.seller_name}{ad.price ? ` · ${ad.price}` : ''}
                       </p>
                       <dl className="mt-4 grid grid-cols-1 gap-x-6 gap-y-2.5 text-sm sm:grid-cols-2">
-                        <div><dt className="text-xs text-foreground-muted">{t('Reseller')}</dt><dd className="text-foreground">{ownerLabel(ad, owners)}</dd></div>
+                        <div><dt className="text-xs text-foreground-muted">{t('Reseller')}</dt><dd className="text-foreground">{ownerLabel(ad)}</dd></div>
                         <div>
                           <dt className="text-xs text-foreground-muted">{t('Call button dials')}</dt>
                           <dd><a href={`tel:${ad.phone_number.replace(/\s+/g, '')}`} className="font-medium text-accent-primary hover:underline">{ad.phone_number}</a></dd>
@@ -361,33 +381,31 @@ export default function AdsClient() {
           ) : (
             <>
               <div className="mb-4 flex flex-col gap-2.5 sm:flex-row sm:flex-wrap sm:items-center">
-                <SearchInput value={search} onChange={setSearch} placeholder={t('Search ads')} className="sm:min-w-[220px] sm:flex-1" />
-                <select aria-label={t('Status')} value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as AdDisplayStatus | '')} className={selectCls}>
+                <select aria-label={t('Status')} value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value as AdReviewStatus | ''); setPage(1); }} className={selectCls}>
                   <option value="">{t('Any status')}</option>
-                  {STATUS_ORDER.map((s) => <option key={s} value={s}>{t(STATUS_META[s].label)}</option>)}
+                  {STATUS_FILTERS.map((o) => <option key={o.value} value={o.value}>{t(o.label)}</option>)}
                 </select>
-                <select aria-label={t('Placement')} value={placementFilter} onChange={(e) => setPlacementFilter(e.target.value as '' | 'hero' | 'local')} className={selectCls}>
+                <select aria-label={t('Placement')} value={placementFilter} onChange={(e) => { setPlacementFilter(e.target.value as AdPlacement | ''); setPage(1); }} className={selectCls}>
                   <option value="">{t('Anywhere')}</option>
                   <option value="hero">{t('Top of portal')}</option>
                   <option value="local">{t('Shops row')}</option>
                 </select>
                 {isAdmin && (
-                  <select aria-label={t('Owner')} value={ownerFilter} onChange={(e) => setOwnerFilter(e.target.value)} className={selectCls}>
+                  <select aria-label={t('Owner')} value={ownerFilter} onChange={(e) => { setOwnerFilter(e.target.value); setPage(1); }} className={selectCls}>
                     <option value="">{t('Any owner')}</option>
-                    <option value="bitwave">Bitwave</option>
-                    <option value="resellers">{t('All resellers')}</option>
+                    <option value="bitwave">{t('Bitwave ads')}</option>
                     {ownerOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                   </select>
                 )}
               </div>
 
-              {filtered.length === 0 ? (
+              {ads.length === 0 ? (
                 <div className="rounded-2xl border border-border bg-background-secondary p-10 text-center">
                   <p className="text-base font-semibold text-foreground">{t('No ads match')}</p>
                   {filtersActive && (
                     <button
                       type="button"
-                      onClick={() => { setSearch(''); setStatusFilter(''); setPlacementFilter(''); setOwnerFilter(''); }}
+                      onClick={clearFilters}
                       className="mt-3 min-h-[44px] text-sm font-medium text-accent-primary hover:underline"
                     >
                       {t('Clear filters')}
@@ -395,8 +413,9 @@ export default function AdsClient() {
                   )}
                 </div>
               ) : (
-                <ul className="grid gap-3 xl:grid-cols-2">
-                  {filtered.map(({ ad, status }) => (
+                <>
+                <ul className={`grid gap-3 transition-opacity xl:grid-cols-2 ${listLoading ? 'opacity-60' : ''}`} aria-busy={listLoading}>
+                  {ads.map((ad) => ({ ad, status: adDisplayStatus(ad, now) })).map(({ ad, status }) => (
                     <li key={ad.id} className="rounded-2xl border border-border bg-background-secondary p-3.5 transition-colors hover:border-foreground-muted/40 sm:p-4">
                       <div className="flex gap-3.5">
                         <Link href={`/ads/${ad.id}`} className="flex-shrink-0 rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary" aria-label={t('Open {title}', { title: ad.title })} tabIndex={-1}>
@@ -411,7 +430,7 @@ export default function AdsClient() {
                           </div>
                           <p className="truncate text-sm text-foreground-muted">
                             {ad.seller_name}
-                            {isAdmin && <> · <span className="text-foreground">{ownerLabel(ad, owners)}</span></>}
+                            {isAdmin && <> · <span className="text-foreground">{ownerLabel(ad)}</span></>}
                           </p>
                           <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-foreground-muted">
                             <span>{t(PLACEMENT_LABEL[ad.placement])}</span>
@@ -466,6 +485,20 @@ export default function AdsClient() {
                     </li>
                   ))}
                 </ul>
+                {total > perPage && (
+                  <div className="mt-4">
+                    <Pagination
+                      page={page}
+                      perPage={perPage}
+                      total={total}
+                      onPageChange={setPage}
+                      onPerPageChange={(n) => { setPerPage(n); setPage(1); }}
+                      loading={listLoading}
+                      noun="ads"
+                    />
+                  </div>
+                )}
+                </>
               )}
             </>
           )}

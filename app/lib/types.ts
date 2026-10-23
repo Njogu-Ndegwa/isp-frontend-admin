@@ -3021,6 +3021,8 @@ export interface Ad {
   slot: AdSlot;
   /** null = Bitwave. */
   owner_user_id: number | null;
+  /** The reseller's business name, or "Bitwave". */
+  owner_name: string | null;
   /** null = all the owner's routers (network-wide for Bitwave). */
   router_ids: number[] | null;
   status: AdReviewStatus;
@@ -3082,6 +3084,30 @@ export interface AdStats {
   clicks: number;
   by_placement: Partial<Record<AdEventPlacement | string, AdCounts>>;
   daily: { day: string; impressions: number; clicks: number }[];
+}
+
+/** GET /api/ads/analytics: totals over the caller's ads (admin: all). */
+export interface AdAnalytics {
+  period_days: number;
+  total_ads: number;
+  /** Approved, switched on and not past their end date. */
+  active_ads: number;
+  total_clicks: number;
+  clicks_by_type: Record<string, number>;
+  total_impressions: number;
+  by_placement: Partial<Record<AdEventPlacement | string, AdCounts>>;
+  top_ads_by_clicks: { id: number; title: string | null; clicks_count: number; views_count: number }[];
+}
+
+export interface AdsManageParams {
+  status?: AdReviewStatus;
+  placement?: AdPlacement;
+  /** Admin only: one reseller's ads. */
+  owner_user_id?: number;
+  /** Admin only: Bitwave's own ads. */
+  bitwave_only?: boolean;
+  page?: number;
+  perPage?: number;
 }
 
 /** POST /api/ads/media/upload-url. PUT the file to upload_url, then save public_url. */

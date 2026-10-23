@@ -47,8 +47,8 @@ import {
   AdsManageResponse,
   AdStats,
   AdMediaUploadTicket,
-  AdPlacement,
-  AdReviewStatus,
+  AdAnalytics,
+  AdsManageParams,
   Rating,
   RatingSummary,
   CustomerMapData,
@@ -1600,13 +1600,13 @@ class ApiClient {
 
   // Ads (hero ads). Contract: isp-billing ADS_API.md. GET /api/ads is the
   // public portal feed; managing goes through /api/ads/manage.
-  async getManagedAds(
-    params: { status?: AdReviewStatus; placement?: AdPlacement; page?: number; perPage?: number } = {},
-  ): Promise<AdsManageResponse> {
+  async getManagedAds(params: AdsManageParams = {}): Promise<AdsManageResponse> {
     if (this.isDemoMode()) return (await loadDemo()).demoManagedAds(params);
     const qs = new URLSearchParams();
     if (params.status) qs.set('status', params.status);
     if (params.placement) qs.set('placement', params.placement);
+    if (params.bitwave_only) qs.set('bitwave_only', 'true');
+    else if (params.owner_user_id != null) qs.set('owner_user_id', String(params.owner_user_id));
     qs.set('page', String(params.page ?? 1));
     qs.set('per_page', String(params.perPage ?? 50));
     const response = await fetch(`${BASE_URL}/ads/manage?${qs.toString()}`, {
@@ -1615,17 +1615,13 @@ class ApiClient {
     return this.handleResponse<AdsManageResponse>(response);
   }
 
-  /** Every ad the caller can see (admin: all; reseller: their own), page by page. */
-  async getAllManagedAds(maxPages = 10): Promise<{ ads: Ad[]; total: number }> {
-    const ads: Ad[] = [];
-    let total = 0;
-    for (let page = 1; page <= maxPages; page++) {
-      const res = await this.getManagedAds({ page, perPage: 100 });
-      ads.push(...res.ads);
-      total = res.pagination.total;
-      if (page >= res.pagination.total_pages || res.ads.length === 0) break;
-    }
-    return { ads, total };
+  /** Totals over the caller's ads (admin: all) for the last `days` days. */
+  async getAdAnalytics(days = 30): Promise<AdAnalytics> {
+    if (this.isDemoMode()) return (await loadDemo()).demoAdAnalytics();
+    const response = await fetch(`${BASE_URL}/ads/analytics?days=${days}`, {
+      headers: this.getHeaders(true),
+    });
+    return this.handleResponse<AdAnalytics>(response);
   }
 
   async getManagedAd(adId: number): Promise<Ad> {
