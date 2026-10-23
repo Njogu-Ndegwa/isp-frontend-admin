@@ -31,6 +31,7 @@ import { formatAmount } from '../lib/format';
 import { useT } from '../lib/i18n';
 import { phoneMatches } from '../lib/phoneSearch';
 import { connectionTypeLabel } from '../lib/connectionType';
+import { PLATFORM_PAYBILL, customerPaybill, paybillAccountLabel } from '../lib/customerPaybill';
 
 const TransferPPPoEModal = dynamic(() => import('../components/TransferPPPoEModal'), {
   ssr: false,
@@ -266,6 +267,18 @@ export default function CustomersPage() {
   const [connCounts, setConnCounts] = useState<{ pppoe: number; hotspot: number; static_ip: number } | null>(null);
 
   const hasClientFilters = searchQuery.trim() !== '' || connectionFilter !== 'all';
+
+  // The paybill shown next to each account number: the reseller's own
+  // C2B-registered paybill when they have one, else the platform paybill.
+  // null until resolved so the wrong paybill never flashes up.
+  const [paybill, setPaybill] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    api.getPaymentMethods()
+      .then((methods) => { if (!cancelled) setPaybill(customerPaybill(methods)); })
+      .catch(() => { if (!cancelled) setPaybill(PLATFORM_PAYBILL); });
+    return () => { cancelled = true; };
+  }, []);
 
   // Load filter prefs from localStorage on mount
   const filtersHydrated = useRef(false);
@@ -1144,7 +1157,7 @@ export default function CustomersPage() {
                       <div>
                         <span className="font-medium text-foreground">{customer.name || t('Unknown')}</span>
                         {customer.account_number && (
-                          <p className="text-xs font-mono text-foreground-muted">4159825 &mdash; {customer.account_number}</p>
+                          <p className="text-xs font-mono text-foreground-muted">{paybillAccountLabel(paybill, customer.account_number)}</p>
                         )}
                         {customer.pppoe_username && (
                           <p className="text-xs font-mono text-foreground-muted">{customer.pppoe_username}</p>
@@ -1490,7 +1503,7 @@ export default function CustomersPage() {
                   key={customer.id}
                   id={customer.id}
                   title={customer.name || t('Unknown')}
-                  subtitle={connectionTypeCard === 'static_ip' ? `Static IP · ${customer.static_ip}` : customer.account_number ? `4159825 — ${customer.account_number}` : (customer.pppoe_username || customer.phone || undefined)}
+                  subtitle={connectionTypeCard === 'static_ip' ? `Static IP · ${customer.static_ip}` : customer.account_number ? paybillAccountLabel(paybill, customer.account_number) : (customer.pppoe_username || customer.phone || undefined)}
                   avatar={{
                     text: (customer.name || '?').charAt(0).toUpperCase(),
                     color: routerDownCard
