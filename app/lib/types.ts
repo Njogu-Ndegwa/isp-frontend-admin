@@ -2966,13 +2966,13 @@ export interface TopUsersResponse {
   totalTracked?: number;
 }
 
-// Advertiser Types
+// Advertiser Types (Bitwave admins only)
 export interface Advertiser {
   id: number;
   name: string;
-  business_name: string;
+  business_name: string | null;
   phone_number: string;
-  email: string;
+  email: string | null;
   is_active: boolean;
   created_at: string;
 }
@@ -2984,48 +2984,83 @@ export interface CreateAdvertiserRequest {
   email: string;
 }
 
-// Ad Types
+// Ads (hero ads, 2026-10). Contract: isp-billing ADS_API.md.
+/** "hero": the portal's photo hero + M-Pesa wait screen. "local": the shops row after payment. */
+export type AdPlacement = 'hero' | 'local';
+export type AdMediaType = 'image' | 'video';
+/** "cover": photo fills the frame. "contain": product cut-out on a colour. */
+export type AdImageFit = 'cover' | 'contain';
+/** platform = Bitwave's; reseller = an ad a reseller sold; house = a reseller's own promo. */
+export type AdSlot = 'platform' | 'reseller' | 'house';
+export type AdReviewStatus = 'pending' | 'approved' | 'rejected';
+/** Where a view or tap happened, as counted by the portal. */
+export type AdEventPlacement = 'hero' | 'wait_screen' | 'success_page' | 'local';
+
+/** One ad as the manage endpoints return it. Datetimes are naive UTC. */
 export interface Ad {
   id: number;
+  advertiser_id: number | null;
   title: string;
-  description: string;
-  image_url: string;
+  description: string | null;
   seller_name: string;
-  seller_location: string;
+  seller_location: string | null;
   phone_number: string;
-  whatsapp_number: string;
-  price: string;
-  price_value: number;
-  badge_type: 'hot' | 'new' | 'sale' | 'featured' | null;
+  whatsapp_number: string | null;
+  price: string | null;
+  price_value: number | null;
+  category: string | null;
+  badge_type: string | null;
   badge_text: string | null;
-  category: string;
+  placement: AdPlacement;
+  media_type: AdMediaType;
+  image_url: string | null;
+  video_url: string | null;
+  poster_url: string | null;
+  image_fit: AdImageFit;
+  bg_color: string | null;
+  slot: AdSlot;
+  /** null = Bitwave. */
+  owner_user_id: number | null;
+  /** null = all the owner's routers (network-wide for Bitwave). */
+  router_ids: number[] | null;
+  status: AdReviewStatus;
+  review_note: string | null;
+  reviewed_at: string | null;
   is_active: boolean;
   priority: number;
+  starts_at: string | null;
+  expires_at: string | null;
+  created_at: string | null;
+  /** Unique phones per day, summed, last 30 days. */
   views_count: number;
   clicks_count: number;
-  created_at: string;
-  expires_at: string;
-  advertiser_id: number;
 }
 
-export interface CreateAdRequest {
-  advertiser_id: number;
-  title: string;
-  description: string;
-  image_url: string;
-  seller_name: string;
-  seller_location: string;
-  phone_number: string;
-  whatsapp_number: string;
-  price: string;
-  price_value: number;
-  badge_type?: 'hot' | 'new' | 'sale' | 'featured';
-  badge_text?: string;
-  category: string;
-  expires_at: string;
+/** Body of POST /api/ads and PUT /api/ads/{id} (PUT takes any subset plus is_active). */
+export interface AdInput {
+  title?: string;
+  seller_name?: string;
+  phone_number?: string;
+  whatsapp_number?: string | null;
+  description?: string | null;
+  seller_location?: string | null;
+  price?: string | null;
+  placement?: AdPlacement;
+  media_type?: AdMediaType;
+  image_url?: string | null;
+  video_url?: string | null;
+  poster_url?: string | null;
+  image_fit?: AdImageFit;
+  bg_color?: string | null;
+  slot?: AdSlot;
+  router_ids?: number[] | null;
+  starts_at?: string | null;
+  expires_at?: string | null;
+  advertiser_id?: number | null;
+  is_active?: boolean;
 }
 
-export interface AdsResponse {
+export interface AdsManageResponse {
   ads: Ad[];
   pagination: {
     page: number;
@@ -3035,68 +3070,30 @@ export interface AdsResponse {
   };
 }
 
-// Ad Click Types
-export interface AdClick {
-  id: number;
-  click_type: 'view_details' | 'call' | 'whatsapp';
-  device_id: string;
-  mac_address: string;
-  session_id: string;
-  created_at: string;
+export interface AdCounts {
+  impressions: number;
+  clicks: number;
 }
 
-export interface AdClicksResponse {
+export interface AdStats {
   ad_id: number;
-  ad_title: string;
-  clicks: AdClick[];
-  pagination: {
-    page: number;
-    per_page: number;
-    total: number;
-  };
-}
-
-// Ad Impression Types
-export interface AdImpression {
-  id: number;
-  device_id: string;
-  session_id: string;
-  placement: string;
-  ad_ids: number[];
-  created_at: string;
-}
-
-export interface AdImpressionsResponse {
-  ad_id: number;
-  ad_title: string;
-  impressions: AdImpression[];
-  pagination: {
-    page: number;
-    per_page: number;
-    total: number;
-  };
-}
-
-// Ad Analytics Types
-export interface TopAdByClicks {
-  id: number;
-  title: string;
-  clicks_count: number;
-  views_count: number;
-}
-
-export interface AdAnalytics {
   period_days: number;
-  total_ads: number;
-  active_ads: number;
-  total_clicks: number;
-  clicks_by_type: {
-    view_details: number;
-    call: number;
-    whatsapp: number;
-  };
-  total_impressions: number;
-  top_ads_by_clicks: TopAdByClicks[];
+  impressions: number;
+  clicks: number;
+  by_placement: Partial<Record<AdEventPlacement | string, AdCounts>>;
+  daily: { day: string; impressions: number; clicks: number }[];
+}
+
+/** POST /api/ads/media/upload-url. PUT the file to upload_url, then save public_url. */
+export interface AdMediaUploadTicket {
+  upload_url: string;
+  public_url: string;
+  key: string;
+  content_type: string;
+  max_bytes: number;
+  expires_in: number;
+  method: 'PUT';
+  headers: Record<string, string>;
 }
 
 // Rating Types

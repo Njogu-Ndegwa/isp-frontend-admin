@@ -13,10 +13,8 @@ import type {
   RouterUsersResponse,
   Advertiser,
   Ad,
-  AdsResponse,
-  AdClicksResponse,
-  AdImpressionsResponse,
-  AdAnalytics,
+  AdsManageResponse,
+  AdStats,
   Rating,
   RatingSummary,
   CustomerMapData,
@@ -524,41 +522,94 @@ export const demoAdvertisers: Advertiser[] = [
   { id: 3, name: 'Lucy Odhiambo', business_name: 'Westlands Fresh Market', phone_number: '254700555666', email: 'lucy@westlandsfresh.co.ke', is_active: true, created_at: iso(20) },
 ];
 
+// Datetimes from the ads API are naive UTC (no "Z").
+const naive = (daysAgo = 0, hoursAgo = 0) => iso(daysAgo, hoursAgo).replace(/\.\d+Z$/, '');
+const UNSPLASH = (id: string) => `https://images.unsplash.com/${id}?w=800&q=75&auto=format&fit=crop`;
+
+const demoAd = (a: Partial<Ad> & Pick<Ad, 'id' | 'title' | 'seller_name' | 'phone_number'>): Ad => ({
+  advertiser_id: null, description: null, seller_location: null, whatsapp_number: null,
+  price: null, price_value: null, category: null, badge_type: null, badge_text: null,
+  placement: 'hero', media_type: 'image', image_url: null, video_url: null, poster_url: null,
+  image_fit: 'cover', bg_color: '#0F172A', slot: 'reseller', owner_user_id: 0, router_ids: null,
+  status: 'approved', review_note: null, reviewed_at: naive(6), is_active: true, priority: 0,
+  starts_at: null, expires_at: null, created_at: naive(7), views_count: 0, clicks_count: 0,
+  ...a,
+});
+
 export const demoAds: Ad[] = [
-  { id: 1, title: 'Samsung Galaxy A15 - Special Offer', description: 'Brand new Samsung Galaxy A15 at unbeatable price. 128GB, dual SIM.', image_url: 'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=400', seller_name: 'Nairobi Electronics', seller_location: 'Kilimani, Nairobi', phone_number: '254700111222', whatsapp_number: '254700111222', price: 'KES 18,999', price_value: 18999, badge_type: 'hot', badge_text: 'Hot Deal', category: 'electronics', is_active: true, priority: 1, views_count: 1250, clicks_count: 89, created_at: iso(10), expires_at: iso(-30), advertiser_id: 1 },
-  { id: 2, title: 'Home WiFi Router Setup', description: 'Professional home WiFi setup and configuration. Coverage guaranteed.', image_url: 'https://images.unsplash.com/photo-1544197150-b99a580bb7a8?w=400', seller_name: 'Kilimani Hardware', seller_location: 'Westlands, Nairobi', phone_number: '254700333444', whatsapp_number: '254700333444', price: 'KES 3,500', price_value: 3500, badge_type: 'new', badge_text: null, category: 'services', is_active: true, priority: 2, views_count: 820, clicks_count: 56, created_at: iso(8), expires_at: iso(-25), advertiser_id: 2 },
-  { id: 3, title: 'Fresh Organic Vegetables - Delivered', description: 'Weekly box of fresh organic vegetables delivered to your door.', image_url: 'https://images.unsplash.com/photo-1540420773420-3366772f4999?w=400', seller_name: 'Westlands Fresh Market', seller_location: 'South B, Nairobi', phone_number: '254700555666', whatsapp_number: '254700555666', price: 'KES 1,200/week', price_value: 1200, badge_type: 'featured', badge_text: 'Featured', category: 'food', is_active: true, priority: 3, views_count: 640, clicks_count: 42, created_at: iso(5), expires_at: iso(-20), advertiser_id: 3 },
+  demoAd({
+    id: 101, title: 'Fresh chapati & beans', price: 'KSH 80 a plate', seller_name: "Mama Njeri's Kitchen",
+    seller_location: 'Next to the matatu stage', phone_number: '0712 445 210', whatsapp_number: '0712 445 210',
+    media_type: 'video', video_url: 'https://media.bitwavetechnologies.com/ads/demo/chapati.mp4',
+    poster_url: UNSPLASH('photo-1504674900247-0877df9cc836'), bg_color: '#7C2D12',
+    slot: 'reseller', router_ids: [1, 2], views_count: 2310, clicks_count: 141, created_at: naive(12),
+    expires_at: naive(-20),
+  }),
+  demoAd({
+    id: 102, title: '7 days unlimited WiFi', price: 'KSH 250', seller_name: 'Demo ISP Network',
+    phone_number: '0700 123 456', image_url: UNSPLASH('photo-1544197150-b99a580bb7a8'),
+    slot: 'house', views_count: 1840, clicks_count: 64, created_at: naive(20),
+  }),
+  demoAd({
+    id: 103, title: 'Red onions', price: 'KSH 120 / kg', seller_name: 'Wanjiku Greens',
+    seller_location: 'Stall 14, Kilimani market', description: 'Fresh from Loitokitok every Tuesday',
+    phone_number: '0722 310 884', image_url: UNSPLASH('photo-1540420773420-3366772f4999'),
+    image_fit: 'contain', bg_color: '#14532D', status: 'pending', reviewed_at: null,
+    slot: 'reseller', router_ids: [1], created_at: naive(0, 3),
+  }),
+  demoAd({
+    id: 104, title: 'Cracked screen fixed in 1 hour', price: 'From KSH 1,500', seller_name: 'Kip Phone Doctor',
+    seller_location: 'Westlands, opposite Sarit', phone_number: '0733 908 112',
+    image_url: UNSPLASH('photo-1511707171634-5f897ff02aa9'), placement: 'local',
+    status: 'rejected', review_note: "We called 0733 908 112 and it didn't go through. Check the number and save again.",
+    slot: 'reseller', created_at: naive(2),
+  }),
+  demoAd({
+    id: 105, title: 'Bring a friend, get 1 day free', seller_name: 'Demo ISP Network',
+    phone_number: '0700 123 456', image_url: UNSPLASH('photo-1529156069898-49953e39b3ac'),
+    slot: 'house', is_active: false, views_count: 620, clicks_count: 9, created_at: naive(30),
+  }),
+  demoAd({
+    id: 106, title: 'Braids & weaves, walk-ins welcome', price: 'From KSH 500', seller_name: "Faith's Salon",
+    seller_location: 'South B shopping centre', phone_number: '0745 220 019', whatsapp_number: '0745 220 019',
+    image_url: UNSPLASH('photo-1560066984-138dadb4c035'), placement: 'local', slot: 'reseller',
+    starts_at: naive(-3), expires_at: naive(-33), router_ids: [3], created_at: naive(1),
+  }),
 ];
 
-export const demoAdsResponse: AdsResponse = {
-  ads: demoAds, pagination: { page: 1, per_page: 20, total: 3, total_pages: 1 },
-};
+export function demoManagedAds(params: { status?: string; placement?: string; page?: number; perPage?: number } = {}): AdsManageResponse {
+  const ads = demoAds.filter((a) =>
+    (!params.status || a.status === params.status) && (!params.placement || a.placement === params.placement));
+  return { ads, pagination: { page: 1, per_page: params.perPage ?? 50, total: ads.length, total_pages: 1 } };
+}
 
-export const demoAdClicksResponse: AdClicksResponse = {
-  ad_id: 1, ad_title: 'Samsung Galaxy A15 - Special Offer',
-  clicks: Array.from({ length: 10 }, (_, i) => ({
-    id: 300 + i, click_type: (['view_details', 'call', 'whatsapp'] as const)[i % 3],
-    device_id: `dev-${1000 + i}`, mac_address: macs[i % macs.length],
-    session_id: `sess-${2000 + i}`, created_at: iso(i % 5, i * 2),
-  })),
-  pagination: { page: 1, per_page: 50, total: 10 },
-};
-
-export const demoAdImpressionsResponse: AdImpressionsResponse = {
-  ad_id: 1, ad_title: 'Samsung Galaxy A15 - Special Offer',
-  impressions: Array.from({ length: 15 }, (_, i) => ({
-    id: 400 + i, device_id: `dev-${1000 + i}`, session_id: `sess-${3000 + i}`,
-    placement: 'captive_portal', ad_ids: [1, 2, 3], created_at: iso(i % 7, i * 3),
-  })),
-  pagination: { page: 1, per_page: 50, total: 15 },
-};
-
-export const demoAdAnalytics: AdAnalytics = {
-  period_days: 30, total_ads: 3, active_ads: 3, total_clicks: 187,
-  clicks_by_type: { view_details: 95, call: 52, whatsapp: 40 },
-  total_impressions: 2710,
-  top_ads_by_clicks: demoAds.map(a => ({ id: a.id, title: a.title, clicks_count: a.clicks_count, views_count: a.views_count })),
-};
+/** 30 days of views and taps that add up to the ad's counters. */
+export function demoAdStats(adId: number, days = 30): AdStats {
+  const ad = demoAds.find((a) => a.id === adId) ?? demoAds[0];
+  const split: Record<string, number> = ad.placement === 'local'
+    ? { local: 1 }
+    : ad.slot === 'house' ? { hero: 1 } : { hero: 0.72, wait_screen: 0.17, success_page: 0.11 };
+  const weights = Array.from({ length: days }, (_, i) => {
+    const weekday = new Date(Date.now() - (days - 1 - i) * 86_400_000).getUTCDay();
+    return (weekday === 0 || weekday === 6 ? 1.35 : 1) * (0.75 + 0.5 * Math.abs(Math.sin(adId * 7 + i * 1.7)));
+  });
+  const total = weights.reduce((a, b) => a + b, 0);
+  const daily = weights.map((w, i) => {
+    const d = new Date(Date.now() - (days - 1 - i) * 86_400_000);
+    return {
+      day: d.toISOString().slice(0, 10),
+      impressions: Math.round((ad.views_count * w) / total),
+      clicks: Math.round((ad.clicks_count * w) / total),
+    };
+  }).filter((d) => d.impressions > 0 || d.clicks > 0);
+  const impressions = daily.reduce((a, d) => a + d.impressions, 0);
+  const clicks = daily.reduce((a, d) => a + d.clicks, 0);
+  const by_placement: AdStats['by_placement'] = {};
+  for (const [key, share] of Object.entries(split)) {
+    by_placement[key] = { impressions: Math.round(impressions * share), clicks: Math.round(clicks * share) };
+  }
+  return { ad_id: ad.id, period_days: days, impressions, clicks, by_placement, daily };
+}
 
 // ─── Plan Performance ───────────────────────────────────────────────
 export const demoPlanPerformance: PlanPerformanceResponse = {
