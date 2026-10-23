@@ -9,6 +9,7 @@ import {
   EXPIRY_REMINDER_PRESETS,
   MAX_EXPIRY_REMINDERS,
   expirySettingsAreEqual,
+  normalizeExpirySettings,
   normalizeReminderOffsets,
   validateExpirySettings,
 } from '../lib/expiryReminders';
@@ -17,6 +18,7 @@ const FALLBACK_SETTINGS: ExpirySmsSettings = {
   enabled: false,
   reminder_offsets_minutes: [1440],
   send_at_expiry: true,
+  expiry_include_hotspot: true,
 };
 
 export function SettingsToggle({
@@ -63,11 +65,7 @@ export function ExpiryRemindersView({ onBuyCredits }: { onBuyCredits: () => void
     try {
       setLoading(true);
       setError(null);
-      const result = await api.getExpirySmsSettings();
-      const normalized = {
-        ...result,
-        reminder_offsets_minutes: normalizeReminderOffsets(result.reminder_offsets_minutes),
-      };
+      const normalized = normalizeExpirySettings(await api.getExpirySmsSettings());
       setSettings(normalized);
       setSavedSettings(normalized);
     } catch (err) {
@@ -105,11 +103,7 @@ export function ExpiryRemindersView({ onBuyCredits }: { onBuyCredits: () => void
         ...settings,
         reminder_offsets_minutes: normalizeReminderOffsets(settings.reminder_offsets_minutes),
       };
-      const result = await api.updateExpirySmsSettings(payload);
-      const normalized = {
-        ...result,
-        reminder_offsets_minutes: normalizeReminderOffsets(result.reminder_offsets_minutes),
-      };
+      const normalized = normalizeExpirySettings(await api.updateExpirySmsSettings(payload));
       setSettings(normalized);
       setSavedSettings(normalized);
       showAlert('success', 'Expiry reminder settings saved');
@@ -201,12 +195,32 @@ export function ExpiryRemindersView({ onBuyCredits }: { onBuyCredits: () => void
             onChange={() => setSettings((current) => ({ ...current, send_at_expiry: !current.send_at_expiry }))}
           />
         </div>
+
+        <div className={`mt-5 flex items-center justify-between gap-4 border-t border-border pt-5 ${settings.enabled ? '' : 'opacity-50'}`}>
+          <div>
+            <p className="text-sm font-medium text-foreground">Include hotspot customers</p>
+            <p className="mt-0.5 text-xs text-foreground-muted">
+              Hotspot plans are short and frequent, and every reminder uses SMS credits. PPPoE customers always get them.
+            </p>
+          </div>
+          <SettingsToggle
+            checked={settings.expiry_include_hotspot}
+            disabled={!settings.enabled}
+            label="Send expiry messages to hotspot customers"
+            onChange={() => setSettings((current) => ({
+              ...current,
+              expiry_include_hotspot: !current.expiry_include_hotspot,
+            }))}
+          />
+        </div>
       </div>
 
       <div className="card border-accent-primary/20 bg-accent-primary/5 p-4">
         <p className="text-sm font-medium text-foreground">
           {settings.enabled
-            ? `${totalMessages} automatic message${totalMessages === 1 ? '' : 's'} per customer expiry`
+            ? `${totalMessages} automatic message${totalMessages === 1 ? '' : 's'} per customer expiry${
+              settings.expiry_include_hotspot ? '' : ' · PPPoE customers only'
+            }`
             : 'Automatic expiry messages are off'}
         </p>
         <p className="mt-1 text-xs leading-5 text-foreground-muted">

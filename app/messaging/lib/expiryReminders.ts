@@ -18,8 +18,21 @@ export function normalizeReminderOffsets(offsets: number[]): number[] {
   return [...new Set(offsets)].sort((a, b) => b - a);
 }
 
+/** Older backends omit `expiry_include_hotspot`; missing means hotspot is included. */
+export function normalizeExpirySettings(
+  source: Omit<ExpirySmsSettings, 'expiry_include_hotspot'> & { expiry_include_hotspot?: boolean | null },
+): ExpirySmsSettings {
+  return {
+    enabled: Boolean(source.enabled),
+    reminder_offsets_minutes: normalizeReminderOffsets(source.reminder_offsets_minutes ?? []),
+    send_at_expiry: Boolean(source.send_at_expiry),
+    expiry_include_hotspot: source.expiry_include_hotspot ?? true,
+  };
+}
+
 export function expirySettingsAreEqual(a: ExpirySmsSettings, b: ExpirySmsSettings): boolean {
   if (a.enabled !== b.enabled || a.send_at_expiry !== b.send_at_expiry) return false;
+  if (a.expiry_include_hotspot !== b.expiry_include_hotspot) return false;
   const aOffsets = normalizeReminderOffsets(a.reminder_offsets_minutes);
   const bOffsets = normalizeReminderOffsets(b.reminder_offsets_minutes);
   return aOffsets.length === bOffsets.length

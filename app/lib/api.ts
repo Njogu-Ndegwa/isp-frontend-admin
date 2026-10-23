@@ -4044,6 +4044,7 @@ class ApiClient {
         enabled: false,
         reminder_offsets_minutes: [1440],
         send_at_expiry: true,
+        expiry_include_hotspot: true,
       };
     }
     const response = await fetch(`${BASE_URL}/messaging/expiry-settings`, {
