@@ -13,6 +13,7 @@ export const FR: Record<string, string> = {
   'Outage Compensation': 'Compensation de panne',
   'Access Credentials': "Identifiants d'accès",
   'Account Statement': 'Relevé de compte',
+  'Unmatched Payments': 'Paiements non attribués',
   'Messaging': 'Messagerie',
   'Network': 'Réseau',
   'Routers': 'Routeurs',
