@@ -5782,6 +5782,8 @@ export interface ExpirySmsSettings {
   enabled: boolean;
   reminder_offsets_minutes: number[];
   send_at_expiry: boolean;
+  /** Send expiry messages to hotspot customers too (PPPoE always get them). */
+  expiry_include_hotspot: boolean;
 }
 
 export type CustomerSmsEvent = 'payment_receipt' | 'welcome' | 'reminder' | 'expiry';
