@@ -6,20 +6,13 @@ import type { PPPoECustomerPresenceResponse } from '../../lib/types';
 import PPPoEDeviceList from '../../components/PPPoEDeviceList';
 import PPPoEDiagnoseDialog from '../../components/PPPoEDiagnoseDialog';
 import DeviceLimitEditor from './DeviceLimitEditor';
+import { pppoeAccountProblem } from './pppoeActivation';
 
 // Verdict codes from /api/pppoe/customers/{id}/presence. Anything not listed
 // as fine is a problem on our side that support should fix before blaming the
 // customer's equipment.
 const ACCOUNT_OK = new Set(['present_and_online', 'router_account_exists_but_customer_offline']);
 const ACCOUNT_UNKNOWN = new Set(['present_session_unknown']);
-
-const ACCOUNT_PROBLEM: Record<string, string> = {
-  missing_from_mikrotik: 'This username is not on the router, so no device can log in. Re-save the customer to provision it again.',
-  present_but_disabled: 'The login is disabled on the router, so no device can log in.',
-  present_but_profile_missing: 'The login points at a speed profile that no longer exists on the router.',
-  rate_limit_mismatch: 'The speed on the router does not match the plan the customer paid for.',
-  active_queue_rate_mismatch: 'The connected device is still on an old speed. It changes the next time it reconnects.',
-};
 
 // Asks the customer's router directly whether their PPPoE login is set up
 // correctly and which devices are using it — one row per device, with its IP
@@ -108,7 +101,7 @@ export default function ConnectedDevicesPanel({ customerId }: { customerId: numb
                 ? `Login is set up correctly on the router${presence.speed_enforcement.expected_rate_limit ? ', at the plan speed' : ''}.`
                 : accountUnknown
                   ? 'The router did not say which devices are connected. Try Refresh.'
-                  : ACCOUNT_PROBLEM[verdictCode] ?? presence.verdict.message}
+                  : pppoeAccountProblem(verdictCode, presence.customer.status, presence.verdict.message)}
             </span>
           </div>
 
