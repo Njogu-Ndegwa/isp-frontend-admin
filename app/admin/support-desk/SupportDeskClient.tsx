@@ -9,6 +9,8 @@ import FilterPills from '../../components/FilterPills';
 import SearchInput from '../../components/SearchInput';
 import MobileDataCard from '../../components/MobileDataCard';
 import { SkeletonCard } from '../../components/LoadingSpinner';
+import MetricsTab from './MetricsTab';
+import type { SupportMetrics } from '../../lib/supportMetrics';
 import {
   CUSTOMER_STATUSES,
   CustomerScope,
@@ -34,7 +36,7 @@ import {
   waitingOnDennis,
 } from '../../lib/supportDesk';
 
-type TabValue = 'customers' | 'worklog' | 'dennis';
+type TabValue = 'customers' | 'metrics' | 'worklog' | 'dennis';
 type StatusFilter = SupportCustomerStatus | 'all';
 
 const PAGE_SIZE = 40;
@@ -429,6 +431,7 @@ export default function SupportDeskClient() {
             ariaLabel="Support desk sections"
             tabs={[
               { value: 'customers', label: 'Customers', count: rows.length },
+              { value: 'metrics', label: 'Metrics' },
               { value: 'worklog', label: 'Work log', count: entries.length },
               { value: 'dennis', label: 'Waiting on Dennis', count: dennis.length },
             ]}
@@ -441,6 +444,7 @@ export default function SupportDeskClient() {
               notes={data.snapshot?.customers?.notes}
             />
           )}
+          {tab === 'metrics' && <MetricsTab metrics={data.snapshot?.metrics as SupportMetrics | undefined} />}
           {tab === 'worklog' && <WorklogTab entries={entries} />}
           {tab === 'dennis' && <DennisTab items={dennis} />}
         </>
