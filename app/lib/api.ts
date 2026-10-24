@@ -3566,6 +3566,14 @@ class ApiClient {
     return this.handleResponse<number[]>(response);
   }
 
+  // Online-now for every customer on the caller's real-time push routers, in
+  // one call. Customers on other routers come from the per-router monitors.
+  async getRealtimeOnlineCustomers(): Promise<{ router_ids: number[]; online_customer_ids: number[] }> {
+    if (this.isDemoMode()) return { router_ids: [], online_customer_ids: [] };
+    const response = await fetch(`${BASE_URL}/realtime/customers/online`, { headers: this.getHeaders() });
+    return this.handleResponse<{ router_ids: number[]; online_customer_ids: number[] }>(response);
+  }
+
   async getRouterLive(routerId: number): Promise<RouterLive> {
     const response = await fetch(`${BASE_URL}/routers/${routerId}/live`, { headers: this.getHeaders() });
     return this.handleResponse<RouterLive>(response);
