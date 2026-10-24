@@ -6,6 +6,8 @@
 export type SupportCustomerStatus = 'us' | 'customer' | 'dennis' | 'done';
 
 export interface SupportWorkEntry {
+  /** Stable work-log id ("wl-" + 12 letters), used by Go ahead / Close decisions. */
+  id?: string;
   date?: string;
   at?: string;
   category?: string;
@@ -48,12 +50,32 @@ export interface SupportDeskSnapshot {
   [key: string]: unknown;
 }
 
+export type DecisionAction = 'go' | 'close';
+
+/** Dennis's decision on a Waiting-on-Dennis item (POST /api/admin/support-desk/decisions). */
+export interface SupportDecision {
+  id: number | string;
+  item_id: string;
+  action: DecisionAction;
+  note: string | null;
+  decided_by?: number | null;
+  created_at: string;
+  /** When the laptop picked the decision up for the agent; null while pending. */
+  consumed_at: string | null;
+  /** Set on the local copy shown before the server has answered. */
+  optimistic?: boolean;
+}
+
 export interface SupportDeskResponse {
   received_at: string;
   size_bytes: number;
   sha256: string;
   snapshot: SupportDeskSnapshot;
+  /** Latest decisions, newest first. Missing on backends older than this page. */
+  decisions?: SupportDecision[];
 }
+
+export const DECISION_NOTE_MAX = 500;
 
 export const STALE_AFTER_MINUTES = 30;
 
@@ -190,6 +212,18 @@ export interface DennisItem extends SupportWorkEntry {
 }
 
 /**
+ * A needs_dennis entry still waiting on him: no outcome, "open", or "waiting"
+ * (the inbox agent writes "waiting" for the same state).
+ */
+export function isWaitingOnDennis(entry: SupportWorkEntry): boolean {
+  return entry.category === 'needs_dennis' && (isOpenEntry(entry) || entry.outcome === 'waiting');
+}
+
+function itemKey(e: SupportWorkEntry): string {
+  return e.id || entryKey(e);
+}
+
+/**
  * Open needs_dennis items. The work log is the full list; customer rows hold
  * copies of the entries linked to them, which is where the customer name
  * comes from.
@@ -198,7 +232,10 @@ export function waitingOnDennis(snapshot: SupportDeskSnapshot): DennisItem[] {
   const names = new Map<string, string>();
   for (const row of snapshot.customers?.rows ?? []) {
     for (const e of row.work ?? []) {
-      if (row.name) names.set(entryKey(e), row.name);
+      if (row.name) {
+        names.set(entryKey(e), row.name);
+        if (e.id) names.set(e.id, row.name);
+      }
     }
   }
   const seen = new Set<string>();
@@ -208,13 +245,64 @@ export function waitingOnDennis(snapshot: SupportDeskSnapshot): DennisItem[] {
     ...(snapshot.customers?.rows ?? []).flatMap((r) => r.work ?? []),
   ];
   for (const e of all) {
-    if (e.category !== 'needs_dennis' || !isOpenEntry(e)) continue;
-    const key = entryKey(e);
-    if (seen.has(key)) continue;
+    if (!isWaitingOnDennis(e)) continue;
+    const key = itemKey(e);
+    if (seen.has(key) || seen.has(entryKey(e))) continue;
     seen.add(key);
-    items.push({ ...e, customerName: names.get(key) || e.customer || e.contact });
+    seen.add(entryKey(e));
+    items.push({ ...e, customerName: names.get(key) || names.get(entryKey(e)) || e.customer || e.contact });
   }
   return sortEntries(items) as DennisItem[];
+}
+
+/** The newest decision per item id (optimistic local copies included). */
+export function latestDecisions(decisions: SupportDecision[]): Map<string, SupportDecision> {
+  const latest = new Map<string, SupportDecision>();
+  const time = (d: SupportDecision) => Date.parse(d.created_at) || 0;
+  const newer = (a: SupportDecision, b: SupportDecision) =>
+    time(a) !== time(b)
+      ? time(a) > time(b)
+      : Boolean(a.optimistic) !== Boolean(b.optimistic)
+        ? Boolean(a.optimistic)
+        : Number(a.id) > Number(b.id);
+  for (const d of decisions) {
+    const prev = latest.get(d.item_id);
+    if (!prev || newer(d, prev)) latest.set(d.item_id, d);
+  }
+  return latest;
+}
+
+/**
+ * Server decisions plus local ones it does not list yet: in-flight optimistic
+ * copies, and decisions just created whose refresh has not landed.
+ */
+export function mergeDecisions(server: SupportDecision[], local: SupportDecision[]): SupportDecision[] {
+  const ids = new Set(server.map((d) => String(d.id)));
+  return [...server, ...local.filter((d) => !ids.has(String(d.id)))];
+}
+
+/** A decision waiting for the laptop blocks a new one on the same item. */
+export function decisionBlocksButtons(d: SupportDecision | undefined): boolean {
+  return !!d && !d.consumed_at;
+}
+
+export function validateDecisionNote(note: string): string | null {
+  return note.trim().length > DECISION_NOTE_MAX ? `Keep the note under ${DECISION_NOTE_MAX} characters.` : null;
+}
+
+const DECISION_NAME: Record<DecisionAction, string> = { go: 'Go', close: 'Close' };
+
+/**
+ * "Go sent 09:40 · agent picked up 09:43" / "Close sent 09:40 · waiting for the
+ * agent". `formatTime` turns an ISO time into the label shown (Nairobi time).
+ */
+export function decisionStatusLabel(d: SupportDecision, formatTime: (iso: string) => string): string {
+  const name = DECISION_NAME[d.action] ?? 'Decision';
+  if (d.optimistic) return `Sending ${name.toLowerCase()}…`;
+  const sent = `${name} sent ${formatTime(d.created_at)}`;
+  return d.consumed_at
+    ? `${sent} · agent picked up ${formatTime(d.consumed_at)}`
+    : `${sent} · waiting for the agent`;
 }
 
 function parseTime(value: string | undefined | null): number | null {

@@ -310,7 +310,7 @@ import {
 } from './types';
 import { buildTransferRequest, type BuildTransferRequestOptions } from './pppoeTransfer';
 import { buildStaticImportFormData, filenameFromDisposition } from './staticImport';
-import type { SupportDeskResponse } from './supportDesk';
+import type { DecisionAction, SupportDecision, SupportDeskResponse } from './supportDesk';
 import {
   getImpersonation,
   restoreAdmin,
@@ -2490,6 +2490,20 @@ class ApiClient {
       cache: 'no-store',
     });
     return this.handleResponse<SupportDeskResponse>(response);
+  }
+
+  /**
+   * Dennis's Go ahead / Close on a Waiting-on-Dennis item. Platform admin only;
+   * 201 new, 200 the same decision was already pending, 409 a different one is.
+   */
+  async createSupportDeskDecision(body: { item_id: string; action: DecisionAction; note?: string }): Promise<SupportDecision> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(`${BASE_URL}/admin/support-desk/decisions`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify(body),
+    });
+    return this.handleResponse<SupportDecision>(response, false, true);
   }
 
   async getAdminExpiredOnlineAudit(): Promise<AdminExpiredOnlineAudit> {

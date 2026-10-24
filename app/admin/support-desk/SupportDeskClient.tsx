@@ -12,7 +12,10 @@ import { SkeletonCard } from '../../components/LoadingSpinner';
 import {
   CUSTOMER_STATUSES,
   CustomerScope,
+  DECISION_NOTE_MAX,
+  DecisionAction,
   DennisItem,
+  SupportDecision,
   STALE_AFTER_MINUTES,
   SupportCustomerRow,
   SupportCustomerStatus,
@@ -22,15 +25,21 @@ import {
   categoryLabel,
   countByStatus,
   customerStatusMeta,
+  decisionBlocksButtons,
+  decisionStatusLabel,
   filterCustomers,
   formatAge,
   freshness,
   groupByCategory,
   isOpenEntry,
+  isWaitingOnDennis,
+  latestDecisions,
+  mergeDecisions,
   openPromises,
   outcomeClassName,
   scopeCustomers,
   sortEntries,
+  validateDecisionNote,
   waitingOnDennis,
 } from '../../lib/supportDesk';
 
@@ -55,6 +64,21 @@ const formatDateTime = (value: string | null | undefined): string => {
   }
 };
 
+// "09:40" today, "23 Oct 09:40" on another day (Nairobi time).
+const formatClock = (value: string | null | undefined): string => {
+  try {
+    if (!value) return '-';
+    const d = new Date(value);
+    if (isNaN(d.getTime())) return '-';
+    const day = (x: Date) => x.toLocaleDateString('en-KE', { timeZone: TZ });
+    const time = d.toLocaleTimeString('en-KE', { timeZone: TZ, hour: '2-digit', minute: '2-digit', hour12: false });
+    if (day(d) === day(new Date())) return time;
+    return `${d.toLocaleDateString('en-KE', { timeZone: TZ, day: 'numeric', month: 'short' })} ${time}`;
+  } catch {
+    return '-';
+  }
+};
+
 // Work log entries carry a local (Nairobi) date "2026-10-23" and time "13:26".
 const formatEntryWhen = (e: SupportWorkEntry): string => {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(e.date || '');
@@ -71,7 +95,7 @@ function Chip({ label, className }: { label: string; className: string }) {
 }
 
 function WorkEntryRow({ entry, showCategory = true, who }: { entry: SupportWorkEntry; showCategory?: boolean; who?: string }) {
-  const open = isOpenEntry(entry) && ['promise', 'needs_dennis'].includes(entry.category || '');
+  const open = (entry.category === 'promise' && isOpenEntry(entry)) || isWaitingOnDennis(entry);
   const meta = [who, entry.ticket].filter(Boolean).join(' · ');
   return (
     <li className={`py-3 ${open ? 'pl-3 border-l-2 border-amber-500/60' : ''}`}>
@@ -262,18 +286,144 @@ function WorklogTab({ entries }: { entries: SupportWorkEntry[] }) {
   );
 }
 
-function DennisTab({ items }: { items: DennisItem[] }) {
+type DecideFn = (itemId: string, action: DecisionAction, note: string) => Promise<void>;
+
+const DECISION_COPY: Record<DecisionAction, { confirm: string; hint: string }> = {
+  go: { confirm: 'Confirm go ahead', hint: 'The agent starts on this item on its next run.' },
+  close: { confirm: 'Confirm close', hint: 'The item is closed in the work log as not relevant.' },
+};
+
+function DecisionControls({ item, decision, onDecide }: { item: DennisItem; decision?: SupportDecision; onDecide: DecideFn }) {
+  const [mode, setMode] = useState<DecisionAction | null>(null);
+  const [note, setNote] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  if (!item.id) {
+    return (
+      <p className="text-[11px] text-foreground-muted mt-2">
+        No item id in this snapshot yet. The buttons appear after the laptop rebuilds the dashboard.
+      </p>
+    );
+  }
+  const itemId = item.id;
+  const blocked = decisionBlocksButtons(decision);
+  const noteError = validateDecisionNote(note);
+
+  const submit = async () => {
+    if (!mode || noteError) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await onDecide(itemId, mode, note.trim());
+      setMode(null);
+      setNote('');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not send the decision');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="mt-1 mb-2 space-y-2">
+      {decision && (
+        <p className={`text-xs font-medium ${decision.consumed_at ? 'text-emerald-500' : 'text-blue-400'}`} role="status">
+          {decisionStatusLabel(decision, formatClock)}
+          {decision.note ? <span className="font-normal text-foreground-muted"> · &ldquo;{decision.note}&rdquo;</span> : null}
+        </p>
+      )}
+      {!blocked && !mode && (
+        <div className="flex flex-col sm:flex-row gap-2">
+          <button
+            type="button"
+            className="btn-primary min-h-[44px] sm:min-h-0 text-sm"
+            onClick={() => { setMode('go'); setError(null); }}
+          >
+            Go ahead
+          </button>
+          <button
+            type="button"
+            className="btn-secondary min-h-[44px] sm:min-h-0 text-sm"
+            onClick={() => { setMode('close'); setError(null); }}
+          >
+            Close (not relevant)
+          </button>
+        </div>
+      )}
+      {!blocked && mode && (
+        <div className="rounded-lg border border-border bg-background-secondary p-3 space-y-2">
+          <label className="block text-xs text-foreground-muted" htmlFor={`note-${itemId}`}>
+            Note for the agent (optional)
+          </label>
+          <textarea
+            id={`note-${itemId}`}
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            maxLength={DECISION_NOTE_MAX}
+            rows={2}
+            className="input w-full text-base sm:text-sm"
+            placeholder={mode === 'go' ? 'e.g. use the 4K Net key, tell him Monday' : 'e.g. already sorted on a call'}
+            disabled={busy}
+          />
+          <div className="flex items-center justify-between gap-2 text-[11px] text-foreground-muted">
+            <span>{DECISION_COPY[mode].hint}</span>
+            <span className="tabular-nums flex-shrink-0">{note.length}/{DECISION_NOTE_MAX}</span>
+          </div>
+          {noteError && <p className="text-xs text-red-500">{noteError}</p>}
+          <div className="flex flex-col sm:flex-row gap-2">
+            <button
+              type="button"
+              className={`${mode === 'go' ? 'btn-primary' : 'btn-danger'} min-h-[44px] sm:min-h-0 text-sm`}
+              onClick={submit}
+              disabled={busy || !!noteError}
+            >
+              {busy ? 'Sending…' : DECISION_COPY[mode].confirm}
+            </button>
+            <button
+              type="button"
+              className="btn-secondary min-h-[44px] sm:min-h-0 text-sm"
+              onClick={() => { setMode(null); setError(null); }}
+              disabled={busy}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+      {error && <p className="text-xs text-red-500" role="alert">{error}</p>}
+    </div>
+  );
+}
+
+function DennisTab({ items, decisions, onDecide }: { items: DennisItem[]; decisions: Map<string, SupportDecision>; onDecide: DecideFn }) {
   if (items.length === 0) {
     return <div className="card p-6 text-center text-sm text-foreground-muted">Nothing is waiting on you.</div>;
   }
   return (
     <div className="card p-4">
-      <p className="text-xs text-foreground-muted">Open items the support agent needs a decision or approval on.</p>
+      <p className="text-xs text-foreground-muted">
+        Open items the support agent needs a decision or approval on. Go ahead tells the agent to start; Close drops the item as not relevant.
+      </p>
       <ul className="divide-y divide-border/50 mt-2">
-        {items.map((e, i) => <WorkEntryRow key={i} entry={e} showCategory={false} who={e.customerName} />)}
+        {items.map((e, i) => (
+          <li key={e.id || i}>
+            <ul><WorkEntryRow entry={e} showCategory={false} who={e.customerName} /></ul>
+            <DecisionControls item={e} decision={e.id ? decisions.get(e.id) : undefined} onDecide={onDecide} />
+          </li>
+        ))}
       </ul>
     </div>
   );
+}
+
+function decisionErrorMessage(err: unknown): string {
+  const status = err instanceof ApiError ? err.status : undefined;
+  if (status === 404) return 'This item is no longer open (closed or changed on the laptop). Refresh to see the latest list.';
+  if (status === 409) return 'A different decision on this item is still waiting for the agent.';
+  if (status === 403) return 'Only the platform admin can decide, and not while viewing as a reseller.';
+  if (status === 422) return 'The note is too long or the item id is invalid.';
+  return err instanceof Error ? err.message : 'Could not send the decision';
 }
 
 export default function SupportDeskClient() {
@@ -285,6 +435,8 @@ export default function SupportDeskClient() {
   const [tab, setTab] = useState<TabValue>('customers');
   const [now, setNow] = useState(() => Date.now());
   const [scope, setScope] = useState<CustomerScope>('window');
+  // Decisions the server has not listed yet: in flight (optimistic) or just created.
+  const [localDecisions, setLocalDecisions] = useState<SupportDecision[]>([]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -320,6 +472,28 @@ export default function SupportDeskClient() {
   const scopeLabel = scope === 'all' ? 'Full history' : windowLabel;
   const entries = useMemo(() => data?.snapshot?.worklog?.entries ?? [], [data]);
   const dennis = useMemo(() => (data ? waitingOnDennis(data.snapshot ?? {}) : []), [data]);
+  const decisionMap = useMemo(
+    () => latestDecisions(mergeDecisions(data?.decisions ?? [], localDecisions)),
+    [data, localDecisions],
+  );
+
+  const decide = useCallback(async (itemId: string, action: DecisionAction, note: string) => {
+    const tempId = `local-${Date.now()}`;
+    const optimistic: SupportDecision = {
+      id: tempId, item_id: itemId, action, note: note || null,
+      created_at: new Date().toISOString(), consumed_at: null, optimistic: true,
+    };
+    setLocalDecisions((prev) => [...prev, optimistic]);
+    try {
+      const saved = await api.createSupportDeskDecision({ item_id: itemId, action, ...(note ? { note } : {}) });
+      setLocalDecisions((prev) => [...prev.filter((d) => d.id !== tempId && d.id !== saved.id), saved]);
+    } catch (err) {
+      setLocalDecisions((prev) => prev.filter((d) => d.id !== tempId));
+      if (err instanceof ApiError && (err.status === 404 || err.status === 409)) load();
+      throw new Error(decisionErrorMessage(err));
+    }
+  }, [load]);
+
   const fresh = data ? freshness(data, now) : null;
   const counts = useMemo(() => countByStatus(rows), [rows]);
   const promiseTotal = useMemo(() => rows.reduce((n, r) => n + (r.open_promises ?? 0), 0), [rows]);
@@ -442,7 +616,7 @@ export default function SupportDeskClient() {
             />
           )}
           {tab === 'worklog' && <WorklogTab entries={entries} />}
-          {tab === 'dennis' && <DennisTab items={dennis} />}
+          {tab === 'dennis' && <DennisTab items={dennis} decisions={decisionMap} onDecide={decide} />}
         </>
       )}
     </div>
