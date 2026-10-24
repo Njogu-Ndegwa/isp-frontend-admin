@@ -24,6 +24,7 @@ import ConnectedDevicesPanel from './ConnectedDevicesPanel';
 import HotspotDevicesPanel from './HotspotDevicesPanel';
 import StaticIpPanel from './StaticIpPanel';
 import { connectionTypeLabel } from '../../lib/connectionType';
+import { canActivatePaidUntil, formatPaidUntil, pppoeSaveNotice } from './pppoeActivation';
 
 
 export default function EditCustomerPage() {
@@ -45,6 +46,9 @@ export default function EditCustomerPage() {
   const [deleteLoading, setDeleteLoading] = useState(false);
 
   const [formData, setFormData] = useState<UpdateCustomerRequest>({});
+  // "Activate now – already paid until <date>": an explicit choice, never
+  // implied by editing the expiry (that alone leaves the customer inactive).
+  const [activatePaidUntil, setActivatePaidUntil] = useState(false);
   const [usage, setUsage] = useState<CustomerUsageResponse | null>(null);
 
   useEffect(() => {
@@ -130,17 +134,21 @@ export default function EditCustomerPage() {
       if (formData.expiry && formData.expiry !== utcToGMT3Input(customer.expiry)) {
         payload.expiry = gmt3InputToISO(formData.expiry);
       }
+      const activating = activatePaidUntil && canActivatePaidUntil(customer, isPPPoE, formData.expiry);
+      if (activating) payload.activate_paid_until = true;
 
-      if (Object.keys(payload).length === 0) {
+      // Saving an active PPPoE customer with no changes still goes to the
+      // server: it puts their login back on the router if it went missing.
+      const resaveActivePPPoE = isPPPoE && customer.status === 'active';
+      if (Object.keys(payload).length === 0 && !resaveActivePPPoE) {
         router.push('/customers');
         return;
       }
 
       const result = await api.updateCustomer(customer.id, payload);
       showAlert('success', `${result.customer.name} updated successfully`);
-      if (result.pppoe_reprovisioned === 'failed') {
-        showAlert('warning', 'PPPoE re-provisioning failed — check router manually');
-      }
+      const routerNotice = pppoeSaveNotice(result);
+      if (routerNotice) showAlert(routerNotice.tone, routerNotice.text);
       if (result.static_reprovisioned === 'failed') {
         showAlert('warning', 'Saved, but the router was not updated yet. It retries automatically; use Re-sync to try now.');
       }
@@ -400,6 +408,36 @@ export default function EditCustomerPage() {
                 value={formData.expiry || ''}
                 onChange={(v) => setFormData({ ...formData, expiry: v })}
               />
+
+              {isPPPoE && customer.status !== 'active' && (
+                canActivatePaidUntil(customer, isPPPoE, formData.expiry) ? (
+                  <label
+                    className="flex items-start gap-3 rounded-lg border border-warning/30 bg-warning/10 p-3 cursor-pointer"
+                    data-testid="activate-paid-until"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={activatePaidUntil}
+                      onChange={(e) => setActivatePaidUntil(e.target.checked)}
+                      className="mt-0.5 h-4 w-4 flex-shrink-0 accent-accent-primary"
+                    />
+                    <span className="text-sm">
+                      <span className="font-medium text-foreground">
+                        Activate now — already paid until {formatPaidUntil(formData.expiry)}
+                      </span>
+                      <span className="block text-xs text-foreground-muted mt-0.5">
+                        For customers who already paid you, e.g. moved from another system. They go on the
+                        router until that date. No payment is recorded and it does not count as revenue.
+                      </span>
+                    </span>
+                  </label>
+                ) : (
+                  <p className="text-xs text-foreground-muted" data-testid="inactive-expiry-hint">
+                    This customer is inactive, so saving does not put them on the router. To activate someone who
+                    has already paid, set the expiry to the date they paid until and tick &quot;Activate now&quot;.
+                  </p>
+                )
+              )}
 
               {isPPPoE && (
                 <div className="pt-4 border-t border-border">

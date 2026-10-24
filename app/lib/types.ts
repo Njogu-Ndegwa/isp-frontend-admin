@@ -796,12 +796,20 @@ export interface UpdateCustomerRequest {
   /** Static IP only. Empty string clears the pin (re-learned on next sighting). */
   static_mac?: string;
   expiry?: string;
+  /**
+   * PPPoE only: activate an inactive customer as already paid until `expiry`
+   * (migrated customers). No payment or revenue is recorded.
+   */
+  activate_paid_until?: boolean;
 }
 
 export interface UpdateCustomerResponse {
   success: boolean;
   customer: Customer;
-  pppoe_reprovisioned: 'ok' | 'failed' | null;
+  /** retry_pending: the router was not updated yet; the server retries it. */
+  pppoe_reprovisioned: 'ok' | 'retry_pending' | 'in_progress' | 'failed' | null;
+  pppoe_provision_error?: string | null;
+  activated_paid_until?: boolean;
   static_reprovisioned?: 'ok' | 'failed' | null;
 }
 
