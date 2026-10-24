@@ -3353,6 +3353,9 @@ export interface PPPoECustomerPresenceResponse {
     plan: string | null;
     plan_speed: string | null;
     pppoe_username: string;
+    /** Billing status in the database: active | inactive | pending. */
+    status?: string;
+    expiry?: string | null;
   };
   router: { id: number; name: string };
   speed_enforcement: {
