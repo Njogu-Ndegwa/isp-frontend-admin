@@ -10,6 +10,7 @@ import {
   groupByCategory,
   isOpenEntry,
   openPromises,
+  scopeCustomers,
   waitingOnDennis,
 } from './supportDesk';
 
@@ -68,6 +69,23 @@ describe('filterCustomers', () => {
   });
   it('can show only customers with open promises', () => {
     expect(filterCustomers(rows, { status: 'all', query: '', promisesOnly: true }).map((r) => r.id)).toEqual(['c1']);
+  });
+});
+
+describe('scopeCustomers', () => {
+  const scoped: SupportCustomerRow[] = [
+    { id: 'w1', status: 'us', window: { messages: 4 } },
+    { id: 'w2', status: 'dennis', window: { messages: 1 } },
+    { id: 'h1', status: 'us', window: { messages: 0 } },
+    { id: 'h2', status: 'done' },
+  ];
+  it('keeps only customers with messages in the intake window by default', () => {
+    expect(scopeCustomers(scoped, 'window').map((r) => r.id)).toEqual(['w1', 'w2']);
+    expect(countByStatus(scopeCustomers(scoped, 'window'))).toEqual({ all: 2, us: 1, customer: 0, dennis: 1, done: 0 });
+  });
+  it('returns the full history for the "all" scope', () => {
+    expect(scopeCustomers(scoped, 'all')).toHaveLength(4);
+    expect(countByStatus(scopeCustomers(scoped, 'all')).us).toBe(2);
   });
 });
 
