@@ -1291,6 +1291,8 @@ export interface RebootRouterResponse {
 
 // Plan Types
 export type FupAction = 'throttle' | 'block' | 'notify_only';
+/** Window the data cap covers: the whole paid period (default) or each day. */
+export type FupPeriod = 'plan' | 'daily';
 
 /**
  * free_trial plans cost 0, are hotspot-only, and are claimed from the captive
@@ -1328,6 +1330,8 @@ export interface Plan {
   data_cap_mb?: number | null;
   fup_action?: FupAction | null;
   fup_throttle_profile?: string | null;
+  // 'plan' (default) = cap per paid period; 'daily' = cap per day, reset at midnight EAT.
+  fup_period?: FupPeriod | null;
 }
 
 export interface RouterPlansResponse {
@@ -1361,6 +1365,7 @@ export interface CreatePlanRequest {
   data_cap_mb?: number | null;
   fup_action?: FupAction | null;
   fup_throttle_profile?: string | null;
+  fup_period?: FupPeriod;
 }
 
 export interface PublicPortalSettings {
@@ -1645,6 +1650,10 @@ export interface CustomerUsagePeriod {
   fup_reverted_at: string | null;
   fup_active: boolean;
   closed_at: string | null;
+  /** Daily-FUP plans only: usage since today's reset, which the cap is enforced against. */
+  fup_window_start?: string | null;
+  fup_window_used_mb?: number | null;
+  fup_window_percent_used?: number | null;
 }
 
 /** One slot of a customer's usage chart: an hour, or a local (EAT) day. */
@@ -1683,6 +1692,7 @@ export interface CustomerUsageResponse {
   plan_name: string | null;
   plan_data_cap_mb: number | null;
   plan_fup_action: FupAction | null;
+  plan_fup_period?: FupPeriod | null;
   period: CustomerUsagePeriod | null;
   /** Seconds-fresh device state; only for routers on the real-time push pilot. */
   live?: CustomerUsageLive | null;

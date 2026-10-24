@@ -593,8 +593,13 @@ function UsagePanel({ usage, onRefresh, refreshing }: {
   }
 
   const cap = period.cap_mb;
-  const total = period.total_mb;
-  const percent = Math.min(100, Math.max(0, period.percent_used || 0));
+  // Daily FUP: the cap is measured against today's usage, not the whole period.
+  const isDaily = usage.plan_fup_period === 'daily' && period.fup_window_used_mb != null;
+  const total = isDaily ? (period.fup_window_used_mb ?? 0) : period.total_mb;
+  const percent = Math.min(
+    100,
+    Math.max(0, (isDaily ? period.fup_window_percent_used : period.percent_used) || 0),
+  );
   const isOver = cap != null && total >= cap;
   const fupActive = period.fup_active;
   const action = period.fup_action || usage.plan_fup_action;
@@ -624,7 +629,7 @@ function UsagePanel({ usage, onRefresh, refreshing }: {
   return (
     <div className="card p-4 space-y-3">
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-foreground-muted uppercase tracking-wider">This Period Usage</h3>
+        <h3 className="text-sm font-semibold text-foreground-muted uppercase tracking-wider">{isDaily ? "Today's Usage" : 'This Period Usage'}</h3>
         <div className="flex items-center gap-3">
           {action && (
             <span className="text-[10px] uppercase tracking-wider text-foreground-muted">
@@ -642,7 +647,7 @@ function UsagePanel({ usage, onRefresh, refreshing }: {
           </svg>
           <div className="text-xs text-danger">
             <p className="font-semibold">FUP triggered — {actionLabel(period.fup_action_taken || action)}</p>
-            <p className="opacity-80">Auto-lifts on next renewal.</p>
+            <p className="opacity-80">{isDaily ? 'Auto-lifts at midnight (EAT) or on renewal.' : 'Auto-lifts on next renewal.'}</p>
           </div>
         </div>
       )}
@@ -669,7 +674,9 @@ function UsagePanel({ usage, onRefresh, refreshing }: {
         )}
         <div className="flex items-center justify-between mt-1.5 text-xs text-foreground-muted">
           <span>{percent.toFixed(1)}% used</span>
-          <span>↓ {formatMb(period.download_mb)} · ↑ {formatMb(period.upload_mb)}</span>
+          <span>
+            {isDaily ? `This period ${formatMb(period.total_mb)}` : `↓ ${formatMb(period.download_mb)} · ↑ ${formatMb(period.upload_mb)}`}
+          </span>
         </div>
       </div>
     </div>

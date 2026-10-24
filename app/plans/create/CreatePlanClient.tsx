@@ -11,7 +11,8 @@ import { useAlert } from '../../context/AlertContext';
 import Header from '../../components/Header';
 import SpeedInputHint from '../../components/SpeedInputHint';
 import { gmt3InputToISO } from '../../lib/dateUtils';
-import { DataCapUnit, dataCapInputToMb } from '../dataCap';
+import { DataCapUnit, dataCapInputToMb, normalizeFupPeriod } from '../dataCap';
+import FupPeriodField from '../FupPeriodField';
 import { normalizeDuration, describeDuration } from '../duration';
 import { getDisplayCurrency } from '../../lib/format';
 import PlanNameHint from '../../components/PlanNameHint';
@@ -41,6 +42,7 @@ export default function CreatePlanPage() {
     data_cap_mb: null,
     fup_action: null,
     fup_throttle_profile: null,
+    fup_period: 'plan',
   });
   const [dataCapValue, setDataCapValue] = useState('');
   const [dataCapUnit, setDataCapUnit] = useState<DataCapUnit>('GB');
@@ -112,9 +114,11 @@ export default function CreatePlanPage() {
         payload.data_cap_mb = null;
         payload.fup_action = null;
         payload.fup_throttle_profile = null;
+        payload.fup_period = 'plan';
       } else {
         payload.fup_action = 'throttle';
         if (!payload.fup_throttle_profile) payload.fup_throttle_profile = null;
+        payload.fup_period = normalizeFupPeriod(payload.fup_period);
       }
       await api.createPlan(payload);
       showAlert('success', `Plan "${formData.name}" created successfully!`);
@@ -361,7 +365,7 @@ export default function CreatePlanPage() {
                 <div className="mt-4">
                 <h3 className="text-sm font-semibold text-foreground-muted uppercase tracking-wider mb-1">Fair Usage Policy</h3>
                 <p className="text-xs text-foreground-muted mb-4">
-                  Optional data cap for each paid plan period. When the cap is reached, the connection is slowed to a lesser speed.
+                  Optional data cap, for each paid plan period or for each day. When the cap is reached, the connection is slowed to a lesser speed.
                 </p>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
@@ -409,6 +413,10 @@ export default function CreatePlanPage() {
                     </p>
                   </div>
                 </div>
+                <FupPeriodField
+                  value={formData.fup_period}
+                  onChange={(fup_period) => setFormData({ ...formData, fup_period })}
+                />
                 </div>
               )}
             </div>
