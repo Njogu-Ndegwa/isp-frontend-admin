@@ -17,7 +17,8 @@ import PlanRouterScope, {
 } from '../components/PlanRouterScope';
 import TrialFrequencyPicker from '../components/TrialFrequencyPicker';
 import { formatDateGMT3, utcToGMT3Input, gmt3InputToISO } from '../lib/dateUtils';
-import { DataCapUnit, dataCapInputToMb, splitDataCapMb } from './dataCap';
+import { DataCapUnit, dataCapInputToMb, normalizeFupPeriod, splitDataCapMb, withFupPeriod } from './dataCap';
+import FupPeriodField from './FupPeriodField';
 import { normalizeDuration, describeDuration } from './duration';
 import { formatAmount, getDisplayCurrency } from '../lib/format';
 import { useT } from '../lib/i18n';
@@ -181,7 +182,7 @@ export default function PlansPage() {
       ? describeRouterScope(plan.router_ids, routers)
       : null;
     return [
-      cap ? `FUP ${cap}` : null,
+      cap ? `FUP ${withFupPeriod(cap, plan.fup_period)}` : null,
       sharing,
       scope,
       t(PLAN_TYPE_TITLE[getPlanType(plan)]),
@@ -453,7 +454,7 @@ export default function PlansPage() {
                         )}
                         {formatDataCap(plan.data_cap_mb) && (
                           <p className="text-xs text-warning truncate">
-                            FUP {formatDataCap(plan.data_cap_mb)} / {formatFupAction(plan.fup_action)}
+                            FUP {withFupPeriod(formatDataCap(plan.data_cap_mb)!, plan.fup_period)} / {formatFupAction(plan.fup_action)}
                           </p>
                         )}
                         {plan.router_ids && plan.router_ids.length > 0 && (
@@ -732,6 +733,7 @@ function EditPlanModal({
     data_cap_mb: plan.data_cap_mb ?? null,
     fup_action: plan.fup_action ?? null,
     fup_throttle_profile: plan.fup_throttle_profile ?? null,
+    fup_period: normalizeFupPeriod(plan.fup_period),
   });
   const [dataCapValue, setDataCapValue] = useState(initialDataCap.value);
   const [dataCapUnit, setDataCapUnit] = useState<DataCapUnit>(initialDataCap.unit);
@@ -805,9 +807,11 @@ function EditPlanModal({
         payload.data_cap_mb = null;
         payload.fup_action = null;
         payload.fup_throttle_profile = null;
+        payload.fup_period = 'plan';
       } else {
         payload.fup_action = 'throttle';
         if (!payload.fup_throttle_profile) payload.fup_throttle_profile = null;
+        payload.fup_period = normalizeFupPeriod(payload.fup_period);
       }
       await api.updatePlan(plan.id, payload);
       onSuccess();
@@ -1043,7 +1047,7 @@ function EditPlanModal({
                 <div className="mt-4">
                 <h3 className="text-sm font-semibold text-foreground-muted uppercase tracking-wider mb-1">Fair Usage Policy</h3>
                 <p className="text-xs text-foreground-muted mb-4">
-                  Optional data cap for each paid plan period. When the cap is reached, the connection is slowed to a lesser speed.
+                  Optional data cap, for each paid plan period or for each day. When the cap is reached, the connection is slowed to a lesser speed.
                 </p>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
@@ -1086,6 +1090,10 @@ function EditPlanModal({
                     </p>
                   </div>
                 </div>
+                <FupPeriodField
+                  value={formData.fup_period}
+                  onChange={(fup_period) => setFormData({ ...formData, fup_period })}
+                />
                 </div>
               )}
             </div>
