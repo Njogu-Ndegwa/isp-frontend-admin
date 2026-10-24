@@ -7,14 +7,11 @@ import {
   MetricsPeriod,
   ShippedItem,
   SupportMetrics,
-  TrendDay,
-  barWidth,
   formatMinutes,
   inPeriod,
   num,
   percent,
   periodLabel,
-  trendScale,
 } from '../../lib/supportMetrics';
 
 const TZ = 'Africa/Nairobi';
@@ -100,46 +97,6 @@ function PrLinks({ item }: { item: ShippedItem }) {
   );
 }
 
-const AGENT_BAR = 'bg-amber-500';
-const DENNIS_BAR = 'bg-sky-500';
-
-function Trend({ days }: { days: TrendDay[] }) {
-  const scale = trendScale(days);
-  return (
-    <div className="card p-4">
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-foreground-muted">
-        <span className="flex items-center gap-1.5"><span className={`w-2.5 h-2.5 rounded-sm ${AGENT_BAR}`} aria-hidden />Agent replies</span>
-        <span className="flex items-center gap-1.5"><span className={`w-2.5 h-2.5 rounded-sm ${DENNIS_BAR}`} aria-hidden />Dennis replies</span>
-        <span className="flex items-center gap-1.5"><span className="w-2.5 h-0.5 bg-foreground-muted/60" aria-hidden />Inbound</span>
-      </div>
-      <ul className="mt-3 space-y-3">
-        {[...days].reverse().map((d) => {
-          const agent = d.replies_agent ?? 0;
-          const dennis = d.replies_dennis ?? 0;
-          return (
-            <li key={d.date}>
-              <div className="flex items-baseline justify-between gap-2 text-xs">
-                <span className="font-medium text-foreground">{shortDate(d.date)}</span>
-                <span className="text-foreground-muted tabular-nums text-right">
-                  {num(d.inbound)} in · {agent} agent · {dennis} Dennis · {num(d.misses)} missed · {num(d.shipped)} shipped
-                </span>
-              </div>
-              <div
-                className="mt-1 flex h-2.5 gap-[2px]"
-                title={`${shortDate(d.date)}: ${agent} agent, ${dennis} Dennis replies; ${num(d.inbound)} inbound`}
-              >
-                {agent > 0 && <div className={`${AGENT_BAR} rounded-sm`} style={{ width: `${barWidth(agent, scale)}%` }} />}
-                {dennis > 0 && <div className={`${DENNIS_BAR} rounded-sm`} style={{ width: `${barWidth(dennis, scale)}%` }} />}
-              </div>
-              <div className="mt-1 h-0.5 bg-foreground-muted/60 rounded-full" style={{ width: `${barWidth(d.inbound, scale)}%` }} aria-hidden />
-            </li>
-          );
-        })}
-      </ul>
-    </div>
-  );
-}
-
 export default function MetricsTab({ metrics }: { metrics?: SupportMetrics }) {
   const [period, setPeriod] = useState<MetricsPeriod>('since');
   const bugs = useMemo(() => inPeriod(metrics?.lists?.bugs, metrics, period), [metrics, period]);
@@ -219,11 +176,6 @@ export default function MetricsTab({ metrics }: { metrics?: SupportMetrics }) {
         </div>
       </Section>
 
-      {(metrics.trend?.length ?? 0) > 0 && (
-        <Section title="Daily trend" hint="Replies per day, agent and Dennis; the thin line is messages in.">
-          <Trend days={metrics.trend ?? []} />
-        </Section>
-      )}
 
       <Section title="Lists">
         <div className="space-y-3">

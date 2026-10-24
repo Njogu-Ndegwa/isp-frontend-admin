@@ -2,6 +2,8 @@
 // work/support_metrics.py. Every field is optional because the builder evolves
 // independently of this page; an older snapshot simply has no metrics key.
 
+import type { SupportAutomation, SupportOverview } from './supportOverview';
+
 export type MetricsPeriod = 'today' | 'week' | 'since';
 
 export const METRIC_PERIODS: MetricsPeriod[] = ['today', 'week', 'since'];
@@ -87,6 +89,10 @@ export interface TrendDay {
 }
 
 export interface SupportMetrics {
+  /** Overview tab (daily charts, corrections, improvement notes); see supportOverview.ts. */
+  overview?: SupportOverview;
+  /** Automation headline: how much of the work runs without Dennis. */
+  automation?: SupportAutomation;
   generated_at?: string;
   today?: string;
   periods?: Partial<Record<MetricsPeriod, { label?: string; start?: string }>>;
