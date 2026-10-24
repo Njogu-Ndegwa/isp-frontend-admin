@@ -1,16 +1,23 @@
 import { describe, expect, it } from 'vitest';
 import {
   SupportCustomerRow,
+  SupportDecision,
   SupportDeskSnapshot,
   countByStatus,
   customerStatusMeta,
+  decisionBlocksButtons,
+  decisionStatusLabel,
   filterCustomers,
   formatAge,
   freshness,
   groupByCategory,
   isOpenEntry,
+  isWaitingOnDennis,
+  latestDecisions,
+  mergeDecisions,
   openPromises,
   scopeCustomers,
+  validateDecisionNote,
   waitingOnDennis,
 } from './supportDesk';
 
@@ -136,5 +143,70 @@ describe('freshness', () => {
     expect(formatAge(135)).toBe('2 h 15 min ago');
     expect(formatAge(60 * 72)).toBe('3 days ago');
     expect(formatAge(null)).toBe('unknown');
+  });
+});
+
+describe('waiting on Dennis with stable ids', () => {
+  it('counts "waiting" needs_dennis entries as still waiting on him', () => {
+    expect(isWaitingOnDennis({ category: 'needs_dennis', outcome: 'waiting' })).toBe(true);
+    expect(isWaitingOnDennis({ category: 'needs_dennis' })).toBe(true);
+    expect(isWaitingOnDennis({ category: 'needs_dennis', outcome: 'closed_by_dennis' })).toBe(false);
+    expect(isWaitingOnDennis({ category: 'promise', outcome: 'waiting' })).toBe(false);
+  });
+  it('dedupes by id and keeps the customer name from the linked row', () => {
+    const items = waitingOnDennis({
+      worklog: {
+        entries: [
+          { id: 'wl-aaaaaaaaaaaa', date: '2026-10-24', at: '09:35', category: 'needs_dennis', title: 'New lead: Hey', outcome: 'waiting' },
+          { id: 'wl-bbbbbbbbbbbb', date: '2026-10-24', at: '09:00', category: 'needs_dennis', title: 'Closed', outcome: 'closed_by_dennis' },
+        ],
+      },
+      customers: {
+        rows: [{
+          id: 'c9', name: 'Ali',
+          work: [{ id: 'wl-aaaaaaaaaaaa', date: '2026-10-24', at: '09:35', category: 'needs_dennis', title: 'New lead: Hey', outcome: 'waiting' }],
+        }],
+      },
+    });
+    expect(items.map((e) => e.id)).toEqual(['wl-aaaaaaaaaaaa']);
+    expect(items[0].customerName).toBe('Ali');
+  });
+});
+
+describe('decisions', () => {
+  const go: SupportDecision = {
+    id: 1, item_id: 'wl-a', action: 'go', note: null,
+    created_at: '2026-10-24T06:40:00Z', consumed_at: '2026-10-24T06:43:00Z',
+  };
+  const close: SupportDecision = {
+    id: 2, item_id: 'wl-a', action: 'close', note: 'sorted', created_at: '2026-10-24T07:00:00Z', consumed_at: null,
+  };
+  const clock = (iso: string) => new Date(iso).toISOString().slice(11, 16);
+
+  it('keeps the newest decision per item, comparing real times', () => {
+    expect(latestDecisions([go, close]).get('wl-a')?.id).toBe(2);
+    expect(latestDecisions([close, go]).get('wl-a')?.id).toBe(2);
+    // An optimistic copy has milliseconds; it must still win over an older server row.
+    const optimistic: SupportDecision = { ...go, id: 'local-1', created_at: '2026-10-24T07:00:00.500Z', consumed_at: null, optimistic: true };
+    expect(latestDecisions([close, optimistic]).get('wl-a')?.id).toBe('local-1');
+  });
+  it('merges local decisions the server does not list yet, without duplicates', () => {
+    const merged = mergeDecisions([go], [go, close]);
+    expect(merged.map((d) => d.id)).toEqual([1, 2]);
+  });
+  it('blocks the buttons only while a decision waits for the laptop', () => {
+    expect(decisionBlocksButtons(undefined)).toBe(false);
+    expect(decisionBlocksButtons(go)).toBe(false);
+    expect(decisionBlocksButtons(close)).toBe(true);
+  });
+  it('describes pending and picked-up decisions', () => {
+    expect(decisionStatusLabel(go, clock)).toBe('Go sent 06:40 · agent picked up 06:43');
+    expect(decisionStatusLabel(close, clock)).toBe('Close sent 07:00 · waiting for the agent');
+    expect(decisionStatusLabel({ ...close, optimistic: true }, clock)).toBe('Sending close…');
+  });
+  it('limits the note to 500 characters', () => {
+    expect(validateDecisionNote('x'.repeat(500))).toBeNull();
+    expect(validateDecisionNote('x'.repeat(501))).toMatch(/500/);
+    expect(validateDecisionNote('')).toBeNull();
   });
 });
