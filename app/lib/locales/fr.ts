@@ -374,8 +374,8 @@ export const FR: Record<string, string> = {
   'Register Customer': 'Enregistrer un client',
   'Add': 'Ajouter',
   'Connection type': 'Type de connexion',
-  'Search by name, phone, account number, MAC, IP, or PPPoE username...':
-    "Rechercher par nom, téléphone, numéro de compte, MAC, IP ou nom d'utilisateur PPPoE...",
+  'Search by name, phone, account number, MAC, IP, PPPoE username, or plan...':
+    "Rechercher par nom, téléphone, numéro de compte, MAC, IP, nom d'utilisateur PPPoE ou forfait...",
   'Filter by status': 'Filtrer par statut',
   '{name} is not reachable': "{name} n'est pas joignable",
   '{count} routers are not reachable': '{count} routeurs ne sont pas joignables',

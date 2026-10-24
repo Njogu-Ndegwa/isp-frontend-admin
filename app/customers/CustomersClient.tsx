@@ -29,7 +29,7 @@ import DataTable, { DataTableColumn } from '../components/DataTable';
 import Pagination from '../components/Pagination';
 import { formatAmount } from '../lib/format';
 import { useT } from '../lib/i18n';
-import { phoneMatches } from '../lib/phoneSearch';
+import { customerMatchesSearch, isOnlineNow, isOverdue, isPaidOffline } from '../lib/customerFilters';
 import { connectionTypeLabel } from '../lib/connectionType';
 import { PLATFORM_PAYBILL, customerPaybill, paybillAccountLabel } from '../lib/customerPaybill';
 
@@ -48,7 +48,10 @@ const StaticIpImportModal = dynamic(() => import('../components/StaticIpImportMo
   loading: () => null,
 });
 
-type FilterStatus = 'all' | 'active' | 'inactive';
+// online = connected now; offline = paid up but not connected; overdue = paid
+// time has run out. online / offline come from live router state.
+type FilterStatus = 'all' | 'active' | 'inactive' | 'online' | 'offline' | 'overdue';
+const FILTER_STATUSES: readonly FilterStatus[] = ['all', 'active', 'inactive', 'online', 'offline', 'overdue'];
 type ConnectionFilter = 'all' | 'hotspot' | 'pppoe' | 'static_ip';
 
 const STORAGE_KEY_STATUS = 'customers.filter.status';
@@ -258,6 +261,9 @@ export default function CustomersPage() {
   // report it (no per-page RouterOS polling for those).
   const [pushLive, setPushLive] = useState<Map<number, CustomerUsageLive>>(new Map());
   const [liveRouterIds, setLiveRouterIds] = useState<Set<number>>(new Set());
+  // Online / Offline filter: which customers on real-time push routers are
+  // online right now, answered for the whole account in one call.
+  const [realtimeOnline, setRealtimeOnline] = useState<{ routerIds: Set<number>; onlineIds: Set<number> } | null>(null);
 
   // Persistent connection-type counts. Computed from `allCustomersCache` the
   // first time it gets populated (i.e. once the user lands on a connection
@@ -266,7 +272,10 @@ export default function CustomersPage() {
   // view (which clears the cache to use server-side pagination).
   const [connCounts, setConnCounts] = useState<{ pppoe: number; hotspot: number; static_ip: number } | null>(null);
 
-  const hasClientFilters = searchQuery.trim() !== '' || connectionFilter !== 'all';
+  // Online / Offline / Overdue need every customer in memory (not one page)
+  // so the filtered list, its pagination and its counts are all correct.
+  const liveFilter = filter === 'online' || filter === 'offline';
+  const hasClientFilters = searchQuery.trim() !== '' || connectionFilter !== 'all' || liveFilter || filter === 'overdue';
 
   // The paybill shown next to each account number: the reseller's own
   // C2B-registered paybill when they have one, else the platform paybill.
@@ -285,8 +294,8 @@ export default function CustomersPage() {
   useEffect(() => {
     try {
       const savedStatus = localStorage.getItem(STORAGE_KEY_STATUS);
-      if (savedStatus === 'all' || savedStatus === 'active' || savedStatus === 'inactive') {
-        setFilter(savedStatus);
+      if (savedStatus && (FILTER_STATUSES as readonly string[]).includes(savedStatus)) {
+        setFilter(savedStatus as FilterStatus);
       }
       const savedConn = localStorage.getItem(STORAGE_KEY_CONNECTION);
       if (savedConn === 'all' || savedConn === 'hotspot' || savedConn === 'pppoe' || savedConn === 'static_ip') {
@@ -409,25 +418,48 @@ export default function CustomersPage() {
     setPage(1);
   }, []);
 
+  // Online now, for the Online / Offline filter and its counts. Same sources
+  // as the Online column: the real-time push answer for routers on push, the
+  // per-router monitors for the rest, and "router not answering" = offline.
+  const isCustomerOnlineNow = useCallback((customer: Customer): boolean => {
+    const routerId = customer.router_id ?? customer.router?.id;
+    return isOnlineNow({
+      routerDown: routerId ? isRouterDown(routerLiveness.get(routerId)) : false,
+      realtimeCovered: Boolean(routerId && realtimeOnline?.routerIds.has(routerId)),
+      realtimeOnline: Boolean(realtimeOnline?.onlineIds.has(customer.id)),
+      monitorLive: getConnectionType(customer) === 'pppoe'
+        ? getPPPoELiveForCustomer(customer, pppoeLive)
+        : getHotspotLiveForCustomer(customer, hotspotLive),
+    });
+  }, [routerLiveness, realtimeOnline, pppoeLive, hotspotLive]);
+
+  // The live state for every customer on this tab has arrived at least once.
+  // Until then an Online / Offline list would be half-built, so it waits.
+  const liveFilterReady = realtimeOnline !== null && pppoeLiveLoaded && hotspotLiveLoaded;
+
   const filteredCustomers = useMemo(() => {
     const source = hasClientFilters ? allCustomersCache : customers;
+    if (liveFilter && !liveFilterReady) return [];
+    const nowMs = Date.now();
     return source.filter((customer) => {
       if (filter === 'inactive' && customer.status !== 'inactive') return false;
+      if (filter === 'overdue' && !isOverdue(customer, nowMs)) return false;
+      if (filter === 'online' && !isCustomerOnlineNow(customer)) return false;
+      if (filter === 'offline' && !isPaidOffline(customer, isCustomerOnlineNow(customer), nowMs)) return false;
       if (connectionFilter !== 'all' && getConnectionType(customer) !== connectionFilter) return false;
-      if (searchQuery) {
-        const query = searchQuery.toLowerCase();
-        return (
-          (customer.name?.toLowerCase() || '').includes(query) ||
-          phoneMatches(customer.phone, searchQuery) ||
-          (customer.account_number || '').includes(query) ||
-          (customer.mac_address?.toLowerCase() || '').includes(query) ||
-          (customer.pppoe_username?.toLowerCase() || '').includes(query) ||
-          (customer.static_ip || '').includes(query)
-        );
-      }
-      return true;
+      return customerMatchesSearch(customer, searchQuery);
     });
-  }, [hasClientFilters, allCustomersCache, customers, filter, connectionFilter, searchQuery]);
+  }, [hasClientFilters, allCustomersCache, customers, filter, connectionFilter, searchQuery, liveFilter, liveFilterReady, isCustomerOnlineNow]);
+
+  // Every customer on the current connection tab, before the status filter
+  // and search: what the Online / Offline / Overdue counts are taken over.
+  // Only the full list qualifies (the Active pill loads active customers only).
+  const scopeCustomers = useMemo(() => {
+    if (filter === 'active' || allCustomersCache.length === 0) return null;
+    return connectionFilter === 'all'
+      ? allCustomersCache
+      : allCustomersCache.filter((c) => getConnectionType(c) === connectionFilter);
+  }, [filter, allCustomersCache, connectionFilter]);
 
   // Whenever we have the full customer list in memory, snapshot how many of
   // each connection type exist. We hold onto this in `connCounts` so that
@@ -451,6 +483,21 @@ export default function CustomersPage() {
   // "All" connection view the server-side totals are accurate. On a
   // Hotspot / PPPoE tab we already have the full cache in memory (because
   // `hasClientFilters` is true) so we can derive precise counts from it.
+  const liveCounts = useMemo<{ online?: number; offline?: number; overdue?: number }>(() => {
+    if (!scopeCustomers) return {};
+    const nowMs = Date.now();
+    const overdue = scopeCustomers.filter((c) => isOverdue(c, nowMs)).length;
+    if (!liveFilter || !liveFilterReady) return { overdue };
+    let online = 0;
+    let offline = 0;
+    for (const c of scopeCustomers) {
+      const isOnline = isCustomerOnlineNow(c);
+      if (isOnline) online += 1;
+      else if (isPaidOffline(c, false, nowMs)) offline += 1;
+    }
+    return { online, offline, overdue };
+  }, [scopeCustomers, liveFilter, liveFilterReady, isCustomerOnlineNow]);
+
   const statusCounts = useMemo<{ all?: number; active?: number; inactive?: number }>(() => {
     if (connectionFilter === 'all') {
       return {
@@ -490,26 +537,70 @@ export default function CustomersPage() {
   ), [hasClientFilters, filteredCustomers, page, perPage]);
 
   const effectiveTotal = hasClientFilters ? filteredCustomers.length : totalItems;
+  // Online / Offline waits for live state before listing anyone.
+  const listLoading = loading || (liveFilter && !liveFilterReady);
 
-  const pppoeLiveRouterIds = useMemo(() => {
+  // Routers to poll for live state: the visible rows' routers normally; with
+  // the Online / Offline filter on, every router behind the tab's customers,
+  // since the filter has to judge all of them. Reduced to a string key so the
+  // polls restart only when the router set changes, not on every re-render.
+  const liveSourceCustomers = useMemo(
+    () => (liveFilter ? (scopeCustomers ?? []) : displayedCustomers),
+    [liveFilter, scopeCustomers, displayedCustomers],
+  );
+
+  const pppoeLiveRouterKey = useMemo(() => {
     const ids = new Set<number>();
-    for (const customer of displayedCustomers) {
+    for (const customer of liveSourceCustomers) {
       if (getConnectionType(customer) !== 'pppoe') continue;
       const routerId = customer.router_id ?? customer.router?.id;
       if (routerId && !liveRouterIds.has(routerId)) ids.add(routerId);
     }
-    return Array.from(ids).sort((a, b) => a - b);
-  }, [displayedCustomers, liveRouterIds]);
+    return Array.from(ids).sort((a, b) => a - b).join(',');
+  }, [liveSourceCustomers, liveRouterIds]);
+  const pppoeLiveRouterIds = useMemo(
+    () => (pppoeLiveRouterKey ? pppoeLiveRouterKey.split(',').map(Number) : []),
+    [pppoeLiveRouterKey],
+  );
 
-  const hotspotLiveRouterIds = useMemo(() => {
+  const hotspotLiveRouterKey = useMemo(() => {
     const ids = new Set<number>();
-    for (const customer of displayedCustomers) {
+    for (const customer of liveSourceCustomers) {
       if (getConnectionType(customer) !== 'hotspot') continue;
       const routerId = customer.router_id ?? customer.router?.id;
       if (routerId && !liveRouterIds.has(routerId)) ids.add(routerId);
     }
-    return Array.from(ids).sort((a, b) => a - b);
-  }, [displayedCustomers, liveRouterIds]);
+    return Array.from(ids).sort((a, b) => a - b).join(',');
+  }, [liveSourceCustomers, liveRouterIds]);
+  const hotspotLiveRouterIds = useMemo(
+    () => (hotspotLiveRouterKey ? hotspotLiveRouterKey.split(',').map(Number) : []),
+    [hotspotLiveRouterKey],
+  );
+
+  // Real-time push routers answer the Online / Offline filter for all their
+  // customers in one call; polled on the same cadence as the monitors.
+  useEffect(() => {
+    if (!liveFilter) return;
+    let cancelled = false;
+    const load = async () => {
+      if (document.visibilityState === 'hidden') return;
+      try {
+        const result = await api.getRealtimeOnlineCustomers();
+        if (cancelled) return;
+        setRealtimeOnline({
+          routerIds: new Set(result.router_ids),
+          onlineIds: new Set(result.online_customer_ids),
+        });
+      } catch {
+        // Keep the last answer. With none yet, treat no router as covered by
+        // the push so the per-router monitors decide.
+        if (!cancelled) setRealtimeOnline((prev) => prev ?? { routerIds: new Set(), onlineIds: new Set() });
+      }
+    };
+    load();
+    const intervalId = window.setInterval(load, PPPOE_POLL_INTERVAL);
+    return () => { cancelled = true; clearInterval(intervalId); };
+  }, [liveFilter, refreshKey]);
 
   useEffect(() => {
     let cancelled = false;
@@ -648,13 +739,19 @@ export default function CustomersPage() {
   // The fetch re-runs whenever the displayed set changes (page / filter /
   // search) and on a fixed poll so totals stay reasonably fresh. Hidden tabs
   // do not poll, and an in-flight request is never overlapped by the interval.
-  useEffect(() => {
-    if (displayedCustomers.length === 0) return;
-    const targets = displayedCustomers.filter((c) => {
+  // Keyed on the visible ids: the Online / Offline filter rebuilds the row
+  // array on every live poll, and that alone must not refetch usage.
+  const usageTargetKey = useMemo(() => displayedCustomers
+    .filter((c) => {
       const connectionType = getConnectionType(c);
       return connectionType === 'pppoe' || connectionType === 'hotspot' || connectionType === 'static_ip';
-    });
-    if (targets.length === 0) return;
+    })
+    .map((c) => c.id)
+    .join(','), [displayedCustomers]);
+
+  useEffect(() => {
+    if (!usageTargetKey) return;
+    const targets = usageTargetKey.split(',').map((id) => ({ id: Number(id) }));
 
     let cancelled = false;
     let inFlight = false;
@@ -718,7 +815,7 @@ export default function CustomersPage() {
       if (intervalId) clearInterval(intervalId);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [displayedCustomers]);
+  }, [usageTargetKey]);
 
   // Peer-relative usage tiers across the customers currently on screen.
   // Used to color-code the total-used number so heavier-than-average users
@@ -1084,7 +1181,7 @@ export default function CustomersPage() {
             <SearchInput
               value={searchQuery}
               onChange={setSearchQuery}
-              placeholder={t('Search by name, phone, account number, MAC, IP, or PPPoE username...')}
+              placeholder={t('Search by name, phone, account number, MAC, IP, PPPoE username, or plan...')}
             />
           </div>
         </div>
@@ -1096,10 +1193,14 @@ export default function CustomersPage() {
             value={filter}
             onChange={(v) => { setFilter(v); setPage(1); }}
             ariaLabel={t('Filter by status')}
+            className="max-w-full"
             options={[
               { value: 'all', label: t('All'), count: statusCounts.all },
               { value: 'active', label: t('Active'), count: statusCounts.active },
               { value: 'inactive', label: t('Inactive'), count: statusCounts.inactive },
+              { value: 'online', label: t('Online'), count: liveCounts.online },
+              { value: 'offline', label: t('Offline'), count: liveCounts.offline },
+              { value: 'overdue', label: t('Overdue'), count: liveCounts.overdue },
             ]}
           />
         </div>
@@ -1134,7 +1235,7 @@ export default function CustomersPage() {
           <DataTable<Customer>
             columns={CUSTOMER_COLUMNS.map((col) => ({ ...col, label: col.label ? t(col.label) : col.label }))}
             data={displayedCustomers}
-            loading={loading}
+            loading={listLoading}
             rowKey={(c) => c.id}
             onRowClick={(c) => routerNav.push(`/customers/${c.id}`)}
             renderCell={(customer, key) => {
@@ -1462,13 +1563,13 @@ export default function CustomersPage() {
               message: searchQuery ? t('No customers match your search') : t('No customers found'),
             }}
             footer={
-              <Pagination page={page} perPage={perPage} total={effectiveTotal} onPageChange={handlePageChange} onPerPageChange={handlePerPageChange} loading={loading} noun="customers" />
+              <Pagination page={page} perPage={perPage} total={effectiveTotal} onPageChange={handlePageChange} onPerPageChange={handlePerPageChange} loading={listLoading} noun="customers" />
             }
           />
 
           {/* Mobile Cards */}
           <div className="md:hidden space-y-3">
-            {loading ? (
+            {listLoading ? (
               Array.from({ length: 6 }).map((_, i) => (
                 <SkeletonCard key={`__customer-skeleton-${i}`} />
               ))
@@ -1666,7 +1767,7 @@ export default function CustomersPage() {
               })
             )}
 
-            <Pagination page={page} perPage={perPage} total={effectiveTotal} onPageChange={handlePageChange} onPerPageChange={handlePerPageChange} loading={loading} noun="customers" />
+            <Pagination page={page} perPage={perPage} total={effectiveTotal} onPageChange={handlePageChange} onPerPageChange={handlePerPageChange} loading={listLoading} noun="customers" />
           </div>
 
       {/* PPPoE Transfer Modal */}
