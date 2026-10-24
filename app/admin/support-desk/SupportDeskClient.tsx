@@ -11,6 +11,7 @@ import MobileDataCard from '../../components/MobileDataCard';
 import { SkeletonCard } from '../../components/LoadingSpinner';
 import {
   CUSTOMER_STATUSES,
+  CustomerScope,
   DennisItem,
   STALE_AFTER_MINUTES,
   SupportCustomerRow,
@@ -28,6 +29,7 @@ import {
   isOpenEntry,
   openPromises,
   outcomeClassName,
+  scopeCustomers,
   sortEntries,
   waitingOnDennis,
 } from '../../lib/supportDesk';
@@ -139,7 +141,7 @@ function CustomerDetails({ row }: { row: SupportCustomerRow }) {
   );
 }
 
-function CustomersTab({ rows, windowLabel, notes }: { rows: SupportCustomerRow[]; windowLabel?: string; notes?: string }) {
+function CustomersTab({ rows, scopeLabel, notes }: { rows: SupportCustomerRow[]; scopeLabel: string; notes?: string }) {
   const [status, setStatus] = useState<StatusFilter>('all');
   const [query, setQuery] = useState('');
   const [promisesOnly, setPromisesOnly] = useState(false);
@@ -174,7 +176,7 @@ function CustomersTab({ rows, windowLabel, notes }: { rows: SupportCustomerRow[]
           Only customers with open promises
         </label>
         <p className="text-xs text-foreground-muted">
-          {filtered.length} of {rows.length} customers{windowLabel ? ` · ${windowLabel}` : ''}
+          {filtered.length} of {rows.length} customers · {scopeLabel}
         </p>
       </div>
 
@@ -282,6 +284,7 @@ export default function SupportDeskClient() {
   const [error, setError] = useState<{ status?: number; message: string } | null>(null);
   const [tab, setTab] = useState<TabValue>('customers');
   const [now, setNow] = useState(() => Date.now());
+  const [scope, setScope] = useState<CustomerScope>('window');
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -308,7 +311,13 @@ export default function SupportDeskClient() {
     return () => { clearInterval(refresh); clearInterval(tick); };
   }, [isAdmin, load]);
 
-  const rows = useMemo(() => data?.snapshot?.customers?.rows ?? [], [data]);
+  const allRows = useMemo(() => data?.snapshot?.customers?.rows ?? [], [data]);
+  // Tiles, chips and the list follow the scope: the intake window by default,
+  // the full history behind the toggle (as on the laptop dashboard).
+  const rows = useMemo(() => scopeCustomers(allRows, scope), [allRows, scope]);
+  const windowRows = useMemo(() => scopeCustomers(allRows, 'window'), [allRows]);
+  const windowLabel = data?.snapshot?.customers?.window_label || 'Since intake start';
+  const scopeLabel = scope === 'all' ? 'Full history' : windowLabel;
   const entries = useMemo(() => data?.snapshot?.worklog?.entries ?? [], [data]);
   const dennis = useMemo(() => (data ? waitingOnDennis(data.snapshot ?? {}) : []), [data]);
   const fresh = data ? freshness(data, now) : null;
@@ -390,6 +399,16 @@ export default function SupportDeskClient() {
 
       {data && (
         <>
+          <FilterPills<CustomerScope>
+            value={scope}
+            onChange={setScope}
+            ariaLabel="Time window"
+            className="max-w-full"
+            options={[
+              { value: 'window', label: windowLabel, count: windowRows.length },
+              { value: 'all', label: 'Full history', count: allRows.length },
+            ]}
+          />
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {[
               { label: 'Waiting on us', value: counts.us, warn: counts.us > 0, go: () => setTab('customers') },
@@ -418,7 +437,7 @@ export default function SupportDeskClient() {
           {tab === 'customers' && (
             <CustomersTab
               rows={rows}
-              windowLabel={data.snapshot?.customers?.window_label}
+              scopeLabel={scopeLabel}
               notes={data.snapshot?.customers?.notes}
             />
           )}

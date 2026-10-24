@@ -41,6 +41,7 @@ export interface SupportDeskSnapshot {
   customers?: {
     rows?: SupportCustomerRow[];
     window_label?: string;
+    window_start?: string;
     notes?: string;
   };
   worklog?: { entries?: SupportWorkEntry[] };
@@ -148,6 +149,17 @@ export function filterCustomers(
       return haystack.includes(q);
     })
     .sort((a, b) => rowLast(b).localeCompare(rowLast(a)));
+}
+
+/**
+ * 'window' = customers with at least one message since the intake start
+ * (snapshot.customers.window_start, 22 Oct 2026); 'all' = every business/lead
+ * chat ever. Same default and toggle as the laptop dashboard.
+ */
+export type CustomerScope = 'window' | 'all';
+
+export function scopeCustomers(rows: SupportCustomerRow[], scope: CustomerScope): SupportCustomerRow[] {
+  return scope === 'all' ? rows : rows.filter((r) => (r.window?.messages ?? 0) > 0);
 }
 
 export function countByStatus(rows: SupportCustomerRow[]): Record<SupportCustomerStatus | 'all', number> {
