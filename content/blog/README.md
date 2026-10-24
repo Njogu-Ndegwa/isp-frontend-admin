@@ -21,13 +21,20 @@ published: true
 
 Set `published: false` to keep a draft out of the live site, sitemap and index.
 
+**Scheduling:** a published post whose `date:` is in the future stays hidden
+everywhere (index, category pages, sitemap, llms.txt, its own URL) until that
+date in Kenya, then appears within the hour — no deploy needed. Merge a
+reviewed batch with dates two to a week (Tuesday and Friday) and it publishes
+itself. See `isLive` in `app/blog/posts.ts` and the `blog-growth-loop` skill.
+
 `category` drives the card color and the `/blog/category/<key>` hub page
 (see `app/blog/categories.ts`; falls back to the first tag). `image` is the
 16:9 cover shown on cards, the article header, and WhatsApp/OG link previews —
 generate it with `.claude/skills/tiktok-to-blog/make_cover.py` (see the skill's
 Step 3 for sourcing rules). Read time is computed automatically.
 
-Posts are statically generated at build time — merging a new `.md` file to the
-production branch publishes it on the next deploy. This is the review gate for
-the TikTok→blog pipeline: generated drafts land here as a PR, Dennis verifies
-or rectifies the content, and merging publishes.
+Blog pages are generated at build time and revalidated hourly. Merging a new
+`.md` file to the production branch publishes it on its `date:` (immediately if
+that date has passed). This is the review gate for the TikTok→blog pipeline:
+drafts land here as a PR, Dennis verifies or rectifies the content, and merging
+approves them for their scheduled dates.
