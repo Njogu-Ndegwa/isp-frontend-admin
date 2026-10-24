@@ -10,6 +10,7 @@ import SearchInput from '../../components/SearchInput';
 import MobileDataCard from '../../components/MobileDataCard';
 import { SkeletonCard } from '../../components/LoadingSpinner';
 import MetricsTab from './MetricsTab';
+import OverviewTab from './OverviewTab';
 import type { SupportMetrics } from '../../lib/supportMetrics';
 import {
   CUSTOMER_STATUSES,
@@ -45,7 +46,8 @@ import {
   waitingOnDennis,
 } from '../../lib/supportDesk';
 
-type TabValue = 'customers' | 'metrics' | 'worklog' | 'dennis';
+type TabValue = 'overview' | 'customers' | 'metrics' | 'worklog' | 'dennis';
+const TAB_VALUES: TabValue[] = ['overview', 'customers', 'metrics', 'worklog', 'dennis'];
 type StatusFilter = SupportCustomerStatus | 'all';
 
 const PAGE_SIZE = 40;
@@ -434,7 +436,7 @@ export default function SupportDeskClient() {
   const [data, setData] = useState<SupportDeskResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<{ status?: number; message: string } | null>(null);
-  const [tab, setTab] = useState<TabValue>('customers');
+  const [tab, setTab] = useState<TabValue>('overview');
   const [now, setNow] = useState(() => Date.now());
   const [scope, setScope] = useState<CustomerScope>('window');
   // Decisions the server has not listed yet: in flight (optimistic) or just created.
@@ -515,7 +517,7 @@ export default function SupportDeskClient() {
     <div className="space-y-5 pb-24 md:pb-6">
       <Header
         title="Support desk"
-        subtitle="WhatsApp support agent: customers, work log, decisions"
+        subtitle="How the WhatsApp support agent is doing, and what it needs from you"
         action={
           <button type="button" className="btn-secondary text-sm" onClick={load} disabled={loading}>
             {loading ? 'Refreshing…' : 'Refresh'}
@@ -604,13 +606,20 @@ export default function SupportDeskClient() {
             onChange={setTab}
             ariaLabel="Support desk sections"
             tabs={[
+              { value: 'overview', label: 'Overview' },
               { value: 'customers', label: 'Customers', count: rows.length },
-              { value: 'metrics', label: 'Metrics' },
               { value: 'worklog', label: 'Work log', count: entries.length },
               { value: 'dennis', label: 'Waiting on Dennis', count: dennis.length },
+              { value: 'metrics', label: 'Details' },
             ]}
           />
 
+          {tab === 'overview' && (
+            <OverviewTab
+              metrics={data.snapshot?.metrics as SupportMetrics | undefined}
+              onNavigate={(t) => { if ((TAB_VALUES as string[]).includes(t)) setTab(t as TabValue); }}
+            />
+          )}
           {tab === 'customers' && (
             <CustomersTab
               rows={rows}
