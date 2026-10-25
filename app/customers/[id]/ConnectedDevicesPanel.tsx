@@ -113,6 +113,7 @@ export default function ConnectedDevicesPanel({ customerId }: { customerId: numb
               devices={devices}
               onlyOne={mikrotik.profile_detail?.only_one}
               planSpeed={presence.customer.plan_speed}
+              sharedSpeed={Boolean(presence.device_limit?.shared_speed)}
             />
           )}
 

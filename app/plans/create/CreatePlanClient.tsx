@@ -13,6 +13,8 @@ import SpeedInputHint from '../../components/SpeedInputHint';
 import { gmt3InputToISO } from '../../lib/dateUtils';
 import { DataCapUnit, dataCapInputToMb, normalizeFupPeriod } from '../dataCap';
 import FupPeriodField from '../FupPeriodField';
+import SharedSpeedField from '../SharedSpeedField';
+import { pppoeDevicesHint, sharedSpeedForPayload, showsSharedSpeedToggle } from '../sharedSpeed';
 import { normalizeDuration, describeDuration } from '../duration';
 import { getDisplayCurrency } from '../../lib/format';
 import PlanNameHint from '../../components/PlanNameHint';
@@ -38,6 +40,7 @@ export default function CreatePlanPage() {
     original_price: null,
     valid_until: null,
     max_shared_users: 1,
+    share_speed_across_devices: false,
     trial_once_per_customer: true,
     data_cap_mb: null,
     fup_action: null,
@@ -108,6 +111,9 @@ export default function CreatePlanPage() {
       if (!payload.original_price) payload.original_price = null;
       payload.valid_until = payload.valid_until ? gmt3InputToISO(payload.valid_until) : null;
       payload.max_shared_users = noSharing ? 1 : Math.max(1, Math.min(50, Number(payload.max_shared_users) || 1));
+      payload.share_speed_across_devices = sharedSpeedForPayload(
+        payload.connection_type, payload.max_shared_users, payload.share_speed_across_devices,
+      );
       payload.data_cap_mb = showFup ? dataCapMb : null;
       // Clear FUP fields when the plan is uncapped.
       if (!payload.data_cap_mb) {
@@ -344,10 +350,17 @@ export default function CreatePlanPage() {
                   {isFreeTrial
                     ? 'Devices one claimed trial covers. 1 = only the device that claimed it.'
                     : isPPPoE
-                      ? 'Devices that can be online at once with the same PPPoE username and password. Each gets the full plan speed; the data cap is shared. Changing it updates active customers’ routers; their devices reconnect once.'
+                      ? pppoeDevicesHint(sharedSpeedForPayload(formData.connection_type, formData.max_shared_users, formData.share_speed_across_devices))
                       : '1 disables sharing. 2 allows the owner plus one extra device.'}
                 </p>
               </div>
+            )}
+
+            {showsSharedSpeedToggle(formData.connection_type, formData.max_shared_users) && (
+              <SharedSpeedField
+                checked={Boolean(formData.share_speed_across_devices)}
+                onChange={(value) => setFormData((prev) => ({ ...prev, share_speed_across_devices: value }))}
+              />
             )}
 
             <div className="pt-4 border-t border-border">

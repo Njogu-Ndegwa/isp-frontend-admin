@@ -2,6 +2,7 @@
 
 import type { PPPoEDevice } from '../lib/types';
 import { formatBps, formatBytes, formatMaxLimit } from '../lib/live';
+import { pppoeSessionsSpeedNote } from '../plans/sharedSpeed';
 
 function rateBps(rate: string): number {
   return parseInt(rate, 10) || 0;
@@ -12,20 +13,28 @@ function rateBps(rate: string): number {
  *
  * `onlyOne` is the secret's profile `only-one` setting. When it is `yes` the
  * router rejects a second login, so the list can only ever show one device.
+ *
+ * `sharedSpeed`: the plan shares its speed across the login's devices. All
+ * sessions then sit on ONE router queue, so every row reports that queue's
+ * counters and the totals must not add them up again.
  */
 export default function PPPoEDeviceList({
   devices,
   onlyOne,
   planSpeed,
+  sharedSpeed = false,
 }: {
   devices: PPPoEDevice[];
   onlyOne?: string | null;
   planSpeed?: string | null;
+  sharedSpeed?: boolean;
 }) {
-  const totalDown = devices.reduce((t, d) => t + rateBps(d.download_rate), 0);
-  const totalUp = devices.reduce((t, d) => t + rateBps(d.upload_rate), 0);
-  const totalDownloaded = devices.reduce((t, d) => t + (d.download_bytes || 0), 0);
-  const totalUploaded = devices.reduce((t, d) => t + (d.upload_bytes || 0), 0);
+  // One shared queue: every session reports the same counters, so take one.
+  const combine = (t: number, v: number) => (sharedSpeed ? Math.max(t, v) : t + v);
+  const totalDown = devices.reduce((t, d) => combine(t, rateBps(d.download_rate)), 0);
+  const totalUp = devices.reduce((t, d) => combine(t, rateBps(d.upload_rate)), 0);
+  const totalDownloaded = devices.reduce((t, d) => combine(t, d.download_bytes || 0), 0);
+  const totalUploaded = devices.reduce((t, d) => combine(t, d.upload_bytes || 0), 0);
   const limited = devices.filter((d) => d.has_queue && d.max_limit);
   const blocksSecondDevice = onlyOne === 'yes';
 
@@ -85,8 +94,8 @@ export default function PPPoEDeviceList({
       )}
 
       {devices.length > 1 && limited.length === devices.length && (
-        <p className="text-xs text-foreground-muted">
-          Each session has its own speed limit, so together they can use up to {devices.length}× the plan speed.
+        <p className="text-xs text-foreground-muted" data-testid="pppoe-speed-note">
+          {pppoeSessionsSpeedNote(sharedSpeed, devices.length, planSpeed)}
         </p>
       )}
       {blocksSecondDevice && (
