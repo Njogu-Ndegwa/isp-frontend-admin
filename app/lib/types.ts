@@ -758,6 +758,15 @@ export interface Customer {
   /** Static-IP customers: the device MAC the IP is pinned to (anti-spoofing). */
   static_mac?: string | null;
   account_number?: string;
+  /**
+   * The paybill this customer pays into with `account_number`, resolved by the
+   * backend from the customer's router payment method: the reseller's own
+   * C2B-registered paybill, else the platform paybill when the money is
+   * platform-collected. null = no account-number paybill on that router
+   * (settles straight to the reseller, or outside Kenya). Absent on older
+   * backends and in demo mode.
+   */
+  payment_paybill?: string | null;
   wallet_credit_kes?: number;
   /** Standing grace: access continues this long past `expiry`. 0 = none. */
   grace_period_minutes?: number;

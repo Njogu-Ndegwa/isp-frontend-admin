@@ -31,7 +31,7 @@ import { formatAmount } from '../lib/format';
 import { useT } from '../lib/i18n';
 import { customerMatchesSearch, isOnlineNow, isOverdue, isPaidOffline } from '../lib/customerFilters';
 import { connectionTypeLabel } from '../lib/connectionType';
-import { PLATFORM_PAYBILL, customerPaybill, paybillAccountLabel } from '../lib/customerPaybill';
+import { PLATFORM_PAYBILL, customerPaybill, paybillAccountLabel, paybillForCustomer } from '../lib/customerPaybill';
 
 const TransferPPPoEModal = dynamic(() => import('../components/TransferPPPoEModal'), {
   ssr: false,
@@ -277,8 +277,10 @@ export default function CustomersPage() {
   const liveFilter = filter === 'online' || filter === 'offline';
   const hasClientFilters = searchQuery.trim() !== '' || connectionFilter !== 'all' || liveFilter || filter === 'overdue';
 
-  // The paybill shown next to each account number: the reseller's own
-  // C2B-registered paybill when they have one, else the platform paybill.
+  // The paybill shown next to each account number comes from each customer's
+  // `payment_paybill` (resolved per router by the backend). This reseller-wide
+  // one (own C2B-registered paybill, else the platform paybill) is only the
+  // fallback for an API that does not send that field yet.
   // null until resolved so the wrong paybill never flashes up.
   const [paybill, setPaybill] = useState<string | null>(null);
   useEffect(() => {
@@ -1258,7 +1260,7 @@ export default function CustomersPage() {
                       <div>
                         <span className="font-medium text-foreground">{customer.name || t('Unknown')}</span>
                         {customer.account_number && (
-                          <p className="text-xs font-mono text-foreground-muted">{paybillAccountLabel(paybill, customer.account_number)}</p>
+                          <p className="text-xs font-mono text-foreground-muted">{paybillAccountLabel(paybillForCustomer(customer, paybill), customer.account_number)}</p>
                         )}
                         {customer.pppoe_username && (
                           <p className="text-xs font-mono text-foreground-muted">{customer.pppoe_username}</p>
@@ -1604,7 +1606,7 @@ export default function CustomersPage() {
                   key={customer.id}
                   id={customer.id}
                   title={customer.name || t('Unknown')}
-                  subtitle={connectionTypeCard === 'static_ip' ? `Static IP · ${customer.static_ip}` : customer.account_number ? paybillAccountLabel(paybill, customer.account_number) : (customer.pppoe_username || customer.phone || undefined)}
+                  subtitle={connectionTypeCard === 'static_ip' ? `Static IP · ${customer.static_ip}` : customer.account_number ? paybillAccountLabel(paybillForCustomer(customer, paybill), customer.account_number) : (customer.pppoe_username || customer.phone || undefined)}
                   avatar={{
                     text: (customer.name || '?').charAt(0).toUpperCase(),
                     color: routerDownCard

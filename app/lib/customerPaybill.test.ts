@@ -5,6 +5,7 @@ import {
   customerPaybill,
   ownC2BPaybill,
   paybillAccountLabel,
+  paybillForCustomer,
 } from './customerPaybill';
 
 function method(overrides: Partial<PaymentMethodConfig>): PaymentMethodConfig {
@@ -86,5 +87,27 @@ describe('paybillAccountLabel', () => {
 
   it('shows only the account number while the paybill is unknown', () => {
     expect(paybillAccountLabel(null, '12345674')).toBe('12345674');
+  });
+});
+
+describe('paybillForCustomer', () => {
+  it("shows the reseller's own C2B paybill the backend resolved for the customer", () => {
+    expect(paybillForCustomer({ payment_paybill: '1365970' }, PLATFORM_PAYBILL)).toBe('1365970');
+  });
+
+  it('shows the platform paybill the backend sends for a platform-collected customer', () => {
+    // The value comes from the API (settings.MPESA_SHORTCODE), not this file.
+    expect(paybillForCustomer({ payment_paybill: '4159825' }, '1365970')).toBe('4159825');
+  });
+
+  it("trusts the backend's null: no account-number paybill on that router", () => {
+    expect(paybillForCustomer({ payment_paybill: null }, PLATFORM_PAYBILL)).toBeNull();
+    expect(paybillForCustomer({ payment_paybill: '  ' }, PLATFORM_PAYBILL)).toBeNull();
+  });
+
+  it('falls back to the reseller-wide paybill only when the API sent no field', () => {
+    expect(paybillForCustomer({}, '1365970')).toBe('1365970');
+    expect(paybillForCustomer({}, customerPaybill([]))).toBe(PLATFORM_PAYBILL);
+    expect(paybillForCustomer({}, null)).toBeNull();
   });
 });
