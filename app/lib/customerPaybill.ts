@@ -47,3 +47,18 @@ export function customerPaybill(
 export function paybillAccountLabel(paybill: string | null, accountNumber: string): string {
   return paybill ? `${paybill} — ${accountNumber}` : accountNumber;
 }
+
+/**
+ * The paybill to show for one customer. The backend's per-customer
+ * `payment_paybill` wins (it knows the customer's router and settlement, and
+ * reads the platform paybill from config); null there means no account-number
+ * paybill applies. Only when the backend did not send the field (older API,
+ * demo mode) does the reseller-wide `fallback` from customerPaybill() apply.
+ */
+export function paybillForCustomer(
+  customer: { payment_paybill?: string | null },
+  fallback: string | null,
+): string | null {
+  if (customer.payment_paybill !== undefined) return customer.payment_paybill?.trim() || null;
+  return fallback;
+}

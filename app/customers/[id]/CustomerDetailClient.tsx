@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { api } from '../../lib/api';
 import { copyText } from '../../lib/clipboard';
+import { PLATFORM_PAYBILL, customerPaybill, paybillForCustomer } from '../../lib/customerPaybill';
 import { Customer, Plan, Router as RouterType, UpdateCustomerRequest, CustomerUsageResponse, CustomerUsageLive } from '../../lib/types';
 import {
   QUEUE_STATUS_LABEL, QUEUE_STATUS_TONE, formatAge, formatBps, formatMaxLimit,
@@ -50,6 +51,9 @@ export default function EditCustomerPage() {
   // implied by editing the expiry (that alone leaves the customer inactive).
   const [activatePaidUntil, setActivatePaidUntil] = useState(false);
   const [usage, setUsage] = useState<CustomerUsageResponse | null>(null);
+  // Reseller-wide paybill, fetched only when the API did not send the
+  // customer's own `payment_paybill` (older backend, demo mode).
+  const [fallbackPaybill, setFallbackPaybill] = useState<string | null>(null);
 
   useEffect(() => {
     loadData();
@@ -69,6 +73,11 @@ export default function EditCustomerPage() {
         return;
       }
       setCustomer(found);
+      if (found.payment_paybill === undefined) {
+        api.getPaymentMethods()
+          .then((methods) => setFallbackPaybill(customerPaybill(methods)))
+          .catch(() => setFallbackPaybill(PLATFORM_PAYBILL));
+      }
       setAllCustomers(customers);
       setPlans(plansData);
       setRouters(routersData);
@@ -251,6 +260,14 @@ export default function EditCustomerPage() {
             <div className="card p-5 space-y-3">
               <h3 className="text-sm font-semibold text-foreground-muted uppercase tracking-wider">Paybill Payment Instructions</h3>
               <div className="space-y-2">
+                <PaybillRow
+                  paybill={paybillForCustomer(customer, fallbackPaybill)}
+                  loading={customer.payment_paybill === undefined && fallbackPaybill === null}
+                  onCopy={async (value) => {
+                    const ok = await copyText(value);
+                    showAlert(ok ? 'success' : 'error', ok ? 'Paybill copied' : 'Copy failed — select and copy manually');
+                  }}
+                />
                 <div className="bg-background-tertiary rounded-lg p-3">
                   <label className="text-xs font-medium text-foreground-muted uppercase tracking-wider">Account Number</label>
                   {customer.account_number ? (
@@ -592,6 +609,40 @@ function LivePanel({ live, routerId }: { live: CustomerUsageLive; routerId: numb
         <Link href={`/routers/${routerId}/live`} className="text-xs text-accent-primary hover:underline">
           Open router live view →
         </Link>
+      )}
+    </div>
+  );
+}
+
+/** The paybill the customer pays into with their account number. */
+function PaybillRow({ paybill, loading, onCopy }: {
+  paybill: string | null;
+  loading: boolean;
+  onCopy: (value: string) => void;
+}) {
+  return (
+    <div className="bg-background-tertiary rounded-lg p-3">
+      <label className="text-xs font-medium text-foreground-muted uppercase tracking-wider">Paybill</label>
+      {loading ? (
+        <p className="text-xs text-foreground-muted mt-1">Loading…</p>
+      ) : paybill ? (
+        <div className="flex items-center justify-between mt-1">
+          <span className="font-mono text-sm text-foreground">{paybill}</span>
+          <button
+            type="button"
+            aria-label="Copy paybill"
+            onClick={() => onCopy(paybill)}
+            className="p-1.5 rounded-md hover:bg-background-secondary transition-colors text-foreground-muted hover:text-foreground"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+            </svg>
+          </button>
+        </div>
+      ) : (
+        <p className="text-xs text-foreground-muted mt-1">
+          No account-number paybill on this customer&apos;s router. They pay through the payment prompt instead.
+        </p>
       )}
     </div>
   );
