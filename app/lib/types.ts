@@ -3058,7 +3058,6 @@ export interface GenerateVouchersRequest {
   plan_id: number;
   quantity: number;
   router_id?: number | null;
-  expires_at?: string | null;
   voucher_type?: 'sale' | 'compensation';
 }
 
