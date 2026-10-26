@@ -32,7 +32,7 @@ const formatSafeDate = (dateStr: string | null | undefined): string => {
   }
 };
 
-type StatusFilter = '' | 'available' | 'used' | 'disabled' | 'expired';
+type StatusFilter = '' | 'available' | 'used' | 'disabled';
 
 const VOUCHER_COLUMNS: DataTableColumn[] = [
   { key: 'code', label: 'Code' },
@@ -40,7 +40,6 @@ const VOUCHER_COLUMNS: DataTableColumn[] = [
   { key: 'type', label: 'Type' },
   { key: 'router', label: 'Router' },
   { key: 'status', label: 'Status' },
-  { key: 'expires', label: 'Expires' },
   { key: 'created', label: 'Created' },
   { key: 'actions', label: 'Actions' },
 ];
@@ -50,7 +49,6 @@ const STATUS_FILTERS: { value: StatusFilter; label: string }[] = [
   { value: 'available', label: 'Available' },
   { value: 'used', label: 'Used' },
   { value: 'disabled', label: 'Disabled' },
-  { value: 'expired', label: 'Expired' },
 ];
 
 const statusBadge = (status: Voucher['status']) => {
@@ -474,8 +472,6 @@ export default function VouchersPage() {
                   return (
                     <span className={`badge ${statusBadge(v.status)} capitalize`}>{v.status}</span>
                   );
-                case 'expires':
-                  return <span className="text-foreground-muted text-sm">{formatSafeDate(v.expires_at)}</span>;
                 case 'created':
                   return <span className="text-foreground-muted text-sm">{formatSafeDate(v.created_at)}</span>;
                 case 'actions':
@@ -683,7 +679,7 @@ function VoucherMobileCard({
           )}
         </div>
         <span className="text-[11px] text-foreground-muted flex-shrink-0">
-          {v.expires_at ? `Exp ${formatSafeDate(v.expires_at)}` : formatSafeDate(v.created_at)}
+          {formatSafeDate(v.created_at)}
         </span>
       </div>
     </div>
@@ -705,7 +701,6 @@ function GenerateVouchersModal({
     plan_id: 0,
     quantity: 1,
     router_id: null,
-    expires_at: null,
     voucher_type: 'sale',
   });
   const [allowance, setAllowance] = useState<CompensationAllowance | null>(null);
@@ -763,23 +758,11 @@ function GenerateVouchersModal({
       setLoading(true);
       setError(null);
 
-      let expiresAtIso: string | undefined;
-      if (formData.expires_at) {
-        const parsed = new Date(formData.expires_at);
-        if (isNaN(parsed.getTime())) {
-          setError('Invalid expiration date');
-          setLoading(false);
-          return;
-        }
-        expiresAtIso = parsed.toISOString();
-      }
-
       const payload: GenerateVouchersRequest = {
         plan_id: formData.plan_id,
         quantity: formData.quantity,
         voucher_type: formData.voucher_type,
         ...(formData.router_id ? { router_id: formData.router_id } : {}),
-        ...(expiresAtIso ? { expires_at: expiresAtIso } : {}),
       };
       await api.generateVouchers(payload);
       onSuccess();
@@ -895,18 +878,6 @@ function GenerateVouchersModal({
                 </select>
                 <p className="text-[11px] text-foreground-muted mt-1">Optional</p>
               </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-1.5">
-                Expires At <span className="text-foreground-muted font-normal">(optional)</span>
-              </label>
-              <input
-                type="datetime-local"
-                value={formData.expires_at ?? ''}
-                onChange={(e) => setFormData({ ...formData, expires_at: e.target.value || null })}
-                className="input text-base"
-              />
             </div>
           </div>
 
