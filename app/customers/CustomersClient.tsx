@@ -29,6 +29,8 @@ import DataTable, { DataTableColumn } from '../components/DataTable';
 import Pagination from '../components/Pagination';
 import { formatAmount } from '../lib/format';
 import { useT } from '../lib/i18n';
+import { usePermissions } from '../hooks/usePermissions';
+import { PERMISSIONS } from '../lib/permissions';
 import { customerMatchesSearch, isOnlineNow, isOverdue, isPaidOffline } from '../lib/customerFilters';
 import { canPause, canResume, formatPausedRemaining, isPaused } from '../lib/customerPause';
 import PauseCustomerModal, { resumeAlert } from '../components/PauseCustomerModal';
@@ -226,6 +228,9 @@ export default function CustomersPage() {
   const routerNav = useRouter();
   const { showAlert } = useAlert();
   const t = useT();
+  // Staff without customers.manage get a read-only list.
+  const { can } = usePermissions();
+  const canManageCustomers = can(PERMISSIONS.customersManage);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [totalItems, setTotalItems] = useState(0);
   const [totalAll, setTotalAll] = useState(0);
@@ -1057,7 +1062,7 @@ export default function CustomersPage() {
       <Header
         title={t('Customers')}
         subtitle={t('Manage your {count} registered customers', { count: totalItems || customers.length })}
-        action={
+        action={canManageCustomers ? (
           <div className="flex items-center gap-2">
             <button
               type="button"
@@ -1106,11 +1111,12 @@ export default function CustomersPage() {
               <span className="sm:hidden">{t('Add')}</span>
             </Link>
           </div>
-        }
+        ) : undefined}
       />
 
       {/* Mobile bulk actions — the Header action slot is desktop-only, so the
           move/import tools get their own compact row on phones. */}
+      {canManageCustomers && (
       <div className="md:hidden grid grid-cols-3 gap-2 mb-4" data-testid="customers-mobile-actions">
         <button
           type="button"
@@ -1134,6 +1140,7 @@ export default function CustomersPage() {
           {t('Import Static IP')}
         </button>
       </div>
+      )}
 
       {/* Summary Stats */}
       {totalAll > 0 && (
@@ -1549,6 +1556,7 @@ export default function CustomersPage() {
                           <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                         </svg>
                       </button>
+                      {canManageCustomers && (
                       <button
                         onClick={() => setDeleteConfirm(customer)}
                         className="p-1.5 rounded-md hover:bg-danger/10 transition-colors text-foreground-muted hover:text-danger"
@@ -1558,7 +1566,8 @@ export default function CustomersPage() {
                           <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                         </svg>
                       </button>
-                      {canPause(customer) && (
+                      )}
+                      {canManageCustomers && canPause(customer) && (
                         <button
                           onClick={() => setPauseModal(customer)}
                           className="p-1.5 rounded-md hover:bg-warning/10 transition-colors text-warning"
@@ -1570,7 +1579,7 @@ export default function CustomersPage() {
                           </svg>
                         </button>
                       )}
-                      {canResume(customer) && (
+                      {canManageCustomers && canResume(customer) && (
                         <button
                           onClick={() => void handleResume(customer)}
                           disabled={resumingId === customer.id}
@@ -1595,7 +1604,7 @@ export default function CustomersPage() {
                               <path strokeLinecap="round" strokeLinejoin="round" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
                             </svg>
                           </button>
-                          {(customer.status === 'inactive' || customer.status === 'expired') && !isPaused(customer) && (
+                          {canManageCustomers && (customer.status === 'inactive' || customer.status === 'expired') && !isPaused(customer) && (
                             <button
                               onClick={() => setActivateModal(customer)}
                               className="p-1.5 rounded-md hover:bg-success/10 transition-colors text-success"
@@ -1606,7 +1615,7 @@ export default function CustomersPage() {
                               </svg>
                             </button>
                           )}
-                          {customer.status === 'active' && (
+                          {canManageCustomers && customer.status === 'active' && (
                             <button
                               onClick={() => setDeactivateConfirm(customer)}
                               className="p-1.5 rounded-md hover:bg-danger/10 transition-colors text-danger"
@@ -1619,7 +1628,7 @@ export default function CustomersPage() {
                           )}
                         </>
                       )}
-                      {getConnectionType(customer) === 'static_ip' && (customer.status === 'inactive' || customer.status === 'expired') && !isPaused(customer) && (
+                      {canManageCustomers && getConnectionType(customer) === 'static_ip' && (customer.status === 'inactive' || customer.status === 'expired') && !isPaused(customer) && (
                         <button
                           onClick={() => setActivateModal(customer)}
                           className="p-1.5 rounded-md hover:bg-success/10 transition-colors text-success"
@@ -1630,7 +1639,7 @@ export default function CustomersPage() {
                           </svg>
                         </button>
                       )}
-                      {getConnectionType(customer) === 'static_ip' && customer.status === 'active' && (
+                      {canManageCustomers && getConnectionType(customer) === 'static_ip' && customer.status === 'active' && (
                         <button
                           onClick={() => setDeactivateConfirm(customer)}
                           className="p-1.5 rounded-md hover:bg-danger/10 transition-colors text-danger"
@@ -1824,7 +1833,7 @@ export default function CustomersPage() {
                           </svg>
                         </button>
                       )}
-                      {canPause(customer) && (
+                      {canManageCustomers && canPause(customer) && (
                         <button
                           onClick={(e) => { e.preventDefault(); e.stopPropagation(); setPauseModal(customer); }}
                           className="p-1.5 rounded-md hover:bg-warning/10 transition-colors text-warning active:opacity-70"
@@ -1835,7 +1844,7 @@ export default function CustomersPage() {
                           </svg>
                         </button>
                       )}
-                      {canResume(customer) && (
+                      {canManageCustomers && canResume(customer) && (
                         <button
                           onClick={(e) => { e.preventDefault(); e.stopPropagation(); void handleResume(customer); }}
                           disabled={resumingId === customer.id}
@@ -1848,7 +1857,7 @@ export default function CustomersPage() {
                           </svg>
                         </button>
                       )}
-                      {(getConnectionType(customer) === 'pppoe' || getConnectionType(customer) === 'static_ip') && (customer.status === 'inactive' || customer.status === 'expired') && !isPaused(customer) && (
+                      {canManageCustomers && (getConnectionType(customer) === 'pppoe' || getConnectionType(customer) === 'static_ip') && (customer.status === 'inactive' || customer.status === 'expired') && !isPaused(customer) && (
                         <button
                           onClick={(e) => { e.preventDefault(); e.stopPropagation(); setActivateModal(customer); }}
                           className="p-1.5 rounded-md hover:bg-success/10 transition-colors text-success active:opacity-70"
@@ -1859,7 +1868,7 @@ export default function CustomersPage() {
                           </svg>
                         </button>
                       )}
-                      {(getConnectionType(customer) === 'pppoe' || getConnectionType(customer) === 'static_ip') && customer.status === 'active' && (
+                      {canManageCustomers && (getConnectionType(customer) === 'pppoe' || getConnectionType(customer) === 'static_ip') && customer.status === 'active' && (
                         <button
                           onClick={(e) => { e.preventDefault(); e.stopPropagation(); setDeactivateConfirm(customer); }}
                           className="p-1.5 rounded-md hover:bg-danger/10 transition-colors text-danger active:opacity-70"
@@ -1870,6 +1879,7 @@ export default function CustomersPage() {
                           </svg>
                         </button>
                       )}
+                      {canManageCustomers && (
                       <button
                         onClick={(e) => { e.preventDefault(); e.stopPropagation(); setDeleteConfirm(customer); }}
                         className="p-1.5 rounded-md hover:bg-danger/10 transition-colors text-foreground-muted hover:text-danger active:opacity-70"
@@ -1879,6 +1889,7 @@ export default function CustomersPage() {
                           <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                         </svg>
                       </button>
+                      )}
                     </div>
                   }
                   layout="compact"
@@ -2080,6 +2091,7 @@ export default function CustomersPage() {
       )}
 
       {/* Mobile FAB - Register Customer */}
+      {canManageCustomers && (
       <Link
         href="/customers/register"
         className="md:hidden fixed right-4 bottom-24 z-[9998] w-14 h-14 rounded-full bg-accent-primary text-white flex items-center justify-center shadow-lg shadow-accent-primary/25 active:scale-95 transition-transform touch-manipulation"
@@ -2089,6 +2101,7 @@ export default function CustomersPage() {
           <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
         </svg>
       </Link>
+      )}
 
       {/* Delete Customer Confirm Modal */}
       {deleteConfirm && (

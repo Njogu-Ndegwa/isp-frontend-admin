@@ -28,6 +28,8 @@ import StaticIpPanel from './StaticIpPanel';
 import { connectionTypeLabel } from '../../lib/connectionType';
 import { useT } from '../../lib/i18n';
 import { canActivatePaidUntil, formatPaidUntil, pppoeSaveNotice } from './pppoeActivation';
+import { usePermissions } from '../../hooks/usePermissions';
+import { PERMISSIONS } from '../../lib/permissions';
 
 
 export default function EditCustomerPage() {
@@ -36,6 +38,9 @@ export default function EditCustomerPage() {
   const { showAlert } = useAlert();
   const t = useT();
   const customerId = Number(params.id);
+  // Staff without customers.manage see the customer read-only.
+  const { can, isStaff } = usePermissions();
+  const canManageCustomers = can(PERMISSIONS.customersManage);
 
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [allCustomers, setAllCustomers] = useState<Customer[]>([]);
@@ -65,10 +70,13 @@ export default function EditCustomerPage() {
   const loadData = async () => {
     try {
       setPageLoading(true);
+      // Staff may lack access to plans or routers; the customer still shows.
+      const optional = <T,>(request: Promise<T[]>): Promise<T[]> =>
+        isStaff ? request.catch(() => [] as T[]) : request;
       const [customers, plansData, routersData] = await Promise.all([
         api.getCustomers(),
-        api.getPlans(),
-        api.getRouters(),
+        optional(api.getPlans()),
+        optional(api.getRouters()),
       ]);
       const found = customers.find((c) => c.id === customerId);
       if (!found) {
@@ -311,6 +319,7 @@ export default function EditCustomerPage() {
             </div>
           )}
 
+          {canManageCustomers && (
           <SubscriptionPauseCard
             customer={customer}
             onChanged={(result) => {
@@ -326,6 +335,8 @@ export default function EditCustomerPage() {
               setFormData((prev) => ({ ...prev, expiry: utcToGMT3Input(result.expiry ?? customer.expiry) }));
             }}
           />
+          )}
+          {canManageCustomers && (
           <GracePeriodCard
             customer={customer}
             onSaved={(result) => setCustomer({
@@ -336,6 +347,7 @@ export default function EditCustomerPage() {
               in_grace: result.in_grace,
             })}
           />
+          )}
           <RelatedAccounts customer={customer} customers={allCustomers} />
           <div className="card p-5">
             <h3 className="text-sm font-semibold text-foreground-muted uppercase tracking-wider mb-4">Customer details</h3>
@@ -345,7 +357,11 @@ export default function EditCustomerPage() {
               </div>
             )}
 
+            {!canManageCustomers && (
+              <p className="mb-4 text-xs text-foreground-muted">{t('View only. Ask the account owner if you need to change customers.')}</p>
+            )}
             <form onSubmit={handleSubmit} className="space-y-4" autoComplete="off">
+              <fieldset disabled={!canManageCustomers} className="space-y-4 min-w-0">
               <div>
                 <label className="block text-sm font-medium text-foreground-muted mb-1.5">Name</label>
                 <input
@@ -519,6 +535,8 @@ export default function EditCustomerPage() {
                 </div>
               )}
 
+              </fieldset>
+              {canManageCustomers && (
               <div className="flex gap-3 pt-4">
                 <Link href="/customers" className="btn-secondary flex-1 text-center">
                   Cancel
@@ -534,9 +552,11 @@ export default function EditCustomerPage() {
                   )}
                 </button>
               </div>
+              )}
             </form>
 
             {/* Delete section */}
+            {canManageCustomers && (
             <div className="mt-6 pt-6 border-t border-border">
               <button
                 onClick={() => setConfirmDelete(true)}
@@ -548,6 +568,7 @@ export default function EditCustomerPage() {
                 Delete Customer
               </button>
             </div>
+            )}
           </div>
         </div>
       </div>

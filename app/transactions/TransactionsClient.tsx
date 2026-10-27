@@ -15,6 +15,8 @@ import FilterDatePicker from '../components/FilterDatePicker';
 import DataTable, { DataTableColumn } from '../components/DataTable';
 import Pagination from '../components/Pagination';
 import { formatAmount } from '../lib/format';
+import { usePermissions } from '../hooks/usePermissions';
+import { PERMISSIONS } from '../lib/permissions';
 import { scopedSummaryDates, thisMonthCardTitle, scopeCaption } from './summaryScope';
 
 type StatusFilter = 'all' | 'completed' | 'pending' | 'failed' | 'expired';
@@ -118,6 +120,9 @@ const PAYMENT_METHOD_LABELS: Record<string, { label: string; color: string; bg: 
 };
 
 export default function TransactionsPage() {
+  // Re-provisioning a payment changes it; staff need transactions.manage.
+  const { can } = usePermissions();
+  const canManageTransactions = can(PERMISSIONS.transactionsManage);
   const [transactions, setTransactions] = useState<MpesaTransaction[]>([]);
   const [totalItems, setTotalItems] = useState(0);
   const [summary, setSummary] = useState<TransactionSummary | null>(null);
@@ -609,7 +614,7 @@ export default function TransactionsPage() {
                           {getReceiptDisplay(tx) !== '-' ? `Ref: ${getReceiptDisplay(tx)}` : ''}
                         </span>
                         <span className="text-xs font-mono text-foreground-muted flex-shrink-0">#{tx.transaction_id}</span>
-                        {tx.manual_provision_supported ? (
+                        {canManageTransactions && tx.manual_provision_supported ? (
                           <button
                             onClick={(e) => { e.stopPropagation(); handleManualProvision(tx); }}
                             disabled={provisioningId === tx.transaction_id}
@@ -809,7 +814,7 @@ export default function TransactionsPage() {
                 case 'date':
                   return <span className="text-foreground-muted text-sm">{formatTransactionDate(tx)}</span>;
                 case 'actions':
-                  if (tx.manual_provision_supported) {
+                  if (canManageTransactions && tx.manual_provision_supported) {
                     const isProvisioning = provisioningId === tx.transaction_id;
                     return (
                       <button

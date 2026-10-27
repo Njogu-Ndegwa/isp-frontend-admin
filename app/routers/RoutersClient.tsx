@@ -24,6 +24,8 @@ import {
 import Header from '../components/Header';
 import { PageLoader } from '../components/LoadingSpinner';
 import { useAuth } from '../context/AuthContext';
+import { usePermissions } from '../hooks/usePermissions';
+import { PERMISSIONS } from '../lib/permissions';
 import { useAlert } from '../context/AlertContext';
 import Link from 'next/link';
 import PullToRefresh from '../components/PullToRefresh';
@@ -515,6 +517,9 @@ function RoutersTab({
     api.getLiveRouterIds().then((ids) => setLiveRouterIds(new Set(ids))).catch(() => {});
   }, []);
   const { showAlert } = useAlert();
+  // Staff without routers.manage get the read-only actions only.
+  const { can } = usePermissions();
+  const canManageRouters = can(PERMISSIONS.routersManage);
   const [emergencyLoading, setEmergencyLoading] = useState<number | null>(null);
   const [emergencyModalRouter, setEmergencyModalRouter] = useState<Router | null>(null);
   const [emergencyMsg, setEmergencyMsg] = useState('');
@@ -825,6 +830,7 @@ function RoutersTab({
 
     return (
       <div className="flex items-center gap-1 flex-wrap justify-end">
+      {canManageRouters && (
       <button
         onClick={(e) => { e.stopPropagation(); handleOpenWebFig(router); }}
         disabled={webfigLoading === router.id}
@@ -839,6 +845,7 @@ function RoutersTab({
           </svg>
         )}
       </button>
+      )}
       <button
         onClick={(e) => { e.stopPropagation(); loadRouterUsers(router.id); }}
         className="p-1.5 rounded-lg hover:bg-accent-primary/10 text-foreground-muted hover:text-accent-primary transition-colors active:opacity-70"
@@ -863,6 +870,8 @@ function RoutersTab({
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.316 10.658a3 3 0 010 4.243l-4.243 4.242a3 3 0 11-4.243-4.242l.707-.707" />
         </svg>
       </button>
+      {canManageRouters && (
+      <>
       <button
         onClick={(e) => { e.stopPropagation(); setPortConfigRouter(router); }}
         className="p-1.5 rounded-lg hover:bg-info/10 text-foreground-muted hover:text-info transition-colors active:opacity-70"
@@ -896,6 +905,8 @@ function RoutersTab({
           </svg>
         )}
       </button>
+      </>
+      )}
       <button
         onClick={(e) => { e.stopPropagation(); loadUptime(router.id); }}
         className={`p-1.5 rounded-lg hover:bg-emerald-500/10 text-foreground-muted hover:text-emerald-500 transition-colors active:opacity-70 ${uptimeRouter === router.id ? 'bg-emerald-500/10 text-emerald-500' : ''}`}
@@ -905,6 +916,8 @@ function RoutersTab({
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
         </svg>
       </button>
+      {canManageRouters && (
+      <>
       <button
         onClick={(e) => {
           e.stopPropagation();
@@ -1013,6 +1026,8 @@ function RoutersTab({
           </svg>
         </button>
       )}
+      </>
+      )}
       </div>
     );
   };
@@ -1046,12 +1061,14 @@ function RoutersTab({
             </svg>
             <span className="hidden sm:inline">Refresh</span>
           </button>
+          {canManageRouters && (
           <button onClick={onAddRouter} className="btn-primary flex items-center gap-2 text-sm">
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
             </svg>
             Add Router
           </button>
+          )}
         </div>
       </div>
 
@@ -2476,6 +2493,9 @@ function EditRouterModal({
 }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // How customers may pay on this router is a payment setting.
+  const { can } = usePermissions();
+  const canManagePaymentMethods = can(PERMISSIONS.paymentMethodsManage);
   const [formData, setFormData] = useState<UpdateRouterRequest>({
     name: router.name,
     ip_address: router.ip_address,
@@ -2494,7 +2514,7 @@ function EditRouterModal({
         name: formData.name,
         ip_address: formData.ip_address,
         port: formData.port,
-        payment_methods: formData.payment_methods,
+        ...(canManagePaymentMethods ? { payment_methods: formData.payment_methods } : {}),
         emergency_active: formData.emergency_active,
         emergency_message: formData.emergency_active ? (formData.emergency_message || null) : null,
       };
@@ -2572,10 +2592,12 @@ function EditRouterModal({
             </div>
           </div>
 
-          <PaymentMethodsField
-            value={formData.payment_methods ?? ['mpesa', 'voucher']}
-            onChange={(methods) => setFormData({ ...formData, payment_methods: methods })}
-          />
+          {canManagePaymentMethods && (
+            <PaymentMethodsField
+              value={formData.payment_methods ?? ['mpesa', 'voucher']}
+              onChange={(methods) => setFormData({ ...formData, payment_methods: methods })}
+            />
+          )}
 
           {/* Emergency Mode */}
           <div className="pt-2 border-t border-border">

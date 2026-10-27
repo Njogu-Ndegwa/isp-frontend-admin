@@ -6,6 +6,8 @@ import { formatMoney } from '../lib/format';
 import { useT } from '../lib/i18n';
 import { useAuth } from '../context/AuthContext';
 import { subscriptionAlertMessage } from '../lib/subscriptionAlert';
+import { usePermissions } from '../hooks/usePermissions';
+import { PERMISSIONS } from '../lib/permissions';
 
 interface SubscriptionAlertBannerProps {
   alert: SubscriptionAlert;
@@ -14,6 +16,8 @@ interface SubscriptionAlertBannerProps {
 
 export default function SubscriptionAlertBanner({ alert, onPayNow }: SubscriptionAlertBannerProps) {
   const t = useT();
+  const { can } = usePermissions();
+  const canManageSubscription = can(PERMISSIONS.subscriptionManage);
   const { user } = useAuth();
   // Build the sentence here (translated, in the invoice's currency); the
   // backend's English text is only a fallback for shapes we don't know.
@@ -52,6 +56,7 @@ export default function SubscriptionAlertBanner({ alert, onPayNow }: Subscriptio
         </div>
         <div className="flex-1 min-w-0">
           <p className={`text-sm font-medium ${textClass}`}>{message}</p>
+          {canManageSubscription ? (
           <div className="flex items-center gap-3 mt-2">
             <Link
               href="/settings/subscription"
@@ -68,6 +73,9 @@ export default function SubscriptionAlertBanner({ alert, onPayNow }: Subscriptio
               </button>
             )}
           </div>
+          ) : (
+            <p className={`text-xs mt-2 ${textClass}`}>{t('Ask the account owner to renew the subscription.')}</p>
+          )}
         </div>
       </div>
     </div>

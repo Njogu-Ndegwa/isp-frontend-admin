@@ -8,6 +8,9 @@ import ConfirmDialog from '../components/ConfirmDialog';
 import { formatAmount } from '../lib/format';
 import { formatDateGMT3 } from '../lib/dateUtils';
 import SettlementModeCard from './SettlementModeCard';
+import { usePermissions } from '../hooks/usePermissions';
+import { PERMISSIONS } from '../lib/permissions';
+import { useT } from '../lib/i18n';
 
 const FREQUENCY_OPTIONS: { value: PayoutFrequency; label: string; hint: string }[] = [
   { value: 'daily', label: 'Daily', hint: 'Your balance is paid out automatically every night.' },
@@ -30,6 +33,12 @@ export default function WithdrawCard({ onWithdrawn }: { onWithdrawn?: () => void
   const [savingSettlement, setSavingSettlement] = useState(false);
   const [directConfirmOpen, setDirectConfirmOpen] = useState(false);
   const [platformConfirmOpen, setPlatformConfirmOpen] = useState(false);
+  // Staff only get the money controls the owner granted.
+  const { can } = usePermissions();
+  const t = useT();
+  const canWithdraw = can(PERMISSIONS.moneyWithdraw);
+  const canChangeSchedule = can(PERMISSIONS.paymentMethodsManage);
+  const canChangeSettlement = can(PERMISSIONS.settlementManage);
 
   const load = useCallback(async () => {
     try {
@@ -178,6 +187,7 @@ export default function WithdrawCard({ onWithdrawn }: { onWithdrawn?: () => void
     <SettlementModeCard
       settings={settings}
       saving={savingSettlement}
+      readOnly={!canChangeSettlement}
       // Both directions confirm: one mis-tap must never silently reroute
       // every customer payment.
       onChoose={(mode) => (mode === 'direct' ? setDirectConfirmOpen(true) : setPlatformConfirmOpen(true))}
@@ -253,6 +263,10 @@ export default function WithdrawCard({ onWithdrawn }: { onWithdrawn?: () => void
               You withdrew recently — you can withdraw again in about{' '}
               {Math.max(1, Math.ceil(settings.cooldown_seconds_remaining / 60))} min.
             </p>
+          ) : !canWithdraw ? (
+            <p className="text-xs text-foreground-muted">
+              {t('Only the account owner (or staff they allow) can withdraw.')}
+            </p>
           ) : (
             <button
               onClick={() => setConfirmOpen(true)}
@@ -279,7 +293,7 @@ export default function WithdrawCard({ onWithdrawn }: { onWithdrawn?: () => void
                 <button
                   key={opt.value}
                   onClick={() => handleFrequencyChange(opt.value)}
-                  disabled={savingFrequency}
+                  disabled={savingFrequency || !canChangeSchedule}
                   className={`px-3 py-2 rounded-xl border text-sm font-medium transition-colors disabled:opacity-60 ${
                     isActive
                       ? 'border-accent-primary bg-accent-primary/10 text-accent-primary'
