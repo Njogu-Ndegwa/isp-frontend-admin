@@ -8,6 +8,13 @@ import { formatAmount } from '../../lib/format';
 import { formatBps, formatBytes } from '../../lib/live';
 import type { ActivatePPPoERequest, Customer, StaticActionResponse, StaticStatusResponse } from '../../lib/types';
 import { staticFindings, staticRate, staticTraffic, type StaticTone } from './staticIp';
+import {
+  ACTIVATION_CONFLICT_HINT,
+  MANUAL_PAYMENT_OPTIONS,
+  activationConflict,
+  activationConflictMessage,
+  type ActivationConflict,
+} from '../../lib/manualActivation';
 
 const TONE_CLASS: Record<StaticTone, string> = {
   success: 'bg-success/10 border-success/20 text-success',
@@ -30,6 +37,8 @@ export default function StaticIpPanel({ customer, onChanged }: { customer: Custo
   const [confirmUnpin, setConfirmUnpin] = useState(false);
   const [payOpen, setPayOpen] = useState(false);
   const [payForm, setPayForm] = useState<ActivatePPPoERequest>({ payment_method: 'cash' });
+  // Set when the backend refused because the customer already paid / is active.
+  const [payConflict, setPayConflict] = useState<ActivationConflict | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -59,6 +68,40 @@ export default function StaticIpPanel({ customer, onChanged }: { customer: Custo
       onChanged();
       await load();
     } catch (err) {
+      showAlert('error', err instanceof Error ? err.message : 'Action failed');
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const closePay = () => {
+    setPayOpen(false);
+    setPayConflict(null);
+  };
+
+  // Record payment keeps the modal open on a 409 so the reseller sees the
+  // customer already paid, and can still confirm a genuine second payment.
+  const recordPayment = async () => {
+    const force = !!payConflict;
+    setBusy('pay');
+    try {
+      const result = await api.activateStatic(customer.id, force ? { ...payForm, force: true } : payForm);
+      closePay();
+      if (result.router_result === 'ok') {
+        showAlert('success', 'Payment recorded and access opened');
+      } else {
+        showAlert('warning', `Saved, but the router was not updated yet: ${result.router_error || 'unreachable'}. It will retry automatically.`);
+      }
+      onChanged();
+      await load();
+    } catch (err) {
+      const conflict = activationConflict(err);
+      if (conflict) {
+        setPayConflict(conflict);
+        onChanged();
+        return;
+      }
+      closePay();
       showAlert('error', err instanceof Error ? err.message : 'Action failed');
     } finally {
       setBusy(null);
@@ -246,7 +289,7 @@ export default function StaticIpPanel({ customer, onChanged }: { customer: Custo
       />
 
       {payOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={() => setPayOpen(false)}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={closePay}>
           <div className="card p-6 w-full max-w-sm space-y-4" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-lg font-semibold text-foreground">Record payment</h3>
             <p className="text-sm text-foreground-muted">
@@ -261,10 +304,13 @@ export default function StaticIpPanel({ customer, onChanged }: { customer: Custo
                 value={payForm.payment_method}
                 onChange={(e) => setPayForm({ ...payForm, payment_method: e.target.value as ActivatePPPoERequest['payment_method'] })}
               >
-                <option value="cash">Cash</option>
-                <option value="mpesa">M-Pesa</option>
-                <option value="voucher">Voucher</option>
+                {MANUAL_PAYMENT_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>{o.label}</option>
+                ))}
               </select>
+              <p className="text-xs text-foreground-muted mt-1">
+                M-Pesa paid to your paybill or till activates the customer automatically.
+              </p>
             </div>
             <div>
               <label htmlFor="static-payment-reference" className="block text-sm font-medium text-foreground-muted mb-1.5">Reference (optional)</label>
@@ -273,7 +319,7 @@ export default function StaticIpPanel({ customer, onChanged }: { customer: Custo
                 className="input"
                 value={payForm.payment_reference || ''}
                 onChange={(e) => setPayForm({ ...payForm, payment_reference: e.target.value })}
-                placeholder="e.g. M-Pesa code"
+                placeholder="Receipt number (optional)"
               />
             </div>
             <div>
@@ -285,18 +331,21 @@ export default function StaticIpPanel({ customer, onChanged }: { customer: Custo
                 onChange={(e) => setPayForm({ ...payForm, notes: e.target.value })}
               />
             </div>
+            {payConflict && (
+              <div role="alert" data-testid="activate-conflict" className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm space-y-1">
+                <p className="font-medium text-foreground">{activationConflictMessage(payConflict)}</p>
+                <p className="text-foreground-muted">{ACTIVATION_CONFLICT_HINT}</p>
+              </div>
+            )}
             <div className="flex gap-3 pt-2">
-              <button type="button" className="btn-secondary flex-1" onClick={() => setPayOpen(false)}>Cancel</button>
+              <button type="button" className="btn-secondary flex-1" onClick={closePay}>Cancel</button>
               <button
                 type="button"
                 className="btn-primary flex-1"
                 disabled={!!busy}
-                onClick={() => {
-                  setPayOpen(false);
-                  void run('pay', () => api.activateStatic(customer.id, payForm), 'Payment recorded and access opened');
-                }}
+                onClick={() => { void recordPayment(); }}
               >
-                {busy === 'pay' ? 'Saving…' : 'Record payment'}
+                {busy === 'pay' ? 'Saving…' : payConflict ? 'Record another payment' : 'Record payment'}
               </button>
             </div>
           </div>

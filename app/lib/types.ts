@@ -843,10 +843,15 @@ export interface RegisterCustomerRequest {
   static_mac?: string | null;
 }
 
+/** Manual activations record money taken outside the system (see lib/manualActivation). */
+export type ManualPaymentMethod = 'cash' | 'other';
+
 export interface ActivatePPPoERequest {
-  payment_method?: 'cash' | 'mpesa' | 'voucher';
+  payment_method?: ManualPaymentMethod;
   payment_reference?: string;
   notes?: string;
+  /** Record another payment although the customer is already active / just paid (after a 409). */
+  force?: boolean;
 }
 
 /** Result of a static-IP router action (activate, suspend, sync, pin). */

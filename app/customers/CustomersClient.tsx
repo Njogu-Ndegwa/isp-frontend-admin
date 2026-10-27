@@ -31,6 +31,13 @@ import { formatAmount } from '../lib/format';
 import { useT } from '../lib/i18n';
 import { customerMatchesSearch, isOnlineNow, isOverdue, isPaidOffline } from '../lib/customerFilters';
 import { connectionTypeLabel } from '../lib/connectionType';
+import {
+  ACTIVATION_CONFLICT_HINT,
+  MANUAL_PAYMENT_OPTIONS,
+  activationConflict,
+  activationConflictMessage,
+  type ActivationConflict,
+} from '../lib/manualActivation';
 import { PLATFORM_PAYBILL, customerPaybill, paybillAccountLabel, paybillForCustomer } from '../lib/customerPaybill';
 
 const TransferPPPoEModal = dynamic(() => import('../components/TransferPPPoEModal'), {
@@ -322,6 +329,8 @@ export default function CustomersPage() {
   // Modal state
   const [credentialsModal, setCredentialsModal] = useState<PPPoECredentials | null>(null);
   const [activateModal, setActivateModal] = useState<Customer | null>(null);
+  // Set when the backend refused because the customer already paid / is active.
+  const [activateConflict, setActivateConflict] = useState<ActivationConflict | null>(null);
   const [deactivateConfirm, setDeactivateConfirm] = useState<Customer | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<Customer | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
@@ -918,30 +927,44 @@ export default function CustomersPage() {
     }
   }, [showAlert]);
 
-  const handleActivate = useCallback(async () => {
+  const closeActivate = useCallback(() => {
+    setActivateModal(null);
+    setActivateConflict(null);
+  }, []);
+
+  const handleActivate = useCallback(async (force = false) => {
     if (!activateModal) return;
+    const payload: ActivatePPPoERequest = force ? { ...activateForm, force: true } : activateForm;
     try {
       setActionLoading(true);
       if (getConnectionType(activateModal) === 'static_ip') {
-        const result = await api.activateStatic(activateModal.id, activateForm);
+        const result = await api.activateStatic(activateModal.id, payload);
         if (result.router_result === 'ok') {
           showAlert('success', `${activateModal.name} activated successfully`);
         } else {
           showAlert('warning', `Payment recorded, but the router was not updated yet: ${result.router_error || 'unreachable'}. It will retry automatically.`);
         }
       } else {
-        await api.activatePPPoE(activateModal.id, activateForm);
+        await api.activatePPPoE(activateModal.id, payload);
         showAlert('success', `${activateModal.name} activated successfully`);
       }
       setActivateModal(null);
+      setActivateConflict(null);
       setActivateForm({ payment_method: 'cash', payment_reference: '', notes: '' });
       refreshData();
     } catch (err) {
+      const conflict = activationConflict(err);
+      if (conflict) {
+        // The list was stale: show why and pull the customer's real status.
+        setActivateConflict(conflict);
+        refreshData();
+        return;
+      }
       showAlert('error', err instanceof Error ? err.message : 'Activation failed');
     } finally {
       setActionLoading(false);
     }
-  }, [activateModal, activateForm, showAlert]);
+  }, [activateModal, activateForm, showAlert, refreshData]);
 
   const handleDeactivate = useCallback(async () => {
     if (!deactivateConfirm) return;
@@ -1850,7 +1873,7 @@ export default function CustomersPage() {
 
       {/* Activate Modal */}
       {activateModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={() => setActivateModal(null)}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={closeActivate}>
           <div className="card p-6 w-full max-w-sm space-y-4" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-lg font-semibold text-foreground">
               {getConnectionType(activateModal) === 'static_ip' ? 'Activate static IP' : 'Activate PPPoE'}
@@ -1867,10 +1890,13 @@ export default function CustomersPage() {
                   onChange={(e) => setActivateForm((f) => ({ ...f, payment_method: e.target.value as ActivatePPPoERequest['payment_method'] }))}
                   className="select"
                 >
-                  <option value="cash">Cash</option>
-                  <option value="mpesa">M-Pesa</option>
-                  <option value="voucher">Voucher</option>
+                  {MANUAL_PAYMENT_OPTIONS.map((o) => (
+                    <option key={o.value} value={o.value}>{o.label}</option>
+                  ))}
                 </select>
+                <p className="text-xs text-foreground-muted mt-1">
+                  M-Pesa paid to your paybill or till activates the customer automatically.
+                </p>
               </div>
               <div>
                 <label className="block text-sm font-medium text-foreground-muted mb-1.5">Payment Reference</label>
@@ -1893,11 +1919,19 @@ export default function CustomersPage() {
                 />
               </div>
             </div>
+            {activateConflict && (
+              <div role="alert" data-testid="activate-conflict" className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm space-y-1">
+                <p className="font-medium text-foreground">{activationConflictMessage(activateConflict)}</p>
+                <p className="text-foreground-muted">{ACTIVATION_CONFLICT_HINT}</p>
+              </div>
+            )}
             <div className="flex gap-3 pt-2">
-              <button onClick={() => setActivateModal(null)} className="btn-secondary flex-1">Cancel</button>
-              <button onClick={handleActivate} disabled={actionLoading} className="btn-primary flex-1 flex items-center justify-center gap-2 disabled:opacity-50">
+              <button onClick={closeActivate} className="btn-secondary flex-1">Cancel</button>
+              <button onClick={() => handleActivate(!!activateConflict)} disabled={actionLoading} className="btn-primary flex-1 flex items-center justify-center gap-2 disabled:opacity-50">
                 {actionLoading ? (
                   <div className="w-4 h-4 border-2 border-background/30 border-t-background rounded-full animate-spin" />
+                ) : activateConflict ? (
+                  'Record another payment'
                 ) : (
                   'Activate'
                 )}
