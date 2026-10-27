@@ -308,7 +308,14 @@ import {
   TransferPPPoEResponse,
   StaticCustomerImportOptions,
   StaticCustomerImportResponse,
+  StaffMeResponse,
+  StaffMember,
+  StaffPermissionCatalog,
+  CreateStaffRequest,
+  UpdateStaffRequest,
+  StaffActivityResponse,
 } from './types';
+import { DEMO_STAFF_CATALOG } from './staffCatalog';
 import { buildTransferRequest, type BuildTransferRequestOptions } from './pppoeTransfer';
 import { buildStaticImportFormData, filenameFromDisposition } from './staticImport';
 import type { DecisionAction, SupportDecision, SupportDeskResponse } from './supportDesk';
@@ -319,6 +326,11 @@ import {
   adminReturnPath,
   IMPERSONATION_READ_ONLY_EVENT,
 } from './impersonation';
+import {
+  STAFF_PERMISSION_DENIED_EVENT,
+  errorCodeFromBody,
+  loginReasonForAuthCode,
+} from './permissions';
 // Demo fixtures are ~2,200 lines; load them on demand so real users never
 // download them as part of the baseline bundle.
 type DemoModule = typeof import('./demoData');
@@ -411,6 +423,37 @@ function demoCustomerAuditLog(customerId: number, categories?: string[]): Custom
   };
 }
 
+/** Forget the stored login everywhere the API client looks for it. */
+function clearStoredSession(): void {
+  try {
+    localStorage.removeItem('auth_token');
+    localStorage.removeItem('auth_user');
+  } catch {
+    // Blocked storage; the cookies below still go.
+  }
+  try {
+    for (const name of ['auth_token', 'auth_user']) {
+      document.cookie = `${name}=; path=/; max-age=0; samesite=lax`;
+    }
+  } catch {
+    // Cookies blocked.
+  }
+}
+
+/** Save a token the backend reissued (e.g. after a password change). */
+function storeSessionToken(token: string): void {
+  try {
+    localStorage.setItem('auth_token', token);
+  } catch {
+    // Blocked storage; the cookie below still works.
+  }
+  try {
+    document.cookie = `auth_token=${encodeURIComponent(token)}; path=/; max-age=${60 * 60 * 24 * 30}; samesite=lax`;
+  } catch {
+    // Cookies blocked.
+  }
+}
+
 const backendUrl = (path: string): string => {
   if (/^https?:\/\//i.test(path)) return path;
   return `${API_ORIGIN}${path.startsWith('/') ? path : `/${path}`}`;
@@ -501,6 +544,17 @@ class ApiClient {
         if (isReturningToAdmin()) {
           throw new ApiError('View-as session ended', 401, { code: 'impersonation_ended' });
         }
+        // The account owner changed this staff member's access (or the owner's
+        // password changed elsewhere): the token was revoked on purpose. Clear
+        // the whole session and tell them why on the login page.
+        const body: unknown = await response.clone().json().catch(() => null);
+        const authCode = errorCodeFromBody(body);
+        const reason = loginReasonForAuthCode(authCode);
+        if (reason) {
+          clearStoredSession();
+          window.location.href = `/login?reason=${reason}`;
+          throw new ApiError('Your session ended. Please sign in again.', 401, { code: authCode });
+        }
         localStorage.removeItem('auth_token');
         localStorage.removeItem('auth_user');
         window.location.href = '/login';
@@ -522,6 +576,27 @@ class ApiClient {
         // taken; the banner also flags it in case a page swallows the error.
         window.dispatchEvent(new CustomEvent(IMPERSONATION_READ_ONLY_EVENT, { detail: errorMessage }));
         throw new ApiError(errorMessage, 403, { code: errorCode });
+      }
+      if (response.status === 403 && (errorCode ?? errorCodeFromBody(error)) === 'staff_permission_denied') {
+        // A staff member tried something the owner hasn't allowed. Say so
+        // (StaffAccessListener toasts it) but keep them signed in.
+        const nested = detail && typeof detail === 'object' && !Array.isArray(detail)
+          ? detail as { detail?: unknown; message?: unknown; permission?: unknown }
+          : undefined;
+        const message = typeof detail === 'string'
+          ? detail
+          : typeof nested?.message === 'string'
+            ? nested.message
+            : typeof nested?.detail === 'string'
+              ? nested.detail
+              : 'You do not have permission to do this. Ask the account owner.';
+        const permission = typeof error?.permission === 'string'
+          ? error.permission
+          : typeof nested?.permission === 'string' ? nested.permission : undefined;
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent(STAFF_PERMISSION_DENIED_EVENT, { detail: { message, permission } }));
+        }
+        throw new ApiError(message, 403, { code: 'staff_permission_denied', permission });
       }
       if (response.status === 403 && typeof errorMessage === 'string' && errorMessage.includes('subscription') && typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent('subscription-blocked', { detail: errorMessage }));
@@ -2923,14 +2998,20 @@ class ApiClient {
     return this.handleResponse<UserProfile>(response);
   }
 
-  async changePassword(data: ChangePasswordRequest): Promise<{ message: string }> {
+  /** Changing the password signs the owner out of their OTHER sessions; the
+   *  backend reissues a token for this one, which is stored here. */
+  async changePassword(data: ChangePasswordRequest): Promise<{ message: string; access_token?: string }> {
     if (this.isDemoMode()) this.demoBlock();
     const response = await fetch(`${BASE_URL}/profile/password`, {
       method: 'PUT',
       headers: this.getHeaders(),
       body: JSON.stringify(data),
     });
-    return this.handleResponse<{ message: string }>(response);
+    const result = await this.handleResponse<{ message: string; access_token?: string }>(response);
+    if (result?.access_token && typeof window !== 'undefined') {
+      storeSessionToken(result.access_token);
+    }
+    return result;
   }
 
   async deleteAccount(): Promise<{ message: string }> {
@@ -4464,6 +4545,82 @@ class ApiClient {
       headers: this.getHeaders(),
     });
     return this.handleResponse<OutageHistoryResponse>(response);
+  }
+
+  // Staff sub-users. /staff/me works for owners and staff; the rest are
+  // owner-only (staff tokens get 403).
+
+  /** Who is signed in and what they may do. 404 on backends without staff. */
+  async getStaffMe(): Promise<StaffMeResponse> {
+    if (this.isDemoMode()) {
+      return { is_staff: false, staff: null, permissions: [] };
+    }
+    const response = await fetch(`${BASE_URL}/staff/me`, { headers: this.getHeaders() });
+    return this.handleResponse<StaffMeResponse>(response);
+  }
+
+  async getStaffPermissionCatalog(): Promise<StaffPermissionCatalog> {
+    if (this.isDemoMode()) return DEMO_STAFF_CATALOG;
+    const response = await fetch(`${BASE_URL}/staff/permissions`, { headers: this.getHeaders() });
+    return this.handleResponse<StaffPermissionCatalog>(response);
+  }
+
+  async listStaff(): Promise<{ staff: StaffMember[] }> {
+    if (this.isDemoMode()) return { staff: [] };
+    const response = await fetch(`${BASE_URL}/staff`, { headers: this.getHeaders() });
+    return this.handleResponse<{ staff: StaffMember[] }>(response);
+  }
+
+  /** 409 when the email is already used. */
+  async createStaff(data: CreateStaffRequest): Promise<StaffMember> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(`${BASE_URL}/staff`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify(data),
+    });
+    return this.handleResponse<StaffMember>(response);
+  }
+
+  /** Changing permissions or deactivating signs the staff member out everywhere. */
+  async updateStaff(id: number, data: UpdateStaffRequest): Promise<StaffMember> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(`${BASE_URL}/staff/${id}`, {
+      method: 'PUT',
+      headers: this.getHeaders(),
+      body: JSON.stringify(data),
+    });
+    return this.handleResponse<StaffMember>(response);
+  }
+
+  async resetStaffPassword(id: number, password: string): Promise<{ message: string }> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(`${BASE_URL}/staff/${id}/reset-password`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify({ password }),
+    });
+    return this.handleResponse<{ message: string }>(response);
+  }
+
+  /** Removes access; the activity history is kept. */
+  async deleteStaff(id: number): Promise<{ message: string }> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(`${BASE_URL}/staff/${id}`, {
+      method: 'DELETE',
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<{ message: string }>(response);
+  }
+
+  async getStaffActivity(params: { staffId?: number; limit?: number; offset?: number } = {}): Promise<StaffActivityResponse> {
+    if (this.isDemoMode()) return { items: [], total: 0 };
+    const query = new URLSearchParams();
+    if (params.staffId) query.set('staff_id', String(params.staffId));
+    query.set('limit', String(params.limit ?? 50));
+    query.set('offset', String(params.offset ?? 0));
+    const response = await fetch(`${BASE_URL}/staff/activity?${query.toString()}`, { headers: this.getHeaders() });
+    return this.handleResponse<StaffActivityResponse>(response);
   }
 }
 

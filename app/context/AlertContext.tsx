@@ -29,7 +29,13 @@ export function AlertProvider({ children }: { children: ReactNode }) {
   const showAlert = useCallback(
     (type: AlertType, message: string, duration = 5000) => {
       const id = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
-      setAlerts((prev) => [...prev, { id, type, message, duration }]);
+      // The same message already on screen (e.g. a staff "not allowed" notice
+      // raised by both the API client and the page) is shown once.
+      setAlerts((prev) =>
+        prev.some((a) => a.type === type && a.message === message)
+          ? prev
+          : [...prev, { id, type, message, duration }],
+      );
 
       if (duration > 0) {
         setTimeout(() => dismissAlert(id), duration);

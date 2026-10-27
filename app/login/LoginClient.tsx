@@ -6,6 +6,23 @@ import { useAuth } from '../context/AuthContext';
 import { useAlert } from '../context/AlertContext';
 import { fullOnboardingCheck } from '../hooks/useOnboardingStatus';
 import Link from 'next/link';
+import { useT } from '../lib/i18n';
+import type { AuthUser } from '../lib/types';
+import {
+  firstAccessiblePath,
+  isStaffUser,
+  LOGIN_REASON_ACCESS_CHANGED,
+  LOGIN_REASON_SESSION_REVOKED,
+} from '../lib/permissions';
+
+function readStoredUser(): AuthUser | null {
+  try {
+    const raw = localStorage.getItem('auth_user');
+    return raw ? (JSON.parse(raw) as AuthUser) : null;
+  } catch {
+    return null;
+  }
+}
 
 export default function LoginPage() {
   return (
@@ -21,6 +38,14 @@ function LoginContent() {
   const { login, loginAsDemo, isAuthenticated, isDemo, logout } = useAuth();
   const { showAlert } = useAlert();
   const prefillEmail = searchParams.get('email') || '';
+  const t = useT();
+  // Set when the API client signed this browser out on purpose.
+  const reason = searchParams.get('reason');
+  const reasonMessage = reason === LOGIN_REASON_ACCESS_CHANGED
+    ? t('Your access was changed by the account owner. Please sign in again.')
+    : reason === LOGIN_REASON_SESSION_REVOKED
+      ? t('Your password was changed on another device. Please sign in again.')
+      : null;
   const [credentials, setCredentials] = useState({ email: prefillEmail, password: '' });
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -67,6 +92,15 @@ function LoginContent() {
     try {
       const subscriptionAlert = await login(credentials);
       showAlert('success', 'Signed in successfully!');
+
+      // Staff go straight to the first page the owner gave them: no
+      // onboarding (that's the owner's) and no subscription redirect unless
+      // they may manage it.
+      const signedIn = readStoredUser();
+      if (isStaffUser(signedIn)) {
+        router.push(firstAccessiblePath(signedIn) ?? '/dashboard');
+        return;
+      }
 
       if (subscriptionAlert) {
         const status = subscriptionAlert.status;
@@ -127,6 +161,11 @@ function LoginContent() {
 
         {/* Login Card */}
         <div className="card p-6 sm:p-8">
+          {reasonMessage && (
+            <div role="status" className="mb-4 p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-500 text-sm">
+              {reasonMessage}
+            </div>
+          )}
           <form onSubmit={handleSubmit} className="space-y-4" autoComplete="off">
             {/* Email */}
             <div>

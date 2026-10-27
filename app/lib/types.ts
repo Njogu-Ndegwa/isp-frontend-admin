@@ -2610,6 +2610,99 @@ export interface AuthUser {
   /** The reseller's country market: currency, language, subscription terms. */
   market?: ResellerMarket;
   preferred_language?: string | null;
+  /** Set when a staff sub-user is signed in: `id`/`organization_name`/... above
+   *  then describe the OWNER's business. Null or absent for owners and admins
+   *  (older backends never send it). */
+  staff?: StaffIdentity | null;
+}
+
+/** The signed-in staff member (login payload `user.staff`, GET /api/staff/me). */
+export interface StaffIdentity {
+  id: number;
+  name: string;
+  email: string;
+  phone?: string | null;
+  permissions: string[];
+  parent_reseller_id?: number;
+  business_name?: string | null;
+}
+
+/** GET /api/staff/me. Owners get every permission including `staff.manage`. */
+export interface StaffMeResponse {
+  is_staff: boolean;
+  staff: StaffIdentity | null;
+  permissions: string[];
+}
+
+/** A staff login as the owner sees it (GET /api/staff). Dates are ISO or null. */
+export interface StaffMember {
+  id: number;
+  name: string;
+  email: string;
+  phone: string | null;
+  permissions: string[];
+  is_active: boolean;
+  created_at: string | null;
+  last_login_at: string | null;
+  permissions_updated_at: string | null;
+}
+
+export interface StaffPermissionDef {
+  key: string;
+  label: string;
+  description: string;
+  group: string;
+  sensitive: boolean;
+}
+
+export interface StaffPreset {
+  key: string;
+  label: string;
+  description: string;
+  permissions: string[];
+}
+
+/** GET /api/staff/permissions */
+export interface StaffPermissionCatalog {
+  permissions: StaffPermissionDef[];
+  presets: StaffPreset[];
+  owner_only: string[];
+}
+
+export interface CreateStaffRequest {
+  name: string;
+  email: string;
+  phone?: string;
+  password: string;
+  permissions: string[];
+}
+
+export interface UpdateStaffRequest {
+  name?: string;
+  email?: string;
+  phone?: string;
+  permissions?: string[];
+  is_active?: boolean;
+}
+
+export interface StaffActivityItem {
+  id: number;
+  created_at: string | null;
+  actor_type: 'staff' | 'owner' | string;
+  staff_id: number | null;
+  actor_label: string | null;
+  action: string | null;
+  permission: string | null;
+  method: string | null;
+  path: string | null;
+  status_code: number | null;
+  summary: string | null;
+}
+
+/** GET /api/staff/activity */
+export interface StaffActivityResponse {
+  items: StaffActivityItem[];
+  total: number;
 }
 
 export interface SubscriptionAlert {
