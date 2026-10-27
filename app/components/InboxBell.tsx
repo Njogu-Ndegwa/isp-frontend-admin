@@ -32,7 +32,8 @@ export default function InboxBell({ collapsed = false }: Props) {
   const [open, setOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const isReseller = isAuthenticated && user?.role === 'reseller';
+  // The inbox is the owner's (staff get 403 on /messaging/inbox).
+  const isReseller = isAuthenticated && user?.role === 'reseller' && !user?.staff;
 
   const fetchInbox = useCallback(async () => {
     if (!isReseller) return;

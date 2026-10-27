@@ -6,6 +6,7 @@ import BottomSheet from './BottomSheet';
 import { useAuth } from '../context/AuthContext';
 import ThemeToggle from './ThemeToggle';
 import { useT } from '../lib/i18n';
+import { filterNavItems } from '../lib/permissions';
 
 interface MoreMenuProps {
   isOpen: boolean;
@@ -246,7 +247,7 @@ export default function MoreMenu({ isOpen, onClose }: MoreMenuProps) {
                 {t('Management')}
               </h4>
               <div className="grid grid-cols-4 gap-2">
-                {managementItems.map((item) => (
+                {filterNavItems(managementItems, user).map((item) => (
                   <NavItem key={item.href} item={item} />
                 ))}
               </div>
@@ -259,7 +260,7 @@ export default function MoreMenu({ isOpen, onClose }: MoreMenuProps) {
                 {t('Settings')}
               </h4>
               <div className="grid grid-cols-4 gap-2">
-                {settingsItems.map((item) => (
+                {filterNavItems(settingsItems, user).map((item) => (
                   <NavItem key={item.href} item={item} />
                 ))}
               </div>

@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useAuth } from '../context/AuthContext';
 import { useT } from '../lib/i18n';
+import { canAccessPath, isStaffUser, staffBusinessName } from '../lib/permissions';
 
 /**
  * Avatar button + dropdown giving access to the account: organization/email,
@@ -28,7 +29,11 @@ export default function AccountMenu({ align = 'right' }: { align?: 'left' | 'rig
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [open]);
 
-  const userInitial = (user?.organization_name || user?.email || 'U').charAt(0).toUpperCase();
+  // Staff see who they are signed in as, and no owner-only links.
+  const staff = isStaffUser(user) ? user?.staff ?? null : null;
+  const showSettings = canAccessPath(user, '/settings');
+  const showProfile = !staff;
+  const userInitial = (staff?.name || user?.organization_name || user?.email || 'U').charAt(0).toUpperCase();
 
   return (
     <div className="relative flex-shrink-0" ref={menuRef}>
@@ -49,10 +54,26 @@ export default function AccountMenu({ align = 'right' }: { align?: 'left' | 'rig
             className={`absolute ${align === 'right' ? 'right-0' : 'left-0'} top-full mt-2 w-56 rounded-xl bg-background-secondary border border-border shadow-xl z-50 overflow-hidden`}
           >
             <div className="px-4 py-3 border-b border-border">
-              <p className="text-sm font-medium text-foreground truncate">{user?.organization_name || t('User')}</p>
-              <p className="text-xs text-foreground-muted truncate">{user?.email}</p>
+              {staff ? (
+                <>
+                  <p className="text-sm font-medium text-foreground truncate">
+                    {t('Logged in as {name}', { name: staff.name || staff.email })}
+                  </p>
+                  <p className="text-xs text-foreground-muted truncate">
+                    {t('Staff of {business}', { business: staffBusinessName(user) || t('this account') })}
+                  </p>
+                  <p className="text-xs text-foreground-muted truncate">{staff.email}</p>
+                </>
+              ) : (
+                <>
+                  <p className="text-sm font-medium text-foreground truncate">{user?.organization_name || t('User')}</p>
+                  <p className="text-xs text-foreground-muted truncate">{user?.email}</p>
+                </>
+              )}
             </div>
+            {(showSettings || showProfile) && (
             <div className="py-1">
+              {showSettings && (
               <Link
                 href="/settings"
                 onClick={() => setOpen(false)}
@@ -64,6 +85,8 @@ export default function AccountMenu({ align = 'right' }: { align?: 'left' | 'rig
                 </svg>
                 {t('Settings')}
               </Link>
+              )}
+              {showProfile && (
               <Link
                 href="/settings/profile"
                 onClick={() => setOpen(false)}
@@ -74,7 +97,9 @@ export default function AccountMenu({ align = 'right' }: { align?: 'left' | 'rig
                 </svg>
                 {t('Profile')}
               </Link>
+              )}
             </div>
+            )}
             <div className="border-t border-border py-1">
               <button
                 onClick={() => { setOpen(false); logout(); }}

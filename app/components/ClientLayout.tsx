@@ -8,12 +8,15 @@ import { useAuth } from '../context/AuthContext';
 import { trackContact } from '../lib/analytics';
 import { WHATSAPP_DEFAULT_MESSAGE, whatsappHref } from '../landing/contact';
 import ErrorBoundary from './ErrorBoundary';
+import StaffNoAccess from './StaffNoAccess';
+import { canAccessPath, firstAccessiblePath, isStaffUser } from '../lib/permissions';
 
 const CollapsibleSidebar = dynamic(() => import('./CollapsibleSidebar'), { ssr: false });
 const MobileBottomNav = dynamic(() => import('./MobileBottomNav'), { ssr: false });
 const SubscriptionBlockedModal = dynamic(() => import('./SubscriptionBlockedModal'), { ssr: false });
 // Client-only: it reads the View-as session from localStorage on first render.
 const ViewAsBanner = dynamic(() => import('./ViewAsBanner'), { ssr: false });
+const StaffBanner = dynamic(() => import('./StaffBanner'), { ssr: false });
 
 const PUBLIC_PATHS = ['/', '/demo', '/login', '/landing', '/pricing', '/signup', '/forgot-password', '/reset-password'];
 const PUBLIC_PREFIXES = ['/store', '/r', '/blog'];
@@ -108,6 +111,22 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     }
   }, [needsRedirect, redirectTarget, router]);
 
+  // Staff sub-users only see the pages the owner granted. Without the
+  // dashboard they land on their first page; other forbidden pages show a
+  // friendly "no access" state instead of a page full of 403s.
+  const isStaff = !isPublicPage && !isLoading && isAuthenticated && isStaffUser(user);
+  const staffLanding = isStaff ? firstAccessiblePath(user) : null;
+  const staffBlocked = isStaff && !canAccessPath(user, pathname);
+  const staffRedirect = staffBlocked && (pathname === '/dashboard' || pathname === '/setup') && staffLanding
+    ? staffLanding
+    : null;
+
+  useEffect(() => {
+    if (staffRedirect) {
+      router.replace(staffRedirect);
+    }
+  }, [staffRedirect, router]);
+
   if (isPublicPage && !isDemoEntry) {
     return <main className="min-h-screen">{children}</main>;
   }
@@ -118,7 +137,11 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
 
   const isFullscreenAuth = FULLSCREEN_AUTH_PATHS.includes(pathname);
   if (isFullscreenAuth) {
-    return <main className="min-h-screen">{children}</main>;
+    return (
+      <main className="min-h-screen">
+        {staffRedirect ? null : staffBlocked ? <StaffNoAccess landing={staffLanding} /> : children}
+      </main>
+    );
   }
 
   // Keep the `/demo` child mounted in one stable tree while demo auth starts
@@ -129,12 +152,13 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     <>
       {!isLoading && isDemo && <DemoBanner />}
       {showAppChrome && !isLoading && !isDemo && isAuthenticated && <ViewAsBanner />}
+      {showAppChrome && isStaff && <StaffBanner />}
       <main
         className="min-h-screen p-4 md:p-8 pb-24 md:pb-8 transition-[margin] duration-300 ease-in-out"
         style={{ marginLeft: showAppChrome ? 'var(--app-sidebar-w, 0px)' : 0 }}
       >
         <ErrorBoundary key={pathname}>
-          {children}
+          {staffRedirect ? null : staffBlocked ? <StaffNoAccess landing={staffLanding} /> : children}
         </ErrorBoundary>
       </main>
       {showAppChrome && (
