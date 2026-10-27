@@ -774,9 +774,37 @@ export interface Customer {
   effective_expiry?: string | null;
   /** Paid time has ended but the grace window is still open. */
   in_grace?: boolean;
+  /**
+   * Subscription paused (PPPoE / static IP). While paused the customer is
+   * `inactive`, `expiry` is frozen at the pause moment and the unused paid
+   * time is `paused_remaining_seconds`. Absent on older backends.
+   */
+  is_paused?: boolean;
+  paused_at?: string | null;
+  paused_remaining_seconds?: number | null;
+  /** Optional time the backend resumes the customer automatically. */
+  pause_resume_at?: string | null;
   // Set on companion devices (TV, console…) that ride another customer's
   // subscription instead of paying for their own.
   subscription_owner_id?: number | null;
+}
+
+export interface PauseCustomerResponse {
+  success: boolean;
+  customer_id: number;
+  status: Customer['status'];
+  expiry: string | null;
+  is_paused: boolean;
+  paused_at: string | null;
+  paused_remaining_seconds: number | null;
+  pause_resume_at: string | null;
+  /** Pause: true when the customer was already paused (nothing changed). */
+  already_paused?: boolean;
+  /** Resume: true when the customer was already active and not paused. */
+  already_active?: boolean;
+  /** ok | unchanged | retry_pending | failed | fup_blocked | in_progress | skipped */
+  router_result?: string;
+  router_error?: string | null;
 }
 
 export interface SetCustomerGraceResponse {
