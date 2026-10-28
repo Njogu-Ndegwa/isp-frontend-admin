@@ -11,6 +11,7 @@ import {
   HotspotOverviewResponse,
   HotspotLogsResponse,
   PortStatusResponse,
+  PortRestartOption,
   PortAnalyticsResponse,
   MacDiagnoseResponse,
   HealthCheck,
@@ -21,6 +22,9 @@ import {
 } from '../lib/types';
 import Header from '../components/Header';
 import PortAnalyticsTab from './PortAnalyticsTab';
+import PortRestartButton from './PortRestartButton';
+import { canRestartPorts as userCanRestartPorts } from '../lib/portRestart';
+import { useT } from '../lib/i18n';
 import { PageLoader } from '../components/LoadingSpinner';
 import RouterSelector from '../components/RouterSelector';
 import PullToRefresh from '../components/PullToRefresh';
@@ -43,8 +47,9 @@ function getQueryParam(name: string): string | null {
 
 export default function DiagnosticsPage() {
   const [routers, setRouters] = useState<Router[]>([]);
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   const { showAlert } = useAlert();
+  const canRestartPorts = userCanRestartPorts(user);
   // Support deep links like /diagnostics?tab=analytics&router=3 (used by the dashboard Port Map board)
   const [selectedRouterId, setSelectedRouterId] = useState<number | null>(() => {
     const id = parseInt(getQueryParam('router') ?? '', 10);
@@ -91,6 +96,11 @@ export default function DiagnosticsPage() {
   const [portStatusLoading, setPortStatusLoading] = useState(false);
   const [portStatusError, setPortStatusError] = useState<string | null>(null);
 
+  // Port restart eligibility (only fetched for users who may restart)
+  const [restartOptions, setRestartOptions] = useState<Record<string, PortRestartOption> | null>(null);
+  const [restartOptionsLoading, setRestartOptionsLoading] = useState(false);
+  const [restartBusy, setRestartBusy] = useState(false);
+
   // Port analytics state
   const [portAnalytics, setPortAnalytics] = useState<PortAnalyticsResponse | null>(null);
   const [portAnalyticsLoading, setPortAnalyticsLoading] = useState(false);
@@ -129,6 +139,21 @@ export default function DiagnosticsPage() {
       setHotspotOverviewLoading(false);
     }
   }, [selectedRouterId]);
+
+  const loadRestartOptions = useCallback(async () => {
+    if (!selectedRouterId || !canRestartPorts) return;
+    try {
+      setRestartOptionsLoading(true);
+      const data = await api.getPortRestartOptions(selectedRouterId);
+      setRestartOptions(Object.fromEntries(data.ports.map((p) => [p.name, p])));
+      setRestartBusy(data.restart_in_progress);
+    } catch {
+      // Buttons stay disabled with "could not check this port".
+      setRestartOptions({});
+    } finally {
+      setRestartOptionsLoading(false);
+    }
+  }, [selectedRouterId, canRestartPorts]);
 
   const loadPortStatus = useCallback(async (refresh = false) => {
     if (!selectedRouterId) return;
@@ -234,6 +259,11 @@ export default function DiagnosticsPage() {
     if (activeTab === 'analytics') loadPortAnalytics();
   }, [selectedRouterId, activeTab, loadPppoeOverview, loadHotspotOverview, loadPortStatus, loadPortAnalytics]);
 
+  // Restart eligibility: once per router when the ports tab opens
+  useEffect(() => {
+    if (selectedRouterId && activeTab === 'ports' && restartOptions === null) loadRestartOptions();
+  }, [selectedRouterId, activeTab, restartOptions, loadRestartOptions]);
+
   // Auto-refresh overview every 60s
   useEffect(() => {
     if (!selectedRouterId) return;
@@ -258,12 +288,14 @@ export default function DiagnosticsPage() {
     setHotspotLogs(null);
     setPortStatus(null);
     setPortAnalytics(null);
+    setRestartOptions(null);
+    setRestartBusy(false);
   }, [selectedRouterId]);
 
   const handleRefresh = async () => {
     if (activeTab === 'pppoe') await loadPppoeOverview(true);
     else if (activeTab === 'hotspot') await loadHotspotOverview(true);
-    else if (activeTab === 'ports') await loadPortStatus(true);
+    else if (activeTab === 'ports') await Promise.all([loadPortStatus(true), loadRestartOptions()]);
     else if (activeTab === 'analytics') await loadPortAnalytics(true);
   };
 
@@ -366,7 +398,15 @@ export default function DiagnosticsPage() {
                 data={portStatus}
                 loading={portStatusLoading}
                 error={portStatusError}
-                onRefresh={() => loadPortStatus(true)}
+                onRefresh={() => { loadPortStatus(true); loadRestartOptions(); }}
+                restart={canRestartPorts && selectedRouterId ? {
+                  routerId: selectedRouterId,
+                  options: restartOptions ?? {},
+                  loading: restartOptionsLoading || restartOptions === null,
+                  busy: restartBusy,
+                  onRunningChange: setRestartBusy,
+                  onDone: () => loadPortStatus(true),
+                } : null}
               />
             )}
 
@@ -779,14 +819,26 @@ function HotspotTab({
 // Ports Tab
 // =============================================================================
 
+interface PortRestartControls {
+  routerId: number;
+  options: Record<string, PortRestartOption>;
+  loading: boolean;
+  busy: boolean;
+  onRunningChange: (running: boolean) => void;
+  onDone: () => void;
+}
+
 function PortsTab({
-  data, loading, error, onRefresh,
+  data, loading, error, onRefresh, restart,
 }: {
   data: PortStatusResponse | null;
   loading: boolean;
   error: string | null;
   onRefresh: () => void;
+  /** Null hides the Restart action (e.g. staff without "Manage routers"). */
+  restart: PortRestartControls | null;
 }) {
+  const t = useT();
   if (error) {
     return (
       <div className="card p-5 border-red-500/30 animate-fade-in">
@@ -866,6 +918,20 @@ function PortsTab({
                 <span className={port.tx_error > 0 ? 'text-red-400 font-medium' : ''}>TX Err: {port.tx_error}</span>
                 <span>Downs: {port.link_downs}</span>
               </div>
+              {restart && (
+                <div className="mt-2 flex justify-end">
+                  <PortRestartButton
+                    routerId={restart.routerId}
+                    port={port.port}
+                    option={restart.options[port.port]}
+                    loadingOptions={restart.loading}
+                    busy={restart.busy}
+                    onRunningChange={restart.onRunningChange}
+                    onDone={restart.onDone}
+                    inlineHint
+                  />
+                </div>
+              )}
             </div>
           );
         })}
@@ -885,11 +951,12 @@ function PortsTab({
                 <th className="text-left p-3 text-xs font-medium text-foreground-muted">TX Err</th>
                 <th className="text-left p-3 text-xs font-medium text-foreground-muted">Link Downs</th>
                 <th className="text-left p-3 text-xs font-medium text-foreground-muted">MTU</th>
+                {restart && <th className="text-right p-3 text-xs font-medium text-foreground-muted">{t('Actions')}</th>}
               </tr>
             </thead>
             <tbody>
               {data.ports.map((port) => (
-                <PortRow key={port.port} port={port} isPppoePort={data.pppoe_ports?.includes(port.port) ?? false} />
+                <PortRow key={port.port} port={port} isPppoePort={data.pppoe_ports?.includes(port.port) ?? false} restart={restart} />
               ))}
             </tbody>
           </table>
@@ -1234,7 +1301,13 @@ function SecretsTable({ secrets }: { secrets: PPPoESecretEntry[] }) {
   );
 }
 
-function PortRow({ port, isPppoePort }: { port: PortEntry; isPppoePort: boolean }) {
+function PortRow({
+  port, isPppoePort, restart,
+}: {
+  port: PortEntry;
+  isPppoePort: boolean;
+  restart: PortRestartControls | null;
+}) {
   const hasErrors = port.rx_error > 0 || port.tx_error > 0;
   const rowClass = !port.link_up
     ? 'bg-foreground-muted/5'
@@ -1275,6 +1348,19 @@ function PortRow({ port, isPppoePort }: { port: PortEntry; isPppoePort: boolean 
       </td>
       <td className="p-3 font-mono text-xs text-foreground-muted hidden sm:table-cell">{port.link_downs}</td>
       <td className="p-3 font-mono text-xs text-foreground-muted hidden md:table-cell">{port.actual_mtu}</td>
+      {restart && (
+        <td className="p-3 text-right">
+          <PortRestartButton
+            routerId={restart.routerId}
+            port={port.port}
+            option={restart.options[port.port]}
+            loadingOptions={restart.loading}
+            busy={restart.busy}
+            onRunningChange={restart.onRunningChange}
+            onDone={restart.onDone}
+          />
+        </td>
+      )}
     </tr>
   );
 }
