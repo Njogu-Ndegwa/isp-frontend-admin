@@ -18,12 +18,15 @@ function parseUtcMs(iso: string | null | undefined): number | null {
  * Same rule the backend enforces (app/services/customer_grace.py): paid time
  * ends at `expiry`. A customer still inside a grace window is overdue too —
  * they keep access for now, but their payment is late. Customers who never
- * had paid time (no expiry) are not overdue.
+ * had paid time (no expiry) are not overdue, and neither are paused ones.
  */
 export function isOverdue(
-  customer: Pick<Customer, 'expiry' | 'in_grace' | 'status'>,
+  customer: Pick<Customer, 'expiry' | 'in_grace' | 'status'> & Partial<Pick<Customer, 'is_paused'>>,
   nowMs: number = Date.now(),
 ): boolean {
+  // Paused: the expiry is frozen at the pause moment and the paid time is
+  // held, so the customer owes nothing.
+  if (customer.is_paused) return false;
   if (customer.in_grace || customer.status === 'expired') return true;
   const expiryMs = parseUtcMs(customer.expiry);
   return expiryMs !== null && expiryMs <= nowMs;

@@ -18,6 +18,7 @@ import { utcToGMT3Input, gmt3InputToISO } from '../../lib/dateUtils';
 import { formatAmount } from '../../lib/format';
 import { isFreeTrialPlan } from '../../plans/planType';
 import GracePeriodCard from './GracePeriodCard';
+import SubscriptionPauseCard from './SubscriptionPauseCard';
 import PaymentHistoryPanel from './PaymentHistoryPanel';
 import RelatedAccounts from './RelatedAccounts';
 import UsageHistoryPanel from './UsageHistoryPanel';
@@ -25,6 +26,7 @@ import ConnectedDevicesPanel from './ConnectedDevicesPanel';
 import HotspotDevicesPanel from './HotspotDevicesPanel';
 import StaticIpPanel from './StaticIpPanel';
 import { connectionTypeLabel } from '../../lib/connectionType';
+import { useT } from '../../lib/i18n';
 import { canActivatePaidUntil, formatPaidUntil, pppoeSaveNotice } from './pppoeActivation';
 
 
@@ -32,6 +34,7 @@ export default function EditCustomerPage() {
   const params = useParams();
   const router = useRouter();
   const { showAlert } = useAlert();
+  const t = useT();
   const customerId = Number(params.id);
 
   const [customer, setCustomer] = useState<Customer | null>(null);
@@ -308,6 +311,21 @@ export default function EditCustomerPage() {
             </div>
           )}
 
+          <SubscriptionPauseCard
+            customer={customer}
+            onChanged={(result) => {
+              setCustomer({
+                ...customer,
+                status: result.status,
+                expiry: result.expiry ?? customer.expiry,
+                is_paused: result.is_paused,
+                paused_at: result.paused_at,
+                paused_remaining_seconds: result.paused_remaining_seconds,
+                pause_resume_at: result.pause_resume_at,
+              });
+              setFormData((prev) => ({ ...prev, expiry: utcToGMT3Input(result.expiry ?? customer.expiry) }));
+            }}
+          />
           <GracePeriodCard
             customer={customer}
             onSaved={(result) => setCustomer({
@@ -420,13 +438,19 @@ export default function EditCustomerPage() {
                 </div>
               )}
 
-              <DateTimePicker
-                label="Expiry Date"
-                value={formData.expiry || ''}
-                onChange={(v) => setFormData({ ...formData, expiry: v })}
-              />
+              {customer.is_paused ? (
+                <p className="text-xs text-foreground-muted rounded-lg bg-background-tertiary p-3" data-testid="paused-expiry-note">
+                  {t('Paused: the expiry is set when you resume (now + the paid time left).')}
+                </p>
+              ) : (
+                <DateTimePicker
+                  label="Expiry Date"
+                  value={formData.expiry || ''}
+                  onChange={(v) => setFormData({ ...formData, expiry: v })}
+                />
+              )}
 
-              {isPPPoE && customer.status !== 'active' && (
+              {isPPPoE && customer.status !== 'active' && !customer.is_paused && (
                 canActivatePaidUntil(customer, isPPPoE, formData.expiry) ? (
                   <label
                     className="flex items-start gap-3 rounded-lg border border-warning/30 bg-warning/10 p-3 cursor-pointer"

@@ -66,6 +66,7 @@ import {
   UpdateCustomerRequest,
   UpdateCustomerResponse,
   SetCustomerGraceResponse,
+  PauseCustomerResponse,
   DeleteCustomerResponse,
   ActivatePPPoERequest,
   StaticActionResponse,
@@ -1834,6 +1835,29 @@ class ApiClient {
       headers: this.getHeaders(),
     });
     return this.handleResponse<{ message: string }>(response);
+  }
+
+  // ---- Pause / resume (PPPoE and static IP) -------------------------------
+
+  /** Pause and keep the remaining paid time. `resumeAt` (ISO) resumes automatically. */
+  async pauseCustomer(customerId: number, resumeAt?: string | null): Promise<PauseCustomerResponse> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(`${BASE_URL}/customers/${customerId}/pause`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify(resumeAt ? { resume_at: resumeAt } : {}),
+    });
+    return this.handleResponse<PauseCustomerResponse>(response);
+  }
+
+  /** Resume: new expiry = now + the paused time; same PPPoE login. */
+  async resumeCustomer(customerId: number): Promise<PauseCustomerResponse> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(`${BASE_URL}/customers/${customerId}/resume`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<PauseCustomerResponse>(response);
   }
 
   // ---- Static-IP customers ------------------------------------------------

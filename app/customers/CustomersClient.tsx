@@ -30,6 +30,8 @@ import Pagination from '../components/Pagination';
 import { formatAmount } from '../lib/format';
 import { useT } from '../lib/i18n';
 import { customerMatchesSearch, isOnlineNow, isOverdue, isPaidOffline } from '../lib/customerFilters';
+import { canPause, canResume, formatPausedRemaining, isPaused } from '../lib/customerPause';
+import PauseCustomerModal, { resumeAlert } from '../components/PauseCustomerModal';
 import { connectionTypeLabel } from '../lib/connectionType';
 import {
   ACTIVATION_CONFLICT_HINT,
@@ -57,8 +59,8 @@ const StaticIpImportModal = dynamic(() => import('../components/StaticIpImportMo
 
 // online = connected now; offline = paid up but not connected; overdue = paid
 // time has run out. online / offline come from live router state.
-type FilterStatus = 'all' | 'active' | 'inactive' | 'online' | 'offline' | 'overdue';
-const FILTER_STATUSES: readonly FilterStatus[] = ['all', 'active', 'inactive', 'online', 'offline', 'overdue'];
+type FilterStatus = 'all' | 'active' | 'inactive' | 'online' | 'offline' | 'overdue' | 'paused';
+const FILTER_STATUSES: readonly FilterStatus[] = ['all', 'active', 'inactive', 'online', 'offline', 'overdue', 'paused'];
 type ConnectionFilter = 'all' | 'hotspot' | 'pppoe' | 'static_ip';
 
 const STORAGE_KEY_STATUS = 'customers.filter.status';
@@ -279,10 +281,10 @@ export default function CustomersPage() {
   // view (which clears the cache to use server-side pagination).
   const [connCounts, setConnCounts] = useState<{ pppoe: number; hotspot: number; static_ip: number } | null>(null);
 
-  // Online / Offline / Overdue need every customer in memory (not one page)
-  // so the filtered list, its pagination and its counts are all correct.
+  // Online / Offline / Overdue / Paused need every customer in memory (not
+  // one page) so the filtered list, its pagination and its counts are all correct.
   const liveFilter = filter === 'online' || filter === 'offline';
-  const hasClientFilters = searchQuery.trim() !== '' || connectionFilter !== 'all' || liveFilter || filter === 'overdue';
+  const hasClientFilters = searchQuery.trim() !== '' || connectionFilter !== 'all' || liveFilter || filter === 'overdue' || filter === 'paused';
 
   // The paybill shown next to each account number comes from each customer's
   // `payment_paybill` (resolved per router by the backend). This reseller-wide
@@ -332,6 +334,8 @@ export default function CustomersPage() {
   // Set when the backend refused because the customer already paid / is active.
   const [activateConflict, setActivateConflict] = useState<ActivationConflict | null>(null);
   const [deactivateConfirm, setDeactivateConfirm] = useState<Customer | null>(null);
+  const [pauseModal, setPauseModal] = useState<Customer | null>(null);
+  const [resumingId, setResumingId] = useState<number | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<Customer | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
@@ -342,6 +346,20 @@ export default function CustomersPage() {
   });
 
   const refreshData = useCallback(() => setRefreshKey(k => k + 1), []);
+
+  const handleResume = useCallback(async (customer: Customer) => {
+    try {
+      setResumingId(customer.id);
+      const result = await api.resumeCustomer(customer.id);
+      const alert = resumeAlert(t, customer.name || t('Customer'), result);
+      showAlert(alert.tone, alert.text);
+      refreshData();
+    } catch (err) {
+      showAlert('error', err instanceof Error ? err.message : t('Resume failed'));
+    } finally {
+      setResumingId(null);
+    }
+  }, [t, showAlert, refreshData]);
 
   // After a static-IP import lands, show the new customers where they live.
   const handleStaticImported = useCallback(() => {
@@ -455,6 +473,7 @@ export default function CustomersPage() {
     return source.filter((customer) => {
       if (filter === 'inactive' && customer.status !== 'inactive') return false;
       if (filter === 'overdue' && !isOverdue(customer, nowMs)) return false;
+      if (filter === 'paused' && !isPaused(customer)) return false;
       if (filter === 'online' && !isCustomerOnlineNow(customer)) return false;
       if (filter === 'offline' && !isPaidOffline(customer, isCustomerOnlineNow(customer), nowMs)) return false;
       if (connectionFilter !== 'all' && getConnectionType(customer) !== connectionFilter) return false;
@@ -494,11 +513,12 @@ export default function CustomersPage() {
   // "All" connection view the server-side totals are accurate. On a
   // Hotspot / PPPoE tab we already have the full cache in memory (because
   // `hasClientFilters` is true) so we can derive precise counts from it.
-  const liveCounts = useMemo<{ online?: number; offline?: number; overdue?: number }>(() => {
+  const liveCounts = useMemo<{ online?: number; offline?: number; overdue?: number; paused?: number }>(() => {
     if (!scopeCustomers) return {};
     const nowMs = Date.now();
     const overdue = scopeCustomers.filter((c) => isOverdue(c, nowMs)).length;
-    if (!liveFilter || !liveFilterReady) return { overdue };
+    const paused = scopeCustomers.filter((c) => isPaused(c)).length;
+    if (!liveFilter || !liveFilterReady) return { overdue, paused };
     let online = 0;
     let offline = 0;
     for (const c of scopeCustomers) {
@@ -506,7 +526,7 @@ export default function CustomersPage() {
       if (isOnline) online += 1;
       else if (isPaidOffline(c, false, nowMs)) offline += 1;
     }
-    return { online, offline, overdue };
+    return { online, offline, overdue, paused };
   }, [scopeCustomers, liveFilter, liveFilterReady, isCustomerOnlineNow]);
 
   const statusCounts = useMemo<{ all?: number; active?: number; inactive?: number }>(() => {
@@ -1226,6 +1246,7 @@ export default function CustomersPage() {
               { value: 'online', label: t('Online'), count: liveCounts.online },
               { value: 'offline', label: t('Offline'), count: liveCounts.offline },
               { value: 'overdue', label: t('Overdue'), count: liveCounts.overdue },
+              { value: 'paused', label: t('Paused'), count: liveCounts.paused },
             ]}
           />
         </div>
@@ -1306,15 +1327,37 @@ export default function CustomersPage() {
                 case 'status':
                   return (
                     <div className="flex flex-wrap items-center gap-1">
-                      <span className={`badge ${getStatusBadge(customer.status)} capitalize`}>
-                        {t(customer.status)}
-                      </span>
+                      {isPaused(customer) ? (
+                        <span className="badge badge-warning">{t('Paused')}</span>
+                      ) : (
+                        <span className={`badge ${getStatusBadge(customer.status)} capitalize`}>
+                          {t(customer.status)}
+                        </span>
+                      )}
                       {customer.in_grace && (
                         <span className="badge badge-warning whitespace-nowrap">{t('In grace')}</span>
                       )}
                     </div>
                   );
                 case 'expiry':
+                  if (isPaused(customer)) {
+                    return (
+                      <div>
+                        <p className="text-sm text-warning font-medium">
+                          {t('{time} left', { time: formatPausedRemaining(customer.paused_remaining_seconds, t) })}
+                        </p>
+                        <p className="text-xs text-foreground-muted">
+                          {customer.pause_resume_at
+                            ? t('Resumes {date}', {
+                                date: formatDateGMT3(customer.pause_resume_at, {
+                                  month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
+                                }),
+                              })
+                            : t('Paused')}
+                        </p>
+                      </div>
+                    );
+                  }
                   return customer.status === 'active' ? (
                     <div>
                       <p className="text-foreground text-sm">
@@ -1515,6 +1558,32 @@ export default function CustomersPage() {
                           <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                         </svg>
                       </button>
+                      {canPause(customer) && (
+                        <button
+                          onClick={() => setPauseModal(customer)}
+                          className="p-1.5 rounded-md hover:bg-warning/10 transition-colors text-warning"
+                          title={t('Pause subscription')}
+                          data-testid="pause-customer"
+                        >
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                        </button>
+                      )}
+                      {canResume(customer) && (
+                        <button
+                          onClick={() => void handleResume(customer)}
+                          disabled={resumingId === customer.id}
+                          className="p-1.5 rounded-md hover:bg-success/10 transition-colors text-success disabled:opacity-50"
+                          title={t('Resume subscription')}
+                          data-testid="resume-customer"
+                        >
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                        </button>
+                      )}
                       {getConnectionType(customer) === 'pppoe' && (
                         <>
                           <button
@@ -1526,7 +1595,7 @@ export default function CustomersPage() {
                               <path strokeLinecap="round" strokeLinejoin="round" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
                             </svg>
                           </button>
-                          {(customer.status === 'inactive' || customer.status === 'expired') && (
+                          {(customer.status === 'inactive' || customer.status === 'expired') && !isPaused(customer) && (
                             <button
                               onClick={() => setActivateModal(customer)}
                               className="p-1.5 rounded-md hover:bg-success/10 transition-colors text-success"
@@ -1550,7 +1619,7 @@ export default function CustomersPage() {
                           )}
                         </>
                       )}
-                      {getConnectionType(customer) === 'static_ip' && (customer.status === 'inactive' || customer.status === 'expired') && (
+                      {getConnectionType(customer) === 'static_ip' && (customer.status === 'inactive' || customer.status === 'expired') && !isPaused(customer) && (
                         <button
                           onClick={() => setActivateModal(customer)}
                           className="p-1.5 rounded-md hover:bg-success/10 transition-colors text-success"
@@ -1658,7 +1727,10 @@ export default function CustomersPage() {
                       ? { label: 'PPPoE', variant: 'info' as const }
                       : { label: connectionTypeLabel(connectionTypeCard), variant: 'neutral' as const }
                   }
-                  status={customer.in_grace ? {
+                  status={isPaused(customer) ? {
+                    label: t('Paused'),
+                    variant: 'warning',
+                  } : customer.in_grace ? {
                     label: t('In grace'),
                     variant: 'warning',
                   } : {
@@ -1752,7 +1824,31 @@ export default function CustomersPage() {
                           </svg>
                         </button>
                       )}
-                      {(getConnectionType(customer) === 'pppoe' || getConnectionType(customer) === 'static_ip') && (customer.status === 'inactive' || customer.status === 'expired') && (
+                      {canPause(customer) && (
+                        <button
+                          onClick={(e) => { e.preventDefault(); e.stopPropagation(); setPauseModal(customer); }}
+                          className="p-1.5 rounded-md hover:bg-warning/10 transition-colors text-warning active:opacity-70"
+                          title={t('Pause')}
+                        >
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                        </button>
+                      )}
+                      {canResume(customer) && (
+                        <button
+                          onClick={(e) => { e.preventDefault(); e.stopPropagation(); void handleResume(customer); }}
+                          disabled={resumingId === customer.id}
+                          className="p-1.5 rounded-md hover:bg-success/10 transition-colors text-success active:opacity-70 disabled:opacity-50"
+                          title={t('Resume')}
+                        >
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                        </button>
+                      )}
+                      {(getConnectionType(customer) === 'pppoe' || getConnectionType(customer) === 'static_ip') && (customer.status === 'inactive' || customer.status === 'expired') && !isPaused(customer) && (
                         <button
                           onClick={(e) => { e.preventDefault(); e.stopPropagation(); setActivateModal(customer); }}
                           className="p-1.5 rounded-md hover:bg-success/10 transition-colors text-success active:opacity-70"
@@ -1939,6 +2035,14 @@ export default function CustomersPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {pauseModal && (
+        <PauseCustomerModal
+          customer={pauseModal}
+          onClose={() => setPauseModal(null)}
+          onPaused={() => { setPauseModal(null); refreshData(); }}
+        />
       )}
 
       {/* Deactivate Confirm Modal */}
