@@ -63,6 +63,19 @@ const nextConfig: NextConfig = {
   // Left unset on Vercel (which builds its own output format), so this is a
   // no-op for the existing deployment.
   output: process.env.BUILD_STANDALONE ? "standalone" : undefined,
+  // Blog pages revalidate hourly so scheduled posts go live on their date
+  // without a deploy. Regeneration reads content/blog at runtime, so ship the
+  // markdown with those functions explicitly rather than relying on tracing.
+  outputFileTracingIncludes: {
+    "/blog": ["./content/blog/**/*"],
+    "/blog/**": ["./content/blog/**/*"],
+    "/sitemap.xml": ["./content/blog/**/*"],
+    "/llms.txt": ["./content/blog/**/*"],
+    "/hotspot-billing-system-kenya": ["./content/blog/**/*"],
+    "/pppoe-billing-system-kenya": ["./content/blog/**/*"],
+    "/wifi-billing-system-kenya": ["./content/blog/**/*"],
+    "/mpesa-wifi-billing-kenya": ["./content/blog/**/*"],
+  },
   images: {
     qualities: [75, 80, 85],
     remotePatterns: [

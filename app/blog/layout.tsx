@@ -2,6 +2,7 @@ import Link from 'next/link';
 import LandingHeader from '../landing/LandingHeader';
 import { SHOP_VISIBLE_ON_LANDING } from '../landing/shopVisibility';
 import FloatingContact from '../components/FloatingContact';
+import SolutionLinks from '../solutions/SolutionLinks';
 
 // Blog pages share the landing chrome so every article carries the nav and
 // Sign Up CTA (the blog previously rendered with no header/footer at all).
@@ -28,6 +29,7 @@ export default function BlogLayout({ children }: { children: React.ReactNode }) 
             © {new Date().getFullYear()} Bitwave Technologies
           </p>
         </div>
+        <SolutionLinks className="max-w-5xl mx-auto px-4 pb-10" />
       </footer>
       <FloatingContact />
     </div>
