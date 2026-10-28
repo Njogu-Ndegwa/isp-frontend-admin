@@ -26,7 +26,7 @@ const formatSafeDate = (dateStr: string | undefined, full = false): string => {
 export default function ProfilePage() {
   const router = useRouter();
   const { showAlert } = useAlert();
-  const { logout, updateUser, user } = useAuth();
+  const { logout, updateUser, user, setSessionToken } = useAuth();
   const t = useT();
 
   const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -144,7 +144,9 @@ export default function ProfilePage() {
 
     try {
       setChangingPassword(true);
-      await api.changePassword({ current_password, new_password });
+      const result = await api.changePassword({ current_password, new_password });
+      // Other sessions were signed out; keep this tab on the reissued token.
+      if (result?.access_token) setSessionToken(result.access_token);
       setPasswordForm({ current_password: '', new_password: '', confirm_password: '' });
       setShowPasswords({ current: false, new: false, confirm: false });
       showAlert('success', 'Password changed successfully');

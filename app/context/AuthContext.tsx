@@ -25,6 +25,8 @@ interface AuthContextType {
   loginAsDemo: () => void;
   logout: () => void;
   updateUser: (updates: Partial<AuthUser>) => void;
+  /** Swap in a token the backend reissued (password change) without logging out. */
+  setSessionToken: (token: string) => void;
   setSubscriptionAlert: (alert: SubscriptionAlert | null) => void;
   token: string | null;
 }
@@ -172,14 +174,50 @@ export function AuthProvider({
     setSubscriptionAlert(null);
   };
 
-  // Sessions stored before markets existed (or before a market change) lack
-  // the market; refresh it from the profile once per load.
+  // Once per load: refresh staff permissions (the owner may have changed
+  // them), and for owners refresh the market from the profile (sessions stored
+  // before markets existed, or before a market change, lack it).
   useEffect(() => {
     if (!token || isDemo) return;
     let cancelled = false;
     (async () => {
+      let api: typeof import('../lib/api').api;
       try {
-        const { api } = await import('../lib/api');
+        ({ api } = await import('../lib/api'));
+      } catch {
+        return;
+      }
+      let stored: AuthUser | null = null;
+      try {
+        const raw = localStorage.getItem('auth_user');
+        stored = raw ? (JSON.parse(raw) as AuthUser) : null;
+      } catch {
+        stored = null;
+      }
+      if (stored?.role === 'admin') return;
+      let isStaff = !!stored?.staff;
+      try {
+        const me = await api.getStaffMe();
+        if (cancelled) return;
+        isStaff = !!me?.is_staff;
+        const staff = me?.is_staff && me.staff
+          ? { ...me.staff, permissions: Array.isArray(me.permissions) ? me.permissions : me.staff.permissions ?? [] }
+          : null;
+        setUser((prev) => {
+          if (!prev) return prev;
+          if (JSON.stringify(prev.staff ?? null) === JSON.stringify(staff)) return prev;
+          const updated = { ...prev, staff };
+          localStorage.setItem('auth_user', JSON.stringify(updated));
+          persistAuthCookies(token, updated, false);
+          return updated;
+        });
+      } catch {
+        // Older backend (404) or offline: keep the permissions from login.
+      }
+      // Staff sessions describe the owner's business from the login payload;
+      // the profile endpoint is the owner's own account.
+      if (isStaff || cancelled) return;
+      try {
         const profile = await api.getProfile();
         if (cancelled || !profile?.market) return;
         setUser((prev) => {
@@ -195,6 +233,13 @@ export function AuthProvider({
     })();
     return () => { cancelled = true; };
   }, [token, isDemo]);
+
+  const setSessionToken = (next: string) => {
+    localStorage.setItem('auth_token', next);
+    if (user) persistAuthCookies(next, user, isDemo);
+    else setAuthCookie('auth_token', next);
+    setToken(next);
+  };
 
   const updateUser = (updates: Partial<AuthUser>) => {
     setUser((prev) => {
@@ -218,6 +263,7 @@ export function AuthProvider({
         loginAsDemo,
         logout,
         updateUser,
+        setSessionToken,
         setSubscriptionAlert,
         token,
       }}

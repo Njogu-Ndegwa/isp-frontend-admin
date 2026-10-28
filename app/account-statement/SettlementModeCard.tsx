@@ -8,6 +8,8 @@ interface SettlementModeCardProps {
   settings: ResellerPayoutSettings;
   saving: boolean;
   onChoose: (mode: SettlementMode) => void;
+  /** Staff without `settlement.manage` see the mode but can't switch it. */
+  readOnly?: boolean;
 }
 
 const DirectIcon = () => (
@@ -48,7 +50,7 @@ const OPTIONS: {
   },
 ];
 
-export default function SettlementModeCard({ settings, saving, onChoose }: SettlementModeCardProps) {
+export default function SettlementModeCard({ settings, saving, onChoose, readOnly = false }: SettlementModeCardProps) {
   const isDirect = settings.settlement_mode === 'direct';
   const available = settings.direct_settlement_available;
   const method = settings.payment_method;
@@ -126,7 +128,7 @@ export default function SettlementModeCard({ settings, saving, onChoose }: Settl
       <div role="radiogroup" aria-labelledby="settlement-heading" className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {OPTIONS.map((opt) => {
           const selected = settings.settlement_mode === opt.mode;
-          const disabled = saving || (opt.mode === 'direct' && !isDirect && !available);
+          const disabled = readOnly || saving || (opt.mode === 'direct' && !isDirect && !available);
           return (
             <button
               key={opt.mode}

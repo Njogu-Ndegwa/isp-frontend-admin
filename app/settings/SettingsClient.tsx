@@ -5,21 +5,27 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { settingsNav } from './nav';
 import { useT } from '../lib/i18n';
+import { useAuth } from '../context/AuthContext';
+import { filterNavItems } from '../lib/permissions';
 
 export default function SettingsIndexPage() {
   const router = useRouter();
   const t = useT();
+  const { user } = useAuth();
+  // Staff only see the settings pages the owner granted.
+  const sections = filterNavItems(settingsNav, user);
+  const firstSection = sections[0]?.href;
 
   useEffect(() => {
     const mq = window.matchMedia('(min-width: 768px)');
-    if (mq.matches) {
-      router.replace('/settings/profile');
+    if (mq.matches && firstSection) {
+      router.replace(firstSection);
     }
-  }, [router]);
+  }, [router, firstSection]);
 
   return (
     <div className="md:hidden space-y-2">
-      {settingsNav.map((section) => (
+      {sections.map((section) => (
         <Link
           key={section.href}
           href={section.href}

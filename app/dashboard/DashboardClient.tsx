@@ -6,6 +6,7 @@ import { DashboardAnalytics, MikroTikMetrics, BandwidthHistory, TopUsersResponse
 import { useAuth } from '../context/AuthContext';
 import SubscriptionAlertBanner from '../components/SubscriptionAlertBanner';
 import OnboardingChecklist from '../components/OnboardingChecklist';
+import { hasPermission, isStaffUser, PERMISSIONS } from '../lib/permissions';
 import type { DownloadUsageServiceFilter } from './DownloadUsageChart';
 import { DateFilter, getPeriodLabel, toUsageWindowParams } from './dateFilter';
 import SectionCard, { SectionError } from './components/SectionCard';
@@ -55,7 +56,10 @@ const buildSubscriptionAlert = (overview: SubscriptionOverview, t: TFunction): S
 };
 
 export default function DashboardPage() {
-  const { subscriptionAlert: authAlert } = useAuth();
+  const { subscriptionAlert: authAlert, user } = useAuth();
+  // Setup is the owner's job; staff never see the onboarding checklist.
+  const isStaff = isStaffUser(user);
+  const canSeeSubscription = hasPermission(user, PERMISSIONS.subscriptionManage);
   const t = useT();
 
   // Analytics state
@@ -225,7 +229,7 @@ export default function DashboardPage() {
 
   // Load subscription alert without hitting the legacy dashboard overview endpoint.
   useEffect(() => {
-    if (authAlert || api.isDemoMode()) return;
+    if (authAlert || api.isDemoMode() || !canSeeSubscription) return;
 
     let cancelled = false;
     const timeout = window.setTimeout(() => {
@@ -240,7 +244,7 @@ export default function DashboardPage() {
       cancelled = true;
       window.clearTimeout(timeout);
     };
-  }, [authAlert, t]);
+  }, [authAlert, t, canSeeSubscription]);
 
   // Load both in parallel on mount and when selectedDays changes
   useEffect(() => {
@@ -358,7 +362,7 @@ export default function DashboardPage() {
         onRefresh={refreshAll} refreshing={analyticsLoading}
       />
 
-      <OnboardingChecklist delayMs={DASHBOARD_LOAD_DELAYS_MS.onboarding} />
+      {!isStaff && <OnboardingChecklist delayMs={DASHBOARD_LOAD_DELAYS_MS.onboarding} />}
 
       {hasRouters === false ? (
         /* New account — no routers yet: preview the analytics and guide setup

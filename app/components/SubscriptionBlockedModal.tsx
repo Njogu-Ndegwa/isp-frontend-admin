@@ -3,9 +3,13 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useT } from '../lib/i18n';
+import { usePermissions } from '../hooks/usePermissions';
+import { PERMISSIONS } from '../lib/permissions';
 
 export default function SubscriptionBlockedModal() {
   const t = useT();
+  const { can } = usePermissions();
+  const canManageSubscription = can(PERMISSIONS.subscriptionManage);
   const [isOpen, setIsOpen] = useState(false);
   const [message, setMessage] = useState('');
 
@@ -36,13 +40,17 @@ export default function SubscriptionBlockedModal() {
         <p className="text-sm text-foreground-muted mb-6">{message}</p>
 
         <div className="flex flex-col gap-3">
-          <Link
-            href="/settings/subscription"
-            onClick={() => setIsOpen(false)}
-            className="btn-primary py-2.5 text-sm font-semibold text-center"
-          >
-            {t('View Subscription')}
-          </Link>
+          {canManageSubscription ? (
+            <Link
+              href="/settings/subscription"
+              onClick={() => setIsOpen(false)}
+              className="btn-primary py-2.5 text-sm font-semibold text-center"
+            >
+              {t('View Subscription')}
+            </Link>
+          ) : (
+            <p className="text-sm text-foreground-muted">{t('Ask the account owner to renew the subscription.')}</p>
+          )}
           <button
             onClick={() => setIsOpen(false)}
             className="text-sm text-foreground-muted hover:text-foreground transition-colors"

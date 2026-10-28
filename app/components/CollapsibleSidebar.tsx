@@ -2,11 +2,12 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useState, useEffect, useCallback, type ReactNode } from 'react';
+import { useState, useEffect, useCallback, useMemo, type ReactNode } from 'react';
 import { useAuth } from '../context/AuthContext';
 import ThemeToggle from './ThemeToggle';
 import InboxBell from './InboxBell';
 import { useT } from '../lib/i18n';
+import { filterNavGroups } from '../lib/permissions';
 
 interface NavItem {
   name: string;
@@ -193,6 +194,15 @@ export const navGroups: NavGroup[] = [
         icon: (
           <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.53 16.122a3 3 0 00-5.78 1.128 2.25 2.25 0 01-2.4 2.245 4.5 4.5 0 008.4-2.245c0-.399-.078-.78-.22-1.128zm0 0a15.998 15.998 0 003.388-1.62m-5.048 4.025a3 3 0 01-4.293 0l-4.293-4.293a3 3 0 010-4.293l8.586-8.586a3 3 0 014.293 0l4.293 4.293a3 3 0 010 4.293l-8.586 8.586z" />
+          </svg>
+        ),
+      },
+      {
+        name: 'Staff',
+        href: '/settings/staff',
+        icon: (
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.477m.94-3.197a5.971 5.971 0 00-.94 3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z" />
           </svg>
         ),
       },
@@ -428,7 +438,11 @@ export default function CollapsibleSidebar() {
   const { isAuthenticated, logout, user } = useAuth();
   const t = useT();
   const isAdmin = user?.role === 'admin';
-  const allNavGroups = isAdmin ? adminNavGroups : navGroups;
+  // Staff only see the pages the owner granted them.
+  const allNavGroups = useMemo(
+    () => (isAdmin ? adminNavGroups : filterNavGroups(navGroups, user)),
+    [isAdmin, user],
+  );
   const [pref, setPref] = useState<CollapsePref>('auto');
   const [bp, setBp] = useState<'mobile' | 'tablet' | 'desktop'>(() => {
     if (typeof window === 'undefined') return 'desktop';

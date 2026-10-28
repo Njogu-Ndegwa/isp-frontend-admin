@@ -17,21 +17,27 @@ import { ExpiryRemindersView } from './components/ExpiryRemindersView';
 import { CustomerEventsView } from './components/CustomerEventsView';
 import { GatewayView } from './components/GatewayView';
 import { GatewayFailureBanner, useGatewayStatus } from './components/GatewayStatusCard';
+import { usePermissions } from '../hooks/usePermissions';
+import { PERMISSIONS } from '../lib/permissions';
 
 // ─── Tab type ─────────────────────────────────────────────────────────────────
 type TabValue = 'compose' | 'activity' | 'templates' | 'credits' | 'expiry' | 'alerts' | 'gateway';
+/** Tabs that change how messaging works; staff need messaging.settings. */
+const SETTINGS_TABS: readonly TabValue[] = ['expiry', 'alerts', 'gateway'];
 
 // ─── MessagingClient ──────────────────────────────────────────────────────────
 export default function MessagingClient() {
   const { user } = useAuth();
   const { showAlert } = useAlert();
   const [activeTab, setActiveTab] = useState<TabValue>('compose');
+  const { can } = usePermissions();
+  const canChangeSettings = can(PERMISSIONS.messagingSettings);
   const [credits, setCredits] = useState<SmsCreditInfo | null>(null);
   const [creditsLoading, setCreditsLoading] = useState(true);
   const [focusCampaignId, setFocusCampaignId] = useState<number | undefined>(undefined);
   // One status fetch for the page: drives the failure banner, the header chip
   // on an own gateway, and the status cards in the Credits and Gateway tabs.
-  const gatewayStatus = useGatewayStatus(null, user?.role === 'reseller');
+  const gatewayStatus = useGatewayStatus(null, user?.role === 'reseller' && canChangeSettings);
 
   const loadCredits = useCallback(async () => {
     try {
@@ -133,7 +139,7 @@ export default function MessagingClient() {
     </button>
   );
 
-  const tabs: TabItem<TabValue>[] = [
+  const tabs: TabItem<TabValue>[] = ([
     { value: 'compose', label: 'Compose' },
     { value: 'activity', label: 'Activity' },
     { value: 'templates', label: 'Templates' },
@@ -141,7 +147,7 @@ export default function MessagingClient() {
     { value: 'expiry', label: 'Automatic' },
     { value: 'alerts', label: 'Alerts' },
     { value: 'gateway', label: 'Gateway' },
-  ];
+  ] as TabItem<TabValue>[]).filter((tab) => canChangeSettings || !SETTINGS_TABS.includes(tab.value));
 
   // Wire ComposeView.onSent → switch to Activity with focusCampaignId + refresh credits
   const handleSent = (campaignId: number) => {
@@ -157,7 +163,7 @@ export default function MessagingClient() {
     if (tab !== 'activity') {
       setFocusCampaignId(undefined);
     }
-    setActiveTab(tab);
+    setActiveTab(!canChangeSettings && SETTINGS_TABS.includes(tab) ? 'credits' : tab);
   };
 
   return (
