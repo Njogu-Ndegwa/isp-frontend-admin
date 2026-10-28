@@ -21,6 +21,7 @@ import DataTable, { DataTableColumn } from '../components/DataTable';
 import Pagination from '../components/Pagination';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { formatDateGMT3 } from '../lib/dateUtils';
+import { formatCredRate } from '../lib/credRate';
 
 const COLUMNS: DataTableColumn[] = [
   { key: 'username', label: 'Username' },
@@ -380,7 +381,7 @@ export default function AccessCredentialsPage() {
                 case 'rate':
                   return (
                     <div className="text-sm">
-                      <p className="font-mono text-foreground">{cred.rate_limit || 'Unlimited'}</p>
+                      <p className="font-mono text-foreground" title={cred.rate_limit || undefined}>{formatCredRate(cred.rate_limit)}</p>
                       {cred.data_cap_mb ? (
                         <p className="text-xs text-foreground-muted">{cred.data_cap_mb.toLocaleString()} MB cap</p>
                       ) : null}
@@ -511,7 +512,7 @@ export default function AccessCredentialsPage() {
                       color: cred.status === 'revoked' ? 'danger' : cred.bound_mac_address ? 'info' : 'primary',
                     }}
                     status={{ label: statusLabel.text, variant: statusLabel.variant }}
-                    value={{ text: cred.rate_limit || 'Unlimited', highlight: false }}
+                    value={{ text: formatCredRate(cred.rate_limit), highlight: false }}
                     secondary={{
                       left: cred.bound_mac_address ? (
                         <span className="font-mono text-xs">{cred.bound_mac_address}</span>

@@ -9,6 +9,8 @@ import { pickDefaultRouterId, routerOptionLabel } from '../../lib/routerPick';
 import { CreateAccessCredentialRequest, Router as RouterType, CreateAccessCredentialResponse } from '../../lib/types';
 import { useAlert } from '../../context/AlertContext';
 import Header from '../../components/Header';
+import CredRateFields from '../CredRateFields';
+import { buildCredRate, CredRateMbps } from '../../lib/credRate';
 
 export default function CreateAccessCredentialPage() {
   const router = useRouter();
@@ -17,6 +19,7 @@ export default function CreateAccessCredentialPage() {
   const [loading, setLoading] = useState(false);
   const [routersLoading, setRoutersLoading] = useState(true);
   const [result, setResult] = useState<CreateAccessCredentialResponse | null>(null);
+  const [rate, setRate] = useState<CredRateMbps>({ download: '', upload: '' });
 
   const [formData, setFormData] = useState<CreateAccessCredentialRequest>({
     router_id: 0,
@@ -44,13 +47,18 @@ export default function CreateAccessCredentialPage() {
       showAlert('error', 'Please select a router');
       return;
     }
+    const builtRate = buildCredRate(rate.download, rate.upload);
+    if (!builtRate.ok) {
+      showAlert('error', builtRate.error);
+      return;
+    }
     try {
       setLoading(true);
       const payload: CreateAccessCredentialRequest = {
         router_id: formData.router_id,
         ...(formData.username ? { username: formData.username.trim().toLowerCase() } : {}),
         ...(formData.password ? { password: formData.password } : {}),
-        ...(formData.rate_limit ? { rate_limit: formData.rate_limit } : {}),
+        ...(builtRate.rate ? { rate_limit: builtRate.rate } : {}),
         ...(formData.data_cap_mb ? { data_cap_mb: formData.data_cap_mb } : {}),
         ...(formData.label ? { label: formData.label } : {}),
       };
@@ -218,21 +226,9 @@ export default function CreateAccessCredentialPage() {
               </div>
             </div>
 
+            <CredRateFields value={rate} onChange={setRate} />
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label htmlFor="rate_limit" className="block text-sm font-medium text-foreground-muted mb-1.5">
-                  Rate Limit
-                </label>
-                <input
-                  id="rate_limit"
-                  type="text"
-                  value={formData.rate_limit || ''}
-                  onChange={(e) => setFormData({ ...formData, rate_limit: e.target.value })}
-                  className="input font-mono"
-                  placeholder="e.g. 5M/2M"
-                />
-                <p className="mt-1 text-xs text-foreground-muted">MikroTik upload/download. Leave empty for unlimited.</p>
-              </div>
               <div>
                 <label htmlFor="data_cap_mb" className="block text-sm font-medium text-foreground-muted mb-1.5">
                   Lifetime Data Cap (MB)

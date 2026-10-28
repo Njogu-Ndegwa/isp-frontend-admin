@@ -3048,7 +3048,7 @@ export const demoAccessCredentials: AccessCredential[] = accessCredLabels.map((l
     id: 500 + i,
     router_id: router.id,
     username: `acc-${label.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
-    rate_limit: i % 2 === 0 ? '10M/5M' : null,
+    rate_limit: i % 2 === 0 ? '5M/10M' : null, // RouterOS upload/download: 10 down, 5 up
     data_cap_mb: i % 4 === 0 ? 102400 : null,
     label,
     status: revoked ? 'revoked' : 'active',

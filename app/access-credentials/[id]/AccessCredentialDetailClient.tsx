@@ -8,6 +8,8 @@ import { copyText } from '../../lib/clipboard';
 import { AccessCredential, UpdateAccessCredentialRequest, Router as RouterType } from '../../lib/types';
 import { useAlert } from '../../context/AlertContext';
 import Header from '../../components/Header';
+import CredRateFields from '../CredRateFields';
+import { buildCredRate, CredRateMbps, parseCredRate } from '../../lib/credRate';
 import { PageLoader } from '../../components/LoadingSpinner';
 import ConfirmDialog from '../../components/ConfirmDialog';
 import { formatDateGMT3 } from '../../lib/dateUtils';
@@ -64,6 +66,7 @@ export default function AccessCredentialDetailPage() {
   const [actionLoading, setActionLoading] = useState(false);
 
   const [form, setForm] = useState<UpdateAccessCredentialRequest>({});
+  const [rate, setRate] = useState<CredRateMbps>({ download: '', upload: '' });
 
   const load = useCallback(async (reveal = false) => {
     try {
@@ -71,10 +74,10 @@ export default function AccessCredentialDetailPage() {
       const data = await api.getAccessCredential(id, reveal);
       setCredential(data);
       setForm({
-        rate_limit: data.rate_limit ?? '',
         data_cap_mb: data.data_cap_mb ?? null,
         label: data.label ?? '',
       });
+      setRate(parseCredRate(data.rate_limit));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load credential');
     } finally {
@@ -112,13 +115,23 @@ export default function AccessCredentialDetailPage() {
       setSaving(true);
       const payload: UpdateAccessCredentialRequest = {};
 
-      const formRate = (form.rate_limit ?? '').toString().trim();
-      const currentRate = credential.rate_limit ?? '';
-      if (formRate !== currentRate) {
-        if (formRate === '') {
+      const builtRate = buildCredRate(rate.download, rate.upload);
+      if (!builtRate.ok) {
+        showAlert('error', builtRate.error);
+        return;
+      }
+      // The fields show Mbps, so saving resends any stored row that is not
+      // already in that form: "50/10" (bits/s on the router) becomes
+      // "50M/10M" and "5m/2m" (rejected by RouterOS) becomes "5M/2M".
+      const current = parseCredRate(credential.rate_limit);
+      const currentBuilt = buildCredRate(current.download, current.upload);
+      const currentRate = currentBuilt.ok ? currentBuilt.rate : credential.rate_limit;
+      const storedIsCanonical = (credential.rate_limit ?? null) === currentRate;
+      if (builtRate.rate !== currentRate || (builtRate.rate && !storedIsCanonical)) {
+        if (builtRate.rate === null) {
           payload.clear_rate_limit = true;
         } else {
-          payload.rate_limit = formRate;
+          payload.rate_limit = builtRate.rate;
         }
       }
 
@@ -149,10 +162,10 @@ export default function AccessCredentialDetailPage() {
       const updated = await api.updateAccessCredential(id, payload);
       setCredential(updated);
       setForm({
-        rate_limit: updated.rate_limit ?? '',
         data_cap_mb: updated.data_cap_mb ?? null,
         label: updated.label ?? '',
       });
+      setRate(parseCredRate(updated.rate_limit));
       showAlert('success', 'Credential updated');
     } catch (err) {
       showAlert('error', err instanceof Error ? err.message : 'Failed to save changes');
@@ -442,17 +455,9 @@ export default function AccessCredentialDetailPage() {
             />
           </div>
 
+          <CredRateFields value={rate} onChange={setRate} idPrefix="edit_rate" />
+
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-foreground-muted mb-1.5">Rate Limit</label>
-              <input
-                type="text"
-                value={form.rate_limit ?? ''}
-                onChange={(e) => setForm({ ...form, rate_limit: e.target.value })}
-                className="input font-mono"
-                placeholder="e.g. 5M/2M (empty = unlimited)"
-              />
-            </div>
             <div>
               <label className="block text-sm font-medium text-foreground-muted mb-1.5">Lifetime Cap (MB)</label>
               <input
