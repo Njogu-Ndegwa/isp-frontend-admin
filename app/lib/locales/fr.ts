@@ -414,6 +414,31 @@ export const FR: Record<string, string> = {
   'Edit': 'Modifier',
   'Credentials': 'Identifiants',
   'Activate': 'Activer',
+  // Activate popup: payment choice (incl. activate without payment)
+  'Cash received': 'Espèces reçues',
+  'Paid outside the system': 'Payé hors du système',
+  'Activate without payment': 'Activer sans paiement',
+  "No money is recorded. The customer gets the plan's full period and it does not count as revenue.":
+    "Aucun montant n'est enregistré. Le client reçoit la durée complète du forfait et cela ne compte pas comme revenu.",
+  'M-Pesa paid to your paybill or till activates the customer automatically.':
+    'Un paiement M-Pesa sur votre paybill ou till active le client automatiquement.',
+  'sets expiry without recording a payment, and': "fixe l'expiration sans enregistrer de paiement, et",
+  '{name} activated without payment': '{name} activé sans paiement',
+  '{name} activated successfully': '{name} activé avec succès',
+  'Activated without payment, but the router was not updated yet: {error}. It will retry automatically.':
+    "Activé sans paiement, mais le routeur n'a pas encore été mis à jour : {error}. Nouvel essai automatique.",
+  'Payment recorded, but the router was not updated yet: {error}. It will retry automatically.':
+    "Paiement enregistré, mais le routeur n'a pas encore été mis à jour : {error}. Nouvel essai automatique.",
+  'Activated without payment and access opened': 'Activé sans paiement et accès ouvert',
+  'Activates {plan} for its full period without recording a payment, and opens access on the router.':
+    "Active {plan} pour toute sa durée sans enregistrer de paiement, et ouvre l'accès sur le routeur.",
+  'the plan': 'le forfait',
+  'Activating again records another payment and adds another period. Only continue if you really received a second payment.':
+    "Activer à nouveau enregistre un autre paiement et ajoute une autre période. Continuez seulement si vous avez vraiment reçu un second paiement.",
+  'Activating again adds another period without recording a payment. Only continue if you really mean to give extra time.':
+    "Activer à nouveau ajoute une autre période sans enregistrer de paiement. Continuez seulement si vous voulez vraiment offrir ce temps.",
+  'Record another payment': 'Enregistrer un autre paiement',
+  'Add another period without payment': 'Ajouter une autre période sans paiement',
   'Deactivate': 'Désactiver',
   'Delete': 'Supprimer',
   'active': 'actif',

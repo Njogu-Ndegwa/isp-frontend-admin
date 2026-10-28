@@ -7,11 +7,39 @@ import type { ManualPaymentMethod } from './types';
  * system, so the options say exactly that. M-Pesa paid to the reseller's
  * paybill activates the customer by itself, and the backend refuses
  * "mpesa"/"voucher" here instead of quietly saving them as cash.
+ *
+ * "none" activates for the plan's period without recording any money (a free
+ * month, a comp, or money already recorded elsewhere). The backend writes a
+ * zero-amount row that never counts as revenue.
+ *
+ * Labels and hints are English i18n keys: render them through t().
  */
 export const MANUAL_PAYMENT_OPTIONS: { value: ManualPaymentMethod; label: string }[] = [
   { value: 'cash', label: 'Cash received' },
   { value: 'other', label: 'Paid outside the system' },
+  { value: 'none', label: 'Activate without payment' },
 ];
+
+export const NO_PAYMENT: ManualPaymentMethod = 'none';
+
+export function isNoPayment(method: ManualPaymentMethod | undefined): boolean {
+  return method === NO_PAYMENT;
+}
+
+/**
+ * The options a user may pick. "Activate without payment" needs
+ * customers.manage, like Activate itself (owners always have it).
+ */
+export function manualPaymentOptions(canManageCustomers: boolean) {
+  return MANUAL_PAYMENT_OPTIONS.filter((o) => canManageCustomers || o.value !== NO_PAYMENT);
+}
+
+/** Hint under the payment method select. */
+export function manualPaymentHint(method: ManualPaymentMethod | undefined): string {
+  return isNoPayment(method)
+    ? "No money is recorded. The customer gets the plan's full period and it does not count as revenue."
+    : 'M-Pesa paid to your paybill or till activates the customer automatically.';
+}
 
 /** The 409 the backend returns when an activation would double-renew. */
 export interface ActivationConflict {
@@ -59,9 +87,11 @@ export function activationConflictMessage(conflict: ActivationConflict): string 
   const until = formatUtc(conflict.expiry);
   if (conflict.code === 'customer_already_paid') {
     const at = formatUtc(conflict.last_payment_at);
+    // A zero-amount row is an earlier "Activate without payment".
+    const unpaid = conflict.last_payment_amount === 0;
     const method = conflict.last_payment_method ? METHOD_LABEL[conflict.last_payment_method] : undefined;
-    let text = 'This customer already paid';
-    if (method) text += ` (${method})`;
+    let text = unpaid ? 'This customer was activated without payment' : 'This customer already paid';
+    if (method && !unpaid) text += ` (${method})`;
     if (at) text += ` at ${at}`;
     if (until) text += ` and is active until ${until}`;
     return `${text}.`;
@@ -71,3 +101,15 @@ export function activationConflictMessage(conflict: ActivationConflict): string 
 
 export const ACTIVATION_CONFLICT_HINT =
   'Activating again records another payment and adds another period. Only continue if you really received a second payment.';
+
+export const NO_PAYMENT_CONFLICT_HINT =
+  'Activating again adds another period without recording a payment. Only continue if you really mean to give extra time.';
+
+export function activationConflictHint(method: ManualPaymentMethod | undefined): string {
+  return isNoPayment(method) ? NO_PAYMENT_CONFLICT_HINT : ACTIVATION_CONFLICT_HINT;
+}
+
+/** Label of the confirm button after a 409. */
+export function activationConfirmLabel(method: ManualPaymentMethod | undefined): string {
+  return isNoPayment(method) ? 'Add another period without payment' : 'Record another payment';
+}
