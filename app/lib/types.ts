@@ -871,8 +871,11 @@ export interface RegisterCustomerRequest {
   static_mac?: string | null;
 }
 
-/** Manual activations record money taken outside the system (see lib/manualActivation). */
-export type ManualPaymentMethod = 'cash' | 'other';
+/**
+ * Manual activations record money taken outside the system (see lib/manualActivation).
+ * 'none' activates without recording any payment.
+ */
+export type ManualPaymentMethod = 'cash' | 'other' | 'none';
 
 export interface ActivatePPPoERequest {
   payment_method?: ManualPaymentMethod;

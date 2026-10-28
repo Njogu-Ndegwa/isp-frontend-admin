@@ -2,9 +2,15 @@ import { describe, expect, it } from 'vitest';
 import { ApiError } from '../api';
 import {
   MANUAL_PAYMENT_OPTIONS,
+  activationConfirmLabel,
   activationConflict,
+  activationConflictHint,
   activationConflictMessage,
+  isNoPayment,
+  manualPaymentHint,
+  manualPaymentOptions,
 } from '../manualActivation';
+import { FR } from '../locales/fr';
 
 const paidDetail = {
   code: 'customer_already_paid',
@@ -19,8 +25,49 @@ const paidDetail = {
 
 describe('MANUAL_PAYMENT_OPTIONS', () => {
   it('offers only honest manual methods (no M-Pesa or Voucher that were saved as cash)', () => {
-    expect(MANUAL_PAYMENT_OPTIONS.map((o) => o.value)).toEqual(['cash', 'other']);
-    expect(MANUAL_PAYMENT_OPTIONS.map((o) => o.label)).toEqual(['Cash received', 'Paid outside the system']);
+    expect(MANUAL_PAYMENT_OPTIONS.map((o) => o.value)).toEqual(['cash', 'other', 'none']);
+    expect(MANUAL_PAYMENT_OPTIONS.map((o) => o.label)).toEqual([
+      'Cash received',
+      'Paid outside the system',
+      'Activate without payment',
+    ]);
+  });
+});
+
+describe('Activate without payment', () => {
+  it('is a third choice for anyone who can manage customers', () => {
+    expect(manualPaymentOptions(true).map((o) => o.value)).toEqual(['cash', 'other', 'none']);
+  });
+
+  it('is hidden from staff without customers.manage', () => {
+    expect(manualPaymentOptions(false).map((o) => o.value)).toEqual(['cash', 'other']);
+  });
+
+  it('says no money is recorded', () => {
+    expect(isNoPayment('none')).toBe(true);
+    expect(isNoPayment('cash')).toBe(false);
+    expect(manualPaymentHint('none')).toMatch(/No money is recorded/);
+    expect(manualPaymentHint('cash')).toMatch(/M-Pesa/);
+  });
+
+  it('words the 409 prompt for extra time, not another payment', () => {
+    expect(activationConflictHint('none')).toMatch(/without recording a payment/);
+    expect(activationConflictHint('cash')).toMatch(/records another payment/);
+    expect(activationConfirmLabel('none')).toBe('Add another period without payment');
+    expect(activationConfirmLabel('other')).toBe('Record another payment');
+  });
+
+  it('has French for every new string', () => {
+    const keys = [
+      ...MANUAL_PAYMENT_OPTIONS.map((o) => o.label),
+      manualPaymentHint('none'),
+      manualPaymentHint('cash'),
+      activationConflictHint('none'),
+      activationConflictHint('cash'),
+      activationConfirmLabel('none'),
+      activationConfirmLabel('cash'),
+    ];
+    for (const key of keys) expect(FR[key], key).toBeTruthy();
   });
 });
 
@@ -54,5 +101,13 @@ describe('activationConflictMessage', () => {
         last_payment_method: null,
       } as never),
     ).toBe('This customer is already active until Nov 26, 2026, 03:49 PM.');
+  });
+
+  it('says an earlier activation was without payment when the last row is zero', () => {
+    expect(
+      activationConflictMessage({ ...paidDetail, last_payment_amount: 0, last_payment_method: 'other' } as never),
+    ).toBe(
+      'This customer was activated without payment at Oct 27, 2026, 03:49 PM and is active until Nov 26, 2026, 03:49 PM.',
+    );
   });
 });

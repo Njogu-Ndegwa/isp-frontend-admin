@@ -36,10 +36,13 @@ import { canPause, canResume, formatPausedRemaining, isPaused } from '../lib/cus
 import PauseCustomerModal, { resumeAlert } from '../components/PauseCustomerModal';
 import { connectionTypeLabel } from '../lib/connectionType';
 import {
-  ACTIVATION_CONFLICT_HINT,
-  MANUAL_PAYMENT_OPTIONS,
+  activationConfirmLabel,
   activationConflict,
+  activationConflictHint,
   activationConflictMessage,
+  isNoPayment,
+  manualPaymentHint,
+  manualPaymentOptions,
   type ActivationConflict,
 } from '../lib/manualActivation';
 import { PLATFORM_PAYBILL, customerPaybill, paybillAccountLabel, paybillForCustomer } from '../lib/customerPaybill';
@@ -960,18 +963,27 @@ export default function CustomersPage() {
   const handleActivate = useCallback(async (force = false) => {
     if (!activateModal) return;
     const payload: ActivatePPPoERequest = force ? { ...activateForm, force: true } : activateForm;
+    const noPayment = isNoPayment(activateForm.payment_method);
+    const done = noPayment
+      ? t('{name} activated without payment', { name: activateModal.name })
+      : t('{name} activated successfully', { name: activateModal.name });
     try {
       setActionLoading(true);
       if (getConnectionType(activateModal) === 'static_ip') {
         const result = await api.activateStatic(activateModal.id, payload);
         if (result.router_result === 'ok') {
-          showAlert('success', `${activateModal.name} activated successfully`);
+          showAlert('success', done);
         } else {
-          showAlert('warning', `Payment recorded, but the router was not updated yet: ${result.router_error || 'unreachable'}. It will retry automatically.`);
+          showAlert('warning', t(
+            noPayment
+              ? 'Activated without payment, but the router was not updated yet: {error}. It will retry automatically.'
+              : 'Payment recorded, but the router was not updated yet: {error}. It will retry automatically.',
+            { error: result.router_error || t('unreachable') },
+          ));
         }
       } else {
         await api.activatePPPoE(activateModal.id, payload);
-        showAlert('success', `${activateModal.name} activated successfully`);
+        showAlert('success', done);
       }
       setActivateModal(null);
       setActivateConflict(null);
@@ -989,7 +1001,7 @@ export default function CustomersPage() {
     } finally {
       setActionLoading(false);
     }
-  }, [activateModal, activateForm, showAlert, refreshData]);
+  }, [activateModal, activateForm, showAlert, refreshData, t]);
 
   const handleDeactivate = useCallback(async () => {
     if (!deactivateConfirm) return;
@@ -1986,7 +1998,8 @@ export default function CustomersPage() {
               {getConnectionType(activateModal) === 'static_ip' ? 'Activate static IP' : 'Activate PPPoE'}
             </h3>
             <p className="text-sm text-foreground-muted">
-              Activate <span className="font-medium text-foreground">{activateModal.name}</span> &mdash; records payment, sets expiry, and{' '}
+              Activate <span className="font-medium text-foreground">{activateModal.name}</span> &mdash;{' '}
+              {isNoPayment(activateForm.payment_method) ? t('sets expiry without recording a payment, and') : 'records payment, sets expiry, and'}{' '}
               {getConnectionType(activateModal) === 'static_ip' ? 'opens access for the IP on the router.' : 'provisions the secret on the router.'}
             </p>
             <div className="space-y-3">
@@ -1997,12 +2010,12 @@ export default function CustomersPage() {
                   onChange={(e) => setActivateForm((f) => ({ ...f, payment_method: e.target.value as ActivatePPPoERequest['payment_method'] }))}
                   className="select"
                 >
-                  {MANUAL_PAYMENT_OPTIONS.map((o) => (
-                    <option key={o.value} value={o.value}>{o.label}</option>
+                  {manualPaymentOptions(canManageCustomers).map((o) => (
+                    <option key={o.value} value={o.value}>{t(o.label)}</option>
                   ))}
                 </select>
-                <p className="text-xs text-foreground-muted mt-1">
-                  M-Pesa paid to your paybill or till activates the customer automatically.
+                <p className="text-xs text-foreground-muted mt-1" data-testid="activate-payment-hint">
+                  {t(manualPaymentHint(activateForm.payment_method))}
                 </p>
               </div>
               <div>
@@ -2029,7 +2042,7 @@ export default function CustomersPage() {
             {activateConflict && (
               <div role="alert" data-testid="activate-conflict" className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm space-y-1">
                 <p className="font-medium text-foreground">{activationConflictMessage(activateConflict)}</p>
-                <p className="text-foreground-muted">{ACTIVATION_CONFLICT_HINT}</p>
+                <p className="text-foreground-muted">{t(activationConflictHint(activateForm.payment_method))}</p>
               </div>
             )}
             <div className="flex gap-3 pt-2">
@@ -2038,7 +2051,7 @@ export default function CustomersPage() {
                 {actionLoading ? (
                   <div className="w-4 h-4 border-2 border-background/30 border-t-background rounded-full animate-spin" />
                 ) : activateConflict ? (
-                  'Record another payment'
+                  t(activationConfirmLabel(activateForm.payment_method))
                 ) : (
                   'Activate'
                 )}
