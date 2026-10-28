@@ -9,12 +9,18 @@ import { formatBps, formatBytes } from '../../lib/live';
 import type { ActivatePPPoERequest, Customer, StaticActionResponse, StaticStatusResponse } from '../../lib/types';
 import { staticFindings, staticRate, staticTraffic, type StaticTone } from './staticIp';
 import {
-  ACTIVATION_CONFLICT_HINT,
-  MANUAL_PAYMENT_OPTIONS,
+  activationConfirmLabel,
   activationConflict,
+  activationConflictHint,
   activationConflictMessage,
+  isNoPayment,
+  manualPaymentHint,
+  manualPaymentOptions,
   type ActivationConflict,
 } from '../../lib/manualActivation';
+import { useT } from '../../lib/i18n';
+import { PERMISSIONS } from '../../lib/permissions';
+import { usePermissions } from '../../hooks/usePermissions';
 
 const TONE_CLASS: Record<StaticTone, string> = {
   success: 'bg-success/10 border-success/20 text-success',
@@ -39,6 +45,11 @@ export default function StaticIpPanel({ customer, onChanged }: { customer: Custo
   const [payForm, setPayForm] = useState<ActivatePPPoERequest>({ payment_method: 'cash' });
   // Set when the backend refused because the customer already paid / is active.
   const [payConflict, setPayConflict] = useState<ActivationConflict | null>(null);
+  const t = useT();
+  // Recording a payment / activating needs customers.manage, as on the list.
+  const { can } = usePermissions();
+  const canManageCustomers = can(PERMISSIONS.customersManage);
+  const noPayment = isNoPayment(payForm.payment_method);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -88,7 +99,7 @@ export default function StaticIpPanel({ customer, onChanged }: { customer: Custo
       const result = await api.activateStatic(customer.id, force ? { ...payForm, force: true } : payForm);
       closePay();
       if (result.router_result === 'ok') {
-        showAlert('success', 'Payment recorded and access opened');
+        showAlert('success', noPayment ? t('Activated without payment and access opened') : 'Payment recorded and access opened');
       } else {
         showAlert('warning', `Saved, but the router was not updated yet: ${result.router_error || 'unreachable'}. It will retry automatically.`);
       }
@@ -220,9 +231,11 @@ export default function StaticIpPanel({ customer, onChanged }: { customer: Custo
             {busy === 'resume' ? 'Resuming…' : 'Resume remaining access'}
           </button>
         )}
-        <button type="button" className="btn-primary col-span-2" disabled={!!busy} onClick={() => setPayOpen(true)}>
-          Record payment &amp; activate
-        </button>
+        {canManageCustomers && (
+          <button type="button" className="btn-primary col-span-2" disabled={!!busy} onClick={() => setPayOpen(true)}>
+            Record payment &amp; activate
+          </button>
+        )}
         <button
           type="button"
           className="btn-secondary"
@@ -291,11 +304,19 @@ export default function StaticIpPanel({ customer, onChanged }: { customer: Custo
       {payOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={closePay}>
           <div className="card p-6 w-full max-w-sm space-y-4" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-lg font-semibold text-foreground">Record payment</h3>
-            <p className="text-sm text-foreground-muted">
-              Records {customer.plan?.price != null ? formatAmount(customer.plan.price) : 'the plan price'} for{' '}
-              {customer.plan?.name || 'the plan'}, extends the expiry and opens access on the router.
-            </p>
+            <h3 className="text-lg font-semibold text-foreground">{noPayment ? t('Activate without payment') : 'Record payment'}</h3>
+            {noPayment ? (
+              <p className="text-sm text-foreground-muted">
+                {t('Activates {plan} for its full period without recording a payment, and opens access on the router.', {
+                  plan: customer.plan?.name || t('the plan'),
+                })}
+              </p>
+            ) : (
+              <p className="text-sm text-foreground-muted">
+                Records {customer.plan?.price != null ? formatAmount(customer.plan.price) : 'the plan price'} for{' '}
+                {customer.plan?.name || 'the plan'}, extends the expiry and opens access on the router.
+              </p>
+            )}
             <div>
               <label htmlFor="static-payment-method" className="block text-sm font-medium text-foreground-muted mb-1.5">Payment method</label>
               <select
@@ -304,12 +325,12 @@ export default function StaticIpPanel({ customer, onChanged }: { customer: Custo
                 value={payForm.payment_method}
                 onChange={(e) => setPayForm({ ...payForm, payment_method: e.target.value as ActivatePPPoERequest['payment_method'] })}
               >
-                {MANUAL_PAYMENT_OPTIONS.map((o) => (
-                  <option key={o.value} value={o.value}>{o.label}</option>
+                {manualPaymentOptions(canManageCustomers).map((o) => (
+                  <option key={o.value} value={o.value}>{t(o.label)}</option>
                 ))}
               </select>
-              <p className="text-xs text-foreground-muted mt-1">
-                M-Pesa paid to your paybill or till activates the customer automatically.
+              <p className="text-xs text-foreground-muted mt-1" data-testid="activate-payment-hint">
+                {t(manualPaymentHint(payForm.payment_method))}
               </p>
             </div>
             <div>
@@ -334,7 +355,7 @@ export default function StaticIpPanel({ customer, onChanged }: { customer: Custo
             {payConflict && (
               <div role="alert" data-testid="activate-conflict" className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm space-y-1">
                 <p className="font-medium text-foreground">{activationConflictMessage(payConflict)}</p>
-                <p className="text-foreground-muted">{ACTIVATION_CONFLICT_HINT}</p>
+                <p className="text-foreground-muted">{t(activationConflictHint(payForm.payment_method))}</p>
               </div>
             )}
             <div className="flex gap-3 pt-2">
@@ -345,7 +366,11 @@ export default function StaticIpPanel({ customer, onChanged }: { customer: Custo
                 disabled={!!busy}
                 onClick={() => { void recordPayment(); }}
               >
-                {busy === 'pay' ? 'Saving…' : payConflict ? 'Record another payment' : 'Record payment'}
+                {busy === 'pay'
+                  ? 'Saving…'
+                  : payConflict
+                    ? t(activationConfirmLabel(payForm.payment_method))
+                    : noPayment ? t('Activate without payment') : 'Record payment'}
               </button>
             </div>
           </div>
