@@ -108,6 +108,8 @@ import {
   HotspotOverviewResponse,
   HotspotLogsResponse,
   PortStatusResponse,
+  PortRestartOptionsResponse,
+  RestartPortResponse,
   PortAnalyticsResponse,
   MacDiagnoseResponse,
   RouterUptimeResponse,
@@ -2500,6 +2502,27 @@ class ApiClient {
       headers: this.getHeaders(),
     });
     return this.handleResponse<PortStatusResponse>(response);
+  }
+
+  async getPortRestartOptions(routerId: number): Promise<PortRestartOptionsResponse> {
+    if (this.isDemoMode()) return (await loadDemo()).demoPortRestartOptions(routerId);
+    const response = await fetch(`${BASE_URL}/routers/${routerId}/interfaces/restart-options`, {
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<PortRestartOptionsResponse>(response);
+  }
+
+  async restartRouterPort(routerId: number, interfaceName: string): Promise<RestartPortResponse> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(
+      `${BASE_URL}/routers/${routerId}/interfaces/${encodeURIComponent(interfaceName)}/restart`,
+      {
+        method: 'POST',
+        headers: this.getHeaders(),
+        body: JSON.stringify({ confirm: true }),
+      },
+    );
+    return this.handleResponse<RestartPortResponse>(response);
   }
 
   async getPortAnalytics(routerId: number, refresh = false): Promise<PortAnalyticsResponse> {

@@ -3714,6 +3714,41 @@ export interface BridgeEntry {
   port_count: number;
 }
 
+// Remote port restart (power-cycle / bounce the access point behind a LAN port)
+export type PortRestartReasonCode =
+  | 'not_found' | 'not_ethernet' | 'wan' | 'management' | 'api_ingress' | 'not_lan' | 'disabled';
+
+export interface PortRestartOption {
+  name: string;
+  eligible: boolean;
+  reason_code: PortRestartReasonCode | null;
+  reason: string | null;
+  /** 'poe' = PoE power-cycle, 'bounce' = port off/on. Null when not eligible. */
+  method: 'poe' | 'bounce' | null;
+  poe_out: string | null;
+  bridge: string | null;
+}
+
+export interface PortRestartOptionsResponse {
+  router_id: number;
+  router_name: string;
+  restart_in_progress: boolean;
+  ports: PortRestartOption[];
+}
+
+export interface RestartPortResponse {
+  success: boolean;
+  router_id: number;
+  router_name: string;
+  interface: string;
+  method: 'poe_power_cycle' | 'poe_toggle' | 'interface_bounce';
+  method_label: string;
+  restored: boolean;
+  off_seconds: number | null;
+  message: string;
+  requested_at: string;
+}
+
 export interface PortStatusResponse {
   router_id: number;
   router_name: string;

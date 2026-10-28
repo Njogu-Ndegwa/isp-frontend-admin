@@ -31,6 +31,7 @@ import type {
   HotspotOverviewResponse,
   HotspotLogsResponse,
   PortStatusResponse,
+  PortRestartOptionsResponse,
   PortAnalyticsResponse,
   PortAnalyticsPort,
   InfrastructureDevice,
@@ -761,6 +762,23 @@ export function demoPortStatus(routerId: number): PortStatusResponse {
       { name: 'bridge-hotspot', running: true, disabled: false, port_count: 2 },
       { name: 'bridge-pppoe', running: true, disabled: false, port_count: 2 },
     ],
+  };
+}
+
+// ─── Port restart eligibility ───────────────────────────────────────
+export function demoPortRestartOptions(routerId: number): PortRestartOptionsResponse {
+  const status = demoPortStatus(routerId);
+  return {
+    router_id: status.router_id, router_name: status.router_name, restart_in_progress: false,
+    ports: status.ports.map((p, i) => ({
+      name: p.port,
+      eligible: i > 0,
+      reason_code: i === 0 ? 'wan' : null,
+      reason: i === 0 ? 'Internet port' : null,
+      method: i === 0 ? null : i === 1 ? 'poe' : 'bounce',
+      poe_out: i === 1 ? 'auto-on' : null,
+      bridge: p.bridge || null,
+    })),
   };
 }
 
