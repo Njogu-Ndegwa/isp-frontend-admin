@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { api } from '../lib/api';
+import { isSupportedWanPortName } from '../lib/loadBalancingPorts';
 import {
   Router,
   RouterInterfaceInfo,
@@ -31,9 +32,6 @@ type LoadingAction =
 
 const PRIMARY_WAN = 'ether1';
 const MAX_EXTRA_WANS = 3;
-// Backend validates WAN port names with a strict fullmatch — combo names
-// like "sfp-sfpplus1" are rejected, so keep them out of the selectable list.
-const WAN_NAME_RE = /^(ether|sfp)[0-9]+$/;
 
 interface LoadBalancingControlsProps {
   router: Router;
@@ -709,9 +707,7 @@ export default function LoadBalancingControls({
                       <ul className="space-y-1.5">
                         {etherPorts.map((port) => {
                           const isPrimary = port.name === PRIMARY_WAN;
-                          // Backend rejects names outside ^(ether|sfp)[0-9]+$
-                          // (e.g. combo ports like "sfp-sfpplus1").
-                          const unsupported = !WAN_NAME_RE.test(port.name);
+                          const unsupported = !isSupportedWanPortName(port.name);
                           const servesCustomers = customerPorts.has(port.name);
                           const isSelected = selected.includes(port.name);
                           const selectionFull = selected.length >= MAX_EXTRA_WANS && !isSelected;
