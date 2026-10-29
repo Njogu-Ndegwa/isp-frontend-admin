@@ -73,8 +73,25 @@ export function hasPermission(user: UserLike, permission: string): boolean {
   return Array.isArray(granted) && granted.includes(permission);
 }
 
-/** Reseller pages and the permission each one needs. Sub-paths inherit. */
-export const PAGE_PERMISSIONS: ReadonlyArray<readonly [string, string]> = [
+/** A page's requirement: one permission, or a list where any one is enough. */
+export type PageRequirement = string | readonly string[];
+
+/** Can this user do at least one of `requirement`? */
+export function hasAnyPermission(user: UserLike, requirement: PageRequirement): boolean {
+  return typeof requirement === 'string'
+    ? hasPermission(user, requirement)
+    : requirement.some((p) => hasPermission(user, p));
+}
+
+/** Ads: reading the list and stats needs either of these; changing ads needs portal.manage. */
+export const ADS_VIEW_PERMISSIONS: readonly string[] = [PERMISSIONS.portalManage, PERMISSIONS.dashboardView];
+
+/**
+ * Reseller pages and the permission each one needs. Sub-paths inherit; the
+ * first match wins, so specific paths go first. A `*` segment matches any one
+ * segment (e.g. an id).
+ */
+export const PAGE_PERMISSIONS: ReadonlyArray<readonly [string, PageRequirement]> = [
   ['/dashboard', PERMISSIONS.dashboardView],
   ['/customers/register', PERMISSIONS.customersManage],
   ['/customers', PERMISSIONS.customersView],
@@ -98,6 +115,11 @@ export const PAGE_PERMISSIONS: ReadonlyArray<readonly [string, string]> = [
   ['/settings/portal-customization', PERMISSIONS.portalManage],
   ['/settings/staff', OWNER_ONLY],
   ['/setup', OWNER_ONLY],
+  ['/ads/new', PERMISSIONS.portalManage],
+  ['/ads/*/edit', PERMISSIONS.portalManage],
+  ['/ads', ADS_VIEW_PERMISSIONS],
+  // Advertiser contacts are Bitwave-admin only (the API refuses resellers too).
+  ['/advertisers', OWNER_ONLY],
 ];
 
 /** Settings sub-pages, in the order the settings hub lists them. */
@@ -127,14 +149,18 @@ export const LANDING_ORDER: readonly string[] = [
   '/settings/subscription',
   '/settings/payment-methods',
   '/settings/portal-customization',
+  '/ads',
 ];
 
 function matchesPrefix(pathname: string, prefix: string): boolean {
-  return pathname === prefix || pathname.startsWith(`${prefix}/`);
+  if (!prefix.includes('*')) return pathname === prefix || pathname.startsWith(`${prefix}/`);
+  const want = prefix.split('/');
+  const have = pathname.split('/');
+  return have.length >= want.length && want.every((seg, i) => seg === '*' ? have[i] !== '' : seg === have[i]);
 }
 
 /** The permission a path needs, or undefined when it is not gated. */
-export function requiredPermissionForPath(pathname: string): string | undefined {
+export function requiredPermissionForPath(pathname: string): PageRequirement | undefined {
   const path = (pathname.split(/[?#]/)[0] || '/').replace(/\/+$/, '') || '/';
   for (const [prefix, permission] of PAGE_PERMISSIONS) {
     if (matchesPrefix(path, prefix)) return permission;
@@ -154,7 +180,7 @@ export function canAccessPath(user: UserLike, pathname: string): boolean {
     return SETTINGS_PAGES.some((p) => canAccessPath(user, p));
   }
   const permission = requiredPermissionForPath(path);
-  return permission === undefined || hasPermission(user, permission);
+  return permission === undefined || hasAnyPermission(user, permission);
 }
 
 /** First page this user can open, or null when a staff member has none. */

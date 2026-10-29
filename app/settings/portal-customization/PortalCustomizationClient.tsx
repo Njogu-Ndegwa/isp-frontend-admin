@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
+import Link from 'next/link';
 import { api } from '../../lib/api';
 import {
   Plan,
@@ -460,16 +461,30 @@ export default function PortalCustomizationPage() {
         </div>
         <div className="p-5 space-y-3">
           {[
-            { key: 'show_ads' as const, label: 'Show Ads', desc: 'Display the marketplace ads strip' },
+            {
+              key: 'show_ads' as const,
+              label: 'Show Ads',
+              desc: 'Show ads in your portal’s top photo, while customers wait for M-Pesa, and after they pay.',
+              link: { href: '/ads', text: 'Manage your ads' },
+            },
             { key: 'show_plan_speed' as const, label: 'Show Plan Speed', desc: 'Display download/upload speed on each plan card' },
           ].map((toggle) => (
             <label
               key={toggle.key}
-              className="flex items-center justify-between p-3 rounded-xl bg-background-tertiary/50 cursor-pointer"
+              className="flex items-center justify-between gap-3 p-3 rounded-xl bg-background-tertiary/50 cursor-pointer"
             >
               <div>
                 <div className="text-sm font-medium text-foreground">{toggle.label}</div>
                 <div className="text-xs text-foreground-muted">{toggle.desc}</div>
+                {'link' in toggle && toggle.link && (
+                  <Link
+                    href={toggle.link.href}
+                    onClick={(e) => e.stopPropagation()}
+                    className="mt-1 inline-flex min-h-[32px] items-center text-xs font-semibold text-accent-primary hover:underline"
+                  >
+                    {toggle.link.text} →
+                  </Link>
+                )}
               </div>
               <input
                 type="checkbox"

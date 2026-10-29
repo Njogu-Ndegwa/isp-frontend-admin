@@ -86,3 +86,18 @@ describe('Mobile bottom nav', () => {
       .toEqual(['/settings']);
   });
 });
+
+describe('Ads link', () => {
+  it('shows for owners and for staff who manage the portal or view the dashboard', () => {
+    for (const user of [OWNER, staff(['portal.manage']), staff(['dashboard.view'])]) {
+      expect(hrefs(filterNavGroups(navGroups, user))).toContain('/ads');
+      expect(hrefs(filterNavGroups(resellerGroups, user))).toContain('/ads');
+    }
+  });
+
+  it('is hidden from staff without either permission', () => {
+    const tech = staff(['routers.view', 'routers.manage', 'customers.view']);
+    expect(hrefs(filterNavGroups(navGroups, tech))).not.toContain('/ads');
+    expect(hrefs(filterNavGroups(resellerGroups, tech))).not.toContain('/ads');
+  });
+});

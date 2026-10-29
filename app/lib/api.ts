@@ -43,11 +43,12 @@ import {
   Advertiser,
   CreateAdvertiserRequest,
   Ad,
-  CreateAdRequest,
-  AdsResponse,
-  AdClicksResponse,
-  AdImpressionsResponse,
+  AdInput,
+  AdsManageResponse,
+  AdStats,
+  AdMediaUploadTicket,
   AdAnalytics,
+  AdsManageParams,
   Rating,
   RatingSummary,
   CustomerMapData,
@@ -1597,31 +1598,62 @@ class ApiClient {
     return this.handleResponse<Advertiser>(response);
   }
 
-  // Ads
-  async getAds(
-    page = 1,
-    perPage = 20,
-    category?: string
-  ): Promise<AdsResponse> {
-    if (this.isDemoMode()) return (await loadDemo()).demoAdsResponse;
-    const params = new URLSearchParams();
-    params.append('page', page.toString());
-    params.append('per_page', perPage.toString());
-    if (category) params.append('category', category);
-
-    const response = await fetch(
-      `${BASE_URL}/ads?${params.toString()}`,
-      { headers: this.getHeaders(true) }
-    );
-    return this.handleResponse<AdsResponse>(response);
+  // Ads (hero ads). Contract: isp-billing ADS_API.md. GET /api/ads is the
+  // public portal feed; managing goes through /api/ads/manage.
+  async getManagedAds(params: AdsManageParams = {}): Promise<AdsManageResponse> {
+    if (this.isDemoMode()) return (await loadDemo()).demoManagedAds(params);
+    const qs = new URLSearchParams();
+    if (params.status) qs.set('status', params.status);
+    if (params.placement) qs.set('placement', params.placement);
+    if (params.bitwave_only) qs.set('bitwave_only', 'true');
+    else if (params.owner_user_id != null) qs.set('owner_user_id', String(params.owner_user_id));
+    qs.set('page', String(params.page ?? 1));
+    qs.set('per_page', String(params.perPage ?? 50));
+    const response = await fetch(`${BASE_URL}/ads/manage?${qs.toString()}`, {
+      headers: this.getHeaders(true),
+    });
+    return this.handleResponse<AdsManageResponse>(response);
   }
 
-  async createAd(ad: CreateAdRequest): Promise<Ad> {
+  /** Totals over the caller's ads (admin: all) for the last `days` days. */
+  async getAdAnalytics(days = 30): Promise<AdAnalytics> {
+    if (this.isDemoMode()) return (await loadDemo()).demoAdAnalytics();
+    const response = await fetch(`${BASE_URL}/ads/analytics?days=${days}`, {
+      headers: this.getHeaders(true),
+    });
+    return this.handleResponse<AdAnalytics>(response);
+  }
+
+  async getManagedAd(adId: number): Promise<Ad> {
+    if (this.isDemoMode()) {
+      const ad = (await loadDemo()).demoAds.find((a) => a.id === adId);
+      if (!ad) throw new ApiError('Ad not found', 404);
+      return ad;
+    }
+    const response = await fetch(`${BASE_URL}/ads/manage/${adId}`, {
+      headers: this.getHeaders(true),
+    });
+    return this.handleResponse<Ad>(response);
+  }
+
+  async createAd(ad: AdInput): Promise<Ad> {
     if (this.isDemoMode()) this.demoBlock();
     const response = await fetch(`${BASE_URL}/ads`, {
       method: 'POST',
       headers: this.getHeaders(true),
       body: JSON.stringify(ad),
+    });
+    return this.handleResponse<Ad>(response);
+  }
+
+  /** Send only the fields that changed: a reseller's edit to what customers
+   *  see sends an approved ad back for review, even if the value is the same. */
+  async updateAd(adId: number, updates: AdInput): Promise<Ad> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(`${BASE_URL}/ads/${adId}`, {
+      method: 'PUT',
+      headers: this.getHeaders(true),
+      body: JSON.stringify(updates),
     });
     return this.handleResponse<Ad>(response);
   }
@@ -1635,59 +1667,62 @@ class ApiClient {
     return this.handleResponse<{ message: string }>(response);
   }
 
-  async updateAd(adId: number, updates: Partial<Ad>): Promise<Ad> {
+  /** Admin only. A rejection needs a note; the reseller sees it. */
+  async reviewAd(adId: number, action: 'approve' | 'reject', note?: string): Promise<Ad> {
     if (this.isDemoMode()) this.demoBlock();
-    const response = await fetch(`${BASE_URL}/ads/${adId}`, {
-      method: 'PUT',
+    const response = await fetch(`${BASE_URL}/ads/${adId}/review`, {
+      method: 'POST',
       headers: this.getHeaders(true),
-      body: JSON.stringify(updates),
+      body: JSON.stringify({ action, note: note ?? null }),
     });
     return this.handleResponse<Ad>(response);
   }
 
-  async getAdClicks(
-    adId: number,
-    page = 1,
-    perPage = 50,
-    clickType?: 'view_details' | 'call' | 'whatsapp'
-  ): Promise<AdClicksResponse> {
-    if (this.isDemoMode()) return (await loadDemo()).demoAdClicksResponse;
-    const params = new URLSearchParams();
-    params.append('page', page.toString());
-    params.append('per_page', perPage.toString());
-    if (clickType) params.append('click_type', clickType);
-
-    const response = await fetch(
-      `${BASE_URL}/ads/${adId}/clicks?${params.toString()}`,
-      { headers: this.getHeaders(true) }
-    );
-    return this.handleResponse<AdClicksResponse>(response);
+  async getAdStats(adId: number, days = 30): Promise<AdStats> {
+    if (this.isDemoMode()) return (await loadDemo()).demoAdStats(adId, days);
+    const response = await fetch(`${BASE_URL}/ads/${adId}/stats?days=${days}`, {
+      headers: this.getHeaders(true),
+    });
+    return this.handleResponse<AdStats>(response);
   }
 
-  async getAdImpressions(
-    adId: number,
-    page = 1,
-    perPage = 50
-  ): Promise<AdImpressionsResponse> {
-    if (this.isDemoMode()) return (await loadDemo()).demoAdImpressionsResponse;
-    const params = new URLSearchParams();
-    params.append('page', page.toString());
-    params.append('per_page', perPage.toString());
-
-    const response = await fetch(
-      `${BASE_URL}/ads/${adId}/impressions?${params.toString()}`,
-      { headers: this.getHeaders(true) }
-    );
-    return this.handleResponse<AdImpressionsResponse>(response);
+  /** Step 1 of an upload. 503 = storage not set up yet; 400 = wrong type or too big. */
+  async requestAdMediaUpload(contentType: string, size: number): Promise<AdMediaUploadTicket> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(`${BASE_URL}/ads/media/upload-url`, {
+      method: 'POST',
+      headers: this.getHeaders(true),
+      body: JSON.stringify({ content_type: contentType, size }),
+    });
+    return this.handleResponse<AdMediaUploadTicket>(response);
   }
 
-  async getAdAnalytics(days = 30): Promise<AdAnalytics> {
-    if (this.isDemoMode()) return (await loadDemo()).demoAdAnalytics;
-    const response = await fetch(
-      `${BASE_URL}/ads/analytics?days=${days}`,
-      { headers: this.getHeaders(true) }
-    );
-    return this.handleResponse<AdAnalytics>(response);
+  /** Step 2: PUT the file straight to storage (no auth header). XHR, for progress. */
+  uploadAdMedia(
+    ticket: AdMediaUploadTicket,
+    file: File,
+    onProgress?: (fraction: number) => void,
+    signal?: AbortSignal,
+  ): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open(ticket.method || 'PUT', ticket.upload_url);
+      const headers = ticket.headers && Object.keys(ticket.headers).length
+        ? ticket.headers
+        : { 'Content-Type': ticket.content_type };
+      for (const [name, value] of Object.entries(headers)) xhr.setRequestHeader(name, value);
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable && onProgress) onProgress(e.loaded / e.total);
+      };
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) resolve();
+        else reject(new ApiError(`Upload failed (${xhr.status})`, xhr.status));
+      };
+      xhr.onerror = () => reject(new ApiError('Upload failed. Check your connection and try again.', 0));
+      xhr.onabort = () => reject(new ApiError('Upload cancelled', 0));
+      if (signal) signal.addEventListener('abort', () => xhr.abort(), { once: true });
+      xhr.send(file);
+    });
   }
 
   // Ratings
