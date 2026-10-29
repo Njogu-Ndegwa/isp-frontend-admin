@@ -196,6 +196,9 @@ import {
   AdminGrowthTargetsResponse,
   AdminEarnings,
   AdminPlatformEarnings,
+  PlatformWithdrawal,
+  PlatformWithdrawalCreate,
+  PlatformWithdrawalLedger,
   AdminEarningsAccount,
   GrowthTargetUpdatePayload,
   LeadSource,
@@ -3395,6 +3398,35 @@ class ApiClient {
       signal,
     });
     return this.handleResponse<AdminPlatformEarnings>(response);
+  }
+
+  /** Withdrawals ledger since 1 Oct 2026: collected / withdrawn / available and the records. */
+  async getPlatformWithdrawals(signal?: AbortSignal): Promise<PlatformWithdrawalLedger> {
+    const response = await fetch(`${BASE_URL}/admin/metrics/platform-withdrawals`, {
+      headers: this.getHeaders(),
+      signal,
+    });
+    return this.handleResponse<PlatformWithdrawalLedger>(response);
+  }
+
+  /** Records a withdrawal already made. Moves no money. */
+  async createPlatformWithdrawal(payload: PlatformWithdrawalCreate): Promise<PlatformWithdrawal> {
+    const response = await fetch(`${BASE_URL}/admin/metrics/platform-withdrawals`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify(payload),
+    });
+    return this.handleResponse<PlatformWithdrawal>(response, false, true);
+  }
+
+  /** Voids a withdrawal recorded by mistake; the row is kept, marked voided. */
+  async voidPlatformWithdrawal(id: number, reason: string): Promise<PlatformWithdrawal> {
+    const response = await fetch(`${BASE_URL}/admin/metrics/platform-withdrawals/${id}/void`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify({ reason }),
+    });
+    return this.handleResponse<PlatformWithdrawal>(response, false, true);
   }
 
   async setAdminOwnResellerAccounts(
