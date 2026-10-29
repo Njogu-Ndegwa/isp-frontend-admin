@@ -34,9 +34,13 @@ import {
   PLAN_TYPE_BADGE,
   PLAN_TYPE_LABEL,
   PLAN_TYPE_TITLE,
+  applyConnectionType,
   applyPlanType,
+  freeTrialAllowsConnection,
   getPlanType,
   isFreeTrialPlan,
+  isPortalTrial,
+  planFormFields,
   trialFrequencyLabel,
 } from './planType';
 
@@ -186,7 +190,7 @@ export default function PlansPage() {
       sharing,
       scope,
       t(PLAN_TYPE_TITLE[getPlanType(plan)]),
-      isFreeTrialPlan(plan) ? t(trialFrequencyLabel(plan)) : null,
+      isPortalTrial(plan) ? t(trialFrequencyLabel(plan)) : null,
     ].filter(Boolean).join(' - ');
   };
 
@@ -475,7 +479,9 @@ export default function PlansPage() {
                     return (
                       <div>
                         <span className="badge badge-cyan">{t('Free trial')}</span>
-                        <p className="text-xs text-foreground-muted mt-1">{t(trialFrequencyLabel(plan))}</p>
+                        {isPortalTrial(plan) && (
+                          <p className="text-xs text-foreground-muted mt-1">{t(trialFrequencyLabel(plan))}</p>
+                        )}
                       </div>
                     );
                   }
@@ -747,9 +753,9 @@ function EditPlanModal({
   const [paidPrice, setPaidPrice] = useState(plan.price > 0 ? plan.price : 0);
   const [paidSharedUsers, setPaidSharedUsers] = useState(Math.max(1, Number(plan.max_shared_users) || 1));
 
-  const isPPPoE = formData.connection_type === 'pppoe';
   const noSharing = formData.connection_type === 'static_ip';
   const isFreeTrial = formData.plan_type === 'free_trial';
+  const fields = planFormFields(formData);
   const dataCapMb = dataCapInputToMb(dataCapValue, dataCapUnit);
 
   const durationUnit = formData.duration_unit || 'HOURS';
@@ -791,10 +797,10 @@ function EditPlanModal({
       }
       payload.router_ids = routerScope;
       if (isFreeTrial) {
-        // The backend rejects a free trial that isn't free or isn't hotspot.
+        // The backend rejects a free trial that isn't free, or is static IP.
         payload.price = 0;
         payload.original_price = null;
-        payload.connection_type = 'hotspot';
+        if (!freeTrialAllowsConnection(payload.connection_type)) payload.connection_type = 'hotspot';
       }
       payload.duration_value = normalized.value;
       payload.duration_unit = normalized.unit;
@@ -939,26 +945,15 @@ function EditPlanModal({
                 <label className="block text-sm font-medium text-foreground mb-2">Connection Type</label>
                 <select
                   value={formData.connection_type || 'hotspot'}
-                  onChange={(e) => {
-                    const connectionType = e.target.value as ConnectionType;
-                    setFormData({
-                      ...formData,
-                      connection_type: connectionType,
-                      max_shared_users: connectionType === 'static_ip' ? 1 : (formData.max_shared_users ?? 1),
-                    });
-                  }}
+                  onChange={(e) => setFormData(applyConnectionType(formData, e.target.value as ConnectionType))}
                   className="select"
-                  disabled={isFreeTrial}
                 >
                   <option value="hotspot">Hotspot</option>
-                  <option value="pppoe" disabled={isFreeTrial}>PPPoE</option>
+                  <option value="pppoe">PPPoE</option>
                   <option value="static_ip" disabled={isFreeTrial}>Static IP</option>
                 </select>
-                {formData.connection_type === 'static_ip' && (
-                  <p className="mt-1 text-xs text-foreground-muted">For devices with a fixed IP on your router. Paying opens access at this speed; expiry suspends it.</p>
-                )}
-                {isFreeTrial && (
-                  <p className="mt-1 text-xs text-foreground-muted">Free trials are claimed on the hotspot login page, so they are hotspot only.</p>
+                {fields.connectionHint && (
+                  <p className="mt-1 text-xs text-foreground-muted">{fields.connectionHint}</p>
                 )}
               </div>
               <div>
@@ -991,14 +986,10 @@ function EditPlanModal({
                 <option value="emergency">Emergency</option>
                 <option value="free_trial">Free Trial</option>
               </select>
-              <p className="mt-1 text-xs text-foreground-muted">
-                {isFreeTrial
-                  ? 'Customers claim this plan for free from the hotspot login page. It is not counted as revenue.'
-                  : 'Emergency plans only appear on the portal while emergency mode is active on a router.'}
-              </p>
+              <p className="mt-1 text-xs text-foreground-muted">{fields.planTypeHint}</p>
             </div>
 
-            {isFreeTrial && (
+            {fields.trialFrequency && (
               <TrialFrequencyPicker
                 value={formData.trial_once_per_customer ?? true}
                 onChange={(once) => setFormData({ ...formData, trial_once_per_customer: once })}
@@ -1006,7 +997,7 @@ function EditPlanModal({
               />
             )}
 
-            {!noSharing && (
+            {fields.devices && (
               <div>
                 <label className="block text-sm font-medium text-foreground mb-2">Subscription Devices</label>
                 <input
@@ -1022,13 +1013,7 @@ function EditPlanModal({
                   min={1}
                   max={50}
                 />
-                <p className="mt-1 text-xs text-foreground-muted">
-                  {isFreeTrial
-                    ? 'Devices one claimed trial covers. 1 = only the device that claimed it.'
-                    : isPPPoE
-                      ? 'Devices that can be online at once with the same PPPoE username and password. Each gets the full plan speed; the data cap is shared. Changing it updates active customers’ routers; their devices reconnect once.'
-                      : '1 disables sharing. 2 allows the owner plus one extra device.'}
-                </p>
+                <p className="mt-1 text-xs text-foreground-muted">{fields.devicesHint}</p>
               </div>
             )}
 
