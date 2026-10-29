@@ -203,10 +203,12 @@ export function AuthProvider({
         const staff = me?.is_staff && me.staff
           ? { ...me.staff, permissions: Array.isArray(me.permissions) ? me.permissions : me.staff.permissions ?? [] }
           : null;
+        const flags = (me as { feature_flags?: { ap_control?: boolean } } | null)?.feature_flags ?? null;
         setUser((prev) => {
           if (!prev) return prev;
-          if (JSON.stringify(prev.staff ?? null) === JSON.stringify(staff)) return prev;
-          const updated = { ...prev, staff };
+          if (JSON.stringify(prev.staff ?? null) === JSON.stringify(staff)
+              && JSON.stringify(prev.feature_flags ?? null) === JSON.stringify(flags)) return prev;
+          const updated = { ...prev, staff, feature_flags: flags };
           localStorage.setItem('auth_user', JSON.stringify(updated));
           persistAuthCookies(token, updated, false);
           return updated;
@@ -219,10 +221,16 @@ export function AuthProvider({
       if (isStaff || cancelled) return;
       try {
         const profile = await api.getProfile();
-        if (cancelled || !profile?.market) return;
+        if (cancelled || !profile) return;
+        const flags = (profile as { feature_flags?: { ap_control?: boolean } }).feature_flags ?? null;
         setUser((prev) => {
           if (!prev) return prev;
-          const updated = { ...prev, market: profile.market, preferred_language: profile.preferred_language ?? null };
+          const updated = {
+            ...prev,
+            ...(profile.market ? { market: profile.market, preferred_language: profile.preferred_language ?? null } : {}),
+            feature_flags: flags,
+          };
+          if (JSON.stringify(updated) === JSON.stringify(prev)) return prev;
           localStorage.setItem('auth_user', JSON.stringify(updated));
           persistAuthCookies(token, updated, false);
           return updated;
