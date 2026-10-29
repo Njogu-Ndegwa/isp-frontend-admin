@@ -16,6 +16,8 @@ import {
 import { api } from '../../lib/api';
 import type { Ad, AdStats, Router } from '../../lib/types';
 import { useAuth } from '../../context/AuthContext';
+import { usePermissions } from '../../hooks/usePermissions';
+import { PERMISSIONS } from '../../lib/permissions';
 import { useAlert } from '../../context/AlertContext';
 import { useT } from '../../lib/i18n';
 import Header from '../../components/Header';
@@ -88,6 +90,9 @@ export default function AdDetailClient() {
   const { user } = useAuth();
   const { showAlert } = useAlert();
   const isAdmin = user?.role === 'admin';
+  // "View dashboard" staff see the ad and its stats; changing it needs "Captive portal".
+  const { can } = usePermissions();
+  const canManage = can(PERMISSIONS.portalManage);
   const adId = Number(params.id);
 
   const [ad, setAd] = useState<Ad | null>(null);
@@ -181,12 +186,12 @@ export default function AdDetailClient() {
     }
   };
 
-  const editLink = (
+  const editLink = canManage ? (
     <Link href={`/ads/${ad.id}/edit`} className="btn-primary inline-flex min-h-[44px] items-center gap-2">
       <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z" /></svg>
       {t('Edit')}
     </Link>
-  );
+  ) : undefined;
 
   return (
     <div className="pb-8">
@@ -196,29 +201,31 @@ export default function AdDetailClient() {
         <AdStatusChip status={status} />
         <span className="badge badge-neutral">{t(slotLabel(ad.slot))}</span>
         {isAdmin && <span className="badge badge-neutral">{ownerName}</span>}
-        <div className="ml-auto flex w-full flex-wrap gap-2 sm:w-auto">
-          <Link href={`/ads/${ad.id}/edit`} className="btn-secondary flex min-h-[44px] flex-1 items-center justify-center md:hidden">{t('Edit')}</Link>
-          <button
-            type="button" disabled={busy}
-            onClick={() => void run(() => api.updateAd(ad.id, { is_active: !ad.is_active }), ad.is_active ? t('Ad paused.') : t('Ad resumed.'))}
-            className="btn-secondary min-h-[44px] flex-1 disabled:opacity-50 sm:flex-none"
-          >
-            {ad.is_active ? t('Pause') : t('Resume')}
-          </button>
-          <button
-            type="button" disabled={busy} onClick={() => setConfirmDelete(true)}
-            className="min-h-[44px] flex-1 rounded-[10px] border border-border px-4 text-sm font-medium text-foreground-muted hover:border-danger/40 hover:text-danger disabled:opacity-50 sm:flex-none"
-          >
-            {t('Delete')}
-          </button>
-        </div>
+        {canManage && (
+          <div className="ml-auto flex w-full flex-wrap gap-2 sm:w-auto">
+            <Link href={`/ads/${ad.id}/edit`} className="btn-secondary flex min-h-[44px] flex-1 items-center justify-center md:hidden">{t('Edit')}</Link>
+            <button
+              type="button" disabled={busy}
+              onClick={() => void run(() => api.updateAd(ad.id, { is_active: !ad.is_active }), ad.is_active ? t('Ad paused.') : t('Ad resumed.'))}
+              className="btn-secondary min-h-[44px] flex-1 disabled:opacity-50 sm:flex-none"
+            >
+              {ad.is_active ? t('Pause') : t('Resume')}
+            </button>
+            <button
+              type="button" disabled={busy} onClick={() => setConfirmDelete(true)}
+              className="min-h-[44px] flex-1 rounded-[10px] border border-border px-4 text-sm font-medium text-foreground-muted hover:border-danger/40 hover:text-danger disabled:opacity-50 sm:flex-none"
+            >
+              {t('Delete')}
+            </button>
+          </div>
+        )}
       </div>
 
       {status === 'rejected' && ad.review_note && (
         <div className="mb-5 rounded-2xl border border-danger/30 bg-danger/10 p-4">
           <p className="text-sm font-semibold text-danger">{t('Bitwave rejected this ad')}</p>
           <p className="mt-1 text-sm text-foreground">{ad.review_note}</p>
-          {!isAdmin && (
+          {!isAdmin && canManage && (
             <Link href={`/ads/${ad.id}/edit`} className="mt-2 inline-flex min-h-[44px] items-center text-sm font-semibold text-accent-primary hover:underline">
               {t('Fix it and send again')} →
             </Link>

@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { api } from '../lib/api';
 import type { Ad, AdAnalytics, AdPlacement, AdReviewStatus, Router } from '../lib/types';
 import { useAuth } from '../context/AuthContext';
+import { usePermissions } from '../hooks/usePermissions';
+import { PERMISSIONS } from '../lib/permissions';
 import { useAlert } from '../context/AlertContext';
 import { useT } from '../lib/i18n';
 import Header from '../components/Header';
@@ -45,7 +47,7 @@ function routerScope(ad: Ad, routers: Router[], isAdmin: boolean): string {
   return `${ad.router_ids.length} routers`;
 }
 
-function EmptyState({ isAdmin }: { isAdmin: boolean }) {
+function EmptyState({ isAdmin, canManage }: { isAdmin: boolean; canManage: boolean }) {
   const t = useT();
   const points = isAdmin
     ? [
@@ -82,11 +84,15 @@ function EmptyState({ isAdmin }: { isAdmin: boolean }) {
               </li>
             ))}
           </ul>
-          <Link href="/ads/new" className="btn-primary mt-6 inline-flex min-h-[44px] items-center gap-2">
-            {PlusIcon}
-            {isAdmin ? t('Create a Bitwave ad') : t('Create your first ad')}
-          </Link>
-          {!isAdmin && (
+          {canManage ? (
+            <Link href="/ads/new" className="btn-primary mt-6 inline-flex min-h-[44px] items-center gap-2">
+              {PlusIcon}
+              {isAdmin ? t('Create a Bitwave ad') : t('Create your first ad')}
+            </Link>
+          ) : (
+            <p className="mt-6 text-sm text-foreground-muted">{t('Ask the account owner to create ads.')}</p>
+          )}
+          {!isAdmin && canManage && (
             <p className="mt-3 text-xs text-foreground-muted">{t('Bitwave checks each ad before it goes live.')}</p>
           )}
         </div>
@@ -127,6 +133,9 @@ export default function AdsClient() {
   const { user } = useAuth();
   const { showAlert } = useAlert();
   const isAdmin = user?.role === 'admin';
+  // Staff with "View dashboard" only can read ads; "Captive portal" staff can change them.
+  const { can } = usePermissions();
+  const canManage = can(PERMISSIONS.portalManage);
 
   const [ads, setAds] = useState<Ad[]>([]);
   const [total, setTotal] = useState(0);
@@ -258,7 +267,7 @@ export default function AdsClient() {
   const clearFilters = () => { setStatusFilter(''); setPlacementFilter(''); setOwnerFilter(''); setPage(1); };
   const noAdsAtAll = loaded && !loadError && !filtersActive && total === 0 && (analytics?.total_ads ?? 0) === 0;
 
-  const newButton = (
+  const newButton = canManage && (
     <Link href="/ads/new" className="btn-primary inline-flex min-h-[44px] items-center gap-2">
       {PlusIcon}
       {t('New ad')}
@@ -288,18 +297,20 @@ export default function AdsClient() {
 
   return (
     <div className="pb-6">
-      <Header title={t('Ads')} subtitle={subtitle} action={noAdsAtAll ? undefined : newButton} />
+      <Header title={t('Ads')} subtitle={subtitle} action={noAdsAtAll || !newButton ? undefined : newButton} />
 
       {noAdsAtAll ? (
-        <EmptyState isAdmin={isAdmin} />
+        <EmptyState isAdmin={isAdmin} canManage={canManage} />
       ) : (
         <>
-          <div className="mb-4 md:hidden">
-            <Link href="/ads/new" className="btn-primary flex min-h-[44px] w-full items-center justify-center gap-2">
-              {PlusIcon}
-              {t('New ad')}
-            </Link>
-          </div>
+          {canManage && (
+            <div className="mb-4 md:hidden">
+              <Link href="/ads/new" className="btn-primary flex min-h-[44px] w-full items-center justify-center gap-2">
+                {PlusIcon}
+                {t('New ad')}
+              </Link>
+            </div>
+          )}
 
           <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
             <StatTile label={t('Live now')} value={analytics ? String(analytics.active_ads) : '–'} hint={analytics ? t('{n} ads in total', { n: analytics.total_ads }) : undefined} />
@@ -455,32 +466,38 @@ export default function AdsClient() {
                       )}
 
                       <div className="mt-3 flex flex-wrap items-center gap-1 border-t border-border pt-2.5">
-                        <Link href={`/ads/${ad.id}/edit`} className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg px-3 text-sm font-medium text-foreground hover:bg-background-tertiary">
-                          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8} aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z" /></svg>
-                          {t('Edit')}
-                        </Link>
-                        <button
-                          type="button" disabled={busyId === ad.id} onClick={() => void togglePause(ad)}
-                          className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg px-3 text-sm font-medium text-foreground hover:bg-background-tertiary disabled:opacity-50"
-                        >
-                          {ad.is_active ? (
-                            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 5.25v13.5m-7.5-13.5v13.5" /></svg>
-                          ) : (
-                            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z" /></svg>
-                          )}
-                          {ad.is_active ? t('Pause') : t('Resume')}
-                        </button>
+                        {canManage && (
+                          <>
+                            <Link href={`/ads/${ad.id}/edit`} className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg px-3 text-sm font-medium text-foreground hover:bg-background-tertiary">
+                              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8} aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z" /></svg>
+                              {t('Edit')}
+                            </Link>
+                            <button
+                              type="button" disabled={busyId === ad.id} onClick={() => void togglePause(ad)}
+                              className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg px-3 text-sm font-medium text-foreground hover:bg-background-tertiary disabled:opacity-50"
+                            >
+                              {ad.is_active ? (
+                                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 5.25v13.5m-7.5-13.5v13.5" /></svg>
+                              ) : (
+                                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z" /></svg>
+                              )}
+                              {ad.is_active ? t('Pause') : t('Resume')}
+                            </button>
+                          </>
+                        )}
                         <Link href={`/ads/${ad.id}`} className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg px-3 text-sm font-medium text-foreground hover:bg-background-tertiary">
                           <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8} aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" /></svg>
                           {t('Stats')}
                         </Link>
-                        <button
-                          type="button" disabled={busyId === ad.id} onClick={() => setDeleting(ad)}
-                          className="ml-auto inline-flex min-h-[44px] items-center gap-1.5 rounded-lg px-3 text-sm font-medium text-foreground-muted hover:bg-danger/10 hover:text-danger disabled:opacity-50"
-                        >
-                          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8} aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>
-                          {t('Delete')}
-                        </button>
+                        {canManage && (
+                          <button
+                            type="button" disabled={busyId === ad.id} onClick={() => setDeleting(ad)}
+                            className="ml-auto inline-flex min-h-[44px] items-center gap-1.5 rounded-lg px-3 text-sm font-medium text-foreground-muted hover:bg-danger/10 hover:text-danger disabled:opacity-50"
+                          >
+                            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8} aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>
+                            {t('Delete')}
+                          </button>
+                        )}
                       </div>
                     </li>
                   ))}
