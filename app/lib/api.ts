@@ -110,6 +110,10 @@ import {
   PortStatusResponse,
   PortRestartOptionsResponse,
   RestartPortResponse,
+  AccessPointsResponse,
+  ApActionResponse,
+  ApStatusResponse,
+  ApCredentialView,
   PortAnalyticsResponse,
   MacDiagnoseResponse,
   RouterUptimeResponse,
@@ -2523,6 +2527,63 @@ class ApiClient {
       },
     );
     return this.handleResponse<RestartPortResponse>(response);
+  }
+
+  // --- Access points behind the router (Tenda etc.) --------------------
+  async getAccessPoints(routerId: number): Promise<AccessPointsResponse> {
+    if (this.isDemoMode()) return (await loadDemo()).demoAccessPoints(routerId);
+    const response = await fetch(`${BASE_URL}/routers/${routerId}/access-points`, {
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<AccessPointsResponse>(response);
+  }
+
+  async saveApCredential(
+    routerId: number, apMac: string,
+    body: { password: string; username?: string; vendor?: string; model?: string; ap_ip?: string },
+  ): Promise<{ success: boolean; credential: ApCredentialView }> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(
+      `${BASE_URL}/routers/${routerId}/access-points/${encodeURIComponent(apMac)}/credential`,
+      { method: 'PUT', headers: this.getHeaders(), body: JSON.stringify(body) },
+    );
+    return this.handleResponse(response);
+  }
+
+  async deleteApCredential(routerId: number, apMac: string): Promise<{ success: boolean }> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(
+      `${BASE_URL}/routers/${routerId}/access-points/${encodeURIComponent(apMac)}/credential`,
+      { method: 'DELETE', headers: this.getHeaders() },
+    );
+    return this.handleResponse(response);
+  }
+
+  async getApStatus(routerId: number, apMac: string): Promise<ApStatusResponse> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(
+      `${BASE_URL}/routers/${routerId}/access-points/${encodeURIComponent(apMac)}/status`,
+      { headers: this.getHeaders() },
+    );
+    return this.handleResponse<ApStatusResponse>(response);
+  }
+
+  async rebootAccessPoint(routerId: number, apMac: string): Promise<ApActionResponse> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(
+      `${BASE_URL}/routers/${routerId}/access-points/${encodeURIComponent(apMac)}/reboot`,
+      { method: 'POST', headers: this.getHeaders(), body: JSON.stringify({ confirm: true }) },
+    );
+    return this.handleResponse<ApActionResponse>(response);
+  }
+
+  async makeAccessPointSafe(routerId: number, apMac: string): Promise<ApActionResponse> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(
+      `${BASE_URL}/routers/${routerId}/access-points/${encodeURIComponent(apMac)}/make-safe`,
+      { method: 'POST', headers: this.getHeaders(), body: JSON.stringify({ confirm: true }) },
+    );
+    return this.handleResponse<ApActionResponse>(response);
   }
 
   async getPortAnalytics(routerId: number, refresh = false): Promise<PortAnalyticsResponse> {

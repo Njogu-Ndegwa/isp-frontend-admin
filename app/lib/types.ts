@@ -3714,6 +3714,81 @@ export interface BridgeEntry {
   port_count: number;
 }
 
+// Remote access-point control (log into a Tenda behind the router)
+export interface ApStatus {
+  model: string | null;
+  firmware: string | null;
+  ip: string | null;
+  mode: 'ap' | 'router' | 'repeater' | 'wisp' | 'client' | 'unknown';
+  mode_raw: string | null;
+  dhcp_server_on: boolean | null;
+  client_count: number | null;
+  mac: string | null;
+}
+
+export interface ApDetectorFlags {
+  needs_safe_ap: boolean;
+  in_router_mode: boolean;
+  dhcp_server_on: boolean;
+  on_gateway: boolean;
+}
+
+export interface ApCredentialView {
+  ap_mac: string;
+  vendor: string;
+  model: string | null;
+  username: string;
+  has_password: boolean;
+  login_method: string | null;
+  last_login_ok: boolean | null;
+  locked: boolean;
+  failed_login_count: number;
+  last_error: string | null;
+  last_status: ApStatus | null;
+  last_status_at: string | null;
+  last_action: string | null;
+  last_action_at: string | null;
+}
+
+export interface AccessPoint {
+  mac: string;
+  ip: string | null;
+  hostname: string | null;
+  vendor: string;
+  sources: string[];
+  router_mode_suspect: boolean;
+  on_gateway: boolean;
+  offline?: boolean;
+  credential: ApCredentialView | null;
+  detector: ApDetectorFlags;
+}
+
+export interface AccessPointsResponse {
+  router_id: number;
+  router_name: string;
+  gateway: string | null;
+  subnet: string | null;
+  ap_write_in_progress: boolean;
+  access_points: AccessPoint[];
+}
+
+export interface ApActionResponse {
+  success: boolean;
+  message?: string;
+  login_method?: string | null;
+  new_ip?: string | null;
+  gateway?: string | null;
+  verified_safe?: boolean | null;
+  status?: ApStatus | null;
+  steps?: { step: string; ok: boolean }[];
+}
+
+export interface ApStatusResponse {
+  success: boolean;
+  status: ApStatus | null;
+  login_method?: string | null;
+}
+
 // Remote port restart (power-cycle / bounce the access point behind a LAN port)
 export type PortRestartReasonCode =
   | 'not_found' | 'not_ethernet' | 'wan' | 'management' | 'api_ingress' | 'not_lan' | 'disabled';

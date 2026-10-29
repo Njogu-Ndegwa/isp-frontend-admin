@@ -32,6 +32,7 @@ import type {
   HotspotLogsResponse,
   PortStatusResponse,
   PortRestartOptionsResponse,
+  AccessPointsResponse,
   PortAnalyticsResponse,
   PortAnalyticsPort,
   InfrastructureDevice,
@@ -779,6 +780,37 @@ export function demoPortRestartOptions(routerId: number): PortRestartOptionsResp
       poe_out: i === 1 ? 'auto-on' : null,
       bridge: p.bridge || null,
     })),
+  };
+}
+
+// ─── Access points behind the router ────────────────────────────────
+export function demoAccessPoints(routerId: number): AccessPointsResponse {
+  const router = demoRouters.find(r => r.id === routerId) ?? demoRouters[0];
+  return {
+    router_id: router.id, router_name: router.name, gateway: '192.168.88.1',
+    subnet: '192.168.88.0/24', ap_write_in_progress: false,
+    access_points: [
+      {
+        mac: 'C8:3A:35:AA:10:01', ip: '192.168.88.50', hostname: 'Tenda', vendor: 'Tenda',
+        sources: ['dhcp_lease', 'arp'], router_mode_suspect: true, on_gateway: false,
+        credential: {
+          ap_mac: 'C8:3A:35:AA:10:01', vendor: 'Tenda', model: 'OAP1200V2', username: 'admin',
+          has_password: true, login_method: 'md5', last_login_ok: true, locked: false,
+          failed_login_count: 0, last_error: null,
+          last_status: { model: 'OAP1200 V2', firmware: 'V2.0.0.11', ip: '192.168.88.50',
+            mode: 'router', mode_raw: 'router', dhcp_server_on: true, client_count: 12,
+            mac: 'C8:3A:35:AA:10:01' },
+          last_status_at: new Date().toISOString(), last_action: 'status', last_action_at: new Date().toISOString(),
+        },
+        detector: { needs_safe_ap: true, in_router_mode: true, dhcp_server_on: true, on_gateway: false },
+      },
+      {
+        mac: 'C8:3A:35:AA:10:02', ip: '192.168.88.51', hostname: 'Tenda', vendor: 'Tenda',
+        sources: ['arp'], router_mode_suspect: false, on_gateway: false,
+        credential: null,
+        detector: { needs_safe_ap: false, in_router_mode: false, dhcp_server_on: false, on_gateway: false },
+      },
+    ],
   };
 }
 
