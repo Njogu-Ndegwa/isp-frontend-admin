@@ -317,6 +317,7 @@ import {
   CreateStaffRequest,
   UpdateStaffRequest,
   StaffActivityResponse,
+  PppoeExpiredRedirectResponse,
 } from './types';
 import { DEMO_STAFF_CATALOG } from './staffCatalog';
 import { buildTransferRequest, type BuildTransferRequestOptions } from './pppoeTransfer';
@@ -2303,6 +2304,17 @@ class ApiClient {
       body: JSON.stringify({ enabled }),
     });
     return this.handleResponse<{ router_id: number; status_alerts_enabled: boolean; message: string }>(response);
+  }
+
+  // Expired PPPoE customers: walled + redirected to the payment page (router-side).
+  async setPppoeExpiredRedirect(routerId: number, enabled: boolean): Promise<PppoeExpiredRedirectResponse> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(`${BASE_URL}/routers/${routerId}/pppoe-expired-redirect`, {
+      method: 'PUT',
+      headers: this.getHeaders(),
+      body: JSON.stringify({ enabled }),
+    });
+    return this.handleResponse<PppoeExpiredRedirectResponse>(response);
   }
 
   // PPPoE User Monitoring (bandwidth & online status)
