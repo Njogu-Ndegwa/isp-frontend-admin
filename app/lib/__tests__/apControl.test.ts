@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { translate } from '../i18n';
 import { FR } from '../locales/fr';
 import {
-  apActionState, canManageAccessPoints, canViewAccessPoints, modeLabel, safeApReason,
+  apActionState, apControlEnabled, canManageAccessPoints, canViewAccessPoints, modeLabel, safeApReason,
 } from '../apControl';
 import type { AccessPoint, AuthUser } from '../types';
 
@@ -38,14 +38,28 @@ function ap(over: Partial<AccessPoint> = {}): AccessPoint {
   };
 }
 
+const on = (u: AuthUser): AuthUser => ({ ...u, feature_flags: { ap_control: true } });
+
+describe('the admin-only feature gate', () => {
+  it('admins are always on; others only when the backend opens it to all', () => {
+    expect(apControlEnabled(ADMIN)).toBe(true);
+    expect(apControlEnabled(OWNER)).toBe(false);                 // default: admins only
+    expect(apControlEnabled(on(OWNER))).toBe(true);              // flipped to all
+    expect(apControlEnabled(staff(['routers.view']))).toBe(false);
+    expect(apControlEnabled(on(staff(['routers.view'])))).toBe(true);
+    expect(apControlEnabled(null)).toBe(false);
+  });
+});
+
 describe('who can see and control access points', () => {
-  it('view is owner/admin/staff-with-view; manage needs routers.manage', () => {
-    expect(canViewAccessPoints(OWNER)).toBe(true);
-    expect(canViewAccessPoints(ADMIN)).toBe(true);
-    expect(canViewAccessPoints(staff(['routers.view']))).toBe(true);
-    expect(canViewAccessPoints(staff(['customers.view']))).toBe(false);
-    expect(canManageAccessPoints(staff(['routers.view']))).toBe(false);
-    expect(canManageAccessPoints(staff(['routers.view', 'routers.manage']))).toBe(true);
+  it('view needs the gate on AND a router permission', () => {
+    expect(canViewAccessPoints(ADMIN)).toBe(true);               // admin: gate + perms implied
+    expect(canViewAccessPoints(OWNER)).toBe(false);              // gated off by default
+    expect(canViewAccessPoints(on(OWNER))).toBe(true);
+    expect(canViewAccessPoints(on(staff(['routers.view'])))).toBe(true);
+    expect(canViewAccessPoints(on(staff(['customers.view'])))).toBe(false);  // gate on, no router perm
+    expect(canManageAccessPoints(on(staff(['routers.view'])))).toBe(false);
+    expect(canManageAccessPoints(on(staff(['routers.view', 'routers.manage'])))).toBe(true);
     expect(canViewAccessPoints(null)).toBe(false);
   });
 });

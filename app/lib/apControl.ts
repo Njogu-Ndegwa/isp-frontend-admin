@@ -2,8 +2,19 @@ import type { TFunction } from './i18n';
 import { hasPermission, PERMISSIONS } from './permissions';
 import type { AccessPoint, ApStatus } from './types';
 
-/** Reading or controlling an access point is a router "manage"/"view" action. */
+/** Whether AP control is switched on for this user by the backend
+ *  (AP_CONTROL_ENABLED_FOR). Admins always; others only once it is opened to
+ *  "all". The backend reports this per-user in feature_flags.ap_control. */
+export function apControlEnabled(user: { role?: string; feature_flags?: { ap_control?: boolean } | null } | null | undefined): boolean {
+  if (!user) return false;
+  if (user.role === 'admin') return true;
+  return user.feature_flags?.ap_control === true;
+}
+
+/** Reading or controlling an access point is a router "manage"/"view" action,
+ *  and the feature must be switched on for this user. */
 export function canViewAccessPoints(user: Parameters<typeof hasPermission>[0]): boolean {
+  if (!apControlEnabled(user as { role?: string; feature_flags?: { ap_control?: boolean } | null })) return false;
   return hasPermission(user, PERMISSIONS.routersView) || hasPermission(user, PERMISSIONS.routersManage);
 }
 

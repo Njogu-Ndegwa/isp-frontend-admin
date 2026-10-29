@@ -2613,6 +2613,9 @@ export interface AuthUser {
   /** The reseller's country market: currency, language, subscription terms. */
   market?: ResellerMarket;
   preferred_language?: string | null;
+  /** Backend feature gates (GET /api/profile, /api/staff/me). Absent on older
+   *  backends. `ap_control` decides whether the Access points UI shows. */
+  feature_flags?: { ap_control?: boolean } | null;
   /** Set when a staff sub-user is signed in: `id`/`organization_name`/... above
    *  then describe the OWNER's business. Null or absent for owners and admins
    *  (older backends never send it). */
