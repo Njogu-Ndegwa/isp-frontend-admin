@@ -224,6 +224,9 @@ export default function StaticIpPanel({ customer, onChanged }: { customer: Custo
         </ul>
       )}
 
+      {/* Every action below changes the customer or the router entry:
+          customers.manage. View-only staff see the status and findings. */}
+      {canManageCustomers && (
       <div className="grid grid-cols-2 gap-2">
         {canResume && (
           <button type="button" className="btn-secondary col-span-2" disabled={!!busy}
@@ -231,11 +234,9 @@ export default function StaticIpPanel({ customer, onChanged }: { customer: Custo
             {busy === 'resume' ? 'Resuming…' : 'Resume remaining access'}
           </button>
         )}
-        {canManageCustomers && (
-          <button type="button" className="btn-primary col-span-2" disabled={!!busy} onClick={() => setPayOpen(true)}>
-            Record payment &amp; activate
-          </button>
-        )}
+        <button type="button" className="btn-primary col-span-2" disabled={!!busy} onClick={() => setPayOpen(true)}>
+          Record payment &amp; activate
+        </button>
         <button
           type="button"
           className="btn-secondary"
@@ -273,6 +274,7 @@ export default function StaticIpPanel({ customer, onChanged }: { customer: Custo
           </button>
         )}
       </div>
+      )}
 
       <ConfirmDialog
         isOpen={confirmSuspend}

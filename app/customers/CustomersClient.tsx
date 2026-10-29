@@ -234,6 +234,9 @@ export default function CustomersPage() {
   // Staff without customers.manage get a read-only list.
   const { can } = usePermissions();
   const canManageCustomers = can(PERMISSIONS.customersManage);
+  // Payment methods are a money setting (payment_methods.manage): staff
+  // without it would get a 403 toast on every visit, so they use the fallback.
+  const canReadPaymentMethods = can(PERMISSIONS.paymentMethodsManage);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [totalItems, setTotalItems] = useState(0);
   const [totalAll, setTotalAll] = useState(0);
@@ -302,11 +305,15 @@ export default function CustomersPage() {
   const [paybill, setPaybill] = useState<string | null>(null);
   useEffect(() => {
     let cancelled = false;
+    if (!canReadPaymentMethods) {
+      setPaybill(PLATFORM_PAYBILL);
+      return () => { cancelled = true; };
+    }
     api.getPaymentMethods()
       .then((methods) => { if (!cancelled) setPaybill(customerPaybill(methods)); })
       .catch(() => { if (!cancelled) setPaybill(PLATFORM_PAYBILL); });
     return () => { cancelled = true; };
-  }, []);
+  }, [canReadPaymentMethods]);
 
   // Load filter prefs from localStorage on mount
   const filtersHydrated = useRef(false);
@@ -1607,6 +1614,7 @@ export default function CustomersPage() {
                       )}
                       {getConnectionType(customer) === 'pppoe' && (
                         <>
+                          {canManageCustomers && (
                           <button
                             onClick={() => handleViewCredentials(customer)}
                             className="p-1.5 rounded-md hover:bg-background-tertiary transition-colors text-foreground-muted hover:text-foreground"
@@ -1616,6 +1624,7 @@ export default function CustomersPage() {
                               <path strokeLinecap="round" strokeLinejoin="round" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
                             </svg>
                           </button>
+                          )}
                           {canManageCustomers && (customer.status === 'inactive' || customer.status === 'expired') && !isPaused(customer) && (
                             <button
                               onClick={() => setActivateModal(customer)}
@@ -1834,7 +1843,7 @@ export default function CustomersPage() {
                           <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                         </svg>
                       </button>
-                      {getConnectionType(customer) === 'pppoe' && (
+                      {canManageCustomers && getConnectionType(customer) === 'pppoe' && (
                         <button
                           onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleViewCredentials(customer); }}
                           className="p-1.5 rounded-md hover:bg-background-tertiary transition-colors text-foreground-muted hover:text-foreground active:opacity-70"

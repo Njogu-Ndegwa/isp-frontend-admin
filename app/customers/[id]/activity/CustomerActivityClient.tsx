@@ -14,6 +14,8 @@ import DateTimePicker from '../../../components/DateTimePicker';
 import { explainRouterLog } from '../../../lib/routerLogHints';
 import { formatAmount } from '../../../lib/format';
 import { connectionTypeLabel } from '../../../lib/connectionType';
+import { usePermissions } from '../../../hooks/usePermissions';
+import { PERMISSIONS } from '../../../lib/permissions';
 import {
   formatGMT3Date, formatTimeSinceUTC, gmt3InputToISO, parseUTCToGMT3,
 } from '../../../lib/dateUtils';
@@ -259,6 +261,9 @@ function detailRows(item: CustomerAuditItem): [string, string][] {
 }
 
 export default function CustomerActivityClient() {
+  // Resetting the session kicks the customer off the router: customers.manage.
+  const { can } = usePermissions();
+  const canManageCustomers = can(PERMISSIONS.customersManage);
   const params = useParams();
   const customerId = Number(params.id);
   const { showAlert } = useAlert();
@@ -441,7 +446,7 @@ export default function CustomerActivityClient() {
   const customer = data?.customer;
   const isPPPoE = customer?.connection_type === 'pppoe';
   const canPull = Boolean(customer?.router_id && (customer?.pppoe_username || customer?.mac_address));
-  const canReset = Boolean(isPPPoE && customer?.router_id && customer?.pppoe_username);
+  const canReset = Boolean(canManageCustomers && isPPPoE && customer?.router_id && customer?.pppoe_username);
   const identity = isPPPoE ? customer?.pppoe_username : customer?.mac_address;
   const reportAge = ageMs(data?.router_reported_at);
   // A router that stopped reporting leaves its last state in memory; past a

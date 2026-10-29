@@ -5,12 +5,17 @@ import { api } from '../lib/api';
 import type { PPPoEMonitorUser } from '../lib/types';
 import { useAlert } from '../context/AlertContext';
 import PPPoECleanupDialog from '../components/PPPoECleanupDialog';
+import { usePermissions } from '../hooks/usePermissions';
+import { PERMISSIONS } from '../lib/permissions';
 
 // PPPoE logins on this router that no billing customer owns — usually a
 // customer who was deleted or imported but whose secret survived on the
 // router. They can still connect without paying, so list them with a way to
 // remove them.
 export default function RouterUnbilledLogins({ routerId, routerName }: { routerId: number; routerName: string }) {
+  // Removing a PPPoE login from the router needs routers.manage.
+  const { can } = usePermissions();
+  const canRemove = can(PERMISSIONS.routersManage);
   const { showAlert } = useAlert();
   const [logins, setLogins] = useState<PPPoEMonitorUser[] | null>(null);
   const [live, setLive] = useState(true);
@@ -83,6 +88,7 @@ export default function RouterUnbilledLogins({ routerId, routerName }: { routerI
                 </p>
                 {u.comment && <p className="text-xs text-foreground-muted truncate" title={u.comment}>{u.comment}</p>}
               </div>
+              {canRemove && (
               <button
                 type="button"
                 onClick={(e) => { e.stopPropagation(); setRemoving(u); }}
@@ -90,6 +96,7 @@ export default function RouterUnbilledLogins({ routerId, routerName }: { routerI
               >
                 Remove
               </button>
+              )}
             </li>
           ))}
         </ul>

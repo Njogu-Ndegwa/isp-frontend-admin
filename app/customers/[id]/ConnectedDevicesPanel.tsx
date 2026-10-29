@@ -7,6 +7,8 @@ import PPPoEDeviceList from '../../components/PPPoEDeviceList';
 import PPPoEDiagnoseDialog from '../../components/PPPoEDiagnoseDialog';
 import DeviceLimitEditor from './DeviceLimitEditor';
 import { pppoeAccountProblem } from './pppoeActivation';
+import { usePermissions } from '../../hooks/usePermissions';
+import { PERMISSIONS } from '../../lib/permissions';
 
 // Verdict codes from /api/pppoe/customers/{id}/presence. Anything not listed
 // as fine is a problem on our side that support should fix before blaming the
@@ -18,6 +20,11 @@ const ACCOUNT_UNKNOWN = new Set(['present_session_unknown']);
 // correctly and which devices are using it — one row per device, with its IP
 // and MAC — and, when nobody is connected, why the last one dropped.
 export default function ConnectedDevicesPanel({ customerId }: { customerId: number }) {
+  // Diagnose reads the router (routers.view); the device limit is a customer
+  // change (customers.manage).
+  const { can } = usePermissions();
+  const canDiagnose = can(PERMISSIONS.routersView);
+  const canManageCustomers = can(PERMISSIONS.customersManage);
   const [presence, setPresence] = useState<PPPoECustomerPresenceResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -58,7 +65,7 @@ export default function ConnectedDevicesPanel({ customerId }: { customerId: numb
           )}
         </div>
         <div className="flex items-center gap-3 flex-shrink-0">
-          {presence && (
+          {presence && canDiagnose && (
             <button
               type="button"
               onClick={() => setDiagnosing(true)}
@@ -140,7 +147,7 @@ export default function ConnectedDevicesPanel({ customerId }: { customerId: numb
                   ? ` (set for this customer; plan allows ${presence.device_limit.plan_max_devices})`
                   : ' (from the plan)'}
               </span>
-              {!editingLimit && (
+              {!editingLimit && canManageCustomers && (
                 <button
                   type="button"
                   onClick={() => setEditingLimit(true)}

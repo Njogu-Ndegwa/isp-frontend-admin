@@ -12,6 +12,8 @@ import Tabs from '../components/Tabs';
 import SearchInput from '../components/SearchInput';
 import { PageLoader } from '../components/LoadingSpinner';
 import { phoneMatches } from '../lib/phoneSearch';
+import { usePermissions } from '../hooks/usePermissions';
+import { PERMISSIONS } from '../lib/permissions';
 
 // ─── Constants ──────────────────────────────────────────────────────
 
@@ -43,6 +45,10 @@ const COLUMNS: DataTableColumn[] = [
 
 export default function UnmatchedPaymentsPage() {
   const { showAlert } = useAlert();
+  // Staff with transactions.view see the list; attributing moves money onto a
+  // customer and needs transactions.manage.
+  const { can } = usePermissions();
+  const canAttribute = can(PERMISSIONS.transactionsManage);
 
   // Data
   const [payments, setPayments] = useState<UnmatchedPayment[]>([]);
@@ -183,6 +189,7 @@ export default function UnmatchedPaymentsPage() {
             <span className="badge badge-success text-xs">Resolved</span>
           );
         }
+        if (!canAttribute) return null;
         return (
           <button
             onClick={() => setAttributeTarget(payment)}
@@ -295,7 +302,7 @@ export default function UnmatchedPaymentsPage() {
                 }),
               }}
               rightAction={
-                tab === 'unresolved' ? (
+                tab === 'unresolved' && canAttribute ? (
                   <button
                     onClick={(e) => {
                       e.preventDefault();

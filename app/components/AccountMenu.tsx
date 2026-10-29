@@ -32,7 +32,8 @@ export default function AccountMenu({ align = 'right' }: { align?: 'left' | 'rig
   // Staff see who they are signed in as, and no owner-only links.
   const staff = isStaffUser(user) ? user?.staff ?? null : null;
   const showSettings = canAccessPath(user, '/settings');
-  const showProfile = !staff;
+  // Everyone has a profile; staff get their own (details, password, log out).
+  const showProfile = true;
   const userInitial = (staff?.name || user?.organization_name || user?.email || 'U').charAt(0).toUpperCase();
 
   return (
@@ -95,7 +96,7 @@ export default function AccountMenu({ align = 'right' }: { align?: 'left' | 'rig
                 <svg className="w-4 h-4 text-foreground-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
                 </svg>
-                {t('Profile')}
+                {staff ? t('My profile') : t('Profile')}
               </Link>
               )}
             </div>

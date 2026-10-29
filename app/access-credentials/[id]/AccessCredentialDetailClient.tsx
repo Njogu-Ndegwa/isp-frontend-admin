@@ -13,6 +13,8 @@ import { buildCredRate, CredRateMbps, parseCredRate } from '../../lib/credRate';
 import { PageLoader } from '../../components/LoadingSpinner';
 import ConfirmDialog from '../../components/ConfirmDialog';
 import { formatDateGMT3 } from '../../lib/dateUtils';
+import { usePermissions } from '../../hooks/usePermissions';
+import { PERMISSIONS } from '../../lib/permissions';
 
 function formatBytes(bytes: number): string {
   if (!bytes) return '0 B';
@@ -50,6 +52,9 @@ export default function AccessCredentialDetailPage() {
   const router = useRouter();
   const { showAlert } = useAlert();
   const id = Number(params.id);
+  // Viewing needs customers.view; every change below needs customers.manage.
+  const { can } = usePermissions();
+  const canManage = can(PERMISSIONS.customersManage);
 
   const [credential, setCredential] = useState<AccessCredential | null>(null);
   const [routers, setRouters] = useState<RouterType[]>([]);
@@ -347,6 +352,7 @@ export default function AccessCredentialDetailPage() {
             </div>
           </div>
 
+          {canManage && (
           <div className="flex flex-wrap gap-2 pt-2">
             <button
               onClick={() => setRotateConfirm(true)}
@@ -394,6 +400,7 @@ export default function AccessCredentialDetailPage() {
               </button>
             )}
           </div>
+          )}
         </div>
 
         {/* Live status */}
@@ -442,6 +449,7 @@ export default function AccessCredentialDetailPage() {
         {/* Editable settings */}
         <form onSubmit={handleSave} className="card p-6 space-y-4" autoComplete="off">
           <h3 className="text-sm font-semibold text-foreground-muted uppercase tracking-wider">Settings</h3>
+          <fieldset disabled={!canManage} className="space-y-4 disabled:opacity-80">
 
           <div>
             <label className="block text-sm font-medium text-foreground-muted mb-1.5">Label</label>
@@ -491,6 +499,7 @@ export default function AccessCredentialDetailPage() {
               )}
             </button>
           </div>
+          </fieldset>
         </form>
 
         {/* Usage / metadata */}
@@ -525,6 +534,7 @@ export default function AccessCredentialDetailPage() {
         </div>
 
         {/* Danger zone */}
+        {canManage && (
         <div className="card p-6 border-danger/30">
           <h3 className="text-sm font-semibold text-danger uppercase tracking-wider mb-2">Danger Zone</h3>
           <p className="text-xs text-foreground-muted mb-4">
@@ -540,6 +550,7 @@ export default function AccessCredentialDetailPage() {
             Delete Credential
           </button>
         </div>
+        )}
       </div>
 
       <ConfirmDialog

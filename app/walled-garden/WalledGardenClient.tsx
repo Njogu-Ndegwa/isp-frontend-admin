@@ -2,6 +2,8 @@
 
 import React, { useState, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { usePermissions } from '../hooks/usePermissions';
+import { PERMISSIONS } from '../lib/permissions';
 import { api } from '../lib/api';
 import {
   WalledGardenDomainEntry,
@@ -100,6 +102,10 @@ function EntryForm({
 
 export default function WalledGardenPage() {
   const { isAuthenticated } = useAuth();
+  // The list is a router read (routers.view); adding and removing entries
+  // change the router (routers.manage).
+  const { can } = usePermissions();
+  const canManage = can(PERMISSIONS.routersManage);
 
   const [selectedRouterId, setSelectedRouterId] = useState<number | null>(null);
   const [activeTab, setActiveTab] = useState<Tab>('domains');
@@ -316,7 +322,7 @@ export default function WalledGardenPage() {
                 <h3 className="text-sm font-semibold text-foreground-muted uppercase tracking-wider">
                   Domain Entries
                 </h3>
-                <AddButton onClick={() => setShowDomainForm(true)} label="Add Domain" />
+                {canManage && <AddButton onClick={() => setShowDomainForm(true)} label="Add Domain" />}
               </div>
 
               <EntryForm
@@ -370,7 +376,7 @@ export default function WalledGardenPage() {
                       avatar={{ text: 'D', color: 'info' }}
                       status={{ label: entry.action, variant: entry.action === 'allow' ? 'success' : 'neutral' }}
                       rightAction={
-                        <DeleteButton entryId={entry['.id']} onDelete={handleDeleteDomain} deleting={deletingId === entry['.id']} />
+                        (canManage ? <DeleteButton entryId={entry['.id']} onDelete={handleDeleteDomain} deleting={deletingId === entry['.id']} /> : null)
                       }
                       layout="compact"
                     />
@@ -389,7 +395,7 @@ export default function WalledGardenPage() {
                     case 'dst-host': return <span className="font-mono text-sm">{entry['dst-host']}</span>;
                     case 'action': return <span className="badge badge-success capitalize">{entry.action}</span>;
                     case 'comment': return <span className="text-sm text-foreground-muted">{entry.comment || '-'}</span>;
-                    case 'actions': return <DeleteButton entryId={entry['.id']} onDelete={handleDeleteDomain} deleting={deletingId === entry['.id']} />;
+                    case 'actions': return (canManage ? <DeleteButton entryId={entry['.id']} onDelete={handleDeleteDomain} deleting={deletingId === entry['.id']} /> : null);
                     default: return null;
                   }
                 }}
@@ -412,7 +418,7 @@ export default function WalledGardenPage() {
                 <h3 className="text-sm font-semibold text-foreground-muted uppercase tracking-wider">
                   IP Entries
                 </h3>
-                <AddButton onClick={() => setShowIpForm(true)} label="Add IP" />
+                {canManage && <AddButton onClick={() => setShowIpForm(true)} label="Add IP" />}
               </div>
 
               <EntryForm
@@ -466,7 +472,7 @@ export default function WalledGardenPage() {
                       avatar={{ text: 'IP', color: 'warning' }}
                       status={{ label: entry.action, variant: entry.action === 'accept' ? 'success' : 'neutral' }}
                       rightAction={
-                        <DeleteButton entryId={entry['.id']} onDelete={handleDeleteIp} deleting={deletingId === entry['.id']} />
+                        (canManage ? <DeleteButton entryId={entry['.id']} onDelete={handleDeleteIp} deleting={deletingId === entry['.id']} /> : null)
                       }
                       layout="compact"
                     />
@@ -485,7 +491,7 @@ export default function WalledGardenPage() {
                     case 'dst-address': return <span className="font-mono text-sm">{entry['dst-address']}</span>;
                     case 'action': return <span className="badge badge-success capitalize">{entry.action}</span>;
                     case 'comment': return <span className="text-sm text-foreground-muted">{entry.comment || '-'}</span>;
-                    case 'actions': return <DeleteButton entryId={entry['.id']} onDelete={handleDeleteIp} deleting={deletingId === entry['.id']} />;
+                    case 'actions': return (canManage ? <DeleteButton entryId={entry['.id']} onDelete={handleDeleteIp} deleting={deletingId === entry['.id']} /> : null);
                     default: return null;
                   }
                 }}

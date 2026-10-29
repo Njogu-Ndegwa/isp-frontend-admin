@@ -6,6 +6,7 @@ import GatewayStatusCard from './GatewayStatusCard';
 import { useAuth } from '../../context/AuthContext';
 import BuySmsCreditsModal from '../../components/BuySmsCreditsModal';
 import { LedgerList } from './LedgerList';
+import { hasPermission, PERMISSIONS } from '../../lib/permissions';
 
 // ─── Transaction ledger ───────────────────────────────────────────────────
 const LIMIT = 20;
@@ -113,6 +114,8 @@ export default function CreditsView({
   onReloadGatewayStatus?: (refresh: boolean) => void | Promise<void>;
 }) {
   const { user } = useAuth();
+  // Buying credits is a payment to Bitwave (subscription.manage on the backend).
+  const canBuy = hasPermission(user, PERMISSIONS.subscriptionManage);
   const [buyModal, setBuyModal] = useState<{ quantity: number; amountKes: number } | null>(null);
   const [customQty, setCustomQty] = useState('');
 
@@ -178,8 +181,12 @@ export default function CreditsView({
         KES {pricePerCredit} per SMS credit · min {credits.min_purchase_credits} credits per purchase
       </div>
 
+      {!canBuy && (
+        <p className="text-xs text-foreground-muted">Ask the account owner to buy more SMS credits.</p>
+      )}
+
       {/* Bundle buttons */}
-      {credits.bundles.length > 0 && (
+      {canBuy && credits.bundles.length > 0 && (
         <div>
           <p className="text-sm font-medium text-foreground mb-3">Choose a bundle</p>
           <div className="grid grid-cols-2 gap-3">
@@ -202,6 +209,7 @@ export default function CreditsView({
       )}
 
       {/* Custom quantity */}
+      {canBuy && (
       <div>
         <p className="text-sm font-medium text-foreground mb-2">Custom quantity</p>
         <div className="flex gap-2">
@@ -228,6 +236,7 @@ export default function CreditsView({
           </p>
         )}
       </div>
+      )}
 
       {buyModal && (
         <BuySmsCreditsModal
