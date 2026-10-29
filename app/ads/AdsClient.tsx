@@ -1,743 +1,544 @@
 'use client';
 
-import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { api } from '../lib/api';
-import { Ad, Advertiser, CreateAdRequest } from '../lib/types';
+import type { Ad, AdAnalytics, AdPlacement, AdReviewStatus, Router } from '../lib/types';
+import { useAuth } from '../context/AuthContext';
+import { usePermissions } from '../hooks/usePermissions';
+import { PERMISSIONS } from '../lib/permissions';
+import { useAlert } from '../context/AlertContext';
+import { useT } from '../lib/i18n';
 import Header from '../components/Header';
-import { PageLoader } from '../components/LoadingSpinner';
-import PullToRefresh from '../components/PullToRefresh';
-import SearchInput from '../components/SearchInput';
+import Tabs from '../components/Tabs';
 import Pagination from '../components/Pagination';
-import { utcToGMT3DateOnly, gmt3DateOnlyToISO } from '../lib/dateUtils';
+import ConfirmDialog from '../components/ConfirmDialog';
+import { PageLoader } from '../components/LoadingSpinner';
+import { AdStatusChip, AdThumb } from './components/AdBits';
+import AdPreview from './components/AdPreview';
+import RejectAdDialog from './components/RejectAdDialog';
+import { adToForm, adDisplayStatus, formatCount, PLACEMENT_LABEL, slotLabel } from './adModel';
+import { formatTimeSinceUTC } from '../lib/dateUtils';
 
-const CATEGORIES = [
-  'electronics',
-  'fashion',
-  'real_estate',
-  'automotive',
-  'services',
-  'food',
-  'health',
-  'education',
-  'entertainment',
-  'other',
+type View = 'all' | 'review';
+/** Review states the server filters on; the chips show the finer state. */
+const STATUS_FILTERS: { value: AdReviewStatus; label: string }[] = [
+  { value: 'pending', label: 'Pending review' },
+  { value: 'approved', label: 'Approved' },
+  { value: 'rejected', label: 'Rejected' },
 ];
 
-const BADGE_TYPES = [
-  { value: '', label: 'None' },
-  { value: 'hot', label: '🔥 Hot' },
-  { value: 'new', label: '✨ New' },
-  { value: 'sale', label: '💰 Sale' },
-  { value: 'featured', label: '⭐ Featured' },
-];
+const PlusIcon = (
+  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5} aria-hidden="true">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+  </svg>
+);
 
-export default function AdsPage() {
-  const [ads, setAds] = useState<Ad[]>([]);
-  const [advertisers, setAdvertisers] = useState<Advertiser[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState<string>('');
-  const [page, setPage] = useState(1);
-  const [perPage, setPerPage] = useState(20);
-  const [totalAds, setTotalAds] = useState(0);
-  const [deletingAdId, setDeletingAdId] = useState<number | null>(null);
-  const [deleteError, setDeleteError] = useState<string | null>(null);
-  const [allAdsCache, setAllAdsCache] = useState<Ad[]>([]);
-  const [refreshKey, setRefreshKey] = useState(0);
-  const hasSearchFilter = searchQuery.trim() !== '';
-  const loadData = useCallback(async () => { setRefreshKey(k => k + 1); }, []);
+function ownerLabel(ad: Ad): string {
+  if (ad.owner_user_id === null) return 'Bitwave';
+  return ad.owner_name || `Reseller #${ad.owner_user_id}`;
+}
 
-  const prevSearchRef = useRef(searchQuery);
-  useEffect(() => {
-    if (prevSearchRef.current !== searchQuery) {
-      setPage(1);
-      prevSearchRef.current = searchQuery;
-    }
-  }, [searchQuery]);
-
-  useEffect(() => {
-    if (hasSearchFilter) return;
-    let cancelled = false;
-    const load = async () => {
-      try {
-        setLoading(true);
-        const [adsData, advertisersData] = await Promise.all([
-          api.getAds(page, perPage, categoryFilter || undefined),
-          api.getAdvertisers(),
-        ]);
-        if (cancelled) return;
-        setAds(adsData.ads);
-        setTotalAds(adsData.pagination.total);
-        setAllAdsCache([]);
-        setAdvertisers(advertisersData);
-      } catch (err) {
-        if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to load ads');
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    };
-    load();
-    return () => { cancelled = true; };
-  }, [page, perPage, categoryFilter, hasSearchFilter, refreshKey]);
-
-  useEffect(() => {
-    if (!hasSearchFilter) return;
-    let cancelled = false;
-    const load = async () => {
-      try {
-        setLoading(true);
-        const [adsData, advertisersData] = await Promise.all([
-          api.getAds(1, 10000, categoryFilter || undefined),
-          api.getAdvertisers(),
-        ]);
-        if (cancelled) return;
-        setAllAdsCache(adsData.ads);
-        setTotalAds(adsData.pagination.total);
-        setAdvertisers(advertisersData);
-      } catch (err) {
-        if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to load ads');
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    };
-    load();
-    return () => { cancelled = true; };
-  }, [categoryFilter, hasSearchFilter, refreshKey]);
-
-  const handleDeleteAd = async (adId: number, e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-
-    if (!confirm('Are you sure you want to delete this ad? This action cannot be undone.')) {
-      return;
-    }
-
-    try {
-      setDeletingAdId(adId);
-      setDeleteError(null);
-      await api.deleteAd(adId);
-      await loadData();
-    } catch (err) {
-      setDeleteError(err instanceof Error ? err.message : 'Failed to delete ad');
-    } finally {
-      setDeletingAdId(null);
-    }
-  };
-
-  const filteredAds = useMemo(() => {
-    const source = hasSearchFilter ? allAdsCache : ads;
-    if (!searchQuery) return source;
-    const query = searchQuery.toLowerCase();
-    return source.filter((ad) =>
-      ad.title.toLowerCase().includes(query) ||
-      ad.seller_name.toLowerCase().includes(query) ||
-      ad.description.toLowerCase().includes(query)
-    );
-  }, [hasSearchFilter, allAdsCache, ads, searchQuery]);
-
-  const displayedAds = hasSearchFilter
-    ? filteredAds.slice((page - 1) * perPage, page * perPage)
-    : filteredAds;
-
-  const effectiveTotal = hasSearchFilter ? filteredAds.length : totalAds;
-
-  const activeCount = ads.filter((a) => a.is_active).length;
-  const totalClicks = ads.reduce((sum, ad) => sum + ad.clicks_count, 0);
-  const totalViews = ads.reduce((sum, ad) => sum + ad.views_count, 0);
-
-  const getBadgeStyle = (badgeType: string | null) => {
-    switch (badgeType) {
-      case 'hot':
-        return 'bg-red-500/20 text-red-400';
-      case 'new':
-        return 'bg-blue-500/20 text-blue-400';
-      case 'sale':
-        return 'bg-green-500/20 text-green-400';
-      case 'featured':
-        return 'bg-amber-500/20 text-amber-400';
-      default:
-        return 'bg-gray-500/20 text-gray-400';
-    }
-  };
-
-  if (error) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-center">
-          <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-danger/10 flex items-center justify-center">
-            <svg className="w-8 h-8 text-danger" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-            </svg>
-          </div>
-          <h2 className="text-xl font-semibold text-foreground mb-2">Failed to Load Ads</h2>
-          <p className="text-foreground-muted mb-4">{error}</p>
-          <button onClick={loadData} className="btn-primary">
-            Try Again
-          </button>
-        </div>
-      </div>
-    );
+function routerScope(ad: Ad, routers: Router[], isAdmin: boolean): string {
+  if (!ad.router_ids || ad.router_ids.length === 0) {
+    return ad.owner_user_id === null ? 'All routers' : isAdmin ? "All the reseller's routers" : 'All my routers';
   }
+  if (ad.router_ids.length === 1) return routers.find((r) => r.id === ad.router_ids![0])?.name ?? '1 router';
+  return `${ad.router_ids.length} routers`;
+}
 
+function EmptyState({ isAdmin, canManage }: { isAdmin: boolean; canManage: boolean }) {
+  const t = useT();
+  const points = isAdmin
+    ? [
+        ['Sell space network-wide', 'Platform ads show on every Bitwave portal, or on the routers you pick.'],
+        ['Review reseller ads', 'Resellers’ ads wait here until you approve them.'],
+        ['Customers can call before they pay', 'Every hero ad gets a Call button, so it works with no internet.'],
+      ]
+    : [
+        ['Promote yourself for free', 'Advertise your weekly packages, a new hotspot or your other business.'],
+        ['Earn from local shops', 'Sell the space to a kiosk, salon or hotel near your hotspot.'],
+        ['Customers can call before they pay', 'Every ad gets a green Call button that works with no internet.'],
+      ];
   return (
-    <div>
-      <Header
-        title="Ads"
-        subtitle="Manage advertisements shown on your captive portal"
-      />
-
-      {/* Actions */}
-      <div className="flex flex-wrap items-center gap-4 mb-6 animate-fade-in">
-        <SearchInput
-          value={searchQuery}
-          onChange={setSearchQuery}
-          placeholder="Search ads..."
-          className="flex-1 min-w-[200px]"
-        />
-
-        {/* Category Filter */}
-        <select
-          value={categoryFilter}
-          onChange={(e) => {
-            setCategoryFilter(e.target.value);
-            setPage(1);
-          }}
-          className="select w-auto min-w-[160px]"
-        >
-          <option value="">All Categories</option>
-          {CATEGORIES.map((cat) => (
-            <option key={cat} value={cat}>
-              {cat.charAt(0).toUpperCase() + cat.slice(1).replace('_', ' ')}
-            </option>
-          ))}
-        </select>
-
-        <button onClick={loadData} className="btn-secondary flex items-center gap-2">
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-          </svg>
-          Refresh
-        </button>
-
-        <button onClick={() => setShowCreateModal(true)} className="btn-primary flex items-center gap-2">
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-          </svg>
-          Create Ad
-        </button>
-      </div>
-
-      {/* Delete Error */}
-      {deleteError && (
-        <div className="mb-6 p-4 rounded-lg bg-danger/10 border border-danger/30 flex items-center gap-3 animate-fade-in">
-          <svg className="w-5 h-5 text-danger flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-          </svg>
-          <p className="text-danger">{deleteError}</p>
-          <button onClick={() => setDeleteError(null)} className="ml-auto text-danger hover:text-danger/70">
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-      )}
-
-      {loading ? (
-        <PageLoader />
-      ) : (
-        <PullToRefresh onRefresh={loadData}>
-          {/* Stats */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-6">
-            <div className="card p-4 flex items-center gap-4">
-              <div className="p-3 rounded-lg bg-accent-primary/10 text-accent-primary">
-                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
-                </svg>
-              </div>
-              <div>
-                <p className="text-foreground-muted text-sm">Total Ads</p>
-                <p className="text-2xl font-bold text-foreground">{ads.length}</p>
-              </div>
-            </div>
-            <div className="card p-4 flex items-center gap-4">
-              <div className="p-3 rounded-lg bg-success/10 text-success">
-                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-              <div>
-                <p className="text-foreground-muted text-sm">Active</p>
-                <p className="text-2xl font-bold text-success">{activeCount}</p>
-              </div>
-            </div>
-            <div className="card p-4 flex items-center gap-4">
-              <div className="p-3 rounded-lg bg-info/10 text-info">
-                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                </svg>
-              </div>
-              <div>
-                <p className="text-foreground-muted text-sm">Total Views</p>
-                <p className="text-2xl font-bold text-info">{totalViews.toLocaleString()}</p>
-              </div>
-            </div>
-            <div className="card p-4 flex items-center gap-4">
-              <div className="p-3 rounded-lg bg-warning/10 text-warning">
-                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122" />
-                </svg>
-              </div>
-              <div>
-                <p className="text-foreground-muted text-sm">Total Clicks</p>
-                <p className="text-2xl font-bold text-warning">{totalClicks.toLocaleString()}</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Ads Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {displayedAds.map((ad, index) => (
-              <Link
-                key={ad.id}
-                href={`/ads/${ad.id}`}
-                className="card overflow-hidden group animate-fade-in cursor-pointer"
-                style={{ animationDelay: `${index * 0.05}s`, opacity: 0 }}
-              >
-                {/* Image */}
-                <div className="relative h-48 bg-background-tertiary overflow-hidden">
-                  {ad.image_url ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={ad.image_url}
-                      alt={ad.title}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center">
-                      <svg className="w-16 h-16 text-foreground-muted/30" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                      </svg>
-                    </div>
-                  )}
-
-                  {/* Badge */}
-                  {ad.badge_text && (
-                    <span className={`absolute top-3 left-3 px-2 py-1 rounded-md text-xs font-medium ${getBadgeStyle(ad.badge_type)}`}>
-                      {ad.badge_text}
-                    </span>
-                  )}
-
-                  {/* Status & Delete */}
-                  <div className="absolute top-3 right-3 flex items-center gap-2">
-                    <span className={`px-2 py-1 rounded-md text-xs font-medium ${ad.is_active ? 'bg-success/20 text-success' : 'bg-gray-500/20 text-gray-400'}`}>
-                      {ad.is_active ? 'Active' : 'Inactive'}
-                    </span>
-                    <button
-                      onClick={(e) => handleDeleteAd(ad.id, e)}
-                      disabled={deletingAdId === ad.id}
-                      className="p-1.5 rounded-md bg-danger/20 text-danger hover:bg-danger/40 transition-colors opacity-0 group-hover:opacity-100"
-                      title="Delete ad"
-                    >
-                      {deletingAdId === ad.id ? (
-                        <div className="w-4 h-4 border-2 border-danger/30 border-t-danger rounded-full animate-spin" />
-                      ) : (
-                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                        </svg>
-                      )}
-                    </button>
-                  </div>
-                </div>
-
-                {/* Content */}
-                <div className="p-4">
-                  <div className="flex items-start justify-between gap-2 mb-2">
-                    <h3 className="font-semibold text-foreground line-clamp-1 group-hover:text-accent-primary transition-colors">
-                      {ad.title}
-                    </h3>
-                    <span className="text-lg font-bold text-accent-primary whitespace-nowrap">{ad.price}</span>
-                  </div>
-
-                  <p className="text-sm text-foreground-muted line-clamp-2 mb-3">{ad.description}</p>
-
-                  <div className="flex items-center gap-2 text-xs text-foreground-muted mb-3">
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                    </svg>
-                    <span>{ad.seller_location}</span>
-                    <span className="mx-1">•</span>
-                    <span className="capitalize">{ad.category.replace('_', ' ')}</span>
-                  </div>
-
-                  {/* Metrics */}
-                  <div className="flex items-center gap-4 pt-3 border-t border-border">
-                    <div className="flex items-center gap-1.5 text-sm">
-                      <svg className="w-4 h-4 text-info" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                      </svg>
-                      <span className="text-foreground">{ad.views_count}</span>
-                    </div>
-                    <div className="flex items-center gap-1.5 text-sm">
-                      <svg className="w-4 h-4 text-warning" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122" />
-                      </svg>
-                      <span className="text-foreground">{ad.clicks_count}</span>
-                    </div>
-                    <div className="ml-auto text-xs text-foreground-muted">
-                      {ad.views_count > 0 ? ((ad.clicks_count / ad.views_count) * 100).toFixed(1) : '0'}% CTR
-                    </div>
-                  </div>
-                </div>
-              </Link>
+    <div className="mx-auto max-w-3xl rounded-2xl border border-border bg-background-secondary p-6 sm:p-10">
+      <div className="grid items-center gap-8 md:grid-cols-[1fr_300px]">
+        <div>
+          <span className="badge badge-warning">{t('New')}</span>
+          <h2 className="mt-3 text-2xl font-bold tracking-tight text-foreground">
+            {isAdmin ? t('No ads yet') : t('Put ads on your WiFi login page')}
+          </h2>
+          <p className="mt-2 text-sm text-foreground-muted">
+            {t('Everyone who connects to your WiFi sees the top of your portal. An ad there rotates with the photo and plays while customers wait for M-Pesa.')}
+          </p>
+          <ul className="mt-5 space-y-3">
+            {points.map(([title, desc]) => (
+              <li key={title} className="flex gap-3">
+                <span className="mt-0.5 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-success/15 text-success">
+                  <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3} aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                </span>
+                <span className="text-sm">
+                  <span className="font-semibold text-foreground">{t(title)}</span>
+                  <span className="block text-foreground-muted">{t(desc)}</span>
+                </span>
+              </li>
             ))}
-          </div>
-
-          {displayedAds.length === 0 && !loading && (
-            <div className="card p-12 text-center">
-              <svg className="w-16 h-16 mx-auto mb-4 text-foreground-muted/50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
-              </svg>
-              <h3 className="text-xl font-semibold text-foreground mb-2">No Ads Found</h3>
-              <p className="text-foreground-muted mb-4">
-                {searchQuery || categoryFilter ? 'Try adjusting your filters' : 'Create your first ad to get started'}
-              </p>
-              {!searchQuery && !categoryFilter && (
-                <button onClick={() => setShowCreateModal(true)} className="btn-primary">
-                  Create Ad
-                </button>
-              )}
-            </div>
+          </ul>
+          {canManage ? (
+            <Link href="/ads/new" className="btn-primary mt-6 inline-flex min-h-[44px] items-center gap-2">
+              {PlusIcon}
+              {isAdmin ? t('Create a Bitwave ad') : t('Create your first ad')}
+            </Link>
+          ) : (
+            <p className="mt-6 text-sm text-foreground-muted">{t('Ask the account owner to create ads.')}</p>
           )}
-
-          <Pagination
-            page={page}
-            perPage={perPage}
-            total={effectiveTotal}
-            onPageChange={setPage}
-            onPerPageChange={(pp) => { setPerPage(pp); setPage(1); }}
-            loading={loading}
-            noun="ads"
+          {!isAdmin && canManage && (
+            <p className="mt-3 text-xs text-foreground-muted">{t('Bitwave checks each ad before it goes live.')}</p>
+          )}
+        </div>
+        <div className="hidden md:block" aria-hidden="true">
+          <AdPreview
+            compact
+            wifiName={t('Your WiFi')}
+            ad={{
+              ...adToForm({
+                id: 0, advertiser_id: null, title: 'Fresh chapati & beans', description: null, seller_name: "Mama Njeri's Kitchen",
+                seller_location: null, phone_number: '0712 445 210', whatsapp_number: null, price: 'KSH 80', price_value: null,
+                category: null, badge_type: null, badge_text: null, placement: 'hero', media_type: 'image',
+                image_url: 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=600&q=70&auto=format&fit=crop',
+                video_url: null, poster_url: null, image_fit: 'cover', bg_color: '#7C2D12', slot: 'reseller',
+                owner_user_id: 0, owner_name: null, router_ids: null, status: 'approved', review_note: null, reviewed_at: null, is_active: true,
+                priority: 0, starts_at: null, expires_at: null, created_at: null, views_count: 0, clicks_count: 0,
+              }),
+            }}
           />
-        </PullToRefresh>
-      )}
-
-      {/* Create Ad Modal */}
-      {showCreateModal && (
-        <CreateAdModal
-          advertisers={advertisers}
-          onClose={() => setShowCreateModal(false)}
-          onSuccess={() => {
-            setShowCreateModal(false);
-            loadData();
-          }}
-        />
-      )}
+        </div>
+      </div>
     </div>
   );
 }
 
-function CreateAdModal({
-  advertisers,
-  onClose,
-  onSuccess,
-}: {
-  advertisers: Advertiser[];
-  onClose: () => void;
-  onSuccess: () => void;
-}) {
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [formData, setFormData] = useState<CreateAdRequest>({
-    advertiser_id: advertisers[0]?.id || 0,
-    title: '',
-    description: '',
-    image_url: '',
-    seller_name: '',
-    seller_location: '',
-    phone_number: '',
-    whatsapp_number: '',
-    price: '',
-    price_value: 0,
-    category: 'electronics',
-    expires_at: utcToGMT3DateOnly(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()),
-  });
+function StatTile({ label, value, hint }: { label: string; value: string; hint?: string }) {
+  return (
+    <div className="rounded-2xl border border-border bg-background-secondary p-4">
+      <p className="text-xs font-medium text-foreground-muted">{label}</p>
+      <p className="mt-1 text-2xl font-bold tabular-nums text-foreground">{value}</p>
+      {hint && <p className="mt-0.5 text-[11px] text-foreground-muted">{hint}</p>}
+    </div>
+  );
+}
 
-  // Auto-fill seller details when advertiser changes
-  useEffect(() => {
-    const advertiser = advertisers.find((a) => a.id === formData.advertiser_id);
-    if (advertiser) {
-      setFormData((prev) => ({
-        ...prev,
-        seller_name: advertiser.business_name,
-        phone_number: advertiser.phone_number,
-        whatsapp_number: advertiser.phone_number,
-      }));
-    }
-  }, [formData.advertiser_id, advertisers]);
+export default function AdsClient() {
+  const t = useT();
+  const { user } = useAuth();
+  const { showAlert } = useAlert();
+  const isAdmin = user?.role === 'admin';
+  // Staff with "View dashboard" only can read ads; "Captive portal" staff can change them.
+  const { can } = usePermissions();
+  const canManage = can(PERMISSIONS.portalManage);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const [ads, setAds] = useState<Ad[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [perPage, setPerPage] = useState(20);
+  const [pending, setPending] = useState<Ad[]>([]);
+  const [pendingTotal, setPendingTotal] = useState(0);
+  const [analytics, setAnalytics] = useState<AdAnalytics | null>(null);
+  const [routers, setRouters] = useState<Router[]>([]);
+  const [loaded, setLoaded] = useState(false);
+  const [listLoading, setListLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [view, setView] = useState<View>('all');
+  const [statusFilter, setStatusFilter] = useState<'' | AdReviewStatus>('');
+  const [placementFilter, setPlacementFilter] = useState<'' | AdPlacement>('');
+  /** '' = everyone, 'bitwave' = Bitwave's own ads, else a reseller's user id. */
+  const [ownerFilter, setOwnerFilter] = useState('');
+  const [busyId, setBusyId] = useState<number | null>(null);
+  const [deleting, setDeleting] = useState<Ad | null>(null);
+  const [rejecting, setRejecting] = useState<Ad | null>(null);
+  const [now] = useState(() => Date.now());
+
+  // One page of ads, filtered on the server.
+  const loadList = useCallback(async () => {
+    setListLoading(true);
     try {
-      setLoading(true);
-      setError(null);
-      await api.createAd({
-        ...formData,
-        expires_at: gmt3DateOnlyToISO(formData.expires_at),
+      const res = await api.getManagedAds({
+        page,
+        perPage,
+        status: statusFilter || undefined,
+        placement: placementFilter || undefined,
+        bitwave_only: ownerFilter === 'bitwave' || undefined,
+        owner_user_id: ownerFilter && ownerFilter !== 'bitwave' ? Number(ownerFilter) : undefined,
       });
-      onSuccess();
+      setAds(res.ads);
+      setTotal(res.pagination.total);
+      setLoadError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create ad');
+      setLoadError(err instanceof Error ? err.message : t('Could not load your ads.'));
     } finally {
-      setLoading(false);
+      setListLoading(false);
+      setLoaded(true);
+    }
+  }, [page, perPage, statusFilter, placementFilter, ownerFilter, t]);
+
+  // Totals for the tiles, the review queue and router names.
+  const loadSummary = useCallback(async () => {
+    const [totals, queue, routerList] = await Promise.all([
+      api.getAdAnalytics(30).catch(() => null),
+      api.getManagedAds({ status: 'pending', perPage: 100 }).catch(() => null),
+      api.getRouters().catch(() => [] as Router[]),
+    ]);
+    setAnalytics(totals);
+    if (queue) {
+      setPending([...queue.ads].sort((x, y) => String(x.created_at).localeCompare(String(y.created_at))));
+      setPendingTotal(queue.pagination.total);
+    }
+    setRouters(routerList);
+  }, []);
+
+  useEffect(() => { void loadList(); }, [loadList]);
+  useEffect(() => { void loadSummary(); }, [loadSummary]);
+
+  const refresh = () => { void loadList(); void loadSummary(); };
+
+  // Owner filter choices: resellers who own routers, plus any owner on screen.
+  const ownerOptions = useMemo(() => {
+    const map = new Map<number, string>();
+    for (const r of routers) {
+      if (r.owner_user_id && r.owner_name && r.owner_role !== 'admin') map.set(r.owner_user_id, r.owner_name);
+    }
+    for (const a of [...ads, ...pending]) {
+      if (a.owner_user_id !== null && !map.has(a.owner_user_id)) map.set(a.owner_user_id, ownerLabel(a));
+    }
+    return Array.from(map, ([id, name]) => ({ value: String(id), label: name }))
+      .sort((x, y) => x.label.localeCompare(y.label));
+  }, [routers, ads, pending]);
+
+  const replace = (updated: Ad) => setAds((list) => list.map((a) => (a.id === updated.id ? { ...a, ...updated } : a)));
+
+  const togglePause = async (ad: Ad) => {
+    setBusyId(ad.id);
+    try {
+      const updated = await api.updateAd(ad.id, { is_active: !ad.is_active });
+      replace(updated);
+      void loadSummary();
+      showAlert('success', updated.is_active ? t('Ad resumed.') : t('Ad paused. It no longer shows on portals.'));
+    } catch (err) {
+      showAlert('error', err instanceof Error ? err.message : t('Could not update the ad.'));
+    } finally {
+      setBusyId(null);
     }
   };
 
-  if (advertisers.length === 0) {
+  const confirmDelete = async () => {
+    if (!deleting) return;
+    setBusyId(deleting.id);
+    try {
+      await api.deleteAd(deleting.id);
+      showAlert('success', t('Ad deleted.'));
+      setDeleting(null);
+      if (ads.length === 1 && page > 1) setPage(page - 1);
+      refresh();
+    } catch (err) {
+      showAlert('error', err instanceof Error ? err.message : t('Could not delete the ad.'));
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const review = async (ad: Ad, action: 'approve' | 'reject', note?: string) => {
+    setBusyId(ad.id);
+    try {
+      const updated = await api.reviewAd(ad.id, action, note);
+      replace(updated);
+      setPending((list) => list.filter((a) => a.id !== ad.id));
+      setPendingTotal((n) => Math.max(0, n - 1));
+      void loadSummary();
+      showAlert('success', action === 'approve' ? t('Approved. The ad is now live.') : t('Ad rejected. The reseller will see your reason.'));
+      setRejecting(null);
+    } catch (err) {
+      showAlert('error', err instanceof Error ? err.message : t('Could not save the review.'));
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const filtersActive = !!(statusFilter || placementFilter || ownerFilter);
+  const clearFilters = () => { setStatusFilter(''); setPlacementFilter(''); setOwnerFilter(''); setPage(1); };
+  const noAdsAtAll = loaded && !loadError && !filtersActive && total === 0 && (analytics?.total_ads ?? 0) === 0;
+
+  const newButton = canManage && (
+    <Link href="/ads/new" className="btn-primary inline-flex min-h-[44px] items-center gap-2">
+      {PlusIcon}
+      {t('New ad')}
+    </Link>
+  );
+
+  if (!loaded) return <PageLoader />;
+
+  if (loadError && ads.length === 0) {
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-        <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-        <div className="relative w-full max-w-md card p-6 animate-fade-in text-center">
-          <svg className="w-16 h-16 mx-auto mb-4 text-warning" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-          </svg>
-          <h3 className="text-xl font-semibold text-foreground mb-2">No Advertisers Found</h3>
-          <p className="text-foreground-muted mb-4">
-            You need to create an advertiser before creating ads.
-          </p>
-          <div className="flex gap-3">
-            <button onClick={onClose} className="btn-secondary flex-1">
-              Cancel
-            </button>
-            <Link href="/advertisers" className="btn-primary flex-1 text-center">
-              Add Advertiser
-            </Link>
-          </div>
+      <div>
+        <Header title={t('Ads')} />
+        <div className="mx-auto max-w-md rounded-2xl border border-border bg-background-secondary p-8 text-center">
+          <h2 className="text-lg font-semibold text-foreground">{t('Could not load your ads')}</h2>
+          <p className="mt-1 text-sm text-foreground-muted">{loadError}</p>
+          <button onClick={refresh} className="btn-primary mt-4 min-h-[44px]">{t('Try again')}</button>
         </div>
       </div>
     );
   }
 
+  const subtitle = isAdmin
+    ? t('Every ad on Bitwave portals, and the reseller ads waiting for review')
+    : t('Ads on your WiFi login page: your own promos and ads you sell');
+
+  const selectCls = 'input !py-2.5 min-h-[44px] sm:!w-auto';
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+    <div className="pb-6">
+      <Header title={t('Ads')} subtitle={subtitle} action={noAdsAtAll || !newButton ? undefined : newButton} />
 
-      <div className="relative w-full max-w-2xl card p-6 animate-fade-in max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-bold text-foreground">Create New Ad</h2>
-          <button onClick={onClose} className="p-2 rounded-lg hover:bg-background-tertiary transition-colors">
-            <svg className="w-5 h-5 text-foreground-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-
-        {error && (
-          <div className="mb-4 p-3 rounded-lg bg-danger/10 border border-danger/30 text-danger text-sm">
-            {error}
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit} className="space-y-4" autoComplete="off">
-          {/* Advertiser Selection */}
-          <div>
-            <label className="block text-sm font-medium text-foreground mb-2">Advertiser</label>
-            <select
-              value={formData.advertiser_id}
-              onChange={(e) => setFormData({ ...formData, advertiser_id: parseInt(e.target.value) })}
-              className="select"
-              required
-            >
-              {advertisers.map((advertiser) => (
-                <option key={advertiser.id} value={advertiser.id}>
-                  {advertiser.business_name} - {advertiser.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-2">Title</label>
-              <input
-                type="text"
-                value={formData.title}
-                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                className="input"
-                placeholder="e.g., Samsung Galaxy A54"
-                required
-              />
+      {noAdsAtAll ? (
+        <EmptyState isAdmin={isAdmin} canManage={canManage} />
+      ) : (
+        <>
+          {canManage && (
+            <div className="mb-4 md:hidden">
+              <Link href="/ads/new" className="btn-primary flex min-h-[44px] w-full items-center justify-center gap-2">
+                {PlusIcon}
+                {t('New ad')}
+              </Link>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-2">Category</label>
-              <select
-                value={formData.category}
-                onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                className="select"
-              >
-                {CATEGORIES.map((cat) => (
-                  <option key={cat} value={cat}>
-                    {cat.charAt(0).toUpperCase() + cat.slice(1).replace('_', ' ')}
-                  </option>
-                ))}
-              </select>
-            </div>
+          )}
+
+          <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <StatTile label={t('Live now')} value={analytics ? String(analytics.active_ads) : '–'} hint={analytics ? t('{n} ads in total', { n: analytics.total_ads }) : undefined} />
+            <StatTile label={t('Waiting for review')} value={String(pendingTotal)} hint={isAdmin ? t('Oldest first in Review') : t('Bitwave checks each ad')} />
+            <StatTile label={t('Views')} value={analytics ? formatCount(analytics.total_impressions) : '–'} hint={t('Phones that saw an ad, last 30 days')} />
+            <StatTile label={t('Taps')} value={analytics ? formatCount(analytics.total_clicks) : '–'} hint={t('Calls and other taps, last 30 days')} />
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-foreground mb-2">Description</label>
-            <textarea
-              value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              className="input min-h-[80px]"
-              placeholder="Describe the product or service..."
-              required
+          {isAdmin && (
+            <Tabs<View>
+              className="mb-5"
+              value={view}
+              onChange={setView}
+              ariaLabel={t('Ads view')}
+              tabs={[
+                { value: 'all', label: t('All ads'), count: analytics?.total_ads ?? total },
+                { value: 'review', label: t('Review'), count: pendingTotal },
+              ]}
             />
-          </div>
+          )}
 
-          <div>
-            <label className="block text-sm font-medium text-foreground mb-2">Image URL</label>
-            <input
-              type="url"
-              value={formData.image_url}
-              onChange={(e) => setFormData({ ...formData, image_url: e.target.value })}
-              className="input"
-              placeholder="https://example.com/image.jpg"
-              required
-            />
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-2">Price Display</label>
-              <input
-                type="text"
-                value={formData.price}
-                onChange={(e) => setFormData({ ...formData, price: e.target.value })}
-                className="input"
-                placeholder="KES 45,000"
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-2">Price Value</label>
-              <input
-                type="number"
-                value={formData.price_value || ''}
-                onChange={(e) => setFormData({ ...formData, price_value: parseInt(e.target.value) || 0 })}
-                className="input"
-                placeholder="45000"
-                required
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-2">Seller Name</label>
-              <input
-                type="text"
-                value={formData.seller_name}
-                onChange={(e) => setFormData({ ...formData, seller_name: e.target.value })}
-                className="input"
-                placeholder="Business name"
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-2">Location</label>
-              <input
-                type="text"
-                value={formData.seller_location}
-                onChange={(e) => setFormData({ ...formData, seller_location: e.target.value })}
-                className="input"
-                placeholder="e.g., Nairobi CBD"
-                required
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-2">Phone Number</label>
-              <input
-                type="tel"
-                value={formData.phone_number}
-                onChange={(e) => setFormData({ ...formData, phone_number: e.target.value })}
-                className="input"
-                placeholder="0712345678"
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-2">WhatsApp Number</label>
-              <input
-                type="tel"
-                value={formData.whatsapp_number}
-                onChange={(e) => setFormData({ ...formData, whatsapp_number: e.target.value })}
-                className="input"
-                placeholder="0712345678"
-                required
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-2">Badge (Optional)</label>
-              <select
-                value={formData.badge_type || ''}
-                onChange={(e) => {
-                  const badge = BADGE_TYPES.find((b) => b.value === e.target.value);
-                  setFormData({
-                    ...formData,
-                    badge_type: e.target.value as 'hot' | 'new' | 'sale' | 'featured' | undefined,
-                    badge_text: badge?.label || undefined,
-                  });
-                }}
-                className="select"
-              >
-                {BADGE_TYPES.map((badge) => (
-                  <option key={badge.value} value={badge.value}>
-                    {badge.label}
-                  </option>
+          {isAdmin && view === 'review' ? (
+            pending.length === 0 ? (
+              <div className="rounded-2xl border border-border bg-background-secondary p-10 text-center">
+                <p className="text-base font-semibold text-foreground">{t('Nothing to review')}</p>
+                <p className="mt-1 text-sm text-foreground-muted">{t('New and edited reseller ads show up here.')}</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {pendingTotal > pending.length && (
+                  <p className="text-xs text-foreground-muted">{t('Showing the oldest {n} of {total}. Approve or reject these to see the rest.', { n: pending.length, total: pendingTotal })}</p>
+                )}
+                {pending.map((ad) => (
+                  <article key={ad.id} className="grid gap-5 rounded-2xl border border-border bg-background-secondary p-4 sm:p-5 lg:grid-cols-[340px_minmax(0,1fr)]">
+                    <AdPreview compact ad={adToForm(ad)} wifiName={ad.owner_name || t('WiFi name')} />
+                    <div className="flex min-w-0 flex-col">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <AdStatusChip status="pending" />
+                        <span className="badge badge-neutral">{t(slotLabel(ad.slot))}</span>
+                        <span className="badge badge-neutral">{t(PLACEMENT_LABEL[ad.placement])}</span>
+                      </div>
+                      <h3 className="mt-2 text-lg font-semibold text-foreground">
+                        <Link href={`/ads/${ad.id}`} className="hover:underline">{ad.title}</Link>
+                      </h3>
+                      <p className="text-sm text-foreground-muted">
+                        {ad.seller_name}{ad.price ? ` · ${ad.price}` : ''}
+                      </p>
+                      <dl className="mt-4 grid grid-cols-1 gap-x-6 gap-y-2.5 text-sm sm:grid-cols-2">
+                        <div><dt className="text-xs text-foreground-muted">{t('Reseller')}</dt><dd className="text-foreground">{ownerLabel(ad)}</dd></div>
+                        <div>
+                          <dt className="text-xs text-foreground-muted">{t('Call button dials')}</dt>
+                          <dd><a href={`tel:${ad.phone_number.replace(/\s+/g, '')}`} className="font-medium text-accent-primary hover:underline">{ad.phone_number}</a></dd>
+                        </div>
+                        <div><dt className="text-xs text-foreground-muted">{t('Shows on')}</dt><dd className="text-foreground">{t(routerScope(ad, routers, true))}</dd></div>
+                        <div><dt className="text-xs text-foreground-muted">{t('Sent')}</dt><dd className="text-foreground">{formatTimeSinceUTC(ad.created_at) ?? '–'}</dd></div>
+                        {ad.description && (
+                          <div className="sm:col-span-2"><dt className="text-xs text-foreground-muted">{t('Description')}</dt><dd className="text-foreground">{ad.description}</dd></div>
+                        )}
+                      </dl>
+                      <div className="mt-5 flex flex-col gap-2 sm:mt-auto sm:flex-row sm:justify-end sm:pt-5">
+                        <button
+                          type="button" disabled={busyId === ad.id} onClick={() => setRejecting(ad)}
+                          className="min-h-[44px] rounded-[10px] border border-danger/40 px-5 text-sm font-semibold text-danger hover:bg-danger/10 disabled:opacity-50"
+                        >
+                          {t('Reject')}
+                        </button>
+                        <button
+                          type="button" disabled={busyId === ad.id} onClick={() => void review(ad, 'approve')}
+                          className="min-h-[44px] rounded-[10px] bg-success px-6 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50"
+                        >
+                          {busyId === ad.id ? t('Saving…') : t('Approve')}
+                        </button>
+                      </div>
+                    </div>
+                  </article>
                 ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-2">Expires At</label>
-              <input
-                type="date"
-                value={formData.expires_at}
-                onChange={(e) => setFormData({ ...formData, expires_at: e.target.value })}
-                className="input"
-                required
-              />
-            </div>
-          </div>
+              </div>
+            )
+          ) : (
+            <>
+              <div className="mb-4 flex flex-col gap-2.5 sm:flex-row sm:flex-wrap sm:items-center">
+                <select aria-label={t('Status')} value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value as AdReviewStatus | ''); setPage(1); }} className={selectCls}>
+                  <option value="">{t('Any status')}</option>
+                  {STATUS_FILTERS.map((o) => <option key={o.value} value={o.value}>{t(o.label)}</option>)}
+                </select>
+                <select aria-label={t('Placement')} value={placementFilter} onChange={(e) => { setPlacementFilter(e.target.value as AdPlacement | ''); setPage(1); }} className={selectCls}>
+                  <option value="">{t('Anywhere')}</option>
+                  <option value="hero">{t('Top of portal')}</option>
+                  <option value="local">{t('Shops row')}</option>
+                </select>
+                {isAdmin && (
+                  <select aria-label={t('Owner')} value={ownerFilter} onChange={(e) => { setOwnerFilter(e.target.value); setPage(1); }} className={selectCls}>
+                    <option value="">{t('Any owner')}</option>
+                    <option value="bitwave">{t('Bitwave ads')}</option>
+                    {ownerOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                  </select>
+                )}
+              </div>
 
-          <div className="flex gap-3 pt-4">
-            <button type="button" onClick={onClose} className="btn-secondary flex-1">
-              Cancel
-            </button>
-            <button type="submit" disabled={loading} className="btn-primary flex-1 flex items-center justify-center gap-2">
-              {loading ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-background/30 border-t-background rounded-full animate-spin" />
-                  Creating...
-                </>
+              {ads.length === 0 ? (
+                <div className="rounded-2xl border border-border bg-background-secondary p-10 text-center">
+                  <p className="text-base font-semibold text-foreground">{t('No ads match')}</p>
+                  {filtersActive && (
+                    <button
+                      type="button"
+                      onClick={clearFilters}
+                      className="mt-3 min-h-[44px] text-sm font-medium text-accent-primary hover:underline"
+                    >
+                      {t('Clear filters')}
+                    </button>
+                  )}
+                </div>
               ) : (
-                'Create Ad'
+                <>
+                <ul className={`grid gap-3 transition-opacity xl:grid-cols-2 ${listLoading ? 'opacity-60' : ''}`} aria-busy={listLoading}>
+                  {ads.map((ad) => ({ ad, status: adDisplayStatus(ad, now) })).map(({ ad, status }) => (
+                    <li key={ad.id} className="rounded-2xl border border-border bg-background-secondary p-3.5 transition-colors hover:border-foreground-muted/40 sm:p-4">
+                      <div className="flex gap-3.5">
+                        <Link href={`/ads/${ad.id}`} className="flex-shrink-0 rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary" aria-label={t('Open {title}', { title: ad.title })} tabIndex={-1}>
+                          <AdThumb ad={ad} className="h-[72px] w-[72px] sm:h-24 sm:w-24" />
+                        </Link>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-start justify-between gap-2">
+                            <Link href={`/ads/${ad.id}`} className="min-w-0 hover:underline">
+                              <h3 className="truncate text-[15px] font-semibold text-foreground">{ad.title}</h3>
+                            </Link>
+                            <AdStatusChip status={status} />
+                          </div>
+                          <p className="truncate text-sm text-foreground-muted">
+                            {ad.seller_name}
+                            {isAdmin && <> · <span className="text-foreground">{ownerLabel(ad)}</span></>}
+                          </p>
+                          <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-foreground-muted">
+                            <span>{t(PLACEMENT_LABEL[ad.placement])}</span>
+                            <span aria-hidden="true">·</span>
+                            <span>{t(slotLabel(ad.slot))}</span>
+                            <span aria-hidden="true">·</span>
+                            <span className="tabular-nums"><strong className="font-semibold text-foreground">{formatCount(ad.views_count)}</strong> {t('views')}</span>
+                            <span className="tabular-nums"><strong className="font-semibold text-foreground">{formatCount(ad.clicks_count)}</strong> {t('taps')}</span>
+                          </p>
+                        </div>
+                      </div>
+
+                      {status === 'rejected' && ad.review_note && (
+                        <p className="mt-3 rounded-xl bg-danger/10 px-3 py-2 text-sm text-foreground">
+                          <span className="font-semibold text-danger">{t('Why:')} </span>{ad.review_note}
+                        </p>
+                      )}
+                      {status === 'pending' && !isAdmin && (
+                        <p className="mt-3 rounded-xl bg-warning/10 px-3 py-2 text-xs text-foreground-muted">
+                          {t('Bitwave is checking this ad. It starts showing once approved.')}
+                        </p>
+                      )}
+
+                      <div className="mt-3 flex flex-wrap items-center gap-1 border-t border-border pt-2.5">
+                        {canManage && (
+                          <>
+                            <Link href={`/ads/${ad.id}/edit`} className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg px-3 text-sm font-medium text-foreground hover:bg-background-tertiary">
+                              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8} aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z" /></svg>
+                              {t('Edit')}
+                            </Link>
+                            <button
+                              type="button" disabled={busyId === ad.id} onClick={() => void togglePause(ad)}
+                              className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg px-3 text-sm font-medium text-foreground hover:bg-background-tertiary disabled:opacity-50"
+                            >
+                              {ad.is_active ? (
+                                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 5.25v13.5m-7.5-13.5v13.5" /></svg>
+                              ) : (
+                                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z" /></svg>
+                              )}
+                              {ad.is_active ? t('Pause') : t('Resume')}
+                            </button>
+                          </>
+                        )}
+                        <Link href={`/ads/${ad.id}`} className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg px-3 text-sm font-medium text-foreground hover:bg-background-tertiary">
+                          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8} aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" /></svg>
+                          {t('Stats')}
+                        </Link>
+                        {canManage && (
+                          <button
+                            type="button" disabled={busyId === ad.id} onClick={() => setDeleting(ad)}
+                            className="ml-auto inline-flex min-h-[44px] items-center gap-1.5 rounded-lg px-3 text-sm font-medium text-foreground-muted hover:bg-danger/10 hover:text-danger disabled:opacity-50"
+                          >
+                            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8} aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>
+                            {t('Delete')}
+                          </button>
+                        )}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+                {total > perPage && (
+                  <div className="mt-4">
+                    <Pagination
+                      page={page}
+                      perPage={perPage}
+                      total={total}
+                      onPageChange={setPage}
+                      onPerPageChange={(n) => { setPerPage(n); setPage(1); }}
+                      loading={listLoading}
+                      noun="ads"
+                    />
+                  </div>
+                )}
+                </>
               )}
-            </button>
-          </div>
-        </form>
-      </div>
+            </>
+          )}
+        </>
+      )}
+
+      <ConfirmDialog
+        isOpen={!!deleting}
+        onClose={() => setDeleting(null)}
+        onConfirm={() => void confirmDelete()}
+        title={t('Delete this ad?')}
+        message={deleting ? t('“{title}” comes off every portal straight away. This can’t be undone.', { title: deleting.title }) : ''}
+        confirmLabel={t('Delete ad')}
+        variant="danger"
+        loading={busyId === deleting?.id}
+      />
+      <RejectAdDialog
+        open={!!rejecting}
+        adTitle={rejecting?.title ?? ''}
+        loading={busyId === rejecting?.id}
+        onCancel={() => setRejecting(null)}
+        onReject={(note) => rejecting && void review(rejecting, 'reject', note)}
+      />
     </div>
   );
 }

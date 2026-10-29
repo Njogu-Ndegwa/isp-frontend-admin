@@ -47,8 +47,8 @@ export default function AdvertisersPage() {
     const query = searchQuery.toLowerCase();
     return (
       advertiser.name.toLowerCase().includes(query) ||
-      advertiser.business_name.toLowerCase().includes(query) ||
-      advertiser.email.toLowerCase().includes(query) ||
+      (advertiser.business_name ?? '').toLowerCase().includes(query) ||
+      (advertiser.email ?? '').toLowerCase().includes(query) ||
       advertiser.phone_number.includes(query)
     );
   });
@@ -78,7 +78,8 @@ export default function AdvertisersPage() {
     <div>
       <Header
         title="Advertisers"
-        subtitle="Manage businesses that advertise on your captive portal"
+        subtitle="Businesses that pay for Bitwave ads"
+        backHref="/ads"
       />
 
       {/* Actions */}
@@ -157,9 +158,9 @@ export default function AdvertisersPage() {
                   return (
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500/20 to-orange-500/20 flex items-center justify-center text-amber-500 font-bold text-sm">
-                        {advertiser.business_name.charAt(0).toUpperCase()}
+                        {(advertiser.business_name || advertiser.name).charAt(0).toUpperCase()}
                       </div>
-                      <span className="font-medium text-foreground">{advertiser.business_name}</span>
+                      <span className="font-medium text-foreground">{advertiser.business_name || advertiser.name}</span>
                     </div>
                   );
                 case 'contact':
