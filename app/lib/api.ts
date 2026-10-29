@@ -195,6 +195,7 @@ import {
   AdminRevenueForecast,
   AdminGrowthTargetsResponse,
   AdminEarnings,
+  AdminPlatformEarnings,
   AdminEarningsAccount,
   GrowthTargetUpdatePayload,
   LeadSource,
@@ -3385,6 +3386,15 @@ class ApiClient {
       headers: this.getHeaders(),
     });
     return this.handleResponse<AdminEarnings>(response);
+  }
+
+  /** Transaction volume vs Bitwave's own earnings. `period` takes the dashboard chips (7d/30d/90d/1y). */
+  async getAdminPlatformEarnings(period: string = '30d', signal?: AbortSignal): Promise<AdminPlatformEarnings> {
+    const response = await fetch(`${BASE_URL}/admin/metrics/platform-earnings?period=${encodeURIComponent(period)}`, {
+      headers: this.getHeaders(),
+      signal,
+    });
+    return this.handleResponse<AdminPlatformEarnings>(response);
   }
 
   async setAdminOwnResellerAccounts(

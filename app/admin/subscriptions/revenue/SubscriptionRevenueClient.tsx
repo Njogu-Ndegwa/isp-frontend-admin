@@ -1,5 +1,6 @@
 'use client';
 
+import { useT } from '../../../lib/i18n';
 import { useEffect, useState, useCallback } from 'react';
 import dynamic from 'next/dynamic';
 import { api } from '../../../lib/api';
@@ -21,6 +22,7 @@ const RevenuePie = dynamic(() => import('./RevenuePie'), {
 });
 
 export default function SubscriptionRevenuePage() {
+  const t = useT();
   const { user } = useAuth();
   const [data, setData] = useState<AdminSubscriptionRevenue | null>(null);
   const [loading, setLoading] = useState(true);
@@ -98,8 +100,8 @@ export default function SubscriptionRevenuePage() {
   return (
     <div className="space-y-6 pb-24 md:pb-6">
       <Header
-        title="Subscription Revenue"
-        subtitle="Revenue from reseller subscriptions"
+        title={t('Subscription earnings')}
+        subtitle={t('What resellers pay Bitwave for their subscriptions')}
         backHref="/admin/subscriptions"
         action={
           <div className="flex items-center gap-2">
@@ -184,7 +186,7 @@ export default function SubscriptionRevenuePage() {
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <StatCard
-                title="Gross Card Revenue"
+                title={t('Gross card payments')}
                 value={money(data.paystack.gross_collected)}
                 subtitle={`${data.paystack.payment_count} completed payment${data.paystack.payment_count === 1 ? '' : 's'}`}
                 accent="success"

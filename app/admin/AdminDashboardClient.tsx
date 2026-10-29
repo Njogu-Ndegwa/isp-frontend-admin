@@ -21,7 +21,11 @@ import {
   AdminRevenueConcentration,
   AdminGrowthTarget,
   AdminGrowthTargetsResponse,
+  AdminPlatformEarnings,
 } from '../lib/types';
+import { useT } from '../lib/i18n';
+import BitwaveEarningsCard from './BitwaveEarningsCard';
+import { TERMS, formatChange, formatTakeRate } from './platformEarnings';
 import { formatDateGMT3 } from '../lib/dateUtils';
 import { useAuth } from '../context/AuthContext';
 import { useAlert } from '../context/AlertContext';
@@ -214,6 +218,7 @@ function ChartCard({
 }
 
 function ActivationFunnelSection({ funnel }: { funnel: AdminActivationFunnel }) {
+  const t = useT();
   const colors = ['bg-blue-500', 'bg-indigo-500', 'bg-violet-500', 'bg-emerald-500'];
   return (
     <div className="card p-4 sm:p-5">
@@ -238,7 +243,7 @@ function ActivationFunnelSection({ funnel }: { funnel: AdminActivationFunnel }) 
               >
                 <span className="text-white text-sm font-bold">{step.count}</span>
               </div>
-              <p className="text-[10px] sm:text-xs text-foreground-muted text-center mt-1">{step.label}</p>
+              <p className="text-[10px] sm:text-xs text-foreground-muted text-center mt-1">{t(step.label)}</p>
               <p className="text-[10px] text-foreground-muted/60">{step.percent}%</p>
             </div>
           );
@@ -254,11 +259,11 @@ function ActivationFunnelSection({ funnel }: { funnel: AdminActivationFunnel }) 
           <p className="text-xs font-semibold text-foreground">{funnel.conversion_rates.router_to_customer}%</p>
         </div>
         <div>
-          <p className="text-[10px] text-foreground-muted">Customer → Revenue</p>
+          <p className="text-[10px] text-foreground-muted">{t('Customer → Paying')}</p>
           <p className="text-xs font-semibold text-foreground">{funnel.conversion_rates.customer_to_revenue}%</p>
         </div>
         <div>
-          <p className="text-[10px] text-foreground-muted">Signup → Revenue</p>
+          <p className="text-[10px] text-foreground-muted">{t('Signup → Paying')}</p>
           <p className="text-xs font-bold text-accent-primary">{funnel.conversion_rates.signup_to_revenue}%</p>
         </div>
       </div>
@@ -322,9 +327,10 @@ function RevenueConcentrationSection({
   data: AdminRevenueConcentration;
   money: (kes: number) => string;
 }) {
+  const t = useT();
   return (
     <div className="card p-4 sm:p-5">
-      <h3 className="text-sm font-semibold text-foreground mb-4">Revenue Concentration</h3>
+      <h3 className="text-sm font-semibold text-foreground mb-4">{t('Volume concentration')}</h3>
       <div className="grid grid-cols-2 gap-4 mb-4">
         <div className="text-center p-3 rounded-xl bg-background-tertiary/50">
           <p className="text-2xl font-bold text-foreground">{data.top_5_share_percent}%</p>
@@ -357,7 +363,10 @@ function RevenueConcentrationSection({
         </div>
       )}
       <p className="text-[10px] text-foreground-muted mt-3">
-        {data.total_resellers_with_revenue} resellers generating {money(data.total_revenue)} total
+        {t('{count} resellers processed {amount} of transaction volume', {
+          count: data.total_resellers_with_revenue,
+          amount: money(data.total_revenue),
+        })}
       </p>
     </div>
   );
@@ -367,6 +376,7 @@ function RevenueConcentrationSection({
 
 export default function AdminDashboardPage() {
   const { user } = useAuth();
+  const t = useT();
   const { showAlert } = useAlert();
 
   // C2B Platform Paybill registration
@@ -528,6 +538,24 @@ export default function AdminDashboardPage() {
   // the headline dashboard has painted, so four charts' worth of aggregate
   // queries never race the page's own first load.
   const chartsEnabled = !!data && !loading;
+
+  // Transaction volume and Bitwave earnings for the header's period. Loads
+  // with the charts, after the headline dashboard has painted.
+  const [platformEarnings, setPlatformEarnings] = useState<
+    { period: PeriodFilter; data: AdminPlatformEarnings | null; failed: boolean } | null
+  >(null);
+  useEffect(() => {
+    if (!chartsEnabled) return;
+    const controller = new AbortController();
+    api.getAdminPlatformEarnings(globalPeriod, controller.signal)
+      .then((result) => setPlatformEarnings({ period: globalPeriod, data: result, failed: false }))
+      .catch(() => {
+        if (!controller.signal.aborted) setPlatformEarnings({ period: globalPeriod, data: null, failed: true });
+      });
+    return () => controller.abort();
+  }, [chartsEnabled, globalPeriod]);
+  const earningsNow = platformEarnings?.period === globalPeriod ? platformEarnings : null;
+  const platform = earningsNow?.data ?? null;
 
   const fetchResellerStats = useCallback(
     (p: string, o: number, signal?: AbortSignal) =>
@@ -712,8 +740,8 @@ export default function AdminDashboardPage() {
 
       {loading ? (
         <div className="space-y-6">
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4">
-            {Array.from({ length: 6 }).map((_, i) => <SkeletonCard key={i} />)}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
+            {Array.from({ length: 8 }).map((_, i) => <SkeletonCard key={i} />)}
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
             {Array.from({ length: 4 }).map((_, i) => (
@@ -728,8 +756,8 @@ export default function AdminDashboardPage() {
         </div>
       ) : data ? (
         <>
-          {/* KPI Row — 6 cards, 2-col mobile, 3-col desktop */}
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4">
+          {/* KPI Row — 8 cards, 2-col mobile, 4-col desktop */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
             {/* MRR */}
             {mrr ? (
               <StatCard
@@ -808,18 +836,64 @@ export default function AdminDashboardPage() {
               <PlaceholderCard title="Trial → Paid" subtitle="Awaiting backend" />
             )}
 
-            {/* Period Revenue */}
+            {/* Transaction volume -- customer payments through Bitwave for every
+                reseller. The resellers' money, not ours: it used to be called
+                "Period Revenue". Follows the period chips; until the platform
+                earnings load it shows the month-to-date figure from /dashboard. */}
             <StatCard
-              title="Period Revenue"
-              value={money(data.revenue.this_month)}
-              subtitle={data.growth_deltas
-                ? `${data.growth_deltas.revenue_change_percent >= 0 ? '+' : ''}${data.growth_deltas.revenue_change_percent.toFixed(1)}% ${data.growth_deltas.comparison_period}`
-                : `M-Pesa: ${money(data.revenue.this_month_mpesa)}`}
-              trend={data.growth_deltas ? { value: Math.abs(data.growth_deltas.revenue_change_percent), isPositive: data.growth_deltas.revenue_change_percent >= 0 } : undefined}
-              accent="success"
-              icon={<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>}
+              title={t(TERMS.volume)}
+              tooltip={t(TERMS.volumeTooltip)}
+              value={money(platform ? platform.transaction_volume.total : data.revenue.this_month)}
+              subtitle={platform
+                ? `${formatChange(platform.transaction_volume.change_percent)} ${t(platform.comparison_label)} · ${t('M-Pesa')}: ${money(platform.transaction_volume.mpesa_platform_collected + platform.transaction_volume.mpesa_direct_settled)}`
+                : data.growth_deltas
+                  ? `${formatChange(data.growth_deltas.revenue_change_percent)} ${data.growth_deltas.comparison_period}`
+                  : `${t('M-Pesa')}: ${money(data.revenue.this_month_mpesa)}`}
+              trend={platform
+                ? { value: Math.abs(platform.transaction_volume.change_percent), isPositive: platform.transaction_volume.change_percent >= 0 }
+                : data.growth_deltas ? { value: Math.abs(data.growth_deltas.revenue_change_percent), isPositive: data.growth_deltas.revenue_change_percent >= 0 } : undefined}
+              accent="info"
+              icon={<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7.5 21L3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5" /></svg>}
             />
+
+            {/* Bitwave earnings -- what we ourselves received this period. */}
+            {platform ? (
+              <StatCard
+                title={t(TERMS.earnings)}
+                tooltip={t(TERMS.earningsTooltip)}
+                value={money(platform.earnings.total)}
+                subtitle={`${formatChange(platform.earnings.change_percent)} ${t(platform.comparison_label)}`}
+                trend={{ value: Math.abs(platform.earnings.change_percent), isPositive: platform.earnings.change_percent >= 0 }}
+                accent="success"
+                icon={<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
+              />
+            ) : (
+              <PlaceholderCard title={t(TERMS.earnings)} subtitle={earningsNow?.failed ? t('Earnings unavailable') : t('Loading…')} />
+            )}
+
+            {/* Take rate -- earnings as a share of the volume they were earned on. */}
+            {platform ? (
+              <StatCard
+                title={t(TERMS.takeRate)}
+                tooltip={t(TERMS.takeRateTooltip)}
+                value={formatTakeRate(platform.take_rate_percent)}
+                subtitle={t('of {amount} transaction volume', { amount: money(platform.transaction_volume.total) })}
+                accent="secondary"
+                icon={<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 5L5 19M6.5 9a2.5 2.5 0 100-5 2.5 2.5 0 000 5zm11 11a2.5 2.5 0 100-5 2.5 2.5 0 000 5z" /></svg>}
+              />
+            ) : (
+              <PlaceholderCard title={t(TERMS.takeRate)} subtitle={earningsNow?.failed ? t('Earnings unavailable') : t('Loading…')} />
+            )}
           </div>
+
+          {/* Bitwave earnings by income stream, invoiced vs collected */}
+          <BitwaveEarningsCard
+            data={platform}
+            loading={!earningsNow}
+            failed={earningsNow?.failed ?? false}
+            money={money}
+            t={t}
+          />
 
           {/* Charts Section — 2x2 grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
@@ -831,9 +905,9 @@ export default function AdminDashboardPage() {
               usdRate={usdRate}
             />
 
-            {/* M-Pesa Transaction Revenue */}
+            {/* Transaction volume over time (every payment method; the chart used to say M-Pesa revenue) */}
             <ChartCard
-              title="M-Pesa Transaction Revenue"
+              title={t('Transaction volume over time')}
               period={effectiveMpesaPeriod}
               onPeriodChange={(p) => setMpesaChartPeriod(p === globalPeriod ? null : p)}
               showCompare
@@ -849,9 +923,9 @@ export default function AdminDashboardPage() {
               <MpesaRevenueChart data={mpesaRevenueData} currencyMode={currencyMode} usdRate={mpesaStats?.usd_rate ?? usdRate} />
             </ChartCard>
 
-            {/* Subscription Revenue */}
+            {/* Subscription earnings (Bitwave income) */}
             <ChartCard
-              title="Subscription Revenue Growth"
+              title={t('Subscription earnings growth')}
               period={effectiveSubRevPeriod}
               onPeriodChange={(p) => setSubRevChartPeriod(p === globalPeriod ? null : p)}
               showCompare
@@ -959,7 +1033,7 @@ export default function AdminDashboardPage() {
               <RevenueConcentrationSection data={revenueConcentration} money={money} />
             ) : (
               <div className="card p-4 sm:p-5">
-                <h3 className="text-sm font-semibold text-foreground mb-4">Revenue Concentration</h3>
+                <h3 className="text-sm font-semibold text-foreground mb-4">{t('Volume concentration')}</h3>
                 <div className="flex items-center justify-center h-[120px] text-foreground-muted text-xs">
                   Awaiting backend endpoint
                 </div>
@@ -1047,7 +1121,7 @@ export default function AdminDashboardPage() {
           {/* Top Resellers This Month */}
           <div className="card p-4 sm:p-5">
             <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-semibold text-foreground">Top Resellers This Month</h3>
+              <h3 className="text-sm font-semibold text-foreground">{t('Top resellers by transaction volume this month')}</h3>
               <Link href="/admin/resellers" className="text-xs text-accent-primary hover:underline">View all</Link>
             </div>
 
@@ -1057,7 +1131,7 @@ export default function AdminDashboardPage() {
                   { key: 'rank', label: '#', className: 'w-[50px]' },
                   { key: 'organization', label: 'Organization' },
                   { key: 'email', label: 'Email' },
-                  { key: 'revenue', label: 'Revenue', className: 'text-right' },
+                  { key: 'revenue', label: t('Volume'), className: 'text-right' },
                 ]}
                 data={data.top_resellers_this_month}
                 rowKey={(item) => item.id}

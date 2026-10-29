@@ -77,7 +77,7 @@ function TxTooltip({
       </div>
       <div className="flex items-center gap-2">
         <span className="w-2 h-2 rounded-full bg-emerald-500" />
-        <span className="text-foreground-muted text-xs">Revenue:</span>
+        <span className="text-foreground-muted text-xs">Volume:</span>
         <span className="font-semibold text-foreground text-xs ml-auto">{formatAmount(row.revenue)}</span>
       </div>
     </div>
@@ -234,7 +234,7 @@ export default function DailyTransactionsChart({ routerId, enabled = true }: Pro
               className={`period-pill whitespace-nowrap flex-shrink-0 ${
                 byPort ? 'period-pill-active' : 'period-pill-inactive'
               }`}
-              title="Split revenue by the router port it was earned on"
+              title="Split transaction volume by the router port it came through"
             >
               By port
             </button>
@@ -370,7 +370,7 @@ export default function DailyTransactionsChart({ routerId, enabled = true }: Pro
               </p>
             </div>
             <div className="rounded-xl bg-emerald-500/8 border border-emerald-500/15 p-2.5 sm:p-3">
-              <p className="text-[10px] text-foreground-muted uppercase tracking-wider mb-0.5">Revenue</p>
+              <p className="text-[10px] text-foreground-muted uppercase tracking-wider mb-0.5">Volume</p>
               <p className="text-sm sm:text-base font-bold text-emerald-500">{formatAmountCompact(data.totals.revenue)}</p>
             </div>
             <div className="rounded-xl bg-amber-500/8 border border-amber-500/15 p-2.5 sm:p-3">

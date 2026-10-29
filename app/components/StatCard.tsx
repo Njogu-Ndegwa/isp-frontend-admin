@@ -1,5 +1,9 @@
+import LabelWithInfo from './InfoTip';
+
 interface StatCardProps {
   title: string;
+  /** What the number means, behind an (i) next to the title. */
+  tooltip?: string;
   value: string | number;
   subtitle?: string;
   icon: React.ReactNode;
@@ -16,6 +20,7 @@ interface StatCardProps {
 
 export default function StatCard({
   title,
+  tooltip,
   value,
   subtitle,
   icon,
@@ -93,7 +98,11 @@ export default function StatCard({
         </div>
         
         <div>
-          <p className="text-foreground-muted text-[10px] sm:text-xs font-medium uppercase tracking-wider mb-1 sm:mb-1.5">{title}</p>
+          <LabelWithInfo
+            label={title}
+            info={tooltip}
+            className="text-foreground-muted text-[10px] sm:text-xs font-medium uppercase tracking-wider mb-1 sm:mb-1.5"
+          />
           <p className={`font-bold text-foreground stat-value ${size === 'large' ? 'text-xl sm:text-3xl' : 'text-lg sm:text-2xl'}`}>
             {value}
           </p>
