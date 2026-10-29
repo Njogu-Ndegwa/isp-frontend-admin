@@ -10,6 +10,7 @@ import {
   PERIOD_FOR_CHIP, PERIOD_NOUN, SOURCE_LABELS, sourceSwatchStyle, toChartPoints,
 } from './earnings/earningsChartData';
 import PeriodSelector, { type PeriodFilter } from './PeriodSelector';
+import { useT } from '../lib/i18n';
 
 // recharts stays out of the dashboard bundle until this card renders.
 const EarningsChart = dynamic(() => import('./earnings/EarningsCharts'), {
@@ -35,6 +36,7 @@ export default function EarningsSummaryCard({
   /** Fallback KES-per-USD rate until this card's own response carries one. */
   usdRate?: number;
 }) {
+  const t = useT();
   // One state object written only from the fetch callbacks. Loading is derived
   // from "what we hold isn't for the period being asked for", which avoids a
   // synchronous setState in the effect body and the cascading render it causes.
@@ -83,8 +85,8 @@ export default function EarningsSummaryCard({
     <div className="card p-4 sm:p-5">
       <div className="flex items-start justify-between gap-2 mb-3 flex-wrap">
         <div>
-          <h3 className="text-sm font-semibold text-foreground">Earnings</h3>
-          <p className="text-[11px] text-foreground-muted mt-0.5">System sales vs my reseller business</p>
+          <h3 className="text-sm font-semibold text-foreground">{t('Earnings incl. my reseller accounts')}</h3>
+          <p className="text-[11px] text-foreground-muted mt-0.5">{t('Bitwave subscription fees vs my own reseller accounts')}</p>
         </div>
         <div className="flex items-center gap-2">
           {onPeriodChange && <PeriodSelector value={period} onChange={onPeriodChange} />}
@@ -118,7 +120,7 @@ export default function EarningsSummaryCard({
             {rows.map((row) => (
               <div key={row.key} className="flex items-center gap-1.5 text-[11px]">
                 <span className="w-2.5 h-2.5 rounded-sm shrink-0" style={sourceSwatchStyle(row.key)} />
-                <span className="text-foreground-muted">{row.label}</span>
+                <span className="text-foreground-muted">{t(row.label)}</span>
                 <span className="text-foreground font-medium tabular-nums">{money(row.value)}</span>
                 <span className={row.change >= 0 ? 'text-emerald-500' : 'text-red-400'}>
                   {row.change >= 0 ? '+' : ''}{row.change.toFixed(0)}%

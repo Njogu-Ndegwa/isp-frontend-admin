@@ -5083,6 +5083,79 @@ export interface AdminEarnings {
   kes_rates?: Record<string, number>;
 }
 
+/** Income streams Bitwave itself earns (GET /admin/metrics/platform-earnings). */
+export type PlatformEarningsStreamKey =
+  | 'subscription_hotspot'
+  | 'subscription_per_user'
+  | 'subscription_minimum'
+  | 'subscription_unattributed'
+  | 'sms_credits';
+
+export interface PlatformEarningsStream {
+  key: PlatformEarningsStreamKey;
+  label: string;
+  group: 'subscriptions' | 'sms';
+  total: number;
+  previous_total: number;
+}
+
+/**
+ * Transaction volume (customer payments through Bitwave — the resellers'
+ * money) next to what Bitwave itself earns, for one calendar period-to-date.
+ * All money is KES.
+ */
+export interface AdminPlatformEarnings {
+  period: 'week' | 'month' | 'quarter' | 'year';
+  start_date: string;
+  end_date: string;
+  days: number;
+  comparison_label: string;
+  currency: string;
+  transaction_volume: {
+    total: number;
+    previous_total: number;
+    change_percent: number;
+    payments: number;
+    /** M-Pesa collected on the system paybill and paid out to resellers. */
+    mpesa_platform_collected: number;
+    /** M-Pesa that settled straight into the reseller's own account. */
+    mpesa_direct_settled: number;
+    /** Cash / bank / other payments resellers recorded themselves. */
+    recorded_manually: number;
+  };
+  earnings: {
+    /** Cash received in the window. */
+    basis: 'collected';
+    total: number;
+    previous_total: number;
+    change_percent: number;
+    subscriptions: number;
+    sms_credits: number;
+    sms_orders: number;
+    streams: PlatformEarningsStream[];
+  };
+  /** What invoices issued in the window billed (waived ones excluded). */
+  invoiced: {
+    total: number;
+    subscription_hotspot: number;
+    subscription_per_user: number;
+    subscription_minimum: number;
+    invoices: number;
+    paid_so_far: number;
+    outstanding: number;
+    waived: number;
+    waived_invoices: number;
+  };
+  /** Earnings as a % of transaction volume; null when there was no volume. */
+  take_rate_percent: number | null;
+  /** Money that is reported but deliberately not counted as earnings. */
+  not_counted: { shop_sales: number; reseller_transaction_charges: number };
+  excluded_own_accounts: AdminEarningsAccount[];
+  reporting_currency?: string;
+  usd_rate?: number;
+  kes_rates?: Record<string, number>;
+}
+
 export interface AdminARPUMetrics {
   current_arpu: number;
   previous_period_arpu: number;

@@ -1,5 +1,6 @@
 'use client';
 
+import { useT } from '../../lib/i18n';
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { api } from '../../lib/api';
@@ -41,8 +42,8 @@ const formatSafeDate = (dateStr: string | null | undefined): string => {
 
 const SORT_OPTIONS: { value: AdminResellerSortBy; label: string }[] = [
   { value: 'created_at', label: 'Date Joined' },
-  { value: 'revenue', label: 'Revenue' },
-  { value: 'mpesa_revenue', label: 'M-Pesa Revenue' },
+  { value: 'revenue', label: 'Transaction volume' },
+  { value: 'mpesa_revenue', label: 'M-Pesa volume' },
   { value: 'unpaid_balance', label: 'Unpaid Balance' },
   { value: 'customers', label: 'Customers' },
   { value: 'router_count', label: 'Routers' },
@@ -56,8 +57,8 @@ const FILTER_OPTIONS: { value: AdminResellerFilter; label: string; group: string
   { value: 'inactive', label: 'Inactive', group: 'activity' },
   { value: 'has_routers', label: 'Has Routers', group: 'setup' },
   { value: 'no_routers', label: 'No Routers', group: 'setup' },
-  { value: 'has_revenue', label: 'Has Revenue', group: 'revenue' },
-  { value: 'no_revenue', label: 'No Revenue', group: 'revenue' },
+  { value: 'has_revenue', label: 'Has payments', group: 'revenue' },
+  { value: 'no_revenue', label: 'No payments', group: 'revenue' },
 ];
 
 const FILTER_LABELS: Record<string, string> = Object.fromEntries(FILTER_OPTIONS.map(o => [o.value, o.label]));
@@ -66,7 +67,7 @@ const SORT_LABELS: Record<string, string> = Object.fromEntries(SORT_OPTIONS.map(
 const RESELLER_COLUMNS: DataTableColumn[] = [
   { key: 'organization', label: 'Organization' },
   { key: 'paybill', label: 'Paybill' },
-  { key: 'revenue', label: 'Revenue', className: 'text-right' },
+  { key: 'revenue', label: 'Volume', className: 'text-right' },
   { key: 'customers', label: 'Customers', className: 'text-right' },
   { key: 'routers', label: 'Routers', className: 'text-right' },
   { key: 'unpaid', label: 'Unpaid', className: 'text-right' },
@@ -92,6 +93,7 @@ function formatDateLabel(dateStr: string): string {
 
 export default function ResellersListPage() {
   const { user } = useAuth();
+  const t = useT();
   const router = useRouter();
   const [resellers, setResellers] = useState<AdminReseller[]>([]);
   const [total, setTotal] = useState(0);
@@ -241,12 +243,12 @@ export default function ResellersListPage() {
             />
           </div>
           <div className="animate-fade-in delay-2" style={{ opacity: 0 }}>
-            <StatCard title="Total Revenue" value={money(totalRevenue)} accent="success"
+            <StatCard title={t('Transaction volume')} tooltip={t("Customer payments processed through Bitwave for these resellers — their money, not Bitwave's income")} value={money(totalRevenue)} accent="success"
               icon={<svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8V7m0 10v1" /></svg>}
             />
           </div>
           <div className="animate-fade-in delay-3" style={{ opacity: 0 }}>
-            <StatCard title="M-Pesa Revenue" value={money(totalMpesa)} accent="info"
+            <StatCard title={t('M-Pesa volume')} value={money(totalMpesa)} accent="info"
               subtitle={`${totalRevenue > 0 ? Math.round((totalMpesa / totalRevenue) * 100) : 0}% of total`}
               icon={<svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" /></svg>}
             />

@@ -1,5 +1,6 @@
 'use client';
 
+import { useT } from '../../lib/i18n';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { api } from '../../lib/api';
@@ -300,6 +301,7 @@ function OwnAccountsCard({
 
 export default function EarningsClient() {
   const { user } = useAuth();
+  const t = useT();
 
   const [chip, setChip] = useState<PeriodFilter>('30d');
   const [mode, setMode] = useState<'bucket' | 'cumulative'>('bucket');
@@ -365,8 +367,8 @@ export default function EarningsClient() {
   return (
     <div className="space-y-6 pb-24 md:pb-6">
       <Header
-        title="Earnings"
-        subtitle="Everything we make, by where it comes from"
+        title={t('Earnings incl. my reseller accounts')}
+        subtitle={t("Bitwave subscription fees plus what my own reseller accounts collect. All of Bitwave's earnings, SMS included, are on the dashboard.")}
         backHref="/admin"
       />
 
@@ -409,7 +411,7 @@ export default function EarningsClient() {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
             {([
               { label: `Combined · ${rangeLabel}`, value: data.totals.combined, change: data.change_percent.combined },
-              { label: 'System sales', value: data.totals.system, change: data.change_percent.system },
+              { label: SOURCE_LABELS.system, value: data.totals.system, change: data.change_percent.system },
               { label: SOURCE_LABELS.reseller, value: data.totals.reseller, change: data.change_percent.reseller },
             ]).map((tile) => (
               <div key={tile.label} className="card p-4 sm:p-5">

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { api } from '../../lib/api';
 import { AdminSubscription } from '../../lib/types';
 import { useAuth } from '../../context/AuthContext';
+import { useT } from '../../lib/i18n';
 import Header from '../../components/Header';
 import SubscriptionStatusBadge from '../../components/SubscriptionStatusBadge';
 import ConfirmDialog from '../../components/ConfirmDialog';
@@ -36,6 +37,7 @@ const STATUS_FILTERS = [
 
 export default function AdminSubscriptionsPage() {
   const { user } = useAuth();
+  const t = useT();
   const [subscriptions, setSubscriptions] = useState<AdminSubscription[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -141,7 +143,7 @@ export default function AdminSubscriptionsPage() {
               Reminders
             </Link>
             <Link href="/admin/subscriptions/revenue" className="btn-primary text-sm px-4 py-2">
-              Revenue
+              {t('Earnings')}
             </Link>
           </div>
         }
