@@ -833,8 +833,10 @@ class ApiClient {
     const pppoeRaw = data.active_pppoe_users;
     const activeHotspotUsers = (hotspotRaw as number) ?? 0;
     const activePppoeUsers = (pppoeRaw as number) ?? 0;
+    // Static-IP customers are counted apart from hotspot (absent on older backends).
+    const activeStaticUsers = (data.active_static_users as number) ?? 0;
     const activeTotalUsers =
-      (data.active_total_users as number) ?? activeHotspotUsers + activePppoeUsers;
+      (data.active_total_users as number) ?? activeHotspotUsers + activePppoeUsers + activeStaticUsers;
 
     return {
       system: {
@@ -865,6 +867,7 @@ class ApiClient {
       activeSessionCount: activeHotspotUsers,
       activeHotspotUsers,
       activePppoeUsers,
+      activeStaticUsers,
       activeTotalUsers,
       activePppoeSessions: (data.active_pppoe_sessions as Array<unknown>) ?? [],
       activePppoeCount: activePppoeUsers,

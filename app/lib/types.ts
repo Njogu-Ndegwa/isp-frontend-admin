@@ -2855,7 +2855,9 @@ export interface MikroTikMetrics {
   activeHotspotUsers: number;
   /** PPPoE users currently online — read live from the router on every request. */
   activePppoeUsers: number;
-  /** Combined hotspot + PPPoE. Always equals `activeHotspotUsers + activePppoeUsers` (backend-computed, guaranteed consistent). */
+  /** Static-IP customers online (bypassed hosts on a static customer's IP). Not included in `activeHotspotUsers`. 0 on older backends. */
+  activeStaticUsers: number;
+  /** Combined hotspot + PPPoE + static IP (backend-computed, guaranteed consistent). */
   activeTotalUsers: number;
   /**
    * Per-session PPPoE detail. Only returned when the request was made with `includeSessions=true`,
@@ -2898,6 +2900,7 @@ export interface BandwidthDataPoint {
   activeSessions: number;
   activeHotspotUsers?: number;
   activePppoeUsers?: number;
+  activeStaticUsers?: number;
   hotspotUploadMB?: number;
   hotspotDownloadMB?: number;
   hotspotTotalMB?: number;
