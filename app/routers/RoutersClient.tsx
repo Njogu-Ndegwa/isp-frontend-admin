@@ -520,6 +520,10 @@ function RoutersTab({
   // Staff without routers.manage get the read-only actions only.
   const { can } = usePermissions();
   const canManageRouters = can(PERMISSIONS.routersManage);
+  // Emergency mode is a plans setting (/api/plans/*-emergency need plans.manage).
+  const canManagePlans = can(PERMISSIONS.plansManage);
+  // The SMS-credit balance check after turning alerts on is a messaging read.
+  const canSeeSmsCredits = can(PERMISSIONS.messagingSend);
   const [emergencyLoading, setEmergencyLoading] = useState<number | null>(null);
   const [emergencyModalRouter, setEmergencyModalRouter] = useState<Router | null>(null);
   const [emergencyMsg, setEmergencyMsg] = useState('');
@@ -614,7 +618,7 @@ function RoutersTab({
       setNotifyLoading(router.id);
       const result = await api.setRouterStatusAlerts(router.id, !router.status_alerts_enabled);
       showAlert('success', `${router.name}: ${result.message}`);
-      if (result.status_alerts_enabled) {
+      if (result.status_alerts_enabled && canSeeSmsCredits) {
         // Alert SMS are charged per send — warn now if the balance can't cover any.
         // A reseller on their own SMS gateway is not charged credits, so a zero
         // balance does not stop their alert SMS.
@@ -918,6 +922,7 @@ function RoutersTab({
       </button>
       {canManageRouters && (
       <>
+      {canManagePlans && (
       <button
         onClick={(e) => {
           e.stopPropagation();
@@ -944,6 +949,7 @@ function RoutersTab({
           </svg>
         )}
       </button>
+      )}
       <button
         onClick={(e) => { e.stopPropagation(); handleToggleAntiTether(router); }}
         disabled={tetherLoading === router.id}
@@ -2496,6 +2502,9 @@ function EditRouterModal({
   // How customers may pay on this router is a payment setting.
   const { can } = usePermissions();
   const canManagePaymentMethods = can(PERMISSIONS.paymentMethodsManage);
+  // Emergency mode is a plans setting; the backend refuses a change from staff
+  // without plans.manage, so only send (and show) it to those who have it.
+  const canManageEmergency = can(PERMISSIONS.plansManage);
   const [formData, setFormData] = useState<UpdateRouterRequest>({
     name: router.name,
     ip_address: router.ip_address,
@@ -2515,8 +2524,10 @@ function EditRouterModal({
         ip_address: formData.ip_address,
         port: formData.port,
         ...(canManagePaymentMethods ? { payment_methods: formData.payment_methods } : {}),
-        emergency_active: formData.emergency_active,
-        emergency_message: formData.emergency_active ? (formData.emergency_message || null) : null,
+        ...(canManageEmergency ? {
+          emergency_active: formData.emergency_active,
+          emergency_message: formData.emergency_active ? (formData.emergency_message || null) : null,
+        } : {}),
       };
       await api.updateRouter(router.id, updates);
       onSuccess();
@@ -2600,6 +2611,7 @@ function EditRouterModal({
           )}
 
           {/* Emergency Mode */}
+          {canManageEmergency && (
           <div className="pt-2 border-t border-border">
             <div className="flex items-center justify-between mb-3">
               <div>
@@ -2628,6 +2640,7 @@ function EditRouterModal({
               </div>
             )}
           </div>
+          )}
 
           <div className="flex gap-3 pt-2">
             <button type="button" onClick={onClose} className="btn-secondary flex-1">

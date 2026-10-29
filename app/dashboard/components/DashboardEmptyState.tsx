@@ -4,6 +4,8 @@ import React from 'react';
 import Link from 'next/link';
 import { CurrencyIcon, TransactionsIcon, UsersIcon, ChartIcon } from './icons';
 import { useT } from '../../lib/i18n';
+import { usePermissions } from '../../hooks/usePermissions';
+import { PERMISSIONS } from '../../lib/permissions';
 
 /**
  * Shown on the dashboard when the reseller has no routers yet. Instead of
@@ -12,6 +14,9 @@ import { useT } from '../../lib/i18n';
  */
 export default function DashboardEmptyState(): React.JSX.Element {
   const t = useT();
+  // Adding a router needs routers.manage; the setup guide is the owner's.
+  const { can, isStaff } = usePermissions();
+  const canAddRouter = can(PERMISSIONS.routersManage);
   return (
     <div className="space-y-4 sm:space-y-6 animate-fade-in">
       {/* Ghost KPI tiles — a preview of the analytics that will appear */}
@@ -33,6 +38,10 @@ export default function DashboardEmptyState(): React.JSX.Element {
         <p className="text-sm text-foreground-muted mt-2 max-w-md">
           {t('Connect your first router to start seeing live revenue, customer activity, network health, and usage analytics right here.')}
         </p>
+        {!canAddRouter && (
+          <p className="text-sm text-foreground-muted mt-4">{t('Ask the account owner to connect a router.')}</p>
+        )}
+        {canAddRouter && (
         <div className="flex flex-col sm:flex-row items-center gap-3 mt-6 w-full sm:w-auto">
           <Link
             href="/routers"
@@ -43,10 +52,13 @@ export default function DashboardEmptyState(): React.JSX.Element {
             </svg>
             {t('Add your first router')}
           </Link>
+          {!isStaff && (
           <Link href="/setup" className="btn-secondary w-full sm:w-auto text-center">
             {t('Use the setup guide')}
           </Link>
+          )}
         </div>
+        )}
       </div>
     </div>
   );

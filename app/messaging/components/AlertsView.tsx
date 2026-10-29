@@ -5,6 +5,8 @@ import { api } from '../../lib/api';
 import { Router, SmsCreditInfo } from '../../lib/types';
 import { useAlert } from '../../context/AlertContext';
 import { PageLoader } from '../../components/LoadingSpinner';
+import { usePermissions } from '../../hooks/usePermissions';
+import { PERMISSIONS } from '../../lib/permissions';
 
 // ─── Router status alerts ──────────────────────────────────────────────────
 // Per-router opt-in: an inbox message when the router stays offline past the
@@ -18,6 +20,11 @@ interface AlertsViewProps {
 
 export function AlertsView({ credits, onBuyCredits }: AlertsViewProps) {
   const { showAlert } = useAlert();
+  // The per-router switch changes the router (routers.manage); buying credits
+  // is a payment (subscription.manage); the phone is on the owner's profile.
+  const { can, isStaff } = usePermissions();
+  const canToggle = can(PERMISSIONS.routersManage);
+  const canBuy = can(PERMISSIONS.subscriptionManage);
   const [routers, setRouters] = useState<Router[]>([]);
   const [supportPhone, setSupportPhone] = useState<string | null | undefined>(undefined);
   const [loading, setLoading] = useState(true);
@@ -94,9 +101,11 @@ export function AlertsView({ credits, onBuyCredits }: AlertsViewProps) {
               Alerts will arrive in your inbox only — no SMS will be sent until you top up.
             </p>
           </div>
+          {canBuy && (
           <button onClick={onBuyCredits} className="btn-primary text-xs shrink-0">
             Buy credits
           </button>
+          )}
         </div>
       )}
 
@@ -108,9 +117,11 @@ export function AlertsView({ credits, onBuyCredits }: AlertsViewProps) {
               Add a support phone so alert SMS have somewhere to go. Until then, alerts are inbox-only.
             </p>
           </div>
+          {!isStaff && (
           <Link href="/settings/profile" className="btn-secondary text-xs shrink-0">
             Add phone
           </Link>
+          )}
         </div>
       )}
 
@@ -136,11 +147,12 @@ export function AlertsView({ credits, onBuyCredits }: AlertsViewProps) {
                 type="button"
                 role="switch"
                 aria-checked={!!router.status_alerts_enabled}
-                disabled={togglingId === router.id}
+                disabled={togglingId === router.id || !canToggle}
+                title={canToggle ? undefined : 'Ask the account owner to change router alerts'}
                 onClick={() => toggle(router)}
                 className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${
                   router.status_alerts_enabled ? 'bg-success' : 'bg-background-tertiary border border-border'
-                } ${togglingId === router.id ? 'opacity-60' : ''}`}
+                } ${togglingId === router.id || !canToggle ? 'opacity-60' : ''}`}
               >
                 <span
                   className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${

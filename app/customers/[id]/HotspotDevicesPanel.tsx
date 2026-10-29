@@ -10,6 +10,8 @@ import ConfirmDialog from '../../components/ConfirmDialog';
 import { formatUsageMb } from './usageFormat';
 import { formatDateGMT3 } from '../../lib/dateUtils';
 import DeviceLimitEditor from './DeviceLimitEditor';
+import { usePermissions } from '../../hooks/usePermissions';
+import { PERMISSIONS } from '../../lib/permissions';
 
 const MAC_PATTERN = /^([0-9A-Fa-f]{2}[:-]?){5}[0-9A-Fa-f]{2}$/;
 
@@ -32,6 +34,9 @@ function deviceLabel(device: CustomerDevice): string {
 // different number of devices than their plan.
 export default function HotspotDevicesPanel({ customerId }: { customerId: number }) {
   const { showAlert } = useAlert();
+  // Adding/removing devices and the limit change the customer (customers.manage).
+  const { can } = usePermissions();
+  const canManageCustomers = can(PERMISSIONS.customersManage);
   const [data, setData] = useState<CustomerDevicesResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -177,7 +182,7 @@ export default function HotspotDevicesPanel({ customerId }: { customerId: number
                   <p className="text-xs text-foreground-muted">Added {formatAddedAt(d.added_at)}</p>
                 )}
               </div>
-              {!d.is_main_device && d.pairing_id !== null && (
+              {canManageCustomers && !d.is_main_device && d.pairing_id !== null && (
                 <button
                   type="button"
                   onClick={() => setRemoving(d)}
@@ -195,7 +200,7 @@ export default function HotspotDevicesPanel({ customerId }: { customerId: number
         <p className="text-xs text-warning">The router did not answer, so online status is not shown.</p>
       )}
 
-      {data && !adding && (
+      {data && !adding && canManageCustomers && (
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
           <button
             type="button"

@@ -90,10 +90,15 @@ describe('page access', () => {
     expect(requiredPermissionForPath('/dashboard')).toBe('dashboard.view');
     expect(requiredPermissionForPath('/customers/42')).toBe('customers.view');
     expect(requiredPermissionForPath('/customers/register')).toBe('customers.manage');
-    expect(requiredPermissionForPath('/unmatched-payments')).toBe('transactions.manage');
+    expect(requiredPermissionForPath('/unmatched-payments')).toBe('transactions.view');
+    expect(requiredPermissionForPath('/access-credentials')).toBe('customers.view');
+    expect(requiredPermissionForPath('/access-credentials/create')).toBe('customers.manage');
+    expect(requiredPermissionForPath('/access-credentials/9')).toBe('customers.view');
+    expect(requiredPermissionForPath('/ratings')).toBe('customers.view');
     expect(requiredPermissionForPath('/settings/subscription/invoices')).toBe('subscription.manage');
     expect(requiredPermissionForPath('/settings/staff')).toBe(OWNER_ONLY);
-    expect(requiredPermissionForPath('/settings/profile')).toBe(OWNER_ONLY);
+    // Everyone signed in has a profile: staff get their own page there.
+    expect(requiredPermissionForPath('/settings/profile')).toBeUndefined();
     expect(requiredPermissionForPath('/routers/')).toBe('routers.view');
     expect(requiredPermissionForPath('/customers-archive')).toBeUndefined();
     expect(requiredPermissionForPath('/shop')).toBeUndefined();
@@ -112,14 +117,19 @@ describe('page access', () => {
     expect(canAccessPath(cashier, '/vouchers')).toBe(true);
     expect(canAccessPath(cashier, '/routers')).toBe(false);
     expect(canAccessPath(cashier, '/dashboard')).toBe(false);
-    expect(canAccessPath(cashier, '/settings/profile')).toBe(false);
+    expect(canAccessPath(cashier, '/settings/profile')).toBe(true);
+    expect(canAccessPath(cashier, '/unmatched-payments')).toBe(true);
+    expect(canAccessPath(cashier, '/access-credentials')).toBe(true);
+    expect(canAccessPath(cashier, '/access-credentials/create')).toBe(false);
     expect(canAccessPath(cashier, '/settings/staff')).toBe(false);
     expect(canAccessPath(cashier, '/setup')).toBe(false);
   });
 
-  it('opens the settings hub only when a settings page is open', () => {
-    expect(canAccessPath(staff(['customers.view']), '/settings')).toBe(false);
-    expect(canAccessPath(staff(['portal.manage']), '/settings')).toBe(true);
+  it('opens the settings hub for every staff member (their profile lives there)', () => {
+    expect(canAccessPath(staff([]), '/settings')).toBe(true);
+    expect(canAccessPath(staff(['customers.view']), '/settings')).toBe(true);
+    expect(canAccessPath(staff(['customers.view']), '/settings/staff')).toBe(false);
+    expect(canAccessPath(staff(['customers.view']), '/settings/payment-methods')).toBe(false);
   });
 
   it('picks the dashboard, else the first page staff can open, else none', () => {
@@ -145,7 +155,12 @@ describe('filterNavGroups', () => {
 
   it('drops items staff cannot open and groups left empty', () => {
     const result = filterNavGroups(groups, staff(['customers.view']));
-    expect(result).toEqual([{ id: 'b', items: [{ href: '/customers' }] }]);
+    expect(result).toEqual([
+      { id: 'b', items: [{ href: '/customers' }] },
+      { id: 'c', items: [{ href: '/settings/profile' }] },
+    ]);
+    expect(filterNavGroups([groups[0], groups[1]], staff(['customers.view'])))
+      .toEqual([{ id: 'b', items: [{ href: '/customers' }] }]);
   });
 });
 

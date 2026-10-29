@@ -60,6 +60,9 @@ export default function DashboardPage() {
   // Setup is the owner's job; staff never see the onboarding checklist.
   const isStaff = isStaffUser(user);
   const canSeeSubscription = hasPermission(user, PERMISSIONS.subscriptionManage);
+  // Router health, ports, bandwidth and top users read the routers
+  // (routers.view). Staff with only dashboard.view get the revenue views.
+  const canSeeRouters = hasPermission(user, PERMISSIONS.routersView);
   const t = useT();
 
   // Analytics state
@@ -111,14 +114,15 @@ export default function DashboardPage() {
   const selectedRouter = routers.find((router) => router.id === selectedRouterId);
   const wanPorts = configuredWanPorts(selectedRouter);
   const hasMultiWan = Boolean(selectedRouter?.lb_enabled);
+  const showRouterCards = Boolean(selectedRouterId) && canSeeRouters;
   const loadWanReport = useCallback(async () => {
     const request = ++wanRequest.current;
     setWanReport(null);
-    if (!selectedRouterId || !hasMultiWan) return;
+    if (!selectedRouterId || !hasMultiWan || !canSeeRouters) return;
     // This reads the existing push report; it never samples the router.
     const report = await api.getRouterLive(selectedRouterId).catch(() => null);
     if (request === wanRequest.current) setWanReport(report);
-  }, [selectedRouterId, hasMultiWan]);
+  }, [selectedRouterId, hasMultiWan, canSeeRouters]);
   useEffect(() => {
     void loadWanReport();
     return () => { wanRequest.current += 1; };
@@ -166,7 +170,7 @@ export default function DashboardPage() {
 
   // Fetch MikroTik metrics (non-blocking) — only when a router is selected
   const loadMikrotik = useCallback(async () => {
-    if (!selectedRouterId) return;
+    if (!selectedRouterId || !canSeeRouters) return;
     try {
       setMikrotikLoading(true);
       setMikrotikError(null);
@@ -177,11 +181,11 @@ export default function DashboardPage() {
     } finally {
       setMikrotikLoading(false);
     }
-  }, [selectedRouterId]);
+  }, [selectedRouterId, canSeeRouters]);
 
   // Fetch bandwidth history (non-blocking) — only when a router is selected
   const loadBandwidth = useCallback(async () => {
-    if (!selectedRouterId) return;
+    if (!selectedRouterId || !canSeeRouters) return;
     try {
       setBandwidthLoading(true);
       setBandwidthError(null);
@@ -195,11 +199,12 @@ export default function DashboardPage() {
     } finally {
       setBandwidthLoading(false);
     }
-  }, [downloadUsagePeriod, selectedRouterId]);
+  }, [downloadUsagePeriod, selectedRouterId, canSeeRouters]);
 
   // Top users by data used in the chosen window (this router, or all of the
   // account's routers when none is selected).
   const loadTopUsers = useCallback(async () => {
+    if (!canSeeRouters) return;
     try {
       setTopUsersLoading(true);
       setTopUsersError(null);
@@ -210,11 +215,11 @@ export default function DashboardPage() {
     } finally {
       setTopUsersLoading(false);
     }
-  }, [selectedRouterId, topUsersWindow]);
+  }, [selectedRouterId, topUsersWindow, canSeeRouters]);
 
   // Fetch port analytics (non-blocking) — only when a router is selected
   const loadPortMap = useCallback(async () => {
-    if (!selectedRouterId) return;
+    if (!selectedRouterId || !canSeeRouters) return;
     try {
       setPortMapLoading(true);
       setPortMapError(null);
@@ -225,7 +230,7 @@ export default function DashboardPage() {
     } finally {
       setPortMapLoading(false);
     }
-  }, [selectedRouterId]);
+  }, [selectedRouterId, canSeeRouters]);
 
   // Load subscription alert without hitting the legacy dashboard overview endpoint.
   useEffect(() => {
@@ -382,8 +387,8 @@ export default function DashboardPage() {
             {!analyticsError && data && <div className="xl:col-span-4 min-w-0"><PlanPerformance plans={data.planPerformance} totalRevenue={data.summary.totalRevenue} /></div>}
 
             {/* Row 3 — Router Health (6) + Ports & Usage (6): the two router-level MikroTik views */}
-            {selectedRouterId && <div className="xl:col-span-6 min-w-0"><NetworkHealthCard data={mikrotik} loading={mikrotikLoading} error={mikrotikError} onRetry={loadMikrotik} /></div>}
-            {selectedRouterId && (
+            {showRouterCards && <div className="xl:col-span-6 min-w-0"><NetworkHealthCard data={mikrotik} loading={mikrotikLoading} error={mikrotikError} onRetry={loadMikrotik} /></div>}
+            {showRouterCards && selectedRouterId && (
               <div className="xl:col-span-6 min-w-0">
                 <PortsUsageCard
                   routerId={selectedRouterId}
@@ -413,14 +418,14 @@ export default function DashboardPage() {
 
             {/* Row 4 — Bandwidth History (6) + Top Users (6) side by side.
                 Top Users spans full width only when there's no router (Bandwidth hidden). */}
-            {selectedRouterId && <div className="xl:col-span-6 min-w-0"><BandwidthSection data={bandwidth} loading={bandwidthLoading} error={bandwidthError} onRetry={loadBandwidth} /></div>}
-            <div className={`min-w-0 ${selectedRouterId ? 'xl:col-span-6' : 'xl:col-span-12'}`}><TopUsers selectedRouterId={selectedRouterId} data={topUsers} loading={topUsersLoading} error={topUsersError} onRetry={loadTopUsers} window={topUsersWindow} onWindowChange={setTopUsersWindow} /></div>
+            {showRouterCards && <div className="xl:col-span-6 min-w-0"><BandwidthSection data={bandwidth} loading={bandwidthLoading} error={bandwidthError} onRetry={loadBandwidth} /></div>}
+            {canSeeRouters && <div className={`min-w-0 ${selectedRouterId ? 'xl:col-span-6' : 'xl:col-span-12'}`}><TopUsers selectedRouterId={selectedRouterId} data={topUsers} loading={topUsersLoading} error={topUsersError} onRetry={loadTopUsers} window={topUsersWindow} onWindowChange={setTopUsersWindow} /></div>}
 
             {/* Row 6 — collapsible detail (full width) */}
             {!analyticsError && !analyticsLoading && data && (
               <div className="xl:col-span-12 min-w-0"><DailyBreakdown data={data} selectedDate={selectedDate} onDateSelect={setSelectedDate} /></div>
             )}
-            {selectedRouterId && mikrotik?.interfaces?.length ? (
+            {showRouterCards && mikrotik?.interfaces?.length ? (
               <div className="xl:col-span-12 min-w-0"><InterfacesPanel interfaces={mikrotik.interfaces} /></div>
             ) : null}
           </div>

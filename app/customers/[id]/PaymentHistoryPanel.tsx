@@ -7,6 +7,8 @@ import { CustomerOutageCredit, CustomerPaymentSummary, MpesaTransaction } from '
 import { formatDateGMT3 } from '../../lib/dateUtils';
 import { formatAmount } from '../../lib/format';
 import { useAlert } from '../../context/AlertContext';
+import { usePermissions } from '../../hooks/usePermissions';
+import { PERMISSIONS } from '../../lib/permissions';
 import {
   PaymentTag, buildTimeline, describePayment, formatCreditedTime, summarizePayments, walletChange,
 } from './paymentHistory';
@@ -56,6 +58,12 @@ function Tag({ tag }: { tag: PaymentTag }) {
 
 export default function PaymentHistoryPanel({ customerId }: { customerId: number }) {
   const { showAlert } = useAlert();
+  // Each payment comes from the transactions list (transactions.view);
+  // re-provisioning one needs transactions.manage. The totals (payment
+  // summary) are customer data and load for anyone who can see the customer.
+  const { can } = usePermissions();
+  const canSeePayments = can(PERMISSIONS.transactionsView);
+  const canProvision = can(PERMISSIONS.transactionsManage);
   const [rows, setRows] = useState<MpesaTransaction[] | null>(null);
   const [summary, setSummary] = useState<CustomerPaymentSummary | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -65,17 +73,19 @@ export default function PaymentHistoryPanel({ customerId }: { customerId: number
 
   useEffect(() => {
     let cancelled = false;
-    api.getCustomerPayments(customerId)
-      .then((data) => { if (!cancelled) setRows(data); })
-      .catch((err) => {
-        if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to load payments');
-      });
+    if (canSeePayments) {
+      api.getCustomerPayments(customerId)
+        .then((data) => { if (!cancelled) setRows(data); })
+        .catch((err) => {
+          if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to load payments');
+        });
+    }
     // Totals fall back to the loaded rows when the summary is unavailable.
     api.getCustomerPaymentSummary(customerId)
       .then((data) => { if (!cancelled) setSummary(data); })
       .catch(() => {});
     return () => { cancelled = true; };
-  }, [customerId, reloadKey]);
+  }, [customerId, reloadKey, canSeePayments]);
 
   const handleProvision = useCallback(async (tx: MpesaTransaction) => {
     if (provisioningId) return;
@@ -109,7 +119,30 @@ export default function PaymentHistoryPanel({ customerId }: { customerId: number
 
       {error && <p className="text-sm text-danger">{error}</p>}
 
-      {!error && rows === null && (
+      {!canSeePayments && (
+        <div className="space-y-2" data-testid="payment-history-summary-only">
+          {summary && (
+            <div className="grid grid-cols-2 gap-3">
+              <div className="rounded-lg bg-background-tertiary/50 p-3">
+                <p className="text-[10px] uppercase tracking-wider text-foreground-muted">Total paid</p>
+                <p className="text-lg font-semibold text-success tabular-nums">{formatAmount(summary.total_paid)}</p>
+                <p className="text-[11px] text-foreground-muted">
+                  {summary.paid_count} payment{summary.paid_count === 1 ? '' : 's'}
+                </p>
+              </div>
+              <div className="rounded-lg bg-background-tertiary/50 p-3">
+                <p className="text-[10px] uppercase tracking-wider text-foreground-muted">Last paid</p>
+                <p className="text-sm font-medium text-foreground mt-1">{formatSafeDate(summary.last_paid_at)}</p>
+              </div>
+            </div>
+          )}
+          <p className="text-xs text-foreground-muted">
+            Ask the account owner for &quot;View transactions&quot; to see each payment.
+          </p>
+        </div>
+      )}
+
+      {canSeePayments && !error && rows === null && (
         <div className="space-y-2">
           {[0, 1, 2].map((i) => (
             <div key={i} className="h-12 rounded-lg bg-background-tertiary animate-pulse" />
@@ -201,7 +234,7 @@ export default function PaymentHistoryPanel({ customerId }: { customerId: number
                     <span className={`text-sm font-semibold tabular-nums whitespace-nowrap ${d.counted ? 'text-foreground' : 'text-foreground-muted line-through'}`}>
                       {formatAmount(tx.amount)}
                     </span>
-                    {d.canProvision && (
+                    {canProvision && d.canProvision && (
                       <button
                         type="button"
                         onClick={() => handleProvision(tx)}

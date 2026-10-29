@@ -24,6 +24,7 @@ import Header from '../components/Header';
 import PortAnalyticsTab from './PortAnalyticsTab';
 import PortRestartButton from './PortRestartButton';
 import { canRestartPorts as userCanRestartPorts } from '../lib/portRestart';
+import { hasPermission, PERMISSIONS } from '../lib/permissions';
 import { useT } from '../lib/i18n';
 import { PageLoader } from '../components/LoadingSpinner';
 import RouterSelector from '../components/RouterSelector';
@@ -50,6 +51,8 @@ export default function DiagnosticsPage() {
   const { isAuthenticated, user } = useAuth();
   const { showAlert } = useAlert();
   const canRestartPorts = userCanRestartPorts(user);
+  // PPPoE secrets include passwords: routers.manage, like the backend.
+  const canSeeSecrets = hasPermission(user, PERMISSIONS.routersManage);
   // Support deep links like /diagnostics?tab=analytics&router=3 (used by the dashboard Port Map board)
   const [selectedRouterId, setSelectedRouterId] = useState<number | null>(() => {
     const id = parseInt(getQueryParam('router') ?? '', 10);
@@ -350,6 +353,7 @@ export default function DiagnosticsPage() {
             {/* Tab content */}
             {activeTab === 'pppoe' && (
               <PPPoETab
+                canSeeSecrets={canSeeSecrets}
                 overview={pppoeOverview}
                 overviewLoading={pppoeOverviewLoading}
                 overviewError={pppoeOverviewError}
@@ -435,12 +439,14 @@ export default function DiagnosticsPage() {
 // =============================================================================
 
 function PPPoETab({
+  canSeeSecrets,
   overview, overviewLoading, overviewError, onRefresh,
   diagnoseResult, diagnoseLoading, diagnoseUsername, onDiagnoseUsernameChange, onRunDiagnose,
   logs, logsLoading, logFilter, onLogFilterChange, onLoadLogs,
   secrets, secretsLoading, onLoadSecrets,
   section, onSectionChange,
 }: {
+  canSeeSecrets: boolean;
   overview: PPPoEOverviewResponse | null;
   overviewLoading: boolean;
   overviewError: string | null;
@@ -465,7 +471,7 @@ function PPPoETab({
     <div className="space-y-4">
       {/* Sub-tabs */}
       <div className="flex gap-1 p-1 bg-background-tertiary rounded-lg w-fit">
-        {(['overview', 'logs', 'secrets'] as const).map((s) => (
+        {(canSeeSecrets ? (['overview', 'logs', 'secrets'] as const) : (['overview', 'logs'] as const)).map((s) => (
           <button
             key={s}
             onClick={() => {
@@ -601,7 +607,7 @@ function PPPoETab({
         </div>
       )}
 
-      {section === 'secrets' && (
+      {canSeeSecrets && section === 'secrets' && (
         <div className="card p-4 sm:p-5 animate-fade-in">
           <div className="flex items-center justify-between mb-3">
             <h3 className="font-semibold text-foreground text-sm sm:text-base flex items-center gap-2">

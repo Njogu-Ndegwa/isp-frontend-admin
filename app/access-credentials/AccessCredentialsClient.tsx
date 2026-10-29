@@ -22,6 +22,8 @@ import Pagination from '../components/Pagination';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { formatDateGMT3 } from '../lib/dateUtils';
 import { formatCredRate } from '../lib/credRate';
+import { usePermissions } from '../hooks/usePermissions';
+import { PERMISSIONS } from '../lib/permissions';
 
 const COLUMNS: DataTableColumn[] = [
   { key: 'username', label: 'Username' },
@@ -59,6 +61,10 @@ function safeFormatDate(d: string | null | undefined): string {
 export default function AccessCredentialsPage() {
   const routerNav = useRouter();
   const { showAlert } = useAlert();
+  // Listing and viewing need customers.view; creating, changing, revoking,
+  // rotating and logging out a credential need customers.manage.
+  const { can } = usePermissions();
+  const canManage = can(PERMISSIONS.customersManage);
 
   const [items, setItems] = useState<AccessCredential[]>([]);
   const [total, setTotal] = useState(0);
@@ -253,7 +259,7 @@ export default function AccessCredentialsPage() {
       <Header
         title="Access Credentials"
         subtitle="Perpetual hotspot logins for staff & comp accounts"
-        action={
+        action={canManage ? (
           <Link
             href="/access-credentials/create"
             className="btn-primary flex items-center gap-2 whitespace-nowrap shrink-0"
@@ -264,7 +270,7 @@ export default function AccessCredentialsPage() {
             <span className="hidden sm:inline">New Credential</span>
             <span className="sm:hidden">New</span>
           </Link>
-        }
+        ) : undefined}
       />
 
       {/* Quick stats from current page */}
@@ -419,6 +425,7 @@ export default function AccessCredentialsPage() {
                           <path strokeLinecap="round" strokeLinejoin="round" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
                         </svg>
                       </button>
+                      {canManage && (<>
                       {cred.status === 'active' && cred.bound_mac_address && (
                         <button
                           onClick={() => setForceLogoutConfirm(cred)}
@@ -461,6 +468,7 @@ export default function AccessCredentialsPage() {
                           <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                         </svg>
                       </button>
+                      </>)}
                     </div>
                   );
                 default:
@@ -533,6 +541,7 @@ export default function AccessCredentialsPage() {
                             <path strokeLinecap="round" strokeLinejoin="round" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
                           </svg>
                         </button>
+                        {canManage && (<>
                         {cred.status === 'active' && cred.bound_mac_address && (
                           <button
                             onClick={(e) => { e.preventDefault(); e.stopPropagation(); setForceLogoutConfirm(cred); }}
@@ -565,6 +574,7 @@ export default function AccessCredentialsPage() {
                             </svg>
                           </button>
                         )}
+                        </>)}
                       </div>
                     }
                     layout="compact"
@@ -588,6 +598,7 @@ export default function AccessCredentialsPage() {
       )}
 
       {/* Mobile FAB */}
+      {canManage && (
       <Link
         href="/access-credentials/create"
         className="md:hidden fixed right-4 bottom-24 z-[9998] w-14 h-14 rounded-full bg-accent-primary text-white flex items-center justify-center shadow-lg shadow-accent-primary/25 active:scale-95 transition-transform touch-manipulation"
@@ -597,6 +608,7 @@ export default function AccessCredentialsPage() {
           <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
         </svg>
       </Link>
+      )}
 
       {/* Credentials reveal modal */}
       {credentialsModal && (
@@ -677,6 +689,7 @@ export default function AccessCredentialsPage() {
               </div>
             </div>
             <div className="flex gap-2 pt-2">
+              {canManage && (
               <button
                 onClick={() => handleRotatePassword(credentialsModal)}
                 disabled={actionLoading === credentialsModal.id}
@@ -687,6 +700,7 @@ export default function AccessCredentialsPage() {
                 </svg>
                 Rotate Password
               </button>
+              )}
               <button
                 onClick={() => credentialsModal.password && copyToClipboard(`Username: ${credentialsModal.username}\nPassword: ${credentialsModal.password}`, 'Credentials')}
                 disabled={!credentialsModal.password}

@@ -31,7 +31,8 @@ describe('Staff settings link', () => {
       'messaging.send', 'portal.manage', 'payment_methods.manage', 'subscription.manage',
     ]);
     expect(hrefs(filterNavGroups(navGroups, manager))).not.toContain('/settings/staff');
-    expect(hrefs(filterNavGroups(navGroups, manager))).not.toContain('/settings/profile');
+    // Their own profile (details, password, log out) is in Settings.
+    expect(hrefs(filterNavGroups(navGroups, manager))).toContain('/settings/profile');
     expect(filterNavItems(settingsNav, manager).map((s) => s.href)).not.toContain('/settings/staff');
     expect(filterNavItems(settingsNav, manager).map((s) => s.href)).toContain('/settings/payment-methods');
   });
@@ -52,8 +53,9 @@ describe('Sidebar filtering for a technician', () => {
     }
   });
 
-  it('drops the Settings group entirely', () => {
-    expect(filterNavGroups(navGroups, tech).some((g) => g.id === 'settings')).toBe(false);
+  it('keeps only their own profile in the Settings group', () => {
+    const settings = filterNavGroups(navGroups, tech).find((g) => g.id === 'settings');
+    expect(settings?.items.map((i) => i.href)).toEqual(['/settings/profile']);
   });
 });
 
@@ -66,7 +68,7 @@ describe('Mobile bottom nav', () => {
   it('backfills tabs staff can open, never more than five, never duplicates', () => {
     const cashier = staff(['customers.view', 'vouchers.generate', 'transactions.view', 'account_statement.view']);
     const items = buildBottomNavItems(resellerNavItems, staffBackfillNavItems, cashier).map((i) => i.href);
-    expect(items).toEqual(['/customers', '/transactions', '/vouchers', '/account-statement']);
+    expect(items).toEqual(['/customers', '/transactions', '/vouchers', '/account-statement', '/settings']);
     expect(new Set(items).size).toBe(items.length);
     expect(items.length).toBeLessThanOrEqual(5);
   });
@@ -79,8 +81,9 @@ describe('Mobile bottom nav', () => {
     expect(items.slice(0, 2)).toEqual(['/customers', '/routers']);
   });
 
-  it('is empty for staff with no pages', () => {
-    expect(buildBottomNavItems(resellerNavItems, staffBackfillNavItems, staff([]))).toEqual([]);
+  it('only has Settings (their profile) for staff with no pages', () => {
+    expect(buildBottomNavItems(resellerNavItems, staffBackfillNavItems, staff([])).map((i) => i.href))
+      .toEqual(['/settings']);
   });
 });
 

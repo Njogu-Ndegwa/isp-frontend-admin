@@ -4617,6 +4617,22 @@ class ApiClient {
     return this.handleResponse<StaffMeResponse>(response);
   }
 
+  /** A staff member changes their own password. Their other sessions end; the
+   *  backend reissues a token for this one, which is stored here. */
+  async changeOwnStaffPassword(data: ChangePasswordRequest): Promise<{ detail: string; access_token?: string }> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(`${BASE_URL}/staff/me/password`, {
+      method: 'PUT',
+      headers: this.getHeaders(),
+      body: JSON.stringify(data),
+    });
+    const result = await this.handleResponse<{ detail: string; access_token?: string }>(response);
+    if (result?.access_token && typeof window !== 'undefined') {
+      storeSessionToken(result.access_token);
+    }
+    return result;
+  }
+
   async getStaffPermissionCatalog(): Promise<StaffPermissionCatalog> {
     if (this.isDemoMode()) return DEMO_STAFF_CATALOG;
     const response = await fetch(`${BASE_URL}/staff/permissions`, { headers: this.getHeaders() });
