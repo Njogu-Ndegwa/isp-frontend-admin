@@ -1372,6 +1372,9 @@ export interface Plan {
   original_price?: number | null;
   valid_until?: string | null;
   max_shared_users?: number;
+  // PPPoE with 2+ devices: true = the login's devices share the plan speed;
+  // false/absent = each device gets the full plan speed.
+  share_speed_across_devices?: boolean;
   sharing_enabled?: boolean;
   // Free-trial plans only. true = a device can claim the trial once; false =
   // it can claim again each time its previous trial has ended.
@@ -1411,6 +1414,9 @@ export interface CreatePlanRequest {
   original_price?: number | null;
   valid_until?: string | null;
   max_shared_users?: number;
+  // PPPoE with 2+ devices: true = the login's devices share the plan speed;
+  // false/absent = each device gets the full plan speed.
+  share_speed_across_devices?: boolean;
   // Free-trial plans only; the backend defaults it to true.
   trial_once_per_customer?: boolean;
   // Omit or send null to offer the plan on every router you own.
@@ -3545,6 +3551,8 @@ export interface PPPoECustomerPresenceResponse {
     plan_max_devices: number;
     max_devices_override: number | null;
     max_devices: number;
+    /** True: the login's sessions share one plan-speed limit on the router. */
+    shared_speed?: boolean;
   };
   mikrotik: {
     present_on_router: boolean;

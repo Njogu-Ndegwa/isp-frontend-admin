@@ -19,6 +19,8 @@ import TrialFrequencyPicker from '../components/TrialFrequencyPicker';
 import { formatDateGMT3, utcToGMT3Input, gmt3InputToISO } from '../lib/dateUtils';
 import { DataCapUnit, dataCapInputToMb, normalizeFupPeriod, splitDataCapMb, withFupPeriod } from './dataCap';
 import FupPeriodField from './FupPeriodField';
+import SharedSpeedField from './SharedSpeedField';
+import { pppoeDevicesHint, sharedSpeedForPayload, showsSharedSpeedToggle } from './sharedSpeed';
 import { normalizeDuration, describeDuration } from './duration';
 import { formatAmount, getDisplayCurrency } from '../lib/format';
 import { useT } from '../lib/i18n';
@@ -729,6 +731,7 @@ function EditPlanModal({
     original_price: plan.original_price ?? null,
     valid_until: utcToGMT3Input(plan.valid_until) || null,
     max_shared_users: Math.max(1, Number(plan.max_shared_users) || 1),
+    share_speed_across_devices: Boolean(plan.share_speed_across_devices),
     trial_once_per_customer: plan.trial_once_per_customer ?? true,
     data_cap_mb: plan.data_cap_mb ?? null,
     fup_action: plan.fup_action ?? null,
@@ -802,6 +805,9 @@ function EditPlanModal({
       if (!payload.original_price) payload.original_price = null;
       payload.valid_until = payload.valid_until ? gmt3InputToISO(payload.valid_until) : null;
       payload.max_shared_users = noSharing ? 1 : Math.max(1, Math.min(50, Number(payload.max_shared_users) || 1));
+      payload.share_speed_across_devices = sharedSpeedForPayload(
+        payload.connection_type, payload.max_shared_users, payload.share_speed_across_devices,
+      );
       payload.data_cap_mb = showFup ? dataCapMb : null;
       if (!payload.data_cap_mb) {
         payload.data_cap_mb = null;
@@ -1026,10 +1032,18 @@ function EditPlanModal({
                   {isFreeTrial
                     ? 'Devices one claimed trial covers. 1 = only the device that claimed it.'
                     : isPPPoE
-                      ? 'Devices that can be online at once with the same PPPoE username and password. Each gets the full plan speed; the data cap is shared. Changing it updates active customers’ routers; their devices reconnect once.'
+                      ? pppoeDevicesHint(sharedSpeedForPayload(formData.connection_type, formData.max_shared_users, formData.share_speed_across_devices))
                       : '1 disables sharing. 2 allows the owner plus one extra device.'}
                 </p>
               </div>
+            )}
+
+            {showsSharedSpeedToggle(formData.connection_type, formData.max_shared_users) && (
+              <SharedSpeedField
+                checked={Boolean(formData.share_speed_across_devices)}
+                onChange={(value) => setFormData((prev) => ({ ...prev, share_speed_across_devices: value }))}
+                disabled={loading}
+              />
             )}
 
             <div className="pt-4 border-t border-border">
