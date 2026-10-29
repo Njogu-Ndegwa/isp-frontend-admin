@@ -1,16 +1,19 @@
 'use client';
 
+import type { ReactNode } from 'react';
 import type { AdminPlatformEarnings } from '../lib/types';
 import type { TFunction } from '../lib/i18n';
 import LabelWithInfo from '../components/InfoTip';
 import {
-  PERIOD_NOUN, STREAM_COLORS, TERMS, earningsRows, formatChange, formatTakeRate,
+  PERIOD_NOUN, STREAM_COLORS, TERMS, earningsRows, formatChange, formatTakeRate, incomeSummary,
 } from './platformEarnings';
 
 /**
- * What Bitwave itself earned in the dashboard's period, by income stream,
- * next to the transaction volume it was earned on. Presentational: the
- * dashboard fetches and passes `t` so this renders in tests without context.
+ * What Bitwave itself earned in the dashboard's period, in three groups
+ * (Hotspot, PPPoE / Static, SMS), then my reseller business and the total
+ * income, next to the transaction volume it was earned on. `ledger` is the
+ * withdrawals section, rendered at the bottom. Presentational: the dashboard
+ * fetches and passes `t` so this renders in tests without context.
  */
 export default function BitwaveEarningsCard({
   data,
@@ -18,12 +21,14 @@ export default function BitwaveEarningsCard({
   failed,
   money,
   t,
+  ledger,
 }: {
   data: AdminPlatformEarnings | null;
   loading: boolean;
   failed: boolean;
   money: (kes: number) => string;
   t: TFunction;
+  ledger?: ReactNode;
 }) {
   return (
     <div className="card p-4 sm:p-5" data-testid="bitwave-earnings-card">
@@ -49,6 +54,7 @@ export default function BitwaveEarningsCard({
       ) : (
         <Body data={data} money={money} t={t} />
       )}
+      {ledger}
     </div>
   );
 }
@@ -63,6 +69,8 @@ function Body({
   t: TFunction;
 }) {
   const rows = earningsRows(data);
+  const income = incomeSummary(data);
+  const accountNames = income.accounts.map((a) => a.organization_name || a.email).join(', ');
   const { earnings, invoiced, transaction_volume: volume, not_counted: notCounted } = data;
   const change = earnings.change_percent;
 
@@ -77,7 +85,7 @@ function Body({
             </span>
           </div>
           <p className="text-[11px] text-foreground-muted">
-            {t('Collected')} · {t(data.comparison_label)}
+            {t(TERMS.platformEarnings)} · {t('Collected')} · {t(data.comparison_label)}
           </p>
         </div>
         <div className="sm:text-right">
@@ -101,16 +109,47 @@ function Body({
         </div>
       )}
 
-      <ul className="mt-3 space-y-1.5">
+      <ul className="mt-3 space-y-1.5" data-testid="earnings-groups">
         {rows.map((r) => (
-          <li key={r.key} className="flex items-center gap-2 text-xs">
-            <span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ backgroundColor: STREAM_COLORS[r.key] }} />
-            <span className="text-foreground-muted flex-1 min-w-0 truncate">{t(r.label)}</span>
+          <li key={r.key} className="flex items-start gap-2 text-xs">
+            <span className="w-2.5 h-2.5 rounded-sm shrink-0 mt-[3px]" style={{ backgroundColor: STREAM_COLORS[r.key] }} />
+            <div className="flex-1 min-w-0">
+              <LabelWithInfo label={t(r.label)} info={t(r.tooltip)} className="text-foreground-muted" />
+            </div>
             <span className="text-foreground font-medium tabular-nums">{money(r.total)}</span>
-            <span className="text-foreground-muted tabular-nums w-12 text-right">{r.share.toFixed(0)}%</span>
+            <span className="text-foreground-muted tabular-nums w-10 text-right">{r.share.toFixed(0)}%</span>
           </li>
         ))}
       </ul>
+
+      <div className="mt-3 pt-2.5 border-t border-border space-y-1.5 text-xs" data-testid="income-summary">
+        <div className="flex items-center gap-2">
+          <span className="flex-1 text-foreground">{t(TERMS.platformEarnings)}</span>
+          <span className="font-semibold text-foreground tabular-nums">{money(income.platform)}</span>
+        </div>
+        <div className="flex items-start gap-2">
+          <div className="flex-1 min-w-0">
+            <LabelWithInfo
+              label={`+ ${t(TERMS.resellerBusiness)}`}
+              info={income.accounts.length
+                ? t(TERMS.resellerBusinessTooltip, { accounts: accountNames })
+                : t(TERMS.resellerBusinessNone)}
+              className="text-foreground"
+            />
+          </div>
+          <span className="font-semibold text-foreground tabular-nums">{money(income.business)}</span>
+        </div>
+        <div className="flex items-start gap-2 pt-1.5 border-t border-dashed border-border">
+          <div className="flex-1 min-w-0">
+            <LabelWithInfo
+              label={`= ${t(TERMS.totalIncome)}`}
+              info={t(TERMS.totalIncomeTooltip)}
+              className="text-sm font-semibold text-foreground"
+            />
+          </div>
+          <span className="text-sm font-bold text-foreground tabular-nums">{money(income.total)}</span>
+        </div>
+      </div>
 
       <div className="mt-4 pt-3 border-t border-border grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
         <Figure label={t('Invoiced')} value={money(invoiced.total)}
