@@ -1348,8 +1348,10 @@ export type FupAction = 'throttle' | 'block' | 'notify_only';
 export type FupPeriod = 'plan' | 'daily';
 
 /**
- * free_trial plans cost 0, are hotspot-only, and are claimed from the captive
- * portal. Claims are logged as KES 0 payments that do not count as revenue.
+ * free_trial plans cost 0 and are hotspot or PPPoE. Hotspot trials are claimed
+ * from the captive portal; PPPoE trials are given by the reseller activating a
+ * customer on the plan. Both are logged as KES 0 payments that do not count as
+ * revenue.
  */
 export type PlanType = 'regular' | 'emergency' | 'free_trial';
 
