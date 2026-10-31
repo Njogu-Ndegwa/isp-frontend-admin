@@ -523,6 +523,10 @@ export default function PortalCustomizationPage() {
               onChange={(e) => markChange('portal_support_whatsapp', e.target.value || null)}
               placeholder="+254700000000"
             />
+            <p className="text-xs text-foreground-muted mt-1">
+              Used for WhatsApp support after customers are online. The login page always shows Call Support,
+              because WhatsApp cannot open before a customer has internet.
+            </p>
           </div>
         </div>
       </section>
