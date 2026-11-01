@@ -5087,8 +5087,6 @@ export interface AdminEarnings {
 export type PlatformEarningsStreamKey =
   | 'subscription_hotspot'
   | 'subscription_per_user'
-  | 'subscription_minimum'
-  | 'subscription_unattributed'
   | 'sms_credits';
 
 export interface PlatformEarningsStream {
@@ -5139,7 +5137,6 @@ export interface AdminPlatformEarnings {
     total: number;
     subscription_hotspot: number;
     subscription_per_user: number;
-    subscription_minimum: number;
     invoices: number;
     paid_so_far: number;
     outstanding: number;
@@ -5151,9 +5148,79 @@ export interface AdminPlatformEarnings {
   /** Money that is reported but deliberately not counted as earnings. */
   not_counted: { shop_sales: number; reseller_transaction_charges: number };
   excluded_own_accounts: AdminEarningsAccount[];
+  /**
+   * "My reseller business": customer payments taken by the admin's own
+   * reseller accounts. Their own business income, kept apart from platform
+   * earnings. Absent on a backend older than the regrouping.
+   */
+  reseller_business?: {
+    total: number;
+    previous_total: number;
+    change_percent: number;
+    payments: number;
+    accounts: AdminEarningsAccount[];
+  };
+  /** Platform earnings + my reseller business. */
+  total_income?: { total: number; previous_total: number; change_percent: number };
   reporting_currency?: string;
   usd_rate?: number;
   kes_rates?: Record<string, number>;
+}
+
+/** Which earnings a withdrawal came from. */
+export type WithdrawalBucket = 'platform' | 'reseller_business' | 'all';
+export type WithdrawalMethod = 'mpesa' | 'bank' | 'cash';
+
+export interface LedgerFigures {
+  /** Cash received since the ledger start (1 Oct 2026). */
+  collected: number;
+  withdrawn: number;
+  /** collected − withdrawn (capped at the total's for a bucket). */
+  available: number;
+}
+
+export interface PlatformWithdrawal {
+  id: number;
+  amount: number;
+  currency: string;
+  /** YYYY-MM-DD */
+  date: string;
+  method: WithdrawalMethod;
+  reference: string | null;
+  note: string | null;
+  bucket: WithdrawalBucket;
+  created_by: number | null;
+  created_by_name: string | null;
+  created_at: string | null;
+  voided: boolean;
+  voided_at: string | null;
+  voided_by: number | null;
+  voided_by_name: string | null;
+  void_reason: string | null;
+}
+
+/**
+ * Withdrawals ledger (GET /admin/metrics/platform-withdrawals). Records only:
+ * the backend never moves money for these rows. All money is KES.
+ */
+export interface PlatformWithdrawalLedger {
+  start_date: string;
+  currency: string;
+  buckets: { platform: LedgerFigures; reseller_business: LedgerFigures };
+  /** Withdrawn from bucket "all": reduces the total only. */
+  withdrawn_from_all: number;
+  total: LedgerFigures;
+  records_only: true;
+  withdrawals: PlatformWithdrawal[];
+}
+
+export interface PlatformWithdrawalCreate {
+  amount: number;
+  date: string;
+  method: WithdrawalMethod;
+  bucket: WithdrawalBucket;
+  reference?: string;
+  note?: string;
 }
 
 export interface AdminARPUMetrics {

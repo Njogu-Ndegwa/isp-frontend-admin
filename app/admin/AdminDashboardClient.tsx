@@ -22,10 +22,13 @@ import {
   AdminGrowthTarget,
   AdminGrowthTargetsResponse,
   AdminPlatformEarnings,
+  PlatformWithdrawalCreate,
+  PlatformWithdrawalLedger,
 } from '../lib/types';
 import { useT } from '../lib/i18n';
 import BitwaveEarningsCard from './BitwaveEarningsCard';
-import { TERMS, formatChange, formatTakeRate } from './platformEarnings';
+import WithdrawalsLedger from './WithdrawalsLedger';
+import { TERMS, formatChange, formatLedgerKES, formatTakeRate } from './platformEarnings';
 import { formatDateGMT3 } from '../lib/dateUtils';
 import { useAuth } from '../context/AuthContext';
 import { useAlert } from '../context/AlertContext';
@@ -557,6 +560,34 @@ export default function AdminDashboardPage() {
   const earningsNow = platformEarnings?.period === globalPeriod ? platformEarnings : null;
   const platform = earningsNow?.data ?? null;
 
+  // Withdrawals ledger since 1 Oct 2026 (records only). Independent of the
+  // period chips; reloaded after every record / void so "available" is fresh.
+  const [ledger, setLedger] = useState<{ data: PlatformWithdrawalLedger | null; failed: boolean } | null>(null);
+  const loadLedger = useCallback(async (signal?: AbortSignal) => {
+    try {
+      const result = await api.getPlatformWithdrawals(signal);
+      setLedger({ data: result, failed: false });
+    } catch {
+      if (!signal?.aborted) setLedger((prev) => (prev?.data ? prev : { data: null, failed: true }));
+    }
+  }, []);
+  useEffect(() => {
+    if (!chartsEnabled) return;
+    const controller = new AbortController();
+    loadLedger(controller.signal);
+    return () => controller.abort();
+  }, [chartsEnabled, loadLedger]);
+  const recordWithdrawal = useCallback(async (payload: PlatformWithdrawalCreate) => {
+    await api.createPlatformWithdrawal(payload);
+    showAlert('success', t('Withdrawal recorded'));
+    await loadLedger();
+  }, [loadLedger, showAlert, t]);
+  const voidWithdrawal = useCallback(async (id: number, reason: string) => {
+    await api.voidPlatformWithdrawal(id, reason);
+    showAlert('success', t('Withdrawal voided'));
+    await loadLedger();
+  }, [loadLedger, showAlert, t]);
+
   const fetchResellerStats = useCallback(
     (p: string, o: number, signal?: AbortSignal) =>
       api.getAdminResellerStats(p as AdminResellerStatsPeriod, o, signal),
@@ -893,6 +924,17 @@ export default function AdminDashboardPage() {
             failed={earningsNow?.failed ?? false}
             money={money}
             t={t}
+            ledger={
+              <WithdrawalsLedger
+                data={ledger?.data ?? null}
+                loading={!ledger}
+                failed={ledger?.failed ?? false}
+                money={formatLedgerKES}
+                t={t}
+                onCreate={recordWithdrawal}
+                onVoid={voidWithdrawal}
+              />
+            }
           />
 
           {/* Charts Section — 2x2 grid */}
