@@ -67,7 +67,12 @@ not to transcribe it prettily:
 - Set `category:` to exactly one of `hotspot | mikrotik | mpesa | pppoe |
   business | comparison` (drives the card color and the
   `/blog/category/<key>` hub page; see `app/blog/categories.ts`).
-- Link to at least one existing post in `content/blog/` when related.
+- Link to at least one existing post in `content/blog/` when related, and to
+  the solution page that matches the topic (`/hotspot-billing-system-kenya`,
+  `/pppoe-billing-system-kenya`, `/mpesa-wifi-billing-kenya`,
+  `/wifi-billing-system-kenya`) — those pages target the buying queries and
+  rank on the links the blog gives them.
+- Check `content/blog/` first: no two posts may target the same query.
 - Keep Dennis's voice/claims from the video; do not invent numbers or
   testimonials. Anything uncertain gets a `<!-- VERIFY: ... -->` comment for
   him to check.
@@ -76,7 +81,11 @@ not to transcribe it prettily:
   "haplight"→hAP lite, "hexiris"→hEX lite, "in drought hours"→RouterOS,
   "B12/BitWave platform"→Bitwave, "utwebtechnologies.com"/"B12 site"→
   bitwavetechnologies.com, "Winbox" spellings, "MPesa"→M-Pesa, "STK"→STK push.
-- Frontmatter `date:` = today, `published: true` (the PR is the gate).
+- Frontmatter `published: true` (the PR is the gate) and `date:` = the day it
+  should go live. A future date schedules it: the post stays hidden until that
+  day in Kenya and then appears within the hour, no deploy. Continue the
+  queue's Tuesday/Friday cadence after the last scheduled post (see the
+  `blog-growth-loop` skill); use today only for something time-sensitive.
 
 ## Step 3 — Images (required: 1 professional cover + 0–2 in-context)
 
@@ -197,8 +206,8 @@ git push -u origin blog/<slug>
 gh pr create --title "Blog draft: <title>" --body "<summary + source TikTok URL + keyword targeted>"
 ```
 
-Dennis verifies/rectifies in the PR. Merging to the production branch deploys
-it; the sitemap picks it up automatically.
+Dennis verifies/rectifies in the PR. Merging to the production branch approves
+it; it goes live on its `date:` and joins the sitemap and llms.txt then.
 
 ## Ranking hygiene (once per session, not per post)
 
