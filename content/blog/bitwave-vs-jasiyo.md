@@ -1,7 +1,7 @@
 ---
 title: Bitwave vs Jasiyo — Which ISP Billing System Is Right for You?
 description: Bitwave vs Jasiyo compared: same KES 25 PPPoE and 3% hotspot rates, but different minimums, router support (hAP lite) and setup. Which fits you?
-date: 2026-12-01
+date: 2026-11-14
 tags: jasiyo, jasiyo alternative, isp billing, mikrotik, comparison
 category: comparison
 image: /blog-images/bitwave-vs-jasiyo/cover.webp

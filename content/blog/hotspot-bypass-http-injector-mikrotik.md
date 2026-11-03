@@ -1,7 +1,7 @@
 ---
 title: HTTP Injector Hotspot Bypass on MikroTik: How to Spot and Stop It
 description: HTTP Injector hotspot bypass on MikroTik lets people use your WiFi without paying. How to tell it's happening on your hotspot and how to close it.
-date: 2026-12-15
+date: 2026-11-18
 tags: http injector, hotspot bypass, mikrotik, hotspot security, revenue loss
 category: mikrotik
 image: /blog-images/hotspot-bypass-http-injector-mikrotik/cover.webp

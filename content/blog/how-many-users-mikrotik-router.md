@@ -1,7 +1,7 @@
 ---
 title: How Many Users Can a MikroTik Router Handle? Real Numbers
 description: How many users can a MikroTik router handle? Real peaks from our billing system: RB951 56, hAP lite 28 on RouterOS 6 (7 on v7), RB5009 78.
-date: 2026-10-30
+date: 2026-11-05
 tags: mikrotik, router capacity, hap lite, rb951, rb5009, routeros, hotspot
 category: mikrotik
 image: /blog-images/how-many-users-mikrotik-router/cover.webp

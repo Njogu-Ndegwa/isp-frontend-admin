@@ -1,7 +1,7 @@
 ---
 title: PPPoE vs Hotspot: Which Should You Start With in Kenya?
 description: PPPoE vs hotspot: if you're new, start with a hotspot. It is cheaper to set up and needs less support. How each one bills, and when to run both.
-date: 2026-11-03
+date: 2026-11-06
 tags: pppoe vs hotspot, pppoe, hotspot business, isp business kenya, mikrotik
 category: pppoe
 image: /blog-images/pppoe-vs-hotspot/cover.webp

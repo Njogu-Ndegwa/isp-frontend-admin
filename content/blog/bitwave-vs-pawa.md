@@ -1,7 +1,7 @@
 ---
 title: Bitwave vs Pawa WiFi — Percentage or Flat Fee for Hotspot Billing?
 description: Bitwave vs Pawa compared: 3% of hotspot revenue vs a KES 1,500 flat monthly fee plus onboarding. Which costs less depends on your revenue.
-date: 2026-12-18
+date: 2026-11-19
 tags: pawa wifi, pawa alternative, hotspot billing, mikrotik, comparison
 category: comparison
 image: /blog-images/bitwave-vs-pawa/cover.webp

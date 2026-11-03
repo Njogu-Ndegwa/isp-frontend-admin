@@ -1,7 +1,7 @@
 ---
 title: Hotspot Connected but No Internet? Check Your Access Point's DHCP
 description: Hotspot connected but no internet while the MikroTik itself is online? Your access point is probably handing out its own IPs. How to spot it and fix it.
-date: 2026-10-27
+date: 2026-11-04
 tags: connected no internet, hotspot, mikrotik, dhcp, access point, tenda
 category: hotspot
 image: /blog-images/hotspot-connected-no-internet/cover.webp

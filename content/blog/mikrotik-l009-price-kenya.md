@@ -1,7 +1,7 @@
 ---
 title: MikroTik L009 Price in Kenya: Is It the Right ISP Upgrade?
 description: MikroTik L009 price in Kenya is about KES 16,000-21,000. Compare its 512 MB RAM, eight Gigabit ports and fit for a growing ISP.
-date: 2026-11-24
+date: 2026-11-12
 tags: mikrotik, l009, isp hardware, kenya
 category: mikrotik
 image: /blog-images/mikrotik-l009-price-kenya/cover-crisp.webp

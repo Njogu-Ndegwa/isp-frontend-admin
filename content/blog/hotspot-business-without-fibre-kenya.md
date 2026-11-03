@@ -1,7 +1,7 @@
 ---
 title: How to Start a Hotspot Business Without Fibre in Kenya
 description: Start a hotspot business without fibre using a Safaricom or Airtel 4G/5G home router and a MikroTik. Setup, limits, and when to upgrade.
-date: 2026-12-04
+date: 2026-11-15
 tags: hotspot business without fibre, 4g hotspot business, 5g home router, safaricom home router, mikrotik, wifi business kenya
 category: hotspot
 image: /blog-images/hotspot-business-without-fibre-kenya/cover.webp

@@ -1,7 +1,7 @@
 ---
 title: Hotspot Internet Slow in the Evening? It May Not Be Bandwidth
 description: Hotspot internet slow in the evening but your bandwidth graph isn't full? A small MikroTik's DNS cache may be the cause. How to check it and fix it.
-date: 2026-11-20
+date: 2026-11-11
 tags: slow internet, hotspot, mikrotik, dns cache, evening peak, bandwidth
 category: hotspot
 image: /blog-images/hotspot-slow-evenings/cover.webp

@@ -1,7 +1,7 @@
 ---
 title: Hotspot Business Mistakes in Kenya: 3 Costly Errors to Avoid
 description: Avoid three hotspot business mistakes in Kenya: overspending on access points, choosing a price-war location, and ignoring backup power.
-date: 2026-12-08
+date: 2026-11-16
 tags: hotspot business, wifi business kenya, access points, uptime
 category: business
 image: /blog-images/hotspot-business-mistakes-kenya/cover-crisp.webp

@@ -1,7 +1,7 @@
 ---
 title: MikroTik Port Running at 100Mbps Instead of 1000? Fix It
 description: MikroTik port running at 100Mbps instead of 1000? Usually one bad wire or crimp in the cable. Check the Rate in WinBox and fix it in minutes.
-date: 2026-12-11
+date: 2026-11-17
 tags: mikrotik, gigabit, ethernet cable, winbox, routeros, slow internet
 category: mikrotik
 image: /blog-images/mikrotik-port-100mbps-not-gigabit/cover.webp

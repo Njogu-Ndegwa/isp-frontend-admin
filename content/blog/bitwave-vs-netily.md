@@ -1,7 +1,7 @@
 ---
 title: Bitwave vs Netily (Internetily) — Which ISP Billing System to Choose?
 description: Bitwave vs Netily: both charge KES 25 per PPPoE user or 3% of hotspot revenue. The difference is the setup fee, router setup and feature focus.
-date: 2026-11-13
+date: 2026-11-09
 tags: netily, internetily, netily alternative, isp billing, comparison
 category: comparison
 image: /blog-images/bitwave-vs-netily/cover.webp

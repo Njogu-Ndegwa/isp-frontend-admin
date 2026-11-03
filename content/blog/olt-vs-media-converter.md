@@ -1,7 +1,7 @@
 ---
 title: OLT vs Media Converter: Which One Does Your Fibre ISP Need?
 description: OLT vs media converter: a media converter feeds one router over fibre. An OLT with splitters serves many homes. How each works and when to switch.
-date: 2026-11-27
+date: 2026-11-13
 tags: olt vs media converter, media converter, olt, gpon, fibre isp, pppoe
 category: pppoe
 image: /blog-images/olt-vs-media-converter/cover.webp

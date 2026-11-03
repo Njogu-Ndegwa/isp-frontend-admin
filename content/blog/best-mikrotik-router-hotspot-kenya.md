@@ -1,7 +1,7 @@
 ---
 title: Best MikroTik Router for a Hotspot Business in Kenya (2026)
 description: Best MikroTik router for a hotspot business in Kenya: hAP lite, RB951, hEX, L009 and RB4011 compared by KES price and how many users each carries.
-date: 2026-11-10
+date: 2026-11-08
 tags: mikrotik, hotspot business, hap lite, rb951, hex, l009, rb4011, kenya
 category: mikrotik
 image: /blog-images/best-mikrotik-router-hotspot-kenya/cover.webp
