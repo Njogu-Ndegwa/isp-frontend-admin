@@ -151,6 +151,12 @@ export default function AccountStatementPage() {
                   <dt className="text-foreground-muted">Collected by Bitwave</dt>
                   <dd className="font-medium text-foreground tabular-nums">{formatAmount(data.balance.total_system_collected)}</dd>
                 </div>
+                {(data.balance.total_ad_revenue ?? 0) > 0 && (
+                  <div className="flex items-center justify-between gap-3">
+                    <dt className="text-foreground-muted">Your 80% of ads you sold</dt>
+                    <dd className="font-medium text-foreground tabular-nums">{formatAmount(data.balance.total_ad_revenue ?? 0)}</dd>
+                  </div>
+                )}
                 <div className="flex items-center justify-between gap-3">
                   <dt className="text-foreground-muted">Paid out to you</dt>
                   <dd className="font-medium text-blue-500 tabular-nums">- {formatAmount(data.balance.total_paid_to_you)}</dd>
@@ -170,7 +176,7 @@ export default function AccountStatementPage() {
           <div className="card p-4 sm:p-5">
             <div className="flex flex-wrap items-center gap-2 mb-3">
               <div className="min-w-0">
-                <h3 className="text-sm font-semibold text-foreground">Payouts and charges</h3>
+                <h3 className="text-sm font-semibold text-foreground">Payouts, charges and ad sales</h3>
                 <p className="text-xs text-foreground-muted">Movements on your Bitwave balance. Direct payments are listed on Transactions.</p>
               </div>
               <div className="flex flex-wrap items-center gap-2 ml-auto">
@@ -241,14 +247,16 @@ export default function AccountStatementPage() {
                             <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
                               item.type === 'payout'
                                 ? 'bg-emerald-500/10 text-emerald-500'
-                                : 'bg-amber-500/10 text-amber-500'
+                                : item.type === 'ad_revenue'
+                                  ? 'bg-blue-500/10 text-blue-500'
+                                  : 'bg-amber-500/10 text-amber-500'
                             }`}>
-                              {item.type === 'payout' ? 'Payout' : 'Charge'}
+                              {item.type === 'payout' ? 'Payout' : item.type === 'ad_revenue' ? 'Ad sale' : 'Charge'}
                             </span>
                           );
                         case 'amount':
                           return (
-                            <span className={`font-semibold ${item.type === 'payout' ? 'text-emerald-500' : 'text-amber-500'}`}>
+                            <span className={`font-semibold ${item.type === 'payout' ? 'text-emerald-500' : item.type === 'ad_revenue' ? 'text-blue-500' : 'text-amber-500'}`}>
                               {item.type === 'charge' ? '- ' : ''}{formatAmount(item.amount)}
                             </span>
                           );
@@ -277,12 +285,12 @@ export default function AccountStatementPage() {
                       title={`${entry.type === 'charge' ? '- ' : ''}${formatAmount(entry.amount)}`}
                       subtitle={entry.description}
                       avatar={{
-                        text: entry.type === 'payout' ? 'PO' : 'TC',
-                        color: entry.type === 'payout' ? 'success' : 'warning',
+                        text: entry.type === 'payout' ? 'PO' : entry.type === 'ad_revenue' ? 'AD' : 'TC',
+                        color: entry.type === 'payout' ? 'success' : entry.type === 'ad_revenue' ? 'info' : 'warning',
                       }}
                       status={{
-                        label: entry.type,
-                        variant: entry.type === 'payout' ? 'success' : 'warning',
+                        label: entry.type === 'ad_revenue' ? 'ad sale' : entry.type,
+                        variant: entry.type === 'payout' ? 'success' : entry.type === 'ad_revenue' ? 'info' : 'warning',
                       }}
                       fields={[
                         ...(entry.reference ? [{ label: 'Ref', value: entry.reference }] : []),

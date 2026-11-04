@@ -20,7 +20,7 @@ const ViewAsBanner = dynamic(() => import('./ViewAsBanner'), { ssr: false });
 const StaffBanner = dynamic(() => import('./StaffBanner'), { ssr: false });
 
 const PUBLIC_PATHS = ['/', '/demo', '/login', '/landing', '/pricing', '/signup', '/forgot-password', '/reset-password', ...SOLUTION_PATHS];
-const PUBLIC_PREFIXES = ['/store', '/r', '/blog'];
+const PUBLIC_PREFIXES = ['/store', '/r', '/blog', '/promo'];
 const FULLSCREEN_AUTH_PATHS = ['/setup'];
 
 function matchesPathPrefix(pathname: string, prefix: string): boolean {

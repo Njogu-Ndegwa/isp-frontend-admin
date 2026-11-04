@@ -154,3 +154,22 @@ describe('adCardNote', () => {
     }
   });
 });
+
+describe('adCardNote on sold ads', () => {
+  const sale = (state: string, extra: Record<string, unknown> = {}) =>
+    ({ review_note: null, sale: { state, renewal_due: false, can_renew: false, ...extra } as never });
+  it('says a sold ad is waiting for the shop to pay before anything else', () => {
+    expect(adCardNote(sale('awaiting_payment'), 'pending', false)).toMatchObject({ tone: 'warning', label: 'Waiting for payment:' });
+    expect(adCardNote(sale('payment_failed'), 'live', false)).toMatchObject({ tone: 'danger', label: 'Not paid:' });
+  });
+  it('says a paid ad is in review, and offers renewal near the end', () => {
+    expect(adCardNote(sale('in_review'), 'pending', true)).toMatchObject({ tone: 'info', label: 'Paid:' });
+    expect(adCardNote(sale('live', { renewal_due: true }), 'live', false)).toMatchObject({ label: 'Ends soon:' });
+    expect(adCardNote(sale('ended', { can_renew: true }), 'ended', false)).toMatchObject({ label: 'Ended:' });
+    expect(adCardNote(sale('live'), 'live', false)).toBeNull();
+  });
+  it('still shows the reviewer’s reason on a rejected sold ad', () => {
+    expect(adCardNote({ review_note: 'Blurry', sale: { state: 'rejected' } as never }, 'rejected', false))
+      .toMatchObject({ label: 'Why:', text: 'Blurry' });
+  });
+});

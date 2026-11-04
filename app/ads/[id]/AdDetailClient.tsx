@@ -27,6 +27,7 @@ import { utcToGMT3DateOnly } from '../../lib/dateUtils';
 import { AdStatusChip } from '../components/AdBits';
 import AdPreview from '../components/AdPreview';
 import RejectAdDialog from '../components/RejectAdDialog';
+import SalePanel from '../components/SalePanel';
 import {
   adDisplayStatus,
   adToForm,
@@ -105,6 +106,7 @@ export default function AdDetailClient() {
   const [busy, setBusy] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [rejecting, setRejecting] = useState(false);
+  const [takingDown, setTakingDown] = useState(false);
   const [now] = useState(() => Date.now());
 
   const load = useCallback(async () => {
@@ -169,6 +171,7 @@ export default function AdDetailClient() {
       setAd((prev) => ({ ...(prev as Ad), ...updated }));
       showAlert('success', ok);
       setRejecting(false);
+      setTakingDown(false);
     } catch (err) {
       showAlert('error', err instanceof Error ? err.message : t('Something went wrong.'));
     } finally {
@@ -216,6 +219,14 @@ export default function AdDetailClient() {
             >
               {ad.is_active ? t('Pause') : t('Resume')}
             </button>
+            {isAdmin && status !== 'rejected' && (
+              <button
+                type="button" disabled={busy} onClick={() => setTakingDown(true)}
+                className="min-h-[44px] flex-1 rounded-[10px] border border-danger/40 px-4 text-sm font-semibold text-danger hover:bg-danger/10 disabled:opacity-50 sm:flex-none"
+              >
+                {t('Take down')}
+              </button>
+            )}
             <button
               type="button" disabled={busy} onClick={() => setConfirmDelete(true)}
               className="min-h-[44px] flex-1 rounded-[10px] border border-border px-4 text-sm font-medium text-foreground-muted hover:border-danger/40 hover:text-danger disabled:opacity-50 sm:flex-none"
@@ -225,6 +236,8 @@ export default function AdDetailClient() {
           </div>
         )}
       </div>
+
+      <SalePanel ad={ad} canManage={canManage} isAdmin={isAdmin} onChanged={() => void load()} />
 
       {status === 'rejected' && ad.review_note && (
         <div className="mb-5 rounded-2xl border border-danger/30 bg-danger/10 p-4">
@@ -249,13 +262,17 @@ export default function AdDetailClient() {
                 <button type="button" disabled={busy} onClick={() => setRejecting(true)} className="min-h-[44px] flex-1 rounded-[10px] border border-danger/40 px-5 text-sm font-semibold text-danger hover:bg-danger/10 disabled:opacity-50 sm:flex-none">
                   {t('Reject')}
                 </button>
-                <button type="button" disabled={busy} onClick={() => void run(() => api.reviewAd(ad.id, 'approve'), t('Approved. The ad is now live.'))} className="min-h-[44px] flex-1 rounded-[10px] bg-success px-6 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50 sm:flex-none">
+                <button type="button" disabled={busy} onClick={() => void run(() => api.reviewAd(ad.id, 'approve'), ad.slot === 'reseller' && !ad.sale?.paid_total ? t('Approved. It goes live as soon as the shop pays.') : t('Approved. The ad is now live.'))} className="min-h-[44px] flex-1 rounded-[10px] bg-success px-6 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50 sm:flex-none">
                   {t('Approve')}
                 </button>
               </div>
             </div>
           ) : (
-            <p className="text-sm text-foreground">{t('Bitwave is checking this ad. It starts showing on your portal once it is approved.')}</p>
+            <p className="text-sm text-foreground">
+              {ad.slot === 'reseller'
+                ? t('Bitwave is checking this ad. It goes live once it is approved and the shop has paid.')
+                : t('Bitwave is checking this ad. It starts showing on your portal once it is approved.')}
+            </p>
           )}
         </div>
       )}
@@ -377,6 +394,14 @@ export default function AdDetailClient() {
         confirmLabel={t('Delete ad')}
         variant="danger"
         loading={busy}
+      />
+      <RejectAdDialog
+        open={takingDown}
+        mode="takedown"
+        adTitle={ad.title}
+        loading={busy}
+        onCancel={() => setTakingDown(false)}
+        onReject={(note) => void run(() => api.takeDownAd(ad.id, note), t('Taken down. It is off every portal now.'))}
       />
       <RejectAdDialog
         open={rejecting}
