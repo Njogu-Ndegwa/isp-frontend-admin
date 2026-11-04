@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { api } from '../../lib/api';
-import type { AdReviewRules, AdSaleSummary, AdSalesListResponse } from '../../lib/types';
+import type { AdReviewRules, AdSaleSummary, AdSalesListResponse, AdSellingMode } from '../../lib/types';
 import { useAuth } from '../../context/AuthContext';
 import { useAlert } from '../../context/AlertContext';
 import { useT } from '../../lib/i18n';
@@ -31,15 +31,37 @@ function Tile({ label, value, hint }: { label: string; value: string; hint?: str
   );
 }
 
+const SELLING_MODE_COPY: Record<AdSellingMode, { label: string; desc: string }> = {
+  off: { label: 'Off', desc: 'Nobody can sell ads or send prompts. A prompt already sent still counts if the shop pays it.' },
+  allowlist: { label: 'Pilot list only', desc: 'Only the resellers listed below can sell.' },
+  everyone: { label: 'Every Kenyan reseller', desc: 'Selling is open to all. Use this once the end-to-end test has passed.' },
+};
+
+function parseIds(text: string): number[] | null {
+  const parts = text.split(/[,\s]+/).filter(Boolean);
+  if (parts.some((p) => !/^\d+$/.test(p))) return null;
+  return parts.map(Number);
+}
+
 function BlockedWordsCard() {
   const t = useT();
   const { showAlert } = useAlert();
   const [rules, setRules] = useState<AdReviewRules | null>(null);
   const [text, setText] = useState('');
+  const [mode, setMode] = useState<AdSellingMode>('allowlist');
+  const [idsText, setIdsText] = useState('');
   const [saving, setSaving] = useState(false);
+  const [savingSelling, setSavingSelling] = useState(false);
+  const [confirmEveryone, setConfirmEveryone] = useState(false);
+
+  const apply = (r: AdReviewRules) => {
+    setRules(r);
+    setMode(r.selling_mode);
+    setIdsText(r.selling_allowlist.map((row) => row.id).join(', '));
+  };
 
   useEffect(() => {
-    api.getAdReviewRules().then((r) => { setRules(r); setText(r.blocked_words.join(', ')); }).catch(() => setRules(null));
+    api.getAdReviewRules().then((r) => { apply(r); setText(r.blocked_words.join(', ')); }).catch(() => setRules(null));
   }, []);
 
   if (!rules) return null;
@@ -47,7 +69,7 @@ function BlockedWordsCard() {
     setSaving(true);
     try {
       const words = text.split(/[,\n]/).map((w) => w.trim()).filter(Boolean);
-      const out = await api.saveAdBlockedWords(words);
+      const out = await api.saveAdReviewRules({ blocked_words: words });
       setText(out.blocked_words.join(', '));
       showAlert('success', t('Blocked words saved.'));
     } catch (err) {
@@ -56,7 +78,68 @@ function BlockedWordsCard() {
       setSaving(false);
     }
   };
+  const saveSelling = async () => {
+    const ids = parseIds(idsText);
+    if (ids === null) {
+      showAlert('error', t('Use reseller ID numbers separated by commas, e.g. 20, 45.'));
+      return;
+    }
+    setSavingSelling(true);
+    try {
+      apply(await api.saveAdReviewRules({ selling_mode: mode, selling_allowlist: ids }));
+      setConfirmEveryone(false);
+      showAlert('success', t('Saved.'));
+    } catch (err) {
+      showAlert('error', err instanceof Error ? err.message : t('Could not save.'));
+    } finally {
+      setSavingSelling(false);
+    }
+  };
   return (
+    <>
+    <section className="mt-6 rounded-2xl border border-border bg-background-secondary p-4 sm:p-5" data-testid="selling-switch">
+      <h2 className="text-base font-semibold text-foreground">{t('Who can sell ads')}</h2>
+      <p className="mt-1 text-xs text-foreground-muted">
+        {t('Sold ads take real M-Pesa money from shops. Own promos and ads already in review are not affected by this switch.')}
+      </p>
+      <fieldset className="mt-3 space-y-2">
+        <legend className="sr-only">{t('Who can sell ads')}</legend>
+        {rules.selling_modes.map((m) => (
+          <label key={m} className={`flex min-h-[44px] cursor-pointer gap-3 rounded-xl border p-3 ${mode === m ? 'border-accent-primary bg-accent-primary/10' : 'border-border'}`}>
+            <input type="radio" name="selling-mode" className="mt-1" checked={mode === m} onChange={() => setMode(m)} />
+            <span className="min-w-0">
+              <span className="block text-sm font-semibold text-foreground">{t(SELLING_MODE_COPY[m].label)}</span>
+              <span className="block text-xs text-foreground-muted">{t(SELLING_MODE_COPY[m].desc)}</span>
+            </span>
+          </label>
+        ))}
+      </fieldset>
+      <label htmlFor="selling-allowlist" className="mt-4 block text-sm font-medium text-foreground">{t('Pilot list (reseller IDs)')}</label>
+      <input id="selling-allowlist" className="input mt-1.5" value={idsText} onChange={(e) => setIdsText(e.target.value)} placeholder="20, 45" />
+      {rules.selling_allowlist.length > 0 && (
+        <p className="mt-1 text-xs text-foreground-muted">
+          {t('Saved now: {list}', { list: rules.selling_allowlist.map((row) => `${row.name ?? t('Unknown')} (#${row.id})`).join(', ') })}
+        </p>
+      )}
+      <div className="mt-3">
+        <button
+          type="button" className="btn-primary min-h-[44px]" disabled={savingSelling}
+          onClick={() => { if (mode === 'everyone' && rules.selling_mode !== 'everyone') setConfirmEveryone(true); else void saveSelling(); }}
+        >
+          {savingSelling ? t('Saving…') : t('Save')}
+        </button>
+      </div>
+    </section>
+    <ConfirmDialog
+      isOpen={confirmEveryone}
+      onClose={() => setConfirmEveryone(false)}
+      onConfirm={() => void saveSelling()}
+      title={t('Open selling to every Kenyan reseller?')}
+      message={t('They will be able to send real M-Pesa prompts to shops straight away.')}
+      confirmLabel={t('Open selling')}
+      loading={savingSelling}
+    />
+    
     <section className="mt-6 rounded-2xl border border-border bg-background-secondary p-4 sm:p-5">
       <h2 className="text-base font-semibold text-foreground">{t('Review rules')}</h2>
       <p className="mt-1 text-xs text-foreground-muted">
@@ -70,6 +153,7 @@ function BlockedWordsCard() {
         <button type="button" className="btn-secondary min-h-[44px]" onClick={() => setText(rules.default_blocked_words.join(', '))}>{t('Use the default list')}</button>
       </div>
     </section>
+    </>
   );
 }
 

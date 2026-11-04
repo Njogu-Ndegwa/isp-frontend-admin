@@ -7054,6 +7054,8 @@ export interface AdSalesListResponse {
   review?: { approved_sold_ads: number; rejections: number; threshold: number; auto_approve: boolean };
 }
 
+export type AdSellingMode = 'off' | 'allowlist' | 'everyone';
+
 export interface AdReviewRules {
   blocked_words: string[];
   default_blocked_words: string[];
@@ -7061,6 +7063,10 @@ export interface AdReviewRules {
   fee_percent: number;
   min_price_per_week: number;
   max_weeks: number;
+  /** Who may sell ads: nobody, the pilot list, or every Kenyan reseller. */
+  selling_mode: AdSellingMode;
+  selling_modes: AdSellingMode[];
+  selling_allowlist: { id: number; name: string | null }[];
 }
 
 export interface PublicAdReport {

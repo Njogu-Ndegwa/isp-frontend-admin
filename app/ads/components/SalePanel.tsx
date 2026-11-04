@@ -69,6 +69,13 @@ export default function SalePanel({
   const [busy, setBusy] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const wasPaid = useRef(sale?.prompt?.status === 'paid');
+  // Selling is a pilot until a Bitwave admin opens it. Closed until we know.
+  const [sellingOpen, setSellingOpen] = useState(false);
+
+  useEffect(() => {
+    if (ad.slot !== 'reseller' || isAdmin) return;
+    api.getAdSellingAccess().then((r) => setSellingOpen(r.allowed)).catch(() => setSellingOpen(false));
+  }, [ad.slot, isAdmin]);
 
   const refresh = useCallback(async () => {
     try {
@@ -95,7 +102,8 @@ export default function SalePanel({
 
   if (ad.slot !== 'reseller') return null;
 
-  const canAct = canManage && !isAdmin;
+  const canAct = canManage && !isAdmin && sellingOpen;
+  const comingSoon = canManage && !isAdmin && !sellingOpen;
   const stateMeta = sale ? SALE_STATE_META[sale.state] : SALE_STATE_META.awaiting_payment;
   const prompt = sale?.prompt ?? null;
   const promptMeta = prompt ? PROMPT_META[prompt.status] : null;
@@ -171,6 +179,12 @@ export default function SalePanel({
         <span className={`badge ${TONE[stateMeta.tone]}`}>{t(stateMeta.label)}</span>
       </div>
 
+      {comingSoon && (
+        <p className="mt-3 rounded-xl bg-background-tertiary/60 p-3 text-sm text-foreground" data-testid="selling-coming-soon">
+          {t('Selling ads through Bitwave is coming soon. We’re testing it with a few networks first, so payment prompts can’t be sent from your account yet.')}
+        </p>
+      )}
+
       {!sale ? (
         canAct ? (
           <div className="mt-4 space-y-4">
@@ -180,7 +194,7 @@ export default function SalePanel({
               {busy ? t('Sending…') : t('Send M-Pesa prompt')}
             </button>
           </div>
-        ) : (
+        ) : comingSoon ? null : (
           <p className="mt-3 text-sm text-foreground-muted">{t('No payment yet. The ad can’t run until the shop pays.')}</p>
         )
       ) : (
@@ -248,6 +262,11 @@ export default function SalePanel({
             </p>
           )}
 
+          {canManage && !isAdmin && !canAct && !blocked && (
+            <div className="mt-4">
+              <button type="button" className="btn-secondary min-h-[44px]" onClick={() => void copyLink()}>{t('Copy shop link')}</button>
+            </div>
+          )}
           {canAct && !blocked && (
             <div className="mt-4 flex flex-wrap gap-2">
               {sale.amount_due !== null && (

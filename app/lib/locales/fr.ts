@@ -881,4 +881,9 @@ export const FR: Record<string, string> = {
   "Ads are switched off on your portal": "Les publicités sont désactivées sur votre portail",
   "Customers won’t see any ad until you turn on Show Ads, and you can’t send a shop an M-Pesa prompt.": "Les clients ne verront aucune publicité tant que vous n'aurez pas activé Afficher les publicités, et vous ne pouvez pas envoyer de demande M-Pesa à un commerce.",
   "Turn on Show Ads": "Activer les publicités",
+  "Coming soon": "Bientôt disponible",
+  "Soon you can sell ads to shops near your hotspot and get paid 80%. We’re testing it with a few networks first.": "Bientôt, vous pourrez vendre des publicités aux commerces près de votre hotspot et recevoir 80 %. Nous testons d'abord avec quelques réseaux.",
+  "Selling ads through Bitwave is coming soon. We’re testing it with a few networks first, so payment prompts can’t be sent from your account yet.": "La vente de publicités via Bitwave arrive bientôt. Nous testons d'abord avec quelques réseaux : les demandes de paiement ne peuvent pas encore être envoyées depuis votre compte.",
+  "Who can sell ads": "Qui peut vendre des publicités",
+  "Pilot list only": "Liste pilote uniquement",
 };

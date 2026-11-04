@@ -122,7 +122,10 @@ export default function AdEditor({ ad }: { ad?: Ad }) {
   const businessName = user?.business_name || user?.organization_name || '';
   const supportPhone = user?.support_phone || '';
   // Selling ads through Bitwave is paid by M-Pesa: Kenyan networks only for now.
-  const canSell = !isAdmin && (user?.market?.code ?? 'KE').toUpperCase() === 'KE';
+  const kenyan = !isAdmin && (user?.market?.code ?? 'KE').toUpperCase() === 'KE';
+  // And it is a pilot until a Bitwave admin opens it. Closed until we know.
+  const [sellingOpen, setSellingOpen] = useState(false);
+  const canSell = kenyan && sellingOpen;
   const isDesktop = useIsDesktop();
 
   const initial = useMemo(() => {
@@ -141,6 +144,11 @@ export default function AdEditor({ ad }: { ad?: Ad }) {
   const [uploadsOff, setUploadsOff] = useState(false);
   const [showSafeArea, setShowSafeArea] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!kenyan) return;
+    api.getAdSellingAccess().then((r) => setSellingOpen(r.allowed)).catch(() => setSellingOpen(false));
+  }, [kenyan]);
 
   useEffect(() => {
     api.getRouters().then(setRouters).catch(() => setRouters([]));
@@ -332,6 +340,17 @@ export default function AdEditor({ ad }: { ad?: Ad }) {
                       title={isAdmin ? t('Sold by the reseller') : t('An ad I sold')}
                       desc={t('For a shop near your hotspot. They pay by M-Pesa through Bitwave: you get 80%, Bitwave keeps 20%.')}
                     />
+                  )}
+                  {kenyan && !canSell && form.slot !== 'reseller' && (
+                    <div className="flex-1 rounded-xl border border-dashed border-border p-3.5" data-testid="selling-coming-soon">
+                      <span className="flex items-center gap-2 text-sm font-semibold text-foreground-muted">
+                        {t('An ad I sold')}
+                        <span className="badge badge-neutral">{t('Coming soon')}</span>
+                      </span>
+                      <span className="mt-0.5 block text-xs leading-relaxed text-foreground-muted">
+                        {t('Soon you can sell ads to shops near your hotspot and get paid 80%. We’re testing it with a few networks first.')}
+                      </span>
+                    </div>
                   )}
                 </div>
               </fieldset>
