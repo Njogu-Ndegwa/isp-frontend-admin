@@ -7,7 +7,7 @@ import type { PublicAdReport } from '../../lib/types';
 import { useT } from '../../lib/i18n';
 import { utcToGMT3DateOnly } from '../../lib/dateUtils';
 import { formatDay } from '../../ads/adModel';
-import { SALE_STATE_META, kes, normalizeKenyanMobile } from '../../ads/adSale';
+import { SALE_STATE_META, kes } from '../../ads/adSale';
 
 /**
  * The shop's read-only link for an ad it paid for: dates, views and taps, and
@@ -20,7 +20,6 @@ export default function PromoReportClient() {
   const token = String(params.token ?? '');
   const [report, setReport] = useState<PublicAdReport | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [phone, setPhone] = useState('');
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
@@ -36,14 +35,10 @@ export default function PromoReportClient() {
   useEffect(() => { void load(); }, [load]);
 
   const pay = async () => {
-    if (phone && !normalizeKenyanMobile(phone)) {
-      setMessage(t('Enter an M-Pesa number, e.g. 0712 345 678.'));
-      return;
-    }
     setBusy(true);
     setMessage(null);
     try {
-      const out = await api.payFromPublicAdLink(token, phone || undefined);
+      const out = await api.payFromPublicAdLink(token);
       setMessage(out.sent ? t('Check your phone and enter your M-Pesa PIN.') : t(out.message));
       window.setTimeout(() => { void load(); }, 20_000);
     } catch (err) {
@@ -104,9 +99,7 @@ export default function PromoReportClient() {
               })}
             </p>
             <p className="mt-1 text-xs text-foreground-muted">{t('You pay Bitwave Technologies by M-Pesa. The weeks start when the ad goes live.')}</p>
-            <label htmlFor="pay-phone" className="mt-3 block text-sm font-medium text-foreground">{t('M-Pesa number (leave empty to use the one on file)')}</label>
-            <input id="pay-phone" type="tel" inputMode="tel" className="input mt-1.5" value={phone} maxLength={16}
-              onChange={(e) => setPhone(e.target.value)} placeholder={t('e.g. 0712 345 678')} />
+            <p className="mt-1 text-xs text-foreground-muted">{t('The prompt goes to the M-Pesa number the WiFi owner saved for you. To use another number, ask them to change it.')}</p>
             <button type="button" className="btn-primary mt-3 min-h-[44px] w-full" onClick={() => void pay()} disabled={busy}>
               {busy ? t('Sending…') : t('Send me the M-Pesa prompt')}
             </button>

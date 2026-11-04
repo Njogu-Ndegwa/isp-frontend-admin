@@ -53,6 +53,7 @@ import {
   AdPromptInput,
   AdSalesListResponse,
   AdReviewRules,
+  AdSellingMode,
   PublicAdReport,
   AdsManageParams,
   Rating,
@@ -1707,6 +1708,13 @@ class ApiClient {
     return this.handleResponse<{ ad: Ad; sale: AdSaleSummary }>(response, false, true);
   }
 
+  /** May this reseller sell ads yet? Selling is a pilot until an admin opens it. */
+  async getAdSellingAccess(): Promise<{ allowed: boolean }> {
+    if (this.isDemoMode()) return { allowed: true };
+    const response = await fetch(`${BASE_URL}/ad-sales/access`, { headers: this.getHeaders(true) });
+    return this.handleResponse<{ allowed: boolean }>(response);
+  }
+
   /** Payment status of a sold ad; polled while a prompt is out. */
   async getAdSale(adId: number): Promise<AdSaleSummary> {
     if (this.isDemoMode()) this.demoBlock();
@@ -1775,11 +1783,16 @@ class ApiClient {
     return this.handleResponse<AdReviewRules>(response);
   }
 
-  async saveAdBlockedWords(words: string[]): Promise<{ blocked_words: string[] }> {
+  /** Send only what changed. A bad value is refused without saving anything. */
+  async saveAdReviewRules(body: {
+    blocked_words?: string[];
+    selling_mode?: AdSellingMode;
+    selling_allowlist?: number[];
+  }): Promise<AdReviewRules> {
     const response = await fetch(`${BASE_URL}/ad-review/rules`, {
-      method: 'PUT', headers: this.getHeaders(true), body: JSON.stringify({ blocked_words: words }),
+      method: 'PUT', headers: this.getHeaders(true), body: JSON.stringify(body),
     });
-    return this.handleResponse<{ blocked_words: string[] }>(response, false, true);
+    return this.handleResponse<AdReviewRules>(response, false, true);
   }
 
   /** The shop's read-only page (no login). */
@@ -1790,9 +1803,10 @@ class ApiClient {
     return this.handleResponse<PublicAdReport>(response, true, true);
   }
 
-  async payFromPublicAdLink(token: string, phone?: string): Promise<{ sent: boolean; message: string }> {
+  /** The prompt only ever goes to the number saved on the sale. */
+  async payFromPublicAdLink(token: string): Promise<{ sent: boolean; message: string }> {
     const response = await fetch(`${BASE_URL}/public/promo/${encodeURIComponent(token)}/pay`, {
-      method: 'POST', headers: this.getHeaders(false), body: JSON.stringify({ phone: phone || null }),
+      method: 'POST', headers: this.getHeaders(false),
     });
     return this.handleResponse<{ sent: boolean; message: string }>(response, true, true);
   }
