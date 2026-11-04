@@ -18,6 +18,7 @@ import { AdStatusChip, AdStatusNote, AdThumb } from './components/AdBits';
 import AdPreview from './components/AdPreview';
 import RejectAdDialog from './components/RejectAdDialog';
 import { adCardNote, adToForm, adDisplayStatus, formatCount, pauseBlockedReason, PLACEMENT_LABEL, slotLabel } from './adModel';
+import { kes } from './adSale';
 import { formatTimeSinceUTC } from '../lib/dateUtils';
 
 type View = 'all' | 'review';
@@ -254,7 +255,9 @@ export default function AdsClient() {
       setPending((list) => list.filter((a) => a.id !== ad.id));
       setPendingTotal((n) => Math.max(0, n - 1));
       void loadSummary();
-      showAlert('success', action === 'approve' ? t('Approved. The ad is now live.') : t('Ad rejected. The reseller will see your reason.'));
+      showAlert('success', action === 'approve'
+        ? (ad.slot === 'reseller' && !ad.sale?.paid_total ? t('Approved. It goes live as soon as the shop pays.') : t('Approved. The ad is now live.'))
+        : t('Ad rejected. The reseller will see your reason.'));
       setRejecting(null);
     } catch (err) {
       showAlert('error', err instanceof Error ? err.message : t('Could not save the review.'));
@@ -357,6 +360,11 @@ export default function AdsClient() {
                         <AdStatusChip status="pending" />
                         <span className="badge badge-neutral">{t(slotLabel(ad.slot))}</span>
                         <span className="badge badge-neutral">{t(PLACEMENT_LABEL[ad.placement])}</span>
+                        {ad.slot === 'reseller' && (
+                          ad.sale?.paid_total
+                            ? <span className="badge badge-success">{t('Shop paid {amount}', { amount: kes(ad.sale.paid_total) })}</span>
+                            : <span className="badge badge-warning">{t('Not paid yet')}</span>
+                        )}
                       </div>
                       <h3 className="mt-2 text-lg font-semibold text-foreground">
                         <Link href={`/ads/${ad.id}`} className="hover:underline">{ad.title}</Link>
