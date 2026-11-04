@@ -19,6 +19,7 @@ import AdPreview from './components/AdPreview';
 import RejectAdDialog from './components/RejectAdDialog';
 import { adCardNote, adToForm, adDisplayStatus, formatCount, pauseBlockedReason, PLACEMENT_LABEL, slotLabel } from './adModel';
 import { kes } from './adSale';
+import PortalAdsOffNotice from './components/PortalAdsOffNotice';
 import { formatTimeSinceUTC } from '../lib/dateUtils';
 
 type View = 'all' | 'review';
@@ -301,6 +302,7 @@ export default function AdsClient() {
   return (
     <div className="pb-6">
       <Header title={t('Ads')} subtitle={subtitle} action={noAdsAtAll || !newButton ? undefined : newButton} />
+      {!isAdmin && canManage && <PortalAdsOffNotice />}
 
       {noAdsAtAll ? (
         <EmptyState isAdmin={isAdmin} canManage={canManage} />
