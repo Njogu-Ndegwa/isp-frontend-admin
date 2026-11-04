@@ -364,6 +364,31 @@ export const FR: Record<string, string> = {
   'Infra': 'Infra',
   'Equipment': 'Équipement',
 
+  // Customer detail: Pay by M-Pesa card
+  'Pay by M-Pesa': 'Payer par M-Pesa',
+  'Paybill': 'Paybill',
+  'Copy paybill': 'Copier le paybill',
+  'Copy account number': 'Copier le numéro de compte',
+  'Paybill copied': 'Paybill copié',
+  'Account number copied': 'Numéro de compte copié',
+  'Payment message copied': 'Message de paiement copié',
+  'Copy message': 'Copier le message',
+  'Share on WhatsApp': 'Partager sur WhatsApp',
+  'Copy failed — select and copy manually': 'Échec de la copie — sélectionnez et copiez manuellement',
+  'Pay via M-Pesa: Paybill {paybill}, Account {account}.': 'Payez par M-Pesa : Paybill {paybill}, compte {account}.',
+  'Amount {amount}': 'Montant {amount}',
+  '{amount} wallet credit counts towards the next payment.': 'Le crédit de {amount} est déduit du prochain paiement.',
+  "This customer's router doesn't collect by paybill and account number, so a paybill payment would not renew them. They pay through the M-Pesa prompt instead.":
+    "Le routeur de ce client n'encaisse pas par paybill et numéro de compte : un paiement paybill ne le renouvellerait pas. Il paie plutôt via la demande M-Pesa.",
+  'No valid account number yet, so a paybill payment could not be matched to this customer. One is assigned on their next registration or payment.':
+    "Pas encore de numéro de compte valide : un paiement paybill ne pourrait pas être attribué à ce client. Il en reçoit un à sa prochaine inscription ou à son prochain paiement.",
+  'Add a PPPoE username first: a paybill payment renews the PPPoE login.':
+    "Ajoutez d'abord un nom d'utilisateur PPPoE : un paiement paybill renouvelle l'accès PPPoE.",
+  'Assign a router first: a paybill payment renews the customer on their router.':
+    "Attribuez d'abord un routeur : un paiement paybill renouvelle le client sur son routeur.",
+  'Assign a plan first: the amount to pay comes from the plan.':
+    "Attribuez d'abord un forfait : le montant à payer vient du forfait.",
+
   // Customers
   'Failed to Load Customers': 'Impossible de charger les clients',
   'Manage your {count} registered customers': 'Gérez vos {count} clients enregistrés',

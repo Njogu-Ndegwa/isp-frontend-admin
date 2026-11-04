@@ -740,6 +740,21 @@ export interface CustomerRouter {
   name: string;
 }
 
+export type PayByMpesaUnavailableReason =
+  | 'hotspot'
+  | 'no_plan'
+  | 'no_router'
+  | 'no_pppoe_login'
+  | 'no_account_number'
+  | 'no_paybill';
+
+export interface PayByMpesa {
+  paybill: string | null;
+  account_number: string | null;
+  amount: number | null;
+  unavailable_reason: PayByMpesaUnavailableReason | null;
+}
+
 export interface Customer {
   id: number;
   name: string;
@@ -767,6 +782,12 @@ export interface Customer {
    * backends and in demo mode.
    */
   payment_paybill?: string | null;
+  /**
+   * The "Pay by M-Pesa" card: the paybill, account number and amount the C2B
+   * handler matches and renews this customer with, or why there is none.
+   * Absent on older backends and in demo mode (see payByMpesaFor()).
+   */
+  pay_by_mpesa?: PayByMpesa | null;
   wallet_credit_kes?: number;
   /** Standing grace: access continues this long past `expiry`. 0 = none. */
   grace_period_minutes?: number;
