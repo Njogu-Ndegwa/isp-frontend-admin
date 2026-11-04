@@ -34,6 +34,7 @@ import {
   expiresToLastDay,
   formatCount,
   formatDay,
+  pauseBlockedReason,
   PLACEMENT_LABEL,
   slotLabel,
   tapRate,
@@ -159,6 +160,7 @@ export default function AdDetailClient() {
     ? ad.router_ids.map((id) => routers.find((r) => r.id === id)?.name ?? `#${id}`).join(', ')
     : ad.owner_user_id === null ? t('Every router') : t('All the owner’s routers');
   const lastDay = expiresToLastDay(ad.expires_at);
+  const pauseBlocked = pauseBlockedReason(status, ad.is_active);
 
   const run = async (fn: () => Promise<Ad>, ok: string) => {
     setBusy(true);
@@ -204,10 +206,13 @@ export default function AdDetailClient() {
         {canManage && (
           <div className="ml-auto flex w-full flex-wrap gap-2 sm:w-auto">
             <Link href={`/ads/${ad.id}/edit`} className="btn-secondary flex min-h-[44px] flex-1 items-center justify-center md:hidden">{t('Edit')}</Link>
+            {/* aria-disabled keeps the tooltip working; see pauseBlockedReason. */}
             <button
               type="button" disabled={busy}
-              onClick={() => void run(() => api.updateAd(ad.id, { is_active: !ad.is_active }), ad.is_active ? t('Ad paused.') : t('Ad resumed.'))}
-              className="btn-secondary min-h-[44px] flex-1 disabled:opacity-50 sm:flex-none"
+              aria-disabled={pauseBlocked ? true : undefined}
+              title={pauseBlocked ? t(pauseBlocked) : undefined}
+              onClick={() => { if (!pauseBlocked) void run(() => api.updateAd(ad.id, { is_active: !ad.is_active }), ad.is_active ? t('Ad paused.') : t('Ad resumed.')); }}
+              className={`btn-secondary min-h-[44px] flex-1 disabled:opacity-50 sm:flex-none ${pauseBlocked ? 'cursor-not-allowed opacity-50' : ''}`}
             >
               {ad.is_active ? t('Pause') : t('Resume')}
             </button>
@@ -255,8 +260,11 @@ export default function AdDetailClient() {
         </div>
       )}
 
-      <div className="grid gap-6 lg:grid-cols-[340px_minmax(0,1fr)] lg:items-start">
-        <div className="space-y-4">
+      {/* Phone preview + details, then the numbers. From xl they sit side by
+          side with tops aligned; on tablets the preview and details share a
+          row so the phone does not tower over a column of its own. */}
+      <div className="grid gap-6 xl:grid-cols-[340px_minmax(0,1fr)] xl:items-start">
+        <div className="grid gap-4 md:grid-cols-[minmax(0,300px)_minmax(0,1fr)] md:items-start xl:grid-cols-1">
           <AdPreview ad={adToForm(ad)} wifiName={wifiName} />
           <section className="rounded-2xl border border-border bg-background-secondary px-4">
             <dl className="divide-y divide-border">

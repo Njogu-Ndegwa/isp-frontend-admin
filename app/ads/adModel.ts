@@ -46,6 +46,39 @@ export function adDisplayStatus(ad: Pick<Ad, 'status' | 'is_active' | 'starts_at
   return 'live';
 }
 
+/** Why Pause is switched off for this ad, or null when pausing does something.
+ *  The backend lets the owner flip is_active at any time, but a pending or
+ *  rejected ad is not on any portal, so pausing it changes nothing customers
+ *  see and the status chip would keep saying "Pending review". Resume stays
+ *  on, so an ad paused before it went back to review can be switched on. */
+export function pauseBlockedReason(status: AdDisplayStatus, isActive: boolean): string | null {
+  if (!isActive) return null;
+  if (status === 'pending') return 'Nothing to pause yet. The ad only shows once Bitwave approves it.';
+  if (status === 'rejected') return 'Nothing to pause. A rejected ad is not showing. Fix it and send it again.';
+  return null;
+}
+
+export interface AdCardNote {
+  tone: 'warning' | 'danger' | 'info' | 'neutral';
+  label: string;
+  text: string;
+  /** The text came from a person (the reviewer), so it is shown as written, not translated. */
+  verbatim: boolean;
+}
+
+/** The one status box an ad card shows under its details, if any. Every
+ *  status shares one look (AdStatusNote) so cards side by side match; a new
+ *  status that needs a line adds a case here rather than its own markup. */
+export function adCardNote(ad: Pick<Ad, 'review_note'>, status: AdDisplayStatus, isAdmin: boolean): AdCardNote | null {
+  if (status === 'rejected' && ad.review_note?.trim()) {
+    return { tone: 'danger', label: 'Why:', text: ad.review_note.trim(), verbatim: true };
+  }
+  if (status === 'pending' && !isAdmin) {
+    return { tone: 'warning', label: 'In review:', text: 'Bitwave is checking this ad. It starts showing once approved.', verbatim: false };
+  }
+  return null;
+}
+
 // ─── Labels ──────────────────────────────────────────────────────────
 
 export const PLACEMENT_LABEL: Record<AdPlacement, string> = {
