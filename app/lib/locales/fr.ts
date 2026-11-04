@@ -878,4 +878,7 @@ export const FR: Record<string, string> = {
   "Paid:": "Payée :",
   "Ends soon:": "Se termine bientôt :",
   "Ended:": "Terminée :",
+  "Ads are switched off on your portal": "Les publicités sont désactivées sur votre portail",
+  "Customers won’t see any ad until you turn on Show Ads, and you can’t send a shop an M-Pesa prompt.": "Les clients ne verront aucune publicité tant que vous n'aurez pas activé Afficher les publicités, et vous ne pouvez pas envoyer de demande M-Pesa à un commerce.",
+  "Turn on Show Ads": "Activer les publicités",
 };

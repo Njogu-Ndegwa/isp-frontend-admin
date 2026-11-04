@@ -12,6 +12,7 @@ import Header from '../../components/Header';
 import AdPreview from './AdPreview';
 import AdRouterPicker from './AdRouterPicker';
 import MediaUploadField from './MediaUploadField';
+import PortalAdsOffNotice from './PortalAdsOffNotice';
 import SaleTermsFields from './SaleTermsFields';
 import { emptySaleTerms, validateSaleTerms, displayPhone, type SaleTermsErrors, type SaleTermsForm } from '../adSale';
 import {
@@ -284,6 +285,8 @@ export default function AdEditor({ ad }: { ad?: Ad }) {
         subtitle={isEdit ? ad?.title : (isAdmin ? t('A Bitwave ad. It goes live as soon as you publish it.') : t('Put your offer in front of everyone who connects to your WiFi'))}
         backHref={isEdit ? `/ads/${ad?.id}` : '/ads'}
       />
+
+      {!isAdmin && <PortalAdsOffNotice />}
 
       {ad?.status === 'rejected' && ad.review_note && (
         <div className="mb-5 rounded-2xl border border-danger/30 bg-danger/10 p-4" role="note">
