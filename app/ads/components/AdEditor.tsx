@@ -12,6 +12,8 @@ import Header from '../../components/Header';
 import AdPreview from './AdPreview';
 import AdRouterPicker from './AdRouterPicker';
 import MediaUploadField from './MediaUploadField';
+import SaleTermsFields from './SaleTermsFields';
+import { emptySaleTerms, validateSaleTerms, displayPhone, type SaleTermsErrors, type SaleTermsForm } from '../adSale';
 import {
   adToForm,
   changesNeedReview,
@@ -117,10 +119,21 @@ export default function AdEditor({ ad }: { ad?: Ad }) {
   // A Bitwave ad (owner null). An admin editing a reseller's ad keeps its slot.
   const platform = ad ? ad.owner_user_id === null : isAdmin;
   const businessName = user?.business_name || user?.organization_name || '';
+  const supportPhone = user?.support_phone || '';
+  // Selling ads through Bitwave is paid by M-Pesa: Kenyan networks only for now.
+  const canSell = !isAdmin && (user?.market?.code ?? 'KE').toUpperCase() === 'KE';
   const isDesktop = useIsDesktop();
 
-  const initial = useMemo(() => (ad ? adToForm(ad) : emptyAdForm(isAdmin, businessName)), [ad, isAdmin, businessName]);
+  const initial = useMemo(() => {
+    if (ad) return adToForm(ad);
+    const f = emptyAdForm(isAdmin, businessName);
+    // An own promo shows the network's support number (the backend checks it).
+    if (!isAdmin) f.phone_number = supportPhone;
+    return f;
+  }, [ad, isAdmin, businessName, supportPhone]);
   const [form, setForm] = useState<AdFormState>(initial);
+  const [terms, setTerms] = useState<SaleTermsForm>(emptySaleTerms);
+  const [termErrors, setTermErrors] = useState<SaleTermsErrors>({});
   const [errors, setErrors] = useState<AdFormErrors>({});
   const [routers, setRouters] = useState<Router[]>([]);
   const [advertisers, setAdvertisers] = useState<Advertiser[]>([]);
@@ -140,15 +153,26 @@ export default function AdEditor({ ad }: { ad?: Ad }) {
     if (errors[key]) setErrors((e) => ({ ...e, [key]: undefined }));
   };
 
-  // Own promo prefills the reseller's business; switching to a sold ad clears it.
+  // Own promo is locked to the reseller's network name and support number;
+  // switching to a sold ad clears both for the shop's details.
   const pickSlot = (slot: AdSlot) => {
     setForm((f) => {
       let seller = f.seller_name;
-      if (slot === 'reseller' && seller === businessName) seller = '';
-      if (slot === 'house' && !seller) seller = businessName;
-      return { ...f, slot, seller_name: seller };
+      let phone = f.phone_number;
+      if (slot === 'reseller') {
+        if (seller === businessName) seller = '';
+        if (phone === supportPhone) phone = '';
+      }
+      if (slot === 'house') {
+        seller = businessName;
+        if (!phone) phone = supportPhone;
+      }
+      return { ...f, slot, seller_name: seller, phone_number: phone };
     });
   };
+  const isHouse = !platform && form.slot === 'house';
+  const isSold = !platform && form.slot === 'reseller';
+  const newSale = isSold && !isEdit;
 
   const diff = useMemo(() => {
     if (!ad) return null;
@@ -157,7 +181,12 @@ export default function AdEditor({ ad }: { ad?: Ad }) {
     return diffInput(formToInput(initial, platform), formToInput(form, platform));
   }, [ad, initial, form, platform]);
 
-  const willNeedReview = !isAdmin && (!isEdit || (diff !== null && changesNeedReview(diff) && ad?.status !== 'pending'));
+  // Own promos go live straight after the automatic checks (unless Bitwave
+  // took the ad down); sold ads are checked by Bitwave until the reseller has
+  // had 3 approved, then approved automatically.
+  const takenDown = !!ad?.review_note?.startsWith('Taken down');
+  const willNeedReview = !isAdmin && (isSold || takenDown)
+    && (!isEdit || (diff !== null && changesNeedReview(diff) && ad?.status !== 'pending'));
   const wifiName = isAdmin ? t('WiFi name') : (businessName || t('Your WiFi'));
   const isVideo = form.media_type === 'video';
 
@@ -165,6 +194,14 @@ export default function AdEditor({ ad }: { ad?: Ad }) {
     e.preventDefault();
     const found = validateAdForm(form);
     setErrors(found);
+    const foundTerms = newSale ? validateSaleTerms({ ...terms, business_name: terms.business_name || form.seller_name }, false) : {};
+    setTermErrors(foundTerms);
+    const firstTerm = Object.keys(foundTerms)[0];
+    if (!Object.keys(found)[0] && firstTerm) {
+      document.querySelector(`[data-field="sale-${firstTerm}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      (document.getElementById(`sale-${firstTerm}`) as HTMLElement | null)?.focus({ preventScroll: true });
+      return;
+    }
     const first = Object.keys(found)[0];
     if (first) {
       const el = document.querySelector(`[data-field="ad-${first}"]`) ?? document.getElementById(`ad-${first}`);
@@ -183,9 +220,24 @@ export default function AdEditor({ ad }: { ad?: Ad }) {
         await api.updateAd(ad.id, diff);
         showAlert('success', willNeedReview ? t('Saved. Sent to Bitwave for review.') : t('Ad saved.'));
         router.push(`/ads/${ad.id}`);
+      } else if (newSale) {
+        const { ad: created, sale } = await api.createSoldAd(formToInput(form, platform), {
+          business_name: (terms.business_name || form.seller_name).trim(),
+          business_phone: terms.business_phone.trim(),
+          weeks: Number(terms.weeks),
+          price_per_week: Number(terms.price_per_week),
+        });
+        if (sale.prompt_result?.sent) {
+          showAlert('success', t('M-Pesa prompt sent to {phone}. Ask them to enter their PIN.', { phone: displayPhone(sale.prompt?.phone) }));
+        } else {
+          showAlert('warning', t('Ad saved, but the prompt didn’t go out: {reason} Send it again from the ad.', { reason: t(sale.prompt_result?.message ?? '') }));
+        }
+        router.push(`/ads/${created.id}`);
       } else {
         const created = await api.createAd(formToInput(form, platform));
-        showAlert('success', isAdmin ? t('Ad published.') : t('Ad sent to Bitwave for review.'));
+        showAlert('success', isAdmin
+          ? t('Ad published.')
+          : created.status === 'approved' ? t('Your promo is live.') : t('Ad sent to Bitwave for review.'));
         router.push(`/ads/${created.id}`);
       }
     } catch (err) {
@@ -267,15 +319,17 @@ export default function AdEditor({ ad }: { ad?: Ad }) {
                 <legend className="mb-2 text-sm font-medium text-foreground">{t('Whose ad is it?')}</legend>
                 <div className="flex flex-col gap-2.5 sm:flex-row">
                   <Choice
-                    name="slot" checked={form.slot === 'house'} onSelect={() => pickSlot('house')}
+                    name="slot" checked={form.slot === 'house'} onSelect={() => { if (!isEdit) pickSlot('house'); }}
                     title={isAdmin ? t("Reseller's own promo") : t('My own promo')}
-                    desc={t('Free. Promote your WiFi packages or your own business.')}
+                    desc={t('Free. Promotes your own WiFi network, with your name and support number.')}
                   />
-                  <Choice
-                    name="slot" checked={form.slot === 'reseller'} onSelect={() => pickSlot('reseller')}
-                    title={isAdmin ? t('Sold by the reseller') : t('An ad I sold')}
-                    desc={t('For a shop or business near your hotspot that pays you to advertise.')}
-                  />
+                  {(canSell || form.slot === 'reseller') && (
+                    <Choice
+                      name="slot" checked={form.slot === 'reseller'} onSelect={() => { if (!isEdit) pickSlot('reseller'); }}
+                      title={isAdmin ? t('Sold by the reseller') : t('An ad I sold')}
+                      desc={t('For a shop near your hotspot. They pay by M-Pesa through Bitwave: you get 80%, Bitwave keeps 20%.')}
+                    />
+                  )}
                 </div>
               </fieldset>
             ) : (
@@ -305,6 +359,15 @@ export default function AdEditor({ ad }: { ad?: Ad }) {
               </div>
             )}
           </Section>
+
+          {newSale && (
+            <Section
+              title={t('Who pays, and how much')}
+              desc={t('The shop gets an M-Pesa prompt from Bitwave as soon as you send this.')}
+            >
+              <SaleTermsFields value={terms} errors={termErrors} onChange={(v) => { setTerms(v); setTermErrors({}); }} showName={false} />
+            </Section>
+          )}
 
           <Section title={t('Photo or video')} desc={t('Wide pictures work best. The portal crops to roughly 3 by 2.')}>
             <div className="inline-flex rounded-xl bg-background-tertiary p-1" role="radiogroup" aria-label={t('Media type')}>
@@ -421,9 +484,14 @@ export default function AdEditor({ ad }: { ad?: Ad }) {
           )}
 
           <Section title={t('What does it say?')}>
-            <Field id="ad-seller_name" label={nameLabel} required error={errors.seller_name} hint={t('Shown in bold next to the AD tag.')} counter={`${form.seller_name.length}/100`}>
+            <Field
+              id="ad-seller_name" label={nameLabel} required error={errors.seller_name}
+              hint={isHouse ? t('Your own promo always shows your network’s name.') : t('Shown in bold next to the AD tag.')}
+              counter={`${form.seller_name.length}/100`}
+            >
               <input
                 {...aria('seller_name', true)} className={inputCls('seller_name')} maxLength={100}
+                readOnly={isHouse && !!businessName}
                 value={form.seller_name} onChange={(e) => set('seller_name', e.target.value)}
                 placeholder={form.slot === 'house' ? t('e.g. Kilimani WiFi') : t("e.g. Mama Njeri's Kitchen")}
               />
@@ -451,7 +519,9 @@ export default function AdEditor({ ad }: { ad?: Ad }) {
           <Section title={t('How do customers reach them?')}>
             <Field
               id="ad-phone_number" label={t('Phone number')} required error={errors.phone_number}
-              hint={t('This is what the green Call button dials. Customers haven’t paid yet, so they have no internet: a phone call is the only way they can reach you from the login page.')}
+              hint={isHouse
+                ? t('Your own promo must use your support number. To advertise another business, choose “An ad I sold”.')
+                : t('This is what the green Call button dials. Customers haven’t paid yet, so they have no internet: a phone call is the only way they can reach you from the login page.')}
             >
               <input
                 {...aria('phone_number', true)} type="tel" inputMode="tel" className={`${inputCls('phone_number')} text-base`}
@@ -470,6 +540,9 @@ export default function AdEditor({ ad }: { ad?: Ad }) {
             <div data-field="ad-router_ids" id="ad-router_ids" tabIndex={-1}>
               <AdRouterPicker routers={routers} value={form.router_ids} onChange={(v) => set('router_ids', v)} isAdmin={isAdmin && platform} error={errors.router_ids} />
             </div>
+            {isSold ? (
+              <p className="text-xs text-foreground-muted">{t('A sold ad runs for the weeks the shop paid for, starting the day it goes live.')}</p>
+            ) : (
             <div className="grid gap-5 sm:grid-cols-2">
               <Field id="ad-start_date" label={t('Start (optional)')} hint={t('Empty = start as soon as it is approved.')}>
                 <input {...aria('start_date', true)} type="date" className="input" value={form.start_date} onChange={(e) => set('start_date', e.target.value)} />
@@ -478,6 +551,7 @@ export default function AdEditor({ ad }: { ad?: Ad }) {
                 <input {...aria('last_day', true)} type="date" className={inputCls('last_day')} min={form.start_date || undefined} value={form.last_day} onChange={(e) => set('last_day', e.target.value)} />
               </Field>
             </div>
+            )}
           </Section>
 
           <div className="space-y-3 pb-6">
@@ -487,11 +561,11 @@ export default function AdEditor({ ad }: { ad?: Ad }) {
                   <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
                 </svg>
                 <div className="text-sm">
-                  <p className="font-semibold text-foreground">{isEdit ? t('These changes go to Bitwave for review') : t('Bitwave checks every ad first')}</p>
+                  <p className="font-semibold text-foreground">{isEdit ? t('These changes go to Bitwave for review') : t('Bitwave checks sold ads first')}</p>
                   <p className="mt-0.5 text-foreground-muted">
                     {isEdit && ad?.status === 'approved'
-                      ? t('The ad stops showing until Bitwave approves it again. Pausing, dates and routers don’t need a review.')
-                      : t('Your ad shows as “Pending review” and starts on your portal once it is approved.')}
+                      ? t('The ad stops showing until Bitwave approves it again. Pausing and routers don’t need a review.')
+                      : t('It goes live once the shop has paid and Bitwave has approved it. After 3 approved sold ads, yours are approved automatically.')}
                   </p>
                 </div>
               </div>
@@ -504,7 +578,7 @@ export default function AdEditor({ ad }: { ad?: Ad }) {
                 {saving && <span className="h-4 w-4 animate-spin rounded-full border-2 border-current/30 border-t-current" aria-hidden="true" />}
                 {isEdit
                   ? (willNeedReview ? t('Save and send for review') : t('Save changes'))
-                  : (isAdmin ? t('Publish ad') : t('Send for review'))}
+                  : (isAdmin ? t('Publish ad') : newSale ? t('Send M-Pesa prompt to the shop') : t('Publish my promo'))}
               </button>
             </div>
           </div>

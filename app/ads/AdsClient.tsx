@@ -319,6 +319,12 @@ export default function AdsClient() {
             <StatTile label={t('Taps')} value={analytics ? formatCount(analytics.total_clicks) : '–'} hint={t('Calls and other taps, last 30 days')} />
           </div>
 
+          <div className="-mt-3 mb-5 flex justify-end">
+            <Link href="/ads/sales" className="inline-flex min-h-[44px] items-center text-sm font-semibold text-accent-primary hover:underline">
+              {isAdmin ? t('Sold ads, payments and refunds') : t('Ads I sold and payments')} →
+            </Link>
+          </div>
+
           {isAdmin && (
             <Tabs<View>
               className="mb-5"

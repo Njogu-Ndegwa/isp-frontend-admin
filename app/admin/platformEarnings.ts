@@ -18,7 +18,7 @@ export const TERMS = {
   volumeTooltip: "Total customer payments processed through Bitwave for all resellers — not Bitwave's income",
   earnings: 'Bitwave earnings',
   earningsTooltip:
-    'What Bitwave itself received in this period: reseller subscription payments and SMS credit sales. Excludes our own reseller accounts.',
+    'What Bitwave itself received in this period: reseller subscription payments, SMS credit sales and its 20% of ads resellers sold. Excludes our own reseller accounts.',
   takeRate: 'Take rate',
   takeRateTooltip: 'Bitwave earnings ÷ transaction volume',
 } as const;
@@ -30,6 +30,7 @@ export const STREAM_LABELS: Record<PlatformEarningsStreamKey, string> = {
   subscription_minimum: 'Minimum / flat subscription fee',
   subscription_unattributed: 'Subscription payments without an invoice',
   sms_credits: 'SMS credit sales',
+  ad_commission: 'Ad commission (20% of ads sold)',
 };
 
 export const STREAM_ORDER = Object.keys(STREAM_LABELS) as PlatformEarningsStreamKey[];
@@ -41,6 +42,7 @@ export const STREAM_COLORS: Record<PlatformEarningsStreamKey, string> = {
   subscription_minimum: '#d97706',
   subscription_unattributed: '#78716c',
   sms_credits: '#db2777',
+  ad_commission: '#2563eb',
 };
 
 export interface EarningsRow {

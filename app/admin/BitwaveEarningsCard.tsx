@@ -131,6 +131,14 @@ function Body({
           })}
         </p>
       )}
+      {((notCounted.ads_paid_not_yet_running ?? 0) > 0 || (notCounted.ad_refunds_due ?? 0) > 0) && (
+        <p className="text-[10px] text-foreground-muted mt-1 leading-snug">
+          {t('Ads paid but not running yet {held}; ad refunds due {refunds}. Ad commission counts when an ad starts running.', {
+            held: money(notCounted.ads_paid_not_yet_running ?? 0),
+            refunds: money(notCounted.ad_refunds_due ?? 0),
+          })}
+        </p>
+      )}
     </>
   );
 }

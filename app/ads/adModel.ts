@@ -69,9 +69,28 @@ export interface AdCardNote {
 /** The one status box an ad card shows under its details, if any. Every
  *  status shares one look (AdStatusNote) so cards side by side match; a new
  *  status that needs a line adds a case here rather than its own markup. */
-export function adCardNote(ad: Pick<Ad, 'review_note'>, status: AdDisplayStatus, isAdmin: boolean): AdCardNote | null {
+export function adCardNote(ad: Pick<Ad, 'review_note'> & Partial<Pick<Ad, 'sale'>>, status: AdDisplayStatus, isAdmin: boolean): AdCardNote | null {
   if (status === 'rejected' && ad.review_note?.trim()) {
     return { tone: 'danger', label: 'Why:', text: ad.review_note.trim(), verbatim: true };
+  }
+  const sale = ad.sale;
+  if (sale) {
+    // Sold ads: the payment comes before anything else the card could say.
+    if (sale.state === 'awaiting_payment') {
+      return { tone: 'warning', label: 'Waiting for payment:', text: 'The shop has an M-Pesa prompt. The ad can’t run until they pay.', verbatim: false };
+    }
+    if (sale.state === 'payment_failed') {
+      return { tone: 'danger', label: 'Not paid:', text: 'The M-Pesa prompt wasn’t paid. Open the ad to send it again.', verbatim: false };
+    }
+    if (sale.state === 'in_review') {
+      return { tone: 'info', label: 'Paid:', text: 'Bitwave is checking the ad. It goes live once approved.', verbatim: false };
+    }
+    if (sale.state === 'live' && sale.renewal_due) {
+      return { tone: 'info', label: 'Ends soon:', text: 'Renew it with one M-Pesa prompt to the shop.', verbatim: false };
+    }
+    if (sale.state === 'ended' && sale.can_renew) {
+      return { tone: 'neutral', label: 'Ended:', text: 'Renew it with one M-Pesa prompt to the shop.', verbatim: false };
+    }
   }
   if (status === 'pending' && !isAdmin) {
     return { tone: 'warning', label: 'In review:', text: 'Bitwave is checking this ad. It starts showing once approved.', verbatim: false };
