@@ -1,5 +1,6 @@
 'use client';
 
+import { useId } from 'react';
 import type { PayByMpesa, PayByMpesaUnavailableReason } from '../../lib/types';
 import type { TFunction } from '../../lib/i18n';
 import { payByMpesaMessage, whatsappShareUrl } from '../../lib/customerPaybill';
@@ -31,19 +32,21 @@ export interface PayByMpesaCardProps {
  * hotspot customers, who pay on the WiFi login page.
  */
 export default function PayByMpesaCard({ card, phone, walletCredit, t, formatAmount, onCopy }: PayByMpesaCardProps) {
+  // The page renders the card twice (mobile and desktop slots), one hidden.
+  const titleId = useId();
   if (card.unavailable_reason === 'hotspot') return null;
   const ready = !card.unavailable_reason && card.paybill && card.account_number;
   const message = ready ? payByMpesaMessage(card, t, formatAmount) : '';
 
   return (
-    <section className="card p-5 space-y-3" aria-labelledby="pay-by-mpesa-title" data-testid="pay-by-mpesa">
+    <section className="card p-5 space-y-3" aria-labelledby={titleId} data-testid="pay-by-mpesa">
       <div className="flex items-center gap-2">
         <span className="w-7 h-7 rounded-lg bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 flex items-center justify-center flex-shrink-0" aria-hidden="true">
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
           </svg>
         </span>
-        <h3 id="pay-by-mpesa-title" className="text-sm font-semibold text-foreground-muted uppercase tracking-wider">
+        <h3 id={titleId} className="text-sm font-semibold text-foreground-muted uppercase tracking-wider">
           {t('Pay by M-Pesa')}
         </h3>
       </div>

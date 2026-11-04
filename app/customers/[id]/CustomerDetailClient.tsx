@@ -219,6 +219,26 @@ export default function EditCustomerPage() {
     );
   }
 
+  // PPPoE and static IP pay by paybill + account number; the card renders
+  // nothing for hotspot customers (they pay on the portal). With an older
+  // backend, wait for the reseller-wide paybill rather than flash "no paybill".
+  const payByMpesaCard = (customer.pay_by_mpesa !== undefined || customer.payment_paybill !== undefined || fallbackPaybill !== null)
+    && payByMpesaFor(customer, fallbackPaybill).unavailable_reason !== 'hotspot'
+    ? (
+      <PayByMpesaCard
+        card={payByMpesaFor(customer, fallbackPaybill)}
+        phone={customer.phone}
+        walletCredit={customer.wallet_credit_kes}
+        t={t}
+        formatAmount={formatAmount}
+        onCopy={async (value, copiedMessage) => {
+          const ok = await copyText(value);
+          showAlert(ok ? 'success' : 'error', ok ? copiedMessage : t('Copy failed — select and copy manually'));
+        }}
+      />
+    )
+    : null;
+
   return (
     <div>
       <Header
@@ -232,6 +252,9 @@ export default function EditCustomerPage() {
           edit on the right, instead of one narrow strip down the middle. */}
       <div className="max-w-2xl mx-auto space-y-4 lg:max-w-none lg:mx-0 lg:space-y-0 lg:grid lg:grid-cols-[minmax(0,1fr)_300px] xl:grid-cols-[minmax(0,1fr)_380px] lg:gap-6 lg:items-start">
         <div className="space-y-4 min-w-0">
+          {/* Phones and tablets: first thing under the customer's name, since
+              "how does this customer pay?" is what resellers open the page for. */}
+          {payByMpesaCard && <div className="lg:hidden">{payByMpesaCard}</div>}
           <Link
             href={`/customers/${customer.id}/activity`}
             className="card p-4 flex items-center justify-between gap-3 hover:bg-background-tertiary/50 transition-colors"
@@ -267,23 +290,8 @@ export default function EditCustomerPage() {
         </div>
 
         <div className="space-y-4 min-w-0">
-          {/* PPPoE and static IP pay by paybill + account number; the card
-              renders nothing for hotspot customers (they pay on the portal). */}
-          {/* Older backend: wait for the reseller-wide paybill rather than
-              flash "no paybill". */}
-          {(customer.pay_by_mpesa !== undefined || customer.payment_paybill !== undefined || fallbackPaybill !== null) && (
-          <PayByMpesaCard
-            card={payByMpesaFor(customer, fallbackPaybill)}
-            phone={customer.phone}
-            walletCredit={customer.wallet_credit_kes}
-            t={t}
-            formatAmount={formatAmount}
-            onCopy={async (value, copiedMessage) => {
-              const ok = await copyText(value);
-              showAlert(ok ? 'success' : 'error', ok ? copiedMessage : t('Copy failed — select and copy manually'));
-            }}
-          />
-          )}
+          {/* Desktop: top of the details column. */}
+          {payByMpesaCard && <div className="hidden lg:block">{payByMpesaCard}</div>}
 
           {canManageCustomers && (
           <SubscriptionPauseCard
