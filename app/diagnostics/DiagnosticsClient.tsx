@@ -23,7 +23,9 @@ import {
 import Header from '../components/Header';
 import PortAnalyticsTab from './PortAnalyticsTab';
 import PortRestartButton from './PortRestartButton';
+import AccessPointsTab from './AccessPointsTab';
 import { canRestartPorts as userCanRestartPorts } from '../lib/portRestart';
+import { canViewAccessPoints } from '../lib/apControl';
 import { useT } from '../lib/i18n';
 import { PageLoader } from '../components/LoadingSpinner';
 import RouterSelector from '../components/RouterSelector';
@@ -34,9 +36,9 @@ import { formatDateGMT3 } from '../lib/dateUtils';
 import type { Router } from '../lib/types';
 import { configuredWanPorts, withWanRoles } from '../lib/wanTraffic';
 
-type Tab = 'pppoe' | 'hotspot' | 'ports' | 'analytics';
+type Tab = 'pppoe' | 'hotspot' | 'ports' | 'analytics' | 'accesspoints';
 
-const TABS: Tab[] = ['ports', 'analytics', 'pppoe', 'hotspot'];
+const TABS: Tab[] = ['ports', 'analytics', 'accesspoints', 'pppoe', 'hotspot'];
 
 // This component is rendered with ssr:false, so window is always available;
 // the guard only satisfies type-safety and non-browser test environments.
@@ -49,7 +51,10 @@ export default function DiagnosticsPage() {
   const [routers, setRouters] = useState<Router[]>([]);
   const { isAuthenticated, user } = useAuth();
   const { showAlert } = useAlert();
+  const t = useT();
   const canRestartPorts = userCanRestartPorts(user);
+  const canViewAps = canViewAccessPoints(user);
+  const visibleTabs = TABS.filter((tab) => tab !== 'accesspoints' || canViewAps);
   // Support deep links like /diagnostics?tab=analytics&router=3 (used by the dashboard Port Map board)
   const [selectedRouterId, setSelectedRouterId] = useState<number | null>(() => {
     const id = parseInt(getQueryParam('router') ?? '', 10);
@@ -332,7 +337,7 @@ export default function DiagnosticsPage() {
           <>
             {/* Tab bar */}
             <div className="flex gap-2 mb-5 overflow-x-auto">
-              {TABS.map((tab) => (
+              {visibleTabs.map((tab) => (
                 <button
                   key={tab}
                   onClick={() => setActiveTab(tab)}
@@ -342,7 +347,7 @@ export default function DiagnosticsPage() {
                       : 'text-foreground-muted hover:text-foreground'
                   }`}
                 >
-                  {tab === 'pppoe' ? 'PPPoE' : tab === 'hotspot' ? 'Hotspot' : tab === 'analytics' ? 'Port Map' : 'Ports'}
+                  {tab === 'pppoe' ? 'PPPoE' : tab === 'hotspot' ? 'Hotspot' : tab === 'analytics' ? 'Port Map' : tab === 'accesspoints' ? t('Access points') : 'Ports'}
                 </button>
               ))}
             </div>
@@ -391,6 +396,10 @@ export default function DiagnosticsPage() {
                 section={hotspotSection}
                 onSectionChange={setHotspotSection}
               />
+            )}
+
+            {activeTab === 'accesspoints' && canViewAps && (
+              <AccessPointsTab routerId={selectedRouterId} user={user} />
             )}
 
             {activeTab === 'ports' && (
