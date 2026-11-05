@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { api } from '../../lib/api';
 import {
+  FeedAd,
   Plan,
   PortalSettingsResponse,
   PortalColorTheme,
@@ -13,9 +14,11 @@ import {
   UpdatePortalSettingsRequest,
 } from '../../lib/types';
 import { getThemePalette } from '../../lib/portalThemes';
-import PortalPreview, { PreviewPlan } from '../../components/PortalPreview';
+import PortalPreview, { PreviewAd, PreviewPlan } from '../../components/PortalPreview';
 import { PageLoader } from '../../components/LoadingSpinner';
 import { useAlert } from '../../context/AlertContext';
+import { useAuth } from '../../context/AuthContext';
+import { previewAdsFor } from './previewAds';
 
 const THEME_OPTIONS: { value: PortalColorTheme; label: string; color: string }[] = [
   { value: 'sunset_orange', label: 'Sunset Orange', color: '#E85D04' },
@@ -113,6 +116,9 @@ function comparePreviewPlans(a: Plan, b: Plan, sortOrder: PortalPlanSortOrder): 
 
 export default function PortalCustomizationPage() {
   const { showAlert } = useAlert();
+  const { user } = useAuth();
+  // A Bitwave admin's manage list is every reseller's ads, none of them theirs.
+  const listsOwnAds = user?.role !== 'admin';
 
   const [data, setData] = useState<PortalSettingsResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -121,6 +127,7 @@ export default function PortalCustomizationPage() {
   const [changed, setChanged] = useState<UpdatePortalSettingsRequest>({});
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [plans, setPlans] = useState<Plan[]>([]);
+  const [previewAds, setPreviewAds] = useState<PreviewAd[]>([]);
 
   const loadSettings = useCallback(async () => {
     try {
@@ -144,6 +151,24 @@ export default function PortalCustomizationPage() {
   useEffect(() => {
     loadSettings();
   }, [loadSettings]);
+
+  // What the portal would show: this reseller's live ads plus Bitwave's
+  // network-wide ones. If a call fails, the preview simply has fewer or no offers.
+  useEffect(() => {
+    let cancelled = false;
+    Promise.allSettled([
+      listsOwnAds ? api.getManagedAds({ status: 'approved' }) : Promise.resolve({ ads: [] }),
+      api.getNetworkPortalAds(),
+    ]).then(([own, network]) => {
+      if (cancelled) return;
+      const ownAds: FeedAd[] = own.status === 'fulfilled' ? own.value.ads : [];
+      const networkAds: FeedAd[] = network.status === 'fulfilled' ? network.value.ads : [];
+      setPreviewAds(previewAdsFor(ownAds, networkAds));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [listsOwnAds]);
 
   const markChange = <K extends keyof UpdatePortalSettingsRequest>(
     key: K,
@@ -593,7 +618,7 @@ export default function PortalCustomizationPage() {
             <h3 className="text-sm font-semibold text-foreground">Live Preview</h3>
             <span className="text-xs text-foreground-muted">Updates as you edit</span>
           </div>
-          <PortalPreview settings={previewSettings} palette={palette} plans={previewPlans} />
+          <PortalPreview settings={previewSettings} palette={palette} plans={previewPlans} ads={previewAds} />
         </div>
       </div>
 
@@ -637,7 +662,7 @@ export default function PortalCustomizationPage() {
           className="xl:hidden fixed inset-0 z-[9997] overflow-y-auto overflow-x-hidden"
           style={{ background: palette.background, scrollbarWidth: 'none' }}
         >
-          <PortalPreview settings={previewSettings} palette={palette} plans={previewPlans} fullscreen />
+          <PortalPreview settings={previewSettings} palette={palette} plans={previewPlans} ads={previewAds} fullscreen />
         </div>
       )}
     </div>

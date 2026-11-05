@@ -3068,6 +3068,12 @@ export interface Ad {
   sale?: AdSaleSummary | null;
 }
 
+/** An ad in the public portal feed. It carries no review fields; feed ads are live by definition. */
+export type FeedAd = Pick<
+  Ad,
+  'id' | 'title' | 'seller_name' | 'seller_location' | 'price' | 'placement' | 'image_url' | 'poster_url' | 'badge_type' | 'badge_text'
+> & Partial<Pick<Ad, 'status' | 'is_active' | 'starts_at' | 'expires_at'>>;
+
 /** Body of POST /api/ads and PUT /api/ads/{id} (PUT takes any subset plus is_active). */
 export interface AdInput {
   title?: string;

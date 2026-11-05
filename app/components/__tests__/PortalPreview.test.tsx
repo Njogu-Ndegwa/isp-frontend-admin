@@ -18,6 +18,48 @@ const settings = (over: Partial<PortalSettings> = {}): PortalSettings => ({
 
 const render = (s: PortalSettings) => renderToStaticMarkup(<PortalPreview settings={s} palette={palette} />);
 
+describe('PortalPreview deals section', () => {
+  const offer = {
+    id: 1, title: 'Fresh onions', seller: 'Wanjiku - By the stage', price: 'KSH 120',
+    imageUrl: 'https://media.example/o.webp', badgeType: 'hot', badgeText: 'HOT',
+  };
+  const on = settings({ show_ads: true });
+  const asks = /your ad here|advertise/i;
+
+  it('has no section when there are no ads', () => {
+    for (const ads of [undefined, []]) {
+      const html = renderToStaticMarkup(<PortalPreview settings={on} palette={palette} ads={ads} />);
+      expect(html).not.toContain('class="pp-ads"');
+      expect(html).not.toContain('Soko Deals Today');
+      expect(html).not.toMatch(asks);
+    }
+  });
+
+  it('shows real offers and never asks to advertise', () => {
+    const html = renderToStaticMarkup(<PortalPreview settings={on} palette={palette} ads={[offer]} />);
+    expect(html).toContain('Soko Deals Today');
+    expect(html).toContain('Fresh onions');
+    expect(html).toContain('Wanjiku - By the stage');
+    expect(html).toContain('src="https://media.example/o.webp"');
+    expect(html).not.toMatch(asks);
+  });
+
+  it('copes with an offer that has no photo, price or badge', () => {
+    const html = renderToStaticMarkup(
+      <PortalPreview settings={on} palette={palette} ads={[{ ...offer, imageUrl: null, price: null, badgeType: null, badgeText: null }]} />,
+    );
+    expect(html).toContain('Fresh onions');
+    expect(html).not.toContain('<img');
+    expect(html).not.toContain('class="pp-ad-price"');
+    expect(html).not.toContain('class="pp-ad-badge-chip"');
+  });
+
+  it('respects Show Ads off even with offers', () => {
+    const html = renderToStaticMarkup(<PortalPreview settings={settings({ show_ads: false })} palette={palette} ads={[offer]} />);
+    expect(html).not.toContain('class="pp-ads"');
+  });
+});
+
 describe('PortalPreview hero support button', () => {
   // The live captive portal (isp-frontend renderHeroHeader) never shows WhatsApp
   // in the hero, so the preview must not promise it either.

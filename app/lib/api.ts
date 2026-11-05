@@ -56,6 +56,7 @@ import {
   AdSellingMode,
   PublicAdReport,
   AdsManageParams,
+  FeedAd,
   Rating,
   RatingSummary,
   CustomerMapData,
@@ -1627,6 +1628,13 @@ class ApiClient {
       headers: this.getHeaders(true),
     });
     return this.handleResponse<AdsManageResponse>(response);
+  }
+
+  /** Bitwave's network-wide ads: the public feed, on the portal's neutral route. */
+  async getNetworkPortalAds(): Promise<{ ads: FeedAd[] }> {
+    if (this.isDemoMode()) return { ads: [] };
+    const response = await fetch(`${BASE_URL}/public/spots?per_page=50`);
+    return this.handleResponse<{ ads: FeedAd[] }>(response);
   }
 
   /** Totals over the caller's ads (admin: all) for the last `days` days. */
