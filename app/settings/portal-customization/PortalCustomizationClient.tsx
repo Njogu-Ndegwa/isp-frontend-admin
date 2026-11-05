@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import Link from 'next/link';
-import { api } from '../../lib/api';
+import { api, ApiError } from '../../lib/api';
 import {
   Plan,
   PortalSettingsResponse,
@@ -16,6 +16,7 @@ import { getThemePalette } from '../../lib/portalThemes';
 import PortalPreview, { PreviewPlan } from '../../components/PortalPreview';
 import { PageLoader } from '../../components/LoadingSpinner';
 import { useAlert } from '../../context/AlertContext';
+import { HERO_SOURCE_TYPES, checkHeroFile, compressHeroImage, isUploadedHero } from './heroImage';
 
 const THEME_OPTIONS: { value: PortalColorTheme; label: string; color: string }[] = [
   { value: 'sunset_orange', label: 'Sunset Orange', color: '#E85D04' },
@@ -121,6 +122,11 @@ export default function PortalCustomizationPage() {
   const [changed, setChanged] = useState<UpdatePortalSettingsRequest>({});
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [plans, setPlans] = useState<Plan[]>([]);
+  // The uploaded photo stays offered after a preset is picked, until reload.
+  const [uploadedHero, setUploadedHero] = useState<string | null>(null);
+  const [heroUploading, setHeroUploading] = useState(false);
+  const [heroProblem, setHeroProblem] = useState<string | null>(null);
+  const heroInputRef = useRef<HTMLInputElement>(null);
 
   const loadSettings = useCallback(async () => {
     try {
@@ -128,6 +134,7 @@ export default function PortalCustomizationPage() {
       const resp = await api.getPortalSettings();
       setData(resp);
       setChanged({});
+      if (isUploadedHero(resp.settings.header_bg_image_url)) setUploadedHero(resp.settings.header_bg_image_url);
     } catch (err) {
       showAlert('error', err instanceof Error ? err.message : 'Failed to load portal settings');
     } finally {
@@ -153,6 +160,32 @@ export default function PortalCustomizationPage() {
   };
 
   const hasChanges = Object.keys(changed).length > 0;
+
+  const handleHeroFile = async (file: File) => {
+    setHeroProblem(null);
+    const bad = checkHeroFile(file);
+    if (bad) {
+      setHeroProblem(bad);
+      return;
+    }
+    try {
+      setHeroUploading(true);
+      const small = await compressHeroImage(file);
+      const ticket = await api.requestPortalHeroUpload(small.type, small.size);
+      await api.uploadAdMedia(ticket, small);
+      setUploadedHero(ticket.public_url);
+      markChange('header_bg_image_url', ticket.public_url);
+    } catch (err) {
+      setHeroProblem(
+        err instanceof ApiError && err.status === 503
+          ? "Photo uploads aren't available right now. Pick a preset for now."
+          : err instanceof Error ? err.message : 'Upload failed. Try again.'
+      );
+    } finally {
+      setHeroUploading(false);
+      if (heroInputRef.current) heroInputRef.current.value = '';
+    }
+  };
 
   const handleSave = async () => {
     if (!hasChanges) return;
@@ -180,6 +213,7 @@ export default function PortalCustomizationPage() {
         prev ? { ...prev, settings: resp.settings } : prev
       );
       setChanged({});
+      setUploadedHero(null);
       showAlert('success', 'Portal settings reset to defaults');
     } catch (err) {
       showAlert('error', err instanceof Error ? err.message : 'Failed to reset portal settings');
@@ -361,13 +395,15 @@ export default function PortalCustomizationPage() {
               <div>
                 <label className="block text-xs font-medium text-foreground-muted mb-2">Hero Background</label>
 
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
                   {IMAGE_PRESETS.map((preset) => {
                     const currentPreset = (current('header_bg_image_url') as string | null) ?? null;
                     const isActive = currentPreset === preset.key;
                     return (
                       <button
                         key={preset.key}
+                        aria-pressed={isActive}
+                        aria-label={preset.label}
                         onClick={() => markChange('header_bg_image_url', preset.key)}
                         className={`flex flex-col items-center gap-1 p-2 rounded-lg border transition-all ${
                           isActive
@@ -389,7 +425,77 @@ export default function PortalCustomizationPage() {
                       </button>
                     );
                   })}
+                  {(() => {
+                    const currentHero = (current('header_bg_image_url') as string | null) ?? null;
+                    const isActive = isUploadedHero(currentHero);
+                    const photo = isActive ? currentHero : uploadedHero;
+                    return (
+                      <button
+                        type="button"
+                        data-testid="hero-upload-tile"
+                        aria-pressed={isActive}
+                        aria-label={photo ? 'Your photo' : 'Upload your own'}
+                        disabled={heroUploading}
+                        onClick={() => {
+                          if (photo && !isActive) markChange('header_bg_image_url', photo);
+                          else heroInputRef.current?.click();
+                        }}
+                        className={`flex flex-col items-center gap-1 p-2 rounded-lg border transition-all disabled:opacity-60 ${
+                          isActive
+                            ? 'border-accent-primary bg-accent-primary/5'
+                            : 'border-dashed border-border hover:bg-background-tertiary'
+                        }`}
+                      >
+                        <div
+                          className="w-full h-10 rounded-md flex items-center justify-center bg-background-tertiary text-foreground-muted"
+                          style={photo ? {
+                            backgroundImage: `linear-gradient(135deg, ${palette.primary}bb 0%, ${palette.primaryDark}88 100%), url(${photo})`,
+                            backgroundSize: 'cover',
+                            backgroundPosition: 'center',
+                          } : undefined}
+                        >
+                          {!photo && !heroUploading && <span aria-hidden="true" className="text-lg leading-none">+</span>}
+                        </div>
+                        <span className={`text-[0.6rem] font-medium ${isActive ? 'text-accent-primary' : 'text-foreground-muted'}`}>
+                          {heroUploading ? 'Uploading…' : photo ? 'Your photo' : 'Upload your own'}
+                        </span>
+                      </button>
+                    );
+                  })()}
                 </div>
+                <input
+                  ref={heroInputRef}
+                  data-testid="hero-upload-input"
+                  type="file"
+                  accept={HERO_SOURCE_TYPES.join(',')}
+                  aria-label="Upload your own hero photo"
+                  className="sr-only"
+                  disabled={heroUploading}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) void handleHeroFile(file);
+                  }}
+                />
+                {heroProblem ? (
+                  <p role="alert" className="mt-2 text-xs text-danger">{heroProblem}</p>
+                ) : (
+                  <p className="mt-2 text-xs text-foreground-muted">
+                    JPG, PNG or WebP. We crop it to a wide banner and shrink it so it loads quickly on your customers&apos; phones.
+                    {isUploadedHero((current('header_bg_image_url') as string | null) ?? null) && (
+                      <>
+                        {' '}
+                        <button
+                          type="button"
+                          className="underline text-accent-primary disabled:opacity-60"
+                          disabled={heroUploading}
+                          onClick={() => heroInputRef.current?.click()}
+                        >
+                          Replace photo
+                        </button>
+                      </>
+                    )}
+                  </p>
+                )}
               </div>
 
               <div>

@@ -4196,6 +4196,17 @@ class ApiClient {
     return this.handleResponse<PortalSettingsResponse>(response);
   }
 
+  /** An upload slot for the reseller's own hero photo. PUT it with uploadAdMedia. */
+  async requestPortalHeroUpload(contentType: string, size: number): Promise<AdMediaUploadTicket> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(`${BASE_URL}/portal/settings/hero-image/upload-url`, {
+      method: 'POST',
+      headers: this.getHeaders(true),
+      body: JSON.stringify({ content_type: contentType, size }),
+    });
+    return this.handleResponse<AdMediaUploadTicket>(response);
+  }
+
   async updatePortalSettings(data: UpdatePortalSettingsRequest): Promise<UpdatePortalSettingsResponse> {
     if (this.isDemoMode()) this.demoBlock();
     const response = await fetch(`${BASE_URL}/portal/settings`, {
