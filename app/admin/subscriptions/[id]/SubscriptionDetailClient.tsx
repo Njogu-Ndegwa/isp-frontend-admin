@@ -13,6 +13,7 @@ import ConfirmDialog from '../../../components/ConfirmDialog';
 import { SkeletonCard } from '../../../components/LoadingSpinner';
 import { formatMoney } from '../../../lib/format';
 import { formatWithKes } from '../../../lib/reportingCurrency';
+import { formatDateGMT3 } from '../../../lib/dateUtils';
 
 
 const MARKET_OPTIONS = [
@@ -31,6 +32,30 @@ const formatSafeDate = (dateStr: string | null | undefined): string => {
   } catch {
     return '-';
   }
+};
+
+const FREE_SETUP_DAYS = 7;
+
+/** "12 Nov 2026, 2:05 PM" in EAT. Backend times are naive UTC. */
+const formatEat = (iso: string | null | undefined): string => {
+  if (!iso) return '-';
+  try {
+    return `${formatDateGMT3(iso, {
+      month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true,
+    })} EAT`;
+  } catch {
+    return '-';
+  }
+};
+
+/** "KES 500", or "KES 500 + USD 10" when invoices are in different currencies. */
+const sumByCurrency = (rows: { amount: number; currency: string | null | undefined }[]): string => {
+  const totals = new Map<string, number>();
+  rows.forEach(({ amount, currency }) => {
+    const code = (currency || 'KES').toUpperCase();
+    totals.set(code, (totals.get(code) ?? 0) + amount);
+  });
+  return Array.from(totals, ([code, total]) => formatMoney(total, code)).join(' + ');
 };
 
 export default function AdminSubscriptionDetailPage() {
@@ -59,6 +84,8 @@ export default function AdminSubscriptionDetailPage() {
   const [priceOverride, setPriceOverride] = useState('');
   const [marketSaving, setMarketSaving] = useState(false);
   const [marketMsg, setMarketMsg] = useState<string | null>(null);
+  const [showFreeSetupDialog, setShowFreeSetupDialog] = useState(false);
+  const [freeSetupReason, setFreeSetupReason] = useState('');
 
   const fetchData = useCallback(async () => {
     try {
@@ -167,6 +194,24 @@ export default function AdminSubscriptionDetailPage() {
     }
   };
 
+  const handleFreeSetup = async () => {
+    setActionLoading(true);
+    try {
+      await api.grantFreeSetup(
+        resellerId,
+        freeSetupGrants.length > 0 ? { override: true, override_reason: freeSetupReason.trim() } : {},
+      );
+      setShowFreeSetupDialog(false);
+      setFreeSetupReason('');
+      fetchData();
+    } catch (err) {
+      setShowFreeSetupDialog(false);
+      setError(err instanceof Error ? err.message : 'Failed to give free setup time');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   const handleConfirmCard = async () => {
     if (!confirmCardTarget) return;
     setActionLoading(true);
@@ -185,6 +230,14 @@ export default function AdminSubscriptionDetailPage() {
   // confirmed one by one after checking PayAfrica.
   const pendingPaymentsCount = data?.payments.filter(p => p.status === 'pending' && p.payment_method === 'mpesa').length ?? 0;
   const market = data?.subscription.market;
+  const freeSetupGrants = data?.free_setup?.grants ?? [];
+  const lastFreeSetup = freeSetupGrants[0];
+  const unpaidInvoices = data?.invoices.filter(i => i.status === 'pending' || i.status === 'overdue') ?? [];
+  const unpaidTotal = sumByCurrency(unpaidInvoices.map(i => ({ amount: i.balance_remaining ?? i.final_charge, currency: i.currency })));
+  // Worked out when the dialog is open, so "now" is the moment it was opened.
+  const freeSetupEnd = new Date(Date.now() + FREE_SETUP_DAYS * 24 * 60 * 60 * 1000).toISOString();
+  const endDateStays = !!data?.subscription.expires_at
+    && new Date(`${data.subscription.expires_at}Z`).getTime() > new Date(freeSetupEnd).getTime();
 
   if (user?.role !== 'admin') {
     return (
@@ -276,6 +329,55 @@ export default function AdminSubscriptionDetailPage() {
                 <p className="text-sm font-medium text-foreground">{data.subscription.invoice_count}</p>
               </div>
             </div>
+          </div>
+
+          {/* Free setup time: one press per account, and the record of it */}
+          <div className="card p-5 sm:p-6 space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div className="min-w-0">
+                <h3 className="text-sm font-semibold text-foreground">Free setup time</h3>
+                {data.free_setup?.active ? (
+                  <p className="text-xs text-emerald-500 mt-0.5">
+                    On free setup until {formatEat(data.free_setup.until)}. No invoice, suspension or renewal SMS before then.
+                  </p>
+                ) : lastFreeSetup ? (
+                  <p className="text-xs text-amber-500 mt-0.5">
+                    Already used. It ended {formatEat(data.free_setup?.until)}.
+                  </p>
+                ) : (
+                  <p className="text-xs text-foreground-muted mt-0.5">
+                    For an account still setting up its router. Can be used once.
+                  </p>
+                )}
+              </div>
+              <button
+                onClick={() => { setFreeSetupReason(''); setShowFreeSetupDialog(true); }}
+                disabled={data.subscription.status === 'inactive'}
+                className="w-full sm:w-auto text-sm px-3 py-2 rounded-xl bg-amber-500/10 text-amber-500 border border-amber-500/20 hover:bg-amber-500/20 transition-colors font-medium sm:whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {lastFreeSetup ? 'Give again: Free setup time (7 days)' : 'Free setup time (7 days)'}
+              </button>
+            </div>
+            {data.subscription.status === 'inactive' && (
+              <p className="text-xs text-foreground-muted">
+                This account was set to inactive by hand. Change its status first.
+              </p>
+            )}
+            {freeSetupGrants.length > 0 && (
+              <ul className="pt-3 border-t border-border space-y-2">
+                {freeSetupGrants.map((grant) => (
+                  <li key={grant.id} className="text-xs text-foreground-muted break-words">
+                    <span className="text-foreground font-medium">{formatEat(grant.granted_at)}</span>
+                    {' '}by {grant.granted_by_email}.{' '}
+                    {grant.waived_invoices.length > 0
+                      ? `Waived ${grant.waived_invoices.length} invoice${grant.waived_invoices.length !== 1 ? 's' : ''} (${sumByCurrency(grant.waived_invoices.map(w => ({ amount: w.balance_waived, currency: w.currency })))}).`
+                      : 'No invoice to waive.'}
+                    {' '}Status {grant.previous_status} to {grant.new_status}. Free until {formatEat(grant.free_until)}.
+                    {grant.is_override && grant.override_reason ? ` Given again: ${grant.override_reason}` : ''}
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
 
           {/* Market: currency, pricing and how this reseller pays */}
@@ -520,6 +622,51 @@ export default function AdminSubscriptionDetailPage() {
         variant="primary"
         loading={actionLoading}
       />
+
+      <ConfirmDialog
+        isOpen={showFreeSetupDialog}
+        onClose={() => setShowFreeSetupDialog(false)}
+        onConfirm={handleFreeSetup}
+        title="Free setup time (7 days)"
+        message={data ? `For ${data.reseller.organization_name}, this will:` : ''}
+        confirmLabel={lastFreeSetup ? 'Give again' : 'Give free setup time'}
+        variant="warning"
+        loading={actionLoading}
+        confirmDisabled={freeSetupGrants.length > 0 && !freeSetupReason.trim()}
+      >
+        <ul className="list-disc pl-5 -mt-4 mb-4 space-y-1 text-sm text-foreground-muted">
+          <li>
+            {unpaidInvoices.length > 0
+              ? `Waive ${unpaidInvoices.length} unpaid invoice${unpaidInvoices.length !== 1 ? 's' : ''}: ${unpaidTotal}`
+              : 'Waive nothing: there is no unpaid invoice'}
+          </li>
+          {data?.subscription.status === 'suspended' && <li>Lift the suspension</li>}
+          <li>
+            {endDateStays
+              ? `Keep the end date of ${formatEat(data?.subscription.expires_at)}`
+              : `Set the end date to ${formatEat(freeSetupEnd)}`}
+          </li>
+          <li>Send no invoice, suspension or renewal SMS for 7 days. Normal billing resumes after that.</li>
+          <li>Record your login against it. It does not count as a sale or mark the lead as paying.</li>
+        </ul>
+        {lastFreeSetup && (
+          <div className="mb-4 space-y-2">
+            <p className="text-sm text-amber-500">
+              Already used on {formatEat(lastFreeSetup.granted_at)} by {lastFreeSetup.granted_by_email}.
+            </p>
+            <label className="block text-xs text-foreground-muted">
+              Why give it again?
+              <textarea
+                value={freeSetupReason}
+                onChange={(e) => setFreeSetupReason(e.target.value)}
+                maxLength={500}
+                rows={2}
+                className="input mt-1 w-full"
+              />
+            </label>
+          </div>
+        )}
+      </ConfirmDialog>
 
       {/* Edit Modal */}
       {data && (
