@@ -174,6 +174,7 @@ import {
   SubscriptionPayResponse,
   SubscriptionCardPayResponse,
   RepriceInvoiceResponse,
+  GrantFreeSetupResponse,
   ConfirmCardPaymentResponse,
   AdminSubscriptionsResponse,
   AdminSubscriptionRevenue,
@@ -3377,6 +3378,18 @@ class ApiClient {
       headers: this.getHeaders(),
     });
     return this.handleResponse<GeneratePreExpiryInvoicesResponse>(response);
+  }
+
+  async grantFreeSetup(
+    resellerId: number,
+    body: { override?: boolean; override_reason?: string } = {},
+  ): Promise<GrantFreeSetupResponse> {
+    const response = await fetch(`${BASE_URL}/admin/subscriptions/${resellerId}/free-setup`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify(body),
+    });
+    return this.handleResponse<GrantFreeSetupResponse>(response);
   }
 
   async repriceInvoice(resellerId: number, invoiceId: number): Promise<RepriceInvoiceResponse> {

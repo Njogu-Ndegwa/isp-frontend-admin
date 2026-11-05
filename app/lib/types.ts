@@ -4869,6 +4869,43 @@ export interface AdminSubscriptionDetail {
   subscription: SubscriptionOverview;
   invoices: SubscriptionInvoice[];
   payments: SubscriptionPayment[];
+  free_setup?: FreeSetupStatus;
+}
+
+export interface FreeSetupWaivedInvoice {
+  invoice_id: number;
+  period_start: string;
+  period_end: string;
+  final_charge: number;
+  amount_paid: number;
+  balance_waived: number;
+  currency: string;
+  status_before: string;
+}
+
+export interface FreeSetupGrant {
+  id: number;
+  granted_by_email: string;
+  granted_at: string | null;
+  free_until: string;
+  previous_status: string;
+  new_status: string;
+  previous_expires_at: string | null;
+  new_expires_at: string;
+  waived_invoices: FreeSetupWaivedInvoice[];
+  is_override: boolean;
+  override_reason: string | null;
+}
+
+export interface FreeSetupStatus {
+  until: string | null;
+  active: boolean;
+  grants: FreeSetupGrant[];
+}
+
+export interface GrantFreeSetupResponse {
+  message: string;
+  grant: FreeSetupGrant;
 }
 
 export interface EditSubscriptionRequest {

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 
 interface ConfirmDialogProps {
@@ -13,6 +13,10 @@ interface ConfirmDialogProps {
   cancelLabel?: string;
   variant?: 'danger' | 'warning' | 'primary';
   loading?: boolean;
+  /** Anything longer than a line of text, shown under the message. */
+  children?: ReactNode;
+  /** Keeps Confirm off until the admin has filled in what the dialog asks for. */
+  confirmDisabled?: boolean;
 }
 
 export default function ConfirmDialog({
@@ -25,6 +29,8 @@ export default function ConfirmDialog({
   cancelLabel = 'Cancel',
   variant = 'primary',
   loading = false,
+  children,
+  confirmDisabled = false,
 }: ConfirmDialogProps) {
   useEffect(() => {
     if (isOpen) {
@@ -67,6 +73,7 @@ export default function ConfirmDialog({
       >
         <h3 id="confirm-dialog-title" className="text-lg font-semibold text-foreground mb-2">{title}</h3>
         <p className="text-sm text-foreground-muted mb-6">{message}</p>
+        {children}
         <div className="flex gap-3 justify-end">
           <button
             onClick={onClose}
@@ -77,7 +84,7 @@ export default function ConfirmDialog({
           </button>
           <button
             onClick={onConfirm}
-            disabled={loading}
+            disabled={loading || confirmDisabled}
             className={`px-4 py-2 text-sm font-semibold rounded-xl transition-colors disabled:opacity-50 ${btnClass}`}
           >
             {loading ? (
