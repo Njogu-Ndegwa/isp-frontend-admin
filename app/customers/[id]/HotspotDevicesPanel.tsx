@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { api } from '../../lib/api';
-import type { CustomerDevice, CustomerDevicesResponse } from '../../lib/types';
+import type { CustomerDevice, CustomerDevicesResponse, ShareDeviceType } from '../../lib/types';
+import { useT } from '../../lib/i18n';
 import { formatBps } from '../../lib/live';
 import { useAlert } from '../../context/AlertContext';
 import ConfirmDialog from '../../components/ConfirmDialog';
@@ -12,6 +13,23 @@ import { formatDateGMT3 } from '../../lib/dateUtils';
 import DeviceLimitEditor from './DeviceLimitEditor';
 
 const MAC_PATTERN = /^([0-9A-Fa-f]{2}[:-]?){5}[0-9A-Fa-f]{2}$/;
+
+const DEVICE_TYPES: Array<{ value: ShareDeviceType; label: string }> = [
+  { value: 'tv', label: 'TV' },
+  { value: 'console', label: 'Console' },
+  { value: 'laptop', label: 'Laptop' },
+  { value: 'iot', label: 'Smart device' },
+  { value: 'other', label: 'Other' },
+];
+
+// Not "tv" like the share page. A phone saved as a TV stays ahead of real TVs on
+// a smaller plan and the plan can't move off its MAC, and nothing shows that went
+// wrong. A TV saved as "other" only loses its priority, and the list shows it.
+const DEFAULT_DEVICE_TYPE: ShareDeviceType = 'other';
+
+function deviceTypeOf(device: CustomerDevice): ShareDeviceType {
+  return DEVICE_TYPES.find((type) => type.value === device.device_type)?.value ?? DEFAULT_DEVICE_TYPE;
+}
 
 function formatAddedAt(iso: string): string {
   try {
@@ -28,10 +46,11 @@ function deviceLabel(device: CustomerDevice): string {
 
 // Every device on a hotspot customer's plan: the paying device plus the extra
 // devices sharing it. Lists each with its MAC, IP, online state and usage, and
-// lets the reseller add a device by MAC, remove one, or give this customer a
-// different number of devices than their plan.
+// lets the reseller add a device by MAC, correct its type, remove one, or give
+// this customer a different number of devices than their plan.
 export default function HotspotDevicesPanel({ customerId }: { customerId: number }) {
   const { showAlert } = useAlert();
+  const t = useT();
   const [data, setData] = useState<CustomerDevicesResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -39,7 +58,9 @@ export default function HotspotDevicesPanel({ customerId }: { customerId: number
   const [adding, setAdding] = useState(false);
   const [mac, setMac] = useState('');
   const [name, setName] = useState('');
+  const [deviceType, setDeviceType] = useState<ShareDeviceType>(DEFAULT_DEVICE_TYPE);
   const [saving, setSaving] = useState(false);
+  const [savingTypeFor, setSavingTypeFor] = useState<number | null>(null);
 
   const [editingLimit, setEditingLimit] = useState(false);
 
@@ -74,16 +95,34 @@ export default function HotspotDevicesPanel({ customerId }: { customerId: number
       const result = await api.addCustomerDevice(ownerId, {
         mac_address: mac.trim(),
         device_name: name.trim() || undefined,
+        device_type: deviceType,
       });
       showAlert('success', result.message);
       setMac('');
       setName('');
+      setDeviceType(DEFAULT_DEVICE_TYPE);
       setAdding(false);
       await load();
     } catch (err) {
       showAlert('error', err instanceof Error ? err.message : 'Could not add the device');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const changeDeviceType = async (pairingId: number, next: ShareDeviceType) => {
+    try {
+      setSavingTypeFor(pairingId);
+      await api.setCustomerDeviceType(ownerId, pairingId, next);
+      setData((current) => current && {
+        ...current,
+        devices: current.devices.map((d) => (d.pairing_id === pairingId ? { ...d, device_type: next } : d)),
+      });
+      showAlert('success', t('Device type saved'));
+    } catch (err) {
+      showAlert('error', err instanceof Error ? err.message : t('Could not change the device type'));
+    } finally {
+      setSavingTypeFor(null);
     }
   };
 
@@ -176,6 +215,22 @@ export default function HotspotDevicesPanel({ customerId }: { customerId: number
                 {!d.is_main_device && d.added_at && (
                   <p className="text-xs text-foreground-muted">Added {formatAddedAt(d.added_at)}</p>
                 )}
+                {d.pairing_id !== null && (
+                  <div className="mt-1.5 max-w-[10rem]">
+                    <select
+                      className="select"
+                      style={{ paddingTop: '0.375rem', paddingBottom: '0.375rem', paddingLeft: '0.625rem', paddingRight: '2rem' }}
+                      aria-label={t('Device type for {name}', { name: deviceLabel(d) })}
+                      value={deviceTypeOf(d)}
+                      disabled={savingTypeFor === d.pairing_id}
+                      onChange={(e) => changeDeviceType(d.pairing_id as number, e.target.value as ShareDeviceType)}
+                    >
+                      {DEVICE_TYPES.map((type) => (
+                        <option key={type.value} value={type.value}>{t(type.label)}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
               </div>
               {!d.is_main_device && d.pairing_id !== null && (
                 <button
@@ -240,6 +295,29 @@ export default function HotspotDevicesPanel({ customerId }: { customerId: number
               maxLength={100}
               onChange={(e) => setName(e.target.value)}
             />
+          </div>
+          <div>
+            <p id="hotspot-device-type-label" className="text-xs font-medium text-foreground-muted mb-1.5">{t('Device type')}</p>
+            <div className="flex flex-wrap gap-1.5" role="group" aria-labelledby="hotspot-device-type-label">
+              {DEVICE_TYPES.map((type) => (
+                <button
+                  key={type.value}
+                  type="button"
+                  onClick={() => setDeviceType(type.value)}
+                  aria-pressed={deviceType === type.value}
+                  className={`min-h-[36px] px-3 rounded-lg text-sm font-medium border transition-colors active:opacity-70 ${
+                    deviceType === type.value
+                      ? 'border-accent-primary bg-accent-primary/10 text-accent-primary'
+                      : 'border-border text-foreground-muted hover:text-foreground'
+                  }`}
+                >
+                  {t(type.label)}
+                </button>
+              ))}
+            </div>
+            <p className="mt-1.5 text-xs text-foreground-muted">
+              {t('TVs, consoles and smart devices stay on first if a smaller plan forces devices off.')}
+            </p>
           </div>
           <p className="text-xs text-foreground-muted">
             The device gets internet on this plan until it expires, and renews with it.
