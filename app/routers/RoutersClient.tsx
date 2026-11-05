@@ -25,6 +25,7 @@ import Header from '../components/Header';
 import { PageLoader } from '../components/LoadingSpinner';
 import { useAuth } from '../context/AuthContext';
 import { usePermissions } from '../hooks/usePermissions';
+import PppoeExpiredRedirectToggle from '../components/PppoeExpiredRedirectToggle';
 import { PERMISSIONS } from '../lib/permissions';
 import { useAlert } from '../context/AlertContext';
 import Link from 'next/link';
@@ -2628,6 +2629,11 @@ function EditRouterModal({
               </div>
             )}
           </div>
+
+          <PppoeExpiredRedirectToggle
+            routerId={router.id}
+            initialEnabled={!!router.pppoe_expired_redirect}
+          />
 
           <div className="flex gap-3 pt-2">
             <button type="button" onClick={onClose} className="btn-secondary flex-1">

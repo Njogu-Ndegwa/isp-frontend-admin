@@ -2237,6 +2237,8 @@ export interface Router {
   emergency_message?: string | null;
   hotspot_sharing_blocked?: boolean;
   status_alerts_enabled?: boolean;
+  /** Expired PPPoE customers are walled and redirected to the payment page. */
+  pppoe_expired_redirect?: boolean;
   token_vpn_type?: 'wireguard' | 'l2tp' | null;
   planned_insurance_tunnel_type?: 'wireguard' | 'l2tp' | 'auto';
   owner_user_id?: number | null;
@@ -7024,6 +7026,12 @@ export interface OvesGqlInsights {
   studio_url: string;
 }
 
+export interface PppoeExpiredRedirectResponse {
+  router_id: number;
+  pppoe_expired_redirect: boolean;
+  message: string;
+  result?: { secrets_removed?: string[]; config?: Record<string, unknown> };
+}
 
 // ─── Selling ads through Bitwave (isp-billing ADS_API.md, "Selling ads") ───
 
