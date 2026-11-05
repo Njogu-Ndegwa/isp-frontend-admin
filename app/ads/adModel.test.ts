@@ -152,6 +152,24 @@ describe('adCardNote', () => {
   });
 });
 
+describe('a sold ad with its clock stopped', () => {
+  const stopped = {
+    ...base, is_active: true, expires_at: '2026-10-20T00:00:00',
+    sale: { clock_stopped: true, off_reason: 'show_ads_off', live_until: '2026-11-20T00:00:00' } as never,
+  };
+  it('reads as paused, not ended, past its stored end date', () => {
+    expect(adDisplayStatus(stopped, NOW)).toBe('paused');
+  });
+  it('uses the real end date once it is back on', () => {
+    const back = { ...stopped, sale: { clock_stopped: false, off_reason: null, live_until: '2026-11-20T00:00:00' } as never };
+    expect(adDisplayStatus(back, NOW)).toBe('live');
+  });
+  it('says the paid days are not counting', () => {
+    expect(adCardNote({ review_note: null, sale: { state: 'paused', clock_stopped: true, off_reason: 'show_ads_off' } as never }, 'paused', false))
+      .toMatchObject({ label: 'Paused:', text: expect.stringContaining('Show Ads is off') });
+  });
+});
+
 describe('adCardNote on sold ads', () => {
   const sale = (state: string, extra: Record<string, unknown> = {}) =>
     ({ review_note: null, sale: { state, renewal_due: false, can_renew: false, ...extra } as never });
