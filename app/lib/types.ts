@@ -3131,6 +3131,8 @@ export interface AdsManageParams {
   owner_user_id?: number;
   /** Admin only: Bitwave's own ads. */
   bitwave_only?: boolean;
+  /** Resellers' ads on portals now, newest go-live first. */
+  newly_live?: boolean;
   page?: number;
   perPage?: number;
 }
@@ -7050,8 +7052,6 @@ export interface AdSalesListResponse {
   fee_percent: number;
   min_price_per_week: number;
   max_weeks: number;
-  /** Resellers only: progress towards automatic approval of sold ads. */
-  review?: { approved_sold_ads: number; rejections: number; threshold: number; auto_approve: boolean };
 }
 
 export type AdSellingMode = 'off' | 'allowlist' | 'everyone';
@@ -7059,7 +7059,6 @@ export type AdSellingMode = 'off' | 'allowlist' | 'everyone';
 export interface AdReviewRules {
   blocked_words: string[];
   default_blocked_words: string[];
-  auto_approve_after: number;
   fee_percent: number;
   min_price_per_week: number;
   max_weeks: number;
