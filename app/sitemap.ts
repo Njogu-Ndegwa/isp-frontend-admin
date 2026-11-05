@@ -1,7 +1,11 @@
 import type { MetadataRoute } from 'next';
 import { getAllPosts } from './blog/posts';
+import { SOLUTION_PATHS } from './solutions/paths';
 
 const BASE_URL = 'https://bitwavetechnologies.com';
+
+// Hourly, so scheduled posts join the sitemap on their publish date.
+export const revalidate = 3600;
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const allPosts = getAllPosts();
@@ -22,6 +26,11 @@ export default function sitemap(): MetadataRoute.Sitemap {
   return [
     { url: `${BASE_URL}/`, changeFrequency: 'weekly', priority: 1 },
     { url: `${BASE_URL}/pricing`, changeFrequency: 'monthly', priority: 0.9 },
+    ...SOLUTION_PATHS.map((path) => ({
+      url: `${BASE_URL}${path}`,
+      changeFrequency: 'monthly' as const,
+      priority: 0.9,
+    })),
     { url: `${BASE_URL}/signup`, changeFrequency: 'monthly', priority: 0.8 },
     { url: `${BASE_URL}/blog`, changeFrequency: 'daily', priority: 0.7 },
     { url: `${BASE_URL}/store`, changeFrequency: 'weekly', priority: 0.5 },

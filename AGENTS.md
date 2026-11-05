@@ -172,11 +172,17 @@ keep getting wrong — read before touching analytics or SEO:
 - A GA4 `sign_up` event fires on successful registration (`SignupClient`). After it first
   appears in GA, mark it as a key event in GA4 admin (Admin → Events) for conversion
   reporting.
-- `sitemap.ts`, `robots.ts`, and `/llms.txt` are generated at build time — new posts and
-  category pages are picked up automatically on deploy; no manual sitemap resubmission
-  needed.
-- Blog publish gate: posts ship with `published: false` and flip to `true` only on
-  Dennis's explicit OK. Status changes deploy on master push (Vercel auto-deploy).
+- `sitemap.ts`, `/llms.txt` and the blog routes revalidate hourly — new posts and
+  category pages are picked up automatically; no manual sitemap resubmission needed.
+- Blog publish gate: the PR. A post with a future `date:` is scheduled and appears on
+  that date (Kenya time) without a deploy, so a reviewed batch can be merged at once and
+  drip out at two a week. Unreviewed drafts keep `published: false`.
+- **Solution pages** — `/hotspot-billing-system-kenya`, `/pppoe-billing-system-kenya`,
+  `/mpesa-wifi-billing-kenya`, `/wifi-billing-system-kenya` — target the buying queries
+  blog posts can't win. Copy in `app/solutions/solutions.ts`; paths in
+  `app/solutions/paths.ts` (also listed by hand in `proxy.ts`'s matcher).
+- **Growth loop:** `.claude/skills/blog-growth-loop/` + `scripts/seo/gsc-report.mjs`.
+  Baseline numbers and the experiments log are in `docs/seo/`.
 
 ---
 

@@ -1,4 +1,5 @@
-import type { PaymentMethodConfig } from './types';
+import type { Customer, PayByMpesa, PayByMpesaUnavailableReason, PaymentMethodConfig } from './types';
+import type { TFunction } from './i18n';
 
 /** The platform's M-Pesa paybill. Payments to it are routed by account number. */
 export const PLATFORM_PAYBILL = '4159825';
@@ -61,4 +62,71 @@ export function paybillForCustomer(
 ): string | null {
   if (customer.payment_paybill !== undefined) return customer.payment_paybill?.trim() || null;
   return fallback;
+}
+
+type PayByMpesaSource = Partial<Pick<
+  Customer,
+  'payment_paybill' | 'pay_by_mpesa' | 'account_number' | 'connection_type' | 'plan' | 'pppoe_username'
+>>;
+
+/**
+ * The "Pay by M-Pesa" card for one customer. The backend's `pay_by_mpesa` is
+ * the answer whenever it is sent: it checks the paybill and account number
+ * against the C2B handler that renews the customer. Older backends and demo
+ * mode don't send it; then it is derived the same way from what is known
+ * (PPPoE and static IP pay by account number, hotspot pays on the login page).
+ */
+export function payByMpesaFor(
+  customer: PayByMpesaSource,
+  fallbackPaybill: string | null,
+): PayByMpesa {
+  if (customer.pay_by_mpesa) return customer.pay_by_mpesa;
+  const none = (reason: PayByMpesaUnavailableReason): PayByMpesa => ({
+    paybill: null, account_number: null, amount: null, unavailable_reason: reason,
+  });
+  const type = customer.connection_type ?? customer.plan?.connection_type ?? null;
+  if (!customer.plan && !type) return none('no_plan');
+  if (type === 'pppoe') {
+    if (!customer.pppoe_username) return none('no_pppoe_login');
+  } else if (type !== 'static_ip') {
+    return none('hotspot');
+  }
+  const account = customer.account_number?.trim();
+  if (!account) return none('no_account_number');
+  const paybill = paybillForCustomer(customer, fallbackPaybill);
+  if (!paybill) return none('no_paybill');
+  return {
+    paybill,
+    account_number: account,
+    amount: customer.plan?.price ?? null,
+    unavailable_reason: null,
+  };
+}
+
+/** The ready-to-send payment message: "Pay via M-Pesa: Paybill …, Account …. Amount KES …". */
+export function payByMpesaMessage(
+  card: PayByMpesa,
+  t: TFunction,
+  formatAmount: (amount: number) => string,
+): string {
+  const head = t('Pay via M-Pesa: Paybill {paybill}, Account {account}.', {
+    paybill: card.paybill ?? '',
+    account: card.account_number ?? '',
+  });
+  if (card.amount == null) return head;
+  return `${head} ${t('Amount {amount}', { amount: formatAmount(card.amount) })}`;
+}
+
+/**
+ * wa.me link that opens WhatsApp with `text` ready to send, to the customer
+ * when their phone looks like a real number, else to a chat the reseller
+ * picks (a hotspot "phone" can be a MAC or a placeholder).
+ */
+export function whatsappShareUrl(phone: string | null | undefined, text: string): string {
+  let digits = (phone || '').replace(/\D/g, '');
+  // Paybill payments are Kenyan: 0712… / 712… become 254712….
+  if (/^0[17]\d{8}$/.test(digits)) digits = `254${digits.slice(1)}`;
+  else if (/^[17]\d{8}$/.test(digits)) digits = `254${digits}`;
+  const to = digits.length >= 11 && digits.length <= 15 ? digits : '';
+  return `https://wa.me/${to}?text=${encodeURIComponent(text)}`;
 }

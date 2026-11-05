@@ -4,8 +4,8 @@ import { AdminEarningsPoint } from '../../lib/types';
 export type EarningsSourceKey = 'system' | 'reseller';
 
 export const SOURCE_LABELS: Record<EarningsSourceKey, string> = {
-  system: 'System sales',
-  reseller: 'My reseller business',
+  system: 'Bitwave subscription fees',
+  reseller: 'My own reseller accounts',
 };
 
 /**

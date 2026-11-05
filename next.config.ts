@@ -23,9 +23,13 @@ const securityHeaders = [
       // Cloudinary. Without an explicit media-src, <video>/<audio> fall back to
       // default-src 'self' and the cross-origin clip is blocked — the poster
       // (an image) still shows, so it looks like a video that never plays.
-      "media-src 'self' blob: https://res.cloudinary.com",
+      // Ad videos play from the ad media host (R2 public base, or any https
+      // link while uploads are off), so the ads screens can preview them.
+      "media-src 'self' blob: https:",
       "font-src 'self' data:",
-      `connect-src 'self' ${apiOrigin} https://www.google.com https://www.google-analytics.com https://analytics.google.com https://*.google-analytics.com https://*.googletagmanager.com https://stats.g.doubleclick.net https://analytics.tiktok.com https://analytics-ipv6.tiktokw.us https://*.contentsquare.net https://va.vercel-scripts.com`,
+      // *.r2.cloudflarestorage.com: ad photos/videos are PUT straight to R2
+      // with a presigned URL from POST /api/ads/media/upload-url.
+      `connect-src 'self' ${apiOrigin} https://*.r2.cloudflarestorage.com https://www.google.com https://www.google-analytics.com https://analytics.google.com https://*.google-analytics.com https://*.googletagmanager.com https://stats.g.doubleclick.net https://analytics.tiktok.com https://analytics-ipv6.tiktokw.us https://*.contentsquare.net https://va.vercel-scripts.com`,
       "frame-ancestors 'none'",
     ].join("; "),
   },
@@ -63,6 +67,19 @@ const nextConfig: NextConfig = {
   // Left unset on Vercel (which builds its own output format), so this is a
   // no-op for the existing deployment.
   output: process.env.BUILD_STANDALONE ? "standalone" : undefined,
+  // Blog pages revalidate hourly so scheduled posts go live on their date
+  // without a deploy. Regeneration reads content/blog at runtime, so ship the
+  // markdown with those functions explicitly rather than relying on tracing.
+  outputFileTracingIncludes: {
+    "/blog": ["./content/blog/**/*"],
+    "/blog/**": ["./content/blog/**/*"],
+    "/sitemap.xml": ["./content/blog/**/*"],
+    "/llms.txt": ["./content/blog/**/*"],
+    "/hotspot-billing-system-kenya": ["./content/blog/**/*"],
+    "/pppoe-billing-system-kenya": ["./content/blog/**/*"],
+    "/wifi-billing-system-kenya": ["./content/blog/**/*"],
+    "/mpesa-wifi-billing-kenya": ["./content/blog/**/*"],
+  },
   images: {
     qualities: [75, 80, 85],
     remotePatterns: [

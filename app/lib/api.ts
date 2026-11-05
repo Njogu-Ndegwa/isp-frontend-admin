@@ -43,11 +43,19 @@ import {
   Advertiser,
   CreateAdvertiserRequest,
   Ad,
-  CreateAdRequest,
-  AdsResponse,
-  AdClicksResponse,
-  AdImpressionsResponse,
+  AdInput,
+  AdsManageResponse,
+  AdStats,
+  AdMediaUploadTicket,
   AdAnalytics,
+  AdSaleSummary,
+  AdSaleTerms,
+  AdPromptInput,
+  AdSalesListResponse,
+  AdReviewRules,
+  AdSellingMode,
+  PublicAdReport,
+  AdsManageParams,
   Rating,
   RatingSummary,
   CustomerMapData,
@@ -198,6 +206,7 @@ import {
   AdminRevenueForecast,
   AdminGrowthTargetsResponse,
   AdminEarnings,
+  AdminPlatformEarnings,
   AdminEarningsAccount,
   GrowthTargetUpdatePayload,
   LeadSource,
@@ -1601,31 +1610,62 @@ class ApiClient {
     return this.handleResponse<Advertiser>(response);
   }
 
-  // Ads
-  async getAds(
-    page = 1,
-    perPage = 20,
-    category?: string
-  ): Promise<AdsResponse> {
-    if (this.isDemoMode()) return (await loadDemo()).demoAdsResponse;
-    const params = new URLSearchParams();
-    params.append('page', page.toString());
-    params.append('per_page', perPage.toString());
-    if (category) params.append('category', category);
-
-    const response = await fetch(
-      `${BASE_URL}/ads?${params.toString()}`,
-      { headers: this.getHeaders(true) }
-    );
-    return this.handleResponse<AdsResponse>(response);
+  // Ads (hero ads). Contract: isp-billing ADS_API.md. GET /api/ads is the
+  // public portal feed; managing goes through /api/ads/manage.
+  async getManagedAds(params: AdsManageParams = {}): Promise<AdsManageResponse> {
+    if (this.isDemoMode()) return (await loadDemo()).demoManagedAds(params);
+    const qs = new URLSearchParams();
+    if (params.status) qs.set('status', params.status);
+    if (params.placement) qs.set('placement', params.placement);
+    if (params.bitwave_only) qs.set('bitwave_only', 'true');
+    else if (params.owner_user_id != null) qs.set('owner_user_id', String(params.owner_user_id));
+    qs.set('page', String(params.page ?? 1));
+    qs.set('per_page', String(params.perPage ?? 50));
+    const response = await fetch(`${BASE_URL}/ads/manage?${qs.toString()}`, {
+      headers: this.getHeaders(true),
+    });
+    return this.handleResponse<AdsManageResponse>(response);
   }
 
-  async createAd(ad: CreateAdRequest): Promise<Ad> {
+  /** Totals over the caller's ads (admin: all) for the last `days` days. */
+  async getAdAnalytics(days = 30): Promise<AdAnalytics> {
+    if (this.isDemoMode()) return (await loadDemo()).demoAdAnalytics();
+    const response = await fetch(`${BASE_URL}/ads/analytics?days=${days}`, {
+      headers: this.getHeaders(true),
+    });
+    return this.handleResponse<AdAnalytics>(response);
+  }
+
+  async getManagedAd(adId: number): Promise<Ad> {
+    if (this.isDemoMode()) {
+      const ad = (await loadDemo()).demoAds.find((a) => a.id === adId);
+      if (!ad) throw new ApiError('Ad not found', 404);
+      return ad;
+    }
+    const response = await fetch(`${BASE_URL}/ads/manage/${adId}`, {
+      headers: this.getHeaders(true),
+    });
+    return this.handleResponse<Ad>(response);
+  }
+
+  async createAd(ad: AdInput): Promise<Ad> {
     if (this.isDemoMode()) this.demoBlock();
     const response = await fetch(`${BASE_URL}/ads`, {
       method: 'POST',
       headers: this.getHeaders(true),
       body: JSON.stringify(ad),
+    });
+    return this.handleResponse<Ad>(response);
+  }
+
+  /** Send only the fields that changed: a reseller's edit to what customers
+   *  see sends an approved ad back for review, even if the value is the same. */
+  async updateAd(adId: number, updates: AdInput): Promise<Ad> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(`${BASE_URL}/ads/${adId}`, {
+      method: 'PUT',
+      headers: this.getHeaders(true),
+      body: JSON.stringify(updates),
     });
     return this.handleResponse<Ad>(response);
   }
@@ -1639,59 +1679,179 @@ class ApiClient {
     return this.handleResponse<{ message: string }>(response);
   }
 
-  async updateAd(adId: number, updates: Partial<Ad>): Promise<Ad> {
+  /** Admin only. A rejection needs a note; the reseller sees it. */
+  async reviewAd(adId: number, action: 'approve' | 'reject', note?: string): Promise<Ad> {
     if (this.isDemoMode()) this.demoBlock();
-    const response = await fetch(`${BASE_URL}/ads/${adId}`, {
-      method: 'PUT',
+    const response = await fetch(`${BASE_URL}/ads/${adId}/review`, {
+      method: 'POST',
       headers: this.getHeaders(true),
-      body: JSON.stringify(updates),
+      body: JSON.stringify({ action, note: note ?? null }),
     });
     return this.handleResponse<Ad>(response);
   }
 
-  async getAdClicks(
-    adId: number,
-    page = 1,
-    perPage = 50,
-    clickType?: 'view_details' | 'call' | 'whatsapp'
-  ): Promise<AdClicksResponse> {
-    if (this.isDemoMode()) return (await loadDemo()).demoAdClicksResponse;
-    const params = new URLSearchParams();
-    params.append('page', page.toString());
-    params.append('per_page', perPage.toString());
-    if (clickType) params.append('click_type', clickType);
-
-    const response = await fetch(
-      `${BASE_URL}/ads/${adId}/clicks?${params.toString()}`,
-      { headers: this.getHeaders(true) }
-    );
-    return this.handleResponse<AdClicksResponse>(response);
+  async getAdStats(adId: number, days = 30): Promise<AdStats> {
+    if (this.isDemoMode()) return (await loadDemo()).demoAdStats(adId, days);
+    const response = await fetch(`${BASE_URL}/ads/${adId}/stats?days=${days}`, {
+      headers: this.getHeaders(true),
+    });
+    return this.handleResponse<AdStats>(response);
   }
 
-  async getAdImpressions(
-    adId: number,
-    page = 1,
-    perPage = 50
-  ): Promise<AdImpressionsResponse> {
-    if (this.isDemoMode()) return (await loadDemo()).demoAdImpressionsResponse;
-    const params = new URLSearchParams();
-    params.append('page', page.toString());
-    params.append('per_page', perPage.toString());
+  // Selling ads through Bitwave: the shop pays Bitwave by M-Pesa, Bitwave
+  // keeps 20%, the reseller's 80% joins their payout. ADS_API.md "Selling ads".
 
-    const response = await fetch(
-      `${BASE_URL}/ads/${adId}/impressions?${params.toString()}`,
-      { headers: this.getHeaders(true) }
-    );
-    return this.handleResponse<AdImpressionsResponse>(response);
+  /** Create "An ad I sold"; the shop's phone gets the M-Pesa prompt at once. */
+  async createSoldAd(ad: AdInput, terms: AdSaleTerms): Promise<{ ad: Ad; sale: AdSaleSummary }> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(`${BASE_URL}/ad-sales`, {
+      method: 'POST',
+      headers: this.getHeaders(true),
+      body: JSON.stringify({ ...ad, slot: 'reseller', starts_at: null, expires_at: null, ...terms }),
+    });
+    return this.handleResponse<{ ad: Ad; sale: AdSaleSummary }>(response, false, true);
   }
 
-  async getAdAnalytics(days = 30): Promise<AdAnalytics> {
-    if (this.isDemoMode()) return (await loadDemo()).demoAdAnalytics;
-    const response = await fetch(
-      `${BASE_URL}/ads/analytics?days=${days}`,
-      { headers: this.getHeaders(true) }
-    );
-    return this.handleResponse<AdAnalytics>(response);
+  /** May this reseller sell ads yet? Selling is a pilot until an admin opens it. */
+  async getAdSellingAccess(): Promise<{ allowed: boolean }> {
+    if (this.isDemoMode()) return { allowed: true };
+    const response = await fetch(`${BASE_URL}/ad-sales/access`, { headers: this.getHeaders(true) });
+    return this.handleResponse<{ allowed: boolean }>(response);
+  }
+
+  /** Payment status of a sold ad; polled while a prompt is out. */
+  async getAdSale(adId: number): Promise<AdSaleSummary> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(`${BASE_URL}/ads/${adId}/sale`, { headers: this.getHeaders(true) });
+    return this.handleResponse<AdSaleSummary>(response);
+  }
+
+  /** Put an older sold ad (made before payments) up for payment. */
+  async startAdSale(adId: number, terms: AdSaleTerms): Promise<AdSaleSummary> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(`${BASE_URL}/ads/${adId}/sale`, {
+      method: 'POST', headers: this.getHeaders(true), body: JSON.stringify(terms),
+    });
+    return this.handleResponse<AdSaleSummary>(response, false, true);
+  }
+
+  /** (Re)send the M-Pesa prompt for what is due. 409 = one is on the phone now; 429 = too many. */
+  async sendAdPaymentPrompt(adId: number, body: AdPromptInput = {}): Promise<AdSaleSummary> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(`${BASE_URL}/ads/${adId}/sale/prompt`, {
+      method: 'POST', headers: this.getHeaders(true), body: JSON.stringify(body),
+    });
+    return this.handleResponse<AdSaleSummary>(response, false, true);
+  }
+
+  async renewSoldAd(adId: number, body: AdPromptInput = {}): Promise<AdSaleSummary> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(`${BASE_URL}/ads/${adId}/sale/renew`, {
+      method: 'POST', headers: this.getHeaders(true), body: JSON.stringify(body),
+    });
+    return this.handleResponse<AdSaleSummary>(response, false, true);
+  }
+
+  /** Sold ads with payment status (admin: every reseller's). */
+  async getAdSales(params: { payout_status?: string; state?: string; page?: number; perPage?: number } = {}): Promise<AdSalesListResponse> {
+    if (this.isDemoMode()) this.demoBlock();
+    const qs = new URLSearchParams();
+    if (params.payout_status) qs.set('payout_status', params.payout_status);
+    if (params.state) qs.set('state', params.state);
+    qs.set('page', String(params.page ?? 1));
+    qs.set('per_page', String(params.perPage ?? 50));
+    const response = await fetch(`${BASE_URL}/ad-sales?${qs.toString()}`, { headers: this.getHeaders(true) });
+    return this.handleResponse<AdSalesListResponse>(response);
+  }
+
+  /** Admin: take any ad off every portal now. */
+  async takeDownAd(adId: number, note: string): Promise<Ad> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(`${BASE_URL}/ads/${adId}/takedown`, {
+      method: 'POST', headers: this.getHeaders(true), body: JSON.stringify({ note }),
+    });
+    return this.handleResponse<Ad>(response, false, true);
+  }
+
+  /** Admin: record a refund made by hand. Moves no money. */
+  async markAdPaymentRefunded(paymentId: number, note?: string): Promise<unknown> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(`${BASE_URL}/ad-sales/payments/${paymentId}/refund`, {
+      method: 'POST', headers: this.getHeaders(true), body: JSON.stringify({ note: note ?? null }),
+    });
+    return this.handleResponse<unknown>(response, false, true);
+  }
+
+  async getAdReviewRules(): Promise<AdReviewRules> {
+    const response = await fetch(`${BASE_URL}/ad-review/rules`, { headers: this.getHeaders(true) });
+    return this.handleResponse<AdReviewRules>(response);
+  }
+
+  /** Send only what changed. A bad value is refused without saving anything. */
+  async saveAdReviewRules(body: {
+    blocked_words?: string[];
+    selling_mode?: AdSellingMode;
+    selling_allowlist?: number[];
+  }): Promise<AdReviewRules> {
+    const response = await fetch(`${BASE_URL}/ad-review/rules`, {
+      method: 'PUT', headers: this.getHeaders(true), body: JSON.stringify(body),
+    });
+    return this.handleResponse<AdReviewRules>(response, false, true);
+  }
+
+  /** The shop's read-only page (no login). */
+  async getPublicAdReport(token: string): Promise<PublicAdReport> {
+    const response = await fetch(`${BASE_URL}/public/promo/${encodeURIComponent(token)}`, {
+      headers: this.getHeaders(false),
+    });
+    return this.handleResponse<PublicAdReport>(response, true, true);
+  }
+
+  /** The prompt only ever goes to the number saved on the sale. */
+  async payFromPublicAdLink(token: string): Promise<{ sent: boolean; message: string }> {
+    const response = await fetch(`${BASE_URL}/public/promo/${encodeURIComponent(token)}/pay`, {
+      method: 'POST', headers: this.getHeaders(false),
+    });
+    return this.handleResponse<{ sent: boolean; message: string }>(response, true, true);
+  }
+
+  /** Step 1 of an upload. 503 = storage not set up yet; 400 = wrong type or too big. */
+  async requestAdMediaUpload(contentType: string, size: number): Promise<AdMediaUploadTicket> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(`${BASE_URL}/ads/media/upload-url`, {
+      method: 'POST',
+      headers: this.getHeaders(true),
+      body: JSON.stringify({ content_type: contentType, size }),
+    });
+    return this.handleResponse<AdMediaUploadTicket>(response);
+  }
+
+  /** Step 2: PUT the file straight to storage (no auth header). XHR, for progress. */
+  uploadAdMedia(
+    ticket: AdMediaUploadTicket,
+    file: File,
+    onProgress?: (fraction: number) => void,
+    signal?: AbortSignal,
+  ): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open(ticket.method || 'PUT', ticket.upload_url);
+      const headers = ticket.headers && Object.keys(ticket.headers).length
+        ? ticket.headers
+        : { 'Content-Type': ticket.content_type };
+      for (const [name, value] of Object.entries(headers)) xhr.setRequestHeader(name, value);
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable && onProgress) onProgress(e.loaded / e.total);
+      };
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) resolve();
+        else reject(new ApiError(`Upload failed (${xhr.status})`, xhr.status));
+      };
+      xhr.onerror = () => reject(new ApiError('Upload failed. Check your connection and try again.', 0));
+      xhr.onabort = () => reject(new ApiError('Upload cancelled', 0));
+      if (signal) signal.addEventListener('abort', () => xhr.abort(), { once: true });
+      xhr.send(file);
+    });
   }
 
   // Ratings
@@ -3411,6 +3571,15 @@ class ApiClient {
       headers: this.getHeaders(),
     });
     return this.handleResponse<AdminEarnings>(response);
+  }
+
+  /** Transaction volume vs Bitwave's own earnings. `period` takes the dashboard chips (7d/30d/90d/1y). */
+  async getAdminPlatformEarnings(period: string = '30d', signal?: AbortSignal): Promise<AdminPlatformEarnings> {
+    const response = await fetch(`${BASE_URL}/admin/metrics/platform-earnings?period=${encodeURIComponent(period)}`, {
+      headers: this.getHeaders(),
+      signal,
+    });
+    return this.handleResponse<AdminPlatformEarnings>(response);
   }
 
   async setAdminOwnResellerAccounts(

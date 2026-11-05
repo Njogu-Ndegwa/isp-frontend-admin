@@ -172,3 +172,44 @@ describe('staffBusinessName', () => {
     expect(staffBusinessName({ ...staff([], { business_name: null }), organization_name: 'Org' })).toBe('Org');
   });
 });
+
+describe('ads pages', () => {
+  it('lets "Captive portal" staff open and change ads', () => {
+    const portal = staff(['portal.manage']);
+    for (const path of ['/ads', '/ads/12', '/ads/new', '/ads/12/edit']) {
+      expect(canAccessPath(portal, path)).toBe(true);
+    }
+  });
+
+  it('lets "View dashboard" staff read ads but not create or edit them', () => {
+    const viewer = staff(['dashboard.view']);
+    expect(canAccessPath(viewer, '/ads')).toBe(true);
+    expect(canAccessPath(viewer, '/ads/12')).toBe(true);
+    expect(canAccessPath(viewer, '/ads/new')).toBe(false);
+    expect(canAccessPath(viewer, '/ads/12/edit')).toBe(false);
+  });
+
+  it('hides ads from other staff and advertisers from every staff member', () => {
+    const tech = staff(['routers.view', 'customers.view']);
+    expect(canAccessPath(tech, '/ads')).toBe(false);
+    expect(canAccessPath(staff(['portal.manage', 'dashboard.view']), '/advertisers')).toBe(false);
+  });
+
+  it('leaves owners and admins unrestricted', () => {
+    for (const user of [OWNER, ADMIN]) {
+      expect(canAccessPath(user, '/ads/new')).toBe(true);
+      expect(canAccessPath(user, '/ads/3/edit')).toBe(true);
+    }
+  });
+
+  it('matches a * segment against exactly one non-empty segment', () => {
+    expect(requiredPermissionForPath('/ads/12/edit')).toBe('portal.manage');
+    expect(requiredPermissionForPath('/ads//edit')).toEqual(['portal.manage', 'dashboard.view']);
+    expect(requiredPermissionForPath('/ads/12')).toEqual(['portal.manage', 'dashboard.view']);
+  });
+
+  it('keeps Ads after the portal settings in the landing order', () => {
+    expect(firstAccessiblePath(staff(['portal.manage']))).toBe('/settings/portal-customization');
+    expect(firstAccessiblePath(staff(['dashboard.view']))).toBe('/dashboard');
+  });
+});

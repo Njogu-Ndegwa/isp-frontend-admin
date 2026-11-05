@@ -266,7 +266,7 @@ function AccessPointCard({
         onClose={() => { if (!running) setConfirm(null); }}
         onConfirm={() => runAction('make_safe')}
         title={t('Make it a safe AP?')}
-        message={t('Switches the AP to plain AP mode, turns its DHCP server off and gives it a fixed address outside the router pool. Devices reconnect once it settles.')}
+        message={t('Switches the AP to plain AP mode, turns its DHCP server off and gives it a new fixed address outside the router pool. Everyone on this AP drops until it settles, and its old address stops working. If it does not come back, someone has to reset it on site.')}
         confirmLabel={t('Make safe')}
         cancelLabel={t('Cancel')}
         variant="warning"

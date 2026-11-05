@@ -11,7 +11,7 @@ const def = (key: string, label: string, description: string, group: string): St
 });
 
 const PERMISSION_DEFS: StaffPermissionDef[] = [
-  def('dashboard.view', 'View dashboard', 'See revenue and network totals on the dashboard.', 'General'),
+  def('dashboard.view', 'View dashboard', 'See revenue and network totals on the dashboard, and portal ad stats.', 'General'),
   def('customers.view', 'View customers', 'See customers, their plans and status.', 'Customers'),
   def('customers.manage', 'Manage customers', 'Add, edit and delete customers, change expiry and grace.', 'Customers'),
   def('plans.manage', 'Manage plans', 'Create and edit plans.', 'Customers'),
@@ -27,7 +27,7 @@ const PERMISSION_DEFS: StaffPermissionDef[] = [
   def('subscription.manage', 'Manage subscription', 'Pay and manage the Bitwave subscription.', 'Account'),
   def('messaging.send', 'Send messages', 'Send SMS to customers.', 'Messaging'),
   def('messaging.settings', 'Messaging settings', 'Change SMS settings and templates.', 'Messaging'),
-  def('portal.manage', 'Customize portal', 'Change the captive portal look.', 'Account'),
+  def('portal.manage', 'Customize portal', 'Change the captive portal look and manage portal ads.', 'Account'),
 ];
 
 export const DEMO_STAFF_CATALOG: StaffPermissionCatalog = {

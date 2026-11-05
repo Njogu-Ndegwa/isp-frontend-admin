@@ -20,9 +20,9 @@ const chartTooltipStyle = {
 };
 
 // Series values are KES; the reporting mode decides how they are shown.
-const revenueFormatter = (mode: ReportingCurrency, usdRate?: number) =>
+const volumeFormatter = (mode: ReportingCurrency, usdRate?: number) =>
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  (value: any) => [formatReporting(Number(value) || 0, mode, usdRate), 'Revenue'];
+  (value: any) => [formatReporting(Number(value) || 0, mode, usdRate), 'Volume'];
 const subscriptionRevenueFormatter = (mode: ReportingCurrency, usdRate?: number) =>
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   (value: any, name: any) => {
@@ -57,7 +57,7 @@ export function MpesaRevenueChart({
         <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
         <XAxis dataKey="name" tick={{ fontSize: 10, fill: 'var(--color-foreground-muted)' }} />
         <YAxis tick={{ fontSize: 10, fill: 'var(--color-foreground-muted)' }} tickFormatter={(v) => formatReportingAxis(Number(v), currencyMode, usdRate)} />
-        <Tooltip {...chartTooltipStyle} formatter={revenueFormatter(currencyMode, usdRate)} />
+        <Tooltip {...chartTooltipStyle} formatter={volumeFormatter(currencyMode, usdRate)} />
         <Area type="monotone" dataKey="revenue" stroke="#10b981" fill="url(#mpesaGrad)" strokeWidth={2} />
       </AreaChart>
     </ResponsiveContainer>

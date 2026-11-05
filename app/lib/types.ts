@@ -740,6 +740,21 @@ export interface CustomerRouter {
   name: string;
 }
 
+export type PayByMpesaUnavailableReason =
+  | 'hotspot'
+  | 'no_plan'
+  | 'no_router'
+  | 'no_pppoe_login'
+  | 'no_account_number'
+  | 'no_paybill';
+
+export interface PayByMpesa {
+  paybill: string | null;
+  account_number: string | null;
+  amount: number | null;
+  unavailable_reason: PayByMpesaUnavailableReason | null;
+}
+
 export interface Customer {
   id: number;
   name: string;
@@ -767,6 +782,12 @@ export interface Customer {
    * backends and in demo mode.
    */
   payment_paybill?: string | null;
+  /**
+   * The "Pay by M-Pesa" card: the paybill, account number and amount the C2B
+   * handler matches and renews this customer with, or why there is none.
+   * Absent on older backends and in demo mode (see payByMpesaFor()).
+   */
+  pay_by_mpesa?: PayByMpesa | null;
   wallet_credit_kes?: number;
   /** Standing grace: access continues this long past `expiry`. 0 = none. */
   grace_period_minutes?: number;
@@ -1348,8 +1369,10 @@ export type FupAction = 'throttle' | 'block' | 'notify_only';
 export type FupPeriod = 'plan' | 'daily';
 
 /**
- * free_trial plans cost 0, are hotspot-only, and are claimed from the captive
- * portal. Claims are logged as KES 0 payments that do not count as revenue.
+ * free_trial plans cost 0 and are hotspot or PPPoE. Hotspot trials are claimed
+ * from the captive portal; PPPoE trials are given by the reseller activating a
+ * customer on the plan. Both are logged as KES 0 payments that do not count as
+ * revenue.
  */
 export type PlanType = 'regular' | 'emergency' | 'free_trial';
 
@@ -2969,13 +2992,13 @@ export interface TopUsersResponse {
   totalTracked?: number;
 }
 
-// Advertiser Types
+// Advertiser Types (Bitwave admins only)
 export interface Advertiser {
   id: number;
   name: string;
-  business_name: string;
+  business_name: string | null;
   phone_number: string;
-  email: string;
+  email: string | null;
   is_active: boolean;
   created_at: string;
 }
@@ -2987,48 +3010,87 @@ export interface CreateAdvertiserRequest {
   email: string;
 }
 
-// Ad Types
+// Ads (hero ads, 2026-10). Contract: isp-billing ADS_API.md.
+/** "hero": the portal's photo hero + M-Pesa wait screen. "local": the shops row after payment. */
+export type AdPlacement = 'hero' | 'local';
+export type AdMediaType = 'image' | 'video';
+/** "cover": photo fills the frame. "contain": product cut-out on a colour. */
+export type AdImageFit = 'cover' | 'contain';
+/** platform = Bitwave's; reseller = an ad a reseller sold; house = a reseller's own promo. */
+export type AdSlot = 'platform' | 'reseller' | 'house';
+export type AdReviewStatus = 'pending' | 'approved' | 'rejected';
+/** Where a view or tap happened, as counted by the portal. */
+export type AdEventPlacement = 'hero' | 'wait_screen' | 'success_page' | 'local';
+
+/** One ad as the manage endpoints return it. Datetimes are naive UTC. */
 export interface Ad {
   id: number;
+  advertiser_id: number | null;
   title: string;
-  description: string;
-  image_url: string;
+  description: string | null;
   seller_name: string;
-  seller_location: string;
+  seller_location: string | null;
   phone_number: string;
-  whatsapp_number: string;
-  price: string;
-  price_value: number;
-  badge_type: 'hot' | 'new' | 'sale' | 'featured' | null;
+  whatsapp_number: string | null;
+  price: string | null;
+  price_value: number | null;
+  category: string | null;
+  badge_type: string | null;
   badge_text: string | null;
-  category: string;
+  placement: AdPlacement;
+  media_type: AdMediaType;
+  image_url: string | null;
+  video_url: string | null;
+  poster_url: string | null;
+  image_fit: AdImageFit;
+  bg_color: string | null;
+  slot: AdSlot;
+  /** null = Bitwave. */
+  owner_user_id: number | null;
+  /** The reseller's business name, or "Bitwave". */
+  owner_name: string | null;
+  /** null = all the owner's routers (network-wide for Bitwave). */
+  router_ids: number[] | null;
+  status: AdReviewStatus;
+  review_note: string | null;
+  reviewed_at: string | null;
   is_active: boolean;
   priority: number;
+  starts_at: string | null;
+  expires_at: string | null;
+  created_at: string | null;
+  /** Unique phones per day, summed, last 30 days. */
   views_count: number;
   clicks_count: number;
-  created_at: string;
-  expires_at: string;
-  advertiser_id: number;
+  /** Sold ads only (slot "reseller"): payment status and the shop's link. */
+  sale?: AdSaleSummary | null;
 }
 
-export interface CreateAdRequest {
-  advertiser_id: number;
-  title: string;
-  description: string;
-  image_url: string;
-  seller_name: string;
-  seller_location: string;
-  phone_number: string;
-  whatsapp_number: string;
-  price: string;
-  price_value: number;
-  badge_type?: 'hot' | 'new' | 'sale' | 'featured';
-  badge_text?: string;
-  category: string;
-  expires_at: string;
+/** Body of POST /api/ads and PUT /api/ads/{id} (PUT takes any subset plus is_active). */
+export interface AdInput {
+  title?: string;
+  seller_name?: string;
+  phone_number?: string;
+  whatsapp_number?: string | null;
+  description?: string | null;
+  seller_location?: string | null;
+  price?: string | null;
+  placement?: AdPlacement;
+  media_type?: AdMediaType;
+  image_url?: string | null;
+  video_url?: string | null;
+  poster_url?: string | null;
+  image_fit?: AdImageFit;
+  bg_color?: string | null;
+  slot?: AdSlot;
+  router_ids?: number[] | null;
+  starts_at?: string | null;
+  expires_at?: string | null;
+  advertiser_id?: number | null;
+  is_active?: boolean;
 }
 
-export interface AdsResponse {
+export interface AdsManageResponse {
   ads: Ad[];
   pagination: {
     page: number;
@@ -3038,68 +3100,54 @@ export interface AdsResponse {
   };
 }
 
-// Ad Click Types
-export interface AdClick {
-  id: number;
-  click_type: 'view_details' | 'call' | 'whatsapp';
-  device_id: string;
-  mac_address: string;
-  session_id: string;
-  created_at: string;
+export interface AdCounts {
+  impressions: number;
+  clicks: number;
 }
 
-export interface AdClicksResponse {
+export interface AdStats {
   ad_id: number;
-  ad_title: string;
-  clicks: AdClick[];
-  pagination: {
-    page: number;
-    per_page: number;
-    total: number;
-  };
+  period_days: number;
+  impressions: number;
+  clicks: number;
+  by_placement: Partial<Record<AdEventPlacement | string, AdCounts>>;
+  daily: { day: string; impressions: number; clicks: number }[];
 }
 
-// Ad Impression Types
-export interface AdImpression {
-  id: number;
-  device_id: string;
-  session_id: string;
-  placement: string;
-  ad_ids: number[];
-  created_at: string;
-}
-
-export interface AdImpressionsResponse {
-  ad_id: number;
-  ad_title: string;
-  impressions: AdImpression[];
-  pagination: {
-    page: number;
-    per_page: number;
-    total: number;
-  };
-}
-
-// Ad Analytics Types
-export interface TopAdByClicks {
-  id: number;
-  title: string;
-  clicks_count: number;
-  views_count: number;
-}
-
+/** GET /api/ads/analytics: totals over the caller's ads (admin: all). */
 export interface AdAnalytics {
   period_days: number;
   total_ads: number;
+  /** Approved, switched on and not past their end date. */
   active_ads: number;
   total_clicks: number;
-  clicks_by_type: {
-    view_details: number;
-    call: number;
-    whatsapp: number;
-  };
+  clicks_by_type: Record<string, number>;
   total_impressions: number;
-  top_ads_by_clicks: TopAdByClicks[];
+  by_placement: Partial<Record<AdEventPlacement | string, AdCounts>>;
+  top_ads_by_clicks: { id: number; title: string | null; clicks_count: number; views_count: number }[];
+}
+
+export interface AdsManageParams {
+  status?: AdReviewStatus;
+  placement?: AdPlacement;
+  /** Admin only: one reseller's ads. */
+  owner_user_id?: number;
+  /** Admin only: Bitwave's own ads. */
+  bitwave_only?: boolean;
+  page?: number;
+  perPage?: number;
+}
+
+/** POST /api/ads/media/upload-url. PUT the file to upload_url, then save public_url. */
+export interface AdMediaUploadTicket {
+  upload_url: string;
+  public_url: string;
+  key: string;
+  content_type: string;
+  max_bytes: number;
+  expires_in: number;
+  method: 'PUT';
+  headers: Record<string, string>;
 }
 
 // Rating Types
@@ -4463,6 +4511,8 @@ export interface AccountStatementBalance {
   unpaid_balance: number;
   // M-Pesa paid straight into the reseller's own account (never in the balance).
   total_direct_received?: number;
+  // The reseller's 80% of ads sold through Bitwave (included in unpaid_balance).
+  total_ad_revenue?: number;
 }
 
 export interface AccountStatementPeriodSummary {
@@ -4471,10 +4521,11 @@ export interface AccountStatementPeriodSummary {
   net: number;
   direct_received?: number;
   system_collected?: number;
+  ad_revenue?: number;
 }
 
 export interface AccountStatementEntry {
-  type: 'payout' | 'charge';
+  type: 'payout' | 'charge' | 'ad_revenue';
   id: number;
   amount: number;
   description: string;
@@ -5133,6 +5184,90 @@ export interface AdminEarnings {
   /** KES per 1 USD — divide a KES total by this to show USD. */
   usd_rate?: number;
   /** KES per 1 unit of each currency, e.g. { USD: 129.5, XAF: 0.2268 }. */
+  kes_rates?: Record<string, number>;
+}
+
+/** Income streams Bitwave itself earns (GET /admin/metrics/platform-earnings). */
+export type PlatformEarningsStreamKey =
+  | 'subscription_hotspot'
+  | 'subscription_per_user'
+  | 'subscription_minimum'
+  | 'subscription_unattributed'
+  | 'sms_credits'
+  | 'ad_commission';
+
+export interface PlatformEarningsStream {
+  key: PlatformEarningsStreamKey;
+  label: string;
+  group: 'subscriptions' | 'sms' | 'ads';
+  total: number;
+  previous_total: number;
+}
+
+/**
+ * Transaction volume (customer payments through Bitwave — the resellers'
+ * money) next to what Bitwave itself earns, for one calendar period-to-date.
+ * All money is KES.
+ */
+export interface AdminPlatformEarnings {
+  period: 'week' | 'month' | 'quarter' | 'year';
+  start_date: string;
+  end_date: string;
+  days: number;
+  comparison_label: string;
+  currency: string;
+  transaction_volume: {
+    total: number;
+    previous_total: number;
+    change_percent: number;
+    payments: number;
+    /** M-Pesa collected on the system paybill and paid out to resellers. */
+    mpesa_platform_collected: number;
+    /** M-Pesa that settled straight into the reseller's own account. */
+    mpesa_direct_settled: number;
+    /** Cash / bank / other payments resellers recorded themselves. */
+    recorded_manually: number;
+  };
+  earnings: {
+    /** Cash received in the window. */
+    basis: 'collected';
+    total: number;
+    previous_total: number;
+    change_percent: number;
+    subscriptions: number;
+    sms_credits: number;
+    sms_orders: number;
+    /** Bitwave's 20% of ads resellers sold, counted when the ad starts running. */
+    ad_commission?: number;
+    ad_payments?: number;
+    streams: PlatformEarningsStream[];
+  };
+  /** What invoices issued in the window billed (waived ones excluded). */
+  invoiced: {
+    total: number;
+    subscription_hotspot: number;
+    subscription_per_user: number;
+    subscription_minimum: number;
+    invoices: number;
+    paid_so_far: number;
+    outstanding: number;
+    waived: number;
+    waived_invoices: number;
+  };
+  /** Earnings as a % of transaction volume; null when there was no volume. */
+  take_rate_percent: number | null;
+  /** Money that is reported but deliberately not counted as earnings. */
+  not_counted: {
+    shop_sales: number;
+    reseller_transaction_charges: number;
+    /** Ads paid by shops that haven't started running yet. */
+    ads_paid_not_yet_running?: number;
+    /** Ad payments waiting for an admin to refund by hand. */
+    ad_refunds_due?: number;
+  };
+  excluded_own_accounts: AdminEarningsAccount[];
+  reporting_currency?: string;
+  usd_rate?: number;
   kes_rates?: Record<string, number>;
 }
 
@@ -6885,4 +7020,143 @@ export interface OvesGqlInsights {
   error_groups: OvesGqlErrorGroup[];
   series: { t: string; requests: number; errors: number; error_rate: number | null }[];
   studio_url: string;
+}
+
+
+// ─── Selling ads through Bitwave (isp-billing ADS_API.md, "Selling ads") ───
+
+export type AdSaleState =
+  | 'awaiting_payment' | 'payment_failed' | 'in_review' | 'live' | 'paused'
+  | 'ended' | 'rejected' | 'taken_down' | 'deleted';
+
+export type AdPromptStatus = 'sending' | 'waiting_for_pin' | 'paid' | 'cancelled' | 'failed' | 'timed_out';
+
+export type AdPayoutStatus = 'none' | 'waiting_to_run' | 'credited' | 'refund_due' | 'refunded';
+
+export interface AdSalePrompt {
+  payment_id: number;
+  status: AdPromptStatus;
+  amount: number;
+  phone: string;
+  kind: 'initial' | 'renewal';
+  /** M-Pesa's reason when the prompt was not paid. */
+  reason: string | null;
+  sent_at: string | null;
+  retry_after: string | null;
+}
+
+export interface AdSalePayment {
+  id: number;
+  kind: 'initial' | 'renewal';
+  weeks: number;
+  price_per_week: number;
+  amount: number;
+  bitwave_fee: number;
+  reseller_share: number;
+  phone: string;
+  status: 'awaiting_payment' | 'paid' | 'failed' | 'cancelled' | 'timed_out';
+  mpesa_receipt: string | null;
+  result_desc: string | null;
+  is_duplicate: boolean;
+  paid_at: string | null;
+  credited_at: string | null;
+  refund_status: 'due' | 'refunded' | null;
+  refund_reason: string | null;
+  refunded_at: string | null;
+  created_at: string | null;
+}
+
+export interface AdSaleSummary {
+  sale_id: number;
+  ad_id?: number;
+  business_name: string;
+  business_phone: string;
+  price_per_week: number;
+  weeks: number;
+  fee_percent: number;
+  state: AdSaleState;
+  amount_due: number | null;
+  due_kind: 'initial' | 'renewal' | null;
+  payment_status: string | null;
+  last_payment_error: string | null;
+  can_resend: boolean;
+  prompt: AdSalePrompt | null;
+  paid_total: number;
+  bitwave_fee_total: number;
+  reseller_share_total: number;
+  credited_total: number;
+  refund_due_total: number;
+  payout_status: AdPayoutStatus;
+  weeks_banked: number;
+  live_from: string | null;
+  live_until: string | null;
+  renewal_due: boolean;
+  can_renew: boolean;
+  share_url: string;
+  payments?: AdSalePayment[];
+  prompt_result?: { sent: boolean; message: string };
+  // GET /api/ad-sales rows
+  title?: string | null;
+  owner_user_id?: number;
+  owner_name?: string | null;
+  created_at?: string | null;
+}
+
+export interface AdSaleTerms {
+  business_name: string;
+  business_phone: string;
+  weeks: number;
+  price_per_week: number;
+}
+
+export interface AdPromptInput {
+  phone?: string;
+  weeks?: number;
+  price_per_week?: number;
+}
+
+export interface AdSalesListResponse {
+  sales: AdSaleSummary[];
+  totals: {
+    paid_total: number;
+    bitwave_fee_total: number;
+    reseller_share_total: number;
+    credited_total: number;
+    refund_due_total: number;
+  };
+  pagination: { page: number; per_page: number; total: number; total_pages: number };
+  fee_percent: number;
+  min_price_per_week: number;
+  max_weeks: number;
+  /** Resellers only: progress towards automatic approval of sold ads. */
+  review?: { approved_sold_ads: number; rejections: number; threshold: number; auto_approve: boolean };
+}
+
+export type AdSellingMode = 'off' | 'allowlist' | 'everyone';
+
+export interface AdReviewRules {
+  blocked_words: string[];
+  default_blocked_words: string[];
+  auto_approve_after: number;
+  fee_percent: number;
+  min_price_per_week: number;
+  max_weeks: number;
+  /** Who may sell ads: nobody, the pilot list, or every Kenyan reseller. */
+  selling_mode: AdSellingMode;
+  selling_modes: AdSellingMode[];
+  selling_allowlist: { id: number; name: string | null }[];
+}
+
+export interface PublicAdReport {
+  title: string | null;
+  business_name: string;
+  network_name: string | null;
+  image_url: string | null;
+  state: AdSaleState;
+  live_from: string | null;
+  live_until: string | null;
+  views: number;
+  taps: number;
+  daily: { day: string; views: number; taps: number }[];
+  payment_due: { amount: number; weeks: number; price_per_week: number; kind: 'initial' | 'renewal'; status: string } | null;
 }

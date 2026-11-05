@@ -17,7 +17,7 @@ import { normalizeDuration, describeDuration } from '../duration';
 import { getDisplayCurrency } from '../../lib/format';
 import PlanNameHint from '../../components/PlanNameHint';
 import { MAX_PLAN_NAME_LENGTH, isPlanNameTooLong } from '../../lib/planName';
-import { applyPlanType } from '../planType';
+import { applyConnectionType, applyPlanType, freeTrialAllowsConnection, planFormFields } from '../planType';
 import type { ConnectionType } from '../../lib/types';
 
 export default function CreatePlanPage() {
@@ -60,11 +60,11 @@ export default function CreatePlanPage() {
       .catch(() => setRouters([]));
   }, []);
 
-  const isPPPoE = formData.connection_type === 'pppoe';
   // One device per subscription on static IP. Hotspot and PPPoE plans can
   // cover several devices (PPPoE: several logins with the same username).
   const noSharing = formData.connection_type === 'static_ip';
   const isFreeTrial = formData.plan_type === 'free_trial';
+  const fields = planFormFields(formData);
   const dataCapMb = dataCapInputToMb(dataCapValue, dataCapUnit);
 
   const parsedDuration = parseFloat(durationInput);
@@ -97,10 +97,10 @@ export default function CreatePlanPage() {
       }
       payload.router_ids = routerScope;
       if (isFreeTrial) {
-        // The backend rejects a free trial that isn't free or isn't hotspot.
+        // The backend rejects a free trial that isn't free, or is static IP.
         payload.price = 0;
         payload.original_price = null;
-        payload.connection_type = 'hotspot';
+        if (!freeTrialAllowsConnection(payload.connection_type)) payload.connection_type = 'hotspot';
       }
       payload.duration_value = normalized.value;
       payload.duration_unit = normalized.unit;
@@ -247,26 +247,15 @@ export default function CreatePlanPage() {
                 <select
                   id="connection_type"
                   value={formData.connection_type}
-                  onChange={(e) => {
-                    const connectionType = e.target.value as ConnectionType;
-                    setFormData({
-                      ...formData,
-                      connection_type: connectionType,
-                      max_shared_users: connectionType === 'static_ip' ? 1 : (formData.max_shared_users ?? 1),
-                    });
-                  }}
+                  onChange={(e) => setFormData(applyConnectionType(formData, e.target.value as ConnectionType))}
                   className="select"
-                  disabled={isFreeTrial}
                 >
                   <option value="hotspot">Hotspot</option>
-                  <option value="pppoe" disabled={isFreeTrial}>PPPoE</option>
+                  <option value="pppoe">PPPoE</option>
                   <option value="static_ip" disabled={isFreeTrial}>Static IP</option>
                 </select>
-                {formData.connection_type === 'static_ip' && (
-                  <p className="mt-1 text-xs text-foreground-muted">For devices with a fixed IP on your router. Paying opens access at this speed; expiry suspends it.</p>
-                )}
-                {isFreeTrial && (
-                  <p className="mt-1 text-xs text-foreground-muted">Free trials are claimed on the hotspot login page, so they are hotspot only.</p>
+                {fields.connectionHint && (
+                  <p className="mt-1 text-xs text-foreground-muted">{fields.connectionHint}</p>
                 )}
               </div>
               <div>
@@ -305,14 +294,10 @@ export default function CreatePlanPage() {
                 <option value="emergency">Emergency</option>
                 <option value="free_trial">Free Trial</option>
               </select>
-              <p className="mt-1 text-xs text-foreground-muted">
-                {isFreeTrial
-                  ? 'Customers claim this plan for free from the hotspot login page. It is not counted as revenue.'
-                  : 'Emergency plans only appear on the portal while emergency mode is active on a router.'}
-              </p>
+              <p className="mt-1 text-xs text-foreground-muted">{fields.planTypeHint}</p>
             </div>
 
-            {isFreeTrial && (
+            {fields.trialFrequency && (
               <TrialFrequencyPicker
                 value={formData.trial_once_per_customer ?? true}
                 onChange={(once) => setFormData({ ...formData, trial_once_per_customer: once })}
@@ -321,7 +306,7 @@ export default function CreatePlanPage() {
               />
             )}
 
-            {!noSharing && (
+            {fields.devices && (
               <div>
                 <label htmlFor="max_shared_users" className="block text-sm font-medium text-foreground-muted mb-1.5">
                   Subscription Devices
@@ -340,13 +325,7 @@ export default function CreatePlanPage() {
                   min={1}
                   max={50}
                 />
-                <p className="mt-1 text-xs text-foreground-muted">
-                  {isFreeTrial
-                    ? 'Devices one claimed trial covers. 1 = only the device that claimed it.'
-                    : isPPPoE
-                      ? 'Devices that can be online at once with the same PPPoE username and password. Each gets the full plan speed; the data cap is shared. Changing it updates active customers’ routers; their devices reconnect once.'
-                      : '1 disables sharing. 2 allows the owner plus one extra device.'}
-                </p>
+                <p className="mt-1 text-xs text-foreground-muted">{fields.devicesHint}</p>
               </div>
             )}
 

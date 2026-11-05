@@ -10,6 +10,7 @@ import { WHATSAPP_DEFAULT_MESSAGE, whatsappHref } from '../landing/contact';
 import ErrorBoundary from './ErrorBoundary';
 import StaffNoAccess from './StaffNoAccess';
 import { canAccessPath, firstAccessiblePath, isStaffUser } from '../lib/permissions';
+import { SOLUTION_PATHS } from '../solutions/paths';
 
 const CollapsibleSidebar = dynamic(() => import('./CollapsibleSidebar'), { ssr: false });
 const MobileBottomNav = dynamic(() => import('./MobileBottomNav'), { ssr: false });
@@ -18,8 +19,8 @@ const SubscriptionBlockedModal = dynamic(() => import('./SubscriptionBlockedModa
 const ViewAsBanner = dynamic(() => import('./ViewAsBanner'), { ssr: false });
 const StaffBanner = dynamic(() => import('./StaffBanner'), { ssr: false });
 
-const PUBLIC_PATHS = ['/', '/demo', '/login', '/landing', '/pricing', '/signup', '/forgot-password', '/reset-password'];
-const PUBLIC_PREFIXES = ['/store', '/r', '/blog'];
+const PUBLIC_PATHS = ['/', '/demo', '/login', '/landing', '/pricing', '/signup', '/forgot-password', '/reset-password', ...SOLUTION_PATHS];
+const PUBLIC_PREFIXES = ['/store', '/r', '/blog', '/promo'];
 const FULLSCREEN_AUTH_PATHS = ['/setup'];
 
 function matchesPathPrefix(pathname: string, prefix: string): boolean {
@@ -90,7 +91,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   const isAdmin = user?.role === 'admin';
   const isOnAdminPage = pathname.startsWith('/admin');
   const isOnResellerPage = !isOnAdminPage;
-  const ADMIN_ALLOWED_NON_ADMIN_PATHS = ['/shop', '/routers'];
+  const ADMIN_ALLOWED_NON_ADMIN_PATHS = ['/shop', '/routers', '/ads', '/advertisers'];
   const isOnAdminAllowedPath = ADMIN_ALLOWED_NON_ADMIN_PATHS.some(p => pathname.startsWith(p));
 
   const needsRedirect = !isPublicPage && !isLoading && (
