@@ -332,6 +332,7 @@ import {
   UpdateStaffRequest,
   StaffActivityResponse,
   PppoeExpiredRedirectResponse,
+  ShareDeviceType,
 } from './types';
 import { DEMO_STAFF_CATALOG } from './staffCatalog';
 import { buildTransferRequest, type BuildTransferRequestOptions } from './pppoeTransfer';
@@ -2477,7 +2478,7 @@ class ApiClient {
 
   async addCustomerDevice(
     customerId: number,
-    body: { mac_address: string; device_name?: string; device_type?: string },
+    body: { mac_address: string; device_name?: string; device_type?: ShareDeviceType },
   ): Promise<{ success: boolean; message: string; device_mac: string }> {
     if (this.isDemoMode()) this.demoBlock();
     const response = await fetch(`${BASE_URL}/customers/${customerId}/devices`, {
@@ -2497,6 +2498,21 @@ class ApiClient {
     const response = await fetch(`${BASE_URL}/customers/${customerId}/devices/${pairingId}`, {
       method: 'DELETE',
       headers: this.getHeaders(),
+    });
+    return this.handleResponse(response);
+  }
+
+  /** Corrects what an extra device is. Nothing on the router changes. */
+  async setCustomerDeviceType(
+    customerId: number,
+    pairingId: number,
+    deviceType: ShareDeviceType,
+  ): Promise<{ success: boolean; pairing_id: number; device_type: ShareDeviceType }> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(`${BASE_URL}/customers/${customerId}/devices/${pairingId}`, {
+      method: 'PATCH',
+      headers: this.getHeaders(),
+      body: JSON.stringify({ device_type: deviceType }),
     });
     return this.handleResponse(response);
   }

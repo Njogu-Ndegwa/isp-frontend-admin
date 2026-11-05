@@ -1029,4 +1029,12 @@ export const FR: Record<string, string> = {
   "Generating...": "Génération...",
   "Checking...": "Vérification...",
   "Check if router connected": "Vérifier si le routeur est connecté",
+  "Device type": "Type d'appareil",
+  "Device type for {name}": "Type d'appareil pour {name}",
+  "Device type saved": "Type d'appareil enregistré",
+  "Could not change the device type": "Impossible de modifier le type d'appareil",
+  "Laptop": "Ordinateur portable",
+  "Smart device": "Appareil connecté",
+  "Other": "Autre",
+  "TVs, consoles and smart devices stay on first if a smaller plan forces devices off.": "Les TV, consoles et appareils connectés restent en priorité si un forfait plus petit oblige à retirer des appareils.",
 };
