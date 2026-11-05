@@ -27,11 +27,25 @@ function previewPlanName(plan: PreviewPlan): string {
   return name;
 }
 
+/** One card in the portal's "Soko Deals Today" strip. */
+export interface PreviewAd {
+  id: number;
+  title: string;
+  /** Printed as the portal prints it: seller, then the first part of the location. */
+  seller: string;
+  price: string | null;
+  imageUrl: string | null;
+  badgeType: string | null;
+  badgeText: string | null;
+}
+
 interface PortalPreviewProps {
   settings: PortalSettings;
   palette: PortalThemePalette;
   /** The reseller's real plans; falls back to sample plans when absent or empty */
   plans?: PreviewPlan[];
+  /** Offers the portal would show. None means no section, the same as the portal. */
+  ads?: PreviewAd[];
   /** When true, renders as a full-screen experience with no phone bezel or fake status bar */
   fullscreen?: boolean;
 }
@@ -43,19 +57,13 @@ const MOCK_PLANS: PreviewPlan[] = [
   { id: 4, price: 150,  duration: '48 HOURS', speed: '10M/5M',  popular: false },
 ];
 
-const MOCK_ADS = [
-  { id: 1, emoji: '🌽', name: 'Fresh Maize',    seller: 'Soko Fresh',   price: 'KSH 30',     badge: 'HOT'  },
-  { id: 2, emoji: '📱', name: 'Airtime Top-up', seller: 'M-Pesa Agent', price: 'Any amount', badge: 'NEW'  },
-  { id: 3, emoji: '🛡️', name: 'Phone Cases',    seller: 'Tech Soko',    price: 'KSH 250',    badge: 'SALE' },
-];
-
 const BADGE_COLORS: Record<string, { bg: string; color: string }> = {
   HOT:  { bg: '#FEE2E2', color: '#DC2626' },
   NEW:  { bg: '#DBEAFE', color: '#2563EB' },
   SALE: { bg: '#D1FAE5', color: '#059669' },
 };
 
-export default function PortalPreview({ settings, palette, plans, fullscreen = false }: PortalPreviewProps) {
+export default function PortalPreview({ settings, palette, plans, ads, fullscreen = false }: PortalPreviewProps) {
   const isHero = settings.header_style === 'hero';
   const planList = plans && plans.length > 0 ? plans : MOCK_PLANS;
 
@@ -146,7 +154,7 @@ export default function PortalPreview({ settings, palette, plans, fullscreen = f
   };
 
   const renderAds = () => {
-    if (!settings.show_ads) return null;
+    if (!settings.show_ads || !ads || ads.length === 0) return null;
     return (
       <div className="pp-ads">
         <div className="pp-ads-head">
@@ -154,26 +162,29 @@ export default function PortalPreview({ settings, palette, plans, fullscreen = f
           <span className="pp-ads-badge">AD</span>
         </div>
         <div className="pp-ads-scroll">
-          {MOCK_ADS.map((ad) => {
-            const bc = BADGE_COLORS[ad.badge] ?? { bg: '#eee', color: '#555' };
+          {ads.map((ad) => {
+            const bc = BADGE_COLORS[(ad.badgeType ?? '').toUpperCase()] ?? { bg: '#eee', color: '#555' };
             return (
               <div key={ad.id} className="pp-ad-card">
                 <div className="pp-ad-img">
-                  <span className="pp-ad-emoji">{ad.emoji}</span>
-                  <span className="pp-ad-badge-chip" style={{ background: bc.bg, color: bc.color }}>{ad.badge}</span>
+                  {ad.imageUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element -- media can be on any host
+                    <img className="pp-ad-photo" src={ad.imageUrl} alt={ad.title} />
+                  ) : (
+                    <span className="pp-ad-emoji">🛒</span>
+                  )}
+                  {ad.badgeText && (
+                    <span className="pp-ad-badge-chip" style={{ background: bc.bg, color: bc.color }}>{ad.badgeText}</span>
+                  )}
                 </div>
                 <div className="pp-ad-info">
-                  <div className="pp-ad-name">{ad.name}</div>
+                  <div className="pp-ad-name">{ad.title}</div>
                   <div className="pp-ad-seller">{ad.seller}</div>
-                  <div className="pp-ad-price">{ad.price}</div>
+                  {ad.price && <div className="pp-ad-price">{ad.price}</div>}
                 </div>
               </div>
             );
           })}
-          <a href="#" className="pp-ad-cta">
-            <div className="pp-ad-cta-icon">+</div>
-            <span>Your Ad Here</span>
-          </a>
         </div>
         <div className="pp-ads-hint">← Swipe for more deals →</div>
       </div>
@@ -498,6 +509,7 @@ export default function PortalPreview({ settings, palette, plans, fullscreen = f
       justify-content: center;
     }
     .pp-ad-emoji { font-size: 2rem; }
+    .pp-ad-photo { width: 100%; height: 100%; object-fit: cover; display: block; }
     .pp-ad-badge-chip {
       position: absolute;
       top: 6px;
@@ -530,36 +542,6 @@ export default function PortalPreview({ settings, palette, plans, fullscreen = f
       font-weight: 700;
       color: ${palette.primary};
     }
-    .pp-ad-cta {
-      flex-shrink: 0;
-      width: 130px;
-      background: #f8f8f8;
-      border: 2px dashed #ddd;
-      border-radius: 12px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      min-height: 130px;
-      scroll-snap-align: start;
-      text-decoration: none;
-      text-align: center;
-      gap: 6px;
-      color: #999;
-    }
-    .pp-ad-cta-icon {
-      width: 38px;
-      height: 38px;
-      background: #eee;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 1.3rem;
-      font-weight: 300;
-      color: #aaa;
-    }
-    .pp-ad-cta span { font-size: 0.68rem; font-weight: 600; }
     .pp-ads-hint {
       text-align: center;
       padding: 6px 16px 0;
