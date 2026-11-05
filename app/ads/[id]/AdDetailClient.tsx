@@ -243,11 +243,18 @@ export default function AdDetailClient() {
         <div className="mb-5 rounded-2xl border border-danger/30 bg-danger/10 p-4">
           <p className="text-sm font-semibold text-danger">{t('Bitwave rejected this ad')}</p>
           <p className="mt-1 text-sm text-foreground">{ad.review_note}</p>
-          {!isAdmin && canManage && (
-            <Link href={`/ads/${ad.id}/edit`} className="mt-2 inline-flex min-h-[44px] items-center text-sm font-semibold text-accent-primary hover:underline">
-              {t('Fix it and send again')} →
-            </Link>
+          {isAdmin && (
+            <button type="button" disabled={busy} onClick={() => void run(() => api.reviewAd(ad.id, 'approve'), t('Put back.'))} className="mt-2 inline-flex min-h-[44px] items-center text-sm font-semibold text-accent-primary hover:underline disabled:opacity-50">
+              {t('Put it back')} →
+            </button>
           )}
+          {!isAdmin && canManage && (ad.review_note.startsWith('Taken down') ? (
+            <p className="mt-1 text-xs text-foreground-muted">{t('It stays down until Bitwave puts it back. Talk to Bitwave if you think this is wrong.')}</p>
+          ) : (
+            <Link href={`/ads/${ad.id}/edit`} className="mt-2 inline-flex min-h-[44px] items-center text-sm font-semibold text-accent-primary hover:underline">
+              {t('Fix it and save')} →
+            </Link>
+          ))}
         </div>
       )}
       {status === 'pending' && (
@@ -255,23 +262,24 @@ export default function AdDetailClient() {
           {isAdmin ? (
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-sm text-foreground">
-                {t('Waiting for review. Check the phone number works before approving:')}{' '}
-                <a href={`tel:${ad.phone_number.replace(/\s+/g, '')}`} className="font-semibold text-accent-primary hover:underline">{ad.phone_number}</a>
+                {t('This older ad is not showing. New ads don’t wait for anyone. Approve puts this one live now.')}
               </p>
               <div className="flex gap-2">
                 <button type="button" disabled={busy} onClick={() => setRejecting(true)} className="min-h-[44px] flex-1 rounded-[10px] border border-danger/40 px-5 text-sm font-semibold text-danger hover:bg-danger/10 disabled:opacity-50 sm:flex-none">
                   {t('Reject')}
                 </button>
-                <button type="button" disabled={busy} onClick={() => void run(() => api.reviewAd(ad.id, 'approve'), ad.slot === 'reseller' && !ad.sale?.paid_total ? t('Approved. It goes live as soon as the shop pays.') : t('Approved. The ad is now live.'))} className="min-h-[44px] flex-1 rounded-[10px] bg-success px-6 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50 sm:flex-none">
+                <button type="button" disabled={busy} onClick={() => void run(() => api.reviewAd(ad.id, 'approve'), ad.slot === 'reseller' && !ad.sale?.paid_total ? t('Done. It goes live as soon as the shop pays.') : t('Done. The ad is now live.'))} className="min-h-[44px] flex-1 rounded-[10px] bg-success px-6 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50 sm:flex-none">
                   {t('Approve')}
                 </button>
               </div>
             </div>
           ) : (
             <p className="text-sm text-foreground">
-              {ad.slot === 'reseller'
-                ? t('Bitwave is checking this ad. It goes live once it is approved and the shop has paid.')
-                : t('Bitwave is checking this ad. It starts showing on your portal once it is approved.')}
+              {ad.slot !== 'reseller'
+                ? t('This ad isn’t showing yet. Change anything in it and save to put it live.')
+                : ad.sale?.paid_total
+                  ? t('The shop has paid. This ad isn’t showing yet: Bitwave is switching it on.')
+                  : t('This ad isn’t showing yet. It goes live as soon as the shop pays.')}
             </p>
           )}
         </div>

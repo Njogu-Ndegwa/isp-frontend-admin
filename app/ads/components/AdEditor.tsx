@@ -17,7 +17,6 @@ import SaleTermsFields from './SaleTermsFields';
 import { emptySaleTerms, validateSaleTerms, displayPhone, type SaleTermsErrors, type SaleTermsForm } from '../adSale';
 import {
   adToForm,
-  changesNeedReview,
   diffInput,
   emptyAdForm,
   formToInput,
@@ -190,12 +189,8 @@ export default function AdEditor({ ad }: { ad?: Ad }) {
     return diffInput(formToInput(initial, platform), formToInput(form, platform));
   }, [ad, initial, form, platform]);
 
-  // Own promos go live straight after the automatic checks (unless Bitwave
-  // took the ad down); sold ads are checked by Bitwave until the reseller has
-  // had 3 approved, then approved automatically.
+  // Nobody reviews an ad first. Only an ad Bitwave took down stays down.
   const takenDown = !!ad?.review_note?.startsWith('Taken down');
-  const willNeedReview = !isAdmin && (isSold || takenDown)
-    && (!isEdit || (diff !== null && changesNeedReview(diff) && ad?.status !== 'pending'));
   const wifiName = isAdmin ? t('WiFi name') : (businessName || t('Your WiFi'));
   const isVideo = form.media_type === 'video';
 
@@ -227,7 +222,7 @@ export default function AdEditor({ ad }: { ad?: Ad }) {
           return;
         }
         await api.updateAd(ad.id, diff);
-        showAlert('success', willNeedReview ? t('Saved. Sent to Bitwave for review.') : t('Ad saved.'));
+        showAlert('success', t('Ad saved.'));
         router.push(`/ads/${ad.id}`);
       } else if (newSale) {
         const { ad: created, sale } = await api.createSoldAd(formToInput(form, platform), {
@@ -246,7 +241,7 @@ export default function AdEditor({ ad }: { ad?: Ad }) {
         const created = await api.createAd(formToInput(form, platform));
         showAlert('success', isAdmin
           ? t('Ad published.')
-          : created.status === 'approved' ? t('Your promo is live.') : t('Ad sent to Bitwave for review.'));
+          : t('Your promo is live.'));
         router.push(`/ads/${created.id}`);
       }
     } catch (err) {
@@ -300,7 +295,7 @@ export default function AdEditor({ ad }: { ad?: Ad }) {
         <div className="mb-5 rounded-2xl border border-danger/30 bg-danger/10 p-4" role="note">
           <p className="text-sm font-semibold text-danger">{t('Bitwave rejected this ad')}</p>
           <p className="mt-1 text-sm text-foreground">{ad.review_note}</p>
-          <p className="mt-1 text-xs text-foreground-muted">{t('Fix it below and save. It goes back to Bitwave for review.')}</p>
+          <p className="mt-1 text-xs text-foreground-muted">{takenDown ? t('Bitwave took this ad down. It stays down until Bitwave puts it back.') : t('Fix it below and save. It goes live again.')}</p>
         </div>
       )}
 
@@ -563,10 +558,10 @@ export default function AdEditor({ ad }: { ad?: Ad }) {
               <AdRouterPicker routers={routers} value={form.router_ids} onChange={(v) => set('router_ids', v)} isAdmin={isAdmin && platform} error={errors.router_ids} />
             </div>
             {isSold ? (
-              <p className="text-xs text-foreground-muted">{t('A sold ad runs for the weeks the shop paid for, starting the day it goes live.')}</p>
+              <p className="text-xs text-foreground-muted">{t('A sold ad runs for the weeks the shop paid for, starting when they pay.')}</p>
             ) : (
             <div className="grid gap-5 sm:grid-cols-2">
-              <Field id="ad-start_date" label={t('Start (optional)')} hint={t('Empty = start as soon as it is approved.')}>
+              <Field id="ad-start_date" label={t('Start (optional)')} hint={t('Empty = start straight away.')}>
                 <input {...aria('start_date', true)} type="date" className="input" value={form.start_date} onChange={(e) => set('start_date', e.target.value)} />
               </Field>
               <Field id="ad-last_day" label={t('Last day (optional)')} error={errors.last_day} hint={t('Empty = runs until you pause or delete it.')}>
@@ -577,18 +572,14 @@ export default function AdEditor({ ad }: { ad?: Ad }) {
           </Section>
 
           <div className="space-y-3 pb-6">
-            {willNeedReview && (
+            {newSale && (
               <div className="flex gap-3 rounded-xl border border-info/30 bg-info/10 p-4" role="note">
                 <svg className="mt-0.5 h-5 w-5 flex-shrink-0 text-info" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
                 </svg>
                 <div className="text-sm">
-                  <p className="font-semibold text-foreground">{isEdit ? t('These changes go to Bitwave for review') : t('Bitwave checks sold ads first')}</p>
-                  <p className="mt-0.5 text-foreground-muted">
-                    {isEdit && ad?.status === 'approved'
-                      ? t('The ad stops showing until Bitwave approves it again. Pausing and routers don’t need a review.')
-                      : t('It goes live once the shop has paid and Bitwave has approved it. After 3 approved sold ads, yours are approved automatically.')}
-                  </p>
+                  <p className="font-semibold text-foreground">{t('It goes live as soon as the shop pays')}</p>
+                  <p className="mt-0.5 text-foreground-muted">{t('Nobody needs to approve it. The paid weeks start when the payment comes in.')}</p>
                 </div>
               </div>
             )}
@@ -599,7 +590,7 @@ export default function AdEditor({ ad }: { ad?: Ad }) {
               <button type="submit" disabled={saving} className="btn-primary flex min-h-[44px] items-center justify-center gap-2 disabled:cursor-not-allowed disabled:opacity-60">
                 {saving && <span className="h-4 w-4 animate-spin rounded-full border-2 border-current/30 border-t-current" aria-hidden="true" />}
                 {isEdit
-                  ? (willNeedReview ? t('Save and send for review') : t('Save changes'))
+                  ? t('Save changes')
                   : (isAdmin ? t('Publish ad') : newSale ? t('Send M-Pesa prompt to the shop') : t('Publish my promo'))}
               </button>
             </div>

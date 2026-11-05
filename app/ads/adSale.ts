@@ -105,7 +105,7 @@ export function promptInFlight(sale: Pick<AdSaleSummary, 'prompt'> | null | unde
 export const SALE_STATE_META: Record<AdSaleState, { label: string; tone: 'info' | 'success' | 'warning' | 'danger' | 'neutral' }> = {
   awaiting_payment: { label: 'Waiting for payment', tone: 'warning' },
   payment_failed: { label: 'Payment not received', tone: 'danger' },
-  in_review: { label: 'Paid, in review', tone: 'info' },
+  in_review: { label: 'Paid, not live yet', tone: 'info' },
   live: { label: 'Live', tone: 'success' },
   paused: { label: 'Paused', tone: 'neutral' },
   ended: { label: 'Ended', tone: 'neutral' },
@@ -116,7 +116,7 @@ export const SALE_STATE_META: Record<AdSaleState, { label: string; tone: 'info' 
 
 export const PAYOUT_META: Record<AdSaleSummary['payout_status'], string> = {
   none: 'Not paid yet',
-  waiting_to_run: 'Paid, credited when it goes live',
+  waiting_to_run: 'Paid, not live yet',
   credited: 'Credited to payout',
   refund_due: 'Refund due',
   refunded: 'Refunded',
