@@ -3,7 +3,6 @@ import {
   adCardNote,
   adDisplayStatus,
   adToForm,
-  changesNeedReview,
   checkMediaFile,
   diffInput,
   emptyAdForm,
@@ -62,15 +61,13 @@ describe('formToInput / diffInput', () => {
     const again = formToInput(adToForm(base), false);
     expect(diffInput(original, again)).toEqual({});
   });
-  it('sends only what changed, and flags content edits for review', () => {
+  it('sends only what changed', () => {
     const original = formToInput(adToForm(base), false);
     const paused = diffInput(original, formToInput({ ...adToForm(base), router_ids: [50] }, false));
     expect(paused).toEqual({ router_ids: [50] });
-    expect(changesNeedReview(paused)).toBe(false);
 
     const edited = diffInput(original, formToInput({ ...adToForm(base), phone_number: '0712 999 000' }, false));
     expect(edited).toEqual({ phone_number: '0712 999 000' });
-    expect(changesNeedReview(edited)).toBe(true);
   });
   it('clears the other media fields when switching to video', () => {
     const form = { ...adToForm(base), media_type: 'video' as const, video_url: 'https://m/v.mp4', poster_url: 'https://m/p.webp' };
@@ -121,11 +118,11 @@ describe('media checks', () => {
 });
 
 describe('pauseBlockedReason', () => {
-  it('blocks Pause while an ad is in review or rejected', () => {
-    expect(pauseBlockedReason('pending', true)).toMatch(/approves/);
+  it('blocks Pause on an ad that is not showing', () => {
+    expect(pauseBlockedReason('pending', true)).toMatch(/isn’t showing/);
     expect(pauseBlockedReason('rejected', true)).toMatch(/not showing/);
   });
-  it('always allows Resume, so an ad paused before review can be switched back on', () => {
+  it('always allows Resume, so a paused ad can be switched back on', () => {
     expect(pauseBlockedReason('pending', false)).toBeNull();
     expect(pauseBlockedReason('rejected', false)).toBeNull();
     expect(pauseBlockedReason('paused', false)).toBeNull();
@@ -142,7 +139,7 @@ describe('adCardNote', () => {
   });
   it('gives a pending ad the same box, in the warning tone', () => {
     const note = adCardNote({ review_note: null }, 'pending', false);
-    expect(note).toMatchObject({ tone: 'warning', label: 'In review:', verbatim: false });
+    expect(note).toMatchObject({ tone: 'warning', label: 'Not live yet:', verbatim: false });
   });
   it('shows nothing for admins on pending ads, nor for a rejection without a reason', () => {
     expect(adCardNote({ review_note: null }, 'pending', true)).toBeNull();
@@ -162,7 +159,7 @@ describe('adCardNote on sold ads', () => {
     expect(adCardNote(sale('awaiting_payment'), 'pending', false)).toMatchObject({ tone: 'warning', label: 'Waiting for payment:' });
     expect(adCardNote(sale('payment_failed'), 'live', false)).toMatchObject({ tone: 'danger', label: 'Not paid:' });
   });
-  it('says a paid ad is in review, and offers renewal near the end', () => {
+  it('says when a paid ad isn’t showing, and offers renewal near the end', () => {
     expect(adCardNote(sale('in_review'), 'pending', true)).toMatchObject({ tone: 'info', label: 'Paid:' });
     expect(adCardNote(sale('live', { renewal_due: true }), 'live', false)).toMatchObject({ label: 'Ends soon:' });
     expect(adCardNote(sale('ended', { can_renew: true }), 'ended', false)).toMatchObject({ label: 'Ended:' });

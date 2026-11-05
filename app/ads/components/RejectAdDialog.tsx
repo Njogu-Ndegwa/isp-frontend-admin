@@ -72,8 +72,8 @@ export default function RejectAdDialog({
         <h3 id="reject-ad-title" className="text-lg font-semibold text-foreground">{takedown ? t('Take this ad down?') : t('Reject this ad?')}</h3>
         <p className="mt-1 text-sm text-foreground-muted">
           {takedown
-            ? t('“{title}” comes off every portal now. The owner sees your reason; an edit waits for Bitwave before it can run again.', { title: adTitle })
-            : t('“{title}” will not show on any portal. The reseller sees your reason and can fix the ad.', { title: adTitle })}
+            ? t('“{title}” comes off every portal now. The owner sees your reason, and it stays down until Bitwave puts it back.', { title: adTitle })
+            : t('“{title}” will not show on any portal. The reseller sees your reason. If they fix the ad and save it, it goes live.', { title: adTitle })}
         </p>
 
         <label htmlFor="reject-reason" className="mt-4 block text-sm font-medium text-foreground">

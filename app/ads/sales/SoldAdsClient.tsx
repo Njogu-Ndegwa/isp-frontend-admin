@@ -100,7 +100,7 @@ function BlockedWordsCard() {
     <section className="mt-6 rounded-2xl border border-border bg-background-secondary p-4 sm:p-5" data-testid="selling-switch">
       <h2 className="text-base font-semibold text-foreground">{t('Who can sell ads')}</h2>
       <p className="mt-1 text-xs text-foreground-muted">
-        {t('Sold ads take real M-Pesa money from shops. Own promos and ads already in review are not affected by this switch.')}
+        {t('Sold ads take real M-Pesa money from shops. Own promos are not affected by this switch.')}
       </p>
       <fieldset className="mt-3 space-y-2">
         <legend className="sr-only">{t('Who can sell ads')}</legend>
@@ -141,9 +141,9 @@ function BlockedWordsCard() {
     />
     
     <section className="mt-6 rounded-2xl border border-border bg-background-secondary p-4 sm:p-5">
-      <h2 className="text-base font-semibold text-foreground">{t('Review rules')}</h2>
+      <h2 className="text-base font-semibold text-foreground">{t('Automatic checks')}</h2>
       <p className="mt-1 text-xs text-foreground-muted">
-        {t('Own promos go live straight away after these checks. Sold ads wait for review until the reseller has {n} approved and none rejected or taken down.', { n: rules.auto_approve_after })}
+        {t('Every ad goes through these checks. Nobody reviews it after that: own promos go live straight away and sold ads go live when the shop pays.')}
       </p>
       <label htmlFor="blocked-words" className="mt-4 block text-sm font-medium text-foreground">{t('Blocked words')}</label>
       <textarea id="blocked-words" rows={3} className="input mt-1.5" value={text} onChange={(e) => setText(e.target.value)} />
@@ -215,7 +215,7 @@ export default function SoldAdsClient() {
         title={isAdmin ? t('Sold ads') : t('Ads I sold')}
         subtitle={isAdmin
           ? t('Ads resellers sold to local shops, paid through Bitwave: 20% Bitwave, 80% reseller')
-          : t('Shops pay Bitwave by M-Pesa. You get 80% in your normal payout once the ad goes live.')}
+          : t('Shops pay Bitwave by M-Pesa. The ad goes live as soon as they pay and you get 80% in your normal payout.')}
         backHref="/ads"
       />
 
@@ -234,14 +234,6 @@ export default function SoldAdsClient() {
               hint={t('{amount} already credited to payout', { amount: kes(data.totals.credited_total) })} />
             <Tile label={t('Refunds due')} value={kes(data.totals.refund_due_total)} />
           </div>
-
-          {data.review && (
-            <p className="mb-4 rounded-xl bg-background-tertiary/60 p-3 text-sm text-foreground">
-              {data.review.auto_approve
-                ? t('Your sold ads are approved automatically.')
-                : t('Bitwave checks your sold ads until {n} are approved with none rejected. Approved so far: {done}.', { n: data.review.threshold, done: data.review.approved_sold_ads })}
-            </p>
-          )}
 
           <div className="mb-4 flex flex-wrap gap-2" role="tablist" aria-label={t('Filter')}>
             {filters.map((f) => (

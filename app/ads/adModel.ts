@@ -17,7 +17,7 @@ import { gmt3DateOnlyToISO, parseUTCToGMT3, utcToGMT3DateOnly } from '../lib/dat
 export type AdDisplayStatus = 'pending' | 'rejected' | 'paused' | 'scheduled' | 'ended' | 'live';
 
 export const STATUS_META: Record<AdDisplayStatus, { label: string; variant: 'success' | 'warning' | 'danger' | 'neutral' | 'info' }> = {
-  pending: { label: 'Pending review', variant: 'warning' },
+  pending: { label: 'Not live yet', variant: 'warning' },
   rejected: { label: 'Rejected', variant: 'danger' },
   paused: { label: 'Paused', variant: 'neutral' },
   scheduled: { label: 'Scheduled', variant: 'info' },
@@ -33,8 +33,9 @@ export function parseNaiveUtc(value: string | null | undefined): number | null {
   return Number.isNaN(t) ? null : t;
 }
 
-/** What the customer-facing state of an ad is right now. Review comes first:
- *  a pending or rejected ad never shows, whatever its dates say. */
+/** What the customer-facing state of an ad is right now. A pending ad (only
+ *  rows from before review was removed) or a rejected one never shows, whatever
+ *  its dates say. */
 export function adDisplayStatus(ad: Pick<Ad, 'status' | 'is_active' | 'starts_at' | 'expires_at'>, now = Date.now()): AdDisplayStatus {
   if (ad.status === 'pending') return 'pending';
   if (ad.status === 'rejected') return 'rejected';
@@ -49,12 +50,12 @@ export function adDisplayStatus(ad: Pick<Ad, 'status' | 'is_active' | 'starts_at
 /** Why Pause is switched off for this ad, or null when pausing does something.
  *  The backend lets the owner flip is_active at any time, but a pending or
  *  rejected ad is not on any portal, so pausing it changes nothing customers
- *  see and the status chip would keep saying "Pending review". Resume stays
- *  on, so an ad paused before it went back to review can be switched on. */
+ *  see and the status chip would keep saying "Not live yet". Resume stays
+ *  on, so an ad paused earlier can be switched on. */
 export function pauseBlockedReason(status: AdDisplayStatus, isActive: boolean): string | null {
   if (!isActive) return null;
-  if (status === 'pending') return 'Nothing to pause yet. The ad only shows once Bitwave approves it.';
-  if (status === 'rejected') return 'Nothing to pause. A rejected ad is not showing. Fix it and send it again.';
+  if (status === 'pending') return 'Nothing to pause yet. This ad isn’t showing.';
+  if (status === 'rejected') return 'Nothing to pause. This ad is not showing.';
   return null;
 }
 
@@ -62,7 +63,7 @@ export interface AdCardNote {
   tone: 'warning' | 'danger' | 'info' | 'neutral';
   label: string;
   text: string;
-  /** The text came from a person (the reviewer), so it is shown as written, not translated. */
+  /** The text came from a person (a Bitwave admin), so it is shown as written, not translated. */
   verbatim: boolean;
 }
 
@@ -83,7 +84,7 @@ export function adCardNote(ad: Pick<Ad, 'review_note'> & Partial<Pick<Ad, 'sale'
       return { tone: 'danger', label: 'Not paid:', text: 'The M-Pesa prompt wasn’t paid. Open the ad to send it again.', verbatim: false };
     }
     if (sale.state === 'in_review') {
-      return { tone: 'info', label: 'Paid:', text: 'Bitwave is checking the ad. It goes live once approved.', verbatim: false };
+      return { tone: 'info', label: 'Paid:', text: 'This ad isn’t showing yet. Open it to see more.', verbatim: false };
     }
     if (sale.state === 'live' && sale.renewal_due) {
       return { tone: 'info', label: 'Ends soon:', text: 'Renew it with one M-Pesa prompt to the shop.', verbatim: false };
@@ -93,7 +94,7 @@ export function adCardNote(ad: Pick<Ad, 'review_note'> & Partial<Pick<Ad, 'sale'
     }
   }
   if (status === 'pending' && !isAdmin) {
-    return { tone: 'warning', label: 'In review:', text: 'Bitwave is checking this ad. It starts showing once approved.', verbatim: false };
+    return { tone: 'warning', label: 'Not live yet:', text: 'Change anything in this ad and save to put it live.', verbatim: false };
   }
   return null;
 }
@@ -296,9 +297,8 @@ export function formToInput(form: AdFormState, platform: boolean): AdInput {
   return input;
 }
 
-/** Only the fields that differ from the saved ad. The backend sends a
- *  reseller's ad back to review whenever a content field is present at all,
- *  so unchanged fields must stay out of the PUT. */
+/** Only the fields that differ from the saved ad, so the backend's automatic
+ *  checks run on real changes only. */
 export function diffInput(original: AdInput, next: AdInput): AdInput {
   const out: Record<string, unknown> = {};
   for (const key of Object.keys(next) as (keyof AdInput)[]) {
@@ -307,16 +307,6 @@ export function diffInput(original: AdInput, next: AdInput): AdInput {
     }
   }
   return out as AdInput;
-}
-
-/** Fields the backend re-reviews when a reseller changes them (ads_routes._REVIEWED_FIELDS). */
-export const REVIEWED_FIELDS: (keyof AdInput)[] = [
-  'title', 'description', 'image_url', 'seller_name', 'seller_location',
-  'phone_number', 'whatsapp_number', 'price', 'media_type', 'video_url', 'poster_url',
-];
-
-export function changesNeedReview(diff: AdInput): boolean {
-  return REVIEWED_FIELDS.some((f) => f in diff);
 }
 
 export const PHONE_RE = /^\+?[0-9 ]{9,16}$/;

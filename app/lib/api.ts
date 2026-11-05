@@ -1617,6 +1617,7 @@ class ApiClient {
     const qs = new URLSearchParams();
     if (params.status) qs.set('status', params.status);
     if (params.placement) qs.set('placement', params.placement);
+    if (params.newly_live) qs.set('newly_live', 'true');
     if (params.bitwave_only) qs.set('bitwave_only', 'true');
     else if (params.owner_user_id != null) qs.set('owner_user_id', String(params.owner_user_id));
     qs.set('page', String(params.page ?? 1));

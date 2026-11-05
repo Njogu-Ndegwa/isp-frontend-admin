@@ -96,7 +96,7 @@ export default function SaleTermsFields({
       </div>
       <SaleSplitSummary weeks={Number(value.weeks) || 0} pricePerWeek={Number(value.price_per_week) || 0} />
       <p className="text-xs leading-relaxed text-foreground-muted">
-        {t('The shop pays Bitwave by M-Pesa. Bitwave keeps 20% and adds your 80% to your normal payout once the ad goes live. The weeks start counting when the ad goes live, not when they pay.')}
+        {t('The shop pays Bitwave by M-Pesa. The ad goes live as soon as they pay and the weeks start then. Bitwave keeps 20% and adds your 80% to your normal payout.')}
       </p>
     </div>
   );
