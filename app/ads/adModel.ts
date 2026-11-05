@@ -36,11 +36,12 @@ export function parseNaiveUtc(value: string | null | undefined): number | null {
 /** What the customer-facing state of an ad is right now. A pending ad (only
  *  rows from before review was removed) or a rejected one never shows, whatever
  *  its dates say. */
-export function adDisplayStatus(ad: Pick<Ad, 'status' | 'is_active' | 'starts_at' | 'expires_at'>, now = Date.now()): AdDisplayStatus {
+export function adDisplayStatus(ad: Pick<Ad, 'status' | 'is_active' | 'starts_at' | 'expires_at'> & Partial<Pick<Ad, 'sale'>>, now = Date.now()): AdDisplayStatus {
   if (ad.status === 'pending') return 'pending';
   if (ad.status === 'rejected') return 'rejected';
-  if (!ad.is_active) return 'paused';
-  const ends = parseNaiveUtc(ad.expires_at);
+  if (!ad.is_active || ad.sale?.clock_stopped) return 'paused';
+  // A sold ad's real end: its stored date doesn't move until it is back on.
+  const ends = parseNaiveUtc(ad.sale?.live_until ?? ad.expires_at);
   if (ends !== null && ends <= now) return 'ended';
   const starts = parseNaiveUtc(ad.starts_at);
   if (starts !== null && starts > now) return 'scheduled';
@@ -85,6 +86,16 @@ export function adCardNote(ad: Pick<Ad, 'review_note'> & Partial<Pick<Ad, 'sale'
     }
     if (sale.state === 'in_review') {
       return { tone: 'info', label: 'Paid:', text: 'This ad isn’t showing yet. Open it to see more.', verbatim: false };
+    }
+    if (sale.clock_stopped) {
+      return {
+        tone: 'neutral',
+        label: 'Paused:',
+        text: sale.off_reason === 'show_ads_off'
+          ? 'Show Ads is off. Paid days aren’t counting, and the end date moves out when it’s back on.'
+          : 'Paid days aren’t counting, and the end date moves out when it’s back on.',
+        verbatim: false,
+      };
     }
     if (sale.state === 'live' && sale.renewal_due) {
       return { tone: 'info', label: 'Ends soon:', text: 'Renew it with one M-Pesa prompt to the shop.', verbatim: false };

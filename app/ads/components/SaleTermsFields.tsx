@@ -2,6 +2,7 @@
 
 import { useT } from '../../lib/i18n';
 import {
+  MAX_PRICE_PER_WEEK,
   MAX_WEEKS,
   MIN_PRICE_PER_WEEK,
   kes,
@@ -15,6 +16,7 @@ export function SaleSplitSummary({ weeks, pricePerWeek }: { weeks: number; price
   const t = useT();
   const s = saleSplit(weeks, pricePerWeek);
   return (
+    <div>
     <dl className="grid grid-cols-3 gap-2 rounded-xl border border-border bg-background-tertiary/60 p-3 text-center" data-testid="sale-split">
       <div>
         <dt className="text-[11px] text-foreground-muted">{t('Shop pays')}</dt>
@@ -29,6 +31,8 @@ export function SaleSplitSummary({ weeks, pricePerWeek }: { weeks: number; price
         <dd className="text-base font-bold tabular-nums text-success">{kes(s.share)}</dd>
       </div>
     </dl>
+    <p className="mt-1.5 text-xs text-foreground-muted" data-testid="transfer-fee-note">{t('M-Pesa’s transfer fee applies when this is paid out to you.')}</p>
+    </div>
   );
 }
 
@@ -90,13 +94,13 @@ export default function SaleTermsFields({
           <label htmlFor="sale-price_per_week" className="mb-1.5 block text-sm font-medium text-foreground">{t('Price per week (KES)')}</label>
           <input {...field('price_per_week')} type="number" inputMode="numeric" min={MIN_PRICE_PER_WEEK} step={50}
             value={value.price_per_week} onChange={(e) => set('price_per_week', e.target.value)} />
-          <p className="mt-1.5 text-xs text-foreground-muted">{t('At least KES {min}.', { min: MIN_PRICE_PER_WEEK })}</p>
+          <p className="mt-1.5 text-xs text-foreground-muted">{t('KES {min} to {max}.', { min: MIN_PRICE_PER_WEEK, max: MAX_PRICE_PER_WEEK.toLocaleString('en-US') })}</p>
           {err('price_per_week')}
         </div>
       </div>
       <SaleSplitSummary weeks={Number(value.weeks) || 0} pricePerWeek={Number(value.price_per_week) || 0} />
       <p className="text-xs leading-relaxed text-foreground-muted">
-        {t('The shop pays Bitwave by M-Pesa. The ad goes live as soon as they pay and the weeks start then. Bitwave keeps 20% and adds your 80% to your normal payout.')}
+        {t('The shop pays Bitwave by M-Pesa. The ad goes live as soon as they pay and the weeks start then. Your 80% is on the full amount and joins your normal payout. Bitwave pays the M-Pesa collection fee out of its 20%.')}
       </p>
     </div>
   );

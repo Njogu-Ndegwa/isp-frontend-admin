@@ -7064,6 +7064,11 @@ export interface AdSalePayment {
   credited_at: string | null;
   refund_status: 'due' | 'refunded' | null;
   refund_reason: string | null;
+  /** What the shop gets back. Less than amount when only unused days are refunded. */
+  refund_amount: number | null;
+  refund_unused_days: number | null;
+  reseller_recovery: number | null;
+  bitwave_refund_part: number | null;
   refunded_at: string | null;
   created_at: string | null;
 }
@@ -7079,6 +7084,10 @@ export interface AdSaleSummary {
   state: AdSaleState;
   amount_due: number | null;
   due_kind: 'initial' | 'renewal' | null;
+  due_weeks: number | null;
+  due_price_per_week: number | null;
+  /** The price in force, when the renewal that is due changes it. */
+  price_changed_from: number | null;
   payment_status: string | null;
   last_payment_error: string | null;
   can_resend: boolean;
@@ -7088,6 +7097,17 @@ export interface AdSaleSummary {
   reseller_share_total: number;
   credited_total: number;
   refund_due_total: number;
+  refunded_total: number;
+  reseller_recovered_total: number;
+  bitwave_refund_part_total: number;
+  /** What each side keeps once refunds are taken off. */
+  shop_net_total: number;
+  bitwave_fee_net_total: number;
+  reseller_share_net_total: number;
+  /** The paid days aren't counting. live_until keeps moving out while this is true. */
+  clock_stopped: boolean;
+  off_reason: 'paused' | 'not_approved' | 'show_ads_off' | null;
+  off_seconds_total: number;
   payout_status: AdPayoutStatus;
   weeks_banked: number;
   live_from: string | null;
@@ -7115,6 +7135,8 @@ export interface AdPromptInput {
   phone?: string;
   weeks?: number;
   price_per_week?: number;
+  /** The reseller told the shop a renewal's new price. */
+  confirm_new_price?: boolean;
 }
 
 export interface AdSalesListResponse {
@@ -7125,6 +7147,12 @@ export interface AdSalesListResponse {
     reseller_share_total: number;
     credited_total: number;
     refund_due_total: number;
+    refunded_total: number;
+    reseller_recovered_total: number;
+    bitwave_refund_part_total: number;
+    shop_net_total: number;
+    bitwave_fee_net_total: number;
+    reseller_share_net_total: number;
   };
   pagination: { page: number; per_page: number; total: number; total_pages: number };
   fee_percent: number;
@@ -7157,5 +7185,5 @@ export interface PublicAdReport {
   views: number;
   taps: number;
   daily: { day: string; views: number; taps: number }[];
-  payment_due: { amount: number; weeks: number; price_per_week: number; kind: 'initial' | 'renewal'; status: string } | null;
+  payment_due: { amount: number; weeks: number; price_per_week: number; kind: 'initial' | 'renewal'; status: string; previous_price_per_week?: number | null } | null;
 }

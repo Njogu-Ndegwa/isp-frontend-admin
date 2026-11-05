@@ -215,7 +215,7 @@ export default function SoldAdsClient() {
         title={isAdmin ? t('Sold ads') : t('Ads I sold')}
         subtitle={isAdmin
           ? t('Ads resellers sold to local shops, paid through Bitwave: 20% Bitwave, 80% reseller')
-          : t('Shops pay Bitwave by M-Pesa. The ad goes live as soon as they pay and you get 80% in your normal payout.')}
+          : t('Shops pay Bitwave by M-Pesa. The ad goes live as soon as they pay and you get 80% in your normal payout, where M-Pesa’s transfer fee applies.')}
         backHref="/ads"
       />
 
@@ -229,10 +229,13 @@ export default function SoldAdsClient() {
         <>
           <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
             <Tile label={t('Shops paid')} value={kes(data.totals.paid_total)} />
-            <Tile label={t('Bitwave fee 20%')} value={kes(data.totals.bitwave_fee_total)} />
-            <Tile label={isAdmin ? t('Resellers’ 80%') : t('You get')} value={kes(data.totals.reseller_share_total)}
-              hint={t('{amount} already credited to payout', { amount: kes(data.totals.credited_total) })} />
-            <Tile label={t('Refunds due')} value={kes(data.totals.refund_due_total)} />
+            <Tile label={t('Bitwave fee 20%')} value={kes(data.totals.bitwave_fee_net_total)} />
+            <Tile label={isAdmin ? t('Resellers’ 80%') : t('You get')} value={kes(data.totals.reseller_share_net_total)}
+              hint={data.totals.reseller_recovered_total > 0
+                ? t('{amount} recovered for refunds', { amount: kes(data.totals.reseller_recovered_total) })
+                : t('{amount} already credited to payout', { amount: kes(data.totals.credited_total) })} />
+            <Tile label={t('Refunds due')} value={kes(data.totals.refund_due_total)}
+              hint={data.totals.refunded_total > 0 ? t('{amount} refunded so far', { amount: kes(data.totals.refunded_total) }) : undefined} />
           </div>
 
           <div className="mb-4 flex flex-wrap gap-2" role="tablist" aria-label={t('Filter')}>
@@ -282,14 +285,19 @@ export default function SoldAdsClient() {
                             {s.amount_due !== null && <p className="mt-1 text-xs text-foreground-muted">{t('Due: {amount}', { amount: kes(s.amount_due) })}</p>}
                           </td>
                           <td className="px-3 py-3 text-right tabular-nums">{kes(s.paid_total)}</td>
-                          <td className="px-3 py-3 text-right tabular-nums text-foreground-muted">{kes(s.bitwave_fee_total)}</td>
-                          <td className="px-3 py-3 text-right tabular-nums">{kes(s.reseller_share_total)}</td>
+                          <td className="px-3 py-3 text-right tabular-nums text-foreground-muted">{kes(s.bitwave_fee_net_total)}</td>
+                          <td className="px-3 py-3 text-right tabular-nums">{kes(s.reseller_share_net_total)}</td>
                           <td className="px-3 py-3 text-xs">
                             {t(PAYOUT_META[s.payout_status])}
                             {isAdmin && s.payout_status === 'refund_due' && (
                               <button type="button" className="mt-1 block font-semibold text-accent-primary hover:underline" onClick={() => setRefunding(s)}>
                                 {t('Mark refunded')} ({kes(s.refund_due_total)})
                               </button>
+                            )}
+                            {s.reseller_recovered_total + s.bitwave_refund_part_total > 0 && (
+                              <p className="mt-1 text-foreground-muted">
+                                {t('{reseller} from the reseller, {bitwave} from Bitwave', { reseller: kes(s.reseller_recovered_total), bitwave: kes(s.bitwave_refund_part_total) })}
+                              </p>
                             )}
                           </td>
                           <td className="px-4 py-3 text-xs text-foreground-muted">{s.live_until ? formatDay(utcToGMT3DateOnly(s.live_until)) : '–'}</td>
@@ -303,8 +311,8 @@ export default function SoldAdsClient() {
                 {data.sales.map((s) => {
                   const meta = SALE_STATE_META[s.state];
                   return (
+                    <div key={s.sale_id}>
                     <MobileDataCard
-                      key={s.sale_id}
                       id={s.sale_id}
                       title={s.title ?? `#${s.ad_id}`}
                       subtitle={isAdmin ? `${s.business_name} · ${s.owner_name ?? ''}` : s.business_name}
@@ -312,17 +320,22 @@ export default function SoldAdsClient() {
                       status={{ label: t(meta.label), variant: meta.tone }}
                       fields={[
                         { label: t('Paid'), value: kes(s.paid_total) },
-                        { label: t('Bitwave 20%'), value: kes(s.bitwave_fee_total) },
-                        { label: t('Reseller 80%'), value: kes(s.reseller_share_total) },
+                        { label: t('Bitwave 20%'), value: kes(s.bitwave_fee_net_total) },
+                        { label: t('Reseller 80%'), value: kes(s.reseller_share_net_total) },
                         { label: t('Payout'), value: t(PAYOUT_META[s.payout_status]) },
+                        ...(s.refund_due_total > 0 ? [{ label: t('Refund due'), value: kes(s.refund_due_total) }] : []),
+                        ...(s.reseller_recovered_total > 0 ? [{ label: t('From the reseller'), value: kes(s.reseller_recovered_total) }] : []),
+                        ...(s.bitwave_refund_part_total > 0 ? [{ label: t('From Bitwave'), value: kes(s.bitwave_refund_part_total) }] : []),
                         ...(s.amount_due !== null ? [{ label: t('Due'), value: kes(s.amount_due) }] : []),
                       ]}
-                      footer={isAdmin && s.payout_status === 'refund_due' ? (
-                        <button type="button" className="min-h-[44px] text-sm font-semibold text-accent-primary" onClick={(e) => { e.preventDefault(); setRefunding(s); }}>
-                          {t('Mark refunded')} ({kes(s.refund_due_total)})
-                        </button>
-                      ) : undefined}
                     />
+                    {/* Outside the card: the whole card is a link, and its fields layout has no footer. */}
+                    {isAdmin && s.payout_status === 'refund_due' && (
+                      <button type="button" className="mt-1 min-h-[44px] w-full rounded-xl border border-border text-sm font-semibold text-accent-primary" onClick={() => setRefunding(s)}>
+                        {t('Mark refunded')} ({kes(s.refund_due_total)})
+                      </button>
+                    )}
+                    </div>
                   );
                 })}
               </div>

@@ -26,7 +26,7 @@ export default function PortalAdsOffNotice() {
     <div className="mb-5 rounded-2xl border border-warning/30 bg-warning/10 p-4" role="note" data-testid="portal-ads-off">
       <p className="text-sm font-semibold text-foreground">{t('Ads are switched off on your portal')}</p>
       <p className="mt-0.5 text-sm text-foreground-muted">
-        {t('Customers won’t see any ad until you turn on Show Ads, and you can’t send a shop an M-Pesa prompt.')}
+        {t('Customers won’t see any ad until you turn on Show Ads, and you can’t send a shop an M-Pesa prompt. Paid days don’t count while it’s off.')}
       </p>
       <Link href="/settings/portal-customization" className="mt-1 inline-flex min-h-[44px] items-center text-sm font-semibold text-accent-primary hover:underline">
         {t('Turn on Show Ads')} →

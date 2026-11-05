@@ -98,6 +98,13 @@ export default function PromoReportClient() {
                 weeks: report.payment_due.weeks, price: kes(report.payment_due.price_per_week), total: kes(report.payment_due.amount),
               })}
             </p>
+            {report.payment_due.previous_price_per_week != null && (
+              <p className="mt-2 rounded-xl bg-warning/10 p-3 text-sm text-foreground" data-testid="new-price">
+                {t('New price: {now} a week, was {was}. It applies from this renewal. What you already paid doesn’t change.', {
+                  now: kes(report.payment_due.price_per_week), was: kes(report.payment_due.previous_price_per_week),
+                })}
+              </p>
+            )}
             <p className="mt-1 text-xs text-foreground-muted">{t('You pay Bitwave Technologies by M-Pesa. Your ad goes live as soon as you pay, and the weeks start then.')}</p>
             <p className="mt-1 text-xs text-foreground-muted">{t('The prompt goes to the M-Pesa number the WiFi owner saved for you. To use another number, ask them to change it.')}</p>
             <button type="button" className="btn-primary mt-3 min-h-[44px] w-full" onClick={() => void pay()} disabled={busy}>
