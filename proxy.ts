@@ -22,5 +22,10 @@ export function proxy(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/', '/demo', '/landing', '/pricing', '/signup', '/blog/:path*', '/robots.txt', '/sitemap.xml', '/llms.txt'],
+  // Static by Next's rules, so the solution pages are listed by hand: keep in
+  // step with app/solutions/paths.ts.
+  matcher: [
+    '/', '/demo', '/landing', '/pricing', '/signup', '/blog/:path*', '/robots.txt', '/sitemap.xml', '/llms.txt',
+    '/hotspot-billing-system-kenya', '/pppoe-billing-system-kenya', '/mpesa-wifi-billing-kenya', '/wifi-billing-system-kenya',
+  ],
 };

@@ -5,6 +5,7 @@ import type {
   BandwidthHistory,
   TopUsersResponse,
   Customer,
+  PayByMpesa,
   Plan,
   MpesaTransaction,
   TransactionSummary,
@@ -162,6 +163,8 @@ export const demoPlans: Plan[] = [
 // ─── Customers ──────────────────────────────────────────────────────
 const names = ['John Kamau', 'Grace Wanjiku', 'Peter Ochieng', 'Mary Akinyi', 'James Mwangi', 'Faith Njeri', 'David Otieno', 'Susan Wambui', 'Kevin Kiprop', 'Alice Chebet', 'Samuel Mutua', 'Esther Muthoni', 'Brian Kiptoo', 'Janet Nyambura', 'Moses Ouma'];
 const phones = ['254712345678', '254723456789', '254734567890', '254745678901', '254756789012', '254767890123', '254778901234', '254789012345', '254790123456', '254701234567', '254711223344', '254722334455', '254733445566', '254744556677', '254755667788'];
+// Luhn-valid, like the account numbers the backend issues.
+const accounts = ['48201503', '48201875', '48202246', '48202618', '48202980', '48203350', '48203723', '48204093', '48204465', '48204838', '48205207', '48205579', '48205942', '48206312', '48206684'];
 const macs = ['AA:BB:CC:11:22:33', 'DD:EE:FF:44:55:66', '11:22:33:AA:BB:CC', '44:55:66:DD:EE:FF', '77:88:99:00:11:22', 'AA:11:BB:22:CC:33', 'DD:44:EE:55:FF:66', '11:77:22:88:33:99', '44:00:55:11:66:22', '77:33:88:44:99:55', 'AA:DD:BB:EE:CC:FF', '11:44:22:55:33:66', '77:AA:88:BB:99:CC', '00:DD:11:EE:22:FF', '33:44:55:66:77:88'];
 
 export const demoCustomers: Customer[] = names.map((name, i) => {
@@ -171,8 +174,18 @@ export const demoCustomers: Customer[] = names.map((name, i) => {
   const plan = demoPlans[planIdx[i]];
   const router = demoRouters[routerIdx[i]];
   const isPPPoE = plan.connection_type === 'pppoe';
+  // Pay by M-Pesa: the third demo router settles straight to the reseller's
+  // own till, so its customers have no paybill + account to pay with.
+  const payByMpesa: PayByMpesa = !isPPPoE
+    ? { paybill: null, account_number: null, amount: null, unavailable_reason: 'hotspot' }
+    : routerIdx[i] === 2
+      ? { paybill: null, account_number: null, amount: null, unavailable_reason: 'no_paybill' }
+      : { paybill: '4159825', account_number: accounts[i], amount: plan.price, unavailable_reason: null };
   return {
     id: i + 1, name, phone: phones[i], mac_address: macs[i],
+    account_number: accounts[i],
+    payment_paybill: routerIdx[i] === 2 ? null : '4159825',
+    pay_by_mpesa: payByMpesa,
     status: statuses[i],
     expiry: statuses[i] === 'expired' ? iso(2) : iso(-Math.floor(Math.random() * 20 + 1)),
     hours_remaining: statuses[i] === 'active' ? Math.floor(Math.random() * 500 + 24) : 0,

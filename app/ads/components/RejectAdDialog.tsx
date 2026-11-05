@@ -11,20 +11,24 @@ const QUICK_REASONS = [
   "This product or service isn't allowed on Bitwave portals.",
 ];
 
-/** Reject needs a reason: the reseller sees it on their ad and fixes it. */
+/** Reject needs a reason: the reseller sees it on their ad and fixes it.
+ *  mode "takedown" is the same dialog for taking a live ad off every portal. */
 export default function RejectAdDialog({
   open,
   adTitle,
   loading,
   onCancel,
   onReject,
+  mode = 'reject',
 }: {
   open: boolean;
   adTitle: string;
   loading: boolean;
   onCancel: () => void;
   onReject: (note: string) => void;
+  mode?: 'reject' | 'takedown';
 }) {
+  const takedown = mode === 'takedown';
   const t = useT();
   const [note, setNote] = useState('');
   // Start empty each time the dialog opens (state adjusted during render).
@@ -65,9 +69,11 @@ export default function RejectAdDialog({
         className="relative w-full max-w-md rounded-t-2xl border border-border bg-background-secondary p-5 shadow-xl animate-fade-in sm:rounded-2xl sm:p-6"
         onSubmit={(e) => { e.preventDefault(); if (trimmed) onReject(trimmed); }}
       >
-        <h3 id="reject-ad-title" className="text-lg font-semibold text-foreground">{t('Reject this ad?')}</h3>
+        <h3 id="reject-ad-title" className="text-lg font-semibold text-foreground">{takedown ? t('Take this ad down?') : t('Reject this ad?')}</h3>
         <p className="mt-1 text-sm text-foreground-muted">
-          {t('“{title}” will not show on any portal. The reseller sees your reason and can fix the ad.', { title: adTitle })}
+          {takedown
+            ? t('“{title}” comes off every portal now. The owner sees your reason; an edit waits for Bitwave before it can run again.', { title: adTitle })
+            : t('“{title}” will not show on any portal. The reseller sees your reason and can fix the ad.', { title: adTitle })}
         </p>
 
         <label htmlFor="reject-reason" className="mt-4 block text-sm font-medium text-foreground">
@@ -107,7 +113,7 @@ export default function RejectAdDialog({
             disabled={!trimmed || loading}
             className="min-h-[44px] rounded-[10px] bg-red-500 px-5 text-sm font-semibold text-white transition-colors hover:bg-red-600 disabled:opacity-50"
           >
-            {loading ? t('Rejecting…') : t('Reject ad')}
+            {loading ? (takedown ? t('Taking down…') : t('Rejecting…')) : (takedown ? t('Take down') : t('Reject ad'))}
           </button>
         </div>
       </form>

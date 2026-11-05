@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { api } from '../../lib/api';
 import { copyText } from '../../lib/clipboard';
-import { PLATFORM_PAYBILL, customerPaybill, paybillForCustomer } from '../../lib/customerPaybill';
+import { PLATFORM_PAYBILL, customerPaybill, payByMpesaFor } from '../../lib/customerPaybill';
 import { Customer, Plan, Router as RouterType, UpdateCustomerRequest, CustomerUsageResponse, CustomerUsageLive } from '../../lib/types';
 import {
   QUEUE_STATUS_LABEL, QUEUE_STATUS_TONE, formatAge, formatBps, formatMaxLimit,
@@ -25,6 +25,7 @@ import UsageHistoryPanel from './UsageHistoryPanel';
 import ConnectedDevicesPanel from './ConnectedDevicesPanel';
 import HotspotDevicesPanel from './HotspotDevicesPanel';
 import StaticIpPanel from './StaticIpPanel';
+import PayByMpesaCard from './PayByMpesaCard';
 import { connectionTypeLabel } from '../../lib/connectionType';
 import { useT } from '../../lib/i18n';
 import { canActivatePaidUntil, formatPaidUntil, pppoeSaveNotice } from './pppoeActivation';
@@ -218,6 +219,26 @@ export default function EditCustomerPage() {
     );
   }
 
+  // PPPoE and static IP pay by paybill + account number; the card renders
+  // nothing for hotspot customers (they pay on the portal). With an older
+  // backend, wait for the reseller-wide paybill rather than flash "no paybill".
+  const payByMpesaCard = (customer.pay_by_mpesa !== undefined || customer.payment_paybill !== undefined || fallbackPaybill !== null)
+    && payByMpesaFor(customer, fallbackPaybill).unavailable_reason !== 'hotspot'
+    ? (
+      <PayByMpesaCard
+        card={payByMpesaFor(customer, fallbackPaybill)}
+        phone={customer.phone}
+        walletCredit={customer.wallet_credit_kes}
+        t={t}
+        formatAmount={formatAmount}
+        onCopy={async (value, copiedMessage) => {
+          const ok = await copyText(value);
+          showAlert(ok ? 'success' : 'error', ok ? copiedMessage : t('Copy failed — select and copy manually'));
+        }}
+      />
+    )
+    : null;
+
   return (
     <div>
       <Header
@@ -231,6 +252,9 @@ export default function EditCustomerPage() {
           edit on the right, instead of one narrow strip down the middle. */}
       <div className="max-w-2xl mx-auto space-y-4 lg:max-w-none lg:mx-0 lg:space-y-0 lg:grid lg:grid-cols-[minmax(0,1fr)_300px] xl:grid-cols-[minmax(0,1fr)_380px] lg:gap-6 lg:items-start">
         <div className="space-y-4 min-w-0">
+          {/* Phones and tablets: first thing under the customer's name, since
+              "how does this customer pay?" is what resellers open the page for. */}
+          {payByMpesaCard && <div className="lg:hidden">{payByMpesaCard}</div>}
           <Link
             href={`/customers/${customer.id}/activity`}
             className="card p-4 flex items-center justify-between gap-3 hover:bg-background-tertiary/50 transition-colors"
@@ -266,58 +290,8 @@ export default function EditCustomerPage() {
         </div>
 
         <div className="space-y-4 min-w-0">
-          {/* Static-IP customers pay through the same paybill account as PPPoE. */}
-          {(isPPPoE || isStatic) && (
-            <div className="card p-5 space-y-3">
-              <h3 className="text-sm font-semibold text-foreground-muted uppercase tracking-wider">Paybill Payment Instructions</h3>
-              <div className="space-y-2">
-                <PaybillRow
-                  paybill={paybillForCustomer(customer, fallbackPaybill)}
-                  loading={customer.payment_paybill === undefined && fallbackPaybill === null}
-                  onCopy={async (value) => {
-                    const ok = await copyText(value);
-                    showAlert(ok ? 'success' : 'error', ok ? 'Paybill copied' : 'Copy failed — select and copy manually');
-                  }}
-                />
-                <div className="bg-background-tertiary rounded-lg p-3">
-                  <label className="text-xs font-medium text-foreground-muted uppercase tracking-wider">Account Number</label>
-                  {customer.account_number ? (
-                    <div className="flex items-center justify-between mt-1">
-                      <span className="font-mono text-sm text-foreground">{customer.account_number}</span>
-                      <button
-                        type="button"
-                        onClick={async () => {
-                          const ok = await copyText(customer.account_number!);
-                          showAlert(ok ? 'success' : 'error', ok ? 'Account number copied' : 'Copy failed — select and copy manually');
-                        }}
-                        className="p-1.5 rounded-md hover:bg-background-secondary transition-colors text-foreground-muted hover:text-foreground"
-                      >
-                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                        </svg>
-                      </button>
-                    </div>
-                  ) : (
-                    <p className="text-xs text-foreground-muted mt-1">Not yet assigned — will be generated on next registration or payment</p>
-                  )}
-                </div>
-                <div className="bg-background-tertiary rounded-lg p-3">
-                  <label className="text-xs font-medium text-foreground-muted uppercase tracking-wider">Plan Amount</label>
-                  <div className="mt-1">
-                    <span className="text-sm font-medium text-foreground">{customer.plan?.price != null ? formatAmount(customer.plan.price) : '-'}</span>
-                  </div>
-                </div>
-                {(customer.wallet_credit_kes ?? 0) > 0 && (
-                  <div className="bg-success/10 border border-success/20 rounded-lg p-3">
-                    <label className="text-xs font-medium text-success uppercase tracking-wider">Wallet Credit</label>
-                    <div className="mt-1">
-                      <span className="text-sm font-semibold text-success">{formatAmount(customer.wallet_credit_kes)}</span>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
+          {/* Desktop: top of the details column. */}
+          {payByMpesaCard && <div className="hidden lg:block">{payByMpesaCard}</div>}
 
           {canManageCustomers && (
           <SubscriptionPauseCard
@@ -654,40 +628,6 @@ function LivePanel({ live, routerId }: { live: CustomerUsageLive; routerId: numb
         <Link href={`/routers/${routerId}/live`} className="text-xs text-accent-primary hover:underline">
           Open router live view →
         </Link>
-      )}
-    </div>
-  );
-}
-
-/** The paybill the customer pays into with their account number. */
-function PaybillRow({ paybill, loading, onCopy }: {
-  paybill: string | null;
-  loading: boolean;
-  onCopy: (value: string) => void;
-}) {
-  return (
-    <div className="bg-background-tertiary rounded-lg p-3">
-      <label className="text-xs font-medium text-foreground-muted uppercase tracking-wider">Paybill</label>
-      {loading ? (
-        <p className="text-xs text-foreground-muted mt-1">Loading…</p>
-      ) : paybill ? (
-        <div className="flex items-center justify-between mt-1">
-          <span className="font-mono text-sm text-foreground">{paybill}</span>
-          <button
-            type="button"
-            aria-label="Copy paybill"
-            onClick={() => onCopy(paybill)}
-            className="p-1.5 rounded-md hover:bg-background-secondary transition-colors text-foreground-muted hover:text-foreground"
-          >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-            </svg>
-          </button>
-        </div>
-      ) : (
-        <p className="text-xs text-foreground-muted mt-1">
-          No account-number paybill on this customer&apos;s router. They pay through the payment prompt instead.
-        </p>
       )}
     </div>
   );

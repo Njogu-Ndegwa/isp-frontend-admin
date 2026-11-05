@@ -2,7 +2,7 @@
 
 import type { Ad } from '../../lib/types';
 import { useT } from '../../lib/i18n';
-import { STATUS_META, type AdDisplayStatus } from '../adModel';
+import { STATUS_META, type AdCardNote, type AdDisplayStatus } from '../adModel';
 
 const BADGE: Record<string, string> = {
   success: 'badge-success',
@@ -26,13 +26,41 @@ export function AdStatusChip({ status }: { status: AdDisplayStatus }) {
   );
 }
 
-/** Photo, or the video's cover, on the ad's background colour. */
+const NOTE_TONE: Record<AdCardNote['tone'], string> = {
+  danger: 'bg-danger/10 [&>b]:text-danger',
+  warning: 'bg-warning/10 [&>b]:text-warning',
+  info: 'bg-info/10 [&>b]:text-info',
+  neutral: 'bg-background-tertiary [&>b]:text-foreground',
+};
+
+/** The status box on an ad card (rejected reason, pending notice, and any
+ *  new status that needs a line). One size and padding for every tone, so
+ *  neighbouring cards line up; only the colour changes. */
+export function AdStatusNote({ note }: { note: AdCardNote }) {
+  const t = useT();
+  return (
+    <p className={`mt-3 rounded-xl px-3 py-2 text-sm text-foreground ${NOTE_TONE[note.tone]}`} data-tone={note.tone}>
+      <b className="font-semibold">{t(note.label)}</b> {note.verbatim ? note.text : t(note.text)}
+    </p>
+  );
+}
+
+/** Photo, or the video's cover, on the ad's background colour.
+ *  image_fit "contain" is the portal's cut-out product layout (the product
+ *  sits on the colour, see AdPreview), so the thumbnail keeps the whole
+ *  picture too, inset evenly on a lit tile instead of letterboxed. */
 export function AdThumb({ ad, className = 'h-20 w-20' }: { ad: Pick<Ad, 'media_type' | 'image_url' | 'poster_url' | 'image_fit' | 'bg_color'>; className?: string }) {
   const src = ad.media_type === 'video' ? ad.poster_url : ad.image_url;
+  const contain = ad.media_type !== 'video' && ad.image_fit === 'contain';
+  const bg = ad.bg_color || '#0f172a';
   return (
     <div
       className={`relative flex-shrink-0 overflow-hidden rounded-xl ${className}`}
-      style={{ background: ad.bg_color || '#0f172a' }}
+      style={{
+        backgroundColor: bg,
+        backgroundImage: contain && src ? 'radial-gradient(circle at 50% 45%, rgba(255,255,255,0.22), rgba(255,255,255,0) 70%)' : undefined,
+      }}
+      data-fit={contain ? 'contain' : 'cover'}
     >
       {src ? (
         // eslint-disable-next-line @next/next/no-img-element
@@ -40,7 +68,7 @@ export function AdThumb({ ad, className = 'h-20 w-20' }: { ad: Pick<Ad, 'media_t
           src={src}
           alt=""
           loading="lazy"
-          className={`absolute inset-0 h-full w-full ${ad.image_fit === 'contain' ? 'object-contain p-1' : 'object-cover'}`}
+          className={`absolute inset-0 h-full w-full ${contain ? 'object-contain p-[10%] drop-shadow-[0_4px_8px_rgba(0,0,0,0.35)]' : 'object-cover'}`}
         />
       ) : (
         <div className="absolute inset-0 flex items-center justify-center text-white/50">

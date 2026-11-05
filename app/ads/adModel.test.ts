@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
+  adCardNote,
   adDisplayStatus,
   adToForm,
   changesNeedReview,
@@ -10,6 +11,7 @@ import {
   formToInput,
   isHttpsUrl,
   lastDayToExpiresISO,
+  pauseBlockedReason,
   validateAdForm,
 } from './adModel';
 import type { Ad } from '../lib/types';
@@ -115,5 +117,59 @@ describe('media checks', () => {
     expect(isHttpsUrl('https://cdn.example/a.jpg')).toBe(true);
     expect(isHttpsUrl('http://cdn.example/a.jpg')).toBe(false);
     expect(isHttpsUrl('nope')).toBe(false);
+  });
+});
+
+describe('pauseBlockedReason', () => {
+  it('blocks Pause while an ad is in review or rejected', () => {
+    expect(pauseBlockedReason('pending', true)).toMatch(/approves/);
+    expect(pauseBlockedReason('rejected', true)).toMatch(/not showing/);
+  });
+  it('always allows Resume, so an ad paused before review can be switched back on', () => {
+    expect(pauseBlockedReason('pending', false)).toBeNull();
+    expect(pauseBlockedReason('rejected', false)).toBeNull();
+    expect(pauseBlockedReason('paused', false)).toBeNull();
+  });
+  it('allows Pause on ads that are or will be on portals', () => {
+    for (const s of ['live', 'scheduled', 'ended'] as const) expect(pauseBlockedReason(s, true)).toBeNull();
+  });
+});
+
+describe('adCardNote', () => {
+  it("shows the reviewer's reason on a rejected ad, as written", () => {
+    expect(adCardNote({ review_note: '  Number did not ring. ' }, 'rejected', false))
+      .toEqual({ tone: 'danger', label: 'Why:', text: 'Number did not ring.', verbatim: true });
+  });
+  it('gives a pending ad the same box, in the warning tone', () => {
+    const note = adCardNote({ review_note: null }, 'pending', false);
+    expect(note).toMatchObject({ tone: 'warning', label: 'In review:', verbatim: false });
+  });
+  it('shows nothing for admins on pending ads, nor for a rejection without a reason', () => {
+    expect(adCardNote({ review_note: null }, 'pending', true)).toBeNull();
+    expect(adCardNote({ review_note: '  ' }, 'rejected', false)).toBeNull();
+  });
+  it('shows nothing for live, paused, scheduled or ended ads', () => {
+    for (const s of ['live', 'paused', 'scheduled', 'ended'] as const) {
+      expect(adCardNote({ review_note: 'old note' }, s, false)).toBeNull();
+    }
+  });
+});
+
+describe('adCardNote on sold ads', () => {
+  const sale = (state: string, extra: Record<string, unknown> = {}) =>
+    ({ review_note: null, sale: { state, renewal_due: false, can_renew: false, ...extra } as never });
+  it('says a sold ad is waiting for the shop to pay before anything else', () => {
+    expect(adCardNote(sale('awaiting_payment'), 'pending', false)).toMatchObject({ tone: 'warning', label: 'Waiting for payment:' });
+    expect(adCardNote(sale('payment_failed'), 'live', false)).toMatchObject({ tone: 'danger', label: 'Not paid:' });
+  });
+  it('says a paid ad is in review, and offers renewal near the end', () => {
+    expect(adCardNote(sale('in_review'), 'pending', true)).toMatchObject({ tone: 'info', label: 'Paid:' });
+    expect(adCardNote(sale('live', { renewal_due: true }), 'live', false)).toMatchObject({ label: 'Ends soon:' });
+    expect(adCardNote(sale('ended', { can_renew: true }), 'ended', false)).toMatchObject({ label: 'Ended:' });
+    expect(adCardNote(sale('live'), 'live', false)).toBeNull();
+  });
+  it('still shows the reviewer’s reason on a rejected sold ad', () => {
+    expect(adCardNote({ review_note: 'Blurry', sale: { state: 'rejected' } as never }, 'rejected', false))
+      .toMatchObject({ label: 'Why:', text: 'Blurry' });
   });
 });

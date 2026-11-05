@@ -3,16 +3,19 @@ import DemoButton from './DemoButton';
 import LandingMobileMenu from './LandingMobileMenu';
 import { SHOP_VISIBLE_ON_LANDING } from './shopVisibility';
 
+// Root-relative anchors: this header also renders on the blog and the
+// solution pages, where a bare '#features' points at nothing. On the homepage
+// '/#features' is still an in-page jump.
 const NAV_LINKS = [
-  { label: 'Features', href: '#features' },
-  { label: 'Platform', href: '#platform' },
-  { label: 'How It Works', href: '#how-it-works' },
-  { label: 'Pricing', href: '#pricing' },
-  { label: 'Testimonials', href: '#testimonials' },
+  { label: 'Features', href: '/#features' },
+  { label: 'Platform', href: '/#platform' },
+  { label: 'How It Works', href: '/#how-it-works' },
+  { label: 'Pricing', href: '/#pricing' },
+  { label: 'Testimonials', href: '/#testimonials' },
   { label: 'Blog', href: '/blog' },
   // Last in the list but present: a stuck visitor needs a link to tap, not
   // nine screens of scrolling to find the number.
-  { label: 'Contact', href: '#contact' },
+  { label: 'Contact', href: '/#contact' },
 ];
 
 export default function LandingHeader() {

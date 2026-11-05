@@ -6,6 +6,9 @@ import {
   ownC2BPaybill,
   paybillAccountLabel,
   paybillForCustomer,
+  payByMpesaFor,
+  payByMpesaMessage,
+  whatsappShareUrl,
 } from './customerPaybill';
 
 function method(overrides: Partial<PaymentMethodConfig>): PaymentMethodConfig {
@@ -109,5 +112,66 @@ describe('paybillForCustomer', () => {
     expect(paybillForCustomer({}, '1365970')).toBe('1365970');
     expect(paybillForCustomer({}, customerPaybill([]))).toBe(PLATFORM_PAYBILL);
     expect(paybillForCustomer({}, null)).toBeNull();
+  });
+});
+
+describe('payByMpesaFor', () => {
+  const card = {
+    paybill: '4159825', account_number: '48201503', amount: 1500, unavailable_reason: null,
+  } as const;
+
+  it("uses the backend's card as is, even when it says no paybill", () => {
+    expect(payByMpesaFor({ pay_by_mpesa: card, connection_type: 'hotspot' }, '999')).toBe(card);
+    const none = { paybill: null, account_number: null, amount: null, unavailable_reason: 'no_paybill' as const };
+    expect(payByMpesaFor({ pay_by_mpesa: none, payment_paybill: '4159825', account_number: '48201503', connection_type: 'pppoe', pppoe_username: 'a' }, PLATFORM_PAYBILL)).toBe(none);
+  });
+
+  it('derives PPPoE and static IP cards when the backend sends none', () => {
+    expect(payByMpesaFor({
+      account_number: '48201503', connection_type: 'pppoe', pppoe_username: 'jk',
+      plan: { id: 5, name: 'Home', price: 3000, connection_type: 'pppoe' },
+    }, PLATFORM_PAYBILL)).toEqual({ paybill: PLATFORM_PAYBILL, account_number: '48201503', amount: 3000, unavailable_reason: null });
+    expect(payByMpesaFor({
+      account_number: '48201503', payment_paybill: '555111',
+      plan: { id: 9, name: 'Static', price: 4000, connection_type: 'static_ip' },
+    }, PLATFORM_PAYBILL).paybill).toBe('555111');
+  });
+
+  it('never offers a paybill to hotspot customers, or where the backend said none', () => {
+    expect(payByMpesaFor({ account_number: '48201503', connection_type: 'hotspot' }, PLATFORM_PAYBILL).unavailable_reason).toBe('hotspot');
+    expect(payByMpesaFor({ account_number: '48201503', connection_type: 'pppoe', pppoe_username: 'a', payment_paybill: null }, PLATFORM_PAYBILL).unavailable_reason).toBe('no_paybill');
+    expect(payByMpesaFor({ connection_type: 'pppoe', pppoe_username: 'a' }, PLATFORM_PAYBILL).unavailable_reason).toBe('no_account_number');
+    expect(payByMpesaFor({ account_number: '48201503', connection_type: 'pppoe' }, PLATFORM_PAYBILL).unavailable_reason).toBe('no_pppoe_login');
+  });
+});
+
+describe('payByMpesaMessage', () => {
+  const t = (text: string, vars?: Record<string, string | number>) =>
+    text.replace(/\{(\w+)\}/g, (m, k: string) => (vars && k in vars ? String(vars[k]) : m));
+  const kes = (n: number) => `KES ${n.toLocaleString('en-US')}`;
+
+  it('reads like the message resellers send', () => {
+    expect(payByMpesaMessage(
+      { paybill: '4159825', account_number: '48201503', amount: 1500, unavailable_reason: null }, t, kes,
+    )).toBe('Pay via M-Pesa: Paybill 4159825, Account 48201503. Amount KES 1,500');
+  });
+
+  it('leaves the amount out when there is no plan price', () => {
+    expect(payByMpesaMessage(
+      { paybill: '4159825', account_number: '48201503', amount: null, unavailable_reason: null }, t, kes,
+    )).toBe('Pay via M-Pesa: Paybill 4159825, Account 48201503.');
+  });
+});
+
+describe('whatsappShareUrl', () => {
+  it('opens a chat with the customer in international format', () => {
+    expect(whatsappShareUrl('0712345678', 'hi there')).toBe('https://wa.me/254712345678?text=hi%20there');
+    expect(whatsappShareUrl('+254 712 345 678', 'x')).toBe('https://wa.me/254712345678?text=x');
+    expect(whatsappShareUrl('712345678', 'x')).toBe('https://wa.me/254712345678?text=x');
+  });
+
+  it('lets the reseller pick the chat when the phone is not a number', () => {
+    expect(whatsappShareUrl('AA:BB:CC:11:22:33', 'x')).toBe('https://wa.me/?text=x');
+    expect(whatsappShareUrl(null, 'x')).toBe('https://wa.me/?text=x');
   });
 });

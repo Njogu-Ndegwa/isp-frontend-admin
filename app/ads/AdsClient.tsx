@@ -14,10 +14,12 @@ import Tabs from '../components/Tabs';
 import Pagination from '../components/Pagination';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { PageLoader } from '../components/LoadingSpinner';
-import { AdStatusChip, AdThumb } from './components/AdBits';
+import { AdStatusChip, AdStatusNote, AdThumb } from './components/AdBits';
 import AdPreview from './components/AdPreview';
 import RejectAdDialog from './components/RejectAdDialog';
-import { adToForm, adDisplayStatus, formatCount, PLACEMENT_LABEL, slotLabel } from './adModel';
+import { adCardNote, adToForm, adDisplayStatus, formatCount, pauseBlockedReason, PLACEMENT_LABEL, slotLabel } from './adModel';
+import { kes } from './adSale';
+import PortalAdsOffNotice from './components/PortalAdsOffNotice';
 import { formatTimeSinceUTC } from '../lib/dateUtils';
 
 type View = 'all' | 'review';
@@ -254,7 +256,9 @@ export default function AdsClient() {
       setPending((list) => list.filter((a) => a.id !== ad.id));
       setPendingTotal((n) => Math.max(0, n - 1));
       void loadSummary();
-      showAlert('success', action === 'approve' ? t('Approved. The ad is now live.') : t('Ad rejected. The reseller will see your reason.'));
+      showAlert('success', action === 'approve'
+        ? (ad.slot === 'reseller' && !ad.sale?.paid_total ? t('Approved. It goes live as soon as the shop pays.') : t('Approved. The ad is now live.'))
+        : t('Ad rejected. The reseller will see your reason.'));
       setRejecting(null);
     } catch (err) {
       showAlert('error', err instanceof Error ? err.message : t('Could not save the review.'));
@@ -298,6 +302,7 @@ export default function AdsClient() {
   return (
     <div className="pb-6">
       <Header title={t('Ads')} subtitle={subtitle} action={noAdsAtAll || !newButton ? undefined : newButton} />
+      {!isAdmin && canManage && <PortalAdsOffNotice />}
 
       {noAdsAtAll ? (
         <EmptyState isAdmin={isAdmin} canManage={canManage} />
@@ -317,6 +322,12 @@ export default function AdsClient() {
             <StatTile label={t('Waiting for review')} value={String(pendingTotal)} hint={isAdmin ? t('Oldest first in Review') : t('Bitwave checks each ad')} />
             <StatTile label={t('Views')} value={analytics ? formatCount(analytics.total_impressions) : '–'} hint={t('Phones that saw an ad, last 30 days')} />
             <StatTile label={t('Taps')} value={analytics ? formatCount(analytics.total_clicks) : '–'} hint={t('Calls and other taps, last 30 days')} />
+          </div>
+
+          <div className="-mt-3 mb-5 flex justify-end">
+            <Link href="/ads/sales" className="inline-flex min-h-[44px] items-center text-sm font-semibold text-accent-primary hover:underline">
+              {isAdmin ? t('Sold ads, payments and refunds') : t('Ads I sold and payments')} →
+            </Link>
           </div>
 
           {isAdmin && (
@@ -351,6 +362,11 @@ export default function AdsClient() {
                         <AdStatusChip status="pending" />
                         <span className="badge badge-neutral">{t(slotLabel(ad.slot))}</span>
                         <span className="badge badge-neutral">{t(PLACEMENT_LABEL[ad.placement])}</span>
+                        {ad.slot === 'reseller' && (
+                          ad.sale?.paid_total
+                            ? <span className="badge badge-success">{t('Shop paid {amount}', { amount: kes(ad.sale.paid_total) })}</span>
+                            : <span className="badge badge-warning">{t('Not paid yet')}</span>
+                        )}
                       </div>
                       <h3 className="mt-2 text-lg font-semibold text-foreground">
                         <Link href={`/ads/${ad.id}`} className="hover:underline">{ad.title}</Link>
@@ -425,9 +441,14 @@ export default function AdsClient() {
                 </div>
               ) : (
                 <>
-                <ul className={`grid gap-3 transition-opacity xl:grid-cols-2 ${listLoading ? 'opacity-60' : ''}`} aria-busy={listLoading}>
-                  {ads.map((ad) => ({ ad, status: adDisplayStatus(ad, now) })).map(({ ad, status }) => (
-                    <li key={ad.id} className="rounded-2xl border border-border bg-background-secondary p-3.5 transition-colors hover:border-foreground-muted/40 sm:p-4">
+                {/* minmax(0,1fr): a long title truncates instead of widening the column past the screen. */}
+                <ul className={`grid grid-cols-[minmax(0,1fr)] gap-3 transition-opacity xl:grid-cols-[repeat(2,minmax(0,1fr))] ${listLoading ? 'opacity-60' : ''}`} aria-busy={listLoading}>
+                  {ads.map((ad) => {
+                    const status = adDisplayStatus(ad, now);
+                    return { ad, status, note: adCardNote(ad, status, isAdmin), pauseBlocked: pauseBlockedReason(status, ad.is_active) };
+                  }).map(({ ad, status, note, pauseBlocked }) => (
+                    // Flex column + mt-auto on the actions: cards in a row share a height, so their action rows line up.
+                    <li key={ad.id} data-status={status} className="flex flex-col rounded-2xl border border-border bg-background-secondary p-3.5 transition-colors hover:border-foreground-muted/40 sm:p-4">
                       <div className="flex gap-3.5">
                         <Link href={`/ads/${ad.id}`} className="flex-shrink-0 rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary" aria-label={t('Open {title}', { title: ad.title })} tabIndex={-1}>
                           <AdThumb ad={ad} className="h-[72px] w-[72px] sm:h-24 sm:w-24" />
@@ -454,50 +475,47 @@ export default function AdsClient() {
                         </div>
                       </div>
 
-                      {status === 'rejected' && ad.review_note && (
-                        <p className="mt-3 rounded-xl bg-danger/10 px-3 py-2 text-sm text-foreground">
-                          <span className="font-semibold text-danger">{t('Why:')} </span>{ad.review_note}
-                        </p>
-                      )}
-                      {status === 'pending' && !isAdmin && (
-                        <p className="mt-3 rounded-xl bg-warning/10 px-3 py-2 text-xs text-foreground-muted">
-                          {t('Bitwave is checking this ad. It starts showing once approved.')}
-                        </p>
-                      )}
+                      {note && <AdStatusNote note={note} />}
 
-                      <div className="mt-3 flex flex-wrap items-center gap-1 border-t border-border pt-2.5">
-                        {canManage && (
-                          <>
-                            <Link href={`/ads/${ad.id}/edit`} className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg px-3 text-sm font-medium text-foreground hover:bg-background-tertiary">
-                              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8} aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z" /></svg>
-                              {t('Edit')}
-                            </Link>
+                      <div className="mt-auto pt-3">
+                        <div className="flex flex-wrap items-center gap-1 border-t border-border pt-2.5">
+                          {canManage && (
+                            <>
+                              <Link href={`/ads/${ad.id}/edit`} className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg px-2.5 text-sm font-medium sm:px-3 text-foreground hover:bg-background-tertiary">
+                                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8} aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z" /></svg>
+                                {t('Edit')}
+                              </Link>
+                              {/* aria-disabled, not disabled: the tooltip still shows on hover and the button keeps its place in the row. */}
+                              <button
+                                type="button" disabled={busyId === ad.id}
+                                aria-disabled={pauseBlocked ? true : undefined}
+                                title={pauseBlocked ? t(pauseBlocked) : undefined}
+                                onClick={() => { if (!pauseBlocked) void togglePause(ad); }}
+                                className={`inline-flex min-h-[44px] items-center gap-1.5 rounded-lg px-2.5 text-sm font-medium sm:px-3 text-foreground disabled:opacity-50 ${pauseBlocked ? 'cursor-not-allowed opacity-40' : 'hover:bg-background-tertiary'}`}
+                              >
+                                {ad.is_active ? (
+                                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 5.25v13.5m-7.5-13.5v13.5" /></svg>
+                                ) : (
+                                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z" /></svg>
+                                )}
+                                {ad.is_active ? t('Pause') : t('Resume')}
+                              </button>
+                            </>
+                          )}
+                          <Link href={`/ads/${ad.id}`} className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg px-2.5 text-sm font-medium sm:px-3 text-foreground hover:bg-background-tertiary">
+                            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8} aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" /></svg>
+                            {t('Stats')}
+                          </Link>
+                          {canManage && (
                             <button
-                              type="button" disabled={busyId === ad.id} onClick={() => void togglePause(ad)}
-                              className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg px-3 text-sm font-medium text-foreground hover:bg-background-tertiary disabled:opacity-50"
+                              type="button" disabled={busyId === ad.id} onClick={() => setDeleting(ad)}
+                              className="ml-auto inline-flex min-h-[44px] min-w-[44px] items-center justify-center gap-1.5 rounded-lg px-2.5 text-sm font-medium sm:px-3 text-foreground-muted hover:bg-danger/10 hover:text-danger disabled:opacity-50"
                             >
-                              {ad.is_active ? (
-                                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 5.25v13.5m-7.5-13.5v13.5" /></svg>
-                              ) : (
-                                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z" /></svg>
-                              )}
-                              {ad.is_active ? t('Pause') : t('Resume')}
+                              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8} aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>
+                              <span className="sr-only sm:not-sr-only">{t('Delete')}</span>
                             </button>
-                          </>
-                        )}
-                        <Link href={`/ads/${ad.id}`} className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg px-3 text-sm font-medium text-foreground hover:bg-background-tertiary">
-                          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8} aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" /></svg>
-                          {t('Stats')}
-                        </Link>
-                        {canManage && (
-                          <button
-                            type="button" disabled={busyId === ad.id} onClick={() => setDeleting(ad)}
-                            className="ml-auto inline-flex min-h-[44px] items-center gap-1.5 rounded-lg px-3 text-sm font-medium text-foreground-muted hover:bg-danger/10 hover:text-danger disabled:opacity-50"
-                          >
-                            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8} aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>
-                            {t('Delete')}
-                          </button>
-                        )}
+                          )}
+                        </div>
                       </div>
                     </li>
                   ))}

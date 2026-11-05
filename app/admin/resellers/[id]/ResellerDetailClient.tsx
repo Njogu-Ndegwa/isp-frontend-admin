@@ -1,5 +1,6 @@
 'use client';
 
+import { useT } from '../../../lib/i18n';
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { api } from '../../../lib/api';
@@ -58,6 +59,7 @@ type Tab = 'payments' | 'routers' | 'payouts' | 'charges';
 
 export default function ResellerDetailPage() {
   const { user } = useAuth();
+  const t = useT();
   const { showAlert } = useAlert();
   const router = useRouter();
   const params = useParams();
@@ -594,10 +596,13 @@ export default function ResellerDetailPage() {
         </div>
       </div>
 
-      {/* Revenue Stats */}
+      {/* Transaction volume: this reseller's customer payments (their revenue, not Bitwave's) */}
       <div className="card p-4 sm:p-5 space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h3 className="text-sm font-semibold text-foreground">Revenue</h3>
+          <div>
+            <h3 className="text-sm font-semibold text-foreground">{t('Transaction volume')}</h3>
+            <p className="text-[11px] text-foreground-muted">{t("This reseller's customer payments: their takings, not Bitwave's income")}</p>
+          </div>
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-xs text-foreground-muted">Filter:</span>
             <FilterDatePicker value={revenueStartDate} onChange={setRevenueStartDate} />
@@ -1407,6 +1412,7 @@ function RoutersTab({
   loading: boolean;
   currency: string;
 }) {
+  const t = useT();
   if (loading) {
     return <div className="space-y-2">{Array.from({ length: 2 }).map((_, i) => <SkeletonCard key={i} />)}</div>;
   }
@@ -1450,7 +1456,7 @@ function RoutersTab({
               <p className="font-semibold">{r.customer_count}</p>
             </div>
             <div>
-              <p className="text-xs text-foreground-muted">Revenue</p>
+              <p className="text-xs text-foreground-muted">{t('Volume')}</p>
               <p className="font-semibold text-emerald-500">{formatMoney(r.total_revenue, currency)}</p>
             </div>
           </div>

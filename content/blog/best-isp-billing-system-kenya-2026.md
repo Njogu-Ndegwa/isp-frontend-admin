@@ -1,7 +1,8 @@
 ---
 title: Best ISP Billing System in Kenya (2026) — An Honest Comparison
-description: We compared Kenya's top ISP billing systems on M-Pesa integration, MikroTik support and real KES pricing — Bitwave, Jasiyo, Netily, Ndovu Connect and the free options.
+description: Kenya's top ISP billing systems compared on M-Pesa, MikroTik support and real KES pricing: Bitwave, Jasiyo, Netily, Pawa, Ndovu Connect and free options.
 date: 2026-07-16
+updated: 2026-10-22
 tags: isp billing, mpesa, mikrotik, comparison
 category: comparison
 image: /blog-images/best-isp-billing-system-kenya-2026/cover.webp
@@ -26,15 +27,16 @@ Kenya's billing market has converged on almost identical pricing — roughly KES
 | System | PPPoE | Hotspot | Monthly minimum | Setup fee |
 |---|---|---|---|---|
 | **Bitwave** | KES 25/user | 3% of revenue | KES 500 | **None** |
-| Jasiyo | KES 25/user | 3% of revenue | KES 500 | KES 500 |
+| Jasiyo | KES 25/user | 3% of revenue | KES 1,000 | None if you set it up yourself; KES 500 assisted |
 | Netily (Internetily) | KES 25/user | 3% of revenue | KES 500 | KES 500 |
+| Pawa | Flat KES 1,500/month up to 3,000 customers | Same flat fee, +5% if Pawa collects the payments | KES 1,500 | KES 1,500 |
 | Ndovu Connect | KES 25/user (min 30 users = KES 1,500) | 3% of revenue | KES 500 | Not listed |
 | Centipid | KES 25/user | 3% of revenue | KES 500 | Not listed |
 | "Free" platforms | Capped free tier | Capped free tier | Paid tiers that rise as you grow | Varies |
 
-<!-- VERIFY: competitor prices pulled from their public sites on 16 July 2026 — spot-check before publishing, and re-check quarterly. -->
+<!-- Competitor prices from their public sites, first pulled 16 July 2026. Re-checked 22 October 2026: https://jasiyo.com/pricing , https://netily.co.ke/pricing , https://pawa.co.ke/pricing . Re-check every two months (blog-growth-loop skill). -->
 
-Three things stand out. First, if anyone quotes you a very different price for the same service, ask why. Second, Ndovu's 30-user minimum means a small PPPoE operator pays KES 1,500 where others charge KES 750. Third, with rates this identical the setup fee becomes the tiebreaker — Bitwave is the only one that doesn't charge one. If you want the exact number for your own network, [put your customer count into the pricing calculator](/#pricing) — it takes 30 seconds, in KES.
+Three things stand out. First, if anyone quotes you a very different price for the same service, ask why. Second, Ndovu's 30-user minimum means a small PPPoE operator pays KES 1,500 where others charge KES 750. Third, with rates this close the one-time costs become the tiebreaker. Bitwave charges no setup fee and configures your MikroTik for free; Jasiyo is free only if you do the setup yourself. Pawa is the odd one out with a flat monthly fee, which works out cheaper once a hotspot earns more than about KES 50,000 a month on your own paybill (we compare the two in detail in [Bitwave vs Pawa](/blog/bitwave-vs-pawa)). If you want the exact number for your own network, [put your customer count into the pricing calculator](/#pricing) — it takes 30 seconds, in KES.
 
 ## What about the free billing systems?
 
@@ -61,7 +63,7 @@ To be fair about the competition: Jasiyo's dashboard polish is real, Netily publ
 ## FAQ
 
 **Which ISP billing system is cheapest in Kenya?**
-For most small operators the paid platforms cost the same: about KES 25 per PPPoE customer or 3% of hotspot revenue, with a KES 500 monthly minimum. Bitwave charges no setup fee, which makes it the cheapest to start on that standard pricing. Truly free platforms are cheaper only while you stay under their caps.
+For most small operators the paid platforms cost about the same: KES 25 per PPPoE customer or 3% of hotspot revenue, with a KES 500 monthly minimum (Jasiyo's is KES 1,000). Bitwave charges no setup fee and configures the router for free, which makes it the cheapest to start on that pricing. Pawa's flat KES 1,500 a month gets cheaper for large hotspots. Truly free platforms are cheaper only while you stay under their caps.
 
 **Do all Kenyan billing systems support M-Pesa STK push?**
 All the serious ones do — customers pay from the captive portal and get connected automatically. What varies is reconciliation quality and what happens when Safaricom's API has a bad day, so ask vendors how failed payments are handled.
