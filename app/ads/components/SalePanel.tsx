@@ -188,7 +188,7 @@ export default function SalePanel({
       {!sale ? (
         canAct ? (
           <div className="mt-4 space-y-4">
-            <p className="text-sm text-foreground-muted">{t('This ad was made before payments. Add the shop’s details and send them the M-Pesa prompt. It goes live once they pay and Bitwave approves it.')}</p>
+            <p className="text-sm text-foreground-muted">{t('This ad was made before payments. Add the shop’s details and send them the M-Pesa prompt. It goes live as soon as they pay.')}</p>
             <SaleTermsFields value={form} errors={errors} onChange={setForm} />
             <button type="button" className="btn-primary min-h-[44px] w-full sm:w-auto" onClick={() => void submit('start')} disabled={busy}>
               {busy ? t('Sending…') : t('Send M-Pesa prompt')}
@@ -246,7 +246,7 @@ export default function SalePanel({
           )}
           {sale.weeks_banked > 0 && (
             <p className="mt-2 text-sm text-foreground-muted">
-              {t('{n} paid week(s) start when Bitwave approves the ad.', { n: sale.weeks_banked })}
+              {t('{n} paid week(s) start when the ad goes live.', { n: sale.weeks_banked })}
             </p>
           )}
           {sale.refund_due_total > 0 && (

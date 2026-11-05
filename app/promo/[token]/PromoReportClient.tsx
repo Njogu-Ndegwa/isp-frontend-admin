@@ -98,7 +98,7 @@ export default function PromoReportClient() {
                 weeks: report.payment_due.weeks, price: kes(report.payment_due.price_per_week), total: kes(report.payment_due.amount),
               })}
             </p>
-            <p className="mt-1 text-xs text-foreground-muted">{t('You pay Bitwave Technologies by M-Pesa. The weeks start when the ad goes live.')}</p>
+            <p className="mt-1 text-xs text-foreground-muted">{t('You pay Bitwave Technologies by M-Pesa. Your ad goes live as soon as you pay, and the weeks start then.')}</p>
             <p className="mt-1 text-xs text-foreground-muted">{t('The prompt goes to the M-Pesa number the WiFi owner saved for you. To use another number, ask them to change it.')}</p>
             <button type="button" className="btn-primary mt-3 min-h-[44px] w-full" onClick={() => void pay()} disabled={busy}>
               {busy ? t('Sending…') : t('Send me the M-Pesa prompt')}

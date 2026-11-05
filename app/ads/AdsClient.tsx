@@ -16,16 +16,14 @@ import ConfirmDialog from '../components/ConfirmDialog';
 import { PageLoader } from '../components/LoadingSpinner';
 import { AdStatusChip, AdStatusNote, AdThumb } from './components/AdBits';
 import AdPreview from './components/AdPreview';
-import RejectAdDialog from './components/RejectAdDialog';
 import { adCardNote, adToForm, adDisplayStatus, formatCount, pauseBlockedReason, PLACEMENT_LABEL, slotLabel } from './adModel';
-import { kes } from './adSale';
 import PortalAdsOffNotice from './components/PortalAdsOffNotice';
 import { formatTimeSinceUTC } from '../lib/dateUtils';
 
-type View = 'all' | 'review';
-/** Review states the server filters on; the chips show the finer state. */
+type View = 'all' | 'new';
+/** States the server filters on; the chips show the finer state. */
 const STATUS_FILTERS: { value: AdReviewStatus; label: string }[] = [
-  { value: 'pending', label: 'Pending review' },
+  { value: 'pending', label: 'Not live yet' },
   { value: 'approved', label: 'Approved' },
   { value: 'rejected', label: 'Rejected' },
 ];
@@ -41,20 +39,12 @@ function ownerLabel(ad: Ad): string {
   return ad.owner_name || `Reseller #${ad.owner_user_id}`;
 }
 
-function routerScope(ad: Ad, routers: Router[], isAdmin: boolean): string {
-  if (!ad.router_ids || ad.router_ids.length === 0) {
-    return ad.owner_user_id === null ? 'All routers' : isAdmin ? "All the reseller's routers" : 'All my routers';
-  }
-  if (ad.router_ids.length === 1) return routers.find((r) => r.id === ad.router_ids![0])?.name ?? '1 router';
-  return `${ad.router_ids.length} routers`;
-}
-
 function EmptyState({ isAdmin, canManage }: { isAdmin: boolean; canManage: boolean }) {
   const t = useT();
   const points = isAdmin
     ? [
         ['Sell space network-wide', 'Platform ads show on every Bitwave portal, or on the routers you pick.'],
-        ['Review reseller ads', 'Resellers’ ads wait here until you approve them.'],
+        ['Check reseller ads afterwards', 'Resellers’ ads go live by themselves. Newly live lists them, so you can take down anything wrong.'],
         ['Customers can call before they pay', 'Every hero ad gets a Call button, so it works with no internet.'],
       ]
     : [
@@ -95,7 +85,7 @@ function EmptyState({ isAdmin, canManage }: { isAdmin: boolean; canManage: boole
             <p className="mt-6 text-sm text-foreground-muted">{t('Ask the account owner to create ads.')}</p>
           )}
           {!isAdmin && canManage && (
-            <p className="mt-3 text-xs text-foreground-muted">{t('Bitwave checks each ad before it goes live.')}</p>
+            <p className="mt-3 text-xs text-foreground-muted">{t('Your own promo goes live straight away. A sold ad goes live as soon as the shop pays.')}</p>
           )}
         </div>
         <div className="hidden md:block" aria-hidden="true">
@@ -143,8 +133,9 @@ export default function AdsClient() {
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(20);
-  const [pending, setPending] = useState<Ad[]>([]);
-  const [pendingTotal, setPendingTotal] = useState(0);
+  const [newlyLive, setNewlyLive] = useState<Ad[]>([]);
+  const [newlyLiveTotal, setNewlyLiveTotal] = useState(0);
+  const [notLiveTotal, setNotLiveTotal] = useState(0);
   const [analytics, setAnalytics] = useState<AdAnalytics | null>(null);
   const [routers, setRouters] = useState<Router[]>([]);
   const [loaded, setLoaded] = useState(false);
@@ -157,7 +148,6 @@ export default function AdsClient() {
   const [ownerFilter, setOwnerFilter] = useState('');
   const [busyId, setBusyId] = useState<number | null>(null);
   const [deleting, setDeleting] = useState<Ad | null>(null);
-  const [rejecting, setRejecting] = useState<Ad | null>(null);
   const [now] = useState(() => Date.now());
 
   // One page of ads, filtered on the server.
@@ -183,20 +173,22 @@ export default function AdsClient() {
     }
   }, [page, perPage, statusFilter, placementFilter, ownerFilter, t]);
 
-  // Totals for the tiles, the review queue and router names.
+  // Totals for the tiles, the admins' newly live list and router names.
   const loadSummary = useCallback(async () => {
-    const [totals, queue, routerList] = await Promise.all([
+    const [totals, notLive, fresh, routerList] = await Promise.all([
       api.getAdAnalytics(30).catch(() => null),
-      api.getManagedAds({ status: 'pending', perPage: 100 }).catch(() => null),
+      api.getManagedAds({ status: 'pending', perPage: 1 }).catch(() => null),
+      isAdmin ? api.getManagedAds({ newly_live: true, perPage: 50 }).catch(() => null) : Promise.resolve(null),
       api.getRouters().catch(() => [] as Router[]),
     ]);
     setAnalytics(totals);
-    if (queue) {
-      setPending([...queue.ads].sort((x, y) => String(x.created_at).localeCompare(String(y.created_at))));
-      setPendingTotal(queue.pagination.total);
+    if (notLive) setNotLiveTotal(notLive.pagination.total);
+    if (fresh) {
+      setNewlyLive(fresh.ads);
+      setNewlyLiveTotal(fresh.pagination.total);
     }
     setRouters(routerList);
-  }, []);
+  }, [isAdmin]);
 
   useEffect(() => { void loadList(); }, [loadList]);
   useEffect(() => { void loadSummary(); }, [loadSummary]);
@@ -209,12 +201,12 @@ export default function AdsClient() {
     for (const r of routers) {
       if (r.owner_user_id && r.owner_name && r.owner_role !== 'admin') map.set(r.owner_user_id, r.owner_name);
     }
-    for (const a of [...ads, ...pending]) {
+    for (const a of [...ads, ...newlyLive]) {
       if (a.owner_user_id !== null && !map.has(a.owner_user_id)) map.set(a.owner_user_id, ownerLabel(a));
     }
     return Array.from(map, ([id, name]) => ({ value: String(id), label: name }))
       .sort((x, y) => x.label.localeCompare(y.label));
-  }, [routers, ads, pending]);
+  }, [routers, ads, newlyLive]);
 
   const replace = (updated: Ad) => setAds((list) => list.map((a) => (a.id === updated.id ? { ...a, ...updated } : a)));
 
@@ -248,25 +240,6 @@ export default function AdsClient() {
     }
   };
 
-  const review = async (ad: Ad, action: 'approve' | 'reject', note?: string) => {
-    setBusyId(ad.id);
-    try {
-      const updated = await api.reviewAd(ad.id, action, note);
-      replace(updated);
-      setPending((list) => list.filter((a) => a.id !== ad.id));
-      setPendingTotal((n) => Math.max(0, n - 1));
-      void loadSummary();
-      showAlert('success', action === 'approve'
-        ? (ad.slot === 'reseller' && !ad.sale?.paid_total ? t('Approved. It goes live as soon as the shop pays.') : t('Approved. The ad is now live.'))
-        : t('Ad rejected. The reseller will see your reason.'));
-      setRejecting(null);
-    } catch (err) {
-      showAlert('error', err instanceof Error ? err.message : t('Could not save the review.'));
-    } finally {
-      setBusyId(null);
-    }
-  };
-
   const filtersActive = !!(statusFilter || placementFilter || ownerFilter);
   const clearFilters = () => { setStatusFilter(''); setPlacementFilter(''); setOwnerFilter(''); setPage(1); };
   const noAdsAtAll = loaded && !loadError && !filtersActive && total === 0 && (analytics?.total_ads ?? 0) === 0;
@@ -294,7 +267,7 @@ export default function AdsClient() {
   }
 
   const subtitle = isAdmin
-    ? t('Every ad on Bitwave portals, and the reseller ads waiting for review')
+    ? t('Every ad on Bitwave portals. Ads go live by themselves; take down anything wrong.')
     : t('Ads on your WiFi login page: your own promos and ads you sell');
 
   const selectCls = 'input !py-2.5 min-h-[44px] sm:!w-auto';
@@ -319,7 +292,7 @@ export default function AdsClient() {
 
           <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
             <StatTile label={t('Live now')} value={analytics ? String(analytics.active_ads) : '–'} hint={analytics ? t('{n} ads in total', { n: analytics.total_ads }) : undefined} />
-            <StatTile label={t('Waiting for review')} value={String(pendingTotal)} hint={isAdmin ? t('Oldest first in Review') : t('Bitwave checks each ad')} />
+            <StatTile label={t('Not live yet')} value={String(notLiveTotal)} hint={isAdmin ? t('Older ads nobody has switched on') : t('Change one and save to put it live')} />
             <StatTile label={t('Views')} value={analytics ? formatCount(analytics.total_impressions) : '–'} hint={t('Phones that saw an ad, last 30 days')} />
             <StatTile label={t('Taps')} value={analytics ? formatCount(analytics.total_clicks) : '–'} hint={t('Calls and other taps, last 30 days')} />
           </div>
@@ -338,72 +311,39 @@ export default function AdsClient() {
               ariaLabel={t('Ads view')}
               tabs={[
                 { value: 'all', label: t('All ads'), count: analytics?.total_ads ?? total },
-                { value: 'review', label: t('Review'), count: pendingTotal },
+                { value: 'new', label: t('Newly live'), count: newlyLiveTotal },
               ]}
             />
           )}
 
-          {isAdmin && view === 'review' ? (
-            pending.length === 0 ? (
+          {isAdmin && view === 'new' ? (
+            newlyLive.length === 0 ? (
               <div className="rounded-2xl border border-border bg-background-secondary p-10 text-center">
-                <p className="text-base font-semibold text-foreground">{t('Nothing to review')}</p>
-                <p className="mt-1 text-sm text-foreground-muted">{t('New and edited reseller ads show up here.')}</p>
+                <p className="text-base font-semibold text-foreground">{t('Nothing newly live')}</p>
+                <p className="mt-1 text-sm text-foreground-muted">{t('Resellers’ ads show up here as soon as they go live.')}</p>
               </div>
             ) : (
-              <div className="space-y-4">
-                {pendingTotal > pending.length && (
-                  <p className="text-xs text-foreground-muted">{t('Showing the oldest {n} of {total}. Approve or reject these to see the rest.', { n: pending.length, total: pendingTotal })}</p>
-                )}
-                {pending.map((ad) => (
-                  <article key={ad.id} className="grid gap-5 rounded-2xl border border-border bg-background-secondary p-4 sm:p-5 lg:grid-cols-[340px_minmax(0,1fr)]">
-                    <AdPreview compact ad={adToForm(ad)} wifiName={ad.owner_name || t('WiFi name')} />
-                    <div className="flex min-w-0 flex-col">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <AdStatusChip status="pending" />
-                        <span className="badge badge-neutral">{t(slotLabel(ad.slot))}</span>
-                        <span className="badge badge-neutral">{t(PLACEMENT_LABEL[ad.placement])}</span>
-                        {ad.slot === 'reseller' && (
-                          ad.sale?.paid_total
-                            ? <span className="badge badge-success">{t('Shop paid {amount}', { amount: kes(ad.sale.paid_total) })}</span>
-                            : <span className="badge badge-warning">{t('Not paid yet')}</span>
-                        )}
+              <>
+                <p className="mb-3 text-xs text-foreground-muted">
+                  {t('Newest first. Nothing here is waiting for you. Open an ad to take it down if something is wrong.')}
+                </p>
+                <ul className="divide-y divide-border rounded-2xl border border-border bg-background-secondary" data-testid="newly-live">
+                  {newlyLive.map((ad) => (
+                    <li key={ad.id} className="flex items-center gap-3 p-3 sm:p-3.5">
+                      <Link href={`/ads/${ad.id}`} className="flex-shrink-0" tabIndex={-1} aria-hidden="true">
+                        <AdThumb ad={ad} className="h-14 w-14" />
+                      </Link>
+                      <div className="min-w-0 flex-1">
+                        <Link href={`/ads/${ad.id}`} className="block truncate text-sm font-semibold text-foreground hover:underline">{ad.title}</Link>
+                        <p className="truncate text-xs text-foreground-muted">{ad.seller_name} · {ownerLabel(ad)} · {t(slotLabel(ad.slot))}</p>
                       </div>
-                      <h3 className="mt-2 text-lg font-semibold text-foreground">
-                        <Link href={`/ads/${ad.id}`} className="hover:underline">{ad.title}</Link>
-                      </h3>
-                      <p className="text-sm text-foreground-muted">
-                        {ad.seller_name}{ad.price ? ` · ${ad.price}` : ''}
-                      </p>
-                      <dl className="mt-4 grid grid-cols-1 gap-x-6 gap-y-2.5 text-sm sm:grid-cols-2">
-                        <div><dt className="text-xs text-foreground-muted">{t('Reseller')}</dt><dd className="text-foreground">{ownerLabel(ad)}</dd></div>
-                        <div>
-                          <dt className="text-xs text-foreground-muted">{t('Call button dials')}</dt>
-                          <dd><a href={`tel:${ad.phone_number.replace(/\s+/g, '')}`} className="font-medium text-accent-primary hover:underline">{ad.phone_number}</a></dd>
-                        </div>
-                        <div><dt className="text-xs text-foreground-muted">{t('Shows on')}</dt><dd className="text-foreground">{t(routerScope(ad, routers, true))}</dd></div>
-                        <div><dt className="text-xs text-foreground-muted">{t('Sent')}</dt><dd className="text-foreground">{formatTimeSinceUTC(ad.created_at) ?? '–'}</dd></div>
-                        {ad.description && (
-                          <div className="sm:col-span-2"><dt className="text-xs text-foreground-muted">{t('Description')}</dt><dd className="text-foreground">{ad.description}</dd></div>
-                        )}
-                      </dl>
-                      <div className="mt-5 flex flex-col gap-2 sm:mt-auto sm:flex-row sm:justify-end sm:pt-5">
-                        <button
-                          type="button" disabled={busyId === ad.id} onClick={() => setRejecting(ad)}
-                          className="min-h-[44px] rounded-[10px] border border-danger/40 px-5 text-sm font-semibold text-danger hover:bg-danger/10 disabled:opacity-50"
-                        >
-                          {t('Reject')}
-                        </button>
-                        <button
-                          type="button" disabled={busyId === ad.id} onClick={() => void review(ad, 'approve')}
-                          className="min-h-[44px] rounded-[10px] bg-success px-6 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50"
-                        >
-                          {busyId === ad.id ? t('Saving…') : t('Approve')}
-                        </button>
-                      </div>
-                    </div>
-                  </article>
-                ))}
-              </div>
+                      <span className="flex-shrink-0 text-right text-xs text-foreground-muted">
+                        {formatTimeSinceUTC(ad.starts_at ?? ad.reviewed_at ?? ad.created_at) ?? '–'}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </>
             )
           ) : (
             <>
@@ -549,13 +489,6 @@ export default function AdsClient() {
         confirmLabel={t('Delete ad')}
         variant="danger"
         loading={busyId === deleting?.id}
-      />
-      <RejectAdDialog
-        open={!!rejecting}
-        adTitle={rejecting?.title ?? ''}
-        loading={busyId === rejecting?.id}
-        onCancel={() => setRejecting(null)}
-        onReject={(note) => rejecting && void review(rejecting, 'reject', note)}
       />
     </div>
   );
