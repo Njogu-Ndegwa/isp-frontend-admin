@@ -9,6 +9,9 @@ import { fullOnboardingCheck } from '../hooks/useOnboardingStatus';
 import DeviceModeTroubleshoot from '../components/DeviceModeTroubleshoot';
 import HotspotPackageTroubleshoot from '../components/HotspotPackageTroubleshoot';
 import PlanNameHint from '../components/PlanNameHint';
+import RouterWaitStatus, { RouterSetupHelp } from './RouterWaitStatus';
+import { isCodeExpired, isCodeLive } from './routerWait';
+import { useT } from '../lib/i18n';
 import SpeedInputHint from '../components/SpeedInputHint';
 import { MAX_PLAN_NAME_LENGTH, isPlanNameTooLong } from '../lib/planName';
 import type {
@@ -223,7 +226,7 @@ export default function SetupPage() {
 }
 
 const stepDescriptions: Record<string, string> = {
-  router: 'Your router is the foundation of your network. Generate a token and paste the command into your MikroTik terminal.',
+  router: 'Your router is the foundation of your network. Generate a setup code and paste the command into your MikroTik terminal.',
   plan: 'Create an internet plan that your customers can purchase. You can add more plans later.',
   payment: 'Set up how you receive payments from your customers. M-Pesa and bank transfers supported.',
   profile: 'Add your support phone so your customers can reach you when they need help.',
@@ -235,42 +238,59 @@ const stepDescriptions: Record<string, string> = {
 
 function RouterStep({ onComplete }: { onComplete: () => void }) {
   const { showAlert } = useAlert();
+  const t = useT();
   const [vpnType, setVpnType] = useState<VpnType>('wireguard');
   const [generating, setGenerating] = useState(false);
   const [tokenResult, setTokenResult] = useState<ProvisionTokenResponse | null>(null);
   const [tokens, setTokens] = useState<ProvisionToken[]>([]);
   const [checking, setChecking] = useState(false);
+  const [checkedByOwner, setCheckedByOwner] = useState(false);
+  const [nowMs, setNowMs] = useState(() => Date.now());
   const [copied, setCopied] = useState(false);
   const [showVideo, setShowVideo] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const loadTokens = useCallback(async () => {
     try {
       const data = await api.getProvisionTokens();
       setTokens(data);
-      const hasProvisioned = data.some(t => t.status === 'provisioned');
-      if (hasProvisioned) {
-        if (pollRef.current) clearInterval(pollRef.current);
-        onComplete();
-      }
+      setNowMs(Date.now());
+      if (data.some(token => token.status === 'provisioned')) onComplete();
     } catch { /* ignore */ }
   }, [onComplete]);
 
   useEffect(() => {
     loadTokens();
-    return () => { if (pollRef.current) clearInterval(pollRef.current); };
   }, [loadTokens]);
+
+  // The list is newest first, so this is the code the owner most likely pasted.
+  const liveTokens = tokens.filter(isCodeLive);
+  const newestLive = liveTokens[0];
+  const hasExpiredCode = tokens.some(isCodeExpired);
+
+  // The code just generated, as the backend now reports it.
+  const shownToken = tokenResult ? tokens.find(token => token.token === tokenResult.token) : undefined;
+  const shownCodeExpired = shownToken ? isCodeExpired(shownToken) : false;
+
+  // Keep watching whenever a code could still come good, including after a
+  // reload: the router often finishes while the owner is away from this page.
+  const shouldPoll = tokenResult ? !shownCodeExpired : liveTokens.length > 0;
+  useEffect(() => {
+    if (!shouldPoll) return;
+    const id = setInterval(loadTokens, 8000);
+    return () => clearInterval(id);
+  }, [shouldPoll, loadTokens]);
 
   const handleGenerate = async () => {
     try {
       setGenerating(true);
       const result = await api.createProvisionToken(vpnType);
       setTokenResult(result);
-      showAlert('success', 'Token generated! Copy the command to your MikroTik terminal.');
-      pollRef.current = setInterval(loadTokens, 8000);
+      setCheckedByOwner(false);
+      setNowMs(Date.now());
+      showAlert('success', t('Setup code ready. Copy the command to your MikroTik terminal.'));
     } catch (err) {
-      showAlert('error', err instanceof Error ? err.message : 'Failed to generate token');
+      showAlert('error', err instanceof Error ? err.message : t('Failed to generate setup code'));
     } finally {
       setGenerating(false);
     }
@@ -290,6 +310,8 @@ function RouterStep({ onComplete }: { onComplete: () => void }) {
     setChecking(true);
     await loadTokens();
     setChecking(false);
+    // Still on this step means the router has not called home.
+    setCheckedByOwner(true);
   };
 
   return (
@@ -388,6 +410,17 @@ function RouterStep({ onComplete }: { onComplete: () => void }) {
             </div>
           </div>
 
+          {vpnType === 'wireguard' && <DeviceModeTroubleshoot />}
+
+          {hasExpiredCode && liveTokens.length === 0 && (
+            <div className="rounded-xl border border-warning/30 bg-warning/5 p-3" role="status">
+              <p className="text-sm font-semibold text-foreground">{t('Your last setup code has expired')}</p>
+              <p className="text-xs text-foreground-muted mt-0.5 leading-relaxed">
+                {t('Codes work for 24 hours. Generate a new one below and paste the new command.')}
+              </p>
+            </div>
+          )}
+
           <button
             onClick={handleGenerate}
             disabled={generating}
@@ -397,29 +430,29 @@ function RouterStep({ onComplete }: { onComplete: () => void }) {
             {generating ? (
               <>
                 <div className="w-4 h-4 border-2 border-foreground/30 border-t-foreground rounded-full animate-spin" />
-                Generating...
+                {t('Generating...')}
               </>
             ) : (
               <>
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                 </svg>
-                Generate Provisioning Token
+                {t('Generate setup code')}
               </>
             )}
           </button>
 
-          {tokens.filter(t => t.status === 'pending' && !t.expired).length > 0 && (
+          {newestLive && (
             <div className="card p-4 space-y-3">
-              <h4 className="text-sm font-semibold text-foreground">Pending Tokens</h4>
-              {tokens.filter(t => t.status === 'pending' && !t.expired).map(token => (
+              <h4 className="text-sm font-semibold text-foreground">{t('Setup codes waiting for your router')}</h4>
+              {liveTokens.map(token => (
                 <div key={token.id} className="rounded-lg border border-warning/20 bg-warning/5 p-3">
                   <p className="text-sm font-medium text-foreground">{token.router_name}</p>
                   <p className="text-xs text-foreground-muted">{token.identity} &middot; {token.vpn_ip}</p>
                   {token.command && (
                     <div className="mt-2">
-                      <div className="bg-background-tertiary rounded-lg p-3 overflow-x-auto" style={{ WebkitOverflowScrolling: 'touch' }}>
-                        <code className="text-xs font-mono text-foreground whitespace-pre">{token.command}</code>
+                      <div className="bg-background-tertiary rounded-lg p-3">
+                        <code className="text-xs font-mono text-foreground whitespace-pre-wrap break-all">{token.command}</code>
                       </div>
                       <button
                         onClick={() => handleCopy(token.command!)}
@@ -442,20 +475,34 @@ function RouterStep({ onComplete }: { onComplete: () => void }) {
                   )}
                 </div>
               ))}
-              <button
-                onClick={handleCheckStatus}
-                disabled={checking}
-                className="w-full py-2 text-xs font-medium text-foreground-muted hover:text-foreground border border-border rounded-xl flex items-center justify-center gap-1.5 transition-colors active:opacity-70"
-                style={{ touchAction: 'manipulation' }}
-              >
-                <svg className={`w-3.5 h-3.5 ${checking ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                </svg>
-                {checking ? 'Checking...' : 'Check if router connected'}
-              </button>
+              <RouterWaitStatus
+                createdAt={newestLive.created_at}
+                nowMs={nowMs}
+                checkedByOwner={checkedByOwner}
+                checking={checking}
+                onCheck={handleCheckStatus}
+                isRouterOs7={newestLive.vpn_type === 'wireguard'}
+              />
             </div>
           )}
         </>
+      ) : shownCodeExpired ? (
+        <div className="card p-4 space-y-3" role="status">
+          <div>
+            <p className="text-sm font-semibold text-foreground">{t('This setup code has expired')}</p>
+            <p className="text-xs text-foreground-muted mt-0.5 leading-relaxed">
+              {t('Codes work for 24 hours. Generate a new one below and paste the new command.')}
+            </p>
+          </div>
+          <button
+            onClick={handleGenerate}
+            disabled={generating}
+            className="btn-primary w-full py-3 text-sm font-semibold active:opacity-70"
+            style={{ touchAction: 'manipulation' }}
+          >
+            {generating ? t('Generating...') : t('Generate a new code')}
+          </button>
+        </div>
       ) : (
         <div className="card p-4 space-y-4">
           <div className="flex items-start gap-3 p-3 rounded-lg bg-success/10 border border-success/20">
@@ -463,23 +510,28 @@ function RouterStep({ onComplete }: { onComplete: () => void }) {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
             </svg>
             <div>
-              <p className="text-sm font-medium text-foreground">Token Generated!</p>
+              <p className="text-sm font-medium text-foreground">{t('Your setup code is ready')}</p>
               <p className="text-xs text-foreground-muted mt-0.5">
-                Copy the command below and paste it into your MikroTik terminal.
+                {t('It works for {hours} hours. Your router is not connected yet. Follow the steps below.', { hours: tokenResult.expires_in_hours })}
               </p>
             </div>
           </div>
 
+          {tokenResult.vpn_type === 'wireguard' && <DeviceModeTroubleshoot defaultOpen />}
+
           <div>
             <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-medium text-foreground-muted">MikroTik Command</span>
+              <span className="text-xs font-medium text-foreground-muted">{t('Your setup command')}</span>
               <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-500 font-medium">
                 {tokenResult.vpn_type === 'wireguard' ? 'RouterOS v7' : 'RouterOS v6'}
               </span>
             </div>
-            <div className="bg-background-tertiary rounded-lg p-3 overflow-x-auto" style={{ WebkitOverflowScrolling: 'touch' }}>
-              <code className="text-xs font-mono text-foreground whitespace-pre">{tokenResult.command}</code>
+            <div className="bg-background-tertiary rounded-lg p-3">
+              <code className="text-xs font-mono text-foreground whitespace-pre-wrap break-all">{tokenResult.command}</code>
             </div>
+            <p className="text-xs text-foreground-muted mt-2 leading-relaxed">
+              {t('Paste it in Winbox, under New Terminal, and press Enter.')}
+            </p>
           </div>
 
           <button
@@ -500,28 +552,21 @@ function RouterStep({ onComplete }: { onComplete: () => void }) {
             )}
           </button>
 
-          <DeviceModeTroubleshoot />
+          <RouterWaitStatus
+            createdAt={tokenResult.created_at}
+            nowMs={nowMs}
+            checkedByOwner={checkedByOwner}
+            checking={checking}
+            onCheck={handleCheckStatus}
+            isRouterOs7={tokenResult.vpn_type === 'wireguard'}
+            lifetimeHours={tokenResult.expires_in_hours}
+          />
 
           <HotspotPackageTroubleshoot />
-
-          <div className="text-center space-y-3 pt-2">
-            <p className="text-xs text-foreground-muted">
-              After pasting the command, your router will connect automatically.
-            </p>
-            <button
-              onClick={handleCheckStatus}
-              disabled={checking}
-              className="w-full py-2.5 text-sm font-medium text-foreground-muted hover:text-foreground border border-border rounded-xl flex items-center justify-center gap-1.5 transition-colors active:opacity-70"
-              style={{ touchAction: 'manipulation' }}
-            >
-              <svg className={`w-4 h-4 ${checking ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-              </svg>
-              {checking ? 'Checking...' : 'Check if router connected'}
-            </button>
-          </div>
         </div>
       )}
+
+      <RouterSetupHelp />
     </div>
   );
 }
