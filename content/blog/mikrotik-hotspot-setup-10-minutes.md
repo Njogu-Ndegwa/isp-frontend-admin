@@ -50,9 +50,11 @@ Copy that command and paste it into the Winbox terminal, then hit Enter.
 
 The router now downloads its full configuration from the internet — hotspot, captive portal, user packages and M-Pesa payment flow, all pre-configured. That's why ether1 must have a live internet connection.
 
-## Step 5: Reboot and you're done
+## Step 5: Wait for the check and you're done
 
-After about 20 seconds the download completes and the router asks to reboot — click yes. When it comes back up, your hotspot is live: customers connect to the WiFi, land on your branded portal, and pay via M-Pesa.
+After about a minute the setup finishes and the terminal gives you its prompt back. There's no reboot and nothing to confirm. Your hotspot is already live: customers connect to the WiFi, land on your branded portal, and pay via M-Pesa.
+
+A few minutes later Bitwave checks the router for you (hotspot, internet, connection to Bitwave) and sends an SMS and an inbox message. It either says the router is set up correctly or tells you exactly what to fix.
 
 ## Troubleshooting
 
