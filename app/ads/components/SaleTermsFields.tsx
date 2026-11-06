@@ -2,7 +2,7 @@
 
 import { useT } from '../../lib/i18n';
 import {
-  MAX_PRICE_PER_WEEK,
+  MAX_TOTAL,
   MAX_WEEKS,
   MIN_PRICE_PER_WEEK,
   kes,
@@ -92,9 +92,9 @@ export default function SaleTermsFields({
         </div>
         <div data-field="sale-price_per_week">
           <label htmlFor="sale-price_per_week" className="mb-1.5 block text-sm font-medium text-foreground">{t('Price per week (KES)')}</label>
-          <input {...field('price_per_week')} type="number" inputMode="numeric" min={MIN_PRICE_PER_WEEK} step={50}
+          <input {...field('price_per_week')} type="number" inputMode="numeric" min={MIN_PRICE_PER_WEEK} step={1}
             value={value.price_per_week} onChange={(e) => set('price_per_week', e.target.value)} />
-          <p className="mt-1.5 text-xs text-foreground-muted">{t('KES {min} to {max}.', { min: MIN_PRICE_PER_WEEK, max: MAX_PRICE_PER_WEEK.toLocaleString('en-US') })}</p>
+          <p className="mt-1.5 text-xs text-foreground-muted">{t('Charge what you want, from KES {min}. One M-Pesa payment can be up to KES {max}.', { min: MIN_PRICE_PER_WEEK, max: MAX_TOTAL.toLocaleString('en-US') })}</p>
           {err('price_per_week')}
         </div>
       </div>

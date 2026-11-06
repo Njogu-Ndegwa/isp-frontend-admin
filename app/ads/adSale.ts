@@ -10,10 +10,12 @@
 import type { AdPromptStatus, AdSaleState, AdSaleSummary } from '../lib/types';
 
 export const FEE_PERCENT = 20;
-export const MIN_PRICE_PER_WEEK = 200;
-export const MAX_PRICE_PER_WEEK = 12_500;
+/** The reseller sets the price. M-Pesa only takes whole shillings, 1 or more. */
+export const MIN_PRICE_PER_WEEK = 1;
 export const MIN_WEEKS = 1;
 export const MAX_WEEKS = 12;
+/** Safaricom's limit on one M-Pesa payment. One order is one prompt. Same as ad_sales.MAX_TOTAL. */
+export const MAX_TOTAL = 250_000;
 
 export interface SaleSplit {
   amount: number;
@@ -58,7 +60,7 @@ export interface SaleTermsForm {
 export type SaleTermsErrors = Partial<Record<keyof SaleTermsForm, string>>;
 
 export function emptySaleTerms(): SaleTermsForm {
-  return { business_name: '', business_phone: '', weeks: '2', price_per_week: String(MIN_PRICE_PER_WEEK) };
+  return { business_name: '', business_phone: '', weeks: '2', price_per_week: '' };
 }
 
 /** Same rules as the backend's validate_terms, as messages for the form. */
@@ -72,9 +74,9 @@ export function validateSaleTerms(form: SaleTermsForm, needName = true): SaleTer
   }
   const price = Number(form.price_per_week);
   if (!Number.isInteger(price) || price < MIN_PRICE_PER_WEEK) {
-    e.price_per_week = `At least KES ${MIN_PRICE_PER_WEEK} a week, in whole shillings.`;
-  } else if (price > MAX_PRICE_PER_WEEK) {
-    e.price_per_week = `At most KES ${MAX_PRICE_PER_WEEK.toLocaleString('en-US')} a week.`;
+    e.price_per_week = 'Enter a price in whole shillings, KES 1 or more.';
+  } else if (Number.isInteger(weeks) && weeks * price > MAX_TOTAL) {
+    e.price_per_week = 'M-Pesa takes at most KES 250,000 in one payment. Lower the price or the weeks.';
   }
   return e;
 }

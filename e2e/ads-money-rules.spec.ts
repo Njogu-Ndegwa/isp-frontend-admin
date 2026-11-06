@@ -110,9 +110,43 @@ for (const width of [1280, 375]) {
       await page.goto('/ads/new');
       await page.getByText('An ad I sold').first().click();
       await page.getByLabel('Weeks').selectOption('1');
+      await page.getByLabel('Price per week (KES)').fill('200');
       await expect(page.getByTestId('sale-split')).toContainText('KES 160');
       await expect(page.getByTestId('transfer-fee-note')).toContainText('transfer fee');
       await noSideScroll(page);
+    });
+
+    test('the reseller can charge any amount, up to what one M-Pesa payment takes', async ({ page }) => {
+      await setup(page, RESELLER, SALE);
+      const posts: string[] = [];
+      page.on('request', (r) => { if (r.method() === 'POST' && /\/api\/ad-sales/.test(r.url())) posts.push(r.url()); });
+      await page.goto('/ads/new');
+      await page.getByText('An ad I sold').first().click();
+      await page.getByLabel('Weeks').selectOption('1');
+
+      const price = page.getByLabel('Price per week (KES)');
+      await expect(price).toHaveValue('');
+      await expect(price).toHaveAttribute('min', '1');
+      await expect(price).toHaveAttribute('step', '1');
+      await expect(page.getByText('Charge what you want, from KES 1. One M-Pesa payment can be up to KES 250,000.')).toBeVisible();
+      await expect(page.locator('body')).not.toContainText('12,500');
+
+      const split = page.getByTestId('sale-split').locator('dd');
+      for (const [amount, fee, share] of [['1', 'KES 0', 'KES 1'], ['4', 'KES 0', 'KES 4'], ['5', 'KES 1', 'KES 4'], ['12501', 'KES 2,500', 'KES 10,001']]) {
+        await price.fill(amount);
+        await expect(split.nth(1)).toHaveText(fee);
+        await expect(split.nth(2)).toHaveText(share);
+      }
+      await noSideScroll(page);
+
+      await price.fill('250001');
+      await page.getByRole('button', { name: 'Send M-Pesa prompt to the shop' }).click();
+      await expect(page.getByText('M-Pesa takes at most KES 250,000 in one payment. Lower the price or the weeks.')).toBeVisible();
+      await price.fill('0');
+      await page.getByRole('button', { name: 'Send M-Pesa prompt to the shop' }).click();
+      await expect(page.getByText('Enter a price in whole shillings, KES 1 or more.')).toBeVisible();
+      expect(posts).toEqual([]);
+      await page.screenshot({ path: `test-results/any-price-${width}.png`, fullPage: true });
     });
 
     test('/ads/sales lets an admin see and act on the refund', async ({ page }) => {
