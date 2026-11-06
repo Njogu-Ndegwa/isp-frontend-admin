@@ -4,12 +4,12 @@ description: An M-Pesa WiFi hotspot lets customers pick a package, approve an M-
 date: 2026-11-21
 tags: mpesa wifi hotspot, m-pesa, stk push, hotspot billing, captive portal, wifi business kenya
 category: mpesa
-image: /blog-images/mpesa-wifi-hotspot/cover.webp
-imageAlt: Phone showing a Bitwave hotspot login page with three steps, Pick Plan, Enter Phone and Pay and Connect, the flow behind an M-Pesa WiFi hotspot
+image: /blog-images/mpesa-wifi-hotspot/cover-photo.webp
+imageAlt: Woman at a cafe table holding her phone beside a coffee, seen from behind, the moment a customer pays for an M-Pesa WiFi hotspot
 published: true
 ---
 
-<!-- Cover source: frame at 00:14 of our TikTok 7689095384576150791, the demo portal on Dennis's phone, cropped to 720x405 with no phone number in shot. -->
+<!-- Cover source: https://www.pexels.com/photo/5239923/ | License: https://www.pexels.com/license/ (free for commercial use, no attribution required). Stock photo, self-hosted; not Bitwave's network or customers. Replaced an earlier video frame or screen capture on 2026-11-06. -->
 
 An M-Pesa WiFi hotspot lets a customer buy internet from their phone with no voucher, no agent and no call to you. They connect to your WiFi, pick a package, approve an M-Pesa prompt, and the router lets them online. To see how fast that is, we bought a KSh 1 package on camera. It took about 30 seconds.
 

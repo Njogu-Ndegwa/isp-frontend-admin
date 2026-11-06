@@ -4,12 +4,12 @@ description: OLT vs media converter: a media converter feeds one router over fib
 date: 2026-11-13
 tags: olt vs media converter, media converter, olt, gpon, fibre isp, pppoe
 category: pppoe
-image: /blog-images/olt-vs-media-converter/cover.webp
-imageAlt: A fibre media converter held up to the camera, showing its Ethernet port, status lights and fibre port
+image: /blog-images/olt-vs-media-converter/cover-photo.webp
+imageAlt: Black fibre media converter with a yellow fibre patch cable connected and two green status lights on
 published: true
 ---
 
-<!-- Cover source: frame at 00:22 of Dennis's raw take for TikTok 7692710395789757714 (C:\Biwavte-Content-Library\source-videos\olt-vs-mc\IMG_8113.MOV, 1080x1920 HLG, tone-mapped to SDR). Full frame added to the photo library as equipment/equipment_media-converter-held_20261004_olt-or-media-converter_00-22.jpg. Cover is a 720x405 crop around the device, no upscaling. -->
+<!-- Cover source: AI-generated with Higgsfield (gpt_image_2_6), scene: generic black fibre media converter with a yellow patch cable on a dark surface. No text, logos or real people; generic equipment, not a specific model. Replaced an earlier video frame on 2026-11-06. -->
 
 OLT vs media converter depends on how many homes you want to serve. A media converter takes one fibre in and gives one Ethernet cable out, so it feeds a single router. An OLT sends one fibre to a splitter, and the splitter divides it among many homes. Serving many homes, use an OLT. Feeding one router with a simple setup, use a media converter.
 

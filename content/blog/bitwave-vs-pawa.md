@@ -4,12 +4,12 @@ description: Bitwave vs Pawa compared: 3% of hotspot revenue vs a KES 1,500 flat
 date: 2026-11-19
 tags: pawa wifi, pawa alternative, hotspot billing, mikrotik, comparison
 category: comparison
-image: /blog-images/bitwave-vs-pawa/cover.webp
-imageAlt: Bitwave router uptime page on a phone showing 100% window uptime and an online MikroTik router
+image: /blog-images/bitwave-vs-pawa/cover-photo.webp
+imageAlt: Hands using a calculator over a pile of receipts, working out a percentage fee against a flat fee
 published: true
 ---
 
-<!-- Cover: Biwavte photo library, dashboard/dashboard_router-uptime-page_20260615_every-monday-morning-i-check_00-50.jpg (real Bitwave admin UI held up by Dennis, 576x1024 source -> 576x324 crop at focus 0.40, not upscaled). INDEX has no privacy note; the router shown is Bitwave's own Wangige test router; the burned-in caption sits outside the crop. No competitor imagery used. -->
+<!-- Cover source: https://www.pexels.com/photo/7680696/ | License: https://www.pexels.com/license/ (free for commercial use, no attribution required). Stock photo, self-hosted; not Bitwave's network or customers. Replaced an earlier video frame or screen capture on 2026-11-06. -->
 
 Pawa WiFi charges a flat monthly fee (KES 1,500 on its Starter plan) plus a one-time KES 1,500 onboarding fee. Bitwave Technologies charges [3% of hotspot revenue with a KES 500 minimum](/pricing) and no setup fee. Bitwave costs less below about KES 50,000 a month in hotspot revenue. Above that, Pawa with your own paybill costs less.
 

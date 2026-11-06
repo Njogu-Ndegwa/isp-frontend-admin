@@ -4,12 +4,12 @@ description: Best MikroTik router for a hotspot business in Kenya: hAP lite, RB9
 date: 2026-11-08
 tags: mikrotik, hotspot business, hap lite, rb951, hex, l009, rb4011, kenya
 category: mikrotik
-image: /blog-images/best-mikrotik-router-hotspot-kenya/cover.webp
-imageAlt: MikroTik RB951 router wired to a Tenda router on a coffee table during a hotspot setup
+image: /blog-images/best-mikrotik-router-hotspot-kenya/cover-photo.webp
+imageAlt: White wireless router with four antennas lit in blue and pink, representing the choice of router for a hotspot business
 published: true
 ---
 
-<!-- Cover source: Biwavte photo library, equipment/equipment_b951-tenda-table-couch_20260516_pppoe-is-one-of-the_00-06.jpg (own TikTok frame, 720x1280 source, cropped to 720x405 at --focus 0.62; the "B 951" caption sits below the crop, no private data). Visual verdict: soft but on-topic; both routers and the cabling read at 360 px. The face is cropped out because a 16:9 band cannot hold both face and routers. -->
+<!-- Cover source: https://www.pexels.com/photo/29711663/ | License: https://www.pexels.com/license/ (free for commercial use, no attribution required). Stock photo, self-hosted; not Bitwave's network or customers. Replaced an earlier video frame or screen capture on 2026-11-06. -->
 
 The best MikroTik router for a hotspot business in Kenya depends on how many people you serve. For a first site, the RB951 at about KSh 7,500 to 8,000 is the one we recommend most: the busiest RB951 in our billing system carries 56 people at once. The hAP lite at about KSh 4,000 works for testing the business. The L009 and RB4011 are for when you are growing into a real ISP.
 

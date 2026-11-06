@@ -4,12 +4,12 @@ description: How many users can a MikroTik router handle? Real peaks from our bi
 date: 2026-11-05
 tags: mikrotik, router capacity, hap lite, rb951, rb5009, routeros, hotspot
 category: mikrotik
-image: /blog-images/how-many-users-mikrotik-router/cover.webp
-imageAlt: MikroTik hAP lite held up to show its Ethernet ports, wired to a Tenda router on a coffee table
+image: /blog-images/how-many-users-mikrotik-router/cover-photo.webp
+imageAlt: Customers on phones and laptops at a busy cafe with a white wireless router on the wall, the load behind how many users a router can handle
 published: true
 ---
 
-<!-- Cover source: Biwavte photo library, equipment/equipment_hap-lite-ports-hands_20260519_hotspot-setup-is-one-of_00-54.jpg (own TikTok frame, 720x1280 source, cropped to 720x405 at --focus 0.60; caption band below the crop, no private data). Visual verdict: slightly soft but the hAP lite and its ports read clearly at 360 px. -->
+<!-- Cover source: AI-generated with Higgsfield (gpt_image_2_6), scene: busy Kenyan cafe with customers on phones and laptops and a generic white router on a wall shelf. No text, logos or real people; generic equipment, not a specific model. Replaced an earlier video frame on 2026-11-06. -->
 
 How many users can a MikroTik router handle? More than Google says, if it's set up right. We pulled the numbers from the routers running on our own billing system. The busiest RB951 had 56 people online at the same time. The busiest hAP lite had 28, but only on RouterOS 6. The top router in the whole system, an RB5009, peaked at 78.
 

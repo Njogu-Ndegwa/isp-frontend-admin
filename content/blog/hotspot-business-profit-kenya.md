@@ -4,12 +4,12 @@ description: How much does a hotspot business make in Kenya? One small market si
 date: 2026-11-10
 tags: hotspot business profit, how much does a hotspot business make, wifi business kenya, hotspot revenue, hotspot business
 category: business
-image: /blog-images/hotspot-business-profit-kenya/cover.webp
-imageAlt: Bitwave dashboard on a phone showing a hotspot's revenue, KES 529 so far today and KES 26K over 30 days, next to Dennis smiling
+image: /blog-images/hotspot-business-profit-kenya/cover-photo.webp
+imageAlt: Shopkeeper counting banknotes at a wooden counter beside an open notebook, with a white router on the shelf behind
 published: true
 ---
 
-<!-- Cover source: frame at 00:06 of Dennis's "I make 800 shillings a day" video (C:\Biwavte-Content-Library\source-videos\20260527_i-make-800-shillings-a_3469.mp4, 720x1280), cropped with make_cover.py --focus 0.38 -> 720x405, 13 KB. Shows the dashboard summary cards only (revenue, transactions, unique customers, average transaction): no phone numbers, names or transaction rows; the burned-in caption sits below the crop. Visual verdict: slightly soft (TikTok export) but KES 529 / KES 26K and Dennis's face read at 360 px. Not used by any other post; the transaction-list frames from the same video were rejected because they show customer MSISDNs. -->
+<!-- Cover source: AI-generated with Higgsfield (gpt_image_2_6), scene: shopkeeper counting cash at a counter with a notebook and a generic white router on the shelf. No text, logos or real people; generic equipment, not a specific model. Replaced an earlier video frame on 2026-11-06. -->
 
 How much does a hotspot business make in Kenya? Honestly, less than TikTok makes it look, and it depends mostly on where you put it. One small hotspot we run in a market makes about KSh 800 a day. Over 30 days that came to about KSh 26,000 from 2,068 payments. Below are the real numbers from the dashboard, what comes off them, and what decides whether your site makes more or less.
 

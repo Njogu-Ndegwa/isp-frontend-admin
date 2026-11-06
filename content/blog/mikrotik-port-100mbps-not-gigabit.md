@@ -4,12 +4,12 @@ description: MikroTik port running at 100Mbps instead of 1000? Usually one bad w
 date: 2026-11-17
 tags: mikrotik, gigabit, ethernet cable, winbox, routeros, slow internet
 category: mikrotik
-image: /blog-images/mikrotik-port-100mbps-not-gigabit/cover.webp
-imageAlt: WinBox open on a laptop, ready to log in to a MikroTik router and check its port rate
+image: /blog-images/mikrotik-port-100mbps-not-gigabit/cover-photo.webp
+imageAlt: Blue Ethernet cables plugged into a row of network switch ports, the links to check when a port runs at 100Mbps instead of 1000
 published: true
 ---
 
-<!-- Cover source: Biwavte photo library, dashboard/dashboard_winbox-setup-laptop_20260715_a-detailed-tutorial-on-how_01-00.jpg (own TikTok frame, 720x1280 source, cropped to 720x405 at --focus 0.30; caption band below the crop). The demo router's MAC address was blurred in both places it appeared. Visual verdict: sharp enough, WinBox and the MikroTik logo read at 360 px. -->
+<!-- Cover source: https://www.pexels.com/photo/2881232/ | License: https://www.pexels.com/license/ (free for commercial use, no attribution required). Stock photo, self-hosted; not Bitwave's network or customers. Replaced an earlier video frame or screen capture on 2026-11-06. -->
 
 You pay for 200 Mbps, but your customers only ever get about 100. If your MikroTik port is running at 100Mbps instead of 1000, the router is quietly dropping half your internet and gives you no warning. The cause is almost always the Ethernet cable: gigabit needs all 8 wires inside it, and 100 Mbps needs only 4. One broken wire or a bad crimp and the port falls back to 100.
 

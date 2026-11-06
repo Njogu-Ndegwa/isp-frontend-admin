@@ -4,12 +4,12 @@ description: Hotspot connected but no internet while the MikroTik itself is onli
 date: 2026-11-04
 tags: connected no internet, hotspot, mikrotik, dhcp, access point, tenda
 category: hotspot
-image: /blog-images/hotspot-connected-no-internet/cover.webp
-imageAlt: Phone showing a hotspot login page with a You're Online message, what customers should see when hotspot connected but no internet is fixed
+image: /blog-images/hotspot-connected-no-internet/cover-photo.webp
+imageAlt: Hand holding a phone stuck on a loading screen, what customers see when a hotspot says connected but there is no internet
 published: true
 ---
 
-<!-- Cover source: Biwavte photo library, dashboard/dashboard_portal-youre-online-success_20260614_today-i-m-going-to_00-09.jpg (own TikTok frame, 720x1280 source, cropped to 720x405 at --focus 0.30; the phone's browser title bar showing the network name was blurred before cropping, caption band below the crop, portal shows demo "Acme Internet Service" data). Visual verdict: phone overlay slightly soft but "You're Online!" reads at 360 px; face fully in frame. Replaced the desk flat-lay, which how-to-start-wifi-hotspot-business-kenya already uses. -->
+<!-- Cover source: https://www.pexels.com/photo/4114774/ | License: https://www.pexels.com/license/ (free for commercial use, no attribution required). Stock photo, self-hosted; not Bitwave's network or customers. Replaced an earlier video frame or screen capture on 2026-11-06. -->
 
 Your hotspot is connected but there is no internet. Customers join the WiFi, the phone says "connected, no internet", the login page never shows up, and yet when you log in to the MikroTik it has internet and pings fine. In most cases we see, the MikroTik is not the problem. The access point is. Your Tenda, TP-Link or whatever router you use to spread the signal still has its own DHCP server switched on, and it is handing out IP addresses that the MikroTik doesn't know about.
 

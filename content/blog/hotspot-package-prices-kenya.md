@@ -4,12 +4,12 @@ description: Hotspot package prices in Kenya from 84,804 real payments. KSh 10 s
 date: 2026-11-07
 tags: hotspot packages, hotspot package prices, wifi hotspot packages, hotspot pricing, wifi business kenya, mpesa
 category: business
-image: /blog-images/hotspot-package-prices-kenya/cover.webp
-imageAlt: Hotspot package chart from Bitwave payment data showing KSh 10 as the most bought package at 1 in 3 buys, KSh 5 at 1 in 5 and KSh 20 at 1 in 8
+image: /blog-images/hotspot-package-prices-kenya/cover-photo.webp
+imageAlt: Pile of Kenyan shilling coins, the small amounts behind hotspot package prices in Kenya
 published: true
 ---
 
-<!-- Cover source: frame at 00:19 of Dennis's "which hotspot package sells the most" video (C:\Biwavte-Content-Library\ready-to-publish\hotspot-packages\Bitwave-HotspotPackages-HDR-phone.mp4, 1080x1920 HLG, tone-mapped to SDR with ffmpeg zscale+hable), cropped to the on-screen package chart with make_cover.py --focus 0.175 -> 720x405, 14 KB. Shows only the video's own data graphic: no phone numbers, names or transaction rows. Visual verdict: sharp, the three package rows and "1 IN 3" read clearly at 360 px. Beat the library options because no library photo shows package data. -->
+<!-- Cover source: https://www.pexels.com/photo/15049146/ | License: https://www.pexels.com/license/ (free for commercial use, no attribution required). Stock photo, self-hosted; not Bitwave's network or customers. Replaced an earlier video frame or screen capture on 2026-11-06. -->
 
 Which hotspot packages sell the most in Kenya, and what should you charge? We looked at 84,804 hotspot payments made through Bitwave billing over 30 days to find out. KSh 10 is the clear winner: 1 in 3 customers buy it. KSh 5 comes second. But the cheap packages that sell most bring in the least money per sale, and that changes how you should set your hotspot package prices.
 

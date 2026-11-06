@@ -4,12 +4,12 @@ description: HTTP Injector hotspot bypass on MikroTik lets people use your WiFi 
 date: 2026-11-18
 tags: http injector, hotspot bypass, mikrotik, hotspot security, revenue loss
 category: mikrotik
-image: /blog-images/hotspot-bypass-http-injector-mikrotik/cover.webp
-imageAlt: Bitwave router dashboard showing the number of hotspot users online, the figure to compare with paying customers when checking for an HTTP Injector hotspot bypass on MikroTik
+image: /blog-images/hotspot-bypass-http-injector-mikrotik/cover-photo.webp
+imageAlt: Padlock and chain hanging from a gate with an open hook beside it, a picture of security that can be got around
 published: true
 ---
 
-<!-- Cover source: Biwavte photo library, dashboard/dashboard_app-health-live-bandwidth_20260527_i-make-800-shillings-a_00-36.jpg (own app screen recording, 720x1280 source, cropped to 600x338 with --zoom 1.2 --focus 0.45; caption band outside the crop, no customer data visible) -->
+<!-- Cover source: https://www.pexels.com/photo/9689364/ | License: https://www.pexels.com/license/ (free for commercial use, no attribution required). Stock photo, self-hosted; not Bitwave's network or customers. Replaced an earlier video frame or screen capture on 2026-11-06. -->
 
 Sharp boys have reached the ISPs. An app called HTTP Injector has been going round, and with it people are getting internet on MikroTik hotspots without paying. They skip the login page entirely. If your hotspot revenue has been dropping while the router looks as busy as ever, part of your money may be going to them. This post covers the HTTP Injector hotspot bypass on MikroTik from the operator's side: how to tell it's happening, why it works, and how to close it.
 
