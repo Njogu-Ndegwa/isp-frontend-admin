@@ -4,12 +4,12 @@ description: Start a hotspot business without fibre using a Safaricom or Airtel 
 date: 2026-11-15
 tags: hotspot business without fibre, 4g hotspot business, 5g home router, safaricom home router, mikrotik, wifi business kenya
 category: hotspot
-image: /blog-images/hotspot-business-without-fibre-kenya/cover.webp
-imageAlt: A white 4G home router held in front of a desk with a MikroTik hAP lite, the basic kit for a hotspot business without fibre
+image: /blog-images/hotspot-business-without-fibre-kenya/cover-photo.webp
+imageAlt: White router on a shop window sill with an outdoor antenna on a pole outside, looking over a small Kenyan town
 published: true
 ---
 
-<!-- Cover source: Biwavte photo library, props/props_holding-4g-cpe-smiling-down_20260716_here-s-everything-you-need_01-22.jpg (own TikTok frame, caption-free, 576x1024 source, cropped to 576x324 with make_cover.py --focus 0.76; not upscaled, 11 KB). Shows a white 4G CPE in Dennis's hands and a MikroTik hAP lite on the desk behind; the CPE's brand logo is turned away and no private data is visible. Visual verdict: a little soft and the face is out of frame (a 16:9 band can't hold both face and devices), but both devices read at 360 px. Chosen over frames from the source video, where burned-in captions sit across the router and the hand-held shots are motion-blurred, and over the desk flat-lay that other posts already use. -->
+<!-- Cover source: AI-generated with Higgsfield (gpt_image_2_6), scene: generic white router on a shop window sill with an outdoor antenna on a pole and a small town beyond. No text, logos or real people; generic equipment, not a specific model. Replaced an earlier video frame on 2026-11-06. -->
 
 You can start a hotspot business without fibre. If no fibre provider reaches your area, or nobody nearby can supply internet, a Safaricom or Airtel 4G/5G home router can be your internet source. You put a SIM card in it, connect it to a MikroTik, and the MikroTik turns that connection into a hotspot that customers pay for with M-Pesa. In remote areas and small plots, this is how many people start.
 

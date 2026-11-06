@@ -4,12 +4,12 @@ description: M-Pesa till or paybill for your hotspot? A till suits small hotspot
 date: 2026-11-20
 tags: mpesa till or paybill, m-pesa, hotspot business, paybill, buy goods till, kenya
 category: mpesa
-image: /blog-images/mpesa-till-or-paybill-hotspot/cover.webp
-imageAlt: Bitwave account statement on a phone showing customer payments going straight to a bank account, one way to choose M-Pesa till or paybill for a hotspot
+image: /blog-images/mpesa-till-or-paybill-hotspot/cover-photo.webp
+imageAlt: Man sitting in the doorway of a small grocery shop, the kind of business that has to choose an M-Pesa till or paybill
 published: true
 ---
 
-<!-- Cover source: frame at 00:14 of our TikTok 7690555167653088519, own Bitwave screen recording, cropped to 720x405 at --focus 0.26 so the burned-in caption is outside the crop. -->
+<!-- Cover source: https://www.pexels.com/photo/19402267/ | License: https://www.pexels.com/license/ (free for commercial use, no attribution required). Stock photo, self-hosted; not Bitwave's network or customers. Replaced an earlier video frame or screen capture on 2026-11-06. -->
 
 M-Pesa till or paybill for your hotspot business? For most new hotspots, a Buy Goods till is the better first choice: customers buy small packages, nobody has to type an account number, and it usually opens faster. A paybill makes more sense for monthly home customers on PPPoE, because each payment has to find the right account.
 

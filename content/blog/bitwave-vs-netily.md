@@ -4,12 +4,12 @@ description: Bitwave vs Netily: both charge KES 25 per PPPoE user or 3% of hotsp
 date: 2026-11-09
 tags: netily, internetily, netily alternative, isp billing, comparison
 category: comparison
-image: /blog-images/bitwave-vs-netily/cover.webp
-imageAlt: Bitwave dashboard on a phone showing a MikroTik router's CPU, memory and storage load with 26 hotspot users online
+image: /blog-images/bitwave-vs-netily/cover-photo.webp
+imageAlt: Man working on a laptop at a wooden desk, the kind of research an operator does when comparing ISP billing systems
 published: true
 ---
 
-<!-- Cover: Biwavte photo library, dashboard/dashboard_app-health-live-bandwidth_20260527_i-make-800-shillings-a_00-36.jpg (real Bitwave admin UI, 720x1280 source -> 720x405 crop at focus 0.32). INDEX has no privacy note for this frame; the burned-in caption sits outside the crop. No competitor imagery used. -->
+<!-- Cover source: https://www.pexels.com/photo/5792979/ | License: https://www.pexels.com/license/ (free for commercial use, no attribution required). Stock photo, self-hosted; not Bitwave's network or customers. Replaced an earlier video frame or screen capture on 2026-11-06. -->
 
 Netily (the product now calls itself Internetily) and Bitwave Technologies charge the same rates: KES 25 per PPPoE subscriber or 3% of hotspot revenue, with a KES 500 monthly minimum. Choose Bitwave if you run MikroTik and want [free router setup with no activation fee](/signup). Choose Netily if you want a subscriber self-service portal or run mixed-vendor equipment.
 

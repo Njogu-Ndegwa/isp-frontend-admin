@@ -4,12 +4,12 @@ description: Bitwave vs Jasiyo compared: same KES 25 PPPoE and 3% hotspot rates,
 date: 2026-11-14
 tags: jasiyo, jasiyo alternative, isp billing, mikrotik, comparison
 category: comparison
-image: /blog-images/bitwave-vs-jasiyo/cover.webp
-imageAlt: Bitwave dashboard on a phone showing daily hotspot revenue and plan performance in KES
+image: /blog-images/bitwave-vs-jasiyo/cover-photo.webp
+imageAlt: Woman in a red sweater working on a laptop in a bright room, the kind of owner choosing an ISP billing system
 published: true
 ---
 
-<!-- Cover: Biwavte photo library, dashboard/dashboard_daily-revenue-plans_20260615_every-monday-morning-i-check_00-33.jpg (real Bitwave admin UI over Dennis on the couch, 576x1024 source -> 576x324 crop at focus 0.30, not upscaled). INDEX has no privacy note; the burned-in caption sits outside the crop. No competitor imagery used. -->
+<!-- Cover source: https://www.pexels.com/photo/3769004/ | License: https://www.pexels.com/license/ (free for commercial use, no attribution required). Stock photo, self-hosted; not Bitwave's network or customers. Replaced an earlier video frame or screen capture on 2026-11-06. -->
 
 Jasiyo and Bitwave Technologies charge the same rates: KES 25 per PPPoE customer or 3% of hotspot revenue. Choose Bitwave if you're small (its minimum is KES 500 against Jasiyo's KES 1,000), run a MikroTik hAP lite, or want [the router configured for you](/signup). Choose Jasiyo if you prefer setting up yourself on RouterOS 7 hardware.
 

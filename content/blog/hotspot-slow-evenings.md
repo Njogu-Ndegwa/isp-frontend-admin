@@ -4,12 +4,12 @@ description: Hotspot internet slow in the evening but your bandwidth graph isn't
 date: 2026-11-11
 tags: slow internet, hotspot, mikrotik, dns cache, evening peak, bandwidth
 category: hotspot
-image: /blog-images/hotspot-slow-evenings/cover.webp
-imageAlt: Bitwave bandwidth history graph showing hotspot traffic well below the line's capacity, the typical picture when hotspot internet is slow in the evening for another reason
+image: /blog-images/hotspot-slow-evenings/cover-photo.webp
+imageAlt: People at a brightly lit shop on a dark street in the evening, the busy hours when hotspot internet feels slow
 published: true
 ---
 
-<!-- Cover source: Biwavte photo library, dashboard/dashboard_bandwidth-history-graph_20260527_i-make-800-shillings-a_00-40.jpg (own app screen recording, 720x1280 source, cropped to 554x312 with --zoom 1.3 --focus 0.605; the partial phone number at the top edge and the caption band are outside the crop) -->
+<!-- Cover source: https://www.pexels.com/photo/27583660/ | License: https://www.pexels.com/license/ (free for commercial use, no attribution required). Stock photo, self-hosted; not Bitwave's network or customers. Replaced an earlier video frame or screen capture on 2026-11-06. -->
 
 Every evening at around 7, the calls start: "net iko slow". Your hotspot internet is slow in the evening, so the obvious guess is that too many customers are online and you've run out of bandwidth. Many operators go straight to their internet provider and pay for a bigger line. Then the evenings stay slow anyway.
 

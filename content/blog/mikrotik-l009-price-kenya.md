@@ -4,12 +4,12 @@ description: MikroTik L009 price in Kenya is about KES 16,000-21,000. Compare it
 date: 2026-11-12
 tags: mikrotik, l009, isp hardware, kenya
 category: mikrotik
-image: /blog-images/mikrotik-l009-price-kenya/cover-crisp.webp
-imageAlt: MikroTik routers and networking equipment arranged clearly on a table
+image: /blog-images/mikrotik-l009-price-kenya/cover-photo.webp
+imageAlt: White router with four Ethernet ports and two antennas on a glass shop counter, with boxed stock on the shelves behind
 published: true
 ---
 
-<!-- Cover source: Biwavte photo library / equipment_mikrotik-boxes-table_20260515_we-supply-and-install-mikrotik_00-03.jpg -->
+<!-- Cover source: AI-generated with Higgsfield (gpt_image_2_6), scene: generic white router on a glass counter in a Nairobi electronics shop. No text, logos or real people; generic equipment, not a specific model. Replaced an earlier video frame on 2026-11-06. -->
 
 The MikroTik L009 price in Kenya currently sits at about KES 16,000 to KES 21,000, depending on the seller, VAT treatment and warranty. That puts the L009UiGS-RM between an entry-level RB951 and the more powerful RB4011, both in cost and hardware capacity.
 

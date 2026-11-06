@@ -4,12 +4,12 @@ description: PPPoE vs hotspot: if you're new, start with a hotspot. It is cheape
 date: 2026-11-06
 tags: pppoe vs hotspot, pppoe, hotspot business, isp business kenya, mikrotik
 category: pppoe
-image: /blog-images/pppoe-vs-hotspot/cover.webp
-imageAlt: Dennis of Bitwave Technologies explaining whether to start with a hotspot or PPPoE
+image: /blog-images/pppoe-vs-hotspot/cover-photo.webp
+imageAlt: Aerial view of Nairobi's rooftops and office blocks, the kind of area where an operator weighs PPPoE vs hotspot
 published: true
 ---
 
-<!-- Cover source: frame at 00:11.5 of our TikTok 7650798433111969042 ("Hotspot or PPPoE, which one should you start with?"), local copy C:\Biwavte-Content-Library\source-videos\20260613_hotspot-or-pppoe-which-one_2919.mp4, 720x1280 source; 720x405 head-and-shoulders crop at y=215, burned-in caption band (~75% height) outside the crop. Chose this over the desk flatlay (equipment_desk-flatlay-cpe-haplite) because hotspot-connected-no-internet already uses that photo. -->
+<!-- Cover source: https://www.pexels.com/photo/28977077/ | License: https://www.pexels.com/license/ (free for commercial use, no attribution required). Stock photo, self-hosted; not Bitwave's network or customers. Replaced an earlier video frame or screen capture on 2026-11-06. -->
 
 PPPoE vs hotspot comes down to how much money you have and how much time you can give the business. If you are a beginner in Kenya, start with a hotspot. It is easier to set up, less complicated, and your customers will call you far less often. Move to PPPoE once the hotspot is running and you have learned how the business works.
 
