@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   daysLeft,
   displayPhone,
+  emptySaleTerms,
   normalizeKenyanMobile,
   promptInFlight,
   saleSplit,
@@ -19,11 +20,17 @@ describe('the 80/20 split', () => {
 
   it('always adds up to what the shop pays', () => {
     for (let weeks = 1; weeks <= 12; weeks++) {
-      for (const price of [200, 201, 333, 999, 12_500]) {
+      for (const price of [1, 2, 3, 4, 5, 199, 200, 201, 333, 999, 12_500, 12_501, 20_833]) {
         const s = saleSplit(weeks, price);
         expect(s.fee + s.share).toBe(weeks * price);
       }
     }
+  });
+
+  it('takes no fee on KES 1 to 4, with no minimum fee', () => {
+    expect(saleSplit(1, 1)).toEqual({ amount: 1, fee: 0, share: 1 });
+    expect(saleSplit(1, 4)).toEqual({ amount: 4, fee: 0, share: 4 });
+    expect(saleSplit(1, 5)).toEqual({ amount: 5, fee: 1, share: 4 });
   });
 });
 
@@ -34,9 +41,32 @@ describe('sale terms', () => {
     expect(validateSaleTerms(ok)).toEqual({});
   });
 
-  it('enforces KES 200 a week, 1-12 whole weeks and an M-Pesa number', () => {
-    expect(validateSaleTerms({ ...ok, price_per_week: '199' }).price_per_week).toBeTruthy();
-    expect(validateSaleTerms({ ...ok, price_per_week: '250.5' }).price_per_week).toBeTruthy();
+  it('lets the reseller charge any whole amount from KES 1', () => {
+    for (const price of ['1', '4', '5', '199', '12501']) {
+      expect(validateSaleTerms({ ...ok, weeks: '1', price_per_week: price })).toEqual({});
+    }
+  });
+
+  it('starts with no price, so the reseller has to choose one', () => {
+    expect(emptySaleTerms().price_per_week).toBe('');
+    expect(validateSaleTerms({ ...ok, price_per_week: '' }).price_per_week).toBeTruthy();
+  });
+
+  it('refuses a price M-Pesa can’t take', () => {
+    for (const price of ['0', '-5', '250.5', 'abc']) {
+      expect(validateSaleTerms({ ...ok, price_per_week: price }).price_per_week).toBe('Enter a price in whole shillings, KES 1 or more.');
+    }
+  });
+
+  it('checks the total against one M-Pesa payment, not the weekly price', () => {
+    expect(validateSaleTerms({ ...ok, weeks: '1', price_per_week: '250000' })).toEqual({});
+    expect(validateSaleTerms({ ...ok, weeks: '12', price_per_week: '20833' })).toEqual({});
+    const over = 'M-Pesa takes at most KES 250,000 in one payment. Lower the price or the weeks.';
+    expect(validateSaleTerms({ ...ok, weeks: '1', price_per_week: '250001' }).price_per_week).toBe(over);
+    expect(validateSaleTerms({ ...ok, weeks: '12', price_per_week: '20834' }).price_per_week).toBe(over);
+  });
+
+  it('enforces 1-12 whole weeks and an M-Pesa number', () => {
     expect(validateSaleTerms({ ...ok, weeks: '0' }).weeks).toBeTruthy();
     expect(validateSaleTerms({ ...ok, weeks: '13' }).weeks).toBeTruthy();
     expect(validateSaleTerms({ ...ok, business_phone: '+237677123456' }).business_phone).toBeTruthy();
