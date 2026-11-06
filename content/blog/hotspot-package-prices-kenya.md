@@ -17,8 +17,6 @@ If you're building your first price list, here's what the payments say and how t
 
 *This post is based on our [TikTok on which hotspot package sells the most](https://www.tiktok.com/@bitwavetechnologies/video/7696781884717550900).*
 
-<!-- VERIFY: the video's headline card says "50,000+ payments analysed" and the voiceover says "over 50,000 transactions", while the on-screen data line and the caption say 84,804 / 84,000. This post uses 84,804 (the exact figure shown on screen). -->
-
 ## Which hotspot package sells the most in Kenya?
 
 The KSh 10 package sells the most. Out of 84,804 hotspot payments, 1 in every 3 was a KSh 10 purchase. KSh 5 was second at 1 in 5, and KSh 20 was third at 1 in 8. Together those three prices make up about two out of every three hotspot purchases.
@@ -64,8 +62,6 @@ A practical package menu has five rungs:
 5. **A weekly package.** The best value for regular customers, and the most predictable income for you.
 
 Which duration each price buys depends on your area, your competitors and your internet line, so we haven't put durations next to the prices. Check what other hotspots near you charge, then make sure each rung up the ladder is clearly better value than buying the cheaper rung several times. If a day costs the same as six KSh 10 packages, a regular customer has no reason to switch.
-
-<!-- VERIFY: the video gives prices (KSh 5/10/20) but not the duration each price buys. Dennis may want to add typical durations (e.g. what KSh 10 usually buys) if he has them from the same data. -->
 
 Then promote the longer packages. Put the weekly package on your login page with its value spelled out, and tell regular customers about it. If you use [Bitwave hotspot billing](/hotspot-billing-system-kenya), every package is paid for by M-Pesa STK push and switches on automatically, so a customer can move from KSh 10 to a week in a few seconds without calling you.
 
