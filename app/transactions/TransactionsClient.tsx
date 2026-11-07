@@ -588,7 +588,7 @@ export default function TransactionsPage() {
                       variant: tx.status === 'completed' ? 'success' : tx.status === 'failed' ? 'danger' : tx.status === 'pending' ? 'warning' : 'neutral'
                     }}
                     value={{
-                      text: `KES ${(tx.amount ?? 0).toLocaleString()}`,
+                      text: formatAmount(tx.amount ?? 0),
                       highlight: true
                     }}
                     secondary={{
@@ -915,7 +915,7 @@ export default function TransactionsPage() {
                           <p className="text-xs sm:text-sm text-foreground-muted">{data.count} transactions</p>
                         </div>
                         <p className="text-base sm:text-lg font-bold text-accent-primary flex-shrink-0 ml-3">
-                          KES {data.amount.toLocaleString()}
+                          {formatAmount(data.amount)}
                         </p>
                       </div>
                     );
@@ -956,7 +956,7 @@ export default function TransactionsPage() {
                         <p className="text-xs sm:text-sm text-foreground-muted">{data.count} transactions</p>
                       </div>
                       <p className="text-base sm:text-lg font-bold text-accent-primary flex-shrink-0 ml-3">
-                        KES {data.amount.toLocaleString()}
+                        {formatAmount(data.amount)}
                       </p>
                     </div>
                   ))}

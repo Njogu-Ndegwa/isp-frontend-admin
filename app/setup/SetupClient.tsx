@@ -12,6 +12,7 @@ import PlanNameHint from '../components/PlanNameHint';
 import RouterWaitStatus, { RouterSetupHelp } from './RouterWaitStatus';
 import { isCodeExpired, isCodeLive } from './routerWait';
 import { useT } from '../lib/i18n';
+import { formatAmount, getDisplayCurrency } from '../lib/format';
 import SpeedInputHint from '../components/SpeedInputHint';
 import { MAX_PLAN_NAME_LENGTH, isPlanNameTooLong } from '../lib/planName';
 import type {
@@ -628,7 +629,7 @@ function PlanStep({ onComplete }: { onComplete: () => void }) {
   ] as const;
 
   const planSummary = form.name || form.price || form.speed
-    ? `${form.name || 'Unnamed'} — KES ${form.price || '0'} for ${form.duration_value} ${durationUnits.find(u => u.value === form.duration_unit)?.label.toLowerCase() || 'days'}`
+    ? `${form.name || 'Unnamed'} — ${formatAmount(Number(form.price) || 0)} for ${form.duration_value} ${durationUnits.find(u => u.value === form.duration_unit)?.label.toLowerCase() || 'days'}`
     : '';
 
   return (
@@ -698,7 +699,7 @@ function PlanStep({ onComplete }: { onComplete: () => void }) {
             <SpeedInputHint value={form.speed} />
           </div>
           <div>
-            <label className="block text-sm font-medium text-foreground mb-1.5">Price (KES)</label>
+            <label className="block text-sm font-medium text-foreground mb-1.5">Price ({getDisplayCurrency()})</label>
             <input
               type="number"
               inputMode="decimal"
