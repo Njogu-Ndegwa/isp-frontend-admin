@@ -21,6 +21,7 @@ const MARKET_OPTIONS = [
   { code: 'CM', label: 'Cameroon (XAF): 3% + USD 0.20/PPPoE, min USD 10, card' },
   { code: 'UG', label: 'Uganda (UGX): 3% + USD 0.20/PPPoE, min USD 10, card' },
   { code: 'TZ', label: 'Tanzania (TZS): 3% + USD 0.20/PPPoE, min USD 10, card' },
+  { code: 'ZM', label: 'Zambia (ZMW): 3% + USD 0.20/PPPoE, min USD 10, card' },
 ];
 
 const formatSafeDate = (dateStr: string | null | undefined): string => {

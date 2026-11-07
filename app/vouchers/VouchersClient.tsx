@@ -20,6 +20,7 @@ import FilterSelect from '../components/FilterSelect';
 import PullToRefresh from '../components/PullToRefresh';
 import Pagination from '../components/Pagination';
 import { formatDateGMT3 } from '../lib/dateUtils';
+import { formatAmount } from '../lib/format';
 
 const formatSafeDate = (dateStr: string | null | undefined): string => {
   try {
@@ -457,7 +458,7 @@ export default function VouchersPage() {
                   return (
                     <div>
                       <p className="font-medium text-foreground">{v.plan?.name ?? `Plan #${v.plan_id}`}</p>
-                      <p className="text-xs text-foreground-muted">KES {v.plan?.price ?? '-'}</p>
+                      <p className="text-xs text-foreground-muted">{v.plan?.price !== undefined ? formatAmount(v.plan.price) : '-'}</p>
                     </div>
                   );
                 case 'router':
@@ -640,7 +641,7 @@ function VoucherMobileCard({
         {v.plan?.price !== undefined && (
           <>
             <span className="text-foreground-muted/40">&middot;</span>
-            <span className="font-medium text-foreground">KES {v.plan.price}</span>
+            <span className="font-medium text-foreground">{formatAmount(v.plan.price)}</span>
           </>
         )}
         {v.router?.name && (
@@ -827,7 +828,7 @@ function GenerateVouchersModal({
                 <option value={0} disabled>Select a plan</option>
                 {plans.map((p) => (
                   <option key={p.id} value={p.id}>
-                    {p.name} — KES {p.price}
+                    {p.name} — {formatAmount(p.price)}
                   </option>
                 ))}
               </select>

@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { PortalSettings, PortalThemePalette, PortalHeaderStyle } from '../lib/types';
+import { getDisplayCurrency } from '../lib/format';
 
 export interface PreviewPlan {
   id: number;
@@ -56,6 +57,12 @@ const MOCK_PLANS: PreviewPlan[] = [
   { id: 3, price: 2500, duration: '30 DAYS',  speed: '15M/10M', popular: false },
   { id: 4, price: 150,  duration: '48 HOURS', speed: '10M/5M',  popular: false },
 ];
+
+/** The code the real portal prints before prices: "KSH" in Kenya, else the market currency (ZMW, XAF...). */
+export function previewCurrencyCode(): string {
+  const code = getDisplayCurrency();
+  return code === 'KES' ? 'KSH' : code;
+}
 
 const BADGE_COLORS: Record<string, { bg: string; color: string }> = {
   HOT:  { bg: '#FEE2E2', color: '#DC2626' },
@@ -234,7 +241,7 @@ export default function PortalPreview({ settings, palette, plans, ads, fullscree
                 'FREE'
               ) : (
                 <>
-                  <span className="pp-plan-currency">KSH</span>
+                  <span className="pp-plan-currency">{previewCurrencyCode()}</span>
                   {plan.price}
                 </>
               )}
