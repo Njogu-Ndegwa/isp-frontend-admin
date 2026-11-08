@@ -2,17 +2,29 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '../../lib/api';
-import type { PPPoECustomerPresenceResponse } from '../../lib/types';
+import type { Customer, PPPoECustomerPresenceResponse } from '../../lib/types';
 import PPPoEDeviceList from '../../components/PPPoEDeviceList';
 import PPPoEDiagnoseDialog from '../../components/PPPoEDiagnoseDialog';
 import DeviceLimitEditor from './DeviceLimitEditor';
 import PPPoEAccountCheck from './PPPoEAccountCheck';
-import { routerHasNoPPPoEServer } from './pppoeActivation';
+import PPPoENotActiveNotice from '../../components/PPPoENotActiveNotice';
+import { pppoeNotActiveNotice, routerHasNoPPPoEServer } from './pppoeActivation';
 
 // Asks the customer's router directly whether their PPPoE login is set up
 // correctly and which devices are using it — one row per device, with its IP
 // and MAC — and, when nobody is connected, why the last one dropped.
-export default function ConnectedDevicesPanel({ customerId }: { customerId: number }) {
+export default function ConnectedDevicesPanel({
+  customerId,
+  customer,
+  canActivate = false,
+  onActivated,
+}: {
+  customerId: number;
+  /** When given and not active, the card leads with "Not active yet" + Activate. */
+  customer?: Customer;
+  canActivate?: boolean;
+  onActivated?: () => void;
+}) {
   const [presence, setPresence] = useState<PPPoECustomerPresenceResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -38,6 +50,11 @@ export default function ConnectedDevicesPanel({ customerId }: { customerId: numb
   const lastDisconnect = presence?.last_disconnect;
   const noPPPoEServer = routerHasNoPPPoEServer(presence);
   const showDevices = mikrotik && mikrotik.present_on_router && !mikrotik.secret?.disabled;
+  const notActive = !!customer && !!pppoeNotActiveNotice(customer);
+  // The "Not active yet" note already says why the login is not on the
+  // router; don't repeat it, but keep the no-PPPoE-port warning.
+  const hideAccountCheck = notActive && !noPPPoEServer
+    && presence?.verdict.code === 'missing_from_mikrotik';
 
   return (
     <div className="card p-4 space-y-3" data-testid="connected-devices">
@@ -71,6 +88,15 @@ export default function ConnectedDevicesPanel({ customerId }: { customerId: numb
         </div>
       </div>
 
+      {customer && notActive && (
+        <PPPoENotActiveNotice
+          customer={customer}
+          canActivate={canActivate}
+          authFailures={presence?.auth_failures}
+          onActivated={() => { onActivated?.(); void load(true); }}
+        />
+      )}
+
       {error && <p className="text-sm text-danger">{error}</p>}
       {!error && loading && !presence && (
         <p className="text-sm text-foreground-muted">Asking the router…</p>
@@ -78,7 +104,7 @@ export default function ConnectedDevicesPanel({ customerId }: { customerId: numb
 
       {!error && presence && (
         <>
-          <PPPoEAccountCheck presence={presence} />
+          {!hideAccountCheck && <PPPoEAccountCheck presence={presence} />}
 
           {showDevices && devices.length === 0 && !noPPPoEServer && (
             <p className="text-sm text-foreground-muted">No device is connected with this login right now.</p>

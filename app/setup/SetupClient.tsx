@@ -14,6 +14,7 @@ import { isCodeExpired, isCodeLive } from './routerWait';
 import { useT } from '../lib/i18n';
 import { formatAmount, getDisplayCurrency } from '../lib/format';
 import SpeedInputHint from '../components/SpeedInputHint';
+import { planSpeedError } from '../plans/speed';
 import { MAX_PLAN_NAME_LENGTH, isPlanNameTooLong } from '../lib/planName';
 import type {
   VpnType,
@@ -578,6 +579,7 @@ function RouterStep({ onComplete }: { onComplete: () => void }) {
 
 function PlanStep({ onComplete }: { onComplete: () => void }) {
   const { showAlert } = useAlert();
+  const t = useT();
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({
     name: '',
@@ -599,6 +601,11 @@ function PlanStep({ onComplete }: { onComplete: () => void }) {
     }
     if (isPlanNameTooLong(form.name)) {
       showAlert('error', `Plan name is too long. Keep it to ${MAX_PLAN_NAME_LENGTH} characters so it fits on the customer's portal.`);
+      return;
+    }
+    const speedError = planSpeedError(form.speed);
+    if (speedError) {
+      showAlert('error', t(speedError));
       return;
     }
 

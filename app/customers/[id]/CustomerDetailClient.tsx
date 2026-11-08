@@ -281,7 +281,14 @@ export default function EditCustomerPage() {
           {usage?.live && customer && (
             <LivePanel live={usage.live} routerId={customer.router_id ?? customer.router?.id ?? null} />
           )}
-          {isPPPoE && customer.pppoe_username && <ConnectedDevicesPanel customerId={customer.id} />}
+          {isPPPoE && customer.pppoe_username && (
+            <ConnectedDevicesPanel
+              customerId={customer.id}
+              customer={customer}
+              canActivate={canManageCustomers}
+              onActivated={loadData}
+            />
+          )}
           {isPPPoE && customer.pppoe_username && <RouterCpePanel customer={customer} />}
           {isStatic && <StaticIpPanel customer={customer} onChanged={loadData} />}
           {connectionType === 'hotspot' && <HotspotDevicesPanel customerId={customer.id} />}
