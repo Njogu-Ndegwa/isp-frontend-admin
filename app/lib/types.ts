@@ -3850,6 +3850,56 @@ export interface ApStatusResponse {
   login_method?: string | null;
 }
 
+// Remote control of a PPPoE customer's own router / CPE (a Tenda) -------------
+// The device is reached by resolving the customer's live PPPoE session on the
+// MikroTik, so the status also carries the current session address/uptime.
+export interface CpeStatus extends ApStatus {
+  session_address?: string | null;
+  session_uptime?: string | null;
+  detected_model?: string | null;
+}
+
+export interface CpeCredentialView {
+  customer_id: number;
+  vendor: string;
+  model: string | null;
+  username: string;
+  port: number;
+  device_mac: string | null;
+  has_password: boolean;
+  login_method: string | null;
+  last_login_ok: boolean | null;
+  locked: boolean;
+  failed_login_count: number;
+  last_error: string | null;
+  last_ip: string | null;
+  last_status: CpeStatus | null;
+  last_status_at: string | null;
+  last_action: string | null;
+  last_action_at: string | null;
+}
+
+export interface CpeResponse {
+  customer_id: number;
+  is_pppoe: boolean;
+  pppoe_username: string | null;
+  suggested_wan_port: number;
+  credential: CpeCredentialView | null;
+}
+
+export interface CpeStatusResponse {
+  success: boolean;
+  status: CpeStatus | null;
+  login_method?: string | null;
+}
+
+export interface CpeActionResponse {
+  success: boolean;
+  message?: string;
+  login_method?: string | null;
+  disconnected?: number;
+}
+
 // Remote port restart (power-cycle / bounce the access point behind a LAN port)
 export type PortRestartReasonCode =
   | 'not_found' | 'not_ethernet' | 'wan' | 'management' | 'api_ingress' | 'not_lan' | 'disabled';
