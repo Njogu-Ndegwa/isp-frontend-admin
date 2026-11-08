@@ -41,6 +41,14 @@ not to transcribe it prettily:
 - Pick ONE search query a Kenyan hotspot/ISP operator would actually type
   (e.g. "mikrotik hotspot setup", "wifi billing system kenya", "pppoe vs hotspot").
   Put it in the title, the slug, the first paragraph, and one H2.
+- **Audience check before writing:** most posts are for people who run, or
+  want to run, a WiFi business, because they're who activate. End-user
+  queries ("how to pay wifi on smart tv") are welcome at about 1 in 4 posts:
+  they bring the most clicks and some signups. Each one carries a boxed
+  "Run a hotspot? …" section linking to the matching solution page, and tells
+  end users plainly when they don't need an account. Never point an
+  end-user action ("register your TV") at `/signup`. Prefer topics from the
+  buyer-query table and page-one competitors in the `blog-growth-loop` skill.
 - 800–1500 words. Expand the video's points with concrete specifics (steps,
   KES prices, equipment names); cut filler and spoken-word repetition.
 - Structure: short intro answering the query → H2 sections → a table or list
@@ -71,7 +79,13 @@ not to transcribe it prettily:
   the solution page that matches the topic (`/hotspot-billing-system-kenya`,
   `/pppoe-billing-system-kenya`, `/mpesa-wifi-billing-kenya`,
   `/wifi-billing-system-kenya`) — those pages target the buying queries and
-  rank on the links the blog gives them.
+  rank on the links the blog gives them. **Required, not optional:** at least
+  one body link to a solution page, anchored on its buying query (e.g.
+  "[hotspot billing system](/hotspot-billing-system-kenya)"), not "click here"
+  and not only `/signup`.
+- If the post has something other sites would cite (original Bitwave data, a
+  free tool or calculator, a security finding), add a row to
+  `docs/seo/backlinks.md` naming who to pitch it to.
 - Check `content/blog/` first: no two posts may target the same query.
 - Keep Dennis's voice/claims from the video; do not invent numbers or
   testimonials. Anything uncertain gets a `<!-- VERIFY: ... -->` comment for

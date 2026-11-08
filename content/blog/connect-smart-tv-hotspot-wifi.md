@@ -2,7 +2,7 @@
 title: How to Pay for Hotspot WiFi on a Smart TV in Kenya
 description: How to pay for hotspot WiFi on a smart TV in Kenya: register the TV's MAC address from your phone, pay with M-Pesa, then connect the TV. No TV browser needed.
 date: 2026-08-29
-updated: 2026-10-11
+updated: 2026-11-08
 tags: smart TV, pay for WiFi, hotspot WiFi, captive portal, MAC address, Kenya
 category: hotspot
 image: /blog-images/connect-smart-tv-hotspot-wifi/cover-crisp.webp
@@ -14,7 +14,9 @@ published: true
 
 If you are asking **how to pay for WiFi on a smart TV** or how to connect a smart TV to hotspot WiFi, the reliable method is to register the TV’s Wi-Fi MAC address from a phone or laptop, choose an internet plan, then connect the TV to the same hotspot network. This avoids the captive-portal problem that stops many TVs from reaching the payment page.
 
-For a Kenyan hotspot operator, TV support makes one connection useful to a whole household. Customers can buy access for a television without keeping a phone hotspot running or calling for manual activation. With Bitwave Technologies, you can [let customers register a TV from the captive portal](/signup) and attach the selected package to that device.
+> **Just want internet on your TV?** You don't need to sign up for anything here. Follow the steps below on your hotspot's own login page, the one that opens when your phone joins the WiFi. A Bitwave Technologies account is for people who *run* a hotspot and sell WiFi.
+
+For a Kenyan hotspot operator, TV support makes one connection useful to a whole household. Customers can buy access for a television without keeping a phone hotspot running or calling for manual activation. A [hotspot billing system](/hotspot-billing-system-kenya) like Bitwave Technologies lets customers register a TV from the captive portal and attaches the selected package to that device.
 
 ## How to pay for hotspot WiFi on a smart TV
 
@@ -66,6 +68,8 @@ Avoid repeatedly buying plans while troubleshooting. Confirm whether the first p
 
 ## How should a hotspot operator support smart TVs?
 
+> **Run a hotspot?** Bitwave Technologies adds a *Connect your TV device* option to your captive portal, takes payment by M-Pesa and attaches the plan to the TV's MAC address on your MikroTik router. See [how the hotspot billing system works](/hotspot-billing-system-kenya).
+
 A hotspot operator should provide a separate TV or device-registration path on the captive portal, explain where customers can find a MAC address, validate the address before accepting it, and show the selected device and plan clearly. This reduces manual activation calls and prevents customers from entering Bluetooth, IP or serial-number values.
 
 Keep the customer instructions short enough to follow from a phone:
@@ -98,4 +102,4 @@ No. A MAC address identifies a particular network interface, while an IP address
 
 No. The phone or laptop is only used to open the captive portal, enter the TV’s MAC address and select the plan. After registration, the television connects with its own WiFi interface and uses the package assigned to that device.
 
-Smart-TV support removes a small but frustrating barrier between a customer and a paid connection. [Create a free Bitwave Technologies account](/signup) to give customers a clear portal flow for registering TVs and other devices that cannot handle a normal hotspot login.
+Smart-TV support removes a small but frustrating barrier between a customer and a paid connection. If you run a hotspot, [create a free Bitwave Technologies account](/signup) to give customers a clear portal flow for registering TVs and other devices that cannot handle a normal hotspot login.
