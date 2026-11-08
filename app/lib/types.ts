@@ -6267,6 +6267,24 @@ export interface AttributePaymentResponse {
   c2b_transaction_id: number;
 }
 
+export interface CreditUnmatchedToResellerRequest {
+  reseller_id: number;
+  reason: string;
+}
+
+export interface CreditUnmatchedToResellerResponse {
+  ok: boolean;
+  unmatched_id: number;
+  c2b_transaction_id: number;
+  receipt: string;
+  reseller_id: number;
+  payment_id: number;
+  amount: number;
+  payout_fee_if_paid_alone: number;
+  net_if_paid_alone: number;
+  unpaid_balance: number;
+}
+
 export interface C2BRegisterRequest {
   confirmation_url: string;
   validation_url: string;
