@@ -1385,6 +1385,12 @@ export interface Plan {
   download_speed: string;
   upload_speed: string;
   speed?: string;
+  /**
+   * False when the router code cannot read `speed` (saved before speeds were
+   * validated, e.g. "Unlimited"); such a plan is given 10M/10M on the router.
+   * Absent on older backends.
+   */
+  speed_recognised?: boolean;
   connection_type?: string;
   router_profile?: string;
   user_id?: number;
@@ -3572,6 +3578,7 @@ export interface PPPoECustomerPresenceResponse {
     /** Billing status in the database: active | inactive | pending. */
     status?: string;
     expiry?: string | null;
+    account_number?: string | null;
   };
   router: { id: number; name: string };
   speed_enforcement: {
@@ -3588,6 +3595,17 @@ export interface PPPoECustomerPresenceResponse {
     configured_pppoe_ports: string[];
     configured_dual_ports: string[];
   };
+  /**
+   * Recent "user <login> authentication failed" lines in the router log. Only
+   * read when the login is missing or disabled on the router; null otherwise
+   * and absent on older backends.
+   */
+  auth_failures?: {
+    lookup_success: boolean;
+    count: number;
+    /** Router-local time (EAT) of the last failure, as RouterOS prints it. */
+    last_at: string | null;
+  } | null;
   /** Devices this login may use at once (absent on older backends). */
   device_limit?: {
     plan_max_devices: number;

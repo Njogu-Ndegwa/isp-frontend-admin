@@ -24,7 +24,8 @@ import { formatAmount, getDisplayCurrency } from '../lib/format';
 import { useT } from '../lib/i18n';
 import { pickDefaultRouterId, routerOptionLabel } from '../lib/routerPick';
 import PlanNameHint from '../components/PlanNameHint';
-import SpeedInputHint from '../components/SpeedInputHint';
+import SpeedInputHint, { SPEED_NOT_RECOGNISED } from '../components/SpeedInputHint';
+import { PLAN_SPEED_HELP, planSpeedError } from './speed';
 import { MAX_PLAN_NAME_LENGTH, isPlanNameTooLong } from '../lib/planName';
 import { connectionTypeLabel, toConnectionType } from '../lib/connectionType';
 import type { ConnectionType } from '../lib/types';
@@ -504,6 +505,15 @@ export default function PlansPage() {
                   return (
                     <span className="text-foreground-muted text-sm font-mono">
                       ↓{spd.down} / ↑{spd.up}
+                      {plan.speed_recognised === false && (
+                        <span
+                          className="block font-sans text-xs text-warning"
+                          data-testid="plan-speed-not-recognised"
+                          title={t(PLAN_SPEED_HELP)}
+                        >
+                          {t(SPEED_NOT_RECOGNISED)} {t('Edit the plan to fix it.')}
+                        </span>
+                      )}
                     </span>
                   );
                 }
@@ -715,6 +725,7 @@ function EditPlanModal({
   onClose: () => void;
   onSuccess: () => void;
 }) {
+  const t = useT();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [routerScope, setRouterScope] = useState<number[] | null>(
@@ -788,6 +799,11 @@ function EditPlanModal({
       // only asked to fix the one they have open, not every old plan at once.
       if (isPlanNameTooLong(formData.name)) {
         setError(`Plan name is too long. Keep it to ${MAX_PLAN_NAME_LENGTH} characters so it fits on the customer's portal.`);
+        return;
+      }
+      const speedError = planSpeedError(formData.speed);
+      if (speedError) {
+        setError(t(speedError));
         return;
       }
       // A trial turned back into a paid plan has no price yet.

@@ -1064,4 +1064,16 @@ export const FR: Record<string, string> = {
   "PPPoE isn't turned on for any port on this router, so this customer can't connect yet.": "Le PPPoE n'est activé sur aucun port de ce routeur, ce client ne peut donc pas encore se connecter.",
   "PPPoE isn't turned on for any port on this router, so this customer won't be able to connect until you turn it on for a port.": "Le PPPoE n'est activé sur aucun port de ce routeur : ce client ne pourra pas se connecter tant que vous ne l'activez pas sur un port.",
   "Open Ports configuration": "Ouvrir la configuration des ports",
+  // PPPoE customer saved but not active yet (login not on the router)
+  "Not active yet: this login won't work until the customer pays to account {account} or you press Activate.": "Pas encore actif : cet identifiant ne fonctionnera pas tant que le client n'a pas payé sur le compte {account} ou que vous n'avez pas appuyé sur Activer.",
+  "Not active yet: this login won't work until the customer pays or you press Activate.": "Pas encore actif : cet identifiant ne fonctionnera pas tant que le client n'a pas payé ou que vous n'avez pas appuyé sur Activer.",
+  "Expired: this login won't work until the customer pays to account {account} or you press Activate.": "Expiré : cet identifiant ne fonctionnera pas tant que le client n'a pas payé sur le compte {account} ou que vous n'avez pas appuyé sur Activer.",
+  "Expired: this login won't work until the customer pays or you press Activate.": "Expiré : cet identifiant ne fonctionnera pas tant que le client n'a pas payé ou que vous n'avez pas appuyé sur Activer.",
+  "Their router has tried this login {count} times recently and was refused because the customer is not active (last try {time}).": "Son routeur a essayé cet identifiant {count} fois récemment et a été refusé car le client n'est pas actif (dernier essai {time}).",
+  "Their router has tried this login {count} times recently and was refused because the customer is not active.": "Son routeur a essayé cet identifiant {count} fois récemment et a été refusé car le client n'est pas actif.",
+  "Active: this login now works on the router.": "Actif : cet identifiant fonctionne maintenant sur le routeur.",
+  // Plan speed validation
+  "Speed not recognised.": "Vitesse non reconnue.",
+  "Edit the plan to fix it.": "Modifiez le forfait pour corriger.",
+  "Use a speed like 5M or 5M/2M (download/upload).": "Utilisez une vitesse comme 5M ou 5M/2M (téléchargement/envoi).",
 };

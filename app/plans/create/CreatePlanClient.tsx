@@ -10,6 +10,8 @@ import TrialFrequencyPicker from '../../components/TrialFrequencyPicker';
 import { useAlert } from '../../context/AlertContext';
 import Header from '../../components/Header';
 import SpeedInputHint from '../../components/SpeedInputHint';
+import { planSpeedError } from '../speed';
+import { useT } from '../../lib/i18n';
 import { gmt3InputToISO } from '../../lib/dateUtils';
 import { DataCapUnit, dataCapInputToMb, normalizeFupPeriod } from '../dataCap';
 import FupPeriodField from '../FupPeriodField';
@@ -23,6 +25,7 @@ import type { ConnectionType } from '../../lib/types';
 export default function CreatePlanPage() {
   const router = useRouter();
   const { showAlert } = useAlert();
+  const t = useT();
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState<CreatePlanRequest>({
     name: '',
@@ -93,6 +96,11 @@ export default function CreatePlanPage() {
       }
       if (isPlanNameTooLong(formData.name)) {
         showAlert('error', `Plan name is too long. Keep it to ${MAX_PLAN_NAME_LENGTH} characters so it fits on the customer's portal.`);
+        return;
+      }
+      const speedError = planSpeedError(formData.speed);
+      if (speedError) {
+        showAlert('error', t(speedError));
         return;
       }
       payload.router_ids = routerScope;

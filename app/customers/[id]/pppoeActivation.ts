@@ -45,6 +45,67 @@ export function pppoeAccountProblem(
   return ACCOUNT_PROBLEM[verdictCode] ?? fallback;
 }
 
+export const NOT_ACTIVE_WITH_ACCOUNT =
+  "Not active yet: this login won't work until the customer pays to account {account} or you press Activate.";
+export const NOT_ACTIVE_NO_ACCOUNT =
+  "Not active yet: this login won't work until the customer pays or you press Activate.";
+export const EXPIRED_WITH_ACCOUNT =
+  "Expired: this login won't work until the customer pays to account {account} or you press Activate.";
+export const EXPIRED_NO_ACCOUNT =
+  "Expired: this login won't work until the customer pays or you press Activate.";
+export const AUTH_FAILURES_MESSAGE =
+  'Their router has tried this login {count} times recently and was refused because the customer is not active (last try {time}).';
+export const AUTH_FAILURES_MESSAGE_NO_TIME =
+  'Their router has tried this login {count} times recently and was refused because the customer is not active.';
+export const NOW_ACTIVE_MESSAGE = 'Active: this login now works on the router.';
+
+export interface NotActiveNotice {
+  /** English i18n key; render through t(key, vars). */
+  key: string;
+  vars: Record<string, string>;
+}
+
+/**
+ * The "this login won't work yet" notice for a PPPoE customer who is not
+ * active, or null when none is needed. Saving a PPPoE customer only creates
+ * the login in our database; it goes onto the router when the customer pays
+ * or is activated. Resellers handed the login out straight away and the
+ * client router got "authentication failed" hundreds of times (LKR0101,
+ * 8 Nov 2026). Paused customers have their own card, so no notice for them.
+ */
+export function pppoeNotActiveNotice(
+  customer: {
+    status?: string | null;
+    account_number?: string | null;
+    is_paused?: boolean | null;
+    expiry?: string | null;
+  } | null | undefined,
+  now: Date = new Date(),
+): NotActiveNotice | null {
+  if (!customer || !customer.status || customer.status === 'active' || customer.is_paused) return null;
+  const account = (customer.account_number ?? '').trim();
+  // A customer who had a plan that ran out, as opposed to one never activated.
+  // The API sends naive UTC ("2026-12-09T16:14:47"); read it as UTC.
+  const raw = customer.expiry ?? '';
+  const expiry = raw ? new Date(/[zZ]|[+-]\d{2}:?\d{2}$/.test(raw) ? raw : `${raw}Z`) : null;
+  const expired = !!expiry && !Number.isNaN(expiry.getTime()) && expiry.getTime() <= now.getTime();
+  if (account) {
+    return { key: expired ? EXPIRED_WITH_ACCOUNT : NOT_ACTIVE_WITH_ACCOUNT, vars: { account } };
+  }
+  return { key: expired ? EXPIRED_NO_ACCOUNT : NOT_ACTIVE_NO_ACCOUNT, vars: {} };
+}
+
+/** "The router refused this login N times" line, or null when there were none / we can't tell. */
+export function authFailuresNotice(
+  authFailures: PPPoECustomerPresenceResponse['auth_failures'],
+): NotActiveNotice | null {
+  if (!authFailures || !authFailures.lookup_success || !(authFailures.count > 0)) return null;
+  const count = String(authFailures.count);
+  return authFailures.last_at
+    ? { key: AUTH_FAILURES_MESSAGE, vars: { count, time: authFailures.last_at } }
+    : { key: AUTH_FAILURES_MESSAGE_NO_TIME, vars: { count } };
+}
+
 /**
  * The edit form offers "Activate now – already paid until <date>" for a PPPoE
  * customer who is not active and whose expiry field holds a future date.

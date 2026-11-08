@@ -9,7 +9,6 @@ import { copyText } from '../lib/clipboard';
 import {
   Customer,
   PPPoECredentials,
-  ActivatePPPoERequest,
   PPPoEMonitorUser,
   HotspotMonitorUser,
   CustomerUsagePeriod,
@@ -35,16 +34,7 @@ import { customerMatchesSearch, isOnlineNow, isOverdue, isPaidOffline } from '..
 import { canPause, canResume, formatPausedRemaining, isPaused } from '../lib/customerPause';
 import PauseCustomerModal, { resumeAlert } from '../components/PauseCustomerModal';
 import { connectionTypeLabel } from '../lib/connectionType';
-import {
-  activationConfirmLabel,
-  activationConflict,
-  activationConflictHint,
-  activationConflictMessage,
-  isNoPayment,
-  manualPaymentHint,
-  manualPaymentOptions,
-  type ActivationConflict,
-} from '../lib/manualActivation';
+import ActivateCustomerModal from '../components/ActivateCustomerModal';
 import { PLATFORM_PAYBILL, customerPaybill, paybillAccountLabel, paybillForCustomer } from '../lib/customerPaybill';
 
 const TransferPPPoEModal = dynamic(() => import('../components/TransferPPPoEModal'), {
@@ -339,19 +329,12 @@ export default function CustomersPage() {
   // Modal state
   const [credentialsModal, setCredentialsModal] = useState<PPPoECredentials | null>(null);
   const [activateModal, setActivateModal] = useState<Customer | null>(null);
-  // Set when the backend refused because the customer already paid / is active.
-  const [activateConflict, setActivateConflict] = useState<ActivationConflict | null>(null);
   const [deactivateConfirm, setDeactivateConfirm] = useState<Customer | null>(null);
   const [pauseModal, setPauseModal] = useState<Customer | null>(null);
   const [resumingId, setResumingId] = useState<number | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<Customer | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
-  const [activateForm, setActivateForm] = useState<ActivatePPPoERequest>({
-    payment_method: 'cash',
-    payment_reference: '',
-    notes: '',
-  });
 
   const refreshData = useCallback(() => setRefreshKey(k => k + 1), []);
 
@@ -955,53 +938,7 @@ export default function CustomersPage() {
     }
   }, [showAlert]);
 
-  const closeActivate = useCallback(() => {
-    setActivateModal(null);
-    setActivateConflict(null);
-  }, []);
-
-  const handleActivate = useCallback(async (force = false) => {
-    if (!activateModal) return;
-    const payload: ActivatePPPoERequest = force ? { ...activateForm, force: true } : activateForm;
-    const noPayment = isNoPayment(activateForm.payment_method);
-    const done = noPayment
-      ? t('{name} activated without payment', { name: activateModal.name })
-      : t('{name} activated successfully', { name: activateModal.name });
-    try {
-      setActionLoading(true);
-      if (getConnectionType(activateModal) === 'static_ip') {
-        const result = await api.activateStatic(activateModal.id, payload);
-        if (result.router_result === 'ok') {
-          showAlert('success', done);
-        } else {
-          showAlert('warning', t(
-            noPayment
-              ? 'Activated without payment, but the router was not updated yet: {error}. It will retry automatically.'
-              : 'Payment recorded, but the router was not updated yet: {error}. It will retry automatically.',
-            { error: result.router_error || t('unreachable') },
-          ));
-        }
-      } else {
-        await api.activatePPPoE(activateModal.id, payload);
-        showAlert('success', done);
-      }
-      setActivateModal(null);
-      setActivateConflict(null);
-      setActivateForm({ payment_method: 'cash', payment_reference: '', notes: '' });
-      refreshData();
-    } catch (err) {
-      const conflict = activationConflict(err);
-      if (conflict) {
-        // The list was stale: show why and pull the customer's real status.
-        setActivateConflict(conflict);
-        refreshData();
-        return;
-      }
-      showAlert('error', err instanceof Error ? err.message : 'Activation failed');
-    } finally {
-      setActionLoading(false);
-    }
-  }, [activateModal, activateForm, showAlert, refreshData, t]);
+  const closeActivate = useCallback(() => setActivateModal(null), []);
 
   const handleDeactivate = useCallback(async () => {
     if (!deactivateConfirm) return;
@@ -1992,73 +1929,13 @@ export default function CustomersPage() {
 
       {/* Activate Modal */}
       {activateModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={closeActivate}>
-          <div className="card p-6 w-full max-w-sm space-y-4" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-lg font-semibold text-foreground">
-              {getConnectionType(activateModal) === 'static_ip' ? 'Activate static IP' : 'Activate PPPoE'}
-            </h3>
-            <p className="text-sm text-foreground-muted">
-              Activate <span className="font-medium text-foreground">{activateModal.name}</span> &mdash;{' '}
-              {isNoPayment(activateForm.payment_method) ? t('sets expiry without recording a payment, and') : 'records payment, sets expiry, and'}{' '}
-              {getConnectionType(activateModal) === 'static_ip' ? 'opens access for the IP on the router.' : 'provisions the secret on the router.'}
-            </p>
-            <div className="space-y-3">
-              <div>
-                <label className="block text-sm font-medium text-foreground-muted mb-1.5">Payment Method</label>
-                <select
-                  value={activateForm.payment_method}
-                  onChange={(e) => setActivateForm((f) => ({ ...f, payment_method: e.target.value as ActivatePPPoERequest['payment_method'] }))}
-                  className="select"
-                >
-                  {manualPaymentOptions(canManageCustomers).map((o) => (
-                    <option key={o.value} value={o.value}>{t(o.label)}</option>
-                  ))}
-                </select>
-                <p className="text-xs text-foreground-muted mt-1" data-testid="activate-payment-hint">
-                  {t(manualPaymentHint(activateForm.payment_method))}
-                </p>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-foreground-muted mb-1.5">Payment Reference</label>
-                <input
-                  type="text"
-                  value={activateForm.payment_reference || ''}
-                  onChange={(e) => setActivateForm((f) => ({ ...f, payment_reference: e.target.value }))}
-                  className="input"
-                  placeholder="Receipt number (optional)"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-foreground-muted mb-1.5">Notes</label>
-                <input
-                  type="text"
-                  value={activateForm.notes || ''}
-                  onChange={(e) => setActivateForm((f) => ({ ...f, notes: e.target.value }))}
-                  className="input"
-                  placeholder="Optional notes"
-                />
-              </div>
-            </div>
-            {activateConflict && (
-              <div role="alert" data-testid="activate-conflict" className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm space-y-1">
-                <p className="font-medium text-foreground">{activationConflictMessage(activateConflict)}</p>
-                <p className="text-foreground-muted">{t(activationConflictHint(activateForm.payment_method))}</p>
-              </div>
-            )}
-            <div className="flex gap-3 pt-2">
-              <button onClick={closeActivate} className="btn-secondary flex-1">Cancel</button>
-              <button onClick={() => handleActivate(!!activateConflict)} disabled={actionLoading} className="btn-primary flex-1 flex items-center justify-center gap-2 disabled:opacity-50">
-                {actionLoading ? (
-                  <div className="w-4 h-4 border-2 border-background/30 border-t-background rounded-full animate-spin" />
-                ) : activateConflict ? (
-                  t(activationConfirmLabel(activateForm.payment_method))
-                ) : (
-                  'Activate'
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
+        <ActivateCustomerModal
+          customer={activateModal}
+          canManageCustomers={canManageCustomers}
+          onClose={closeActivate}
+          onActivated={() => { setActivateModal(null); refreshData(); }}
+          onConflict={refreshData}
+        />
       )}
 
       {pauseModal && (

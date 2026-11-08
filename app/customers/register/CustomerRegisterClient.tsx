@@ -16,11 +16,17 @@ import { looksLikeIPv4 } from '../[id]/staticIp';
 import NoPPPoEPortNotice from '../../components/NoPPPoEPortNotice';
 import { NO_PPPOE_PORT_ON_CREATE_MESSAGE, routerHasPPPoEPort } from '../../lib/pppoePorts';
 import { useT } from '../../lib/i18n';
+import PPPoENotActiveNotice from '../../components/PPPoENotActiveNotice';
+import { NOW_ACTIVE_MESSAGE, pppoeNotActiveNotice } from '../[id]/pppoeActivation';
+import { usePermissions } from '../../hooks/usePermissions';
+import { PERMISSIONS } from '../../lib/permissions';
 
 export default function RegisterCustomerPage() {
   const router = useRouter();
   const { showAlert } = useAlert();
   const t = useT();
+  const { can } = usePermissions();
+  const canManageCustomers = can(PERMISSIONS.customersManage);
 
   const [plans, setPlans] = useState<Plan[]>([]);
   const [routers, setRouters] = useState<Router[]>([]);
@@ -140,6 +146,24 @@ export default function RegisterCustomerPage() {
               <h3 className="text-lg font-semibold text-foreground">{credentials.customer_name}</h3>
               <p className="text-sm text-foreground-muted mt-1">Give these credentials to the customer for their CPE router</p>
             </div>
+
+            {/* The login only goes onto the router once the customer pays or
+                is activated: say so next to the credentials, with Activate. */}
+            {registeredCustomer && pppoeNotActiveNotice(registeredCustomer) ? (
+              <PPPoENotActiveNotice
+                customer={registeredCustomer}
+                canActivate={canManageCustomers}
+                onActivated={() => setRegisteredCustomer((c) => (c ? { ...c, status: 'active' } : c))}
+              />
+            ) : registeredCustomer?.status === 'active' ? (
+              <p
+                className="flex items-start gap-2 rounded-lg bg-success/10 px-3 py-2 text-sm text-success"
+                data-testid="pppoe-now-active"
+              >
+                <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-current flex-shrink-0" />
+                <span>{t(NOW_ACTIVE_MESSAGE)}</span>
+              </p>
+            ) : null}
 
             {routerLacksPPPoEPort && selectedRouter && (
               <NoPPPoEPortNotice routerId={selectedRouter.id} message={NO_PPPOE_PORT_ON_CREATE_MESSAGE} />
