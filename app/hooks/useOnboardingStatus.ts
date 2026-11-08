@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { api } from '../lib/api';
+import { paymentsStepDone } from '../lib/onboardingPayments';
 
 export interface OnboardingStatus {
   hasRouters: boolean;
@@ -68,8 +69,12 @@ export function useOnboardingStatus(options: OnboardingStatusOptions = {}): Onbo
       setHasPlans(
         plans.status === 'fulfilled' && plans.value.length > 0
       );
+      // A vouchers-only reseller has nothing to collect online.
       setHasPaymentMethods(
-        paymentMethods.status === 'fulfilled' && paymentMethods.value.length > 0
+        paymentsStepDone(
+          paymentMethods.status === 'fulfilled' ? paymentMethods.value.length : 0,
+          routers.status === 'fulfilled' ? routers.value : [],
+        )
       );
       setHasProfile(
         profile.status === 'fulfilled' &&
@@ -157,7 +162,10 @@ export async function fullOnboardingCheck(): Promise<OnboardingCheckResult> {
 
     const hasRouters = routers.status === 'fulfilled' && routers.value.length > 0;
     const hasPlans = plans.status === 'fulfilled' && plans.value.length > 0;
-    const hasPaymentMethods = paymentMethods.status === 'fulfilled' && paymentMethods.value.length > 0;
+    const hasPaymentMethods = paymentsStepDone(
+      paymentMethods.status === 'fulfilled' ? paymentMethods.value.length : 0,
+      routers.status === 'fulfilled' ? routers.value : [],
+    );
     const hasProfile =
       profile.status === 'fulfilled' &&
       !!profile.value.support_phone &&
