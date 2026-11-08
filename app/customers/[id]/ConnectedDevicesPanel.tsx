@@ -6,13 +6,8 @@ import type { PPPoECustomerPresenceResponse } from '../../lib/types';
 import PPPoEDeviceList from '../../components/PPPoEDeviceList';
 import PPPoEDiagnoseDialog from '../../components/PPPoEDiagnoseDialog';
 import DeviceLimitEditor from './DeviceLimitEditor';
-import { pppoeAccountProblem } from './pppoeActivation';
-
-// Verdict codes from /api/pppoe/customers/{id}/presence. Anything not listed
-// as fine is a problem on our side that support should fix before blaming the
-// customer's equipment.
-const ACCOUNT_OK = new Set(['present_and_online', 'router_account_exists_but_customer_offline']);
-const ACCOUNT_UNKNOWN = new Set(['present_session_unknown']);
+import PPPoEAccountCheck from './PPPoEAccountCheck';
+import { routerHasNoPPPoEServer } from './pppoeActivation';
 
 // Asks the customer's router directly whether their PPPoE login is set up
 // correctly and which devices are using it — one row per device, with its IP
@@ -40,10 +35,8 @@ export default function ConnectedDevicesPanel({ customerId }: { customerId: numb
 
   const mikrotik = presence?.mikrotik;
   const devices = mikrotik?.active_sessions ?? [];
-  const verdictCode = presence?.verdict.code ?? '';
-  const accountOk = ACCOUNT_OK.has(verdictCode);
-  const accountUnknown = ACCOUNT_UNKNOWN.has(verdictCode);
   const lastDisconnect = presence?.last_disconnect;
+  const noPPPoEServer = routerHasNoPPPoEServer(presence);
   const showDevices = mikrotik && mikrotik.present_on_router && !mikrotik.secret?.disabled;
 
   return (
@@ -85,27 +78,9 @@ export default function ConnectedDevicesPanel({ customerId }: { customerId: numb
 
       {!error && presence && (
         <>
-          <div
-            className={`flex items-start gap-2 rounded-lg px-3 py-2 text-sm ${
-              accountOk
-                ? 'bg-success/10 text-success'
-                : accountUnknown
-                  ? 'bg-background-tertiary text-foreground-muted'
-                  : 'bg-danger/10 text-danger'
-            }`}
-            data-testid="pppoe-account-check"
-          >
-            <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-current flex-shrink-0" />
-            <span>
-              {accountOk
-                ? `Login is set up correctly on the router${presence.speed_enforcement.expected_rate_limit ? ', at the plan speed' : ''}.`
-                : accountUnknown
-                  ? 'The router did not say which devices are connected. Try Refresh.'
-                  : pppoeAccountProblem(verdictCode, presence.customer.status, presence.verdict.message)}
-            </span>
-          </div>
+          <PPPoEAccountCheck presence={presence} />
 
-          {showDevices && devices.length === 0 && (
+          {showDevices && devices.length === 0 && !noPPPoEServer && (
             <p className="text-sm text-foreground-muted">No device is connected with this login right now.</p>
           )}
           {showDevices && devices.length > 0 && (

@@ -3578,6 +3578,16 @@ export interface PPPoECustomerPresenceResponse {
     expected_rate_limit: string;
     profile_rate_limit: string;
   };
+  /**
+   * Live read of the router's PPPoE servers (absent on older backends).
+   * `available` is null when the router did not answer that read.
+   */
+  pppoe_server?: {
+    available: boolean | null;
+    enabled_interfaces: string[];
+    configured_pppoe_ports: string[];
+    configured_dual_ports: string[];
+  };
   /** Devices this login may use at once (absent on older backends). */
   device_limit?: {
     plan_max_devices: number;

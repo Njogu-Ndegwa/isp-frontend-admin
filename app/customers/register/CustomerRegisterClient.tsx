@@ -13,10 +13,14 @@ import { formatAmount } from '../../lib/format';
 import { isFreeTrialPlan } from '../../plans/planType';
 import { connectionTypeLabel } from '../../lib/connectionType';
 import { looksLikeIPv4 } from '../[id]/staticIp';
+import NoPPPoEPortNotice from '../../components/NoPPPoEPortNotice';
+import { NO_PPPOE_PORT_ON_CREATE_MESSAGE, routerHasPPPoEPort } from '../../lib/pppoePorts';
+import { useT } from '../../lib/i18n';
 
 export default function RegisterCustomerPage() {
   const router = useRouter();
   const { showAlert } = useAlert();
+  const t = useT();
 
   const [plans, setPlans] = useState<Plan[]>([]);
   const [routers, setRouters] = useState<Router[]>([]);
@@ -55,6 +59,10 @@ export default function RegisterCustomerPage() {
   const selectedPlan = plans.find((p) => p.id === formData.plan_id);
   const isPPPoE = selectedPlan?.connection_type === 'pppoe';
   const isStatic = selectedPlan?.connection_type === 'static_ip';
+  const selectedRouter = routers.find((r) => r.id === formData.router_id);
+  // Saved Ports configuration has no PPPoE port: the login will be created
+  // but nothing on the router answers PPPoE, so the customer can't connect.
+  const routerLacksPPPoEPort = isPPPoE && !!selectedRouter && !routerHasPPPoEPort(selectedRouter);
 
   const update = <K extends keyof RegisterCustomerRequest>(field: K, value: RegisterCustomerRequest[K]) =>
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -90,6 +98,7 @@ export default function RegisterCustomerPage() {
       const customer = await api.registerCustomer(payload);
       setRegisteredCustomer(customer);
       showAlert('success', `Customer "${customer.name}" registered successfully!`);
+      if (routerLacksPPPoEPort) showAlert('warning', t(NO_PPPOE_PORT_ON_CREATE_MESSAGE));
 
       const customerIsPPPoE = isPPPoE || customer.plan?.connection_type === 'pppoe';
       if (customerIsPPPoE) {
@@ -131,6 +140,10 @@ export default function RegisterCustomerPage() {
               <h3 className="text-lg font-semibold text-foreground">{credentials.customer_name}</h3>
               <p className="text-sm text-foreground-muted mt-1">Give these credentials to the customer for their CPE router</p>
             </div>
+
+            {routerLacksPPPoEPort && selectedRouter && (
+              <NoPPPoEPortNotice routerId={selectedRouter.id} message={NO_PPPOE_PORT_ON_CREATE_MESSAGE} />
+            )}
 
             {registeredCustomer?.account_number && (
               <div className="bg-accent-primary/10 border border-accent-primary/20 rounded-lg p-3">
@@ -295,6 +308,11 @@ export default function RegisterCustomerPage() {
                   </option>
                 ))}
               </select>
+              {routerLacksPPPoEPort && selectedRouter && (
+                <div className="mt-2">
+                  <NoPPPoEPortNotice routerId={selectedRouter.id} message={NO_PPPOE_PORT_ON_CREATE_MESSAGE} />
+                </div>
+              )}
             </div>
 
             {isPPPoE && (

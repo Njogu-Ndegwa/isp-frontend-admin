@@ -1,4 +1,4 @@
-import type { Customer, UpdateCustomerResponse } from '../../lib/types';
+import type { Customer, PPPoECustomerPresenceResponse, UpdateCustomerResponse } from '../../lib/types';
 import { gmt3InputToISO } from '../../lib/dateUtils';
 
 // Verdict codes from /api/pppoe/customers/{id}/presence that mean the login
@@ -10,6 +10,18 @@ const ACCOUNT_PROBLEM: Record<string, string> = {
   rate_limit_mismatch: 'The speed on the router does not match the plan the customer paid for.',
   active_queue_rate_mismatch: 'The connected device is still on an old speed. It changes the next time it reconnects.',
 };
+
+/**
+ * True when the router was read and no port runs a PPPoE server, so this
+ * login cannot connect however correct it is (router 599, 8 Nov 2026).
+ * Older backends send no `pppoe_server` block; treat that as "don't know".
+ */
+export function routerHasNoPPPoEServer(
+  presence: Pick<PPPoECustomerPresenceResponse, 'verdict' | 'pppoe_server'> | null | undefined,
+): boolean {
+  if (!presence) return false;
+  return presence.verdict?.code === 'no_pppoe_server' || presence.pppoe_server?.available === false;
+}
 
 export const INACTIVE_NOT_ON_ROUTER =
   'Customer is inactive – press Activate to put them on the router.';
