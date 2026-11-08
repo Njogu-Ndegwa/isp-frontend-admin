@@ -1060,4 +1060,8 @@ export const FR: Record<string, string> = {
   "Smart device": "Appareil connecté",
   "Other": "Autre",
   "TVs, consoles and smart devices stay on first if a smaller plan forces devices off.": "Les TV, consoles et appareils connectés restent en priorité si un forfait plus petit oblige à retirer des appareils.",
+  // PPPoE customer on a router with no PPPoE port
+  "PPPoE isn't turned on for any port on this router, so this customer can't connect yet.": "Le PPPoE n'est activé sur aucun port de ce routeur, ce client ne peut donc pas encore se connecter.",
+  "PPPoE isn't turned on for any port on this router, so this customer won't be able to connect until you turn it on for a port.": "Le PPPoE n'est activé sur aucun port de ce routeur : ce client ne pourra pas se connecter tant que vous ne l'activez pas sur un port.",
+  "Open Ports configuration": "Ouvrir la configuration des ports",
 };

@@ -27,6 +27,7 @@ import { useAuth } from '../context/AuthContext';
 import { usePermissions } from '../hooks/usePermissions';
 import PppoeExpiredRedirectToggle from '../components/PppoeExpiredRedirectToggle';
 import { PERMISSIONS } from '../lib/permissions';
+import { portsRouterIdFromSearch } from '../lib/pppoePorts';
 import { useAlert } from '../context/AlertContext';
 import Link from 'next/link';
 import PullToRefresh from '../components/PullToRefresh';
@@ -216,6 +217,19 @@ export default function RoutersPage() {
 
   // Port configuration state (unified PPPoE + Plain)
   const [portConfigRouter, setPortConfigRouter] = useState<Router | null>(null);
+  const { can: canMain } = usePermissions();
+  const portsLinkHandled = useRef(false);
+
+  // `/routers?ports=<id>` (e.g. from a PPPoE customer whose router has no
+  // PPPoE port) opens that router's Port configuration once routers load.
+  useEffect(() => {
+    if (portsLinkHandled.current || routers.length === 0) return;
+    const wanted = portsRouterIdFromSearch(window.location.search);
+    if (wanted === null) return;
+    portsLinkHandled.current = true;
+    const match = routers.find((r) => r.id === wanted);
+    if (match && canMain(PERMISSIONS.routersManage)) setPortConfigRouter(match);
+  }, [routers, canMain]);
 
   // Uptime state
   const [uptimeRouter, setUptimeRouter] = useState<number | null>(null);
