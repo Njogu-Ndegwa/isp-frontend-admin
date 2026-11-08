@@ -2,6 +2,7 @@
 title: Bitwave vs Netily (Internetily) — Which ISP Billing System to Choose?
 description: Bitwave vs Netily: both charge KES 25 per PPPoE user or 3% of hotspot revenue. The difference is the setup fee, router setup and feature focus.
 date: 2026-11-09
+updated: 2026-11-08
 tags: netily, internetily, netily alternative, isp billing, comparison
 category: comparison
 image: /blog-images/bitwave-vs-netily/cover-photo.webp
@@ -13,7 +14,7 @@ published: true
 
 Netily (the product now calls itself Internetily) and Bitwave Technologies charge the same rates: KES 25 per PPPoE subscriber or 3% of hotspot revenue, with a KES 500 monthly minimum. Choose Bitwave if you run MikroTik and want [free router setup with no activation fee](/signup). Choose Netily if you want a subscriber self-service portal or run mixed-vendor equipment.
 
-We build Bitwave, so this is a comparison written by one side. Every Netily fact below comes from Netily's own website, checked on 22 October 2026, and where Netily is the better choice we say so. For the wider market, see our [comparison of Kenya's ISP billing systems](/blog/best-isp-billing-system-kenya-2026).
+We build Bitwave, so this is a comparison written by one side. Every Netily fact below comes from Netily's own website, checked on 22 October 2026 and again on 8 November 2026, and where Netily is the better choice we say so. For the wider market, see our [comparison of Kenya's ISP billing systems](/blog/best-isp-billing-system-kenya-2026).
 
 ## How do Bitwave and Netily compare side by side?
 
@@ -27,13 +28,13 @@ On price the two are almost identical. The differences are in the one-time fee, 
 | Router configuration | Bitwave configures your MikroTik for free | You add the router to Netily; help offered during the trial |
 | Equipment listed | MikroTik: hAP lite, RB951, hEX and larger | MikroTik, plus Ubiquiti, TP-Link, Tenda, Cambium, Huawei, Starlink, FreeRADIUS |
 | Routers per account | Multiple | Unlimited |
-| M-Pesa | STK push from the hotspot login page, or your own paybill/till | STK Push or paybill, with your own Daraja Till/Paybill credentials |
+| M-Pesa | STK push from the hotspot login page, or your own paybill/till | STK Push, paybill or till, settling to your own account (with or without Daraja API keys) |
 | Trial | Free signup and a live demo | Trial on request, plus a read-only demo |
 | Cost at KES 30,000/month hotspot revenue | KES 900 | KES 900, plus KES 500 once |
 | Cost at 50 PPPoE users | KES 1,250 | KES 1,250, plus KES 500 once |
 
-<!-- Source (Netily pricing model, KES 500 minimum, KES 500 activation after trial, unlimited routers, trial on request): https://netily.co.ke/pricing, checked 2026-10-22 -->
-<!-- Source (equipment list "Works with the routers you already own", STK Push or paybill, Daraja Till/Paybill with own credentials, read-only demo): https://netily.co.ke/, checked 2026-10-22 -->
+<!-- Source (Netily pricing model, KES 500 minimum, KES 500 activation after trial, unlimited routers, trial on request): https://netily.co.ke/pricing, checked 2026-10-22, re-checked 2026-11-08 (unchanged) -->
+<!-- Source (equipment list "Works with the routers you already own", STK Push/paybill/till, "M-Pesa with your Daraja keys" and "Till or Paybill, no API keys", read-only demo): https://netily.co.ke/, re-checked 2026-11-08 -->
 <!-- Source (non-MikroTik equipment: "Tell us how it fits into your network so we can confirm the integration path"): https://netily.co.ke/integrations, checked 2026-10-22 -->
 <!-- Netily trial length: not published on their site. -->
 
@@ -53,11 +54,9 @@ Netily describes its approach as "Add a router to Internetily once", after which
 
 ## Where is Netily the better fit?
 
-Netily's feature list goes further on the subscriber side of a fibre or wireless ISP. It advertises a subscriber portal for renewals, receipts, password resets and support tickets, recurring invoicing, payment reconciliation across M-Pesa, Airtel Money, bank deposits and cash, voucher agents you can track, staff roles with an action log, and remote management of compatible TR-069 CPE. <!-- Source: https://netily.co.ke/features and https://netily.co.ke/integrations, checked 2026-10-22 --> It also lists payments in Uganda and Tanzania, including MTN MoMo and Flutterwave. <!-- Source: https://netily.co.ke/, checked 2026-10-22 -->
+Netily's feature list goes further on the subscriber side of a fibre or wireless ISP. It advertises a subscriber portal for renewals, receipts, password resets and support tickets, recurring invoicing, payment reconciliation across M-Pesa, Airtel Money, bank deposits and cash, voucher agents you can track, staff roles with an action log, and remote management of compatible TR-069 CPE. <!-- Source: https://netily.co.ke/features and https://netily.co.ke/integrations, checked 2026-10-22 --> It also lists settlement to 22 Kenyan banks and SACCOs, and MTN MoMo and Airtel Money in Uganda. <!-- Source: https://netily.co.ke/ and https://netily.co.ke/integrations, re-checked 2026-11-08 (Tanzania and Flutterwave no longer listed as payment options) -->
 
-<!-- VERIFY: confirm Bitwave does not offer a subscriber self-service ticket portal, customer invoicing, TR-069 or Airtel Money before publishing; nothing in the admin app (app/) suggests it does, but the captive portal lives in the backend repo. -->
-
-If you run a fibre ISP with hundreds of home subscribers who expect invoices and a self-service account, or you operate outside Kenya, Netily is built for that.
+If you run a fibre ISP with hundreds of home subscribers who expect invoices and a self-service account, or you collect payments in Uganda, Netily is built for that. If one of these features decides it for you, ask each vendor to show it working in a demo before you sign up.
 
 ## Where is Bitwave the better fit?
 
@@ -74,7 +73,7 @@ Choose Netily if:
 
 - you need a subscriber portal with tickets and password resets, or recurring invoicing;
 - your network mixes Ubiquiti, Cambium or Huawei gear and you want one vendor to look at all of it;
-- you bill customers in Uganda or Tanzania.
+- you bill customers in Uganda.
 
 Choose Bitwave if:
 
@@ -96,8 +95,7 @@ The monthly rates are the same. Bitwave has no activation fee, so it costs KES 5
 
 **Can I move my customers from Netily to Bitwave?**
 
-Yes. Your MikroTik router stays the same; the Bitwave team reconfigures it for free and sets up your packages. Call 0795 635 364 to plan the move so your customers are not left offline.
-<!-- VERIFY: confirm how Bitwave brings across an existing PPPoE customer list (import tool or done by the team) before publishing; only a static-IP import modal was found in app/. -->
+Yes. Your MikroTik router stays the same; the Bitwave team reconfigures it for free and sets up your packages. Call 0795 635 364 to plan the move, including how your existing customer list comes across, so your customers are not left offline.
 
 ## Try Bitwave on your own router
 
