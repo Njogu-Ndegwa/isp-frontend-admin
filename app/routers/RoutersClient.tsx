@@ -40,6 +40,7 @@ import HotspotPackageTroubleshoot from '../components/HotspotPackageTroubleshoot
 import InsuranceTunnelBadge from '../components/InsuranceTunnelBadge';
 import LoadBalancingControls from '../components/LoadBalancingControls';
 import RouterUnbilledLogins from './RouterUnbilledLogins';
+import { ANTI_TETHER_HELP, antiTetherToggleLabel } from './antiTether';
 
 const formatSafeDate = (dateStr: string | null | undefined): string => {
   try {
@@ -954,7 +955,9 @@ function RoutersTab({
             ? 'bg-accent-primary/10 text-accent-primary hover:bg-accent-primary/20'
             : 'text-foreground-muted hover:bg-accent-primary/10 hover:text-accent-primary'
         }`}
-        title={router.hotspot_sharing_blocked ? 'Disable anti-tethering' : 'Block hotspot sharing'}
+        title={antiTetherToggleLabel(router.hotspot_sharing_blocked)}
+        aria-label={antiTetherToggleLabel(router.hotspot_sharing_blocked)}
+        aria-pressed={!!router.hotspot_sharing_blocked}
       >
         {tetherLoading === router.id ? (
           <div className="w-4 h-4 border-2 border-current/30 border-t-current rounded-full animate-spin" />
@@ -1334,7 +1337,7 @@ function RoutersTab({
                           <span className="text-[10px] font-medium leading-none px-1.5 py-0.5 rounded bg-danger/10 text-danger border border-danger/30">emergency</span>
                         )}
                         {router.hotspot_sharing_blocked && (
-                          <span className="text-[10px] font-medium leading-none px-1.5 py-0.5 rounded bg-accent-primary/10 text-accent-primary border border-accent-primary/30">no tether</span>
+                          <span className="text-[10px] font-medium leading-none px-1.5 py-0.5 rounded bg-accent-primary/10 text-accent-primary border border-accent-primary/30" title={ANTI_TETHER_HELP}>no tether</span>
                         )}
                         {router.lb_enabled && (
                           <span className="text-[10px] font-medium leading-none px-1.5 py-0.5 rounded bg-info/10 text-info border border-info/30">LB</span>
@@ -1540,7 +1543,7 @@ function RoutersTab({
                         </span>
                       )}
                       {router.hotspot_sharing_blocked && (
-                        <span className="text-[10px] font-medium leading-none px-1.5 py-0.5 rounded bg-accent-primary/10 text-accent-primary border border-accent-primary/30" title="Hotspot sharing is blocked (TTL filtering)">
+                        <span className="text-[10px] font-medium leading-none px-1.5 py-0.5 rounded bg-accent-primary/10 text-accent-primary border border-accent-primary/30" title={ANTI_TETHER_HELP}>
                           no tether
                         </span>
                       )}
