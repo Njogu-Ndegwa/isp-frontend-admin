@@ -25,6 +25,7 @@ import UsageHistoryPanel from './UsageHistoryPanel';
 import ConnectedDevicesPanel from './ConnectedDevicesPanel';
 import HotspotDevicesPanel from './HotspotDevicesPanel';
 import StaticIpPanel from './StaticIpPanel';
+import RouterCpePanel from './RouterCpePanel';
 import PayByMpesaCard from './PayByMpesaCard';
 import { connectionTypeLabel } from '../../lib/connectionType';
 import { useT } from '../../lib/i18n';
@@ -281,6 +282,7 @@ export default function EditCustomerPage() {
             <LivePanel live={usage.live} routerId={customer.router_id ?? customer.router?.id ?? null} />
           )}
           {isPPPoE && customer.pppoe_username && <ConnectedDevicesPanel customerId={customer.id} />}
+          {isPPPoE && customer.pppoe_username && <RouterCpePanel customer={customer} />}
           {isStatic && <StaticIpPanel customer={customer} onChanged={loadData} />}
           {connectionType === 'hotspot' && <HotspotDevicesPanel customerId={customer.id} />}
           {tracksUsage && usage && <UsagePanel usage={usage} onRefresh={loadUsage} refreshing={usageLoading} />}

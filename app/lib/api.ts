@@ -123,6 +123,10 @@ import {
   ApActionResponse,
   ApStatusResponse,
   ApCredentialView,
+  CpeResponse,
+  CpeActionResponse,
+  CpeStatusResponse,
+  CpeCredentialView,
   PortAnalyticsResponse,
   MacDiagnoseResponse,
   RouterUptimeResponse,
@@ -2782,6 +2786,59 @@ class ApiClient {
       { method: 'POST', headers: this.getHeaders(), body: JSON.stringify({ confirm: true }) },
     );
     return this.handleResponse<ApActionResponse>(response);
+  }
+
+  // --- PPPoE customer router / CPE control ---------------------------------
+
+  async getCpe(customerId: number): Promise<CpeResponse> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(`${BASE_URL}/customers/${customerId}/cpe`, {
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<CpeResponse>(response);
+  }
+
+  async saveCpeCredential(
+    customerId: number,
+    body: { password: string; username?: string; vendor?: string; model?: string; port?: number; device_mac?: string },
+  ): Promise<{ success: boolean; credential: CpeCredentialView }> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(`${BASE_URL}/customers/${customerId}/cpe/credential`, {
+      method: 'PUT', headers: this.getHeaders(), body: JSON.stringify(body),
+    });
+    return this.handleResponse(response);
+  }
+
+  async deleteCpeCredential(customerId: number): Promise<{ success: boolean }> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(`${BASE_URL}/customers/${customerId}/cpe/credential`, {
+      method: 'DELETE', headers: this.getHeaders(),
+    });
+    return this.handleResponse(response);
+  }
+
+  async getCpeStatus(customerId: number): Promise<CpeStatusResponse> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(`${BASE_URL}/customers/${customerId}/cpe/status`, {
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<CpeStatusResponse>(response);
+  }
+
+  async rebootCpe(customerId: number): Promise<CpeActionResponse> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(`${BASE_URL}/customers/${customerId}/cpe/reboot`, {
+      method: 'POST', headers: this.getHeaders(), body: JSON.stringify({ confirm: true }),
+    });
+    return this.handleResponse<CpeActionResponse>(response);
+  }
+
+  async disconnectCpe(customerId: number): Promise<CpeActionResponse> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(`${BASE_URL}/customers/${customerId}/cpe/disconnect`, {
+      method: 'POST', headers: this.getHeaders(), body: JSON.stringify({ confirm: true }),
+    });
+    return this.handleResponse<CpeActionResponse>(response);
   }
 
   async getPortAnalytics(routerId: number, refresh = false): Promise<PortAnalyticsResponse> {

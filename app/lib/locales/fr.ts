@@ -838,6 +838,27 @@ export const FR: Record<string, string> = {
   "Make it a safe AP?": "En faire un AP sûr ?",
   "Switches the AP to plain AP mode, turns its DHCP server off and gives it a new fixed address outside the router pool. Everyone on this AP drops until it settles, and its old address stops working. If it does not come back, someone has to reset it on site.": "Bascule l'AP en mode AP simple, désactive son serveur DHCP et lui donne une nouvelle adresse fixe hors de la plage du routeur. Tous les utilisateurs de cet AP sont coupés jusqu'à sa stabilisation et son ancienne adresse ne fonctionne plus. S'il ne revient pas, quelqu'un devra le réinitialiser sur place.",
 
+  // Router (CPE) control for a PPPoE customer (app/customers/[id]/RouterCpePanel.tsx)
+  "Router (CPE) control": "Contrôle du routeur (CPE)",
+  "The customer's own router over PPPoE. Reached live through the MikroTik session.": "Le propre routeur du client via PPPoE. Atteint en direct via la session MikroTik.",
+  "Admin only": "Admin uniquement",
+  "Could not load router (CPE) control": "Impossible de charger le contrôle du routeur (CPE)",
+  "Router (CPE) control is only for a PPPoE customer with a router assigned.": "Le contrôle du routeur (CPE) n'est que pour un client PPPoE avec un routeur attribué.",
+  "Session": "Session",
+  "Router (CPE) password saved.": "Mot de passe du routeur (CPE) enregistré.",
+  "Router admin password": "Mot de passe admin du routeur",
+  "Web port": "Port web",
+  "Use port 80 on the LAN, or the Tenda remote web-management port (often 8080/8888) over PPPoE. Remote management must allow the MikroTik.": "Utilisez le port 80 sur le LAN, ou le port de gestion web à distance Tenda (souvent 8080/8888) via PPPoE. La gestion à distance doit autoriser le MikroTik.",
+  "Check status": "Vérifier l'état",
+  "Restart router": "Redémarrer le routeur",
+  "Disconnect line (redial)": "Déconnecter la ligne (recomposer)",
+  "Disconnecting...": "Déconnexion...",
+  "Restart this router?": "Redémarrer ce routeur ?",
+  "The router reboots and drops for about a minute. The PPPoE line reconnects once it is back up.": "Le routeur redémarre et se coupe environ une minute. La ligne PPPoE se reconnecte une fois revenu.",
+  "Disconnect the line?": "Déconnecter la ligne ?",
+  "Drops the PPPoE session so the router redials within a few seconds. This reconnects the line; it does not reboot the device.": "Coupe la session PPPoE pour que le routeur recompose en quelques secondes. Cela reconnecte la ligne ; cela ne redémarre pas l'appareil.",
+  "Disconnect line": "Déconnecter la ligne",
+
   // Admin money vocabulary: transaction volume vs Bitwave earnings (app/admin/platformEarnings.ts)
   "Transaction volume": "Volume des transactions",
   "Total customer payments processed through Bitwave for all resellers — not Bitwave's income": "Total des paiements clients traités par Bitwave pour tous les revendeurs — ce n'est pas le revenu de Bitwave",
