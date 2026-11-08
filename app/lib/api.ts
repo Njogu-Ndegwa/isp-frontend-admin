@@ -295,6 +295,8 @@ import {
   UnmatchedPayment,
   AttributePaymentRequest,
   AttributePaymentResponse,
+  CreditUnmatchedToResellerRequest,
+  CreditUnmatchedToResellerResponse,
   C2BRegisterRequest,
   C2BRegisterResponse,
   SmsCreditInfo,
@@ -4463,6 +4465,21 @@ class ApiClient {
       body: JSON.stringify(data),
     });
     return this.handleResponse<AttributePaymentResponse>(response);
+  }
+
+  /** Bitwave admins only: add an unmatched platform-paybill payment to a
+   * reseller's earnings (withdrawable) without linking any customer. */
+  async creditUnmatchedToReseller(
+    id: number,
+    data: CreditUnmatchedToResellerRequest,
+  ): Promise<CreditUnmatchedToResellerResponse> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(`${BASE_URL}/admin/c2b/unmatched/${id}/credit-reseller`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify(data),
+    });
+    return this.handleResponse<CreditUnmatchedToResellerResponse>(response);
   }
 
   async registerPlatformPaybill(data: C2BRegisterRequest): Promise<C2BRegisterResponse> {

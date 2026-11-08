@@ -12,6 +12,8 @@ import Tabs from '../components/Tabs';
 import SearchInput from '../components/SearchInput';
 import { PageLoader } from '../components/LoadingSpinner';
 import { phoneMatches } from '../lib/phoneSearch';
+import { useAuth } from '../context/AuthContext';
+import CreditToResellerModal from './CreditToResellerModal';
 
 // ─── Constants ──────────────────────────────────────────────────────
 
@@ -43,6 +45,8 @@ const COLUMNS: DataTableColumn[] = [
 
 export default function UnmatchedPaymentsPage() {
   const { showAlert } = useAlert();
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'admin';
 
   // Data
   const [payments, setPayments] = useState<UnmatchedPayment[]>([]);
@@ -57,6 +61,9 @@ export default function UnmatchedPaymentsPage() {
   const [selectedCustomerId, setSelectedCustomerId] = useState<number | null>(null);
   const [attributeNotes, setAttributeNotes] = useState('');
   const [attributing, setAttributing] = useState(false);
+
+  // Credit-to-reseller modal (Bitwave admins only)
+  const [creditTarget, setCreditTarget] = useState<UnmatchedPayment | null>(null);
 
   // ── Fetch payments ────────────────────────────────────────────────
 
@@ -184,12 +191,22 @@ export default function UnmatchedPaymentsPage() {
           );
         }
         return (
-          <button
-            onClick={() => setAttributeTarget(payment)}
-            className="px-3 py-1.5 rounded-lg text-xs font-medium bg-accent-primary text-white hover:bg-accent-primary/90 transition-colors"
-          >
-            Attribute
-          </button>
+          <div className="flex items-center justify-end gap-2">
+            <button
+              onClick={() => setAttributeTarget(payment)}
+              className="px-3 py-1.5 rounded-lg text-xs font-medium bg-accent-primary text-white hover:bg-accent-primary/90 transition-colors"
+            >
+              Attribute
+            </button>
+            {isAdmin && (
+              <button
+                onClick={() => setCreditTarget(payment)}
+                className="px-3 py-1.5 rounded-lg text-xs font-medium border border-border text-foreground hover:bg-background-tertiary transition-colors whitespace-nowrap"
+              >
+                Credit to reseller
+              </button>
+            )}
+          </div>
         );
       default:
         return null;
@@ -296,22 +313,53 @@ export default function UnmatchedPaymentsPage() {
               }}
               rightAction={
                 tab === 'unresolved' ? (
-                  <button
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      setAttributeTarget(payment);
-                    }}
-                    className="px-3 py-1.5 rounded-lg text-xs font-medium bg-accent-primary text-white"
-                  >
-                    Attribute
-                  </button>
+                  <div className="flex flex-col items-end gap-1.5">
+                    <button
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setAttributeTarget(payment);
+                      }}
+                      className="px-3 py-1.5 rounded-lg text-xs font-medium bg-accent-primary text-white"
+                    >
+                      Attribute
+                    </button>
+                    {isAdmin && (
+                      <button
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setCreditTarget(payment);
+                        }}
+                        className="px-3 py-1.5 rounded-lg text-xs font-medium border border-border text-foreground whitespace-nowrap"
+                      >
+                        Credit to reseller
+                      </button>
+                    )}
+                  </div>
                 ) : undefined
               }
             />
           ))
         )}
       </div>
+
+      {/* ── Credit to reseller (admins) ────────────────────────────── */}
+      {creditTarget && (
+        <CreditToResellerModal
+          payment={creditTarget}
+          onClose={() => setCreditTarget(null)}
+          onCredited={(result, reseller) => {
+            const name = reseller?.organization_name || reseller?.email || `reseller #${result.reseller_id}`;
+            showAlert(
+              'success',
+              `KES ${result.amount} added to ${name}'s earnings. Withdrawable now KES ${result.unpaid_balance}.`,
+            );
+            setPayments((prev) => prev.filter((p) => p.id !== creditTarget.id));
+            setCreditTarget(null);
+          }}
+        />
+      )}
 
       {/* ── Attribution Modal ──────────────────────────────────────── */}
       {attributeTarget && (
