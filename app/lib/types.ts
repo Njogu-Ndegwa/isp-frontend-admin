@@ -2651,10 +2651,12 @@ export interface AuthUser {
    *  then describe the OWNER's business. Null or absent for owners and admins
    *  (older backends never send it). */
   staff?: StaffIdentity | null;
+  account_admin?: StaffIdentity | null;
 }
 
 /** The signed-in staff member (login payload `user.staff`, GET /api/staff/me). */
 export interface StaffIdentity {
+  is_account_admin?: boolean;
   id: number;
   name: string;
   email: string;
@@ -2673,6 +2675,7 @@ export interface StaffMeResponse {
 
 /** A staff login as the owner sees it (GET /api/staff). Dates are ISO or null. */
 export interface StaffMember {
+  is_account_admin?: boolean;
   id: number;
   name: string;
   email: string;
@@ -2701,12 +2704,14 @@ export interface StaffPreset {
 
 /** GET /api/staff/permissions */
 export interface StaffPermissionCatalog {
+  account_admin_supported?: boolean;
   permissions: StaffPermissionDef[];
   presets: StaffPreset[];
   owner_only: string[];
 }
 
 export interface CreateStaffRequest {
+  is_account_admin?: boolean;
   name: string;
   email: string;
   phone?: string;
@@ -2715,6 +2720,7 @@ export interface CreateStaffRequest {
 }
 
 export interface UpdateStaffRequest {
+  is_account_admin?: boolean;
   name?: string;
   email?: string;
   phone?: string;
