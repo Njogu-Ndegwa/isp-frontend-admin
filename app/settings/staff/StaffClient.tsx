@@ -33,6 +33,7 @@ const inputClass =
 type FormMode = { kind: 'create' } | { kind: 'edit'; member: StaffMember };
 
 interface FormState {
+  isAccountAdmin: boolean;
   name: string;
   email: string;
   phone: string;
@@ -40,7 +41,7 @@ interface FormState {
   permissions: string[];
 }
 
-const EMPTY_FORM: FormState = { name: '', email: '', phone: '', password: '', permissions: [] };
+const EMPTY_FORM: FormState = { name: '', email: '', phone: '', password: '', permissions: [], isAccountAdmin: false };
 
 function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
   return (
@@ -108,6 +109,7 @@ export default function StaffClient() {
 
   const openEdit = (member: StaffMember) => {
     setForm({
+      isAccountAdmin: !!member.is_account_admin,
       name: member.name ?? '',
       email: member.email ?? '',
       phone: member.phone ?? '',
@@ -145,6 +147,7 @@ export default function StaffClient() {
           ...(phone ? { phone } : {}),
           password: form.password,
           permissions: form.permissions,
+          ...(catalog?.account_admin_supported ? { is_account_admin: form.isAccountAdmin } : {}),
         });
         setStaff((prev) => [...prev, created]);
         showAlert('success', t('{name} can now sign in with their email and password', { name: created.name || name }));
@@ -154,6 +157,7 @@ export default function StaffClient() {
           email,
           phone,
           permissions: form.permissions,
+          ...(catalog?.account_admin_supported ? { is_account_admin: form.isAccountAdmin } : {}),
         });
         replaceMember(updated);
         showAlert('success', t('Saved. {name} was signed out and must sign in again.', { name: updated.name || name }));
@@ -233,6 +237,7 @@ export default function StaffClient() {
   }
 
   const permissionSummary = (member: StaffMember) => {
+    if (member.is_account_admin) return t('Account admin');
     const perms = Array.isArray(member.permissions) ? member.permissions : [];
     const preset = matchingPreset(perms, catalog.presets);
     if (preset) return t(preset.label);
@@ -241,7 +246,7 @@ export default function StaffClient() {
   };
 
   const hasSensitive = (member: StaffMember) =>
-    (member.permissions ?? []).some((key) => catalog.permissions.find((p) => p.key === key)?.sensitive);
+    member.is_account_admin || (member.permissions ?? []).some((key) => catalog.permissions.find((p) => p.key === key)?.sensitive);
 
   const columns: DataTableColumn[] = [
     { key: 'name', label: t('Name') },
@@ -291,7 +296,7 @@ export default function StaffClient() {
         <div>
           <h2 className="text-lg font-semibold text-foreground">{t('Staff')}</h2>
           <p className="text-sm text-foreground-muted mt-0.5">
-            {t('Give technicians and cashiers their own login, with only the access they need.')}
+            {t('Give your team separate logins with account admin access or selected staff permissions.')}
           </p>
         </div>
         {tab === 'members' && (
@@ -417,7 +422,20 @@ export default function StaffClient() {
                 <p className="text-xs text-foreground-muted mt-1">{t('At least 6 characters. Share it with them privately.')}</p>
               </div>
             )}
-            <div>
+            {catalog.account_admin_supported && (
+              <div className="p-3 rounded-xl border border-border space-y-2">
+                <label className="flex items-center gap-3 text-sm font-medium text-foreground">
+                  <input type="checkbox" checked={form.isAccountAdmin} disabled={saving}
+                    onChange={(e) => setForm({ ...form, isAccountAdmin: e.target.checked })} />
+                  {t('Account admin')}
+                </label>
+                <p className="text-xs text-foreground-muted">
+                  {t('Full access to this business, including withdrawals, payment settings and managing staff. They use their own email and password.')}
+                </p>
+                <p className="text-xs text-foreground-muted">{t('Each login can use Forgot password to recover access independently.')}</p>
+              </div>
+            )}
+            {!form.isAccountAdmin && <div>
               <p className="block text-sm font-medium text-foreground mb-2">{t('Permissions')}</p>
               <StaffPermissionEditor
                 catalog={catalog}
@@ -425,7 +443,7 @@ export default function StaffClient() {
                 onChange={(permissions) => setForm((prev) => ({ ...prev, permissions }))}
                 disabled={saving}
               />
-            </div>
+            </div>}
             {formMode.kind === 'edit' && (
               <p className="text-xs text-foreground-muted">{t('Saving signs this staff member out. They sign in again with the same password.')}</p>
             )}
