@@ -1125,4 +1125,38 @@ export const FR: Record<string, string> = {
   'MAC address': 'Adresse MAC',
   'ID / passport (masked)': "Pièce d'identité / passeport (masqué)",
   'Registered': 'Inscrit le',
+
+  // Customer install location (lib/customerLocation.ts, components/CustomerLocationFields.tsx)
+  'Location': 'Localisation',
+  'Location (optional): GPS or a Google Maps link': 'Localisation (facultatif) : GPS ou lien Google Maps',
+  'Use my current location': 'Utiliser ma position actuelle',
+  'Getting location...': 'Recherche de la position...',
+  'Clear location': 'Effacer la localisation',
+  "Use this when you are at the customer's place. Your browser will ask to share your location.":
+    'À utiliser quand vous êtes chez le client. Le navigateur vous demandera de partager votre position.',
+  'GPS accuracy about {meters} m': 'Précision GPS environ {meters} m',
+  'Or paste a Google Maps link or coordinates': 'Ou collez un lien Google Maps ou des coordonnées',
+  'Latitude': 'Latitude',
+  'Longitude': 'Longitude',
+  'Open in Google Maps': 'Ouvrir dans Google Maps',
+  'Captured {date}': 'Enregistrée le {date}',
+  'No location saved': 'Aucune localisation enregistrée',
+  'Check the location': 'Vérifiez la localisation',
+  'Latitude and longitude must be numbers': 'La latitude et la longitude doivent être des nombres',
+  'Latitude must be between -90 and 90': 'La latitude doit être comprise entre -90 et 90',
+  'Longitude must be between -180 and 180': 'La longitude doit être comprise entre -180 et 180',
+  '0, 0 is not a real location. Capture the location again': "0, 0 n'est pas une vraie position. Relevez la position à nouveau",
+  'Enter both latitude and longitude, or leave both empty': 'Saisissez la latitude et la longitude, ou laissez les deux vides',
+  'Paste a Google Maps link or coordinates like -1.2195, 36.8869': 'Collez un lien Google Maps ou des coordonnées comme -1.2195, 36.8869',
+  'Short links cannot be read. Open the link, then copy the full link from the address bar, or the coordinates':
+    "Les liens courts ne peuvent pas être lus. Ouvrez le lien, puis copiez le lien complet depuis la barre d'adresse, ou les coordonnées",
+  'Could not find coordinates in that. Paste a Google Maps link or coordinates like -1.2195, 36.8869':
+    'Aucune coordonnée trouvée. Collez un lien Google Maps ou des coordonnées comme -1.2195, 36.8869',
+  'Location permission was denied. Allow location for this site in the browser, or enter the coordinates':
+    "L'accès à la position a été refusé. Autorisez la localisation pour ce site dans le navigateur, ou saisissez les coordonnées",
+  'Could not get a GPS fix. Move near a window or outside and try again':
+    "Impossible d'obtenir le signal GPS. Approchez-vous d'une fenêtre ou sortez, puis réessayez",
+  'Getting the location took too long. Try again': 'La recherche de la position a pris trop de temps. Réessayez',
+  'This browser cannot share its location. Enter the coordinates or paste a Google Maps link':
+    'Ce navigateur ne peut pas partager sa position. Saisissez les coordonnées ou collez un lien Google Maps',
 };

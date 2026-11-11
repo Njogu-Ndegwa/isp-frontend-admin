@@ -35,6 +35,8 @@ import { usePermissions } from '../../hooks/usePermissions';
 import { PERMISSIONS } from '../../lib/permissions';
 import CustomerProfileFields from '../../components/CustomerProfileFields';
 import { EMPTY_PROFILE, profileChanges, profileFromCustomer, type CustomerProfileForm } from '../../lib/customerProfile';
+import CustomerLocationFields from '../../components/CustomerLocationFields';
+import { EMPTY_LOCATION, locationChanges, locationFromCustomer, type LocationForm } from '../../lib/customerLocation';
 
 
 export default function EditCustomerPage() {
@@ -65,6 +67,11 @@ export default function EditCustomerPage() {
   const [profile, setProfile] = useState<CustomerProfileForm>(EMPTY_PROFILE);
   const [profileOriginal, setProfileOriginal] = useState<CustomerProfileForm>(EMPTY_PROFILE);
   const [nationalIdKnown, setNationalIdKnown] = useState(false);
+  // Install location: shown and edited only when the single-customer
+  // endpoint answered (lists do not carry it, so an empty form could be wrong).
+  const [location, setLocation] = useState<LocationForm>(EMPTY_LOCATION);
+  const [locationOriginal, setLocationOriginal] = useState<LocationForm>(EMPTY_LOCATION);
+  const [locationKnown, setLocationKnown] = useState(false);
   // "Activate now – already paid until <date>": an explicit choice, never
   // implied by editing the expiry (that alone leaves the customer inactive).
   const [activatePaidUntil, setActivatePaidUntil] = useState(false);
@@ -102,6 +109,10 @@ export default function EditCustomerPage() {
       setNationalIdKnown(idKnown);
       setProfile(loadedProfile);
       setProfileOriginal(loadedProfile);
+      const loadedLocation = locationFromCustomer(detail);
+      setLocationKnown(Boolean(detail && 'latitude' in detail));
+      setLocation(loadedLocation);
+      setLocationOriginal(loadedLocation);
       setCustomer(found);
       if (found.payment_paybill === undefined) {
         api.getPaymentMethods()
@@ -174,6 +185,14 @@ export default function EditCustomerPage() {
         payload.expiry = gmt3InputToISO(formData.expiry);
       }
       Object.assign(payload, profileChanges(profile, profileOriginal, nationalIdKnown));
+      if (locationKnown) {
+        try {
+          Object.assign(payload, locationChanges(location, locationOriginal));
+        } catch (err) {
+          setFormError(t(err instanceof Error ? err.message : 'Check the location'));
+          return;
+        }
+      }
       const activating = activatePaidUntil && canActivatePaidUntil(customer, isPPPoE, formData.expiry);
       if (activating) payload.activate_paid_until = true;
 
@@ -549,6 +568,19 @@ export default function EditCustomerPage() {
                   nationalIdUnavailable={!nationalIdKnown}
                 />
               </div>
+
+              {locationKnown && (
+                <div className="pt-4 border-t border-border">
+                  <h3 className="text-sm font-semibold text-foreground-muted uppercase tracking-wider mb-4">{t('Location')}</h3>
+                  <CustomerLocationFields
+                    idPrefix="edit_location"
+                    value={location}
+                    onChange={setLocation}
+                    capturedAt={location === locationOriginal ? customer.location_captured_at : null}
+                    readOnly={!canManageCustomers}
+                  />
+                </div>
+              )}
 
               </fieldset>
               {canManageCustomers && (

@@ -823,6 +823,11 @@ export interface Customer {
   /** YYYY-MM-DD */
   installation_date?: string | null;
   notes?: string | null;
+  // Install location (see lib/customerLocation.ts). Single-customer endpoints
+  // only (detail, register, edit); lists do not carry it.
+  latitude?: number | null;
+  longitude?: number | null;
+  location_captured_at?: string | null;
 }
 
 /** Register details a form sends. On an edit, '' clears a field. */
@@ -868,7 +873,15 @@ export interface SetCustomerGraceResponse {
   companions_updated: number;
 }
 
-export interface UpdateCustomerRequest extends CustomerProfileFields {
+/** Install location a form sends: both or neither. */
+export interface CustomerLocationFields {
+  latitude?: number;
+  longitude?: number;
+  /** Edit only: remove the stored location. */
+  clear_location?: boolean;
+}
+
+export interface UpdateCustomerRequest extends CustomerProfileFields, CustomerLocationFields {
   name?: string;
   phone?: string;
   plan_id?: number;
@@ -905,7 +918,7 @@ export interface DeleteCustomerResponse {
 }
 
 // PPPoE Types
-export interface RegisterCustomerRequest extends CustomerProfileFields {
+export interface RegisterCustomerRequest extends CustomerProfileFields, Omit<CustomerLocationFields, 'clear_location'> {
   name: string;
   phone: string;
   plan_id: number;
