@@ -20,6 +20,8 @@ import PPPoENotActiveNotice from '../../components/PPPoENotActiveNotice';
 import { NOW_ACTIVE_MESSAGE, pppoeNotActiveNotice } from '../[id]/pppoeActivation';
 import { usePermissions } from '../../hooks/usePermissions';
 import { PERMISSIONS } from '../../lib/permissions';
+import CustomerProfileFields from '../../components/CustomerProfileFields';
+import { EMPTY_PROFILE, profileForRegister, type CustomerProfileForm } from '../../lib/customerProfile';
 
 export default function RegisterCustomerPage() {
   const router = useRouter();
@@ -33,6 +35,8 @@ export default function RegisterCustomerPage() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [showProfile, setShowProfile] = useState(false);
+  const [profile, setProfile] = useState<CustomerProfileForm>(EMPTY_PROFILE);
   const [credentials, setCredentials] = useState<PPPoECredentials | null>(null);
   const [registeredCustomer, setRegisteredCustomer] = useState<Customer | null>(null);
 
@@ -86,6 +90,7 @@ export default function RegisterCustomerPage() {
         phone: formData.phone,
         plan_id: formData.plan_id,
         router_id: formData.router_id,
+        ...profileForRegister(profile),
       };
       if (formData.pppoe_username) payload.pppoe_username = formData.pppoe_username;
       if (formData.pppoe_password) payload.pppoe_password = formData.pppoe_password;
@@ -454,6 +459,36 @@ export default function RegisterCustomerPage() {
                 />
               </div>
             )}
+
+            <div>
+              <button
+                type="button"
+                onClick={() => setShowProfile(!showProfile)}
+                className="flex items-center gap-1.5 text-sm text-foreground-muted hover:text-foreground transition-colors"
+                aria-expanded={showProfile}
+                data-testid="toggle-customer-profile"
+              >
+                <svg
+                  className={`w-3.5 h-3.5 transition-transform ${showProfile ? 'rotate-90' : ''}`}
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                </svg>
+                {t('More details (optional): ID, email, address, notes')}
+              </button>
+              {showProfile && (
+                <div className="mt-3 pl-5 border-l-2 border-border">
+                  <CustomerProfileFields
+                    idPrefix="register"
+                    value={profile}
+                    onChange={(field, value) => setProfile((prev) => ({ ...prev, [field]: value }))}
+                  />
+                </div>
+              )}
+            </div>
 
             <div className="flex gap-3 pt-4">
               <Link href="/customers" className="btn-secondary flex-1 text-center">
