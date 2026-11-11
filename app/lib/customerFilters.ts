@@ -3,6 +3,7 @@
 
 import type { Customer } from './types';
 import { phoneMatches } from './phoneSearch';
+import { profileMatchesSearch } from './customerProfile';
 
 /** Backend timestamps are naive UTC; read them as UTC. */
 function parseUtcMs(iso: string | null | undefined): number | null {
@@ -46,10 +47,21 @@ export function isPaidOffline(
   return !onlineNow && customer.status === 'active' && !isOverdue(customer, nowMs);
 }
 
-/** Free-text search across the fields a reseller is likely to type. */
-export function customerMatchesSearch(customer: Customer, rawQuery: string): boolean {
+/**
+ * Free-text search across the fields a reseller is likely to type, including
+ * the register details (email, alternative phone, house / unit, building).
+ * The ID / passport number is only in the list masked, so a search by ID is
+ * answered by the backend instead (`nationalIdMatches`: ids it matched).
+ */
+export function customerMatchesSearch(
+  customer: Customer,
+  rawQuery: string,
+  nationalIdMatches?: ReadonlySet<number>,
+): boolean {
   const query = rawQuery.trim().toLowerCase();
   if (!query) return true;
+  if (nationalIdMatches?.has(customer.id)) return true;
+  if (profileMatchesSearch(customer, rawQuery)) return true;
   return (
     (customer.name?.toLowerCase() || '').includes(query) ||
     phoneMatches(customer.phone, rawQuery.trim()) ||

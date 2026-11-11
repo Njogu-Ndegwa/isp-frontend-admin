@@ -31,6 +31,7 @@ import { useT } from '../lib/i18n';
 import { usePermissions } from '../hooks/usePermissions';
 import { PERMISSIONS } from '../lib/permissions';
 import { customerMatchesSearch, isOnlineNow, isOverdue, isPaidOffline } from '../lib/customerFilters';
+import { customersCsv, nationalIdQuery } from '../lib/customerProfile';
 import { canPause, canResume, formatPausedRemaining, isPaused } from '../lib/customerPause';
 import PauseCustomerModal, { resumeAlert } from '../components/PauseCustomerModal';
 import { connectionTypeLabel } from '../lib/connectionType';
@@ -233,6 +234,10 @@ export default function CustomersPage() {
   const [filter, setFilter] = useState<FilterStatus>('active');
   const [connectionFilter, setConnectionFilter] = useState<ConnectionFilter>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  // Customers whose ID / passport number matches the search, answered by the
+  // backend (the list only carries the number masked).
+  const [nationalIdMatches, setNationalIdMatches] = useState<Set<number>>(new Set());
+  const [exporting, setExporting] = useState(false);
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(20);
   const [allCustomersCache, setAllCustomersCache] = useState<Customer[]>([]);
@@ -359,6 +364,21 @@ export default function CustomersPage() {
     refreshData();
   }, [refreshData]);
 
+  useEffect(() => {
+    const query = nationalIdQuery(searchQuery);
+    if (!query) {
+      setNationalIdMatches((prev) => (prev.size ? new Set() : prev));
+      return;
+    }
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      api.getNationalIdMatches(query)
+        .then((ids) => { if (!cancelled) setNationalIdMatches(new Set(ids)); })
+        .catch(() => { if (!cancelled) setNationalIdMatches(new Set()); });
+    }, 300);
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [searchQuery]);
+
   const prevSearchRef = useRef(searchQuery);
   const prevConnFilterRef = useRef(connectionFilter);
   useEffect(() => {
@@ -468,9 +488,39 @@ export default function CustomersPage() {
       if (filter === 'online' && !isCustomerOnlineNow(customer)) return false;
       if (filter === 'offline' && !isPaidOffline(customer, isCustomerOnlineNow(customer), nowMs)) return false;
       if (connectionFilter !== 'all' && getConnectionType(customer) !== connectionFilter) return false;
-      return customerMatchesSearch(customer, searchQuery);
+      return customerMatchesSearch(customer, searchQuery, nationalIdMatches);
     });
-  }, [hasClientFilters, allCustomersCache, customers, filter, connectionFilter, searchQuery, liveFilter, liveFilterReady, isCustomerOnlineNow]);
+  }, [hasClientFilters, allCustomersCache, customers, filter, connectionFilter, searchQuery, nationalIdMatches, liveFilter, liveFilterReady, isCustomerOnlineNow]);
+
+  // CSV of what the list shows: with a search / tab / live filter that is the
+  // filtered list; otherwise every customer under the status pill, not just
+  // this page. The ID / passport number is exported masked.
+  const handleExportCsv = async () => {
+    setExporting(true);
+    try {
+      let rows: Customer[];
+      if (hasClientFilters) {
+        rows = filteredCustomers;
+      } else {
+        const all = filter === 'active' ? await api.getActiveCustomers(1) : await api.getCustomers(1);
+        rows = filter === 'inactive' ? all.filter((c) => c.status === 'inactive') : all;
+      }
+      const blob = new Blob([customersCsv(rows, t)], { type: 'text/csv;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `customers-${new Date().toISOString().slice(0, 10)}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      showAlert('success', t('Exported {count} customers', { count: rows.length }));
+    } catch (err) {
+      showAlert('error', err instanceof Error ? err.message : t('Export failed'));
+    } finally {
+      setExporting(false);
+    }
+  };
 
   // Every customer on the current connection tab, before the status filter
   // and search: what the Online / Offline / Overdue counts are taken over.
@@ -1182,9 +1232,21 @@ export default function CustomersPage() {
             <SearchInput
               value={searchQuery}
               onChange={setSearchQuery}
-              placeholder={t('Search by name, phone, account number, MAC, IP, PPPoE username, or plan...')}
+              placeholder={t('Search by name, phone, ID number, email, building, account number, MAC, IP, PPPoE username, or plan...')}
             />
           </div>
+          <button
+            type="button"
+            onClick={handleExportCsv}
+            disabled={exporting}
+            className="btn-secondary flex items-center justify-center gap-2 whitespace-nowrap shrink-0 disabled:opacity-50"
+            data-testid="export-customers-csv"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v12m0 0l-4-4m4 4l4-4M4 20h16" />
+            </svg>
+            {exporting ? t('Exporting...') : t('Export CSV')}
+          </button>
         </div>
 
         {/* Status pills — secondary in-view filter, remembered across visits */}

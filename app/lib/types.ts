@@ -808,6 +808,32 @@ export interface Customer {
   // Set on companion devices (TV, console…) that ride another customer's
   // subscription instead of paying for their own.
   subscription_owner_id?: number | null;
+  created_at?: string | null;
+  // Register details (all optional; see lib/customerProfile.ts). Lists carry
+  // the ID / passport number masked only; `national_id` is present only on
+  // the single-customer endpoint (GET /customers/{id}) and register / edit.
+  national_id?: string | null;
+  national_id_masked?: string | null;
+  email?: string | null;
+  alt_phone?: string | null;
+  /** House / unit. */
+  address_line?: string | null;
+  /** Building / estate. */
+  building?: string | null;
+  /** YYYY-MM-DD */
+  installation_date?: string | null;
+  notes?: string | null;
+}
+
+/** Register details a form sends. On an edit, '' clears a field. */
+export interface CustomerProfileFields {
+  national_id?: string;
+  email?: string;
+  alt_phone?: string;
+  address_line?: string;
+  building?: string;
+  installation_date?: string;
+  notes?: string;
 }
 
 export interface PauseCustomerResponse {
@@ -842,7 +868,7 @@ export interface SetCustomerGraceResponse {
   companions_updated: number;
 }
 
-export interface UpdateCustomerRequest {
+export interface UpdateCustomerRequest extends CustomerProfileFields {
   name?: string;
   phone?: string;
   plan_id?: number;
@@ -879,7 +905,7 @@ export interface DeleteCustomerResponse {
 }
 
 // PPPoE Types
-export interface RegisterCustomerRequest {
+export interface RegisterCustomerRequest extends CustomerProfileFields {
   name: string;
   phone: string;
   plan_id: number;

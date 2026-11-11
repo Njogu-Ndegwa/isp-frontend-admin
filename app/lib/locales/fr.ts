@@ -1101,4 +1101,28 @@ export const FR: Record<string, string> = {
   "New PPPoE customers on this router will be locked to their first router": "Les nouveaux clients PPPoE de ce routeur seront verrouillés sur leur premier routeur",
   "New PPPoE customers on this router will not be locked": "Les nouveaux clients PPPoE de ce routeur ne seront pas verrouillés",
   "Could not save the setting": "Impossible d'enregistrer le réglage",
+
+  // Customer register details (lib/customerProfile.ts)
+  'ID / passport number': "N° de pièce d'identité / passeport",
+  'Alternative phone': 'Autre téléphone',
+  'House / unit': 'Maison / appartement',
+  'Building / estate': 'Immeuble / quartier',
+  'Installation date': "Date d'installation",
+  'Notes': 'Notes',
+  'Anything useful about this customer or installation': "Toute information utile sur ce client ou l'installation",
+  'Could not load the full number. Reload the page to change it.': 'Impossible de charger le numéro complet. Rechargez la page pour le modifier.',
+  'Shown in full only here. Lists and exports show the last 3 characters.': 'Affiché en entier uniquement ici. Les listes et exports montrent les 3 derniers caractères.',
+  'More details (optional): ID, email, address, notes': "Plus de détails (facultatif) : pièce d'identité, e-mail, adresse, notes",
+  'Register details': 'Détails du client',
+  'Search by name, phone, ID number, email, building, account number, MAC, IP, PPPoE username, or plan...':
+    "Rechercher par nom, téléphone, n° d'identité, e-mail, immeuble, numéro de compte, MAC, IP, nom d'utilisateur PPPoE ou forfait...",
+  'Export CSV': 'Exporter en CSV',
+  'Exporting...': 'Export en cours...',
+  'Export failed': "L'export a échoué",
+  'Exported {count} customers': '{count} clients exportés',
+  'Account number': 'Numéro de compte',
+  'PPPoE username': "Nom d'utilisateur PPPoE",
+  'MAC address': 'Adresse MAC',
+  'ID / passport (masked)': "Pièce d'identité / passeport (masqué)",
+  'Registered': 'Inscrit le',
 };
