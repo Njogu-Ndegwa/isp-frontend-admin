@@ -81,6 +81,7 @@ import {
   StaticActionResponse,
   StaticStatusResponse,
   PPPoECredentials,
+  PppoeRouterLockSettings,
   PPPoEActiveResponse,
   RouterInterfacesResponse,
   UpdatePPPoEPortsRequest,
@@ -2044,7 +2045,8 @@ class ApiClient {
       headers: this.getHeaders(),
       body: JSON.stringify(data),
     });
-    return this.handleResponse<UpdateCustomerResponse>(response);
+    // preferDetailMessage: a 409 pppoe_router_locked shows its message, not JSON.
+    return this.handleResponse<UpdateCustomerResponse>(response, false, true);
   }
 
   async setCustomerGracePeriod(customerId: number, graceMinutes: number): Promise<SetCustomerGraceResponse> {
@@ -2183,6 +2185,32 @@ class ApiClient {
       headers: this.getHeaders(),
     });
     return this.handleResponse<PPPoECredentials>(response);
+  }
+
+  // Opt-in PPPoE router lock (owner only): each PPPoE login stays on its first router.
+  async getPppoeRouterLock(): Promise<PppoeRouterLockSettings> {
+    if (this.isDemoMode()) return { enabled: false, locked_customers: 0 };
+    const response = await fetch(`${BASE_URL}/pppoe/router-lock`, { headers: this.getHeaders() });
+    return this.handleResponse<PppoeRouterLockSettings>(response);
+  }
+
+  async setPppoeRouterLock(enabled: boolean): Promise<PppoeRouterLockSettings> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(`${BASE_URL}/pppoe/router-lock`, {
+      method: 'PUT',
+      headers: this.getHeaders(),
+      body: JSON.stringify({ enabled }),
+    });
+    return this.handleResponse<PppoeRouterLockSettings>(response);
+  }
+
+  async releasePppoeRouterLock(customerId: number): Promise<{ success: boolean; released_router_id: number | null }> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(`${BASE_URL}/customers/${customerId}/pppoe-router-lock/release`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<{ success: boolean; released_router_id: number | null }>(response);
   }
 
   async regeneratePPPoEPassword(customerId: number): Promise<PPPoECredentials> {

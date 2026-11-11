@@ -9,6 +9,7 @@ import { useAlert } from '../../context/AlertContext';
 import { useAuth } from '../../context/AuthContext';
 import { formatDateGMT3 } from '../../lib/dateUtils';
 import { useT, translate, LANGUAGE_NAMES } from '../../lib/i18n';
+import PppoeRouterLockCard from './PppoeRouterLockCard';
 
 const formatSafeDate = (dateStr: string | undefined, full = false): string => {
   try {
@@ -388,6 +389,8 @@ export default function ProfilePage() {
           </button>
         </div>
       </section>
+
+      <PppoeRouterLockCard />
 
       {/* Danger Zone */}
       <section className="rounded-2xl bg-background-secondary border border-danger/30 overflow-hidden">

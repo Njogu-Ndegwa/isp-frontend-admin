@@ -32,6 +32,10 @@ import { useT } from '../../lib/i18n';
 import { canActivatePaidUntil, formatPaidUntil, pppoeSaveNotice } from './pppoeActivation';
 import { usePermissions } from '../../hooks/usePermissions';
 import { PERMISSIONS } from '../../lib/permissions';
+import CustomerRegisterFields from '../CustomerRegisterFields';
+import {
+  EMPTY_REGISTER_FIELDS, RegisterFieldsForm, registerFieldsChanges, registerFieldsError, registerFieldsFromCustomer,
+} from '../../lib/customerRegister';
 
 
 export default function EditCustomerPage() {
@@ -60,6 +64,10 @@ export default function EditCustomerPage() {
   // "Activate now – already paid until <date>": an explicit choice, never
   // implied by editing the expiry (that alone leaves the customer inactive).
   const [activatePaidUntil, setActivatePaidUntil] = useState(false);
+  const [registerFields, setRegisterFields] = useState<RegisterFieldsForm>({ ...EMPTY_REGISTER_FIELDS });
+  // Opt-in PPPoE router lock (owner setting; staff cannot read it, so null).
+  const [routerLockEnabled, setRouterLockEnabled] = useState<boolean | null>(null);
+  const [releasingLock, setReleasingLock] = useState(false);
   const [usage, setUsage] = useState<CustomerUsageResponse | null>(null);
   // Reseller-wide paybill, fetched only when the API did not send the
   // customer's own `payment_paybill` (older backend, demo mode).
@@ -92,6 +100,12 @@ export default function EditCustomerPage() {
           .catch(() => setFallbackPaybill(PLATFORM_PAYBILL));
       }
       setAllCustomers(customers);
+      setRegisterFields(registerFieldsFromCustomer(found));
+      if (!isStaff && found.pppoe_username) {
+        api.getPppoeRouterLock()
+          .then((lock) => setRouterLockEnabled(lock.enabled))
+          .catch(() => setRouterLockEnabled(null));
+      }
       setPlans(plansData);
       setRouters(routersData);
       setFormData({
@@ -141,9 +155,14 @@ export default function EditCustomerPage() {
     e.preventDefault();
     if (!customer) return;
     try {
-      setSaving(true);
       setFormError(null);
-      const payload: UpdateCustomerRequest = {};
+      const fieldsError = registerFieldsError(registerFields);
+      if (fieldsError) {
+        setFormError(fieldsError);
+        return;
+      }
+      setSaving(true);
+      const payload: UpdateCustomerRequest = { ...registerFieldsChanges(registerFields, customer) };
       if (formData.name && formData.name !== customer.name) payload.name = formData.name;
       if (formData.phone && formData.phone !== customer.phone) payload.phone = formData.phone;
       if (formData.plan_id && formData.plan_id !== (customer.plan_id ?? customer.plan?.id)) payload.plan_id = formData.plan_id;
@@ -179,6 +198,20 @@ export default function EditCustomerPage() {
       setFormError(err instanceof Error ? err.message : 'Failed to update customer');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleReleaseLock = async () => {
+    if (!customer) return;
+    try {
+      setReleasingLock(true);
+      await api.releasePppoeRouterLock(customer.id);
+      setCustomer({ ...customer, pppoe_locked_router_id: null });
+      showAlert('success', 'Router lock released. Pick the new router and save; it becomes the locked one.');
+    } catch (err) {
+      showAlert('error', err instanceof Error ? err.message : 'Failed to release the router lock');
+    } finally {
+      setReleasingLock(false);
     }
   };
 
@@ -398,6 +431,28 @@ export default function EditCustomerPage() {
                     </option>
                   ))}
                 </select>
+                {isPPPoE && routerLockEnabled && (
+                  <div className="mt-2 text-xs text-foreground-muted" data-testid="pppoe-router-lock-note">
+                    {customer.pppoe_locked_router_id ? (
+                      <>
+                        Locked to {routers.find((r) => r.id === customer.pppoe_locked_router_id)?.name ?? `router #${customer.pppoe_locked_router_id}`}.
+                        This login cannot be moved to another router.{' '}
+                        {canManageCustomers && (
+                          <button
+                            type="button"
+                            disabled={releasingLock}
+                            onClick={handleReleaseLock}
+                            className="font-medium text-accent-primary hover:underline disabled:opacity-50"
+                          >
+                            {releasingLock ? 'Releasing…' : 'Release lock to move'}
+                          </button>
+                        )}
+                      </>
+                    ) : (
+                      'Not locked yet: the router you save becomes the locked one.'
+                    )}
+                  </div>
+                )}
               </div>
 
               {isStatic ? (
@@ -517,6 +572,8 @@ export default function EditCustomerPage() {
                   </div>
                 </div>
               )}
+
+              <CustomerRegisterFields value={registerFields} onChange={setRegisterFields} idPrefix="edit" />
 
               </fieldset>
               {canManageCustomers && (

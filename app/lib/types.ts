@@ -808,6 +808,39 @@ export interface Customer {
   // Set on companion devices (TV, console…) that ride another customer's
   // subscription instead of paying for their own.
   subscription_owner_id?: number | null;
+  // Customer register (all optional; absent on older backends).
+  location?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  id_number?: string | null;
+  house?: string | null;
+  email?: string | null;
+  /** YYYY-MM-DD */
+  install_date?: string | null;
+  notes?: string | null;
+  /** Opt-in PPPoE router lock: the router this login is locked to (null = not locked). */
+  pppoe_locked_router_id?: number | null;
+  /** Detail endpoint only: whether the reseller has the PPPoE router lock on. */
+  pppoe_router_lock_enabled?: boolean;
+}
+
+/** Optional customer-register fields, shared by the register and edit requests. */
+export interface CustomerRegisterFieldsInput {
+  location?: string;
+  latitude?: number;
+  longitude?: number;
+  id_number?: string;
+  house?: string;
+  email?: string;
+  /** YYYY-MM-DD. On edit, an empty string clears it. */
+  install_date?: string | null;
+  notes?: string;
+}
+
+export interface PppoeRouterLockSettings {
+  enabled: boolean;
+  locked_customers: number;
+  newly_locked?: number;
 }
 
 export interface PauseCustomerResponse {
@@ -842,7 +875,7 @@ export interface SetCustomerGraceResponse {
   companions_updated: number;
 }
 
-export interface UpdateCustomerRequest {
+export interface UpdateCustomerRequest extends CustomerRegisterFieldsInput {
   name?: string;
   phone?: string;
   plan_id?: number;
@@ -879,7 +912,7 @@ export interface DeleteCustomerResponse {
 }
 
 // PPPoE Types
-export interface RegisterCustomerRequest {
+export interface RegisterCustomerRequest extends CustomerRegisterFieldsInput {
   name: string;
   phone: string;
   plan_id: number;

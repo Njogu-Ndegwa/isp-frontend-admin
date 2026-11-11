@@ -20,6 +20,10 @@ import PPPoENotActiveNotice from '../../components/PPPoENotActiveNotice';
 import { NOW_ACTIVE_MESSAGE, pppoeNotActiveNotice } from '../[id]/pppoeActivation';
 import { usePermissions } from '../../hooks/usePermissions';
 import { PERMISSIONS } from '../../lib/permissions';
+import CustomerRegisterFields from '../CustomerRegisterFields';
+import {
+  EMPTY_REGISTER_FIELDS, RegisterFieldsForm, registerFieldsError, registerFieldsPayload,
+} from '../../lib/customerRegister';
 
 export default function RegisterCustomerPage() {
   const router = useRouter();
@@ -35,6 +39,7 @@ export default function RegisterCustomerPage() {
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [credentials, setCredentials] = useState<PPPoECredentials | null>(null);
   const [registeredCustomer, setRegisteredCustomer] = useState<Customer | null>(null);
+  const [registerFields, setRegisterFields] = useState<RegisterFieldsForm>({ ...EMPTY_REGISTER_FIELDS });
 
   const [formData, setFormData] = useState<RegisterCustomerRequest>({
     name: '',
@@ -79,6 +84,11 @@ export default function RegisterCustomerPage() {
       showAlert('error', 'Please select a plan and router.');
       return;
     }
+    const fieldsError = registerFieldsError(registerFields);
+    if (fieldsError) {
+      showAlert('error', fieldsError);
+      return;
+    }
     setSubmitting(true);
     try {
       const payload: RegisterCustomerRequest = {
@@ -86,6 +96,7 @@ export default function RegisterCustomerPage() {
         phone: formData.phone,
         plan_id: formData.plan_id,
         router_id: formData.router_id,
+        ...registerFieldsPayload(registerFields),
       };
       if (formData.pppoe_username) payload.pppoe_username = formData.pppoe_username;
       if (formData.pppoe_password) payload.pppoe_password = formData.pppoe_password;
@@ -454,6 +465,8 @@ export default function RegisterCustomerPage() {
                 />
               </div>
             )}
+
+            <CustomerRegisterFields value={registerFields} onChange={setRegisterFields} idPrefix="register" />
 
             <div className="flex gap-3 pt-4">
               <Link href="/customers" className="btn-secondary flex-1 text-center">
