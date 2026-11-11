@@ -29,7 +29,7 @@ export function formatAmountCompact(amount: number | null | undefined): string {
  * Money in any currency: "KES 1,500", "USD 10.00", "XAF 159,140".
  * Use this wherever the backend sends a `currency` (subscription invoices and
  * payments, a reseller's market). Currencies without minor units in practice
- * (KES, XAF, UGX, TZS, ZMW) show none.
+ * (KES, XAF, UGX, TZS, ZMW, HTG) show none.
  */
 export function formatMoney(amount: number | null | undefined, currency: string | null | undefined = 'KES'): string {
   const code = (currency || 'KES').toUpperCase();
