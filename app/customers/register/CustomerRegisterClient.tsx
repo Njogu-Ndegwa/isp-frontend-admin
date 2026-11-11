@@ -22,6 +22,8 @@ import { usePermissions } from '../../hooks/usePermissions';
 import { PERMISSIONS } from '../../lib/permissions';
 import CustomerProfileFields from '../../components/CustomerProfileFields';
 import { EMPTY_PROFILE, profileForRegister, type CustomerProfileForm } from '../../lib/customerProfile';
+import CustomerLocationFields from '../../components/CustomerLocationFields';
+import { EMPTY_LOCATION, locationForRegister, type LocationForm } from '../../lib/customerLocation';
 
 export default function RegisterCustomerPage() {
   const router = useRouter();
@@ -37,6 +39,8 @@ export default function RegisterCustomerPage() {
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const [profile, setProfile] = useState<CustomerProfileForm>(EMPTY_PROFILE);
+  const [showLocation, setShowLocation] = useState(false);
+  const [location, setLocation] = useState<LocationForm>(EMPTY_LOCATION);
   const [credentials, setCredentials] = useState<PPPoECredentials | null>(null);
   const [registeredCustomer, setRegisteredCustomer] = useState<Customer | null>(null);
 
@@ -83,6 +87,14 @@ export default function RegisterCustomerPage() {
       showAlert('error', 'Please select a plan and router.');
       return;
     }
+    let locationPayload;
+    try {
+      locationPayload = locationForRegister(location);
+    } catch (err) {
+      setShowLocation(true);
+      showAlert('error', t(err instanceof Error ? err.message : 'Check the location'));
+      return;
+    }
     setSubmitting(true);
     try {
       const payload: RegisterCustomerRequest = {
@@ -91,6 +103,7 @@ export default function RegisterCustomerPage() {
         plan_id: formData.plan_id,
         router_id: formData.router_id,
         ...profileForRegister(profile),
+        ...locationPayload,
       };
       if (formData.pppoe_username) payload.pppoe_username = formData.pppoe_username;
       if (formData.pppoe_password) payload.pppoe_password = formData.pppoe_password;
@@ -486,6 +499,32 @@ export default function RegisterCustomerPage() {
                     value={profile}
                     onChange={(field, value) => setProfile((prev) => ({ ...prev, [field]: value }))}
                   />
+                </div>
+              )}
+            </div>
+
+            <div>
+              <button
+                type="button"
+                onClick={() => setShowLocation(!showLocation)}
+                className="flex items-center gap-1.5 text-sm text-foreground-muted hover:text-foreground transition-colors"
+                aria-expanded={showLocation}
+                data-testid="toggle-customer-location"
+              >
+                <svg
+                  className={`w-3.5 h-3.5 transition-transform ${showLocation ? 'rotate-90' : ''}`}
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                </svg>
+                {t('Location (optional): GPS or a Google Maps link')}
+              </button>
+              {showLocation && (
+                <div className="mt-3 pl-5 border-l-2 border-border">
+                  <CustomerLocationFields idPrefix="register_location" value={location} onChange={setLocation} />
                 </div>
               )}
             </div>
