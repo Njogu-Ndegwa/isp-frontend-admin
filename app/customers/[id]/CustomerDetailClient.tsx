@@ -32,6 +32,8 @@ import { useT } from '../../lib/i18n';
 import { canActivatePaidUntil, formatPaidUntil, pppoeSaveNotice } from './pppoeActivation';
 import { usePermissions } from '../../hooks/usePermissions';
 import { PERMISSIONS } from '../../lib/permissions';
+import CustomerProfileFields from '../../components/CustomerProfileFields';
+import { EMPTY_PROFILE, profileChanges, profileFromCustomer, type CustomerProfileForm } from '../../lib/customerProfile';
 
 
 export default function EditCustomerPage() {
@@ -57,6 +59,11 @@ export default function EditCustomerPage() {
   const [deleteLoading, setDeleteLoading] = useState(false);
 
   const [formData, setFormData] = useState<UpdateCustomerRequest>({});
+  // Register details: what the form shows, what was loaded, and whether the
+  // full ID / passport number was loaded (lists only carry it masked).
+  const [profile, setProfile] = useState<CustomerProfileForm>(EMPTY_PROFILE);
+  const [profileOriginal, setProfileOriginal] = useState<CustomerProfileForm>(EMPTY_PROFILE);
+  const [nationalIdKnown, setNationalIdKnown] = useState(false);
   // "Activate now – already paid until <date>": an explicit choice, never
   // implied by editing the expiry (that alone leaves the customer inactive).
   const [activatePaidUntil, setActivatePaidUntil] = useState(false);
@@ -80,11 +87,20 @@ export default function EditCustomerPage() {
         optional(api.getPlans()),
         optional(api.getRouters()),
       ]);
-      const found = customers.find((c) => c.id === customerId);
-      if (!found) {
+      const listed = customers.find((c) => c.id === customerId);
+      if (!listed) {
         setError('Customer not found');
         return;
       }
+      // The single-customer endpoint carries the full ID / passport number.
+      const detail = await api.getCustomerDetail(customerId).catch(() => null);
+      const found: Customer = detail ? { ...listed, ...detail } : listed;
+      // No masked number either = no ID stored, so the empty field is accurate.
+      const idKnown = Boolean(detail && 'national_id' in detail) || !found.national_id_masked;
+      const loadedProfile = profileFromCustomer(found);
+      setNationalIdKnown(idKnown);
+      setProfile(loadedProfile);
+      setProfileOriginal(loadedProfile);
       setCustomer(found);
       if (found.payment_paybill === undefined) {
         api.getPaymentMethods()
@@ -156,6 +172,7 @@ export default function EditCustomerPage() {
       if (formData.expiry && formData.expiry !== utcToGMT3Input(customer.expiry)) {
         payload.expiry = gmt3InputToISO(formData.expiry);
       }
+      Object.assign(payload, profileChanges(profile, profileOriginal, nationalIdKnown));
       const activating = activatePaidUntil && canActivatePaidUntil(customer, isPPPoE, formData.expiry);
       if (activating) payload.activate_paid_until = true;
 
@@ -517,6 +534,17 @@ export default function EditCustomerPage() {
                   </div>
                 </div>
               )}
+
+              <div className="pt-4 border-t border-border">
+                <h3 className="text-sm font-semibold text-foreground-muted uppercase tracking-wider mb-4">{t('Register details')}</h3>
+                <CustomerProfileFields
+                  idPrefix="edit"
+                  value={profile}
+                  onChange={(field, value) => setProfile((prev) => ({ ...prev, [field]: value }))}
+                  nationalIdMasked={customer.national_id_masked}
+                  nationalIdUnavailable={!nationalIdKnown}
+                />
+              </div>
 
               </fieldset>
               {canManageCustomers && (

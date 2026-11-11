@@ -1009,6 +1009,28 @@ class ApiClient {
     return result;
   }
 
+  /** One customer, with the full register details (incl. the ID / passport number). */
+  async getCustomerDetail(customerId: number): Promise<Customer> {
+    if (this.isDemoMode()) {
+      const found = (await loadDemo()).demoCustomers.find((c) => c.id === customerId);
+      if (!found) throw new Error('Customer not found');
+      return found;
+    }
+    const response = await fetch(`${BASE_URL}/customers/${customerId}`, { headers: this.getHeaders() });
+    return this.handleResponse<Customer>(response);
+  }
+
+  /** Ids of customers whose ID / passport number contains `query` (the list only has them masked). */
+  async getNationalIdMatches(query: string): Promise<number[]> {
+    if (this.isDemoMode()) return [];
+    const params = new URLSearchParams({ q: query });
+    const response = await fetch(`${BASE_URL}/customers/national-id-matches?${params.toString()}`, {
+      headers: this.getHeaders(),
+    });
+    const result = await this.handleResponse<{ customer_ids: number[] }>(response);
+    return result.customer_ids ?? [];
+  }
+
   async getActiveCustomers(userId?: number): Promise<Customer[]>;
   async getActiveCustomers(userId: number, page: number, perPage: number): Promise<PaginatedResponse<Customer>>;
   async getActiveCustomers(userId = 1, page?: number, perPage?: number): Promise<Customer[] | PaginatedResponse<Customer>> {
