@@ -2245,6 +2245,8 @@ export interface Router {
   status_alerts_enabled?: boolean;
   /** Expired PPPoE customers are walled and redirected to the payment page. */
   pppoe_expired_redirect?: boolean;
+  /** New PPPoE customers on this router start with the device lock on. */
+  pppoe_lock_new_customers?: boolean;
   token_vpn_type?: 'wireguard' | 'l2tp' | null;
   planned_insurance_tunnel_type?: 'wireguard' | 'l2tp' | 'auto';
   owner_user_id?: number | null;
@@ -7169,6 +7171,33 @@ export interface OvesGqlInsights {
   error_groups: OvesGqlErrorGroup[];
   series: { t: string; requests: number; errors: number; error_rate: number | null }[];
   studio_url: string;
+}
+
+/** PPPoE device lock: the login only works from the customer's own router. */
+export interface PppoeDeviceLockState {
+  customer_id: number;
+  pppoe_device_lock: boolean;
+  /** The router (CPE) MAC the login is locked to; null while learning or off. */
+  pppoe_bound_mac: string | null;
+  pppoe_bound_at: string | null;
+  pppoe_lock_learn_after: string | null;
+  pppoe_lock_applied_mac: string | null;
+  /** The router does not carry the change yet (was unreachable); retried automatically. */
+  pppoe_lock_router_pending: boolean;
+  pppoe_lock_state: 'off' | 'learning' | 'locked';
+  /** Router log lines about this login being refused (only when logs were collected). */
+  recent_rejections: { occurred_at: string | null; message: string }[];
+}
+
+export interface PppoeDeviceLockResponse extends PppoeDeviceLockState {
+  router_updated: boolean;
+  router_note: string | null;
+}
+
+export interface PppoeLockDefaultResponse {
+  router_id: number;
+  pppoe_lock_new_customers: boolean;
+  message: string;
 }
 
 export interface PppoeExpiredRedirectResponse {
