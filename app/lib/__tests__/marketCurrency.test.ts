@@ -16,6 +16,14 @@ describe('reseller money in the market currency', () => {
     expect(previewCurrencyCode()).toBe('ZMW');
   });
 
+  it('renders a Haitian reseller in HTG', () => {
+    setDisplayCurrency('HTG');
+    expect(formatAmount(1000)).toBe('HTG 1,000');
+    expect(formatAmountCompact(300)).toBe('HTG 300');
+    expect(previewCurrencyCode()).toBe('HTG');
+    expect(formatMoney(600, 'HTG')).toBe('HTG 600');
+  });
+
   it('keeps Kenya on KES and the portal preview on KSH', () => {
     setDisplayCurrency('KES');
     expect(formatAmount(1500)).toBe('KES 1,500');
