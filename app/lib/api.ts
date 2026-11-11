@@ -338,6 +338,9 @@ import {
   UpdateStaffRequest,
   StaffActivityResponse,
   PppoeExpiredRedirectResponse,
+  PppoeDeviceLockState,
+  PppoeDeviceLockResponse,
+  PppoeLockDefaultResponse,
   ShareDeviceType,
 } from './types';
 import { DEMO_STAFF_CATALOG } from './staffCatalog';
@@ -2483,6 +2486,44 @@ class ApiClient {
       body: JSON.stringify({ enabled }),
     });
     return this.handleResponse<PppoeExpiredRedirectResponse>(response);
+  }
+
+  // PPPoE device lock: the login only works from the customer's own router.
+  async getPppoeDeviceLock(customerId: number): Promise<PppoeDeviceLockState> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(`${BASE_URL}/customers/${customerId}/pppoe-device-lock`, {
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<PppoeDeviceLockState>(response);
+  }
+
+  async setPppoeDeviceLock(customerId: number, enabled: boolean, mac?: string): Promise<PppoeDeviceLockResponse> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(`${BASE_URL}/customers/${customerId}/pppoe-device-lock`, {
+      method: 'PUT',
+      headers: this.getHeaders(),
+      body: JSON.stringify(mac ? { enabled, mac } : { enabled }),
+    });
+    return this.handleResponse<PppoeDeviceLockResponse>(response);
+  }
+
+  async allowNewPppoeRouter(customerId: number): Promise<PppoeDeviceLockResponse> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(`${BASE_URL}/customers/${customerId}/pppoe-device-lock/allow-new-router`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<PppoeDeviceLockResponse>(response);
+  }
+
+  async setPppoeLockDefault(routerId: number, enabled: boolean): Promise<PppoeLockDefaultResponse> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(`${BASE_URL}/routers/${routerId}/pppoe-device-lock-default`, {
+      method: 'PUT',
+      headers: this.getHeaders(),
+      body: JSON.stringify({ enabled }),
+    });
+    return this.handleResponse<PppoeLockDefaultResponse>(response);
   }
 
   // PPPoE User Monitoring (bandwidth & online status)

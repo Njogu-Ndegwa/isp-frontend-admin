@@ -26,6 +26,7 @@ import { PageLoader } from '../components/LoadingSpinner';
 import { useAuth } from '../context/AuthContext';
 import { usePermissions } from '../hooks/usePermissions';
 import PppoeExpiredRedirectToggle from '../components/PppoeExpiredRedirectToggle';
+import PppoeLockDefaultToggle from '../components/PppoeLockDefaultToggle';
 import { PERMISSIONS } from '../lib/permissions';
 import { portsRouterIdFromSearch } from '../lib/pppoePorts';
 import { useAlert } from '../context/AlertContext';
@@ -2651,6 +2652,11 @@ function EditRouterModal({
           <PppoeExpiredRedirectToggle
             routerId={router.id}
             initialEnabled={!!router.pppoe_expired_redirect}
+          />
+
+          <PppoeLockDefaultToggle
+            routerId={router.id}
+            initialEnabled={!!router.pppoe_lock_new_customers}
           />
 
           <div className="flex gap-3 pt-2">

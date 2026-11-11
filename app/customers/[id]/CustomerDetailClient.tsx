@@ -26,6 +26,7 @@ import ConnectedDevicesPanel from './ConnectedDevicesPanel';
 import HotspotDevicesPanel from './HotspotDevicesPanel';
 import StaticIpPanel from './StaticIpPanel';
 import RouterCpePanel from './RouterCpePanel';
+import PPPoEDeviceLockCard from './PPPoEDeviceLockCard';
 import PayByMpesaCard from './PayByMpesaCard';
 import { connectionTypeLabel } from '../../lib/connectionType';
 import { useT } from '../../lib/i18n';
@@ -335,6 +336,9 @@ export default function EditCustomerPage() {
               setFormData((prev) => ({ ...prev, expiry: utcToGMT3Input(result.expiry ?? customer.expiry) }));
             }}
           />
+          )}
+          {canManageCustomers && isPPPoE && customer.pppoe_username && (
+            <PPPoEDeviceLockCard customer={customer} />
           )}
           {canManageCustomers && (
           <GracePeriodCard
