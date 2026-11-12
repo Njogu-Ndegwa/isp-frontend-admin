@@ -385,6 +385,7 @@ export const demoMikroTikMetrics: MikroTikMetrics = {
   })),
   activePppoeCount: 17,
   activePppoeUsers: 17,
+  activeStaticUsers: 0,
   activeTotalUsers: 59,
   sessionsTruncated: false,
   interfaces: [
