@@ -26,6 +26,8 @@ import { PageLoader } from '../components/LoadingSpinner';
 import { useAuth } from '../context/AuthContext';
 import { usePermissions } from '../hooks/usePermissions';
 import PppoeExpiredRedirectToggle from '../components/PppoeExpiredRedirectToggle';
+import RouterWifiName from '../components/RouterWifiName';
+import { defaultWifiName, sanitizeWifiName, WIFI_NAME_MAX } from '../lib/wifiName';
 import PppoeLockDefaultToggle from '../components/PppoeLockDefaultToggle';
 import { PERMISSIONS } from '../lib/permissions';
 import { portsRouterIdFromSearch } from '../lib/pppoePorts';
@@ -319,11 +321,11 @@ export default function RoutersPage() {
     }
   };
 
-  const handleGenerate = async (vpnType: VpnType = 'wireguard') => {
+  const handleGenerate = async (vpnType: VpnType = 'wireguard', ssid?: string) => {
     try {
       setGenerating(true);
       setTokensError(null);
-      const result = await api.createProvisionToken(vpnType);
+      const result = await api.createProvisionToken(vpnType, ssid);
       setNewTokenResult(result);
       await loadTokens();
     } catch (err) {
@@ -2218,6 +2220,9 @@ function NewTokenModal({
               <p className="text-sm text-foreground-muted">
                 {result.identity} &middot; {result.vpn_ip}
               </p>
+              {result.ssid && (
+                <p className="text-sm text-foreground-muted">Wi-Fi name: {result.ssid}</p>
+              )}
             </div>
           </div>
 
@@ -2299,7 +2304,7 @@ function AddRouterModal({
 }: {
   generating: boolean;
   tokensError: string | null;
-  handleGenerate: (vpnType: VpnType) => Promise<void>;
+  handleGenerate: (vpnType: VpnType, ssid?: string) => Promise<void>;
   tokens: ProvisionToken[];
   tokensLoading: boolean;
   loadTokens: () => Promise<void>;
@@ -2307,6 +2312,10 @@ function AddRouterModal({
 }) {
   const [selectedVpnType, setSelectedVpnType] = useState<VpnType>('wireguard');
   const [expandedToken, setExpandedToken] = useState<number | null>(null);
+  const { user } = useAuth();
+  // Hotspot Wi-Fi name the setup gives a fresh router: the business name by default.
+  const [wifiName, setWifiName] = useState(() => defaultWifiName(user));
+  const wifiNameClean = sanitizeWifiName(wifiName);
 
   useEffect(() => {
     if (tokens.length === 0 && !tokensLoading) {
@@ -2368,6 +2377,25 @@ function AddRouterModal({
             </div>
           </div>
 
+          <div>
+            <label htmlFor="new-router-wifi-name" className="block text-sm font-medium text-foreground mb-2">Wi-Fi name</label>
+            <input
+              id="new-router-wifi-name"
+              type="text"
+              value={wifiName}
+              maxLength={WIFI_NAME_MAX + 8}
+              onChange={(e) => setWifiName(e.target.value)}
+              className="input"
+              placeholder={defaultWifiName(user)}
+              autoComplete="off"
+            />
+            <p className="text-xs text-foreground-muted mt-1.5">
+              {wifiName.trim() && wifiNameClean !== wifiName.trim()
+                ? `Will be set as "${wifiNameClean || defaultWifiName(user)}" (English letters, numbers and spaces, max ${WIFI_NAME_MAX}).`
+                : 'The name customers see when they look for your Wi-Fi. Applied when the router has built-in Wi-Fi. You can change it later in Edit Router.'}
+            </p>
+          </div>
+
           {tokensError && (
             <div className="p-3 rounded-lg bg-danger/10 border border-danger/20 text-sm text-danger flex items-center gap-2">
               <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -2378,7 +2406,7 @@ function AddRouterModal({
           )}
 
           <button
-            onClick={() => handleGenerate(selectedVpnType)}
+            onClick={() => handleGenerate(selectedVpnType, wifiNameClean || undefined)}
             disabled={generating}
             className="btn-primary w-full flex items-center justify-center gap-2"
           >
@@ -2648,6 +2676,8 @@ function EditRouterModal({
               </div>
             )}
           </div>
+
+          <RouterWifiName routerId={router.id} />
 
           <PppoeExpiredRedirectToggle
             routerId={router.id}
