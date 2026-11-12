@@ -1159,4 +1159,33 @@ export const FR: Record<string, string> = {
   'Getting the location took too long. Try again': 'La recherche de la position a pris trop de temps. Réessayez',
   'This browser cannot share its location. Enter the coordinates or paste a Google Maps link':
     'Ce navigateur ne peut pas partager sa position. Saisissez les coordonnées ou collez un lien Google Maps',
+  // Router Wi-Fi name
+  'Wi-Fi name': 'Nom du Wi-Fi',
+  'Reading from the router...': 'Lecture du routeur...',
+  'Change': 'Modifier',
+  'Type a Wi-Fi name.': 'Saisissez un nom de Wi-Fi.',
+  'Use only English letters, numbers, spaces and common symbols in the Wi-Fi name.':
+    'Utilisez uniquement des lettres sans accents, des chiffres, des espaces et des symboles courants dans le nom du Wi-Fi.',
+  'A Wi-Fi name can be at most {max} characters.': 'Un nom de Wi-Fi peut contenir au plus {max} caractères.',
+  'turned off': 'désactivé',
+  'client mode (may be the internet link), left alone': 'mode client (peut-être la liaison internet), non modifié',
+  'not in the hotspot network, left alone': 'hors du réseau hotspot, non modifié',
+  'extra (virtual) network, keeps its own name': 'réseau supplémentaire (virtuel), garde son propre nom',
+  'This router has no built-in Wi-Fi. Change the name on your separate access point (for example a Tenda).':
+    "Ce routeur n'a pas de Wi-Fi intégré. Changez le nom sur votre point d'accès séparé (par exemple un Tenda).",
+  'No hotspot Wi-Fi on this router can be renamed safely.':
+    'Aucun Wi-Fi hotspot de ce routeur ne peut être renommé sans risque.',
+  'The router did not keep the new name. Refresh and try again.':
+    "Le routeur n'a pas gardé le nouveau nom. Actualisez et réessayez.",
+  'Too many renames. Try again later.': 'Trop de changements de nom. Réessayez plus tard.',
+  'The router was slow to answer. Refresh in a minute to see the Wi-Fi name.':
+    'Le routeur a mis trop de temps à répondre. Actualisez dans une minute pour voir le nom du Wi-Fi.',
+  'Could not change the Wi-Fi name.': 'Impossible de changer le nom du Wi-Fi.',
+  'Wi-Fi renamed to "{name}". Devices must now join "{name}".':
+    'Wi-Fi renommé en « {name} ». Les appareils doivent maintenant rejoindre « {name} ».',
+  'e.g. Mama Mboga WiFi': 'ex. Mama Mboga WiFi',
+  'Everyone on Wi-Fi is disconnected and must join the new name. The Wi-Fi password and security stay the same.':
+    'Tous les appareils en Wi-Fi sont déconnectés et doivent rejoindre le nouveau nom. Le mot de passe et la sécurité du Wi-Fi ne changent pas.',
+  'Renaming...': 'Renommage...',
+  'Rename Wi-Fi': 'Renommer le Wi-Fi',
 };

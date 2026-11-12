@@ -2628,6 +2628,8 @@ export interface ProvisionTokenResponse {
   identity: string;
   vpn_type: VpnType;
   vpn_ip: string;
+  /** Hotspot Wi-Fi name the setup script gives the router (older backends omit it). */
+  ssid?: string | null;
   command: string;
   note: string;
   created_at: string;
@@ -7407,4 +7409,43 @@ export interface PublicAdReport {
   taps: number;
   daily: { day: string; views: number; taps: number }[];
   payment_due: { amount: number; weeks: number; price_per_week: number; kind: 'initial' | 'renewal'; status: string; previous_price_per_week?: number | null } | null;
+}
+
+// Router Wi-Fi name (GET /api/routers/{id}/wifi, PUT /api/routers/{id}/wifi/ssid)
+export type RouterWifiReason = 'disabled' | 'client_mode' | 'not_hotspot' | 'virtual';
+
+export interface RouterWifiInterface {
+  name: string;
+  menu: 'wireless' | 'wifi' | 'wifiwave2';
+  ssid: string | null;
+  mode: string;
+  disabled: boolean;
+  running: boolean;
+  virtual: boolean;
+  bridge: string | null;
+  renameable: boolean;
+  reason: RouterWifiReason | null;
+}
+
+export interface RouterWifiResponse {
+  router_id: number;
+  router_name: string;
+  has_wireless: boolean;
+  ssids: string[];
+  can_rename: boolean;
+  rename_in_progress: boolean;
+  interfaces: RouterWifiInterface[];
+  message: string | null;
+}
+
+export interface RenameRouterWifiResponse {
+  success: boolean;
+  router_id: number;
+  router_name: string;
+  ssid: string;
+  previous_ssids: string[];
+  verified: boolean;
+  interfaces: { name: string; menu: string; ssid_before: string | null; ssid_after: string | null; verified: boolean }[];
+  skipped: RouterWifiInterface[];
+  message: string;
 }

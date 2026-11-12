@@ -338,6 +338,8 @@ import {
   UpdateStaffRequest,
   StaffActivityResponse,
   PppoeExpiredRedirectResponse,
+  RouterWifiResponse,
+  RenameRouterWifiResponse,
   PppoeDeviceLockState,
   PppoeDeviceLockResponse,
   PppoeLockDefaultResponse,
@@ -1550,12 +1552,14 @@ class ApiClient {
   }
 
   // Provisioning
-  async createProvisionToken(vpnType: VpnType = 'wireguard'): Promise<ProvisionTokenResponse> {
+  async createProvisionToken(vpnType: VpnType = 'wireguard', ssid?: string): Promise<ProvisionTokenResponse> {
     if (this.isDemoMode()) this.demoBlock();
+    const body: { vpn_type: VpnType; ssid?: string } = { vpn_type: vpnType };
+    if (ssid && ssid.trim()) body.ssid = ssid.trim();
     const response = await fetch(`${BASE_URL}/provision/create`, {
       method: 'POST',
       headers: this.getHeaders(),
-      body: JSON.stringify({ vpn_type: vpnType }),
+      body: JSON.stringify(body),
     });
     return this.handleResponse<ProvisionTokenResponse>(response);
   }
@@ -2475,6 +2479,34 @@ class ApiClient {
       body: JSON.stringify({ enabled }),
     });
     return this.handleResponse<{ router_id: number; status_alerts_enabled: boolean; message: string }>(response);
+  }
+
+  // Router Wi-Fi name (SSID), read live from the router.
+  async getRouterWifi(routerId: number): Promise<RouterWifiResponse> {
+    if (this.isDemoMode()) {
+      return {
+        router_id: routerId, router_name: 'Demo router', has_wireless: true, ssids: ['Demo WiFi'],
+        can_rename: true, rename_in_progress: false, message: null,
+        interfaces: [{
+          name: 'wlan1', menu: 'wireless', ssid: 'Demo WiFi', mode: 'ap-bridge', disabled: false,
+          running: true, virtual: false, bridge: 'bridge', renameable: true, reason: null,
+        }],
+      };
+    }
+    const response = await fetch(`${BASE_URL}/routers/${routerId}/wifi`, {
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<RouterWifiResponse>(response, false, true);
+  }
+
+  async renameRouterWifi(routerId: number, ssid: string): Promise<RenameRouterWifiResponse> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(`${BASE_URL}/routers/${routerId}/wifi/ssid`, {
+      method: 'PUT',
+      headers: this.getHeaders(),
+      body: JSON.stringify({ ssid, confirm: true }),
+    });
+    return this.handleResponse<RenameRouterWifiResponse>(response, false, true);
   }
 
   // Expired PPPoE customers: walled + redirected to the payment page (router-side).
