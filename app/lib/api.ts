@@ -1,3 +1,4 @@
+import type { InstallationCharge, InstallationChargePage } from './installationCharges';
 import {
   ShopProduct,
   CreateProductRequest,
@@ -640,6 +641,31 @@ class ApiClient {
       throw new ApiError(errorMessage, response.status);
     }
     return response.json();
+  }
+
+  // Independent installation records: never use customer payment/activation APIs.
+  async getInstallationCharges(customerId: number, offset = 0): Promise<InstallationChargePage> {
+    if (this.isDemoMode()) return { charges: [], next_offset: null, can_create: false };
+    const response = await fetch(`${BASE_URL}/customers/${customerId}/installation-charges?limit=50&offset=${offset}`, { headers: this.getHeaders() });
+    return this.handleResponse<InstallationChargePage>(response);
+  }
+
+  async recordInstallationCharge(customerId: number, body: { idempotency_key: string; amount_minor: number; description: string }): Promise<InstallationCharge> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(`${BASE_URL}/customers/${customerId}/installation-charges`, { method: 'POST', headers: this.getHeaders(), body: JSON.stringify(body) });
+    return this.handleResponse<InstallationCharge>(response);
+  }
+
+  async recordInstallationChargeEvent(customerId: number, chargeId: number, body: { idempotency_key: string; kind: 'external_payment' | 'waiver'; amount_minor: number; reason: string; external_reference?: string }): Promise<InstallationCharge> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(`${BASE_URL}/customers/${customerId}/installation-charges/${chargeId}/events`, { method: 'POST', headers: this.getHeaders(), body: JSON.stringify(body) });
+    return this.handleResponse<InstallationCharge>(response);
+  }
+
+  async reverseInstallationChargeEvent(customerId: number, chargeId: number, eventId: number, body: { idempotency_key: string; reason: string }): Promise<InstallationCharge> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(`${BASE_URL}/customers/${customerId}/installation-charges/${chargeId}/events/${eventId}/reversal`, { method: 'POST', headers: this.getHeaders(), body: JSON.stringify(body) });
+    return this.handleResponse<InstallationCharge>(response);
   }
 
   // Dashboard Analytics (new endpoint with flexible date filtering)

@@ -20,6 +20,7 @@ import { isFreeTrialPlan } from '../../plans/planType';
 import GracePeriodCard from './GracePeriodCard';
 import SubscriptionPauseCard from './SubscriptionPauseCard';
 import PaymentHistoryPanel from './PaymentHistoryPanel';
+import InstallationChargesCard from './InstallationChargesCard';
 import RelatedAccounts from './RelatedAccounts';
 import UsageHistoryPanel from './UsageHistoryPanel';
 import ConnectedDevicesPanel from './ConnectedDevicesPanel';
@@ -334,6 +335,7 @@ export default function EditCustomerPage() {
           {tracksUsage && <UsageHistoryPanel customerId={customer.id} />}
 
           <PaymentHistoryPanel key={customer.id} customerId={customer.id} />
+          <InstallationChargesCard customerId={customer.id} />
         </div>
 
         <div className="space-y-4 min-w-0">
