@@ -1,8 +1,23 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useOnboardingStatus } from '../hooks/useOnboardingStatus';
+import { useAuth } from '../context/AuthContext';
+
+// Once a reseller's setup is complete the checklist never shows again, but it
+// used to re-check all four steps (routers, plans, payment methods, profile)
+// on every dashboard visit. Remember completion per user on this device.
+const completeKey = (userId: number | string) => `onboarding_checklist_complete:${userId}`;
+
+function readFlag(key: string | null): boolean {
+  if (!key || typeof window === 'undefined') return false;
+  try {
+    return localStorage.getItem(key) === 'true';
+  } catch {
+    return false;
+  }
+}
 
 const STEPS = [
   {
@@ -51,9 +66,21 @@ export default function OnboardingChecklist({ delayMs = 0 }: OnboardingChecklist
   const [dismissed, setDismissed] = useState(() =>
     typeof window !== 'undefined' && localStorage.getItem('onboarding_checklist_dismissed') === 'true'
   );
-  const status = useOnboardingStatus({ enabled: !dismissed, delayMs });
+  const { user } = useAuth();
+  const doneKey = user?.id != null ? completeKey(user.id) : null;
+  const completedBefore = readFlag(doneKey);
+  const status = useOnboardingStatus({ enabled: !dismissed && !completedBefore, delayMs });
 
-  if (dismissed || status.loading || status.isComplete) return null;
+  useEffect(() => {
+    if (!doneKey || !status.isComplete) return;
+    try {
+      localStorage.setItem(doneKey, 'true');
+    } catch {
+      // Storage unavailable: the checklist just re-checks next visit.
+    }
+  }, [doneKey, status.isComplete]);
+
+  if (dismissed || completedBefore || status.loading || status.isComplete) return null;
 
   const pct = Math.round((status.completedCount / status.totalSteps) * 100);
   const { heading, sub } = getProgressMessage(status.completedCount, status.totalSteps);
