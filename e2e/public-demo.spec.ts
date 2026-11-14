@@ -203,3 +203,16 @@ test('mobile bottom navigation stays full-width and every item navigates', async
 
   expect(errors).toEqual([]);
 });
+
+for (const viewport of [{ width: 390, height: 844 }, { width: 375, height: 667 }]) {
+  test(`mobile menu Light Mode can be tapped at ${viewport.width}x${viewport.height}`, async ({ page }) => {
+    await page.setViewportSize(viewport);
+    await page.addInitScript(() => localStorage.setItem('theme', 'dark'));
+    await page.goto('/demo');
+    await page.getByRole('button', { name: 'Open navigation menu' }).click();
+    const lightMode = page.getByRole('button', { name: 'Light Mode', exact: true });
+    await lightMode.click();
+    await expect.poll(() => page.evaluate(() => localStorage.getItem('theme'))).toBe('light');
+    await expect(page.locator('html')).not.toHaveClass(/\bdark\b/);
+  });
+}

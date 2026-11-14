@@ -407,7 +407,7 @@ export default function MobileSidebar({ isOpen, onClose }: MobileSidebarProps) {
 
   const content = (
     <div
-      className={`fixed inset-0 z-[100] transition-opacity duration-250 ${isClosing ? 'opacity-0' : 'opacity-100'}`}
+      className={`fixed inset-0 z-[10000] transition-opacity duration-250 ${isClosing ? 'opacity-0' : 'opacity-100'}`}
       onClick={handleClose}
     >
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
