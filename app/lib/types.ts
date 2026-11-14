@@ -1936,6 +1936,28 @@ export interface AccessCredential {
   updated_at: string;
   revoked_at: string | null;
   live: AccessCredentialLive | null;
+  /** Router change still owed (router was unreachable): add / remove / delete. */
+  router_sync?: AccessCredRouterSync | null;
+  router_sync_since?: string | null;
+  router_sync_error?: string | null;
+  router_pending?: boolean;
+  /** Set on create / change / revoke responses. */
+  pending?: boolean;
+  provisioned?: boolean;
+  router_removed?: boolean;
+  warning?: string | null;
+}
+
+export type AccessCredRouterSync = 'add' | 'remove' | 'delete';
+
+export interface DeleteAccessCredentialResponse {
+  success: boolean;
+  id: number;
+  /** false = revoked now; deleted once the router has confirmed the removal. */
+  deleted?: boolean;
+  revoked?: boolean;
+  pending?: boolean;
+  warning?: string | null;
 }
 
 export interface CreateAccessCredentialRequest {

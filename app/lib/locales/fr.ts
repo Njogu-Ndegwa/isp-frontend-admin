@@ -1188,4 +1188,12 @@ export const FR: Record<string, string> = {
     'Tous les appareils en Wi-Fi sont déconnectés et doivent rejoindre le nouveau nom. Le mot de passe et la sécurité du Wi-Fi ne changent pas.',
   'Renaming...': 'Renommage...',
   'Rename Wi-Fi': 'Renommer le Wi-Fi',
+  // Access credentials: change not yet on the router (2026-11-14)
+  'Pending: router unreachable': 'En attente : routeur injoignable',
+  'It will be added to the router as soon as the router is reachable.':
+    'Il sera ajouté au routeur dès que le routeur sera joignable.',
+  'Revoked here. The login is removed from the router as soon as the router is reachable.':
+    "Révoqué ici. L'identifiant sera retiré du routeur dès que le routeur sera joignable.",
+  'Revoked here. It is removed from the router, then deleted, as soon as the router is reachable.':
+    'Révoqué ici. Il sera retiré du routeur, puis supprimé, dès que le routeur sera joignable.',
 };

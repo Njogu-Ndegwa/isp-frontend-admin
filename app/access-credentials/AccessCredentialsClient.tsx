@@ -22,6 +22,8 @@ import Pagination from '../components/Pagination';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { formatDateGMT3 } from '../lib/dateUtils';
 import { formatCredRate } from '../lib/credRate';
+import { PENDING_LABEL, pendingWarning } from './RouterSyncBadge';
+import { useT } from '../lib/i18n';
 
 const COLUMNS: DataTableColumn[] = [
   { key: 'username', label: 'Username' },
@@ -59,6 +61,7 @@ function safeFormatDate(d: string | null | undefined): string {
 export default function AccessCredentialsPage() {
   const routerNav = useRouter();
   const { showAlert } = useAlert();
+  const t = useT();
 
   const [items, setItems] = useState<AccessCredential[]>([]);
   const [total, setTotal] = useState(0);
@@ -144,7 +147,9 @@ export default function AccessCredentialsPage() {
       setActionLoading(cred.id);
       const updated = await api.rotateAccessCredentialPassword(cred.id);
       setCredentialsModal(updated);
-      showAlert('success', `Password rotated for ${cred.username}`);
+      const pending = pendingWarning(updated);
+      if (pending) showAlert('warning', pending, 9000);
+      else showAlert('success', `Password rotated for ${cred.username}`);
       refresh();
     } catch (err) {
       showAlert('error', err instanceof Error ? err.message : 'Failed to rotate password');
@@ -157,8 +162,10 @@ export default function AccessCredentialsPage() {
     if (!revokeConfirm) return;
     try {
       setActionLoading(revokeConfirm.id);
-      await api.revokeAccessCredential(revokeConfirm.id);
-      showAlert('success', `${revokeConfirm.username} revoked`);
+      const revoked = await api.revokeAccessCredential(revokeConfirm.id);
+      const pending = pendingWarning(revoked);
+      if (pending) showAlert('warning', `${revokeConfirm.username}: ${pending}`, 9000);
+      else showAlert('success', `${revokeConfirm.username} revoked`);
       setRevokeConfirm(null);
       refresh();
     } catch (err) {
@@ -171,8 +178,10 @@ export default function AccessCredentialsPage() {
   const handleRestore = useCallback(async (cred: AccessCredential) => {
     try {
       setActionLoading(cred.id);
-      await api.restoreAccessCredential(cred.id);
-      showAlert('success', `${cred.username} restored`);
+      const restored = await api.restoreAccessCredential(cred.id);
+      const pending = pendingWarning(restored);
+      if (pending) showAlert('warning', `${cred.username}: ${pending}`, 9000);
+      else showAlert('success', `${cred.username} restored`);
       refresh();
     } catch (err) {
       showAlert('error', err instanceof Error ? err.message : 'Failed to restore');
@@ -200,8 +209,10 @@ export default function AccessCredentialsPage() {
     if (!deleteConfirm) return;
     try {
       setActionLoading(deleteConfirm.id);
-      await api.deleteAccessCredential(deleteConfirm.id);
-      showAlert('success', `${deleteConfirm.username} deleted`);
+      const deleted = await api.deleteAccessCredential(deleteConfirm.id);
+      const pending = pendingWarning(deleted);
+      if (pending) showAlert('warning', `${deleteConfirm.username}: ${pending}`, 9000);
+      else showAlert('success', `${deleteConfirm.username} deleted`);
       setDeleteConfirm(null);
       refresh();
     } catch (err) {
@@ -219,6 +230,8 @@ export default function AccessCredentialsPage() {
   const getRouterName = (id: number) => routers.find((r) => r.id === id)?.name || `#${id}`;
 
   const computedStatusLabel = (cred: AccessCredential): { text: string; variant: 'success' | 'warning' | 'danger' | 'neutral' | 'info' } => {
+    // The router has not received the last change yet (it was unreachable).
+    if (cred.router_sync) return { text: t(PENDING_LABEL), variant: 'warning' };
     if (cred.status === 'revoked') return { text: 'Revoked', variant: 'danger' };
     if (cred.bound_mac_address) return { text: 'In use', variant: 'info' };
     return { text: 'Available', variant: 'success' };
