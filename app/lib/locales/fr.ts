@@ -840,8 +840,8 @@ export const FR: Record<string, string> = {
 
   // Router (CPE) control for a PPPoE customer (app/customers/[id]/RouterCpePanel.tsx)
   "Router (CPE) control": "Contrôle du routeur (CPE)",
+  "Model": "Modèle",
   "The customer's own router over PPPoE. Reached live through the MikroTik session.": "Le propre routeur du client via PPPoE. Atteint en direct via la session MikroTik.",
-  "Admin only": "Admin uniquement",
   "Could not load router (CPE) control": "Impossible de charger le contrôle du routeur (CPE)",
   "Router (CPE) control is only for a PPPoE customer with a router assigned.": "Le contrôle du routeur (CPE) n'est que pour un client PPPoE avec un routeur attribué.",
   "Session": "Session",

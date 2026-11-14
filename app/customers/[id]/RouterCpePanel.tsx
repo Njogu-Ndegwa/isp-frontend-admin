@@ -16,7 +16,9 @@ const TENDA_MODELS = ['F3', 'OAP1200V2', 'AC6', 'AC10', 'N301', 'Tenda'];
  * in router mode, WAN = PPPoE) is reached by resolving its live PPPoE session on
  * the MikroTik, then talking to its web admin through the router. Save the admin
  * password once (write-only, never shown), then Check status, Restart, or
- * Disconnect the line so it redials. Admin-only for now.
+ * Disconnect the line so it redials. Shown to whoever the backend opens AP
+ * control to (AP_CONTROL_ENABLED_FOR, via feature_flags.ap_control), so the
+ * panel carries no admin-only badge.
  */
 export default function RouterCpePanel({ customer }: { customer: Customer }) {
   const t = useT();
@@ -122,9 +124,6 @@ export default function RouterCpePanel({ customer }: { customer: Customer }) {
             {t("The customer's own router over PPPoE. Reached live through the MikroTik session.")}
           </p>
         </div>
-        <span className="text-[10px] px-2 py-0.5 rounded-full bg-background-tertiary text-foreground-muted">
-          {t('Admin only')}
-        </span>
       </div>
 
       {loading && <p className="text-xs text-foreground-muted">{t('Loading...')}</p>}
