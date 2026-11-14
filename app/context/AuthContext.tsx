@@ -3,7 +3,7 @@
 import React, { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
 import type { LoginRequest, AuthUser, SubscriptionAlert } from '../lib/types';
 import { setDisplayCurrency } from '../lib/format';
-import { resolveLanguage, translate, type TFunction } from '../lib/i18n';
+import { loadLanguage, resolveLanguage, translate, type TFunction } from '../lib/i18n';
 import { subscriptionAlertMessage } from '../lib/subscriptionAlert';
 import { getImpersonation, clearImpersonation } from '../lib/impersonation';
 
@@ -127,6 +127,7 @@ export function AuthProvider({
     let alert = response.subscription_alert;
     if (alert) {
       const lang = resolveLanguage(response.user);
+      await loadLanguage(lang);
       const t: TFunction = (text, vars) => translate(lang, text, vars);
       const message = subscriptionAlertMessage(
         alert.status, alert.current_invoice, response.user.subscription_expires_at, t,
