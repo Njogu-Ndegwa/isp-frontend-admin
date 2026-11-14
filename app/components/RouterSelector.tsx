@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { api } from '../lib/api';
 import { Router } from '../lib/types';
 import { useAuth } from '../context/AuthContext';
@@ -37,6 +37,23 @@ export default function RouterSelector({
 
   const rootClass = `flex items-center gap-2${fullWidthOnMobile ? ' w-full md:w-auto' : ''}`;
 
+  // Router the page was given before the list arrived: the parent's own
+  // selection, or the one this user had last time. Pages load their
+  // router-scoped data as soon as an id is set, so starting from the
+  // remembered router saves a full round trip (the router list) per visit.
+  const earlyPick = useRef<{ fromMemory: boolean; id: number | null } | null>(null);
+  if (earlyPick.current === null) {
+    // No user id yet (auth still loading) = no memory to use: behave as before.
+    const remembered = selectedRouterId == null && memoryKey != null ? readRememberedRouterId(memoryKey) : null;
+    earlyPick.current = { fromMemory: remembered != null, id: selectedRouterId ?? remembered };
+  }
+
+  useEffect(() => {
+    const early = earlyPick.current;
+    if (early?.fromMemory && early.id != null) onRouterChange(early.id);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- once, on mount
+  }, []);
+
   useEffect(() => {
     const loadRouters = async () => {
       try {
@@ -45,9 +62,14 @@ export default function RouterSelector({
         const data = await api.getRoutersByUserId(userId);
         setRouters(data);
         onRoutersLoaded?.(data);
-        if (data.length > 0 && !selectedRouterId) {
+        const early = earlyPick.current;
+        const parentChose = selectedRouterId != null && !early?.fromMemory;
+        if (!parentChose) {
+          // Keep the remembered router if it still exists, else the usual default.
           const defaultId = pickDefaultRouterId(data, readRememberedRouterId(memoryKey));
-          if (defaultId != null) onRouterChange(defaultId);
+          if (defaultId !== (early?.fromMemory ? early.id : null)) onRouterChange(defaultId);
+          // Remember the default too, so the next visit starts early.
+          if (defaultId != null && memoryKey != null) rememberRouterId(memoryKey, defaultId);
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load routers');
