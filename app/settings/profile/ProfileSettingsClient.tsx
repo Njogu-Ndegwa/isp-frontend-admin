@@ -8,7 +8,7 @@ import { PageLoader } from '../../components/LoadingSpinner';
 import { useAlert } from '../../context/AlertContext';
 import { useAuth } from '../../context/AuthContext';
 import { formatDateGMT3 } from '../../lib/dateUtils';
-import { useT, translate, LANGUAGE_NAMES } from '../../lib/i18n';
+import { useT, translate, loadLanguage, LANGUAGE_NAMES } from '../../lib/i18n';
 
 const formatSafeDate = (dateStr: string | undefined, full = false): string => {
   try {
@@ -114,6 +114,7 @@ export default function ProfilePage() {
       await api.updateProfile({ preferred_language: value });
       updateUser({ preferred_language: value });
       // Confirm in the language the reseller just picked.
+      await loadLanguage(value);
       showAlert('success', translate(value.toLowerCase(), 'Language updated'));
     } catch (err) {
       showAlert('error', err instanceof Error ? err.message : t('Failed to update language'));
