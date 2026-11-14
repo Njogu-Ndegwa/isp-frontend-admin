@@ -1,5 +1,5 @@
-import LoginIsland from './LoginIsland';
+import LoginClient from './LoginClient';
 
 export default function LoginPage() {
-  return <LoginIsland />;
+  return <LoginClient />;
 }

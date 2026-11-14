@@ -1,9 +1,27 @@
 'use client';
 
 import { Analytics } from "@vercel/analytics/next";
+import { usePathname } from "next/navigation";
 import Script from "next/script";
 
 const GA4_ID = 'G-XQQZTHB95N';
+
+/**
+ * Third-party tracking (GA4, Contentsquare, TikTok) is ~535 KB compressed. On a
+ * 3G hotspot that is ~11 s of download competing with the page's own data, so
+ * it loads only where marketing measures something: the public site, signup
+ * and the shop. Login and every signed-in page skip it. Tracking calls in
+ * lib/analytics.ts are already no-ops when the scripts are absent.
+ */
+const MARKETING_EXACT = new Set(['/', '/landing', '/pricing', '/signup', '/demo']);
+const MARKETING_PREFIXES = ['/blog', '/store', '/promo/', '/r/'];
+
+export function isMarketingPath(pathname: string | null): boolean {
+  if (!pathname) return false;
+  if (MARKETING_EXACT.has(pathname)) return true;
+  if (pathname.endsWith('-kenya')) return true;
+  return MARKETING_PREFIXES.some((p) => pathname === p || pathname.startsWith(p.endsWith('/') ? p : `${p}/`));
+}
 
 /**
  * Ad-platform tracking is switched on by environment variable, so the site can
@@ -15,6 +33,8 @@ const TIKTOK_PIXEL_ID = process.env.NEXT_PUBLIC_TIKTOK_PIXEL_ID;
 const GOOGLE_ADS_ID = process.env.NEXT_PUBLIC_GOOGLE_ADS_ID;
 
 export default function AnalyticsScripts() {
+  const pathname = usePathname();
+  if (!isMarketingPath(pathname)) return <Analytics />;
   return (
     <>
       <Script

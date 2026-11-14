@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useRef, useEffect, Suspense } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useState, useRef, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '../context/AuthContext';
 import { useAlert } from '../context/AlertContext';
 import { fullOnboardingCheck } from '../hooks/useOnboardingStatus';
@@ -24,34 +24,40 @@ function readStoredUser(): AuthUser | null {
   }
 }
 
+// Rendered on the server so the form is in the first HTML response: on a slow
+// phone the old browser-only version showed a blank screen for 6.5 s (slow 4G)
+// while all of the JavaScript downloaded. URL parameters are read after mount
+// instead of with useSearchParams, which would push the whole form back to
+// client-only rendering on this static page.
 export default function LoginPage() {
-  return (
-    <Suspense>
-      <LoginContent />
-    </Suspense>
-  );
-}
-
-function LoginContent() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const { login, loginAsDemo, isAuthenticated, isDemo, logout } = useAuth();
   const { showAlert } = useAlert();
-  const prefillEmail = searchParams.get('email') || '';
+  const [prefillEmail, setPrefillEmail] = useState('');
   const t = useT();
   // Set when the API client signed this browser out on purpose.
-  const reason = searchParams.get('reason');
+  const [reason, setReason] = useState<string | null>(null);
   const reasonMessage = reason === LOGIN_REASON_ACCESS_CHANGED
     ? t('Your access was changed by the account owner. Please sign in again.')
     : reason === LOGIN_REASON_SESSION_REVOKED
       ? t('Your password was changed on another device. Please sign in again.')
       : null;
-  const [credentials, setCredentials] = useState({ email: prefillEmail, password: '' });
+  const [credentials, setCredentials] = useState({ email: '', password: '' });
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [demoLoginInProgress, setDemoLoginInProgress] = useState(false);
   const passwordRef = useRef<HTMLInputElement>(null);
   const initialAuthHandled = useRef(false);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const email = params.get('email') || '';
+    setReason(params.get('reason'));
+    if (email) {
+      setPrefillEmail(email);
+      setCredentials((c) => (c.email ? c : { ...c, email }));
+    }
+  }, []);
 
   useEffect(() => {
     if (prefillEmail) {
