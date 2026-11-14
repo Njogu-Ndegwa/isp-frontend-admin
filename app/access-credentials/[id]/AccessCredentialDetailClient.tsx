@@ -12,6 +12,7 @@ import CredRateFields from '../CredRateFields';
 import { buildCredRate, CredRateMbps, parseCredRate } from '../../lib/credRate';
 import { PageLoader } from '../../components/LoadingSpinner';
 import ConfirmDialog from '../../components/ConfirmDialog';
+import RouterSyncBadge, { pendingWarning } from '../RouterSyncBadge';
 import { formatDateGMT3 } from '../../lib/dateUtils';
 
 function formatBytes(bytes: number): string {
@@ -166,7 +167,9 @@ export default function AccessCredentialDetailPage() {
         label: updated.label ?? '',
       });
       setRate(parseCredRate(updated.rate_limit));
-      showAlert('success', 'Credential updated');
+      const pending = pendingWarning(updated);
+      if (pending) showAlert('warning', pending, 9000);
+      else showAlert('success', 'Credential updated');
     } catch (err) {
       showAlert('error', err instanceof Error ? err.message : 'Failed to save changes');
     } finally {
@@ -181,7 +184,9 @@ export default function AccessCredentialDetailPage() {
       setCredential(updated);
       setShowPassword(true);
       setRotateConfirm(false);
-      showAlert('success', 'Password rotated');
+      const pending = pendingWarning(updated);
+      if (pending) showAlert('warning', pending, 9000);
+      else showAlert('success', 'Password rotated');
     } catch (err) {
       showAlert('error', err instanceof Error ? err.message : 'Failed to rotate password');
     } finally {
@@ -195,7 +200,9 @@ export default function AccessCredentialDetailPage() {
       const updated = await api.revokeAccessCredential(id);
       setCredential(updated);
       setRevokeConfirm(false);
-      showAlert('success', 'Credential revoked');
+      const pending = pendingWarning(updated);
+      if (pending) showAlert('warning', pending, 9000);
+      else showAlert('success', 'Credential revoked');
     } catch (err) {
       showAlert('error', err instanceof Error ? err.message : 'Failed to revoke');
     } finally {
@@ -209,7 +216,9 @@ export default function AccessCredentialDetailPage() {
       const updated = await api.restoreAccessCredential(id);
       setCredential(updated);
       setRestoreConfirm(false);
-      showAlert('success', 'Credential restored');
+      const pending = pendingWarning(updated);
+      if (pending) showAlert('warning', pending, 9000);
+      else showAlert('success', 'Credential restored');
     } catch (err) {
       showAlert('error', err instanceof Error ? err.message : 'Failed to restore');
     } finally {
@@ -234,8 +243,10 @@ export default function AccessCredentialDetailPage() {
   const handleDelete = async () => {
     try {
       setActionLoading(true);
-      await api.deleteAccessCredential(id);
-      showAlert('success', 'Credential deleted');
+      const deleted = await api.deleteAccessCredential(id);
+      const pending = pendingWarning(deleted);
+      if (pending) showAlert('warning', pending, 9000);
+      else showAlert('success', 'Credential deleted');
       router.push('/access-credentials');
     } catch (err) {
       showAlert('error', err instanceof Error ? err.message : 'Failed to delete');
@@ -293,6 +304,9 @@ export default function AccessCredentialDetailPage() {
             {isRevoked && credential.revoked_at && (
               <p className="text-xs text-foreground-muted">Revoked {safeFormatDate(credential.revoked_at)}</p>
             )}
+            <div className="mt-1">
+              <RouterSyncBadge cred={credential} showDetail />
+            </div>
           </div>
         </div>
 

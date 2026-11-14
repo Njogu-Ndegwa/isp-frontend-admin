@@ -238,6 +238,7 @@ import {
   LeadBackfillResponse,
   LeadStage,
   AccessCredential,
+  DeleteAccessCredentialResponse,
   AccessCredentialsListResponse,
   AccessCredentialFilters,
   CreateAccessCredentialRequest,
@@ -4047,13 +4048,13 @@ class ApiClient {
     return this.handleResponse<AccessCredential>(response);
   }
 
-  async deleteAccessCredential(id: number): Promise<{ message: string }> {
+  async deleteAccessCredential(id: number): Promise<DeleteAccessCredentialResponse> {
     if (this.isDemoMode()) this.demoBlock();
     const response = await fetch(`${BASE_URL}/access-credentials/${id}`, {
       method: 'DELETE',
       headers: this.getHeaders(),
     });
-    return this.handleResponse<{ message: string }>(response);
+    return this.handleResponse<DeleteAccessCredentialResponse>(response);
   }
 
   // ─── FUP / Per-Customer Usage Tracking ─────────────────────────────
