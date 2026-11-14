@@ -98,6 +98,7 @@ describe('French coverage', () => {
     const files = [
       join(__dirname, '..', 'apControl.ts'),
       join(__dirname, '..', '..', 'diagnostics', 'AccessPointsTab.tsx'),
+      join(__dirname, '..', '..', 'customers', '[id]', 'RouterCpePanel.tsx'),
     ];
     const keys = files.flatMap((file) =>
       [...readFileSync(file, 'utf8').matchAll(/\bt\('((?:[^'\\]|\\.)*)'/g)].map((m) => m[1].replace(/\\'/g, "'")),
@@ -105,5 +106,19 @@ describe('French coverage', () => {
     expect(keys.length).toBeGreaterThan(20);
     const missing = keys.filter((key) => !(key in FR));
     expect(missing).toEqual([]);
+  });
+});
+
+describe('no stale admin-only labels', () => {
+  // AP / CPE control is open to every reseller the backend enables
+  // (AP_CONTROL_ENABLED_FOR=all since 14 Nov), so the panels must not tell a
+  // reseller the feature is admin only or still in beta.
+  it.each([
+    'customers/[id]/RouterCpePanel.tsx',
+    'diagnostics/AccessPointsTab.tsx',
+  ])('%s carries no Admin only or Beta badge', (file) => {
+    const src = readFileSync(join(__dirname, '..', '..', ...file.split('/')), 'utf8');
+    expect(src).not.toMatch(/\bt\(['"](Admins? only|Beta)['"]/i);
+    expect(src).not.toMatch(/>\s*(Admins? only|Beta)\s*</i);
   });
 });
