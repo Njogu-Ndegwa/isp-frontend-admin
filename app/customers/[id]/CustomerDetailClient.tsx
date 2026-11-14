@@ -90,21 +90,22 @@ export default function EditCustomerPage() {
       // Staff may lack access to plans or routers; the customer still shows.
       const optional = <T,>(request: Promise<T[]>): Promise<T[]> =>
         isStaff ? request.catch(() => [] as T[]) : request;
-      const [customers, plansData, routersData] = await Promise.all([
-        api.getCustomers(),
+      // One customer plus the few linked to it, instead of the reseller's whole
+      // customer list (2-3 MB for a large reseller). The single-customer
+      // endpoint carries every field the page uses, incl. the full ID number.
+      const [detail, related, plansData, routersData] = await Promise.all([
+        api.getCustomerDetail(customerId).catch(() => null),
+        api.getRelatedCustomers(customerId),
         optional(api.getPlans()),
         optional(api.getRouters()),
       ]);
-      const listed = customers.find((c) => c.id === customerId);
-      if (!listed) {
+      if (!detail) {
         setError('Customer not found');
         return;
       }
-      // The single-customer endpoint carries the full ID / passport number.
-      const detail = await api.getCustomerDetail(customerId).catch(() => null);
-      const found: Customer = detail ? { ...listed, ...detail } : listed;
+      const found: Customer = detail;
       // No masked number either = no ID stored, so the empty field is accurate.
-      const idKnown = Boolean(detail && 'national_id' in detail) || !found.national_id_masked;
+      const idKnown = 'national_id' in detail || !found.national_id_masked;
       const loadedProfile = profileFromCustomer(found);
       setNationalIdKnown(idKnown);
       setProfile(loadedProfile);
@@ -119,7 +120,7 @@ export default function EditCustomerPage() {
           .then((methods) => setFallbackPaybill(customerPaybill(methods)))
           .catch(() => setFallbackPaybill(PLATFORM_PAYBILL));
       }
-      setAllCustomers(customers);
+      setAllCustomers(related);
       setPlans(plansData);
       setRouters(routersData);
       setFormData({

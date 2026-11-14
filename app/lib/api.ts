@@ -1026,6 +1026,24 @@ class ApiClient {
     return this.handleResponse<Customer>(response);
   }
 
+  /**
+   * The few accounts linked to one customer (subscription owner, companions,
+   * same phone number), for its detail page. Replaces downloading the whole
+   * customer list. Empty when the backend doesn't offer it (yet) or fails:
+   * the linked-accounts panel is optional.
+   */
+  async getRelatedCustomers(customerId: number): Promise<Customer[]> {
+    if (this.isDemoMode()) return (await loadDemo()).demoCustomers.filter((c) => c.id !== customerId);
+    try {
+      const response = await fetch(`${BASE_URL}/customers/${customerId}/related`, { headers: this.getHeaders() });
+      if (!response.ok) return [];
+      const body = (await response.json()) as { customers?: Customer[] };
+      return Array.isArray(body.customers) ? body.customers : [];
+    } catch {
+      return [];
+    }
+  }
+
   /** Ids of customers whose ID / passport number contains `query` (the list only has them masked). */
   async getNationalIdMatches(query: string): Promise<number[]> {
     if (this.isDemoMode()) return [];
