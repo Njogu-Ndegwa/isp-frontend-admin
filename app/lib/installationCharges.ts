@@ -35,7 +35,7 @@ export interface InstallationChargePage {
 }
 
 export function installationChargesEnabled(user: AuthUser | null, isDemo: boolean, flag: string | undefined): boolean {
-  return flag === 'true' && !isDemo && user?.id === 597 && user.role === 'reseller';
+  return (flag ?? 'true') === 'true' && !isDemo && user?.id === 597 && user.role === 'reseller';
 }
 
 /** Parse decimal text, never round a floating-point currency calculation. */

@@ -6,9 +6,10 @@ const owner: AuthUser = { id: 597, role: 'reseller', email: 'owner@example.test'
 afterEach(() => vi.unstubAllGlobals());
 
 describe('installation tracking boundaries', () => {
-  it('is off unless explicitly enabled for the verified reseller outside demo', () => {
+  it('defaults on for the verified reseller outside demo and supports an explicit off switch', () => {
     expect(installationChargesEnabled(owner, false, 'true')).toBe(true);
-    for (const flag of [undefined, '', 'false', 'TRUE']) expect(installationChargesEnabled(owner, false, flag)).toBe(false);
+    expect(installationChargesEnabled(owner, false, undefined)).toBe(true);
+    for (const flag of ['', 'false', 'TRUE']) expect(installationChargesEnabled(owner, false, flag)).toBe(false);
     expect(installationChargesEnabled({ ...owner, id: 598 }, false, 'true')).toBe(false);
     expect(installationChargesEnabled({ ...owner, role: 'admin' }, false, 'true')).toBe(false);
     expect(installationChargesEnabled(owner, true, 'true')).toBe(false);
