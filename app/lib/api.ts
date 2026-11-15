@@ -29,6 +29,7 @@ import {
   CustomerPaymentSummary,
   TransactionSummary,
   Router,
+  RouterAlertDelayMinutes,
   CreateRouterRequest,
   UpdateRouterRequest,
   RouterUsersResponse,
@@ -2490,14 +2491,26 @@ class ApiClient {
     return this.handleResponse<RebootRouterResponse>(response);
   }
 
-  async setRouterStatusAlerts(routerId: number, enabled: boolean): Promise<{ router_id: number; status_alerts_enabled: boolean; message: string }> {
+  async setRouterStatusAlerts(routerId: number, enabled: boolean) {
+    return this.updateRouterStatusAlerts(routerId, { enabled });
+  }
+
+  async updateRouterStatusAlerts(routerId: number, settings: {
+    enabled?: boolean;
+    delay_minutes?: RouterAlertDelayMinutes;
+  }) {
     if (this.isDemoMode()) this.demoBlock();
     const response = await fetch(`${BASE_URL}/routers/${routerId}/status-alerts`, {
       method: 'PUT',
       headers: this.getHeaders(),
-      body: JSON.stringify({ enabled }),
+      body: JSON.stringify(settings),
     });
-    return this.handleResponse<{ router_id: number; status_alerts_enabled: boolean; message: string }>(response);
+    return this.handleResponse<{
+      router_id: number;
+      status_alerts_enabled: boolean;
+      status_alert_delay_minutes?: RouterAlertDelayMinutes;
+      message: string;
+    }>(response);
   }
 
   // Router Wi-Fi name (SSID), read live from the router.

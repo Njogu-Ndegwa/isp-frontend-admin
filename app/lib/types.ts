@@ -2280,6 +2280,8 @@ export type PaymentMethod = 'mpesa' | 'voucher';
 
 export type RouterStatus = 'online' | 'offline' | 'unknown';
 
+export type RouterAlertDelayMinutes = 5 | 10 | 15 | 30 | 60;
+
 export interface Router {
   id: number;
   name: string;
@@ -2304,6 +2306,7 @@ export interface Router {
   emergency_message?: string | null;
   hotspot_sharing_blocked?: boolean;
   status_alerts_enabled?: boolean;
+  status_alert_delay_minutes?: RouterAlertDelayMinutes;
   /** Expired PPPoE customers are walled and redirected to the payment page. */
   pppoe_expired_redirect?: boolean;
   /** New PPPoE customers on this router start with the device lock on. */

@@ -2,7 +2,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { api } from '../../lib/api';
-import { Router, SmsCreditInfo } from '../../lib/types';
+import { Router, RouterAlertDelayMinutes, SmsCreditInfo } from '../../lib/types';
 import { useAlert } from '../../context/AlertContext';
 import { PageLoader } from '../../components/LoadingSpinner';
 
@@ -11,6 +11,8 @@ import { PageLoader } from '../../components/LoadingSpinner';
 // backend debounce threshold, and again when it comes back online. The same
 // toggle also sends the alert by SMS (1 credit) when the account has a phone
 // on file and credits to cover it; otherwise it degrades to inbox-only.
+const alertDelays: RouterAlertDelayMinutes[] = [5, 10, 15, 30, 60];
+
 interface AlertsViewProps {
   credits: SmsCreditInfo | null;
   onBuyCredits: () => void;
@@ -45,12 +47,16 @@ export function AlertsView({ credits, onBuyCredits }: AlertsViewProps) {
       .catch(() => setSupportPhone(null));
   }, []);
 
-  const toggle = async (router: Router) => {
+  const updateAlerts = async (router: Router, change: { enabled?: boolean; delay_minutes?: RouterAlertDelayMinutes }) => {
     try {
       setTogglingId(router.id);
-      const result = await api.setRouterStatusAlerts(router.id, !router.status_alerts_enabled);
+      const result = await api.updateRouterStatusAlerts(router.id, change);
       setRouters((prev) => prev.map((r) => (
-        r.id === router.id ? { ...r, status_alerts_enabled: result.status_alerts_enabled } : r
+        r.id === router.id ? {
+          ...r,
+          status_alerts_enabled: result.status_alerts_enabled,
+          status_alert_delay_minutes: result.status_alert_delay_minutes ?? r.status_alert_delay_minutes,
+        } : r
       )));
     } catch (err) {
       showAlert('error', err instanceof Error ? err.message : 'Failed to update notification setting');
@@ -80,7 +86,8 @@ export function AlertsView({ credits, onBuyCredits }: AlertsViewProps) {
         <h3 className="text-sm font-medium text-foreground mb-1">Router status alerts</h3>
         <p className="text-xs text-foreground-muted">
           Get a message in your inbox — and an SMS to your phone — when a router stays
-          offline for more than 15 minutes, and again when it comes back online.
+          offline long enough to reach its selected delay, and again when it comes back online.
+          The delay is a minimum. Detection and delivery can take longer.
           Inbox alerts are free; each SMS costs 1 credit from your messaging balance
           (refunded automatically if delivery fails).
         </p>
@@ -121,7 +128,7 @@ export function AlertsView({ credits, onBuyCredits }: AlertsViewProps) {
       ) : (
         <div className="card divide-y divide-border">
           {routers.map((router) => (
-            <div key={router.id} className="flex items-center justify-between gap-3 p-4">
+            <div key={router.id} className="flex flex-wrap items-center justify-between gap-3 p-4">
               <div className="min-w-0">
                 <p className="text-sm font-medium text-foreground truncate">{router.name}</p>
                 <span className={`badge mt-1 ${
@@ -132,22 +139,41 @@ export function AlertsView({ credits, onBuyCredits }: AlertsViewProps) {
                   {router.status === 'online' ? 'Online' : router.status === 'offline' ? 'Offline' : 'Unknown'}
                 </span>
               </div>
-              <button
-                type="button"
-                role="switch"
-                aria-checked={!!router.status_alerts_enabled}
-                disabled={togglingId === router.id}
-                onClick={() => toggle(router)}
-                className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${
-                  router.status_alerts_enabled ? 'bg-success' : 'bg-background-tertiary border border-border'
-                } ${togglingId === router.id ? 'opacity-60' : ''}`}
-              >
-                <span
-                  className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
-                    router.status_alerts_enabled ? 'translate-x-6' : 'translate-x-1'
-                  }`}
-                />
-              </button>
+              <div className="flex shrink-0 flex-wrap items-end justify-end gap-2">
+                <label className="grid gap-1 text-xs text-foreground-muted">
+                  Notify after
+                  <select
+                    aria-label={`Offline alert delay for ${router.name}`}
+                    value={router.status_alert_delay_minutes ?? 15}
+                    disabled={togglingId !== null}
+                    onChange={(event) => updateAlerts(router, {
+                      delay_minutes: Number(event.target.value) as RouterAlertDelayMinutes,
+                    })}
+                    className="rounded-md border border-border bg-background-secondary px-2 py-1 text-foreground"
+                  >
+                    {alertDelays.map((minutes) => (
+                      <option key={minutes} value={minutes}>{minutes} min</option>
+                    ))}
+                  </select>
+                </label>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={!!router.status_alerts_enabled}
+                  aria-label={`Status alerts for ${router.name}`}
+                  disabled={togglingId !== null}
+                  onClick={() => updateAlerts(router, { enabled: !router.status_alerts_enabled })}
+                  className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${
+                    router.status_alerts_enabled ? 'bg-success' : 'bg-background-tertiary border border-border'
+                  } ${togglingId === router.id ? 'opacity-60' : ''}`}
+                >
+                  <span
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+                      router.status_alerts_enabled ? 'translate-x-6' : 'translate-x-1'
+                    }`}
+                  />
+                </button>
+              </div>
             </div>
           ))}
         </div>
