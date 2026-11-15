@@ -9,7 +9,7 @@ import { apControlEnabled, modeLabel } from '../../lib/apControl';
 import { useT } from '../../lib/i18n';
 import type { Customer, CpeResponse, CpeStatus } from '../../lib/types';
 
-const TENDA_MODELS = ['F3', 'OAP1200V2', 'AC6', 'AC10', 'N301', 'Tenda'];
+const TENDA_MODELS = ['Tenda', 'F3', 'OAP1200V2', 'AC6', 'AC10', 'N301'];
 
 /**
  * Router (CPE) control for a PPPoE customer: the customer's own router (a Tenda
@@ -32,7 +32,8 @@ export default function RouterCpePanel({ customer }: { customer: Customer }) {
 
   // Credential form
   const [password, setPassword] = useState('');
-  const [model, setModel] = useState('F3');
+  // Unknown hardware stays generic; the backend detects the firmware protocol.
+  const [model, setModel] = useState('Tenda');
   const [port, setPort] = useState<number>(80);
   const [saving, setSaving] = useState(false);
 
@@ -45,7 +46,7 @@ export default function RouterCpePanel({ customer }: { customer: Customer }) {
       setData(res);
       setStatus(res.credential?.last_status ?? null);
       if (res.credential) {
-        setModel(res.credential.model ?? 'F3');
+        setModel(res.credential.model ?? 'Tenda');
         setPort(res.credential.port ?? 80);
       } else {
         setPort(res.suggested_wan_port ?? 80);
