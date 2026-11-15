@@ -13,7 +13,7 @@ export default defineConfig({
   reporter: [['list']],
   use: { baseURL: BASE },
   webServer: {
-    command: `npm run dev -- -p ${PORT}`,
+    command: process.env.E2E_PRODUCTION === '1' ? `npm run start -- -p ${PORT}` : `npm run dev -- -p ${PORT}`,
     url: BASE,
     reuseExistingServer: true,
     timeout: 120_000,

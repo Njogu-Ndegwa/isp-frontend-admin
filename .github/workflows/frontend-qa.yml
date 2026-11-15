@@ -21,6 +21,8 @@ jobs:
       - run: npm test
       - run: npm run build
       - name: Check mobile navigation
+        env:
+          E2E_PRODUCTION: '1'
         run: |
           npx playwright install --with-deps chromium
           npx playwright test e2e/public-demo.spec.ts --workers=1 --grep 'mobile bottom navigation|mobile menu Light Mode'
