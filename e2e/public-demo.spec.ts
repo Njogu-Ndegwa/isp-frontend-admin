@@ -33,6 +33,10 @@ test.beforeEach(async ({ page }) => {
   await page.route('**/_vercel/insights/script.js', (route) =>
     route.fulfill({ status: 200, contentType: 'application/javascript', body: '' }),
   );
+  // The demo uses real analytics in production. Keep the browser test local.
+  await page.route('https://www.googletagmanager.com/gtag/js?*', (route) =>
+    route.fulfill({ status: 200, contentType: 'application/javascript', body: '' }),
+  );
 });
 
 async function enterPublicDemo(page: Page) {
