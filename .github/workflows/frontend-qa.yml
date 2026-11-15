@@ -1,0 +1,26 @@
+name: Frontend QA
+
+on:
+  push:
+    branches: ['codex/qa/**']
+
+permissions:
+  contents: read
+
+jobs:
+  frontend-qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+      - name: Check mobile navigation
+        run: |
+          npx playwright install --with-deps chromium
+          npx playwright test e2e/public-demo.spec.ts --workers=1 --grep 'mobile bottom navigation|mobile menu Light Mode'

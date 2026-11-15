@@ -1,11 +1,16 @@
-// Customer grace period: stored in minutes on the backend, edited in hours or days.
+// Customer grace periods are stored in whole minutes.
 
-export type GraceUnit = 'hours' | 'days';
+export type GraceUnit = 'minutes' | 'hours' | 'days';
 
 /** Backend cap (app/services/customer_grace.py MAX_GRACE_MINUTES). */
 export const MAX_GRACE_MINUTES = 30 * 24 * 60;
 
-const UNIT_MINUTES: Record<GraceUnit, number> = { hours: 60, days: 24 * 60 };
+const UNIT_MINUTES: Record<GraceUnit, number> = { minutes: 1, hours: 60, days: 24 * 60 };
+
+// Four decimal places keep a unit change within half a minute, even in days.
+export function minutesInGraceUnit(minutes: number, unit: GraceUnit): number {
+  return Number((minutes / UNIT_MINUTES[unit]).toFixed(4));
+}
 
 export const GRACE_PRESETS: { label: string; minutes: number }[] = [
   { label: 'Off', minutes: 0 },
@@ -18,12 +23,14 @@ export const GRACE_PRESETS: { label: string; minutes: number }[] = [
 export function splitGraceMinutes(minutes: number | null | undefined): { value: number; unit: GraceUnit } {
   const m = Math.max(0, Math.round(minutes || 0));
   if (m > 0 && m % UNIT_MINUTES.days === 0) return { value: m / UNIT_MINUTES.days, unit: 'days' };
-  return { value: Math.round((m / UNIT_MINUTES.hours) * 100) / 100, unit: 'hours' };
+  if (m > 0 && m < UNIT_MINUTES.hours) return { value: m, unit: 'minutes' };
+  return { value: minutesInGraceUnit(m, 'hours'), unit: 'hours' };
 }
 
 /** Minutes for a form value, or null when it is not a valid grace length. */
 export function graceToMinutes(value: number, unit: GraceUnit): number | null {
   if (!Number.isFinite(value) || value < 0) return null;
+  if (unit === 'minutes' && !Number.isInteger(value)) return null;
   const minutes = Math.round(value * UNIT_MINUTES[unit]);
   if (minutes > MAX_GRACE_MINUTES) return null;
   return minutes;

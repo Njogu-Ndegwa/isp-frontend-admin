@@ -6,7 +6,8 @@ import { Customer, SetCustomerGraceResponse } from '../../lib/types';
 import { useAlert } from '../../context/AlertContext';
 import { formatDateGMT3 } from '../../lib/dateUtils';
 import {
-  GRACE_PRESETS, GraceUnit, MAX_GRACE_MINUTES, formatGrace, graceDeadlineISO, graceToMinutes, splitGraceMinutes,
+  GRACE_PRESETS, GraceUnit, MAX_GRACE_MINUTES, formatGrace, graceDeadlineISO, graceToMinutes,
+  minutesInGraceUnit, splitGraceMinutes,
 } from '../../lib/grace';
 
 const DATE_FMT: Intl.DateTimeFormatOptions = {
@@ -35,7 +36,9 @@ export default function GracePeriodCard({
 
   const minutes = value.trim() === '' ? null : graceToMinutes(Number(value), unit);
   const dirty = minutes !== null && minutes !== current;
-  const rangeHint = `Enter a grace period between 0 and ${MAX_GRACE_MINUTES / (24 * 60)} days`;
+  const rangeHint = unit === 'minutes'
+    ? `Enter whole minutes between 0 and ${MAX_GRACE_MINUTES.toLocaleString()}`
+    : `Enter a grace period between 0 and ${MAX_GRACE_MINUTES / (24 * 60)} days`;
   // Say why Save is disabled instead of leaving the button silently grey.
   const invalid = value.trim() !== '' && minutes === null;
   const shownError = error ?? (invalid ? rangeHint : null);
@@ -45,6 +48,12 @@ export default function GracePeriodCard({
     const split = splitGraceMinutes(presetMinutes);
     setValue(String(split.value));
     setUnit(presetMinutes === 0 ? unit : split.unit);
+    setError(null);
+  };
+
+  const changeUnit = (next: GraceUnit) => {
+    if (minutes !== null) setValue(String(minutesInGraceUnit(minutes, next)));
+    setUnit(next);
     setError(null);
   };
 
@@ -115,8 +124,8 @@ export default function GracePeriodCard({
         <input
           type="number"
           min={0}
-          step="any"
-          inputMode="decimal"
+          step={unit === 'minutes' ? 1 : 'any'}
+          inputMode={unit === 'minutes' ? 'numeric' : 'decimal'}
           value={value}
           onChange={(e) => { setValue(e.target.value); setError(null); }}
           className="input min-w-0 flex-1"
@@ -126,10 +135,11 @@ export default function GracePeriodCard({
         <div className="w-28 shrink-0">
           <select
             value={unit}
-            onChange={(e) => setUnit(e.target.value as GraceUnit)}
+            onChange={(e) => changeUnit(e.target.value as GraceUnit)}
             className="select"
             aria-label="Grace period unit"
           >
+            <option value="minutes">Minutes</option>
             <option value="hours">Hours</option>
             <option value="days">Days</option>
           </select>

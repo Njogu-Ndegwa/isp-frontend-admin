@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { MAX_GRACE_MINUTES, formatGrace, graceDeadlineISO, graceToMinutes, splitGraceMinutes } from './grace';
+import { MAX_GRACE_MINUTES, formatGrace, graceDeadlineISO, graceToMinutes, minutesInGraceUnit, splitGraceMinutes } from './grace';
 
 describe('splitGraceMinutes', () => {
   it('shows whole days in days', () => {
@@ -11,6 +11,9 @@ describe('splitGraceMinutes', () => {
   });
   it('treats missing as zero hours', () => {
     expect(splitGraceMinutes(undefined)).toEqual({ value: 0, unit: 'hours' });
+  });
+  it('shows sub-hour values as exact minutes', () => {
+    expect(splitGraceMinutes(17)).toEqual({ value: 17, unit: 'minutes' });
   });
 });
 
@@ -25,6 +28,16 @@ describe('graceToMinutes', () => {
     expect(graceToMinutes(Number.NaN, 'hours')).toBeNull();
     expect(graceToMinutes(31, 'days')).toBeNull();
     expect(graceToMinutes(30, 'days')).toBe(MAX_GRACE_MINUTES);
+  });
+  it('accepts whole minutes and preserves them when switching units', () => {
+    expect(graceToMinutes(17, 'minutes')).toBe(17);
+    expect(graceToMinutes(17.5, 'minutes')).toBeNull();
+    expect(graceToMinutes(MAX_GRACE_MINUTES + 1, 'minutes')).toBeNull();
+    for (const minutes of [1, 17, 61, 1441, MAX_GRACE_MINUTES]) {
+      for (const unit of ['minutes', 'hours', 'days'] as const) {
+        expect(graceToMinutes(minutesInGraceUnit(minutes, unit), unit)).toBe(minutes);
+      }
+    }
   });
 });
 
