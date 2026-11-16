@@ -210,6 +210,7 @@ export default function LoadBalancingControls({
   const [disableResult, setDisableResult] = useState<LoadBalancingDisableResponse | null>(null);
   const [verifyResult, setVerifyResult] = useState<LoadBalancingVerifyResponse | null>(null);
   const [confirmDisable, setConfirmDisable] = useState(false);
+  const [finishingSetup, setFinishingSetup] = useState(false);
 
   const isBusy = loading !== null;
   const enabled = status ? status.enabled : Boolean(router.lb_enabled);
@@ -294,9 +295,17 @@ export default function LoadBalancingControls({
     setDisableResult(null);
     setVerifyResult(null);
     setConfirmDisable(false);
+    setFinishingSetup(false);
   };
 
-  const wanPorts = useMemo(() => [PRIMARY_WAN, ...selected], [selected]);
+  const selectedWanPorts = useMemo(() => [PRIMARY_WAN, ...selected], [selected]);
+  const wanPorts = finishingSetup ? wanPortsConfigured : selectedWanPorts;
+
+  const showSetup = (finishing: boolean) => {
+    setFinishingSetup(finishing);
+    setPreflight(null);
+    setServerBlockers([]);
+  };
 
   const togglePort = (name: string) => {
     setPreflight(null);
@@ -312,6 +321,7 @@ export default function LoadBalancingControls({
     try {
       setLoading('preflight');
       setServerBlockers([]);
+      setPreflight(null);
       const result = await api.preflightLoadBalancing(routerId, { wan_ports: wanPorts });
       setPreflight(result);
       if (result.blockers.length === 0) {
@@ -340,6 +350,8 @@ export default function LoadBalancingControls({
       });
       setEnableResult(result);
       setPreflight(null);
+      setFinishingSetup(false);
+      setVerifyResult(null);
       const appliedAtNow = result.applied_at ?? new Date().toISOString();
       const appliedPorts = result.wan_ports ?? wanPorts;
       setStatus({
@@ -350,7 +362,10 @@ export default function LoadBalancingControls({
         applied_at: appliedAtNow,
       });
       if (result.success) {
-        showAlert('success', result.message || `${routerName} load balancing enabled`);
+        const waiting = result.dormant_ports ?? [];
+        showAlert('success', waiting.length
+          ? `Setup saved. Still waiting for ${waiting.join(', ')}.`
+          : result.message || `${routerName} load balancing enabled`);
       } else {
         showAlert('warning', result.message || 'Load balancing applied with issues');
       }
@@ -442,13 +457,16 @@ export default function LoadBalancingControls({
   const seededCount = Array.isArray(seedAdded) ? seedAdded.length : 0;
   const rollbackSteps = disableResult?.rollback?.steps ?? [];
   const verifyReport = verifyResult?.verify;
+  const unpluggedPorts = wanPorts.slice(1).filter((name) => perPortChecks[name]?.link === false);
+  const linkedSecondary = wanPorts.slice(1).some((name) => perPortChecks[name]?.link === true);
   const canEnable =
-    Boolean(preflight) &&
-    (preflight?.blockers.length ?? 0) === 0 &&
+    Boolean(preflight?.success) &&
+    preflight?.wan_ports?.join(',') === wanPorts.join(',') &&
+    preflight?.blockers.length === 0 &&
     serverBlockers.length === 0 &&
-    selected.length >= 1 &&
-    !enableResult;
-  const canPreflight = selected.length >= 1;
+    wanPorts.length >= 2 &&
+    (!finishingSetup || linkedSecondary);
+  const canPreflight = wanPorts.length >= 2;
 
   const dot = enabled ? 'bg-emerald-500' : 'bg-foreground-muted';
 
@@ -541,13 +559,13 @@ export default function LoadBalancingControls({
                     {loading === 'status' && !status
                       ? 'Checking status...'
                       : enabled
-                      ? 'Load balancing is active'
+                      ? 'Load balancing is configured'
                       : 'Load balancing is off'}
                   </p>
                 </div>
                 <p className="text-xs text-foreground-muted mt-1.5 ml-5">
                   {enabled
-                    ? 'Customer traffic is balanced across the WAN lines below with automatic failover.'
+                    ? 'These are the saved ports. Traffic uses the available internet lines; use Verify now to check their current status.'
                     : 'This router uses a single internet line.'}
                 </p>
 
@@ -570,7 +588,7 @@ export default function LoadBalancingControls({
               </div>
 
               {/* ── Enabled state ─────────────────────────────────────── */}
-              {enabled && (
+              {enabled && !finishingSetup && (
                 <>
                   {/* Steps from the enable run (if we just enabled) */}
                   {enableResult && (enableSteps.length > 0 || enableWarnings.length > 0 || seededCount > 0) && (
@@ -596,14 +614,19 @@ export default function LoadBalancingControls({
                   )}
 
                   {/* Dormant port note */}
-                  {dormantPorts.length > 0 && (
-                    <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4">
-                      {dormantPorts.map((p) => (
-                        <p key={p} className="text-xs text-foreground-muted">
-                          <span className="font-mono text-amber-500">{p}</span> isn&apos;t carrying traffic yet
-                          (no cable, or its modem gave no address) — traffic uses the active line meanwhile.
+                  {status?.enabled && wanPortsConfigured.length >= 2 && (
+                    <div className="rounded-xl border border-border bg-background-tertiary/40 p-4 space-y-2">
+                      {dormantPorts.length > 0 && (
+                        <p className="text-xs text-amber-500">
+                          Still waiting for {dormantPorts.join(', ')}. Traffic can continue on the working line.
                         </p>
-                      ))}
+                      )}
+                      <p className="text-xs text-foreground-muted">
+                        If you saved a port before its internet line was ready, finish setup when that line is connected.
+                      </p>
+                      <button type="button" onClick={() => showSetup(true)} disabled={isBusy} className="btn-secondary text-sm">
+                        Finish setup
+                      </button>
                     </div>
                   )}
 
@@ -671,11 +694,12 @@ export default function LoadBalancingControls({
               )}
 
               {/* ── Disabled state ────────────────────────────────────── */}
-              {!enabled && status && (
+              {(!enabled || finishingSetup) && status && (
                 <>
                   <p className="text-sm text-foreground-muted leading-relaxed">
-                    Combine 2+ internet lines on this router. Capacity is aggregated across customer
-                    connections and failover is automatic — the hotspot login flow is not affected.
+                    {finishingSetup
+                      ? 'Run a fresh check before applying the same saved WAN ports. A port serving customer devices must stay on the LAN.'
+                      : 'You can save a spare port before its cable is connected. Keep WAN 1 online; finish setup when the extra line is ready.'}
                   </p>
 
                   {/* Steps from a disable run (rollback report) */}
@@ -687,7 +711,7 @@ export default function LoadBalancingControls({
                   )}
 
                   {/* WAN port picker */}
-                  <div className="rounded-xl border border-border bg-background-tertiary/40 p-4">
+                  {!finishingSetup && <div className="rounded-xl border border-border bg-background-tertiary/40 p-4">
                     <div className="flex items-center justify-between mb-3">
                       <p className="text-[11px] uppercase tracking-wider text-foreground-muted font-semibold">WAN ports</p>
                       <span className="text-[10px] text-foreground-muted">
@@ -764,7 +788,15 @@ export default function LoadBalancingControls({
                       {PRIMARY_WAN} is always WAN 1. Pick up to {MAX_EXTRA_WANS} more ports to plug
                       extra internet lines into.
                     </p>
-                  </div>
+                  </div>}
+
+                  {unpluggedPorts.length > 0 && (
+                    <p className="text-xs text-amber-500">
+                      {unpluggedPorts.join(', ')}: no cable detected. {finishingSetup
+                        ? 'Connect the extra line and run the pre-check again.'
+                        : 'You can save the setup now; this port won’t carry traffic until you finish setup.'}
+                    </p>
+                  )}
 
                   {/* Blockers */}
                   {allBlockers.length > 0 && (
@@ -781,7 +813,7 @@ export default function LoadBalancingControls({
                         ))}
                       </ul>
                       <p className="text-xs text-foreground-muted mt-2">
-                        Fix these and run the pre-check again before enabling.
+                        Fix these and run the pre-check again before applying.
                       </p>
                     </div>
                   )}
@@ -857,7 +889,7 @@ export default function LoadBalancingControls({
 
             {/* Footer actions */}
             <div className="px-5 py-4 border-t border-border bg-background-secondary/95 backdrop-blur-sm flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-3 rounded-b-2xl">
-              {enabled ? (
+              {enabled && !finishingSetup ? (
                 <>
                   <button
                     type="button"
@@ -895,6 +927,11 @@ export default function LoadBalancingControls({
                 </>
               ) : (
                 <>
+                  {finishingSetup && (
+                    <button type="button" onClick={() => showSetup(false)} disabled={isBusy} className="btn-secondary text-sm">
+                      Back
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={runPreflight}
@@ -916,17 +953,17 @@ export default function LoadBalancingControls({
                     onClick={enableLb}
                     disabled={!canEnable || isBusy}
                     className="btn-primary text-sm w-full sm:w-auto flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                    title={canEnable ? undefined : 'Run a clean pre-check first'}
+                    title={canEnable ? undefined : 'Run a clean pre-check first. To finish setup, at least one extra line must be connected.'}
                   >
                     {loading === 'enable' ? (
                       <>
                         <Spinner className="w-4 h-4" />
-                        <span>Enabling...</span>
+                        <span>Applying...</span>
                       </>
                     ) : (
                       <>
                         <SplitArrowsIcon className="w-4 h-4" />
-                        <span>Enable load balancing</span>
+                        <span>{finishingSetup ? 'Activate connected lines' : unpluggedPorts.length ? 'Save setup' : 'Enable load balancing'}</span>
                       </>
                     )}
                   </button>
