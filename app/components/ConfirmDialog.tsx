@@ -17,6 +17,7 @@ interface ConfirmDialogProps {
   children?: ReactNode;
   /** Keeps Confirm off until the admin has filled in what the dialog asks for. */
   confirmDisabled?: boolean;
+  overlayClassName?: string;
 }
 
 export default function ConfirmDialog({
@@ -31,6 +32,7 @@ export default function ConfirmDialog({
   loading = false,
   children,
   confirmDisabled = false,
+  overlayClassName = 'z-[200]',
 }: ConfirmDialogProps) {
   useEffect(() => {
     if (isOpen) {
@@ -63,7 +65,7 @@ export default function ConfirmDialog({
   // overflow:hidden. Hovering the card then made the dialog jump in and out of
   // the card's box on every mouse move — the Account Statement "flutter".
   const dialog = (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+    <div className={`fixed inset-0 flex items-center justify-center p-4 ${overlayClassName}`}>
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
       <div
         role="alertdialog"
