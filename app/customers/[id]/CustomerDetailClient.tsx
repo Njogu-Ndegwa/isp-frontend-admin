@@ -32,6 +32,7 @@ import PayByMpesaCard from './PayByMpesaCard';
 import { connectionTypeLabel } from '../../lib/connectionType';
 import { useT } from '../../lib/i18n';
 import { canActivatePaidUntil, formatPaidUntil, pppoeSaveNotice } from './pppoeActivation';
+import { paidTimeCutMs, shortenExpiryConfirm } from './expiryEdit';
 import { usePermissions } from '../../hooks/usePermissions';
 import { PERMISSIONS } from '../../lib/permissions';
 import CustomerProfileFields from '../../components/CustomerProfileFields';
@@ -185,6 +186,9 @@ export default function EditCustomerPage() {
       if (formData.static_ip !== (customer.static_ip || '')) payload.static_ip = formData.static_ip;
       if (formData.expiry && formData.expiry !== utcToGMT3Input(customer.expiry)) {
         payload.expiry = gmt3InputToISO(formData.expiry);
+        // Never cut paid time without the reseller saying so (18 Nov 2026).
+        const cut = paidTimeCutMs(customer.expiry, payload.expiry);
+        if (cut > 0 && !window.confirm(shortenExpiryConfirm(cut))) return;
       }
       Object.assign(payload, profileChanges(profile, profileOriginal, nationalIdKnown));
       if (locationKnown) {
