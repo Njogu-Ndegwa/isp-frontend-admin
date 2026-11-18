@@ -89,12 +89,13 @@ export function BandwidthMeters({ data }: { data: MikroTikMetrics }) {
   );
 }
 
-// Active hotspot/PPPoE "online now" tile — sits as the 4th cell in the gauge row.
+// Active hotspot/PPPoE/static-IP "online now" tile — sits as the 4th cell in the gauge row.
 export function ActiveUsersBox({ data }: { data: MikroTikMetrics }) {
   const t = useT();
   const activeHotspot = data.activeHotspotUsers ?? data.activeSessionCount ?? 0;
   const activePppoe = data.activePppoeUsers ?? data.activePppoeCount ?? 0;
-  const activeTotal = data.activeTotalUsers ?? activeHotspot + activePppoe;
+  const activeStatic = data.activeStaticUsers ?? 0;
+  const activeTotal = data.activeTotalUsers ?? activeHotspot + activePppoe + activeStatic;
   const snapshotAgeSec = Math.round(data.snapshotAgeSeconds ?? 0);
   const hotspotAgeLabel = snapshotAgeSec > 0
     ? snapshotAgeSec < 60
@@ -119,6 +120,16 @@ export function ActiveUsersBox({ data }: { data: MikroTikMetrics }) {
           <span className="text-[9px] sm:text-[10px] font-medium text-foreground-muted uppercase tracking-wide mt-1">PPPoE</span>
           <span className="text-[8px] sm:text-[9px] text-emerald-400/80 mt-0.5">{t('live')}</span>
         </div>
+        {activeStatic > 0 && (
+          <>
+            <div className="w-px bg-amber-500/20" />
+            <div className="flex flex-col items-center" title={t('Static IP users — {age}', { age: hotspotAgeLabel })}>
+              <span className="text-xl sm:text-2xl font-bold text-violet-400 stat-value leading-none">{activeStatic}</span>
+              <span className="text-[9px] sm:text-[10px] font-medium text-foreground-muted uppercase tracking-wide mt-1">Static</span>
+              <span className="text-[8px] sm:text-[9px] text-foreground-muted/70 mt-0.5">{hotspotAgeLabel}</span>
+            </div>
+          </>
+        )}
       </div>
       <span className="text-[9px] sm:text-[10px] text-foreground-muted mt-2">{t('{count} active • online', { count: activeTotal })}</span>
     </div>
