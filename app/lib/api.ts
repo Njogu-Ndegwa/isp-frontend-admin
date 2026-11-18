@@ -184,6 +184,7 @@ import {
   SubscriptionPayRequest,
   SubscriptionPayResponse,
   SubscriptionCardPayResponse,
+  CardPaymentVerifyResponse,
   RepriceInvoiceResponse,
   GrantFreeSetupResponse,
   ConfirmCardPaymentResponse,
@@ -3563,6 +3564,15 @@ class ApiClient {
       body: JSON.stringify(data),
     });
     return this.handleResponse<SubscriptionPayResponse>(response);
+  }
+
+  async verifyCardPayment(): Promise<CardPaymentVerifyResponse> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(`${BASE_URL}/subscription/pay-card/verify`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<CardPaymentVerifyResponse>(response);
   }
 
   async paySubscriptionByCard(invoiceId: number): Promise<SubscriptionCardPayResponse> {
