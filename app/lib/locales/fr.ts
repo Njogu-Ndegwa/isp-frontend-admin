@@ -1255,4 +1255,10 @@ export const FR: Record<string, string> = {
   'Show platform revenue for this month': 'Revenus de la plateforme ce mois-ci',
   'Which routers are offline right now?': 'Quels routeurs sont hors ligne ?',
   'Show unpaid subscription invoices': 'Factures d\'abonnement impayées',
+  '7 days': '7 jours',
+  '30 days': '30 jours',
+  '{n} accounts': '{n} comptes',
+  '{n} questions': '{n} questions',
+  'Questions asked, accounts using it, and estimated model cost.': 'Questions posées, comptes qui l\'utilisent et coût estimé du modèle.',
+  'Busiest accounts': 'Comptes les plus actifs',
 };

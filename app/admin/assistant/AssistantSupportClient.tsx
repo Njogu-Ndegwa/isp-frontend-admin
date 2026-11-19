@@ -5,6 +5,7 @@ import Header from '../../components/Header';
 import { assistantApi, type ConversationDetail, type ConversationSummary } from '../../lib/assistant';
 import { useT } from '../../lib/i18n';
 import Transcript from '../../assistant/Transcript';
+import UsagePanel from './UsagePanel';
 
 const when = (iso: string) => new Date(iso.endsWith('Z') ? iso : `${iso}Z`).toLocaleString();
 
@@ -64,6 +65,7 @@ export default function AssistantSupportClient() {
   return (
     <div className="max-w-7xl mx-auto">
       <Header title={t('Assistant chats')} subtitle={t('See where resellers are stuck, and guide them inside their chat.')} />
+      <UsagePanel />
       {error && <p className="mb-3 text-sm text-danger">{error}</p>}
       <div className="grid grid-cols-1 lg:grid-cols-[22rem_1fr] gap-4">
         <div className={`${open ? 'hidden lg:block' : ''}`}>

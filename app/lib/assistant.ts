@@ -61,6 +61,15 @@ export interface ConversationDetail {
   email?: string | null;
 }
 
+export interface UsageWindow { questions: number; accounts: number; cost_usd: number }
+
+export interface AssistantUsageReport {
+  summary: { today: UsageWindow; '7d': UsageWindow; '30d': UsageWindow };
+  days: { day: string; questions: number; accounts: number; model_calls: number; cost_usd: number }[];
+  top_accounts: { user_id: number; organization_name?: string | null; email?: string | null; questions: number; cost_usd: number }[];
+  note: string;
+}
+
 export interface AssistantStatus {
   enabled: boolean;
   reason?: string | null;
@@ -198,6 +207,7 @@ export const assistantApi = {
   adminConversations: (resellerId?: number) =>
     getJson<{ conversations: ConversationSummary[] }>(
       `/admin/assistant/conversations${resellerId ? `?reseller_id=${resellerId}` : ''}`),
+  adminUsage: (days = 30) => getJson<AssistantUsageReport>(`/admin/assistant/usage?days=${days}`),
   adminConversation: (id: string) => getJson<ConversationDetail>(`/admin/assistant/conversations/${encodeURIComponent(id)}`),
   async adminNote(id: string, text: string, notify = true) {
     const r = await fetch(`${API_BASE_URL}/admin/assistant/conversations/${encodeURIComponent(id)}/notes`, {
