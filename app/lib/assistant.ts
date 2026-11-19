@@ -235,12 +235,16 @@ function drawScaled(img: HTMLImageElement, maxSide: number, quality: number): st
   return canvas.toDataURL('image/jpeg', quality);
 }
 
-/** A photo as JPEG: up to 1600 px for reading screens/errors, plus a 240 px thumbnail. */
+/**
+ * A photo as JPEG: up to 1400 px (enough to read a terminal or a label; the
+ * model works at ~1300 px anyway, and the photo is kept with the chat), plus a
+ * 240 px thumbnail for the screen.
+ */
 export async function preparePhoto(file: File): Promise<OutgoingImage> {
   if (!file.type.startsWith('image/')) throw new Error('Only photos and screenshots can be attached.');
   const img = await loadImage(file);
-  let dataUrl = drawScaled(img, 1600, 0.85);
-  if (dataUrl.length > 4_500_000) dataUrl = drawScaled(img, 1200, 0.75);
+  let dataUrl = drawScaled(img, 1400, 0.82);
+  if (dataUrl.length > 2_000_000) dataUrl = drawScaled(img, 1100, 0.72);
   const thumbnail = drawScaled(img, 240, 0.7);
   return { media_type: 'image/jpeg', data: dataUrl.split(',', 2)[1], thumbnail };
 }
