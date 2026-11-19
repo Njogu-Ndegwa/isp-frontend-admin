@@ -33,8 +33,9 @@ export default function UsagePanel() {
               <p className="text-[11px] text-foreground-muted">{label}</p>
               <p className="text-lg font-bold text-foreground leading-tight">{w.questions.toLocaleString()}</p>
               <p className="text-[11px] text-foreground-muted truncate">
-                {t('{n} accounts', { n: w.accounts })} · {usd(w.cost_usd)}
+                {w.accounts === 1 ? t('1 account') : t('{n} accounts', { n: w.accounts })}
               </p>
+              <p className="text-[11px] font-medium text-foreground">{usd(w.cost_usd)}</p>
             </div>
           );
         })}

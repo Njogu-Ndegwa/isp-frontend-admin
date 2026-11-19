@@ -1257,6 +1257,7 @@ export const FR: Record<string, string> = {
   'Show unpaid subscription invoices': 'Factures d\'abonnement impayées',
   '7 days': '7 jours',
   '30 days': '30 jours',
+  '1 account': '1 compte',
   '{n} accounts': '{n} comptes',
   '{n} questions': '{n} questions',
   'Questions asked, accounts using it, and estimated model cost.': 'Questions posées, comptes qui l\'utilisent et coût estimé du modèle.',
