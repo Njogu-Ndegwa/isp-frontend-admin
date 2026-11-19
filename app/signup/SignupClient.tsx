@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext';
 import { useAlert } from '../context/AlertContext';
 import Link from 'next/link';
 import { api } from '../lib/api';
+import { onboardingPath } from '../lib/assistant';
 import type { RegisterRequest } from '../lib/types';
 import PhoneInput from '../components/PhoneInput';
 import { DEFAULT_COUNTRY, type Country } from '../lib/countries';
@@ -94,7 +95,7 @@ export default function SignupPage() {
         }
       }
 
-      router.push('/setup');
+      router.push(await onboardingPath());
     } catch (err) {
       if (registered) {
         showAlert('warning', 'Account created! Please sign in to continue.');
