@@ -106,24 +106,6 @@ function Items({ items, onAsk }: { items: Item[]; onAsk: Ask }) {
   );
 }
 
-/** A figure with its share of a whole drawn under it: the rows of "are my customers connected?". */
-function MeterRow({ value, label, note, tone, of, noteTone, onClick }: { value: number; label: string; note?: string; tone: Tone; of: number; noteTone?: 'bad' | 'warn'; onClick: () => void }) {
-  return (
-    <AskRow onClick={onClick}>
-      <span className="ai-num ai-display w-[34px] shrink-0 text-right text-[17px] font-bold text-ink-1">{n(value)}</span>
-      <span className="min-w-0 flex-1">
-        <span className="flex items-baseline justify-between gap-2 text-[12.5px]">
-          <span className="truncate text-ink-2">{label}</span>
-          {note ? <span className={`shrink-0 ${noteTone === 'bad' ? 'text-[var(--ai-text-bad)]' : noteTone === 'warn' ? 'text-[var(--ai-text-warn)]' : 'text-ink-3'}`}>{note}</span> : null}
-        </span>
-        <span className="mt-1 block h-1.5 overflow-hidden rounded-full bg-surface-3">
-          <span className="block h-full rounded-full" style={{ width: `${of > 0 ? Math.max(value > 0 ? 2 : 0, Math.min(100, (value / of) * 100)) : 0}%`, background: toneColor(tone) }} />
-        </span>
-      </span>
-    </AskRow>
-  );
-}
-
 function Skeleton() {
   return (
     <div aria-busy="true" aria-label="Loading your figures">
@@ -230,6 +212,28 @@ function Gauge({ label, pct, kind = 'load' }: { label: string; pct: number; kind
   );
 }
 
+/** A ring for a load figure: a different mark from the bars elsewhere on the page. */
+function Ring({ label, pct }: { label: string; pct: number }) {
+  const t = useT();
+  const r = 17;
+  const c = 2 * Math.PI * r;
+  const v = Math.max(0, Math.min(100, pct));
+  return (
+    <div className="flex min-w-0 items-center gap-2.5">
+      <svg width={44} height={44} viewBox="0 0 44 44" role="img" aria-label={`${label} ${Math.round(v)}%`} className="shrink-0">
+        <circle cx={22} cy={22} r={r} fill="none" stroke="var(--ai-s3)" strokeWidth={5} />
+        <circle cx={22} cy={22} r={r} fill="none" stroke={toneColor(loadTone(v))} strokeWidth={5} strokeLinecap="round"
+          strokeDasharray={`${(v / 100) * c} ${c}`} transform="rotate(-90 22 22)" />
+        <text x={22} y={22} dy="0.35em" textAnchor="middle" fontSize={11.5} fontWeight={700} fill="var(--ai-ink1)" className="ai-num">{Math.round(v)}</text>
+      </svg>
+      <span className="min-w-0">
+        <span className="block text-[12.5px] font-bold text-ink-1">{label}</span>
+        <span className="block text-[11.5px] text-ink-3">{v >= 85 ? t('high') : v >= 65 ? t('busy') : t('fine')}</span>
+      </span>
+    </div>
+  );
+}
+
 function RouterTile({ r, asOf, onAsk }: { r: NetworkRouter; asOf: number; onAsk: Ask }) {
   const t = useT();
   const live = r.status === 'online' ? r.live : null;
@@ -265,8 +269,8 @@ function RouterTile({ r, asOf, onAsk }: { r: NetworkRouter; asOf: number; onAsk:
             <span className="mt-1 block truncate text-[12px] text-ink-3">{down && r.active_customers > 0 ? t('paying customers cut off') : t('paying customers')}</span>
           </button>
         ) : null}
-        {live && typeof live.cpu === 'number' ? <Gauge label="CPU" pct={live.cpu} /> : null}
-        {live && typeof live.memory_pct === 'number' ? <Gauge label={t('Memory')} pct={live.memory_pct} /> : null}
+        {live && typeof live.cpu === 'number' ? <Ring label="CPU" pct={live.cpu} /> : null}
+        {live && typeof live.memory_pct === 'number' ? <Ring label={t('Memory')} pct={live.memory_pct} /> : null}
         {!live && typeof r.reachable_pct === 'number' ? <div className="col-span-2"><Gauge label={t('Reachable')} pct={r.reachable_pct} kind="reach" /></div> : null}
       </div>
 
@@ -311,30 +315,74 @@ function NetworkSection({ ctx }: { ctx: Ctx }) {
   );
 }
 
+/* ---------------- the pulse: the business in one band ---------------- */
+
+/**
+ * The few figures that say how the business is right now, drawn large in one band:
+ * money today, people online, paying customers, routers up. It is the one place a
+ * number is shouted; the cards below explain it.
+ */
+function Pulse({ ctx }: { ctx: Ctx }) {
+  const t = useT();
+  const { b, money, onAsk } = ctx;
+  const list = b.routers?.list ?? [];
+  const reporting = list.some((x) => x.status === 'online' && x.live);
+  const people = list.reduce((a, x) => a + (x.status === 'online' && x.live ? (x.live.hotspot_online ?? 0) + (x.live.pppoe_online ?? 0) : 0), 0);
+  type Stat = { key: string; label: string; value: string; note?: React.ReactNode; ask: string; accent?: boolean; live?: boolean; dots?: NetworkRouter[] };
+  const stats: Stat[] = [];
+  if (b.money) stats.push({ key: 'money', label: t('Money today'), value: money(b.money.today), note: `${n(b.money.payments_today)} ${plural(b.money.payments_today, 'payment', 'payments')} ${t('so far')}`, ask: "Show today's payments", accent: true });
+  if (reporting) stats.push({ key: 'online', label: t('Online right now'), value: n(people), note: t('people using your network'), ask: 'Who is online right now?', live: true });
+  if (b.customers) stats.push({ key: 'customers', label: t('Paying customers'), value: n(b.customers.active), note: t('of {n} on your books', { n: n(b.customers.total) }), ask: 'List my active customers' });
+  if (b.routers && b.routers.total > 0) stats.push({ key: 'routers', label: t('Routers up'), value: `${n(b.routers.online)}/${n(b.routers.total)}`, ask: 'Show my routers and their status', dots: list });
+  if (stats.length < 2) return null;
+  return (
+    <section aria-label={t('Right now')} className="relative overflow-hidden rounded-[22px] border border-accent/30 bg-surface-1 shadow-[var(--ai-shadow)]">
+      <div aria-hidden className="pointer-events-none absolute inset-0" style={{ background: 'radial-gradient(120% 150% at 0% 0%, var(--ai-accent-soft), transparent 58%)' }} />
+      <div className={`relative grid grid-cols-2 ${stats.length >= 4 ? 'md:grid-cols-4' : stats.length === 3 ? 'md:grid-cols-3' : ''}`}>
+        {stats.map((s, i) => (
+          <button key={s.key} type="button" onClick={() => onAsk(s.ask)}
+            className={`min-w-0 px-4 py-4 text-left transition-colors hover:bg-surface-2/70 sm:px-5 sm:py-5 ${i % 2 === 1 ? 'border-l border-line' : 'md:border-l md:border-line'} ${i === 0 ? 'md:border-l-0' : ''} ${i >= 2 ? 'border-t border-line md:border-t-0' : ''} ${stats.length === 3 && i === 2 ? 'col-span-2 md:col-span-1' : ''}`}>
+            <span className="flex items-center gap-1.5 text-[11.5px] font-semibold uppercase tracking-[0.09em] text-ink-3">
+              {s.live ? <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-good" style={{ boxShadow: '0 0 0 3px color-mix(in srgb, var(--ai-good) 25%, transparent)' }} /> : null}
+              {s.label}
+            </span>
+            <span className={`ai-num ai-display mt-1.5 block font-extrabold leading-none ${s.value.length > 9 ? 'text-[25px] sm:text-[30px]' : 'text-[31px] sm:text-[38px]'} ${s.accent ? 'text-accent' : 'text-ink-1'}`}>{s.value}</span>
+            {s.dots ? (
+              // one mark per router: the network at a glance
+              <span className="mt-2.5 flex flex-wrap gap-1" aria-hidden>
+                {s.dots.slice(0, 12).map((x) => (
+                  <span key={x.id} title={x.name} className="h-2 w-5 rounded-full" style={{ background: toneColor(x.status === 'online' ? 'good' : x.status === 'offline' ? 'bad' : 'muted') }} />
+                ))}
+              </span>
+            ) : <span className="mt-1.5 block truncate text-[12.5px] text-ink-3">{s.note}</span>}
+          </button>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function MoneyCard({ ctx, num }: { ctx: Ctx; num: number }) {
   const t = useT();
   const { b, money, onAsk } = ctx;
   const m = b.money;
   if (!m) return null;
   return (
-    <Question num={num} title={t('How is money today?')} more={{ label: t('Payments'), ask: "Show today's payments" }} onAsk={onAsk}>
-      <Big value={money(m.today)} label={t('so far today from {n} {payments}', { n: n(m.payments_today), payments: plural(m.payments_today, 'payment', 'payments') })} />
+    <Question num={num} title={t('Is money growing?')} more={{ label: t('Payments'), ask: "Show today's payments" }} onAsk={onAsk}>
+      <Big value={money(m.last7)} label={t('in the last 7 days')} />
+      <div className="mt-1.5"><Delta now={m.last7} before={m.prev7} label={t('the week before')} /></div>
       <div className="mt-3">
         <MiniBars points={m.daily.map((d) => ({ label: dayFmt.format(new Date(`${d.day}T00:00:00Z`)), value: d.revenue, partial: d.partial }))}
-          format={money} empty={t('No payments in the last two weeks.')} />
+          height={84} format={money} empty={t('No payments in the last two weeks.')} />
       </div>
       <ul className="m-0 mt-2.5 flex list-none flex-col p-0">
         {[
-          { label: t('Yesterday'), value: m.yesterday, ask: 'How much did I make yesterday?', delta: null as React.ReactNode },
-          { label: t('Last 7 days'), value: m.last7, ask: 'Show my revenue for each of the last 7 days', delta: <Delta now={m.last7} before={m.prev7} label={t('the week before')} /> },
-          { label: t('This month'), value: m.month, ask: 'How much have I made this month, and from which plans?', delta: null },
+          { label: t('Yesterday'), value: m.yesterday, ask: 'How much did I make yesterday?' },
+          { label: t('This month'), value: m.month, ask: 'How much have I made this month, and from which plans?' },
         ].map((r) => (
           <li key={r.label}>
             <AskRow onClick={() => onAsk(r.ask)}>
-              <span className="min-w-0 flex-1">
-                <span className="block text-[12.5px] text-ink-3">{r.label}</span>
-                {r.delta}
-              </span>
+              <span className="min-w-0 flex-1 text-[13px] text-ink-2">{r.label}</span>
               <span className="ai-num shrink-0 text-[14.5px] font-bold text-ink-1">{money(r.value)}</span>
             </AskRow>
           </li>
@@ -349,16 +397,32 @@ function CustomersCard({ ctx, num }: { ctx: Ctx; num: number }) {
   const { b, onAsk } = ctx;
   const c = b.customers;
   if (!c) return null;
+  const later = Math.max(0, c.active - c.expiring_3d);
+  const soon = Math.max(0, c.expiring_3d - c.expiring_today);
+  const pick = (label: string) => onAsk(label === 'Run out today' ? 'Who expires today?' : label === 'Within 3 days' ? 'Who expires in the next 3 days?' : 'List my active customers');
   return (
-    <Question num={num} title={t('Are my customers connected?')} more={{ label: t('All customers'), ask: 'List my active customers' }} onAsk={onAsk}>
+    <Question num={num} title={t('How long are customers paid for?')} more={{ label: t('All customers'), ask: 'List my active customers' }} onAsk={onAsk}>
       {c.total > 0 ? (
         <>
-          <div className="mb-2"><Big value={n(c.active)} label={t('active now, of {n} customers', { n: n(c.total) })} /></div>
-          <ul className="m-0 flex list-none flex-col gap-0.5 p-0">
-            <li><MeterRow value={c.expiring_today} label={t('Expire today')} tone="warn" of={c.active} note={c.expiring_today ? t('remind them') : undefined} noteTone="warn" onClick={() => onAsk('Who expires today?')} /></li>
-            <li><MeterRow value={c.expiring_3d} label={t('Expire in the next 3 days')} tone="info" of={c.active} onClick={() => onAsk('Who expires in the next 3 days?')} /></li>
-            <li><MeterRow value={c.expired_7d} label={t('Expired this week, not renewed')} tone="bad" of={Math.max(c.active, c.expired_7d)} note={c.expired_7d ? t('win them back') : undefined} noteTone="bad" onClick={() => onAsk('Who expired in the last 7 days and has not renewed?')} /></li>
-            <li><MeterRow value={c.new_7d} label={t('New this week')} tone="good" of={Math.max(c.active, c.new_7d)} onClick={() => onAsk('Which customers joined in the last 7 days?')} /></li>
+          <div className="mb-3"><Big value={n(c.active)} label={t('have paid time left')} /></div>
+          <SegmentsBar onPick={pick} segments={[
+            { label: 'More than 3 days', value: later, shown: n(later), color: toneColor('good') },
+            { label: 'Within 3 days', value: soon, shown: n(soon), color: toneColor('info') },
+            { label: 'Run out today', value: c.expiring_today, shown: n(c.expiring_today), color: toneColor('warn') },
+          ]} />
+          <ul className="m-0 mt-2 flex list-none flex-col p-0">
+            <li>
+              <AskRow onClick={() => onAsk('Who expired in the last 7 days and has not renewed?')}>
+                <span className="min-w-0 flex-1 text-[13px] text-ink-2">{t('Ran out this week and have not renewed')}</span>
+                <span className={`ai-num shrink-0 text-[14.5px] font-bold ${c.expired_7d ? 'text-[var(--ai-text-bad)]' : 'text-ink-1'}`}>{n(c.expired_7d)}</span>
+              </AskRow>
+            </li>
+            <li>
+              <AskRow onClick={() => onAsk('Which customers joined in the last 7 days?')}>
+                <span className="min-w-0 flex-1 text-[13px] text-ink-2">{t('New this week')}</span>
+                <span className="ai-num shrink-0 text-[14.5px] font-bold text-ink-1">{n(c.new_7d)}</span>
+              </AskRow>
+            </li>
           </ul>
         </>
       ) : (
@@ -664,13 +728,17 @@ export default function Home({ userKey, name, organization, admin, readOnly, ena
     const m = b.money;
     const offline = b.routers?.offline ?? 0;
     const expiring = b.customers?.expiring_today ?? 0;
+    // The band below carries the figures; the headline says what they mean: trouble
+    // first, then how the week is going.
+    const change = m && m.prev7 > 0 ? Math.round(((m.last7 - m.prev7) / m.prev7) * 100) : null;
     headline = (
       <>
-        {m ? <>{money(m.today)} in so far today from {n(m.payments_today)} {plural(m.payments_today, 'payment', 'payments')}. </>
-          : b.customers ? <>{n(b.customers.active)} of {n(b.customers.total)} customers are active. </> : null}
-        {offline > 0 ? <span className="text-[var(--ai-text-bad)]">{n(offline)} {plural(offline, 'router is', 'routers are')} offline.</span>
-          : expiring > 0 ? <span className="text-[var(--ai-text-warn)]">{n(expiring)} {plural(expiring, 'customer expires', 'customers expire')} today.</span>
-            : b.routers && b.routers.total > 0 ? 'Every router is online.' : null}
+        {offline > 0 ? <><span className="text-[var(--ai-text-bad)]">{n(offline)} {plural(offline, 'router is', 'routers are')} down</span>{expiring > 0 ? <> and {n(expiring)} {plural(expiring, 'customer runs', 'customers run')} out today. </> : '. '}</>
+          : expiring > 0 ? <>Your network is up. <span className="text-[var(--ai-text-warn)]">{n(expiring)} {plural(expiring, 'customer runs', 'customers run')} out today.</span> </>
+            : b.routers && b.routers.total > 0 ? 'Your network is up and nothing needs you. ' : 'Here is where things stand. '}
+        {change !== null && Math.abs(change) >= 1 ? (
+          <>Money is <span className={change > 0 ? 'text-[var(--ai-text-good)]' : 'text-[var(--ai-text-warn)]'}>{change > 0 ? 'up' : 'down'} {Math.abs(change)}%</span> on last week.</>
+        ) : null}
       </>
     );
   }
@@ -755,7 +823,8 @@ export default function Home({ userKey, name, organization, admin, readOnly, ena
           {settingUp && setup ? <div className={fresh ? '' : 'mb-3'}><SetupCard setup={setup} onAsk={onAsk} /></div> : null}
           {!fresh ? (
             <>
-              {hasNetwork ? <div className="mb-5 sm:mb-6"><NetworkSection ctx={ctx} /></div> : null}
+              <div className="mb-6 sm:mb-7"><Pulse ctx={ctx} /></div>
+              {hasNetwork ? <div className="mb-6 sm:mb-7"><NetworkSection ctx={ctx} /></div> : null}
               <div className="grid gap-3 md:grid-cols-2">
                 {cards.map((card, i) => (
                   // an odd card out takes the whole row instead of sitting alone beside a gap
