@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '../context/AuthContext';
 import { useAlert } from '../context/AlertContext';
 import { fullOnboardingCheck } from '../hooks/useOnboardingStatus';
+import { onboardingPath } from '../lib/assistant';
 import Link from 'next/link';
 import { useT } from '../lib/i18n';
 import type { AuthUser } from '../lib/types';
@@ -124,7 +125,7 @@ export default function LoginPage() {
       if (!onboardingResult.isComplete) {
         const wasSkipped = localStorage.getItem('onboarding_dismissed') === 'true';
         if (!wasSkipped) {
-          router.push('/setup');
+          router.push(await onboardingPath());
           return;
         }
       } else {

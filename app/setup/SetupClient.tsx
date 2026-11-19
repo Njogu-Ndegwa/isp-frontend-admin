@@ -10,6 +10,7 @@ import DeviceModeTroubleshoot from '../components/DeviceModeTroubleshoot';
 import HotspotPackageTroubleshoot from '../components/HotspotPackageTroubleshoot';
 import PlanNameHint from '../components/PlanNameHint';
 import RouterWaitStatus, { RouterSetupHelp } from './RouterWaitStatus';
+import ChatSetupLink from './ChatSetupLink';
 import { isCodeExpired, isCodeLive } from './routerWait';
 import { useT } from '../lib/i18n';
 import { formatAmount, getDisplayCurrency } from '../lib/format';
@@ -142,12 +143,15 @@ export default function SetupPage() {
           </div>
           <span className="text-sm font-semibold text-foreground hidden sm:block">Bitwave Setup</span>
         </div>
-        <button
-          onClick={handleSkipAll}
-          className="text-xs text-foreground-muted hover:text-foreground transition-colors"
-        >
-          Skip setup for now
-        </button>
+        <div className="flex items-center gap-3">
+          <ChatSetupLink />
+          <button
+            onClick={handleSkipAll}
+            className="text-xs text-foreground-muted hover:text-foreground transition-colors"
+          >
+            Skip setup for now
+          </button>
+        </div>
       </div>
 
       {/* Progress */}
