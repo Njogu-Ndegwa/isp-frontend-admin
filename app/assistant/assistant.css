@@ -1,0 +1,349 @@
+/* ============================================================
+   AI HOME (/assistant)
+   The chat-first home: its own surfaces, ink and chart colours,
+   written against roles so both themes change in one place.
+   Imported by globals.css so Tailwind sees the @theme tokens.
+
+   Chart series are a validated order (dataviz palette checker:
+   lightness band, chroma, colour-blind separation between
+   neighbours, 3:1 contrast on the dark surface). On white the
+   amber, aqua and pink sit under 3:1, so every chart carries
+   direct labels and a table view.
+   ============================================================ */
+:root {
+  --ai-bg: #f6f5f3;
+  --ai-s1: #ffffff;
+  --ai-s2: #f3f2ef;
+  --ai-s3: #e7e5e0;
+  --ai-ink1: #1c1917;
+  --ai-ink2: #44403c;
+  --ai-ink3: #6f6a64;
+  --ai-line: rgba(28, 25, 23, 0.09);
+  --ai-line2: rgba(28, 25, 23, 0.18);
+  --ai-accent: #b45309; /* amber as text or a hairline on white */
+  --ai-accent-fill: #f59e0b; /* amber as a fill */
+  --ai-accent-fill-hover: #e08e06;
+  --ai-accent-ink: #1c1917; /* text on an amber fill */
+  --ai-accent-soft: rgba(245, 158, 11, 0.13);
+  --ai-glow: rgba(245, 158, 11, 0.1);
+  --ai-shadow: 0 1px 2px rgba(28, 25, 23, 0.05), 0 12px 30px -20px rgba(28, 25, 23, 0.3);
+  --ai-series-1: #d18a00;
+  --ai-series-2: #1baf7a;
+  --ai-series-3: #2a78d6;
+  --ai-series-4: #e87ba4;
+  --ai-series-5: #008300;
+  --ai-series-6: #6250d6;
+  --ai-series-7: #e34948;
+  --ai-series-other: #8a857e;
+  --ai-series-quiet: rgba(209, 138, 0, 0.36);
+  --ai-good: #16a34a;
+  --ai-info: #0284c7;
+  --ai-warn: #d97706;
+  --ai-bad: #dc2626;
+  --ai-muted: #8a857e;
+  --ai-text-good: #15803d;
+  --ai-text-warn: #92400e;
+  --ai-text-bad: #b91c1c;
+  --ai-grid: rgba(28, 25, 23, 0.07);
+  --ai-axis: rgba(28, 25, 23, 0.22);
+}
+
+.dark {
+  --ai-bg: #0a0a0c;
+  --ai-s1: #141417;
+  --ai-s2: #1c1c21;
+  --ai-s3: #2a2a31;
+  --ai-ink1: #f5f5f4;
+  --ai-ink2: #c4c2bd;
+  --ai-ink3: #8f8c86;
+  --ai-line: rgba(255, 255, 255, 0.08);
+  --ai-line2: rgba(255, 255, 255, 0.16);
+  --ai-accent: #fbbf24;
+  --ai-accent-fill: #f59e0b;
+  --ai-accent-fill-hover: #fbbf24;
+  --ai-accent-ink: #1c1917;
+  --ai-accent-soft: rgba(245, 158, 11, 0.12);
+  --ai-glow: rgba(245, 158, 11, 0.09);
+  --ai-shadow: 0 1px 0 rgba(255, 255, 255, 0.03) inset, 0 14px 34px -20px rgba(0, 0, 0, 0.8);
+  --ai-series-1: #c98500;
+  --ai-series-2: #199e70;
+  --ai-series-3: #3987e5;
+  --ai-series-4: #d55181;
+  --ai-series-5: #0ca30c;
+  --ai-series-6: #9085e9;
+  --ai-series-7: #e66767;
+  --ai-series-other: #6b6b76;
+  --ai-series-quiet: rgba(201, 133, 0, 0.42);
+  --ai-good: #0ca30c;
+  --ai-info: #2aa8dc;
+  --ai-warn: #fab219;
+  --ai-bad: #e5484d;
+  --ai-muted: #6b6b76;
+  --ai-text-good: #86efac;
+  --ai-text-warn: #ffd98a;
+  --ai-text-bad: #ff8a8a;
+  --ai-grid: rgba(255, 255, 255, 0.07);
+  --ai-axis: rgba(255, 255, 255, 0.2);
+}
+
+@theme inline {
+  --color-surface-1: var(--ai-s1);
+  --color-surface-2: var(--ai-s2);
+  --color-surface-3: var(--ai-s3);
+  --color-ink-1: var(--ai-ink1);
+  --color-ink-2: var(--ai-ink2);
+  --color-ink-3: var(--ai-ink3);
+  --color-line: var(--ai-line);
+  --color-line-strong: var(--ai-line2);
+  --color-accent: var(--ai-accent);
+  --color-accent-fill: var(--ai-accent-fill);
+  --color-accent-soft: var(--ai-accent-soft);
+  --color-accent-ink: var(--ai-accent-ink);
+  --color-good: var(--ai-good);
+  --color-warn: var(--ai-warn);
+  --color-bad: var(--ai-bad);
+}
+
+/*
+ * Component styles sit in Tailwind's components layer, so a utility on the same
+ * element (px-3, text-accent, h-9) still wins without !important.
+ */
+@layer components {
+  /* The page plane: a warm glow behind the top, nothing else. */
+  .ai-root {
+    background-color: var(--ai-bg);
+    background-image: radial-gradient(1100px 480px at 50% -200px, var(--ai-glow), transparent 70%);
+    color: var(--ai-ink1);
+    font-size: 15px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    /* the dashboard sidebar offset does not apply on this screen */
+    --app-sidebar-w: 0px;
+  }
+  .ai-root ::selection {
+    background: var(--ai-accent-soft);
+  }
+  .ai-root :focus-visible {
+    outline: 2px solid var(--ai-accent);
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
+  .ai-root * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--ai-s3) transparent;
+  }
+  .ai-display {
+    letter-spacing: -0.02em;
+  }
+  .ai-num {
+    font-variant-numeric: tabular-nums;
+  }
+
+  .ai-card {
+    background: var(--ai-s1);
+    border: 1px solid var(--ai-line);
+    border-radius: 16px;
+    box-shadow: var(--ai-shadow);
+  }
+
+  .ai-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    border-radius: 999px;
+    font-weight: 600;
+    font-size: 0.86rem;
+    line-height: 1;
+    padding: 0.6rem 1rem;
+    white-space: nowrap;
+    cursor: pointer;
+    transition:
+      background-color 120ms ease,
+      border-color 120ms ease,
+      color 120ms ease,
+      opacity 120ms ease;
+  }
+  .ai-btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+  .ai-btn-primary {
+    background: var(--ai-accent-fill);
+    color: var(--ai-accent-ink);
+  }
+  .ai-btn-primary:hover:not(:disabled) {
+    background: var(--ai-accent-fill-hover);
+  }
+  .ai-btn-danger {
+    background: var(--ai-bad);
+    color: #fff;
+  }
+  .ai-btn-danger:hover:not(:disabled) {
+    opacity: 0.9;
+  }
+  .ai-btn-ghost {
+    background: transparent;
+    color: var(--ai-ink2);
+    border: 1px solid var(--ai-line2);
+  }
+  .ai-btn-ghost:hover:not(:disabled) {
+    background: var(--ai-s2);
+    color: var(--ai-ink1);
+  }
+  .ai-btn-quiet {
+    background: transparent;
+    color: var(--ai-ink3);
+    padding: 0.4rem 0.6rem;
+    font-weight: 500;
+    border-radius: 9px;
+  }
+  .ai-btn-quiet:hover:not(:disabled) {
+    background: var(--ai-s2);
+    color: var(--ai-ink1);
+  }
+  .ai-btn-quiet[aria-pressed="true"] {
+    background: var(--ai-s3);
+    color: var(--ai-ink1);
+  }
+
+  .ai-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    max-width: 100%;
+    border: 1px solid var(--ai-line2);
+    border-radius: 999px;
+    padding: 0.45rem 0.85rem;
+    font-size: 0.86rem;
+    color: var(--ai-ink2);
+    background: var(--ai-s1);
+    cursor: pointer;
+    text-align: left;
+    transition:
+      background-color 120ms ease,
+      border-color 120ms ease,
+      color 120ms ease;
+  }
+  .ai-chip:hover:not(:disabled) {
+    background: var(--ai-accent-soft);
+    border-color: var(--ai-accent);
+    color: var(--ai-ink1);
+  }
+  .ai-chip:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  /* answer prose */
+  .ai-prose {
+    color: var(--ai-ink1);
+    font-size: 1rem;
+    line-height: 1.62;
+    overflow-wrap: anywhere;
+  }
+  .ai-prose > * + * {
+    margin-top: 0.7em;
+  }
+  .ai-prose strong {
+    font-weight: 700;
+  }
+  .ai-prose ul {
+    list-style: disc;
+    padding-left: 1.2em;
+  }
+  .ai-prose ol {
+    list-style: decimal;
+    padding-left: 1.2em;
+  }
+  .ai-prose li {
+    margin: 0.2em 0;
+  }
+  .ai-prose li::marker {
+    color: var(--ai-ink3);
+  }
+  .ai-prose a {
+    color: var(--ai-accent);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+  .ai-prose code {
+    background: var(--ai-s2);
+    border-radius: 5px;
+    padding: 0.08em 0.35em;
+    font-size: 0.9em;
+    word-break: break-all;
+  }
+
+  /* a blinking caret while the answer streams */
+  .ai-caret > :last-child::after {
+    content: "";
+    display: inline-block;
+    width: 7px;
+    height: 1.05em;
+    margin-left: 2px;
+    vertical-align: -0.18em;
+    background: var(--ai-accent-fill);
+    border-radius: 1px;
+    animation: ai-blink 1s steps(2, start) infinite;
+  }
+  @keyframes ai-blink {
+    to {
+      visibility: hidden;
+    }
+  }
+
+  /* "backwards", not "both": a finished animation that keeps filling would trap
+     anything fixed inside the box. */
+  .ai-rise {
+    animation: ai-rise 260ms cubic-bezier(0.2, 0.7, 0.2, 1) backwards;
+  }
+  @keyframes ai-rise {
+    from {
+      opacity: 0;
+      transform: translateY(6px);
+    }
+  }
+
+  .ai-spin {
+    animation: ai-spin 0.9s linear infinite;
+  }
+  @keyframes ai-spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .ai-rise,
+    .ai-spin,
+    .ai-caret > :last-child::after {
+      animation: none;
+    }
+  }
+
+  /* the question box draws its focus on the card around it, not on the text area */
+  .ai-root .ai-ask:focus-visible {
+    outline: none;
+  }
+}
+
+/* Touch screens: every control at least 40 px, about a fingertip. A mouse keeps
+   the compact sizes. .ai-tap marks text-like controls (a sort header, "Show all"). */
+@media (pointer: coarse) {
+  .ai-btn-quiet,
+  .ai-tap-sq {
+    min-width: 40px;
+    min-height: 40px;
+  }
+  .ai-btn,
+  .ai-chip,
+  .ai-tap {
+    min-height: 40px;
+  }
+  /* a one-word link ("Plans") is still a fingertip wide */
+  .ai-tap {
+    min-width: 40px;
+  }
+}

@@ -5,6 +5,7 @@ import Header from '../../components/Header';
 import { assistantApi, type ConversationDetail, type ConversationSummary } from '../../lib/assistant';
 import { useT } from '../../lib/i18n';
 import Transcript from '../../assistant/Transcript';
+import RolloutPanel from './RolloutPanel';
 import UsagePanel from './UsagePanel';
 
 const when = (iso: string) => new Date(iso.endsWith('Z') ? iso : `${iso}Z`).toLocaleString();
@@ -65,6 +66,7 @@ export default function AssistantSupportClient() {
   return (
     <div className="max-w-7xl mx-auto">
       <Header title={t('Assistant chats')} subtitle={t('See where resellers are stuck, and guide them inside their chat.')} />
+      <RolloutPanel />
       <UsagePanel />
       {error && <p className="mb-3 text-sm text-danger">{error}</p>}
       <div className="grid grid-cols-1 lg:grid-cols-[22rem_1fr] gap-4">
@@ -105,7 +107,7 @@ export default function AssistantSupportClient() {
                 </div>
                 <button type="button" className="btn-ghost lg:hidden min-h-[40px]" onClick={() => setOpen(null)}>{t('Back')}</button>
               </div>
-              <div className="p-4 max-h-[60dvh] overflow-y-auto">
+              <div className="px-4 max-h-[60dvh] overflow-y-auto">
                 <Transcript items={open.transcript} records={open.actions} readOnly />
               </div>
               <div className="border-t border-border p-3">

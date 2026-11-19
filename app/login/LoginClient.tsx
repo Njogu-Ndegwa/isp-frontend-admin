@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '../context/AuthContext';
 import { useAlert } from '../context/AlertContext';
 import { fullOnboardingCheck } from '../hooks/useOnboardingStatus';
-import { onboardingPath } from '../lib/assistant';
+import { homePath, markStartPageDecided, onboardingPath } from '../lib/assistant';
 import Link from 'next/link';
 import { useT } from '../lib/i18n';
 import type { AuthUser } from '../lib/types';
@@ -132,7 +132,10 @@ export default function LoginPage() {
         localStorage.setItem('onboarding_dismissed', 'true');
       }
 
-      router.push('/dashboard');
+      // The accounts that start on the AI home go there; everyone else, the dashboard.
+      const start = await homePath('/dashboard', `${signedIn?.id ?? 0}:0`);
+      markStartPageDecided();
+      router.push(start);
     } catch (err) {
       const message =
         err instanceof Error
