@@ -177,9 +177,9 @@
   /* an instrument label: small, spaced capitals in the mono face */
   .ai-eyebrow {
     font-family: var(--font-ai-mono), ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-    font-size: 10.5px;
+    font-size: 11px;
     font-weight: 500;
-    letter-spacing: 0.14em;
+    letter-spacing: 0.12em;
     text-transform: uppercase;
     color: var(--ai-ink3);
     line-height: 1.2;
@@ -231,24 +231,30 @@
     color: var(--ai-accent-ink);
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), 0 6px 18px -8px color-mix(in srgb, var(--ai-accent-fill) 70%, transparent);
   }
-  .ai-btn-primary:hover:not(:disabled) {
-    background: var(--ai-accent-fill-hover);
+  @media (hover: hover) {
+    .ai-btn-primary:hover:not(:disabled) {
+      background: var(--ai-accent-fill-hover);
+    }
   }
   .ai-btn-danger {
     background: var(--ai-bad);
     color: #fff;
   }
-  .ai-btn-danger:hover:not(:disabled) {
-    opacity: 0.9;
+  @media (hover: hover) {
+    .ai-btn-danger:hover:not(:disabled) {
+      opacity: 0.9;
+    }
   }
   .ai-btn-ghost {
     background: transparent;
     color: var(--ai-ink2);
     border: 1px solid var(--ai-line2);
   }
-  .ai-btn-ghost:hover:not(:disabled) {
-    background: var(--ai-s2);
-    color: var(--ai-ink1);
+  @media (hover: hover) {
+    .ai-btn-ghost:hover:not(:disabled) {
+      background: var(--ai-s2);
+      color: var(--ai-ink1);
+    }
   }
   .ai-btn-quiet {
     background: transparent;
@@ -257,9 +263,11 @@
     font-weight: 500;
     border-radius: 10px;
   }
-  .ai-btn-quiet:hover:not(:disabled) {
-    background: var(--ai-s2);
-    color: var(--ai-ink1);
+  @media (hover: hover) {
+    .ai-btn-quiet:hover:not(:disabled) {
+      background: var(--ai-s2);
+      color: var(--ai-ink1);
+    }
   }
   .ai-btn-quiet[aria-pressed="true"] {
     background: var(--ai-s3);
@@ -284,10 +292,12 @@
       border-color 140ms ease,
       color 140ms ease;
   }
-  .ai-chip:hover:not(:disabled) {
-    background: var(--ai-accent-soft);
-    border-color: color-mix(in srgb, var(--ai-accent) 60%, transparent);
-    color: var(--ai-ink1);
+  @media (hover: hover) {
+    .ai-chip:hover:not(:disabled) {
+      background: var(--ai-accent-soft);
+      border-color: color-mix(in srgb, var(--ai-accent) 60%, transparent);
+      color: var(--ai-ink1);
+    }
   }
   .ai-chip:disabled {
     opacity: 0.5;
@@ -570,6 +580,51 @@
   .ai-composer:focus-within {
     border-color: color-mix(in srgb, var(--ai-accent) 55%, transparent);
     box-shadow: inset 0 1px 0 var(--ai-edge), 0 0 0 4px var(--ai-accent-soft), 0 20px 44px -24px rgba(0, 0, 0, 0.6);
+  }
+}
+
+/*
+ * Touch gets the same feel as a mouse. A mouse sees hover (a row lights, an arrow
+ * slides); a finger never hovers, so on touch screens the same response plays on
+ * the press: the control dips a little and tints, the arrow slides, and the grey
+ * flash the browser draws on a tap is replaced by ours.
+ */
+.ai-root {
+  -webkit-tap-highlight-color: transparent;
+}
+@media (hover: none) {
+  .ai-root :is(button, a, summary):not(:disabled) {
+    transition:
+      transform 140ms cubic-bezier(0.2, 0.7, 0.2, 1),
+      background-color 140ms ease,
+      border-color 140ms ease,
+      color 140ms ease,
+      opacity 140ms ease;
+  }
+  .ai-root :is(button, a, summary):not(:disabled):active {
+    transform: scale(0.97);
+  }
+  /* wide things (a row, a card) dip less, or the dip reads as a jump */
+  .ai-root :is(.ai-tap, li > button, section > button, .ai-card button.w-full):not(:disabled):active {
+    transform: scale(0.99);
+  }
+  .ai-root .ai-chip:not(:disabled):active {
+    background: var(--ai-accent-soft);
+    border-color: color-mix(in srgb, var(--ai-accent) 60%, transparent);
+    color: var(--ai-ink1);
+  }
+  .ai-root .ai-btn-ghost:not(:disabled):active,
+  .ai-root .ai-btn-quiet:not(:disabled):active {
+    background: var(--ai-s2);
+    color: var(--ai-ink1);
+  }
+  .ai-root .ai-btn-primary:not(:disabled):active {
+    background: var(--ai-accent-fill-hover);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ai-root :is(button, a, summary):active {
+    transform: none !important;
   }
 }
 

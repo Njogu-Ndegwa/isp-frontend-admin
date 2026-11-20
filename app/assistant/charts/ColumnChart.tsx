@@ -74,7 +74,7 @@ export function ColumnChart({ points, series, format, height = 240 }: {
             {ticks.map((t) => (
               <g key={t} transform={`translate(0,${y(t)})`}>
                 <line x1={0} x2={plotW} stroke={t === 0 ? 'var(--ai-axis)' : 'var(--ai-grid)'} strokeWidth={1} strokeDasharray={t === 0 ? undefined : '2 4'} />
-                <text x={-8} dy="0.32em" textAnchor="end" className="ai-mono" fill="var(--ai-ink3)" fontSize={10.5}>{compactNumber(t)}</text>
+                <text x={-8} dy="0.32em" textAnchor="end" className="ai-mono" fill="var(--ai-ink3)" fontSize={11}>{compactNumber(t)}</text>
               </g>
             ))}
 
@@ -96,7 +96,7 @@ export function ColumnChart({ points, series, format, height = 240 }: {
                       : <path key={s.key} d={d} fill={`url(#c${gid}-${k})`} />;
                   })}
                   {showValues && (p.values[0] ?? 0) > 0 ? (
-                    <text x={i * step + step / 2} y={y(p.values[0]) - 6} textAnchor="middle" fill="var(--ai-ink2)" fontSize={10.5} className="ai-mono">
+                    <text x={i * step + step / 2} y={y(p.values[0]) - 6} textAnchor="middle" fill="var(--ai-ink2)" fontSize={11} className="ai-mono">
                       {compactNumber(p.values[0])}
                     </text>
                   ) : null}

@@ -47,7 +47,7 @@ export function SegmentsBar({ segments, slim = false, onPick }: { segments: Seg[
           return (
             <li key={s.label} style={{ opacity: active !== null && active !== i ? 0.5 : 1 }}
               onPointerEnter={() => setActive(i)} onPointerLeave={() => setActive(null)}>
-              {onPick ? <button type="button" className={`${cls} ai-tap hover:bg-surface-2`} onClick={() => onPick(s.label)}>{row}</button> : <div className={cls}>{row}</div>}
+              {onPick ? <button type="button" className={`${cls} ai-tap hover:bg-surface-2 active:bg-surface-2`} onClick={() => onPick(s.label)}>{row}</button> : <div className={cls}>{row}</div>}
             </li>
           );
         })}

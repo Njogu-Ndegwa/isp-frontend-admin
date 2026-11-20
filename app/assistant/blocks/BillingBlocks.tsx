@@ -31,9 +31,9 @@ const whenFmt = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short
 function Line({ onClick, children }: { onClick?: () => void; children: React.ReactNode }) {
   const cls = 'flex w-full min-w-0 items-center gap-3 px-3.5 py-3 text-left';
   return onClick ? (
-    <button type="button" onClick={onClick} className={`${cls} group transition-colors hover:bg-surface-2`}>
+    <button type="button" onClick={onClick} className={`${cls} group transition-colors hover:bg-surface-2 active:bg-surface-2`}>
       {children}
-      <ArrowRightIcon width={13} height={13} className="shrink-0 text-ink-3 opacity-0 transition-all group-hover:translate-x-0.5 group-hover:text-accent group-hover:opacity-100 [@media(pointer:coarse)]:opacity-60" />
+      <ArrowRightIcon width={13} height={13} className="shrink-0 text-ink-3 opacity-0 transition-all group-hover:translate-x-0.5 group-active:translate-x-0.5 group-hover:text-accent group-active:text-accent group-hover:opacity-100 group-active:opacity-100 [@media(pointer:coarse)]:opacity-60" />
     </button>
   ) : <div className={cls}>{children}</div>;
 }

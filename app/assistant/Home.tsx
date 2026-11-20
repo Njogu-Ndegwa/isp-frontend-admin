@@ -15,7 +15,7 @@ import { RankedBars } from './charts/RankedBars';
 import { SegmentsBar } from './charts/SegmentsBar';
 import { toneColor } from './charts/shared';
 import { ArrowRightIcon, CameraIcon, CheckIcon, CopyIcon } from './icons';
-import { AreaSpark, Cells, CountUp, Led, Meter, Panel, Pill, Readout } from './ui';
+import { AreaSpark, Cells, CountUp, Led, Meter, Panel, Pill, Readout, ReadoutGrid } from './ui';
 
 /*
  * The home screen, drawn like a network console: a sentence that says how things
@@ -43,7 +43,7 @@ const dateFmt = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short
 function More({ label, onClick }: { label: string; onClick: () => void }) {
   return (
     <button type="button" onClick={onClick} className="ai-tap group inline-flex shrink-0 items-center gap-1 text-[12.5px] font-medium text-ink-2 hover:text-accent">
-      {label}<ArrowRightIcon width={12} height={12} className="transition-transform group-hover:translate-x-0.5" />
+      {label}<ArrowRightIcon width={12} height={12} className="transition-transform group-hover:translate-x-0.5 group-active:translate-x-0.5" />
     </button>
   );
 }
@@ -51,9 +51,9 @@ function More({ label, onClick }: { label: string; onClick: () => void }) {
 /** A row that is a question: the arrow shows on hover, a tap asks it. */
 function AskRow({ onClick, children }: { onClick: () => void; children: React.ReactNode }) {
   return (
-    <button type="button" onClick={onClick} className="ai-tap group flex w-full min-w-0 items-center gap-3 px-3 py-2.5 text-left transition-colors hover:bg-surface-2">
+    <button type="button" onClick={onClick} className="ai-tap group flex w-full min-w-0 items-center gap-3 px-3 py-2.5 text-left transition-colors hover:bg-surface-2 active:bg-surface-2">
       {children}
-      <ArrowRightIcon width={12} height={12} className="shrink-0 text-ink-3 opacity-0 transition-all group-hover:translate-x-0.5 group-hover:text-accent group-hover:opacity-100 [@media(pointer:coarse)]:opacity-60" />
+      <ArrowRightIcon width={12} height={12} className="shrink-0 text-ink-3 opacity-0 transition-all group-hover:translate-x-0.5 group-active:translate-x-0.5 group-hover:text-accent group-active:text-accent group-hover:opacity-100 group-active:opacity-100 [@media(pointer:coarse)]:opacity-60" />
     </button>
   );
 }
@@ -96,11 +96,11 @@ function Starters({ groups, onAsk }: { groups: { title: string; questions: strin
         {groups.map((group) => (
           <div key={group.title} className="min-w-0">
             <h3 className="mb-2.5 text-[13px] font-semibold text-ink-1">{group.title}</h3>
-            <div className="flex flex-col items-start gap-1.5">
+            <div className="flex flex-col items-start gap-1.5 max-sm:items-stretch">
               {group.questions.map((question) => (
-                <button key={question} type="button" className="ai-chip group !rounded-[12px] !py-2 text-[13px]" onClick={() => onAsk(question)}>
+                <button key={question} type="button" className="ai-chip group !rounded-[12px] !py-2 text-[13px] max-sm:w-full max-sm:justify-between max-sm:!py-2.5" onClick={() => onAsk(question)}>
                   <span className="min-w-0">{question}</span>
-                  <ArrowRightIcon width={12} height={12} className="shrink-0 text-ink-3 transition-transform group-hover:translate-x-0.5 group-hover:text-accent" />
+                  <ArrowRightIcon width={12} height={12} className="shrink-0 text-ink-3 transition-transform group-hover:translate-x-0.5 group-active:translate-x-0.5 group-hover:text-accent group-active:text-accent" />
                 </button>
               ))}
             </div>
@@ -148,7 +148,7 @@ function SetupCard({ setup, onAsk }: { setup: NonNullable<Briefing['setup']>; on
           {steps.map((s, i) => (
             <li key={s.title}>
               <button type="button" onClick={() => onAsk(s.ask)}
-                className={`flex h-full w-full items-start gap-3 rounded-[14px] border px-3.5 py-3 text-left transition-colors hover:bg-surface-2 ${s === next ? 'border-accent/50 bg-accent-soft' : 'border-line'}`}>
+                className={`flex h-full w-full items-start gap-3 rounded-[14px] border px-3.5 py-3 text-left transition-colors hover:bg-surface-2 active:bg-surface-2 ${s === next ? 'border-accent/50 bg-accent-soft' : 'border-line'}`}>
                 <span className={`ai-mono mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11.5px] ${s.done ? 'bg-good text-white' : 'border border-line-strong text-ink-2'}`}>
                   {s.done ? <CheckIcon width={13} height={13} strokeWidth={2.6} /> : i + 1}
                 </span>
@@ -197,7 +197,7 @@ function Vitals({ ctx }: { ctx: Ctx }) {
     picture: (
       <div>
         <AreaSpark points={b.money.daily.map((d) => ({ label: dayFmt.format(new Date(`${d.day}T00:00:00Z`)), value: d.revenue, partial: d.partial }))} height={30} format={money} empty=" " />
-        <p className="mt-1.5 truncate text-[12px] text-ink-3">{n(b.money.payments_today)} {plural(b.money.payments_today, 'payment', 'payments')} {t('so far')}</p>
+        <p className="mt-1.5 line-clamp-2 text-[12px] leading-snug text-ink-3">{n(b.money.payments_today)} {plural(b.money.payments_today, 'payment', 'payments')} {t('so far')}</p>
       </div>
     ),
   });
@@ -205,17 +205,17 @@ function Vitals({ ctx }: { ctx: Ctx }) {
     key: 'online', label: t('Online now'), value: people, format: n, ask: 'Who is online right now?', live: true,
     picture: (
       <div>
-        <div className="flex h-[30px] items-end"><span className="ai-mono whitespace-nowrap text-[11px] sm:text-[12.5px]"><span className="text-[var(--ai-down)]">↓</span> {bpsText(downBps) ?? '0 bps'} <span className="ml-1.5 text-[var(--ai-up)] sm:ml-2">↑</span> {bpsText(upBps) ?? '0 bps'}</span></div>
-        <p className="mt-1.5 truncate text-[12px] text-ink-3">{t('people on your network')}</p>
+        <div className="flex h-[30px] items-end"><span className="ai-mono flex flex-wrap gap-x-2.5 text-[11.5px] leading-tight sm:text-[12.5px]"><span className="whitespace-nowrap"><span className="text-[var(--ai-down)]">↓</span> {bpsText(downBps) ?? '0 bps'}</span><span className="whitespace-nowrap"><span className="text-[var(--ai-up)]">↑</span> {bpsText(upBps) ?? '0 bps'}</span></span></div>
+        <p className="mt-1.5 line-clamp-2 text-[12px] leading-snug text-ink-3">{t('people on your network')}</p>
       </div>
     ),
   });
   if (b.customers) cells.push({
-    key: 'customers', label: t('Paying customers'), value: b.customers.active, format: n, ask: 'List my active customers',
+    key: 'customers', label: t('Paying'), value: b.customers.active, format: n, ask: 'List my active customers',
     picture: (
       <div>
         <div className="flex h-[30px] items-end"><Cells value={b.customers.active} max={Math.max(1, b.customers.total)} count={24} color="var(--ai-series-2)" height={22} label={`${b.customers.active} of ${b.customers.total}`} /></div>
-        <p className="mt-1.5 truncate text-[12px] text-ink-3">{t('of {n} on your books', { n: n(b.customers.total) })}</p>
+        <p className="mt-1.5 line-clamp-2 text-[12px] leading-snug text-ink-3">{t('customers, of {n} on your books', { n: n(b.customers.total) })}</p>
       </div>
     ),
   });
@@ -241,7 +241,7 @@ function Vitals({ ctx }: { ctx: Ctx }) {
       <div className={`grid grid-cols-2 ${cols}`}>
         {cells.map((c, i) => (
           <button key={c.key} type="button" onClick={() => onAsk(c.ask)}
-            className={`group relative min-w-0 px-4 py-4 text-left transition-colors hover:bg-surface-2/60 sm:px-5 sm:py-5
+            className={`group relative min-w-0 px-4 py-4 text-left transition-colors hover:bg-surface-2/60 active:bg-surface-2/60 sm:px-5 sm:py-5
               ${i % 2 === 1 ? 'border-l border-line' : ''} ${i >= 2 ? 'border-t border-line lg:border-t-0' : ''} ${i > 0 ? 'lg:border-l lg:border-line' : ''}
               ${cells.length === 3 && i === 2 ? 'col-span-2 lg:col-span-1' : ''}`}>
             {c.accent ? <span aria-hidden className="pointer-events-none absolute inset-0" style={{ background: 'radial-gradient(120% 120% at 0% 0%, var(--ai-accent-soft), transparent 60%)' }} /> : null}
@@ -250,7 +250,7 @@ function Vitals({ ctx }: { ctx: Ctx }) {
               <span className="ai-eyebrow">{c.label}</span>
             </span>
             <CountUp value={c.value} format={c.format}
-              className={`ai-mono relative mt-2.5 block truncate font-medium leading-none tracking-tight ${c.format(c.value).length > 10 ? 'text-[19px] sm:text-[28px]' : c.format(c.value).length > 6 ? 'text-[23px] sm:text-[34px]' : 'text-[30px] sm:text-[36px]'} ${c.accent ? 'text-accent' : 'text-ink-1'}`} />
+              className={`ai-mono relative mt-2.5 block truncate font-medium leading-none tracking-tight ${c.format(c.value).length > 10 ? 'text-[17px] min-[380px]:text-[19px] sm:text-[28px]' : c.format(c.value).length > 6 ? 'text-[19px] min-[380px]:text-[23px] sm:text-[34px]' : 'text-[30px] sm:text-[36px]'} ${c.accent ? 'text-accent' : 'text-ink-1'}`} />
             <div className="relative mt-3">{c.picture}</div>
           </button>
         ))}
@@ -272,11 +272,11 @@ function RevenuePanel({ ctx }: { ctx: Ctx }) {
         <AreaSpark readout points={m.daily.map((d) => ({ label: dayFmt.format(new Date(`${d.day}T00:00:00Z`)), value: d.revenue, partial: d.partial }))}
           height={112} format={money} empty={t('No payments in the last two weeks.')} />
       </div>
-      <div className="mt-4 grid grid-cols-3 gap-3 border-t border-line pt-4">
+      <ReadoutGrid cols={3}>
         <Readout label={t('Today')} onClick={() => onAsk("Show today's payments")}>{money(m.today)}</Readout>
         <Readout label={t('Yesterday')} onClick={() => onAsk('How much did I make yesterday?')}>{money(m.yesterday)}</Readout>
         <Readout label={t('This month')} onClick={() => onAsk('How much have I made this month, and from which plans?')}>{money(m.month)}</Readout>
-      </div>
+      </ReadoutGrid>
     </Panel>
   );
 }
@@ -445,12 +445,12 @@ function CustomersPanel({ ctx }: { ctx: Ctx }) {
               { label: 'Run out today', value: c.expiring_today, shown: n(c.expiring_today), color: toneColor('warn') },
             ]} />
           </div>
-          <div className="mt-4 grid grid-cols-2 gap-3 border-t border-line pt-4">
+          <ReadoutGrid cols={2}>
             <Readout label={t('Lapsed this week')} sub={t('not renewed')} onClick={() => onAsk('Who expired in the last 7 days and has not renewed?')}>
               <span className={c.expired_7d ? 'text-[var(--ai-text-bad)]' : ''}>{n(c.expired_7d)}</span>
             </Readout>
             <Readout label={t('New this week')} sub={t('joined')} onClick={() => onAsk('Which customers joined in the last 7 days?')}>{n(c.new_7d)}</Readout>
-          </div>
+          </ReadoutGrid>
         </>
       ) : (
         <p className="text-[13.5px] text-ink-3">{t('No customers yet. They appear here as they buy a plan or as you add them.')}</p>
@@ -537,7 +537,7 @@ function AdminCards({ d, onAsk }: { d: AdminDashboard; onAsk: Ask }) {
         <div className="grid grid-cols-2 lg:grid-cols-4">
           {vitals.map((v, i) => (
             <button key={v.key} type="button" onClick={() => onAsk(v.ask)}
-              className={`relative min-w-0 px-4 py-4 text-left transition-colors hover:bg-surface-2/60 sm:px-5 sm:py-5 ${i % 2 === 1 ? 'border-l border-line' : ''} ${i >= 2 ? 'border-t border-line lg:border-t-0' : ''} ${i > 0 ? 'lg:border-l lg:border-line' : ''}`}>
+              className={`relative min-w-0 px-4 py-4 text-left transition-colors hover:bg-surface-2/60 active:bg-surface-2/60 sm:px-5 sm:py-5 ${i % 2 === 1 ? 'border-l border-line' : ''} ${i >= 2 ? 'border-t border-line lg:border-t-0' : ''} ${i > 0 ? 'lg:border-l lg:border-line' : ''}`}>
               {v.accent ? <span aria-hidden className="pointer-events-none absolute inset-0" style={{ background: 'radial-gradient(120% 120% at 0% 0%, var(--ai-accent-soft), transparent 60%)' }} /> : null}
               <span className="ai-eyebrow relative">{v.label}</span>
               <CountUp value={v.value} format={v.format} className={`ai-mono relative mt-2.5 block truncate font-medium leading-none tracking-tight ${v.format(v.value).length > 8 ? 'text-[19px] sm:text-[28px]' : 'text-[26px] sm:text-[32px]'} ${v.accent ? 'text-accent' : 'text-ink-1'}`} />
@@ -548,11 +548,11 @@ function AdminCards({ d, onAsk }: { d: AdminDashboard; onAsk: Ask }) {
       </section>
       <div className="grid gap-3 md:grid-cols-2">
         <Panel eyebrow={t('Revenue')} title={t('How is the platform doing?')} actions={<More label={t('Revenue')} onClick={() => onAsk('Show platform revenue for each of the last 30 days')} />}>
-          <div className="grid grid-cols-3 gap-3">
+          <ReadoutGrid cols={3}>
             <Readout label={t('This week')} onClick={() => onAsk('Show platform revenue for this week by reseller')}>{kes(d.revenue.this_week)}</Readout>
             <Readout label={t('This month')} onClick={() => onAsk('Show platform revenue for this month')}>{kes(d.revenue.this_month)}</Readout>
             <Readout label={t('All time')} onClick={() => onAsk('How has platform revenue grown month by month?')}>{kes(d.revenue.all_time)}</Readout>
-          </div>
+          </ReadoutGrid>
         </Panel>
         <Panel eyebrow={t('Subscriptions')} title={t('Are resellers paying?')} actions={<More label={t('Unpaid')} onClick={() => onAsk('Show unpaid subscription invoices')} />}>
           <SegmentsBar slim onPick={(label) => onAsk(`List the resellers whose subscription is ${label.toLowerCase()}`)} segments={[

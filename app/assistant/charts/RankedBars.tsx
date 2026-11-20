@@ -29,7 +29,8 @@ export function RankedBars({ rows, color = 'var(--ai-accent-fill)', onPick }: {
             <span className="flex w-full min-w-0 items-baseline gap-3">
               <span className="ai-mono w-5 shrink-0 text-[11px] text-ink-3">{String(i + 1).padStart(2, '0')}</span>
               <span className="min-w-0 flex-1 truncate text-[13.5px] text-ink-1" title={row.label}>
-                {row.label}{row.detail ? <span className="ml-2 text-[11.5px] text-ink-3">{row.detail}</span> : null}
+                {row.label}{row.detail ? <span className="ml-2 hidden text-[11.5px] text-ink-3 @sm:inline">{row.detail}</span> : null}
+                {row.detail ? <span className="block truncate text-[11.5px] text-ink-3 @sm:hidden">{row.detail}</span> : null}
               </span>
               <span className="ai-mono shrink-0 text-[13px] font-medium text-ink-1">{row.shown}</span>
               {row.share ? <span className="ai-mono w-9 shrink-0 text-right text-[11px] text-ink-3">{row.share}</span> : null}
@@ -48,7 +49,7 @@ export function RankedBars({ rows, color = 'var(--ai-accent-fill)', onPick }: {
         return (
           <li key={`${row.label}-${i}`}>
             {onPick ? (
-              <button type="button" className={`${cls} ai-tap transition-colors hover:bg-surface-2`} onClick={() => onPick(row.label)}>{body}</button>
+              <button type="button" className={`${cls} ai-tap transition-colors hover:bg-surface-2 active:bg-surface-2`} onClick={() => onPick(row.label)}>{body}</button>
             ) : (
               <div className={cls}>{body}</div>
             )}

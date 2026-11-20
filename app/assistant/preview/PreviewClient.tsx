@@ -122,12 +122,12 @@ function Preview() {
         <div className="mx-auto flex h-14 max-w-[1180px] items-center gap-2 px-3 sm:px-6">
           <BitwaveMark />
           <span className="ai-display text-[16.5px] font-semibold text-ink-1 max-[380px]:hidden">Bitwave</span>
-          <span className="ai-mono rounded-[6px] border border-accent/35 bg-accent-soft px-1.5 py-[1px] text-[10.5px] font-medium tracking-[0.12em] text-accent">AI</span>
+          <span className="ai-mono rounded-[6px] border border-accent/35 bg-accent-soft px-1.5 py-[1px] text-[11px] font-medium tracking-[0.12em] text-accent">AI</span>
           <span className="ai-mono ml-auto inline-flex items-center gap-1.5 rounded-full border border-line px-2 py-1 text-[11px] text-ink-2 max-sm:hidden"><Led tone="live" pulse size={6} />Preview</span>
           <span className="ml-auto sm:hidden" />
           <div className="flex rounded-full border border-line p-0.5 text-[12px]">
             {(['home', 'chat'] as const).map((v) => (
-              <button key={v} type="button" aria-pressed={view === v} onClick={() => setView(v)} className={`rounded-full px-3 py-1 ${view === v ? 'bg-surface-3 text-ink-1' : 'text-ink-3'}`}>{v}</button>
+              <button key={v} type="button" aria-pressed={view === v} onClick={() => setView(v)} className={`ai-tap rounded-full px-3 py-1 ${view === v ? 'bg-surface-3 text-ink-1' : 'text-ink-3'}`}>{v}</button>
             ))}
           </div>
           <button type="button" className="ai-btn ai-btn-quiet" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} aria-label="Theme">{theme === 'dark' ? <SunIcon /> : <MoonIcon />}</button>
@@ -142,7 +142,7 @@ function Preview() {
           </div>
         )}
       </div>
-      <Composer busy={false} placeholder="Ask anything, or tell me what to do…" onSend={noop} />
+      <Composer busy={false} placeholder="Ask, or tell me what to do…" onSend={noop} />
     </div>
   );
 }

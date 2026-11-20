@@ -503,15 +503,34 @@ export function Throughput({ down, up, size = 'md' }: { down: string | null; up:
 }
 
 /** A label over a figure, the unit of every readout grid. */
+/**
+ * A label over a figure, the unit of every readout grid. In a narrow panel (a phone)
+ * it becomes a row, the label on the left and the figure on the right, so a figure
+ * like "KES 168,400" is never broken across lines; with room, the label sits over it.
+ * Put readouts in a <ReadoutGrid>.
+ */
 export function Readout({ label, children, sub, onClick }: { label: ReactNode; children: ReactNode; sub?: ReactNode; onClick?: () => void }) {
   const body = (
     <>
-      <span className="ai-eyebrow block truncate">{label}</span>
-      <span className="ai-mono mt-1.5 block text-[15px] font-medium leading-tight text-ink-1 [overflow-wrap:anywhere] sm:text-[18px]">{children}</span>
-      {sub ? <span className="mt-1 block truncate text-[12px] text-ink-3">{sub}</span> : null}
+      <span className="min-w-0 @sm:block">
+        <span className="ai-eyebrow block truncate">{label}</span>
+        {sub ? <span className="mt-0.5 block truncate text-[12px] text-ink-3 @sm:hidden">{sub}</span> : null}
+      </span>
+      <span className="ai-mono shrink-0 whitespace-nowrap text-[16px] font-medium leading-tight text-ink-1 @sm:mt-1.5 @sm:block @sm:text-[18px]">{children}</span>
+      {sub ? <span className="mt-1 hidden truncate text-[12px] text-ink-3 @sm:block">{sub}</span> : null}
     </>
   );
+  const cls = 'flex min-w-0 items-center justify-between gap-3 py-2.5 text-left @sm:block @sm:py-0';
   return onClick ? (
-    <button type="button" onClick={onClick} className="group min-w-0 rounded-[10px] text-left transition-colors hover:[&_.ai-mono]:text-accent">{body}</button>
-  ) : <div className="min-w-0">{body}</div>;
+    <button type="button" onClick={onClick} className={`${cls} group rounded-[10px] transition-colors hover:[&_.ai-mono]:text-accent active:[&_.ai-mono]:text-accent`}>{body}</button>
+  ) : <div className={cls}>{body}</div>;
+}
+
+/** Readouts side by side when the panel has room, a divided list when it does not. */
+export function ReadoutGrid({ cols, children }: { cols: 2 | 3; children: ReactNode }) {
+  return (
+    <div className={`mt-4 grid grid-cols-1 divide-y divide-line border-t border-line @sm:mt-4 @sm:gap-3 @sm:divide-y-0 @sm:pt-4 ${cols === 3 ? '@sm:grid-cols-3' : '@sm:grid-cols-2'}`}>
+      {children}
+    </div>
+  );
 }

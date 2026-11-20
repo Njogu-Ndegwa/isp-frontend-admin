@@ -52,7 +52,7 @@ export function DeviceCard({ d, actions, onOpen, onPeople, onCustomers }: {
   const hasOnline = typeof d.hotspot === 'number' || typeof d.pppoe === 'number';
   const name = (
     <span className="min-w-0 flex-1">
-      <span className={`block truncate text-[15px] font-semibold text-ink-1 ${onOpen ? 'group-hover:text-accent' : ''}`}>{d.name}</span>
+      <span className={`block truncate text-[15px] font-semibold text-ink-1 ${onOpen ? 'group-hover:text-accent group-active:text-accent' : ''}`}>{d.name}</span>
       {d.model ? <span className="ai-mono block truncate text-[11.5px] text-ink-3">{d.model}</span> : null}
     </span>
   );
@@ -76,7 +76,7 @@ export function DeviceCard({ d, actions, onOpen, onPeople, onCustomers }: {
           ) : <p className="text-[13px] text-ink-3">{t('Not answering our checks.')}</p>}
           {onOpen ? (
             <button type="button" onClick={onOpen} className="ai-chip group mt-4 !border-bad/30 !py-1.5 text-[12.5px] font-medium hover:!border-bad/60 hover:!bg-bad/10">
-              {t('Find out why')}<ArrowRightIcon width={12} height={12} className="transition-transform group-hover:translate-x-0.5" />
+              {t('Find out why')}<ArrowRightIcon width={12} height={12} className="transition-transform group-hover:translate-x-0.5 group-active:translate-x-0.5" />
             </button>
           ) : null}
         </div>
