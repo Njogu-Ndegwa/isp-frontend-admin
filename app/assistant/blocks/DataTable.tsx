@@ -191,7 +191,7 @@ export function DataTable({ columns, rows, total, currency, onPick }: {
                   {pairs.map((c) => (
                     <span key={c.key} className="min-w-0">
                       <span className="block truncate text-[11.5px] text-ink-3">{c.label}</span>
-                      <span className="ai-mono block truncate text-[12.5px] text-ink-1">{shown(row, c)}</span>
+                      <span className="ai-mono block break-words text-[12.5px] text-ink-1">{shown(row, c)}</span>
                     </span>
                   ))}
                 </span>

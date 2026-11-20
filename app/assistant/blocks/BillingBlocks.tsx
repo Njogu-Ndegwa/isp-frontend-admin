@@ -170,8 +170,9 @@ export function CustomerBlock({ title, rows, total, single, onAsk }: { title: st
                   <span className="block truncate text-[14px] font-medium text-ink-1">{p.name}</span>
                   <span className="block truncate text-[12px] text-ink-3">{[p.name !== p.phone ? p.phone : null, p.plan, p.router, p.connection !== 'Hotspot' ? p.connection : null].filter(Boolean).join(' · ')}</span>
                 </span>
-                <span className="flex w-[104px] shrink-0 flex-col items-end gap-1">
-                  <span className="flex items-center gap-1.5 text-[11.5px] font-medium text-ink-2"><Led tone={st.tone} size={6} />{st.label}</span>
+                {/* narrow: the dot and the time left; with room, the state in words too */}
+                <span className="flex shrink-0 flex-col items-end gap-1 @md:w-[104px]">
+                  <span className="flex items-center gap-1.5 text-[11.5px] font-medium text-ink-2" title={st.label}><Led tone={st.tone} size={6} /><span className="hidden @md:inline">{st.label}</span></span>
                   <span className="ai-mono text-[11.5px] text-ink-3">{timeLeft(p.left, p.state)}</span>
                 </span>
               </Line>
