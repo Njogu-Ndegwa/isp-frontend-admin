@@ -5,7 +5,9 @@ import StatCard from '../../components/StatCard';
 import {
   PERIOD_NOUN, STREAM_LABELS, TERMS, earningsRows, formatTakeRate,
 } from '../platformEarnings';
-import { SOURCE_LABELS, toChartPoints } from '../earnings/earningsChartData';
+import {
+  BITWAVE_LABEL, SOURCE_COLORS, SOURCE_LABELS, bandTotals, pctChange, toChartPoints,
+} from '../earnings/earningsChartData';
 import { FR } from '../../lib/locales/fr';
 import { translate, type TFunction } from '../../lib/i18n';
 import type { AdminPlatformEarnings } from '../../lib/types';
@@ -171,13 +173,26 @@ describe('StatCard tooltip', () => {
 });
 
 describe('earnings incl. my reseller accounts', () => {
-  it("rolls SMS credit sales and ad commission into Bitwave's side of the chart", () => {
+  it('draws SMS credit sales as their own band, ad commission with subscriptions', () => {
     const [point] = toChartPoints([{
       date: '2026-11-20', label: '20 Nov', total: 1_000, cumulative_total: 1_000,
       saas_hotspot: 100, saas_pppoe: 50, saas_other: 0, sms_credits: 300, ad_commission: 150, reseller: 400,
     }]);
-    expect(point.system).toBe(600);
+    expect(point.system).toBe(300);
+    expect(point.sms).toBe(300);
     expect(point.reseller).toBe(400);
     expect(point.runningTotal).toBe(1_000);
+  });
+
+  it('splits SMS out of the Bitwave total and gives it its own colour', () => {
+    const totals = {
+      saas_hotspot: 100, saas_pppoe: 50, saas_other: 0, sms_credits: 300, ad_commission: 150,
+      reseller: 400, system: 600, combined: 1_000,
+    };
+    expect(bandTotals(totals)).toEqual({ system: 300, sms: 300, reseller: 400 });
+    expect(new Set(Object.values(SOURCE_COLORS)).size).toBe(3);
+    expect(pctChange(150, 100)).toBe(50);
+    expect(pctChange(5, 0)).toBe(100);
+    expect(BITWAVE_LABEL in FR).toBe(true);
   });
 });

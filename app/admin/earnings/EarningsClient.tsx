@@ -17,8 +17,8 @@ import {
   ReportingCurrencyToggle, formatReporting, useReportingCurrency,
 } from '../../lib/reportingCurrency';
 import {
-  EarningsPeriod, EarningsSourceKey, PERIOD_NOUN, SOURCE_LABELS,
-  sourceSwatchStyle, toChartPoints,
+  BITWAVE_LABEL, EarningsPeriod, EarningsSourceKey, PERIOD_NOUN, SOURCE_LABELS,
+  SOURCE_ORDER, bandTotals, sourceSwatchStyle, toChartPoints,
 } from './earningsChartData';
 import PeriodSelector, { type PeriodFilter } from '../PeriodSelector';
 
@@ -91,7 +91,7 @@ function BreakdownTable({ data, money }: { data: AdminEarnings; money: (kes: num
           {/* The chart compares two businesses; the table keeps the detail,
               indenting the system sub-lines under their parent. */}
           {[
-            { key: 'system' as const, label: SOURCE_LABELS.system, total: data.totals.system, prev: data.previous_totals.system, sub: false },
+            { key: 'system' as const, label: BITWAVE_LABEL, total: data.totals.system, prev: data.previous_totals.system, sub: false },
             ...data.streams
               .filter((s) => s.group === 'system')
               .map((s) => ({ key: s.key, label: s.label, total: s.total, prev: data.previous_totals[s.key] ?? 0, sub: true })),
@@ -100,7 +100,10 @@ function BreakdownTable({ data, money }: { data: AdminEarnings; money: (kes: num
             <tr key={row.key} className="border-t border-border">
               <th scope="row" className={`py-2.5 pr-3 font-normal ${row.sub ? 'pl-5' : ''}`}>
                 <span className="flex items-center gap-2">
-                  {row.sub ? (
+                  {row.key === 'sms_credits' ? (
+                    // SMS has its own band on the chart; match its colour here.
+                    <span className="w-2.5 h-2.5 rounded-sm shrink-0" style={sourceSwatchStyle('sms')} />
+                  ) : row.sub ? (
                     <span className="w-2.5 shrink-0 text-foreground-muted/50 text-[10px] leading-none">└</span>
                   ) : (
                     <span
@@ -337,10 +340,8 @@ export default function EarningsClient() {
 
   const legendEntries = useMemo(() => {
     if (!data) return [];
-    return [
-      { key: 'system' as const, label: SOURCE_LABELS.system, total: data.totals.system },
-      { key: 'reseller' as const, label: SOURCE_LABELS.reseller, total: data.totals.reseller },
-    ];
+    const totals = bandTotals(data.totals);
+    return SOURCE_ORDER.map((key) => ({ key, label: SOURCE_LABELS[key], total: totals[key] }));
   }, [data]);
 
   const rangeLabel = PERIOD_NOUN[period];
@@ -411,7 +412,7 @@ export default function EarningsClient() {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
             {([
               { label: `Combined · ${rangeLabel}`, value: data.totals.combined, change: data.change_percent.combined },
-              { label: SOURCE_LABELS.system, value: data.totals.system, change: data.change_percent.system },
+              { label: BITWAVE_LABEL, value: data.totals.system, change: data.change_percent.system },
               { label: SOURCE_LABELS.reseller, value: data.totals.reseller, change: data.change_percent.reseller },
             ]).map((tile) => (
               <div key={tile.label} className="card p-4 sm:p-5">
