@@ -370,6 +370,12 @@ export const FR: Record<string, string> = {
   'Copy paybill': 'Copier le paybill',
   'Copy account number': 'Copier le numéro de compte',
   'Paybill copied': 'Paybill copié',
+  // Payment methods: bank select
+  'Bank': 'Banque',
+  'Select your bank': 'Choisissez votre banque',
+  'Other (type paybill)': 'Autre (saisir le paybill)',
+  "Type your bank's M-Pesa paybill number.": 'Saisissez le numéro paybill M-Pesa de votre banque.',
+  'Filled from the bank you picked. Change it if your bank uses a different paybill.': 'Rempli selon la banque choisie. Modifiez-le si votre banque utilise un autre paybill.',
   'Account number copied': 'Numéro de compte copié',
   'Payment message copied': 'Message de paiement copié',
   'Copy message': 'Copier le message',

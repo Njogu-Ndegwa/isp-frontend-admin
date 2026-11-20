@@ -15,6 +15,8 @@ import { useAlert } from '../../context/AlertContext';
 import FilterSelect from '../../components/FilterSelect';
 import DataTable, { DataTableColumn } from '../../components/DataTable';
 import MobileDataCard from '../../components/MobileDataCard';
+import { useT } from '../../lib/i18n';
+import { KENYAN_BANKS, OTHER_BANK, bankSelectValue, paybillForSelection } from '../../lib/kenyanBanks';
 
 const PAYMENT_METHOD_COLUMNS: DataTableColumn[] = [
   { key: 'method', label: 'Method', className: 'max-w-[260px]' },
@@ -193,6 +195,7 @@ function hasTestableCredentials(type: PaymentMethodType): boolean {
 
 export default function PaymentMethodsPage() {
   const { showAlert } = useAlert();
+  const t = useT();
   const [methods, setMethods] = useState<PaymentMethodConfig[]>([]);
   const [routers, setRouters] = useState<Router[]>([]);
   const [loading, setLoading] = useState(true);
@@ -227,6 +230,8 @@ export default function PaymentMethodsPage() {
   const [formType, setFormType] = useState<PaymentMethodType>('mpesa_paybill_with_keys');
   const [formFields, setFormFields] = useState<Record<string, string>>({});
   const [showSecrets, setShowSecrets] = useState<Record<string, boolean>>({});
+  // Bank Account: the reseller chose "Other" in the bank select before typing a paybill.
+  const [bankOtherChosen, setBankOtherChosen] = useState(false);
 
   const loadData = useCallback(async () => {
     try {
@@ -255,6 +260,7 @@ export default function PaymentMethodsPage() {
     setEditingMethod(null);
     setShowForm(false);
     setShowSecrets({});
+    setBankOtherChosen(false);
   };
 
   const openCreateForm = () => {
@@ -287,6 +293,7 @@ export default function PaymentMethodsPage() {
         if (typeof val === 'string') fields[f.key] = val;
       }
       setFormFields(fields);
+      setBankOtherChosen(false);
       setShowForm(true);
       setShowSecrets({});
     } catch (err) {
@@ -867,6 +874,7 @@ export default function PaymentMethodsPage() {
                       const nextType = v as PaymentMethodType;
                       setFormType(nextType);
                       setFormFields(applyTypeDefaults(nextType));
+                      setBankOtherChosen(false);
                     }}
                     options={PAYMENT_METHOD_TYPES.map(t => ({ value: t.value, label: t.label }))}
                     className="w-full"
@@ -905,8 +913,38 @@ export default function PaymentMethodsPage() {
                         );
                       }
 
+                      // Bank Account: pick the bank and its paybill fills in; the
+                      // field stays editable so a wrong mapping can be overridden.
+                      const isBankPaybill = field.key === 'bank_paybill_number';
+                      const bankValue = isBankPaybill
+                        ? bankSelectValue(formFields.bank_paybill_number, bankOtherChosen)
+                        : '';
+
                       return (
                         <div key={field.key}>
+                          {isBankPaybill && (
+                            <div className="mb-3">
+                              <label className="block text-xs text-foreground-muted mb-1">
+                                {t('Bank')} <span className="text-red-500">*</span>
+                              </label>
+                              <FilterSelect
+                                value={bankValue}
+                                onChange={(v) => {
+                                  setBankOtherChosen(v === OTHER_BANK);
+                                  setFormFields(prev => ({
+                                    ...prev,
+                                    bank_paybill_number: paybillForSelection(v, prev.bank_paybill_number || ''),
+                                  }));
+                                }}
+                                options={[
+                                  ...(bankValue === '' ? [{ value: '', label: t('Select your bank') }] : []),
+                                  ...KENYAN_BANKS.map(b => ({ value: b.code, label: `${b.name} (${b.paybill})` })),
+                                  { value: OTHER_BANK, label: t('Other (type paybill)') },
+                                ]}
+                                className="w-full"
+                              />
+                            </div>
+                          )}
                           <label className="block text-xs text-foreground-muted mb-1">
                             {field.label} {field.required && <span className="text-red-500">*</span>}
                           </label>
@@ -943,6 +981,13 @@ export default function PaymentMethodsPage() {
                           </div>
                           {field.hint && (
                             <p className="text-[11px] text-foreground-muted mt-1">{field.hint}</p>
+                          )}
+                          {isBankPaybill && bankValue !== '' && (
+                            <p className="text-[11px] text-foreground-muted mt-1">
+                              {bankValue === OTHER_BANK
+                                ? t("Type your bank's M-Pesa paybill number.")
+                                : t('Filled from the bank you picked. Change it if your bank uses a different paybill.')}
+                            </p>
                           )}
                         </div>
                       );
