@@ -5944,7 +5944,13 @@ export type PortalColorTheme =
   | 'emerald_green'
   | 'bright_violet'
   | 'rose_gold'
-  | 'slate_gray';
+  | 'slate_gray'
+  | 'teal_lagoon'
+  | 'royal_blue'
+  | 'cherry_red'
+  | 'amber_gold'
+  | 'hot_pink'
+  | 'charcoal_black';
 
 export type PortalHeaderStyle = 'standard' | 'minimal' | 'hero' | 'compact';
 export type PortalLanguage = 'en' | 'sw' | 'fr';

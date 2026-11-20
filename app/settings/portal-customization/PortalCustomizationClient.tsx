@@ -14,6 +14,8 @@ import {
   UpdatePortalSettingsRequest,
 } from '../../lib/types';
 import { getThemePalette } from '../../lib/portalThemes';
+import { isCustomHeaderPhoto, isPortalMediaUrl } from '../../lib/portalMedia';
+import MediaUploadField from '../../ads/components/MediaUploadField';
 import PortalPreview, { PreviewAd, PreviewPlan } from '../../components/PortalPreview';
 import { PageLoader } from '../../components/LoadingSpinner';
 import { useAlert } from '../../context/AlertContext';
@@ -27,6 +29,12 @@ const THEME_OPTIONS: { value: PortalColorTheme; label: string; color: string }[]
   { value: 'bright_violet', label: 'Bright Violet', color: '#8B5CF6' },
   { value: 'rose_gold', label: 'Rose Gold', color: '#e11d48' },
   { value: 'slate_gray', label: 'Slate Gray', color: '#475569' },
+  { value: 'teal_lagoon', label: 'Teal Lagoon', color: '#0D9488' },
+  { value: 'royal_blue', label: 'Royal Blue', color: '#1D4ED8' },
+  { value: 'cherry_red', label: 'Cherry Red', color: '#DC2626' },
+  { value: 'amber_gold', label: 'Amber Gold', color: '#B45309' },
+  { value: 'hot_pink', label: 'Hot Pink', color: '#DB2777' },
+  { value: 'charcoal_black', label: 'Charcoal Black', color: '#1F2937' },
 ];
 
 const HEADER_STYLE_OPTIONS: {
@@ -82,7 +90,8 @@ const IMAGE_PRESETS: { key: string; label: string }[] = [
   { key: 'https://images.unsplash.com/photo-1518770660439-4636190af475?w=750&h=370&fit=crop&q=80', label: 'Tech' },
 ];
 
-
+/** The built-in photo the hero falls back to (also what picking Hero selects). */
+const DEFAULT_HERO_PRESET = IMAGE_PRESETS[2].key;
 
 // Minutes per duration unit, so "180 minutes" sorts below "1 day".
 // Mirrors plan_duration_minutes() in the backend (app/services/plan_cache.py)
@@ -128,6 +137,8 @@ export default function PortalCustomizationPage() {
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [plans, setPlans] = useState<Plan[]>([]);
   const [previewAds, setPreviewAds] = useState<PreviewAd[]>([]);
+  // One 503 from the upload endpoint switches both picture fields to paste mode.
+  const [uploadsOff, setUploadsOff] = useState(false);
 
   const loadSettings = useCallback(async () => {
     try {
@@ -274,6 +285,10 @@ export default function PortalCustomizationPage() {
       };
     });
 
+  const savedHeaderPhoto = (current('header_bg_image_url') as string | null) ?? null;
+  const customHeaderPhoto = isCustomHeaderPhoto(savedHeaderPhoto) ? (savedHeaderPhoto as string) : '';
+  const logoUrl = (current('company_logo_url') as string | null) ?? '';
+
   const SettingsForm = (
     <div className="space-y-6">
       {/* Section header */}
@@ -353,7 +368,7 @@ export default function PortalCustomizationPage() {
                   onClick={() => {
                     markChange('header_style', style.value);
                     if (style.value === 'hero' && !current('header_bg_image_url')) {
-                      markChange('header_bg_image_url', IMAGE_PRESETS[2].key);
+                      markChange('header_bg_image_url', DEFAULT_HERO_PRESET);
                     }
                   }}
                   className={`p-3 rounded-xl border transition-all text-center space-y-2 ${
@@ -377,9 +392,15 @@ export default function PortalCustomizationPage() {
       <section className="rounded-2xl bg-background-secondary border border-border overflow-hidden">
         <div className="p-5 border-b border-border">
           <h2 className="text-base font-semibold text-foreground">Branding</h2>
-          <p className="text-xs text-foreground-muted mt-0.5">Titles and welcome message</p>
+          <p className="text-xs text-foreground-muted mt-0.5">Logo, header photo, titles and welcome message</p>
         </div>
         <div className="p-5 space-y-4">
+          {current('header_style') !== 'hero' && (
+            <p className="text-xs text-foreground-muted rounded-xl bg-background-tertiary/50 p-3">
+              Choose the <span className="font-semibold text-foreground">Hero</span> header layout to add your logo
+              and a header photo.
+            </p>
+          )}
           {current('header_style') === 'hero' && (
             <>
               {/* Hero Background Presets */}
@@ -415,6 +436,47 @@ export default function PortalCustomizationPage() {
                     );
                   })}
                 </div>
+              </div>
+
+              {/* Own header photo: replaces the preset above when set */}
+              <div>
+                <MediaUploadField
+                  kind="image"
+                  inputId="portal-header-photo"
+                  label="Or use your own header photo"
+                  hint="Shown behind your title at the top of the login page, instead of the photo above."
+                  value={customHeaderPhoto}
+                  onChange={(url) => markChange('header_bg_image_url', url || DEFAULT_HERO_PRESET)}
+                  uploadsOff={uploadsOff}
+                  onUploadsOff={() => setUploadsOff(true)}
+                />
+                {customHeaderPhoto && !isPortalMediaUrl(customHeaderPhoto) && (
+                  <p className="mt-1 text-xs text-warning" role="alert">
+                    This photo is on another website, so the login page can’t load it before customers pay.
+                    The portal will show a built-in photo instead. Upload the photo here to use it.
+                  </p>
+                )}
+              </div>
+
+              {/* Logo: replaces the Wi-Fi icon above the title */}
+              <div>
+                <MediaUploadField
+                  kind="image"
+                  inputId="portal-logo"
+                  label="Your logo"
+                  hint="Shown above your title instead of the Wi-Fi icon."
+                  limitsText="JPG, PNG or WebP · up to 2 MB · square works best"
+                  value={logoUrl}
+                  onChange={(url) => markChange('company_logo_url', url || null)}
+                  uploadsOff={uploadsOff}
+                  onUploadsOff={() => setUploadsOff(true)}
+                />
+                {logoUrl && !isPortalMediaUrl(logoUrl) && (
+                  <p className="mt-1 text-xs text-warning" role="alert">
+                    This logo is on another website, so the login page can’t load it before customers pay.
+                    The portal will show the Wi-Fi icon instead. Upload the logo here to use it.
+                  </p>
+                )}
               </div>
 
               <div>
