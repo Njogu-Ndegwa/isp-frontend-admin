@@ -2,6 +2,7 @@
 
 import { useId, useState } from 'react';
 import { compactNumber } from '../../lib/assistantVisual';
+import { ArrowRightIcon } from '../icons';
 import { useInView } from '../ui';
 import { EmptyChart, FloatingTip, niceTicks, useWidth, type Tip } from './shared';
 
@@ -21,16 +22,21 @@ function columnPath(x: number, y: number, w: number, h: number): string {
  * neighbours never collide, and values are printed on the columns only while
  * there is room. A period that is still filling in is drawn as an outline.
  */
-export function ColumnChart({ points, series, format, height = 240 }: {
+export function ColumnChart({ points, series, format, height: tall = 240, onPick }: {
   points: ColumnPoint[];
   series: ColumnSeries[];
   /** a value as shown in the tooltip */
   format: (v: number, seriesIndex: number) => string;
   height?: number;
+  /** makes a period a question: a tap selects it and offers "More on <period>" */
+  onPick?: (index: number) => void;
 }) {
   const [ref, width] = useWidth<HTMLDivElement>();
   const [active, setActive] = useState<number | null>(null);
+  const [picked, setPicked] = useState<number | null>(null);
   const gid = useId().replace(/:/g, '');
+  // a phone gets a shorter plot: the same bars, less scrolling past them
+  const height = width > 0 && width < 420 ? Math.min(tall, 180) : tall;
   const [box, seen] = useInView<HTMLDivElement>({ threshold: 0.4 });
   if (points.length === 0 || series.length === 0) return <EmptyChart>No data to chart.</EmptyChart>;
 
@@ -73,6 +79,7 @@ export function ColumnChart({ points, series, format, height = 240 }: {
             ))}
           </defs>
           <g transform={`translate(${m.left},${m.top})`}>
+            {picked !== null && picked !== active ? <rect x={picked * step + 1} y={0} width={Math.max(0, step - 2)} height={plotH} rx={6} fill="var(--ai-accent-soft)" /> : null}
             {active !== null ? <rect x={active * step + 1} y={0} width={Math.max(0, step - 2)} height={plotH} rx={6} fill="var(--ai-track)" /> : null}
             {ticks.map((t) => (
               <g key={t} transform={`translate(0,${y(t)})`}>
@@ -114,14 +121,23 @@ export function ColumnChart({ points, series, format, height = 240 }: {
 
             {/* the hit target is the whole band, not just the painted bar */}
             {points.map((_, i) => (
-              <rect key={i} x={i * step} y={-m.top} width={step} height={plotH + m.top} fill="transparent"
-                onPointerEnter={() => setActive(i)} onPointerDown={() => setActive(i)} onPointerMove={() => setActive(i)} />
+              <rect key={i} x={i * step} y={-m.top} width={step} height={plotH + m.top} fill="transparent" className={onPick ? 'cursor-pointer' : undefined}
+                onPointerEnter={() => setActive(i)} onPointerDown={() => { setActive(i); setPicked(i); }} onPointerMove={() => setActive(i)} />
             ))}
           </g>
         </svg>
       ) : null}
       <FloatingTip tip={tip} containerWidth={width} />
     </div>
+    {onPick && picked !== null && points[picked] ? (
+      <div className="ai-rise mt-2 flex items-center gap-2">
+        <button type="button" className="ai-chip group !py-1.5 text-[12.5px] font-medium" onClick={() => onPick(picked)}>
+          More on {points[picked].title}
+          <ArrowRightIcon width={12} height={12} className="shrink-0 transition-transform group-hover:translate-x-0.5 group-active:translate-x-0.5" />
+        </button>
+        <button type="button" className="ai-tap text-[12px] text-ink-3 hover:text-ink-1" onClick={() => setPicked(null)}>Clear</button>
+      </div>
+    ) : onPick ? <p className="mt-2 text-[12px] text-ink-3">Tap a column for more on that day.</p> : null}
     </div>
   );
 }

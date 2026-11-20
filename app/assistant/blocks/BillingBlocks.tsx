@@ -29,7 +29,7 @@ const whenFmt = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short
 
 /** A row that is a question about the thing it shows. Without `onClick` it is plain. */
 function Line({ onClick, children }: { onClick?: () => void; children: React.ReactNode }) {
-  const cls = 'flex w-full min-w-0 items-center gap-3 px-3.5 py-3 text-left';
+  const cls = 'flex w-full min-w-0 items-center gap-3 px-3.5 py-2.5 text-left @md:py-3';
   return onClick ? (
     <button type="button" onClick={onClick} className={`${cls} group transition-colors hover:bg-surface-2 active:bg-surface-2`}>
       {children}
@@ -187,6 +187,7 @@ export function CustomerBlock({ title, rows, total, single, onAsk }: { title: st
 
 /* ---------------- routers ---------------- */
 
+
 export function RouterBlock({ title, rows, onAsk }: { title: string; rows: Row[]; onAsk: Ask }) {
   const [now] = useState(() => Date.now());
   const routers = useMemo(() => rows.map(routerFacts).sort((a, b) => (a.state === 'offline' ? 0 : 1) - (b.state === 'offline' ? 0 : 1)), [rows]);
@@ -220,43 +221,82 @@ export function RouterBlock({ title, rows, onAsk }: { title: string; rows: Row[]
 
 /** Plans as spec cards: the price large, then what it buys, then what to do with it. */
 export function PlanBlock({ title, rows, currency, onAsk }: { title: string; rows: Row[]; currency?: string | null; onAsk: Ask }) {
+  const [open, setOpen] = useState<number | null>(null);
+  const [expanded, setExpanded] = useState(false);
+  const plans = rows.map((r, i) => {
+    const type = String(r.connection_type ?? 'hotspot').toLowerCase();
+    const price = typeof r.price === 'number' ? r.price : Number(r.price) || 0;
+    return {
+      key: `${r.id}-${i}`,
+      name: String(r.name ?? 'Plan'),
+      type,
+      typeLabel: type === 'pppoe' ? 'PPPoE' : type === 'static_ip' ? 'Static IP' : 'Hotspot',
+      price: price > 0 ? formatMoney(price, currency ?? 'KES') : 'Free',
+      speed: planSpeed(r.speed),
+      duration: planDuration(r),
+      hidden: r.is_hidden === true,
+      badge: typeof r.badge_text === 'string' && r.badge_text ? r.badge_text : null,
+    };
+  });
+  const actions = (p: (typeof plans)[number]) => onAsk ? (
+    <>
+      {p.type === 'hotspot' ? <Action onClick={() => onAsk(`Generate 10 vouchers for the ${p.name} plan`)}>Vouchers</Action> : null}
+      <Action onClick={() => onAsk(`How is the ${p.name} plan selling?`)}>Sales</Action>
+      <Action onClick={() => onAsk(`Change the ${p.name} plan`)}>Edit</Action>
+      <Action onClick={() => onAsk(`Tell me everything about the ${p.name} plan: who is on it and how it sells`)}>Details</Action>
+    </>
+  ) : null;
+  const visible = expanded ? plans : plans.slice(0, PAGE);
   return (
     <Panel eyebrow={<>Plans · {n(rows.length)}</>} title={title}
       actions={onAsk ? <Action onClick={() => onAsk('Create a new plan')}>New plan</Action> : null}>
-      <ul className="m-0 grid list-none grid-cols-1 gap-2.5 p-0 @md:grid-cols-2 @3xl:grid-cols-3">
-        {rows.map((r, i) => {
-          const name = String(r.name ?? 'Plan');
-          const type = String(r.connection_type ?? 'hotspot').toLowerCase();
-          const price = typeof r.price === 'number' ? r.price : Number(r.price) || 0;
-          const speed = planSpeed(r.speed);
-          const duration = planDuration(r);
+      {/* narrow (a phone): one compact row per plan; a tap opens it in place */}
+      <ul className="ai-well m-0 list-none divide-y divide-line overflow-hidden p-0 @xl:hidden">
+        {visible.map((p, i) => {
+          const isOpen = open === i;
           return (
-            <li key={`${r.id}-${i}`} className="ai-well flex flex-col p-3.5">
-              <div className="flex items-center gap-1.5">
-                <span className="ai-eyebrow">{type === 'pppoe' ? 'PPPoE' : type === 'static_ip' ? 'Static IP' : 'Hotspot'}</span>
-                <span className="flex-1" />
-                {r.is_hidden === true ? <Pill tone="muted" dot={false}>Hidden</Pill> : null}
-                {typeof r.badge_text === 'string' && r.badge_text ? <Pill tone="info" dot={false}>{r.badge_text}</Pill> : null}
-              </div>
-              <p className="mt-2 truncate text-[14px] font-medium text-ink-1">{name}</p>
-              <p className="ai-mono mt-1 text-[24px] font-medium leading-tight tracking-tight text-ink-1">{price > 0 ? formatMoney(price, currency ?? 'KES') : 'Free'}</p>
-              {duration || speed ? (
-                <dl className="mt-2.5 grid grid-cols-2 gap-2 border-t border-line pt-2.5">
-                  {duration ? <div className="min-w-0"><dt className="ai-eyebrow">Time</dt><dd className="ai-mono mt-0.5 truncate text-[12.5px] text-ink-1">{duration}</dd></div> : null}
-                  {speed ? <div className="min-w-0"><dt className="ai-eyebrow">Speed</dt><dd className="ai-mono mt-0.5 truncate text-[12.5px] text-ink-1">{speed}</dd></div> : null}
-                </dl>
-              ) : null}
-              {onAsk ? (
-                <div className="mt-auto flex flex-wrap gap-1.5 pt-3">
-                  {type === 'hotspot' ? <Action onClick={() => onAsk(`Generate 10 vouchers for the ${name} plan`)}>Vouchers</Action> : null}
-                  <Action onClick={() => onAsk(`How is the ${name} plan selling?`)}>Sales</Action>
-                  <Action onClick={() => onAsk(`Change the ${name} plan`)}>Edit</Action>
-                </div>
-              ) : null}
+            <li key={p.key}>
+              <button type="button" aria-expanded={isOpen} onClick={() => setOpen(isOpen ? null : i)}
+                className="group flex w-full min-w-0 items-center gap-3 px-3.5 py-2.5 text-left transition-colors hover:bg-surface-2 active:bg-surface-2">
+                <span className="min-w-0 flex-1">
+                  <span className="flex items-center gap-1.5">
+                    <span className="truncate text-[14px] font-medium text-ink-1">{p.name}</span>
+                    {p.hidden ? <Pill tone="muted" dot={false}>Hidden</Pill> : null}
+                    {p.badge ? <Pill tone="info" dot={false}>{p.badge}</Pill> : null}
+                  </span>
+                  <span className="ai-mono mt-0.5 block truncate text-[11.5px] text-ink-3">{[p.duration, p.speed, p.typeLabel].filter(Boolean).join(' · ')}</span>
+                </span>
+                <span className="ai-mono shrink-0 text-[15px] font-medium text-ink-1">{p.price}</span>
+                <ArrowRightIcon width={12} height={12} className={`shrink-0 text-ink-3 transition-transform ${isOpen ? 'rotate-90 text-accent' : ''}`} />
+              </button>
+              {isOpen && onAsk ? <div className="ai-rise flex flex-wrap gap-1.5 px-3.5 pb-3">{actions(p)}</div> : null}
             </li>
           );
         })}
       </ul>
+      {/* with room: a spec card per plan */}
+      <ul className="m-0 hidden list-none grid-cols-2 gap-2.5 p-0 @xl:grid @3xl:grid-cols-3">
+        {visible.map((p) => (
+          <li key={p.key} className="ai-well flex flex-col p-3.5">
+            <div className="flex items-center gap-1.5">
+              <span className="ai-eyebrow">{p.typeLabel}</span>
+              <span className="flex-1" />
+              {p.hidden ? <Pill tone="muted" dot={false}>Hidden</Pill> : null}
+              {p.badge ? <Pill tone="info" dot={false}>{p.badge}</Pill> : null}
+            </div>
+            <p className="mt-2 truncate text-[14px] font-medium text-ink-1">{p.name}</p>
+            <p className="ai-mono mt-1 text-[24px] font-medium leading-tight tracking-tight text-ink-1">{p.price}</p>
+            {p.duration || p.speed ? (
+              <dl className="mt-2.5 grid grid-cols-2 gap-2 border-t border-line pt-2.5">
+                {p.duration ? <div className="min-w-0"><dt className="ai-eyebrow">Time</dt><dd className="ai-mono mt-0.5 truncate text-[12.5px] text-ink-1">{p.duration}</dd></div> : null}
+                {p.speed ? <div className="min-w-0"><dt className="ai-eyebrow">Speed</dt><dd className="ai-mono mt-0.5 truncate text-[12.5px] text-ink-1">{p.speed}</dd></div> : null}
+              </dl>
+            ) : null}
+            {onAsk ? <div className="mt-auto flex flex-wrap gap-1.5 pt-3">{actions(p)}</div> : null}
+          </li>
+        ))}
+      </ul>
+      <More shown={visible.length} total={plans.length} expanded={expanded} onToggle={() => setExpanded((v) => !v)} />
     </Panel>
   );
 }

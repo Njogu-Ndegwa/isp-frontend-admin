@@ -40,7 +40,7 @@ function briefing(): Briefing {
       down: [{ id: 14, name: 'Kahawa West AP', last_online_at: iso(-3 * H) }],
       list: [
         { id: 14, name: 'Kahawa West AP', status: 'offline', last_online_at: iso(-3 * H), active_customers: 37, identity: 'KW-AP' },
-        { id: 11, name: 'Main Tower', status: 'online', active_customers: 212, live: { cpu: 34, memory_pct: 48, uptime: '2w3d04:12:10', version: '7.14.3', board: 'RB4011', down_bps: 182_400_000, up_bps: 24_900_000, hotspot_online: 164, pppoe_online: 38 } },
+        { id: 11, name: 'Main Tower', status: 'online', active_customers: 212, live: { cpu: 3, memory_pct: 48, uptime: '2w3d04:12:10', version: '7.14.3', board: 'RB4011', down_bps: 182_400_000, up_bps: 24_900_000, hotspot_online: 164, pppoe_online: 38 } },
         { id: 12, name: 'Zimmerman Block C', status: 'online', active_customers: 121, live: { cpu: 88, memory_pct: 71, uptime: '3d11:02:44', version: '7.12', board: 'hAP ac²', down_bps: 61_200_000, up_bps: 8_400_000, hotspot_online: 92, pppoe_online: 0 } },
         { id: 13, name: 'Githurai Shops', status: 'online', active_customers: 68, reachable_pct: 99.2, identity: 'GT-SHOPS' },
       ],
@@ -74,6 +74,8 @@ function transcript(): TranscriptItem[] {
       text: 'A good week: **KES 49,870** came in over the last 7 days, **15% up** on the week before. One thing needs you: **Kahawa West AP** has been down for about 3 hours and **37 paying customers** on it are cut off.\n\n- Zimmerman Block C is busy: CPU at 88%.\n- 14 customers run out today.\n\nNEXT: Why is Kahawa West AP offline? | Remind the 14 who expire today | Which plan made the most this week?',
     },
     { type: 'data', call_id: 'd1', title: 'This week', method: 'GET', path: '/api/x', show: 'tiles', payload: { revenue: 49870, payments: 1104, new_customers: 31, avg_payment: 45.2 } },
+    { type: 'data', call_id: 'h1', title: 'Health of Zimmerman Block C', method: 'GET', path: '/api/x', show: 'card', payload: { board_name: 'hAP ac²', version: '7.12', uptime: '3d11:02:44', cpu_load: 88, cpu_count: 4, free_memory: 37_748_736, total_memory: 134_217_728, free_hdd_space: 6_291_456, total_hdd_space: 16_777_216, hotspot_active: 92 } },
+    { type: 'data', call_id: 'h2', title: 'Network right now', method: 'GET', path: '/api/x', show: 'tiles', payload: { uptime_pct: 99.2, avg_cpu: 47, online_now: 294, routers_online: 3 } },
     { type: 'data', call_id: 'd2', title: 'Revenue per day', method: 'GET', path: '/api/x', show: 'trend', payload: { days: briefing().money!.daily.map((d) => ({ date: d.day, revenue: d.revenue, partial: d.partial })) } },
     { type: 'data', call_id: 'd3', title: 'Revenue by plan', method: 'GET', path: '/api/x', show: 'bars', payload: { plans: [{ plan_name: 'Weekly 300', revenue: 21600, sales: 72 }, { plan_name: '1 day · 50', revenue: 12850, sales: 257 }, { plan_name: 'Monthly PPPoE 10M', revenue: 9000, sales: 6 }, { plan_name: '3 hours · 20', revenue: 4420, sales: 221 }] } },
     { type: 'data', call_id: 'd4', title: 'Payments by method', method: 'GET', path: '/api/x', show: 'share', payload: { methods: [{ method: 'M-Pesa till', amount: 38100 }, { method: 'Paybill', amount: 9200 }, { method: 'Voucher', amount: 2570 }] } },

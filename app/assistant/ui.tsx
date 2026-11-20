@@ -18,11 +18,11 @@ const reduceMotion = () => typeof window !== 'undefined' && window.matchMedia('(
  * Whether an element is on screen. Things that move do so when the reader gets to
  * them. `once` keeps it true after the first sight; without it, it turns false again
  * once the element has left the screen completely, so it plays again on the way back.
- * With reduced motion it is true from the start (nothing waits to be revealed).
+ * Everyone gets the reveal; with reduced motion the CSS plays a calm version of it.
  */
 export function useInView<T extends Element>({ once = true, threshold = 0.35, rootMargin = '0px' }: { once?: boolean; threshold?: number; rootMargin?: string } = {}): [RefObject<T | null>, boolean] {
   const ref = useRef<T | null>(null);
-  const [inView, setInView] = useState(reduceMotion);
+  const [inView, setInView] = useState(false);
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
@@ -129,7 +129,7 @@ export function Panel({ eyebrow, icon, title, note, actions, children, className
  */
 export function CountUp({ value, format, className }: { value: number; format: (v: number) => string; className?: string }) {
   const [box, seen] = useInView<HTMLSpanElement>({ threshold: 0.6 });
-  const [shown, setShown] = useState(() => (reduceMotion() ? value : 0));
+  const [shown, setShown] = useState(0);
   const from = useRef(shown);
   // a figure that changes while on screen (the home refreshes every two minutes)
   // glows briefly, so a change is seen without anything else moving
@@ -143,10 +143,12 @@ export function CountUp({ value, format, className }: { value: number; format: (
   }, [value]);
   useEffect(() => {
     if (!seen) return;
-    const instant = reduceMotion() || !Number.isFinite(value);
+    const instant = !Number.isFinite(value);
     const start = performance.now();
     const a = from.current;
-    const dur = 750;
+    // small numbers count slower so each step is seen; big ones take a little longer to arrive
+    const digits = String(Math.round(Math.abs(value))).length;
+    const dur = Math.min(1500, Math.max(700, Math.abs(value) <= 12 ? Math.abs(value - a) * 110 : 600 + digits * 130));
     let raf = 0;
     const tick = (now: number) => {
       const p = instant ? 1 : Math.min(1, (now - start) / dur);
@@ -196,14 +198,44 @@ export function scaleColor(f: number, scale: Scale, plain = 'var(--ai-accent-fil
   return 'var(--ai-bad)';
 }
 
-/** A value that eases in from zero while `active` (on screen), and back to zero when not. */
-function useDrawn(v: number, active = true): number {
-  const [drawn, setDrawn] = useState(() => (reduceMotion() ? v : 0));
+/**
+ * How far a gauge or meter has drawn, adapted to its reading so the arrival is
+ * always seen. A high reading goes straight to its mark. A low one (a router at 3%
+ * CPU would move its needle a few degrees and be done before the eye finds it) does
+ * a warm-up sweep first, the way an instrument cluster does when the engine starts:
+ * up the scale, then back down to settle on the reading. Only on arrival: a refresh
+ * while it is on screen glides straight to the new value. With reduced motion the
+ * sweep is skipped and the reading is simply drawn in.
+ *
+ * `peak` is how far the sweep went, so ticks and cells can switch off from the top.
+ */
+function useSweep(v: number, active: boolean, max = 100): { drawn: number; peak: number } {
+  const [state, setState] = useState({ drawn: 0, peak: 0 });
+  const arrived = useRef(false);
   useEffect(() => {
-    const raf = requestAnimationFrame(() => setDrawn(active ? v : 0));
-    return () => cancelAnimationFrame(raf);
-  }, [v, active]);
-  return reduceMotion() ? v : drawn;
+    let raf = 0;
+    let timer = 0;
+    if (!active) {
+      arrived.current = false;
+      raf = requestAnimationFrame(() => setState({ drawn: 0, peak: 0 }));
+      return () => cancelAnimationFrame(raf);
+    }
+    const first = !arrived.current;
+    arrived.current = true;
+    if (first && v < max * 0.55 && !reduceMotion()) {
+      const peak = Math.min(max, Math.max(v + max * 0.4, max * 0.62));
+      // the settle is timed from the frame that draws the peak, never from now: on a busy
+      // phone that frame can come late, and the peak must not land after the settle
+      raf = requestAnimationFrame(() => {
+        setState({ drawn: peak, peak });
+        timer = window.setTimeout(() => setState({ drawn: v, peak }), 1000);
+      });
+    } else {
+      raf = requestAnimationFrame(() => setState({ drawn: v, peak: v }));
+    }
+    return () => { cancelAnimationFrame(raf); window.clearTimeout(timer); };
+  }, [v, active, max]);
+  return state;
 }
 
 const STATE_WORD: Record<Scale, (v: number) => string> = {
@@ -224,7 +256,7 @@ export function Dial({ value, label, scale = 'load', size = 112, word }: { value
   const v = Math.max(0, Math.min(100, value));
   // the dial is the one mark that plays again each time it scrolls back into view
   const [box, seen] = useInView<HTMLDivElement>({ once: false, threshold: 0.6 });
-  const drawn = useDrawn(v, seen);
+  const { drawn, peak } = useSweep(v, seen);
   const id = useId().replace(/:/g, '');
   const c = size / 2;
   const R = size / 2 - 3;
@@ -248,6 +280,11 @@ export function Dial({ value, label, scale = 'load', size = 112, word }: { value
   const red: [number, number] | null = scale === 'load' ? [0.85, 1] : scale === 'reach' ? [0, 0.9] : null;
   const inner = R - (small ? 12 : 15);
   const shownWord = word ?? STATE_WORD[scale](v);
+  // a reading in the red gets one small shake once it has settled, to draw the eye
+  const danger = (scale === 'load' && v >= 85) || (scale === 'reach' && v < 90);
+  const peakTick = Math.round((peak / 100) * N);
+  // after a warm-up sweep the reading pulses once as the needle lands, so the eye goes to it
+  const landed = seen && peak > v && Math.abs(drawn - v) < 0.01;
 
   return (
     <div ref={box} className="flex min-w-0 flex-col items-center">
@@ -288,7 +325,8 @@ export function Dial({ value, label, scale = 'load', size = 112, word }: { value
               stroke={on ? scaleColor(f, scale) : off}
               className="ai-tick"
               style={{
-                transitionDelay: on ? `${i * 16}ms` : '0ms',
+                // up the scale one after another; when the sweep falls back, off from the top down
+                transitionDelay: on ? `${i * 16}ms` : `${Math.max(0, peakTick - i) * 14}ms`,
                 filter: tip ? `drop-shadow(0 0 4px ${scaleColor(f, scale)})` : undefined,
               }} />
           );
@@ -297,14 +335,16 @@ export function Dial({ value, label, scale = 'load', size = 112, word }: { value
         {/* the needle: swings out from zero and settles, with a glow at its tip */}
         <circle cx={c} cy={c} r={inner * 0.55} fill={`url(#halo${id})`} />
         <g className="ai-needle" style={{ transform: `rotate(${at(lit)}deg)`, transformOrigin: `${c}px ${c}px` }}>
+          <g className={seen && danger ? 'ai-quiver' : undefined} style={{ transformOrigin: `${c}px ${c}px` }}>
           <line x1={c - inner * 0.16} y1={c} x2={c + inner - 4} y2={c} stroke={color} strokeWidth={small ? 1.8 : 2.2} strokeLinecap="round" />
           <circle cx={c + inner - 4} cy={c} r={small ? 1.8 : 2.2} fill={color} style={{ filter: `drop-shadow(0 0 4px ${color})` }} />
+        </g>
         </g>
         <circle cx={c} cy={c} r={small ? 4 : 5} fill="var(--ai-s1)" stroke={color} strokeWidth={1.6} />
         <circle cx={c} cy={c} r={1.6} fill={color} />
 
         {/* the reading, in the opening at the bottom */}
-        <text x={c} y={c + inner * 0.78} textAnchor="middle" className="ai-mono" fontSize={size * 0.17} fontWeight={600} fill="var(--ai-ink1)">
+        <text x={c} y={c + inner * 0.78} textAnchor="middle" className={`ai-mono ${landed ? 'ai-pop' : ''}`} fontSize={size * 0.17} fontWeight={600} fill="var(--ai-ink1)">
           {Math.round(v)}<tspan fontSize={size * 0.095} fill="var(--ai-ink3)" dx={1}>%</tspan>
         </text>
       </svg>
@@ -336,8 +376,9 @@ export function Cells({ value, max = 100, count = 24, scale = 'plain', color = '
 }) {
   const f = max > 0 ? Math.max(0, Math.min(1, value / max)) : 0;
   const [box, seen] = useInView<HTMLDivElement>({ threshold: 0.6 });
-  const drawn = useDrawn(f, seen);
+  const { drawn, peak } = useSweep(f, seen, 1);
   const level = drawn * count;
+  const peakCell = Math.round(peak * count);
   const reading = scale === 'plain' ? color : scaleColor(f, scale, color);
   return (
     <div ref={box} className="flex w-full items-end gap-[2px]" style={{ height }} role={label ? 'img' : undefined} aria-label={label}>
@@ -353,7 +394,7 @@ export function Cells({ value, max = 100, count = 24, scale = 'plain', color = '
               style={{
                 background: `linear-gradient(180deg, color-mix(in srgb, ${cell} 100%, white 18%), ${cell})`,
                 opacity: part > 0 ? 0.35 + 0.65 * part : 0,
-                transitionDelay: `${i * 22}ms`,
+                transitionDelay: part > 0 ? `${i * 22}ms` : `${Math.max(0, peakCell - i) * 20}ms`,
                 boxShadow: tip ? `0 0 8px ${cell}` : undefined,
               }} />
           </span>
@@ -370,7 +411,7 @@ export function Cells({ value, max = 100, count = 24, scale = 'plain', color = '
 export function Battery({ value, max, tone, cells = 5, width = 76, height = 32, label }: { value: number; max: number; tone: Tone; cells?: number; width?: number; height?: number; label?: string }) {
   const f = max > 0 ? Math.max(0, Math.min(1, value / max)) : 0;
   const [box, seen] = useInView<SVGSVGElement>({ threshold: 0.6 });
-  const drawn = useDrawn(f, seen);
+  const { drawn } = useSweep(f, seen, 1);
   const color = toneColor(tone);
   const pad = 3.5;
   const body = width - 6;
@@ -407,7 +448,7 @@ export function Battery({ value, max, tone, cells = 5, width = 76, height = 32, 
 export function Meter({ value, max = 100, color, tone, height = 6, label }: { value: number; max?: number; color?: string; tone?: Tone; height?: number; label?: string }) {
   const pct = max > 0 ? Math.max(0, Math.min(100, (value / max) * 100)) : 0;
   const [box, seen] = useInView<HTMLDivElement>({ threshold: 0.6 });
-  const drawn = useDrawn(pct, seen);
+  const { drawn } = useSweep(pct, seen);
   const fill = color ?? toneColor(tone ?? 'good');
   return (
     <div ref={box} className="w-full overflow-hidden rounded-full bg-[var(--ai-track)]" style={{ height }} role={label ? 'img' : undefined} aria-label={label}>

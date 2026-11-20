@@ -9,7 +9,7 @@ import { copyText } from '../lib/clipboard';
 import { formatMoney } from '../lib/format';
 import { useT } from '../lib/i18n';
 import type { AdminDashboard } from '../lib/types';
-import { DeviceCard } from './blocks/DeviceCard';
+import { DeviceCard, type Device } from './blocks/DeviceCard';
 import { Delta } from './charts/Mini';
 import { RankedBars } from './charts/RankedBars';
 import { SegmentsBar } from './charts/SegmentsBar';
@@ -86,24 +86,35 @@ function Skeleton() {
 
 function Starters({ groups, onAsk }: { groups: { title: string; questions: string[] }[]; onAsk: Ask }) {
   const t = useT();
+  const [tab, setTab] = useState(0);
+  const chip = (question: string) => (
+    <button key={question} type="button" className="ai-chip group !rounded-[12px] !py-2 text-[13px] max-sm:w-full max-sm:justify-between max-sm:!py-2.5" onClick={() => onAsk(question)}>
+      <span className="min-w-0">{question}</span>
+      <ArrowRightIcon width={12} height={12} className="shrink-0 text-ink-3 transition-transform group-hover:translate-x-0.5 group-active:translate-x-0.5 group-hover:text-accent group-active:text-accent" />
+    </button>
+  );
+  const current = groups[Math.min(tab, groups.length - 1)];
   return (
     <section className="mt-10">
       <div className="mb-4 flex items-center gap-3">
         <h2 className="ai-eyebrow shrink-0">{t('Or start with one of these')}</h2>
         <span aria-hidden className="h-px flex-1 bg-line" />
       </div>
-      <div className="grid gap-x-8 gap-y-6 sm:grid-cols-2 lg:grid-cols-4">
+      {/* a phone: one group at a time, chosen with tabs */}
+      <div className="sm:hidden">
+        <div className="mb-3 flex flex-wrap gap-1.5" role="tablist">
+          {groups.map((g, i) => (
+            <button key={g.title} type="button" role="tab" aria-selected={i === tab} onClick={() => setTab(i)}
+              className={`ai-tap rounded-full px-3 py-1.5 text-[12.5px] font-medium transition-colors ${i === tab ? 'bg-surface-3 text-ink-1' : 'text-ink-3'}`}>{g.title}</button>
+          ))}
+        </div>
+        {current ? <div key={current.title} className="ai-rise flex flex-col gap-1.5">{current.questions.map(chip)}</div> : null}
+      </div>
+      <div className="hidden gap-x-8 gap-y-6 sm:grid sm:grid-cols-2 lg:grid-cols-4">
         {groups.map((group) => (
           <div key={group.title} className="min-w-0">
             <h3 className="mb-2.5 text-[13px] font-semibold text-ink-1">{group.title}</h3>
-            <div className="flex flex-col items-start gap-1.5 max-sm:items-stretch">
-              {group.questions.map((question) => (
-                <button key={question} type="button" className="ai-chip group !rounded-[12px] !py-2 text-[13px] max-sm:w-full max-sm:justify-between max-sm:!py-2.5" onClick={() => onAsk(question)}>
-                  <span className="min-w-0">{question}</span>
-                  <ArrowRightIcon width={12} height={12} className="shrink-0 text-ink-3 transition-transform group-hover:translate-x-0.5 group-active:translate-x-0.5 group-hover:text-accent group-active:text-accent" />
-                </button>
-              ))}
-            </div>
+            <div className="flex flex-col items-start gap-1.5">{group.questions.map(chip)}</div>
           </div>
         ))}
       </div>
@@ -356,27 +367,33 @@ function NetworkSection({ ctx }: { ctx: Ctx }) {
         </div>
         <More label={t('All routers')} onClick={() => onAsk('Show my routers and their status')} />
       </header>
-      <ul className={`m-0 grid list-none gap-3 p-0 ${cols}`}>
-        {r.list.map((x) => {
+      {(() => {
+        const items = r.list.map((x) => {
           const lv = x.status === 'online' ? x.live : null;
           const named = `router ${x.name} (ID ${x.id})`;
           const last = x.last_online_at ? asUtc(x.last_online_at).getTime() : null;
-          return (
-            <DeviceCard key={x.id}
-              d={{
-                id: x.id, name: x.name, state: x.status,
-                model: lv ? [lv.board, lv.version ? `RouterOS ${lv.version}` : null].filter(Boolean).join(' · ') : x.identity,
-                downFor: x.status === 'offline' && last ? span(asOf - last) : null,
-                cpu: lv?.cpu, memory: lv?.memory_pct, down: bpsText(lv?.down_bps), up: bpsText(lv?.up_bps), uptime: uptimeText(lv?.uptime),
-                hotspot: lv ? lv.hotspot_online ?? 0 : null, pppoe: lv ? lv.pppoe_online ?? 0 : null,
-                customers: x.active_customers, reach: lv ? null : x.reachable_pct,
-              }}
-              onOpen={() => onAsk(x.status === 'offline' ? `Why is ${named} offline, and how do I fix it?` : `Check the health of ${named}`)}
-              onPeople={() => onAsk(`Who is online on ${named} right now?`)}
-              onCustomers={() => onAsk(`Which customers are on ${named}?`)} />
-          );
-        })}
-      </ul>
+          const d: Device = {
+            id: x.id, name: x.name, state: x.status,
+            model: lv ? [lv.board, lv.version ? `RouterOS ${lv.version}` : null].filter(Boolean).join(' · ') : x.identity,
+            downFor: x.status === 'offline' && last ? span(asOf - last) : null,
+            cpu: lv?.cpu, memory: lv?.memory_pct, down: bpsText(lv?.down_bps), up: bpsText(lv?.up_bps), uptime: uptimeText(lv?.uptime),
+            hotspot: lv ? lv.hotspot_online ?? 0 : null, pppoe: lv ? lv.pppoe_online ?? 0 : null,
+            customers: x.active_customers, reach: lv ? null : x.reachable_pct,
+          };
+          const handlers = {
+            onOpen: () => onAsk(x.status === 'offline' ? `Why is ${named} offline, and how do I fix it?` : `Check the health of ${named}`),
+            onPeople: () => onAsk(`Who is online on ${named} right now?`),
+            onCustomers: () => onAsk(`Which customers are on ${named}?`),
+          };
+          return { key: x.id, d, handlers, down: x.status === 'offline' };
+        });
+        return (
+          // every router keeps its full card with the big dials, on a phone too
+          <ul className={`m-0 grid list-none gap-3 p-0 ${cols}`}>
+            {items.map((it) => <DeviceCard key={it.key} d={it.d} {...it.handlers} />)}
+          </ul>
+        );
+      })()}
       {r.total > r.list.length ? <p className="mt-2 text-[12.5px] text-ink-3">{t('{n} more are not drawn here.', { n: n(r.total - r.list.length) })}</p> : null}
     </section>
   );

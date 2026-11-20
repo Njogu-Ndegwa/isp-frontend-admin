@@ -75,17 +75,17 @@ export default function Composer({ busy, disabled, placeholder, note, onSend }: 
     <div className="relative shrink-0 bg-[color:var(--ai-bg)]">
       {/* the transcript fades out under the box instead of ending at a hard line */}
       <div aria-hidden className="pointer-events-none absolute inset-x-0 -top-8 h-8 bg-gradient-to-t from-[var(--ai-bg)] to-transparent" />
-      <div className="mx-auto max-w-[880px] px-3 pb-[max(0.6rem,env(safe-area-inset-bottom))] pt-1.5 sm:px-6 sm:pb-4">
+      <div className="mx-auto max-w-[880px] px-2.5 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-1 sm:px-6 sm:pb-4 sm:pt-1.5">
         {note}
         {error ? <p className="mb-1.5 text-[12.5px] text-[var(--ai-text-bad)]">{error}</p> : null}
         <form
-          className="ai-card ai-composer flex cursor-text flex-col !rounded-[24px] px-4 pb-2.5 pt-3"
+          className="ai-card ai-composer flex cursor-text flex-col !rounded-[24px] px-4 pb-2.5 pt-3 max-sm:flex-row max-sm:flex-wrap max-sm:items-end max-sm:gap-1 max-sm:!rounded-[22px] max-sm:px-1.5 max-sm:py-1.5"
           onSubmit={(e) => { e.preventDefault(); submit(); }}
           // a tap anywhere on the card (not just the text line) puts the cursor in the box
           onClick={(e) => { if (!(e.target as HTMLElement).closest('button, textarea, input')) ref.current?.focus(); }}
         >
           {photos.length > 0 && (
-            <div className="mb-2 flex flex-wrap gap-2">
+            <div className="mb-2 flex flex-wrap gap-2 max-sm:order-first max-sm:w-full max-sm:px-2 max-sm:pt-1.5">
               {photos.map((p, i) => (
                 <div key={i} className="relative">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -108,7 +108,7 @@ export default function Composer({ busy, disabled, placeholder, note, onSend }: 
             disabled={!!disabled}
             enterKeyHint="send"
             placeholder={disabled || placeholder}
-            className="ai-ask max-h-[40vh] min-h-[48px] w-full resize-none bg-transparent py-1 text-[16px] leading-relaxed text-ink-1 placeholder:text-ink-3 focus:outline-none"
+            className="ai-ask max-h-[40vh] min-h-[48px] w-full resize-none bg-transparent py-1 text-[16px] leading-relaxed text-ink-1 placeholder:text-ink-3 focus:outline-none max-sm:order-2 max-sm:min-h-[40px] max-sm:w-auto max-sm:min-w-0 max-sm:flex-1 max-sm:py-[7px]"
             onChange={(e) => setValue(e.target.value)}
             onKeyDown={(e) => {
               // Enter sends with a keyboard; on a phone Enter is a new line and the button sends
@@ -118,17 +118,17 @@ export default function Composer({ busy, disabled, placeholder, note, onSend }: 
               }
             }}
           />
-          <div className="mt-1.5 flex items-center gap-2">
+          <div className="mt-1.5 flex items-center gap-2 max-sm:contents">
             <input ref={fileRef} type="file" accept="image/*" multiple className="hidden" onChange={(e) => attach(e.target.files)} />
             <button type="button" onClick={() => fileRef.current?.click()} disabled={busy || preparing || photos.length >= MAX_PHOTOS || !!disabled}
               aria-label={t('Add a photo')} title={t('Add a photo')}
-              className="-ml-1.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-ink-3 transition-colors hover:bg-surface-2 active:bg-surface-2 hover:text-ink-1 disabled:opacity-40">
+              className="-ml-1.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-ink-3 max-sm:order-1 max-sm:ml-0 transition-colors hover:bg-surface-2 active:bg-surface-2 hover:text-ink-1 disabled:opacity-40">
               {preparing ? <SpinnerIcon width={17} height={17} className="text-accent" /> : <CameraIcon width={19} height={19} />}
             </button>
-            <span className="ai-mono hidden min-w-0 flex-1 truncate text-[11px] text-ink-3 [@media(pointer:fine)]:block">{busy ? <span className="inline-flex items-center gap-2"><Signal />{t('Working…')}</span> : t('Enter to send · Shift + Enter for a new line')}</span>
-            <span className="flex-1 [@media(pointer:fine)]:hidden" />
+            <span className="ai-mono hidden min-w-0 flex-1 truncate text-[11px] text-ink-3 max-sm:!hidden [@media(pointer:fine)]:block">{busy ? <span className="inline-flex items-center gap-2"><Signal />{t('Working…')}</span> : t('Enter to send · Shift + Enter for a new line')}</span>
+            <span className="flex-1 max-sm:hidden [@media(pointer:fine)]:hidden" />
             <button type="submit" disabled={!canSend} aria-label={t('Send')} title={t('Send')}
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent-fill text-accent-ink shadow-[inset_0_1px_0_rgba(255,255,255,0.35),0_6px_18px_-8px_var(--ai-accent-fill)] transition-[opacity,transform] hover:scale-105 disabled:opacity-30 disabled:shadow-none disabled:hover:scale-100">
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent-fill text-accent-ink max-sm:order-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.35),0_6px_18px_-8px_var(--ai-accent-fill)] transition-[opacity,transform] hover:scale-105 disabled:opacity-30 disabled:shadow-none disabled:hover:scale-100">
               {busy ? <SpinnerIcon width={17} height={17} /> : <ArrowUpIcon width={19} height={19} strokeWidth={2.4} />}
             </button>
           </div>
