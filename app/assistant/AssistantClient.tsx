@@ -1,41 +1,147 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import Link from 'next/link';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../lib/api';
 import {
-  assistantApi, AssistantError, preparePhoto,
-  type ActionRecord, type AssistantEvent, type AssistantStatus, type ConversationSummary,
+  assistantApi, AssistantError, markStartPageDecided, rememberHome,
+  type ActionRecord, type AssistantEvent, type AssistantStatus, type ConversationSummary, type Decision,
   type OutgoingImage, type TranscriptItem,
 } from '../lib/assistant';
 import { isStaffUser } from '../lib/permissions';
+import { isStandalone } from '../lib/standalone';
 import { useT } from '../lib/i18n';
+import Composer from './Composer';
+import HistoryPanel from './HistoryPanel';
+import Home from './Home';
+import { BitwaveMark, CloseIcon, GridIcon, HistoryIcon, LogoutIcon, MoonIcon, MoreIcon, PlusIcon, SunIcon } from './icons';
 import Transcript, { actionCards } from './Transcript';
+import { Led } from './ui';
 
-const MAX_PHOTOS = 4;
 const POLL_MS = 20_000;
+const INTRO_SEEN = 'bw_ai_intro_seen';
 
-function useSuggestions(role: 'admin' | 'owner' | 'staff', t: ReturnType<typeof useT>) {
-  return useMemo(() => {
-    if (role === 'admin') {
-      return [
-        t('Which resellers signed up this week?'),
-        t('Show platform revenue for this month'),
-        t('Which routers are offline right now?'),
-        t('Show unpaid subscription invoices'),
-      ];
-    }
-    return [
-      t('Help me set up my account'),
-      t('Who expires today?'),
-      t('How much did I make this week?'),
-      t('Generate 10 one-day vouchers'),
-      t('Which customers are online now?'),
-      t('A customer paid but has no internet'),
-    ];
-  }, [role, t]);
+type Theme = 'light' | 'dark';
+function applyTheme(theme: Theme) {
+  document.documentElement.classList.toggle('dark', theme === 'dark');
+  document.documentElement.style.colorScheme = theme;
 }
+
+/* ---------------- header ---------------- */
+
+function Header({ status, live, canReset, busy, classicHref, standalone, onHome, onHistory, onStatus }: {
+  status: AssistantStatus | null;
+  /** null while checking */
+  live: boolean | null;
+  canReset: boolean;
+  busy: boolean;
+  classicHref: string;
+  /** on Bitwave AI's own address: the assistant is the whole app, so nothing links to the dashboard */
+  standalone: boolean;
+  onHome: () => void;
+  onHistory: () => void;
+  onStatus: (s: AssistantStatus) => void;
+}) {
+  const t = useT();
+  const { logout } = useAuth();
+  const [menu, setMenu] = useState(false);
+  // this screen is drawn in the browser only, so the saved theme can be read at once
+  const [theme, setTheme] = useState<Theme>(() => (typeof window !== 'undefined' && localStorage.getItem('theme') === 'light' ? 'light' : 'dark'));
+  const menuRef = useRef<HTMLDivElement | null>(null);
+
+  // there is no sidebar here to apply the saved theme, so this screen does it
+  useEffect(() => { applyTheme(theme); }, [theme]);
+  useEffect(() => {
+    if (!menu) return;
+    const close = (e: MouseEvent | KeyboardEvent) => {
+      if (e instanceof KeyboardEvent ? e.key === 'Escape' : !menuRef.current?.contains(e.target as Node)) setMenu(false);
+    };
+    document.addEventListener('mousedown', close);
+    document.addEventListener('keydown', close);
+    return () => { document.removeEventListener('mousedown', close); document.removeEventListener('keydown', close); };
+  }, [menu]);
+
+  const flipTheme = () => {
+    const next: Theme = theme === 'dark' ? 'light' : 'dark';
+    localStorage.setItem('theme', next);
+    setTheme(next);
+  };
+  const setHome = async (choice: 'assistant' | 'classic') => {
+    if (!status) return;
+    try {
+      const r = await assistantApi.setHome(choice);
+      onStatus({ ...status, home: r.home, home_choice: r.home_choice });
+    } catch {
+      /* the choice is a convenience: the menu simply stays as it was */
+    }
+  };
+  const item = 'flex w-full items-center gap-2.5 rounded-[8px] px-3 py-2.5 text-left text-[14px] text-ink-1 hover:bg-surface-2 active:bg-surface-2';
+
+  return (
+    <header className="z-30 shrink-0 border-b border-line bg-[color:var(--ai-bg)]/75 backdrop-blur-xl backdrop-saturate-150">
+      <div className="mx-auto flex h-14 max-w-[1180px] items-center gap-2 px-3 sm:gap-3 sm:px-6">
+        <button type="button" onClick={onHome} disabled={busy} className="ai-tap flex shrink-0 items-center gap-2 rounded-[10px] py-1 pr-1" aria-label={t('Bitwave home')}>
+          <BitwaveMark size={30} />
+          <span className="ai-display text-[16.5px] font-semibold text-ink-1">Bitwave</span>
+          <span className="ai-mono rounded-[6px] border border-accent/35 bg-accent-soft px-1.5 py-[1px] text-[11px] font-medium tracking-[0.12em] text-accent">AI</span>
+        </button>
+
+        <div className="ml-auto flex items-center gap-1 sm:gap-1.5">
+          <span className="ai-mono inline-flex items-center gap-1.5 rounded-full border border-line bg-surface-1/60 px-2 py-1 text-[11px] text-ink-2 max-[359px]:hidden sm:px-2.5"
+            title={live ? t('Answers use your live account data') : undefined}>
+            <Led tone={live === null ? 'muted' : live ? 'live' : 'warn'} pulse={!!live} size={6} />
+            <span className="hidden md:inline">{live === null ? t('Checking') : !live ? t('Assistant is off') : status?.read_only ? t('Live data · view only') : t('Live data')}</span>
+            <span className="md:hidden">{live === false ? t('Off') : status?.read_only ? t('View only') : t('Live')}</span>
+          </span>
+          <button type="button" className="ai-btn ai-btn-quiet" onClick={onHistory} aria-label={t('Your chats')} title={t('Your chats')}>
+            <HistoryIcon /> <span className="hidden sm:inline">{t('Chats')}</span>
+          </button>
+          {canReset ? (
+            <button type="button" className="ai-btn ai-btn-ghost px-3" onClick={onHome} disabled={busy} aria-label={t('New chat')}>
+              <PlusIcon width={14} height={14} /> <span className="hidden sm:inline">{t('New chat')}</span>
+            </button>
+          ) : null}
+          {standalone ? null : (
+            <Link href={classicHref} className="ai-btn ai-btn-quiet hidden lg:inline-flex" title={t('The dashboard you know, with every page')}>
+              <GridIcon /> {t('Classic dashboard')}
+            </Link>
+          )}
+          <div className="relative" ref={menuRef}>
+            <button type="button" className="ai-btn ai-btn-quiet" onClick={() => setMenu((v) => !v)} aria-label={t('More')} aria-expanded={menu} aria-haspopup="menu">
+              <MoreIcon width={18} height={18} />
+            </button>
+            {menu ? (
+              <div role="menu" className="ai-card ai-rise absolute right-0 top-[calc(100%+8px)] z-40 w-[min(19rem,calc(100vw-1.5rem))] p-1.5">
+                {standalone ? null : <Link href={classicHref} role="menuitem" className={item}><GridIcon /> {t('Classic dashboard')}</Link>}
+                <button type="button" role="menuitem" className={item} onClick={flipTheme}>
+                  {theme === 'dark' ? <SunIcon /> : <MoonIcon />} {theme === 'dark' ? t('Light mode') : t('Dark mode')}
+                </button>
+                {status && live && !status.read_only && !standalone ? (
+                  <div className="my-1 border-y border-line px-3 py-2.5">
+                    <p className="text-[12px] text-ink-3">{t('When I sign in, open')}</p>
+                    <div className="mt-1.5 grid grid-cols-2 gap-1 rounded-full border border-line p-0.5" role="group">
+                      <button type="button" aria-pressed={!!status.home} onClick={() => setHome('assistant')}
+                        className={`rounded-full px-2 py-2 text-[13px] font-semibold ${status.home ? 'bg-accent-fill text-accent-ink' : 'text-ink-2 hover:bg-surface-2 active:bg-surface-2'}`}>{t('This chat')}</button>
+                      <button type="button" aria-pressed={!status.home} onClick={() => setHome('classic')}
+                        className={`rounded-full px-2 py-2 text-[13px] font-semibold ${!status.home ? 'bg-surface-3 text-ink-1' : 'text-ink-2 hover:bg-surface-2 active:bg-surface-2'}`}>{t('Classic')}</button>
+                    </div>
+                  </div>
+                ) : null}
+                <button type="button" role="menuitem" className={item} onClick={() => { logout(); window.location.assign('/login'); }}>
+                  <LogoutIcon /> {t('Sign out')}
+                </button>
+              </div>
+            ) : null}
+          </div>
+        </div>
+      </div>
+    </header>
+  );
+}
+
+/* ---------------- the app ---------------- */
 
 export default function AssistantClient() {
   const t = useT();
@@ -50,24 +156,28 @@ export default function AssistantClient() {
   const [items, setItems] = useState<TranscriptItem[]>([]);
   const [records, setRecords] = useState<Record<string, ActionRecord>>({});
   const [busy, setBusy] = useState(false);
-  const [draft, setDraft] = useState('');
-  const [photos, setPhotos] = useState<OutgoingImage[]>([]);
-  const [preparing, setPreparing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [opening, setOpening] = useState(false);
+  const [liveIndex, setLiveIndex] = useState<number | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [history, setHistory] = useState<ConversationSummary[]>([]);
-  const [armedDelete, setArmedDelete] = useState<string | null>(null);
+  const [intro, setIntro] = useState(false);
+  const [viewH, setViewH] = useState(0);
 
   const liveText = useRef<number | null>(null);
   const serverLen = useRef(0);
   const started = useRef(false);
-  const bottomRef = useRef<HTMLDivElement>(null);
-  const fileRef = useRef<HTMLInputElement>(null);
-  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const scroller = useRef<HTMLDivElement | null>(null);
+  const lastExchange = useRef<HTMLDivElement | null>(null);
+  const readerScrolled = useRef(false);
 
-  const role: 'admin' | 'owner' | 'staff' = user?.role === 'admin' ? 'admin' : isStaffUser(user) ? 'staff' : 'owner';
-  const suggestions = useSuggestions(role, t);
+  const admin = user?.role === 'admin';
+  const staff = isStaffUser(user);
   const demo = typeof window !== 'undefined' && api.isDemoMode();
+  const currency = user?.market?.currency ?? 'KES';
+  const classicHref = admin ? '/admin' : '/dashboard';
+  const [standalone] = useState(isStandalone);
+  const userKey = `${user?.id ?? 0}:${staff ? user?.staff?.id ?? 0 : 0}`;
+  const setLive = (i: number | null) => { liveText.current = i; setLiveIndex(i); };
 
   // -- loading ----------------------------------------------------------------
 
@@ -78,6 +188,7 @@ export default function AssistantClient() {
     setRecords(conv.actions);
     serverLen.current = conv.transcript.length;
     liveText.current = null;
+    setLiveIndex(null);
   }, []);
 
   const refreshHistory = useCallback(async () => {
@@ -88,23 +199,29 @@ export default function AssistantClient() {
     }
   }, []);
 
+  const notice = useCallback((message: string) => {
+    setItems((prev) => [...prev, { type: 'notice', level: 'error', message }]);
+  }, []);
+
   useEffect(() => {
     if (demo) return;
+    markStartPageDecided();
     assistantApi.status()
       .then((s) => {
         setStatus(s);
+        rememberHome(userKey, !!(s.enabled && s.home));
         if (!s.enabled && params.get('start') === 'setup') router.replace('/setup');
       })
       .catch((e: Error) => setStatusError(e.message));
     refreshHistory();
     const c = params.get('c');
-    if (c) loadConversation(c).catch(() => setError(t('That chat could not be opened.')));
+    if (c) {
+      setOpening(true);
+      loadConversation(c).catch(() => notice(t('That chat could not be opened.'))).finally(() => setOpening(false));
+    }
+    try { setIntro(localStorage.getItem(INTRO_SEEN) !== '1'); } catch { /* no storage: no intro */ }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
-  }, [items.length, busy]);
 
   // Pick up Bitwave support notes written while the chat is open.
   useEffect(() => {
@@ -125,20 +242,73 @@ export default function AssistantClient() {
     return () => clearInterval(timer);
   }, [conversationId, busy]);
 
+  // The open chat is in the address bar (?c=...), so a reload or a shared link reopens it.
+  useEffect(() => {
+    if (!conversationId) return;
+    const qs = new URLSearchParams(window.location.search);
+    if (qs.get('c') === conversationId) return;
+    qs.set('c', conversationId);
+    qs.delete('start');
+    window.history.replaceState(null, '', `${pathname}?${qs.toString()}`);
+  }, [conversationId, pathname]);
+
+  // -- scrolling ----------------------------------------------------------------
+  // The newest question is brought to the top of the view and stays there while its
+  // answer arrives underneath, so nothing the reader is looking at moves. For that the
+  // last exchange is at least one screen tall.
+
+  useEffect(() => {
+    const el = scroller.current;
+    if (!el) return;
+    const measure = () => setViewH(el.clientHeight);
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    // whether the reader has scrolled since the last question; if so, the view is theirs
+    const mine = () => { readerScrolled.current = true; };
+    el.addEventListener('wheel', mine, { passive: true });
+    el.addEventListener('touchmove', mine, { passive: true });
+    el.addEventListener('keydown', mine);
+    return () => {
+      ro.disconnect();
+      el.removeEventListener('wheel', mine);
+      el.removeEventListener('touchmove', mine);
+      el.removeEventListener('keydown', mine);
+    };
+  }, []);
+
+  const questions = useMemo(() => items.reduce((count, it) => count + (it.type === 'user' ? 1 : 0), 0), [items]);
+
+  const pin = useCallback(() => {
+    const el = scroller.current;
+    const node = lastExchange.current;
+    if (!el || !node || readerScrolled.current) return;
+    const off = node.getBoundingClientRect().top - el.getBoundingClientRect().top;
+    if (Math.abs(off) > 4) el.scrollTo({ top: el.scrollTop + off, behavior: 'auto' });
+  }, []);
+
+  useLayoutEffect(() => {
+    if (questions === 0) return;
+    readerScrolled.current = false;
+    lastExchange.current?.scrollIntoView({ block: 'start', behavior: questions === 1 ? 'auto' : 'smooth' });
+    // a smooth scroll can be cut short by layout work elsewhere; check once it should have landed
+    const timer = setTimeout(pin, 900);
+    return () => clearTimeout(timer);
+  }, [questions, conversationId, pin]);
+
+  // ...and again whenever the answer grows a block or finishes
+  const shape = `${items.length}:${busy}`;
+  useEffect(() => {
+    const raf = requestAnimationFrame(pin);
+    return () => cancelAnimationFrame(raf);
+  }, [shape, pin]);
+
   // -- streaming events ---------------------------------------------------------
 
   const apply = useCallback((e: AssistantEvent) => {
     switch (e.type) {
       case 'conversation':
-        setConversationId((prev) => {
-          if (prev !== e.id) {
-            const qs = new URLSearchParams(window.location.search);
-            qs.set('c', e.id);
-            qs.delete('start');
-            window.history.replaceState(null, '', `${pathname}?${qs.toString()}`);
-          }
-          return e.id;
-        });
+        setConversationId(e.id); // the address bar follows in an effect below
         return;
       case 'text':
         setItems((prev) => {
@@ -150,45 +320,53 @@ export default function AssistantClient() {
             return next;
           }
           liveText.current = prev.length;
+          setLiveIndex(prev.length);
           return [...prev, { type: 'assistant', text: e.delta }];
         });
         return;
+      case 'retract':
+        // words the assistant wrote while still looking things up: not the answer
+        setItems((prev) => {
+          const idx = liveText.current;
+          if (idx === null || prev[idx]?.type !== 'assistant') return prev;
+          const cur = prev[idx] as Extract<TranscriptItem, { type: 'assistant' }>;
+          const text = cur.text.slice(0, Math.max(0, cur.text.length - e.chars));
+          if (text.trim()) {
+            const next = prev.slice();
+            next[idx] = { ...cur, text };
+            return next;
+          }
+          liveText.current = null;
+          setLiveIndex(null);
+          return prev.filter((_, i) => i !== idx);
+        });
+        return;
       case 'step':
-        liveText.current = null;
+        setLive(null);
         setItems((prev) => {
           if (e.phase === 'start') return [...prev, { type: 'step', call_id: e.call_id, label: e.label }];
           return prev.map((it) => (it.type === 'step' && it.call_id === e.call_id ? { ...it, done: true, ok: e.ok } : it));
         });
         return;
       case 'action_result':
-        liveText.current = null;
+        setLive(null);
         setItems((prev) => [...prev, e]);
         setRecords((prev) => ({ ...prev, [e.action_id]: { ...(prev[e.action_id] ?? { id: e.action_id, title: '' }), status: e.status } }));
         return;
       case 'data':
       case 'action':
       case 'notice':
-        liveText.current = null;
+        setLive(null);
         setItems((prev) => [...prev, e]);
         return;
       case 'done':
-        liveText.current = null;
+        setLive(null);
         return;
     }
-  }, [pathname]);
-
-  const finishTurn = useCallback(async (id: string | null) => {
-    setBusy(false);
-    liveText.current = null;
-    if (id) {
-      try { await loadConversation(id); } catch { /* keep what is on screen */ }
-    }
-    refreshHistory();
-  }, [loadConversation, refreshHistory]);
+  }, []);
 
   const run = useCallback(async (work: (onEvent: (e: AssistantEvent) => void) => Promise<void>) => {
     setBusy(true);
-    setError(null);
     let id = conversationId;
     try {
       await work((e) => {
@@ -196,28 +374,30 @@ export default function AssistantClient() {
         apply(e);
       });
     } catch (err) {
-      const message = err instanceof AssistantError && err.code === 'assistant_not_configured'
+      notice(err instanceof AssistantError && err.code === 'assistant_not_configured'
         ? t('The assistant is not switched on for this server yet.')
-        : (err as Error).message || t('Could not reach the assistant. Check your connection and try again.');
-      setItems((prev) => [...prev, { type: 'notice', level: 'error', message }]);
+        : (err as Error).message || t('Could not reach the assistant. Check your connection and try again.'));
     } finally {
-      await finishTurn(id);
+      setBusy(false);
+      setLive(null);
+      if (id) {
+        try { await loadConversation(id); } catch { /* keep what is on screen */ }
+      }
+      refreshHistory();
     }
-  }, [apply, conversationId, finishTurn, t]);
+  }, [apply, conversationId, loadConversation, notice, refreshHistory, t]);
 
   // -- actions --------------------------------------------------------------------
 
   const send = useCallback(async (text: string, images: OutgoingImage[] = []) => {
     const message = text.trim();
     if ((!message && images.length === 0) || busy) return;
-    setDraft('');
-    setPhotos([]);
     setItems((prev) => [...prev, { type: 'user', text: message, images: images.map((i) => i.thumbnail) }]);
-    liveText.current = null;
+    setLive(null);
     await run((onEvent) => assistantApi.chat({ message, conversation_id: conversationId, images }, onEvent));
   }, [busy, conversationId, run]);
 
-  const decide = useCallback(async (decisions: { action_id: string; approve: boolean }[]) => {
+  const decide = useCallback(async (decisions: Decision[]) => {
     if (!conversationId || busy || decisions.length === 0) return;
     setRecords((prev) => {
       const next = { ...prev };
@@ -229,7 +409,8 @@ export default function AssistantClient() {
 
   const pending = useMemo(() => {
     const cards = actionCards(items, records);
-    return [...cards.values()].filter((c) => c.status === 'pending' && (!c.expires_at || new Date(c.expires_at).getTime() > Date.now()));
+    // a form waits for its own fields, so "Confirm all" covers the plain cards only
+    return [...cards.values()].filter((c) => c.status === 'pending' && !c.form?.length && (!c.expires_at || new Date(c.expires_at).getTime() > Date.now()));
   }, [items, records]);
 
   // Onboarding entry: /assistant?start=setup opens a chat that starts the setup.
@@ -241,235 +422,116 @@ export default function AssistantClient() {
     }
   }, [status, params, send, t]);
 
-  const newChat = () => {
+  const goHome = useCallback(() => {
     if (busy) return;
     setConversationId(null);
     setItems([]);
     setRecords({});
     serverLen.current = 0;
     window.history.replaceState(null, '', pathname);
-    inputRef.current?.focus();
-  };
+    scroller.current?.scrollTo({ top: 0 });
+  }, [busy, pathname]);
 
-  const attach = async (files: FileList | null) => {
-    if (!files || files.length === 0) return;
-    setPreparing(true);
-    setError(null);
+  const openConversation = useCallback(async (id: string) => {
+    if (busy) return;
+    setOpening(true);
     try {
-      const room = MAX_PHOTOS - photos.length;
-      const picked = Array.from(files).slice(0, Math.max(0, room));
-      const ready = await Promise.all(picked.map(preparePhoto));
-      setPhotos((prev) => [...prev, ...ready].slice(0, MAX_PHOTOS));
-      if (files.length > room) setError(t('Up to {n} photos per message.', { n: MAX_PHOTOS }));
-    } catch (e) {
-      setError((e as Error).message);
+      await loadConversation(id);
+      window.history.replaceState(null, '', `${pathname}?c=${id}`);
+    } catch {
+      notice(t('That chat could not be opened.'));
     } finally {
-      setPreparing(false);
-      if (fileRef.current) fileRef.current.value = '';
+      setOpening(false);
     }
-  };
-
-  const onKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    const coarse = typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches;
-    if (e.key === 'Enter' && !e.shiftKey && !coarse) {
-      e.preventDefault();
-      send(draft, photos);
-    }
-  };
-
-  useEffect(() => {
-    const el = inputRef.current;
-    if (!el) return;
-    el.style.height = 'auto';
-    el.style.height = `${Math.min(el.scrollHeight, 200)}px`;
-  }, [draft]);
+  }, [busy, loadConversation, notice, pathname, t]);
 
   // -- render -------------------------------------------------------------------
 
   if (demo) {
     return (
-      <div className="max-w-2xl mx-auto py-16 text-center">
-        <h1 className="text-xl font-bold text-foreground">{t('Assistant')}</h1>
-        <p className="mt-2 text-sm text-foreground-muted">{t('The assistant works on real accounts. Sign up to try it.')}</p>
+      <div className="mx-auto flex h-full max-w-xl flex-col items-center justify-center px-6 text-center">
+        <BitwaveMark size={40} />
+        <h1 className="ai-display mt-4 text-[22px] font-bold text-ink-1">{t('Bitwave AI works on real accounts')}</h1>
+        <p className="mt-2 text-[14.5px] text-ink-3">{t('The demo has sample data only. Sign up to ask about your own network and run it by chat.')}</p>
+        <div className="mt-5 flex gap-2">
+          <Link href="/signup" className="ai-btn ai-btn-primary min-h-[44px] px-5">{t('Sign up')}</Link>
+          <Link href="/dashboard" className="ai-btn ai-btn-ghost min-h-[44px] px-5">{t('Back to the demo')}</Link>
+        </div>
       </div>
     );
   }
 
-  const disabledReason = statusError || (status && !status.enabled ? (status.reason || t('The assistant is not switched on for this server yet.')) : null);
-  const empty = items.length === 0;
+  const off = statusError || (status && !status.enabled ? (status.reason || t('The assistant is not switched on for this server yet.')) : null);
+  const live = statusError ? false : status ? status.enabled : null;
+  const empty = items.length === 0 && !opening;
+  const readOnly = !!status?.read_only;
+  const dismissIntro = () => {
+    setIntro(false);
+    try { localStorage.setItem(INTRO_SEEN, '1'); } catch { /* fine */ }
+  };
 
   return (
-    <div className="max-w-3xl mx-auto flex flex-col min-h-[calc(100dvh-8rem)] md:min-h-[calc(100dvh-4rem)]">
-      {/* Top bar */}
-      <div className="flex items-center justify-between gap-2 pb-3">
-        <div className="min-w-0">
-          <h1 className="text-lg sm:text-xl font-bold text-foreground">{t('Assistant')}</h1>
-          <p className="text-xs text-foreground-muted truncate">
-            {status?.read_only
-              ? t('View-as: it can look things up but not change anything.')
-              : t('Ask anything, or tell it what to do. Changes wait for your Confirm.')}
-          </p>
-        </div>
-        <div className="flex items-center gap-1.5 flex-shrink-0">
-          <button type="button" onClick={() => { setHistoryOpen(true); refreshHistory(); }}
-            className="btn-secondary !px-3 min-h-[40px] text-sm">{t('Chats')}</button>
-          <button type="button" onClick={newChat} disabled={busy}
-            className="btn-secondary !px-3 min-h-[40px] text-sm disabled:opacity-50">{t('New')}</button>
-        </div>
-      </div>
+    <div className="flex h-full min-h-0 flex-col" data-busy={busy ? 'true' : 'false'}>
+      <Header status={status} live={live} canReset={!empty} busy={busy} classicHref={classicHref} standalone={standalone}
+        onHome={goHome} onHistory={() => { setHistoryOpen(true); refreshHistory(); }}
+        onStatus={(next) => { setStatus(next); rememberHome(userKey, !!(next.enabled && next.home)); }} />
+      <HistoryPanel open={historyOpen} conversations={history} activeId={conversationId} retentionDays={status?.retention_days}
+        onClose={() => setHistoryOpen(false)} onOpen={(id) => void openConversation(id)} onNew={goHome}
+        onDelete={async (id) => {
+          try {
+            await assistantApi.remove(id);
+            setHistory((prev) => prev.filter((h) => h.id !== id));
+            if (conversationId === id) goHome();
+          } catch (e) {
+            notice((e as Error).message);
+          }
+        }} />
 
-      {disabledReason && (
-        <div className="rounded-xl border border-warning/40 bg-warning/10 px-3 py-2 mb-3 text-sm text-foreground">
-          {disabledReason}
-        </div>
-      )}
-
-      {/* Conversation */}
-      <div className="flex-1 pb-4">
+      <div ref={scroller} className="min-h-0 flex-1 overflow-y-auto overscroll-contain" tabIndex={-1}>
+        {off ? (
+          <div className="mx-auto mt-4 w-full max-w-[1180px] px-4 sm:px-6">
+            <p role="status" className="flex items-center gap-2.5 rounded-[14px] border border-warn/40 bg-warn/10 px-3.5 py-3 text-[14px] text-ink-1"><Led tone="warn" />{off}</p>
+          </div>
+        ) : null}
         {empty ? (
-          <div className="pt-6 sm:pt-12">
-            <p className="text-2xl font-bold text-foreground">{t('What do you need?')}</p>
-            <p className="mt-1 text-sm text-foreground-muted">
-              {t('Everything you can do on the dashboard, you can do here: setup, customers, plans, vouchers, routers, payments and messages. Send a photo of an error and it will help you fix it.')}
-            </p>
-            <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-2">
-              {suggestions.map((s, i) => (
-                <button key={s} type="button" disabled={busy || !!disabledReason} onClick={() => send(s)}
-                  className={`text-left rounded-xl border px-3 py-2.5 text-sm min-h-[48px] transition-colors disabled:opacity-50 ${i === 0 && role !== 'admin' ? 'border-accent-primary/50 bg-accent-primary/10 text-foreground font-medium' : 'border-border bg-background-secondary text-foreground hover:border-accent-primary/40'}`}>
-                  {s}
-                </button>
-              ))}
-            </div>
-          </div>
-        ) : (
-          <Transcript items={items} records={records} busy={busy} readOnly={status?.read_only}
-            onDecide={(id, approve) => decide([{ action_id: id, approve }])} />
-        )}
-        {busy && liveText.current === null && (
-          <div className="flex items-center gap-2 pl-9 mt-3 text-xs text-foreground-muted">
-            <span className="flex gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-accent-primary animate-bounce" />
-              <span className="w-1.5 h-1.5 rounded-full bg-accent-primary animate-bounce [animation-delay:120ms]" />
-              <span className="w-1.5 h-1.5 rounded-full bg-accent-primary animate-bounce [animation-delay:240ms]" />
-            </span>
-            {t('Working…')}
-          </div>
-        )}
-        <div ref={bottomRef} />
-      </div>
-
-      {/* Composer */}
-      <div className="sticky bottom-[calc(4.75rem+env(safe-area-inset-bottom,0px))] md:bottom-0 z-10 bg-background pt-2 pb-1 md:pb-4 shadow-[0_-12px_16px_-8px_var(--background)]">
-        {pending.length > 1 && !status?.read_only && (
-          <div className="mb-2 flex items-center justify-between gap-2 rounded-xl border border-accent-primary/40 bg-background-secondary px-3 py-2 shadow-sm">
-            <span className="text-xs text-foreground">{t('{n} changes are waiting for you.', { n: pending.length })}</span>
-            <div className="flex gap-1.5">
-              <button type="button" disabled={busy} onClick={() => decide(pending.map((p) => ({ action_id: p.action_id, approve: true })))}
-                className="btn-primary !px-3 !py-1.5 text-xs min-h-[36px] disabled:opacity-50">{t('Confirm all')}</button>
-              <button type="button" disabled={busy} onClick={() => decide(pending.map((p) => ({ action_id: p.action_id, approve: false })))}
-                className="btn-secondary !px-3 !py-1.5 text-xs min-h-[36px] disabled:opacity-50">{t('Cancel all')}</button>
-            </div>
-          </div>
-        )}
-        {error && <p className="mb-1.5 text-xs text-danger">{error}</p>}
-        <form
-          onSubmit={(e) => { e.preventDefault(); send(draft, photos); }}
-          className="rounded-2xl border border-border bg-background-secondary shadow-lg focus-within:border-accent-primary/50"
-        >
-          {photos.length > 0 && (
-            <div className="flex gap-2 px-3 pt-3 flex-wrap">
-              {photos.map((p, i) => (
-                <div key={i} className="relative">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={p.thumbnail} alt={t('Photo')} className="h-16 w-16 object-cover rounded-lg border border-border" />
-                  <button type="button" aria-label={t('Remove photo')} onClick={() => setPhotos((prev) => prev.filter((_, j) => j !== i))}
-                    className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-foreground text-background text-xs leading-6 text-center">×</button>
+          <>
+            {intro && live && !standalone ? (
+              <div className="mx-auto mt-4 w-full max-w-[1180px] px-4 sm:px-6">
+                <div className="flex items-start gap-3 rounded-[14px] border border-accent/30 bg-accent-soft px-3.5 py-3 text-[13.5px] leading-snug text-ink-1">
+                  <p className="min-w-0 flex-1">
+                    <b>{t('This is the new Bitwave.')}</b>{' '}
+                    {t('Ask for anything in plain words, or tap a figure. Everything the dashboard does, you can do here.')}{' '}
+                    <Link href={classicHref} className="font-bold text-accent underline underline-offset-2" onClick={dismissIntro}>{t('The classic dashboard is one tap away.')}</Link>
+                  </p>
+                  <button type="button" className="ai-btn ai-btn-quiet -mr-1.5 -mt-1 shrink-0" onClick={dismissIntro} aria-label={t('Got it')}><CloseIcon /></button>
                 </div>
-              ))}
-            </div>
-          )}
-          <div className="flex items-end gap-1.5 p-2">
-            <input ref={fileRef} type="file" accept="image/*" multiple className="hidden"
-              onChange={(e) => attach(e.target.files)} />
-            <button type="button" onClick={() => fileRef.current?.click()} disabled={busy || preparing || photos.length >= MAX_PHOTOS || !!disabledReason}
-              aria-label={t('Add a photo')} title={t('Add a photo')}
-              className="flex-shrink-0 w-11 h-11 rounded-xl flex items-center justify-center text-foreground-muted hover:text-foreground hover:bg-background-tertiary disabled:opacity-40">
-              {preparing ? (
-                <span className="w-4 h-4 rounded-full border-2 border-accent-primary border-t-transparent animate-spin" />
-              ) : (
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.6} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.6} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-              )}
-            </button>
-            <textarea
-              ref={inputRef}
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              onKeyDown={onKeyDown}
-              rows={1}
-              maxLength={6000}
-              disabled={!!disabledReason}
-              placeholder={t('Ask or tell the assistant…')}
-              className="flex-1 resize-none bg-transparent text-foreground placeholder:text-foreground-muted text-base sm:text-sm py-2.5 px-1 outline-none max-h-[200px]"
-            />
-            <button type="submit" disabled={busy || (!draft.trim() && photos.length === 0) || !!disabledReason}
-              aria-label={t('Send')}
-              className="flex-shrink-0 w-11 h-11 rounded-xl bg-accent-primary text-[#1c1917] flex items-center justify-center disabled:opacity-40">
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 12h14M13 6l6 6-6 6" /></svg>
-            </button>
+              </div>
+            ) : null}
+            <Home userKey={userKey} name={staff ? (user?.staff?.name ?? '').split(/\s+/)[0] || null : null}
+              organization={user?.organization_name || user?.business_name || null}
+              admin={!!admin && !readOnly} readOnly={readOnly} enabled={!!live} onAsk={(q) => void send(q)} />
+          </>
+        ) : (
+          <div className="mx-auto flex w-full max-w-[880px] flex-col px-4 sm:px-6">
+            {opening ? <p className="mt-6 text-[13.5px] text-ink-3">{t('Opening the chat…')}</p> : null}
+            <Transcript items={items} records={records} busy={busy} readOnly={readOnly} liveIndex={liveIndex} currency={currency}
+              onDecide={(id, approve, values) => decide([{ action_id: id, approve, ...(values ? { values } : {}) }])} onAsk={live && !busy ? (q) => void send(q) : undefined}
+              lastRef={lastExchange} lastMinHeight={viewH} />
           </div>
-        </form>
-        <p className="mt-1.5 text-[11px] text-foreground-muted text-center">
-          {t('It can make mistakes. Check each change before you tap Confirm.')}
-        </p>
+        )}
       </div>
 
-      {/* Chat history */}
-      {historyOpen && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40" onClick={() => setHistoryOpen(false)}>
-          <div className="w-full sm:max-w-md max-h-[80dvh] overflow-hidden rounded-t-2xl sm:rounded-2xl bg-background-secondary border border-border flex flex-col"
-            onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between px-4 py-3 border-b border-border">
-              <p className="font-semibold text-foreground">{t('Your chats')}</p>
-              <button type="button" className="btn-ghost min-h-[40px]" onClick={() => setHistoryOpen(false)}>{t('Close')}</button>
+      <Composer busy={busy} disabled={off} onSend={(text, photos) => void send(text, photos)}
+        placeholder={readOnly ? t('Ask about this account…') : t('Ask, or tell me what to do…')}
+        note={pending.length > 1 && !readOnly ? (
+          <div className="ai-card mb-2 flex flex-wrap items-center justify-between gap-2 !rounded-[16px] !border-accent/40 px-3.5 py-2">
+            <span className="text-[13px] text-ink-1">{t('{n} changes are waiting for you.', { n: pending.length })}</span>
+            <div className="flex gap-1.5">
+              <button type="button" disabled={busy} onClick={() => decide(pending.map((p) => ({ action_id: p.action_id, approve: true })))} className="ai-btn ai-btn-primary">{t('Confirm all')}</button>
+              <button type="button" disabled={busy} onClick={() => decide(pending.map((p) => ({ action_id: p.action_id, approve: false })))} className="ai-btn ai-btn-ghost">{t('Cancel all')}</button>
             </div>
-            <ul className="overflow-y-auto divide-y divide-border pb-[env(safe-area-inset-bottom)]">
-              {history.length === 0 && <li className="px-4 py-6 text-sm text-foreground-muted">{t('No chats yet.')}</li>}
-              {history.map((c) => (
-                <li key={c.id} className="flex items-center gap-2 px-2">
-                  <button type="button" className="flex-1 text-left px-2 py-3 min-w-0"
-                    onClick={async () => {
-                      setHistoryOpen(false);
-                      try {
-                        await loadConversation(c.id);
-                        window.history.replaceState(null, '', `${pathname}?c=${c.id}`);
-                      } catch {
-                        setError(t('That chat could not be opened.'));
-                      }
-                    }}>
-                    <p className="text-sm text-foreground truncate">{c.title}</p>
-                    <p className="text-[11px] text-foreground-muted">{new Date(`${c.updated_at}`.endsWith('Z') ? c.updated_at : `${c.updated_at}Z`).toLocaleString()}</p>
-                  </button>
-                  <button type="button"
-                    className={`text-xs px-2 py-2 rounded-lg min-h-[40px] ${armedDelete === c.id ? 'text-white bg-danger' : 'text-foreground-muted hover:text-danger'}`}
-                    onClick={async () => {
-                      if (armedDelete !== c.id) { setArmedDelete(c.id); return; }
-                      setArmedDelete(null);
-                      try {
-                        await assistantApi.remove(c.id);
-                        setHistory((prev) => prev.filter((h) => h.id !== c.id));
-                        if (conversationId === c.id) newChat();
-                      } catch (e) {
-                        setError((e as Error).message);
-                      }
-                    }}>
-                    {armedDelete === c.id ? t('Delete?') : t('Delete')}
-                  </button>
-                </li>
-              ))}
-            </ul>
           </div>
-        </div>
-      )}
+        ) : null} />
     </div>
   );
 }

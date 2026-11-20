@@ -1,0 +1,726 @@
+/* ============================================================
+   BITWAVE AI (/assistant): "instrument" design system
+   The chat-first home reads like a network console: near-black
+   graphite, hairline borders with a lit top edge, readouts in a
+   monospaced face, one amber accent for the brand, and signal
+   colours (live mint, download cyan, upload violet) that carry
+   meaning only. Written against roles so both themes change in
+   one place. Imported by globals.css so Tailwind sees @theme.
+
+   Chart series are a validated order (lightness band, chroma,
+   colour-blind separation between neighbours, 3:1 on the dark
+   surface). On white some sit under 3:1, so every chart carries
+   direct labels and a table view.
+   ============================================================ */
+:root {
+  --ai-bg: #f6f6f4;
+  --ai-s1: #ffffff;
+  --ai-s2: #f2f2ef;
+  --ai-s3: #e6e5e1;
+  --ai-ink1: #17171a;
+  --ai-ink2: #45454c;
+  --ai-ink3: #74747c;
+  --ai-line: rgba(23, 23, 26, 0.08);
+  --ai-line2: rgba(23, 23, 26, 0.16);
+  --ai-edge: rgba(255, 255, 255, 0.9); /* the lit top edge of a panel */
+  --ai-accent: #b45309;
+  --ai-accent-fill: #f59e0b;
+  --ai-accent-fill-hover: #e08e06;
+  --ai-accent-ink: #17171a;
+  --ai-accent-soft: rgba(245, 158, 11, 0.12);
+  --ai-glow: rgba(245, 158, 11, 0.12);
+  --ai-dots: rgba(23, 23, 26, 0.07);
+  --ai-shadow: 0 1px 2px rgba(23, 23, 26, 0.04), 0 14px 32px -22px rgba(23, 23, 26, 0.32);
+  --ai-panel-grad: linear-gradient(180deg, rgba(255, 255, 255, 1), rgba(250, 250, 248, 1));
+  --ai-series-1: #d18a00;
+  --ai-series-2: #1baf7a;
+  --ai-series-3: #2a78d6;
+  --ai-series-4: #e87ba4;
+  --ai-series-5: #008300;
+  --ai-series-6: #6250d6;
+  --ai-series-7: #e34948;
+  --ai-series-other: #8a8a92;
+  --ai-series-quiet: rgba(209, 138, 0, 0.3);
+  --ai-good: #16a34a;
+  --ai-live: #10b981;
+  --ai-info: #0284c7;
+  --ai-warn: #d97706;
+  --ai-bad: #dc2626;
+  --ai-muted: #9a9aa2;
+  --ai-down: #0891b2; /* download traffic */
+  --ai-up: #7c3aed; /* upload traffic */
+  --ai-text-good: #15803d;
+  --ai-text-warn: #92400e;
+  --ai-text-bad: #b91c1c;
+  --ai-grid: rgba(23, 23, 26, 0.07);
+  --ai-axis: rgba(23, 23, 26, 0.2);
+  --ai-track: rgba(23, 23, 26, 0.08);
+}
+
+.dark {
+  --ai-bg: #08090b;
+  --ai-s1: #0f1013;
+  --ai-s2: #16171b;
+  --ai-s3: #23252b;
+  --ai-ink1: #f4f4f5;
+  --ai-ink2: #c2c2c8;
+  --ai-ink3: #8b8b94;
+  --ai-line: rgba(255, 255, 255, 0.07);
+  --ai-line2: rgba(255, 255, 255, 0.14);
+  --ai-edge: rgba(255, 255, 255, 0.07);
+  --ai-accent: #fbbf24;
+  --ai-accent-fill: #f59e0b;
+  --ai-accent-fill-hover: #fbbf24;
+  --ai-accent-ink: #17171a;
+  --ai-accent-soft: rgba(245, 158, 11, 0.11);
+  --ai-glow: rgba(245, 158, 11, 0.08);
+  --ai-dots: rgba(255, 255, 255, 0.045);
+  --ai-shadow: 0 1px 0 rgba(255, 255, 255, 0.02) inset, 0 18px 40px -24px rgba(0, 0, 0, 0.9);
+  --ai-panel-grad: linear-gradient(180deg, rgba(255, 255, 255, 0.028), rgba(255, 255, 255, 0.008) 40%, rgba(255, 255, 255, 0));
+  --ai-series-1: #c98500;
+  --ai-series-2: #199e70;
+  --ai-series-3: #3987e5;
+  --ai-series-4: #d55181;
+  --ai-series-5: #0ca30c;
+  --ai-series-6: #9085e9;
+  --ai-series-7: #e66767;
+  --ai-series-other: #63636d;
+  --ai-series-quiet: rgba(201, 133, 0, 0.34);
+  --ai-good: #22c55e;
+  --ai-live: #34d399;
+  --ai-info: #38bdf8;
+  --ai-warn: #fab219;
+  --ai-bad: #f0474d;
+  --ai-muted: #5d5d66;
+  --ai-down: #22d3ee;
+  --ai-up: #a78bfa;
+  --ai-text-good: #86efac;
+  --ai-text-warn: #ffd98a;
+  --ai-text-bad: #ff8a8a;
+  --ai-grid: rgba(255, 255, 255, 0.06);
+  --ai-axis: rgba(255, 255, 255, 0.18);
+  --ai-track: rgba(255, 255, 255, 0.07);
+}
+
+@theme inline {
+  --color-surface-1: var(--ai-s1);
+  --color-surface-2: var(--ai-s2);
+  --color-surface-3: var(--ai-s3);
+  --color-ink-1: var(--ai-ink1);
+  --color-ink-2: var(--ai-ink2);
+  --color-ink-3: var(--ai-ink3);
+  --color-line: var(--ai-line);
+  --color-line-strong: var(--ai-line2);
+  --color-accent: var(--ai-accent);
+  --color-accent-fill: var(--ai-accent-fill);
+  --color-accent-soft: var(--ai-accent-soft);
+  --color-accent-ink: var(--ai-accent-ink);
+  --color-good: var(--ai-good);
+  --color-live: var(--ai-live);
+  --color-warn: var(--ai-warn);
+  --color-bad: var(--ai-bad);
+  --color-sig-down: var(--ai-down);
+  --color-sig-up: var(--ai-up);
+}
+
+/*
+ * Component styles sit in Tailwind's components layer, so a utility on the same
+ * element (px-3, text-accent, h-9) still wins without !important.
+ */
+@layer components {
+  /* The page plane: an amber glow behind the top and a faint dot grid that fades
+     out downwards, the texture of a console without the noise of one. */
+  .ai-root {
+    background-color: var(--ai-bg);
+    /* top to bottom: the glow, a fade that hides the dots further down, the dots */
+    background-image:
+      radial-gradient(900px 420px at 50% -160px, var(--ai-glow), transparent 70%),
+      linear-gradient(180deg, transparent 0, transparent 220px, var(--ai-bg) 640px),
+      radial-gradient(circle at 1px 1px, var(--ai-dots) 1px, transparent 0);
+    background-size: auto, auto, 22px 22px;
+    color: var(--ai-ink1);
+    font-size: 15px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    /* the dashboard sidebar offset does not apply on this screen */
+    --app-sidebar-w: 0px;
+  }
+  .ai-root ::selection {
+    background: var(--ai-accent-soft);
+  }
+  .ai-root :focus-visible {
+    outline: 2px solid var(--ai-accent);
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
+  .ai-root * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--ai-s3) transparent;
+  }
+
+  /* type: Geist for words, Geist Mono for readouts and the small labels over them */
+  .ai-fonts {
+    font-family: var(--font-ai-sans), system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  .ai-display {
+    letter-spacing: -0.025em;
+  }
+  .ai-num {
+    font-variant-numeric: tabular-nums;
+  }
+  .ai-mono {
+    font-family: var(--font-ai-mono), ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em;
+  }
+  /* an instrument label: small, spaced capitals in the mono face */
+  .ai-eyebrow {
+    font-family: var(--font-ai-mono), ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ai-ink3);
+    line-height: 1.2;
+  }
+
+  /* A panel: a hairline border, a faint light falling from the top, and a lit top
+     edge, so dark surfaces have depth without heavy shadows. */
+  .ai-card {
+    background: var(--ai-panel-grad), var(--ai-s1);
+    border: 1px solid var(--ai-line);
+    border-radius: 18px;
+    box-shadow: inset 0 1px 0 var(--ai-edge), var(--ai-shadow);
+  }
+  /* an inner well: lists and tables sit in one */
+  .ai-well {
+    background: color-mix(in srgb, var(--ai-bg) 55%, var(--ai-s1));
+    border: 1px solid var(--ai-line);
+    border-radius: 12px;
+  }
+
+  .ai-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    border-radius: 999px;
+    font-weight: 600;
+    font-size: 0.86rem;
+    line-height: 1;
+    padding: 0.6rem 1rem;
+    white-space: nowrap;
+    cursor: pointer;
+    transition:
+      background-color 140ms ease,
+      border-color 140ms ease,
+      color 140ms ease,
+      opacity 140ms ease,
+      transform 140ms ease;
+  }
+  .ai-btn:active:not(:disabled) {
+    transform: scale(0.98);
+  }
+  .ai-btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+  .ai-btn-primary {
+    background: var(--ai-accent-fill);
+    color: var(--ai-accent-ink);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), 0 6px 18px -8px color-mix(in srgb, var(--ai-accent-fill) 70%, transparent);
+  }
+  @media (hover: hover) {
+    .ai-btn-primary:hover:not(:disabled) {
+      background: var(--ai-accent-fill-hover);
+    }
+  }
+  .ai-btn-danger {
+    background: var(--ai-bad);
+    color: #fff;
+  }
+  @media (hover: hover) {
+    .ai-btn-danger:hover:not(:disabled) {
+      opacity: 0.9;
+    }
+  }
+  .ai-btn-ghost {
+    background: transparent;
+    color: var(--ai-ink2);
+    border: 1px solid var(--ai-line2);
+  }
+  @media (hover: hover) {
+    .ai-btn-ghost:hover:not(:disabled) {
+      background: var(--ai-s2);
+      color: var(--ai-ink1);
+    }
+  }
+  .ai-btn-quiet {
+    background: transparent;
+    color: var(--ai-ink3);
+    padding: 0.4rem 0.6rem;
+    font-weight: 500;
+    border-radius: 10px;
+  }
+  @media (hover: hover) {
+    .ai-btn-quiet:hover:not(:disabled) {
+      background: var(--ai-s2);
+      color: var(--ai-ink1);
+    }
+  }
+  .ai-btn-quiet[aria-pressed="true"] {
+    background: var(--ai-s3);
+    color: var(--ai-ink1);
+  }
+
+  .ai-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    max-width: 100%;
+    border: 1px solid var(--ai-line2);
+    border-radius: 999px;
+    padding: 0.42rem 0.85rem;
+    font-size: 0.86rem;
+    color: var(--ai-ink2);
+    background: color-mix(in srgb, var(--ai-s1) 80%, transparent);
+    cursor: pointer;
+    text-align: left;
+    transition:
+      background-color 140ms ease,
+      border-color 140ms ease,
+      color 140ms ease;
+  }
+  @media (hover: hover) {
+    .ai-chip:hover:not(:disabled) {
+      background: var(--ai-accent-soft);
+      border-color: color-mix(in srgb, var(--ai-accent) 60%, transparent);
+      color: var(--ai-ink1);
+    }
+  }
+  .ai-chip:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  /* a status capsule: a coloured dot and a word */
+  .ai-pill {
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
+    gap: 0.35rem;
+    border-radius: 999px;
+    padding: 0.18rem 0.55rem;
+    font-size: 11.5px;
+    font-weight: 600;
+    line-height: 1.35;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
+  /* answer prose */
+  .ai-prose {
+    color: var(--ai-ink1);
+    font-size: 1rem;
+    line-height: 1.65;
+    overflow-wrap: anywhere;
+  }
+  .ai-prose > * + * {
+    margin-top: 0.7em;
+  }
+  .ai-prose strong {
+    font-weight: 650;
+    color: var(--ai-ink1);
+  }
+  .ai-prose ul {
+    list-style: disc;
+    padding-left: 1.2em;
+  }
+  .ai-prose ol {
+    list-style: decimal;
+    padding-left: 1.2em;
+  }
+  .ai-prose li {
+    margin: 0.25em 0;
+  }
+  .ai-prose li::marker {
+    color: var(--ai-accent);
+  }
+  .ai-prose a {
+    color: var(--ai-accent);
+    text-decoration: underline;
+    text-decoration-color: color-mix(in srgb, var(--ai-accent) 45%, transparent);
+    text-underline-offset: 3px;
+  }
+  .ai-prose code {
+    font-family: var(--font-ai-mono), ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    background: var(--ai-s2);
+    border: 1px solid var(--ai-line);
+    border-radius: 6px;
+    padding: 0.05em 0.35em;
+    font-size: 0.86em;
+    word-break: break-all;
+  }
+
+  /* a blinking caret while the answer streams */
+  .ai-caret > :last-child::after {
+    content: "";
+    display: inline-block;
+    width: 7px;
+    height: 1.05em;
+    margin-left: 2px;
+    vertical-align: -0.18em;
+    background: var(--ai-accent-fill);
+    border-radius: 2px;
+    animation: ai-blink 1s steps(2, start) infinite;
+  }
+  @keyframes ai-blink {
+    to {
+      visibility: hidden;
+    }
+  }
+
+  /* "backwards", not "both": a finished animation that keeps filling would trap
+     anything fixed inside the box. */
+  .ai-rise {
+    animation: ai-rise 380ms cubic-bezier(0.16, 1, 0.3, 1) backwards;
+  }
+  @keyframes ai-rise {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+  }
+
+  .ai-spin {
+    animation: ai-spin 0.9s linear infinite;
+  }
+  @keyframes ai-spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  /* live: a dot that sends out a soft ring, like a link light */
+  .ai-live {
+    position: relative;
+    display: inline-block;
+    flex-shrink: 0;
+    border-radius: 999px;
+  }
+  .ai-live::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: inherit;
+    animation: ai-ping 2.2s cubic-bezier(0, 0, 0.2, 1) infinite;
+  }
+  @keyframes ai-ping {
+    0% {
+      transform: scale(1);
+      opacity: 0.55;
+    }
+    80%,
+    100% {
+      transform: scale(3);
+      opacity: 0;
+    }
+  }
+
+  /* working: four signal bars rising in turn (it is a network, after all) */
+  .ai-signal {
+    display: inline-flex;
+    align-items: flex-end;
+    gap: 2px;
+    height: 12px;
+  }
+  .ai-signal > i {
+    display: block;
+    width: 3px;
+    border-radius: 1px;
+    background: var(--ai-accent-fill);
+    animation: ai-signal 1.1s ease-in-out infinite;
+  }
+  .ai-signal > i:nth-child(1) {
+    height: 4px;
+  }
+  .ai-signal > i:nth-child(2) {
+    height: 7px;
+    animation-delay: 0.12s;
+  }
+  .ai-signal > i:nth-child(3) {
+    height: 10px;
+    animation-delay: 0.24s;
+  }
+  .ai-signal > i:nth-child(4) {
+    height: 12px;
+    animation-delay: 0.36s;
+  }
+  @keyframes ai-signal {
+    0%,
+    100% {
+      opacity: 0.25;
+    }
+    40% {
+      opacity: 1;
+    }
+  }
+
+  /* loading: a light sweeping across a placeholder */
+  .ai-shimmer {
+    position: relative;
+    overflow: hidden;
+    background: var(--ai-s2);
+  }
+  .ai-shimmer::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--ai-ink1) 6%, transparent), transparent);
+    animation: ai-sweep 1.6s ease-in-out infinite;
+  }
+  @keyframes ai-sweep {
+    to {
+      transform: translateX(100%);
+    }
+  }
+
+  /* a dial: ticks light one after another, the needle swings out and settles past
+     its mark and back (the overshoot in the curve), the arc follows */
+  .ai-tick {
+    transition: stroke 260ms ease;
+  }
+  .ai-needle {
+    transition: transform 1300ms cubic-bezier(0.34, 1.45, 0.5, 1);
+  }
+  .ai-cell {
+    transition: opacity 240ms ease;
+  }
+  /* the reading pulses once as the needle lands after a warm-up sweep */
+  .ai-pop {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: ai-pop 520ms cubic-bezier(0.34, 1.56, 0.64, 1) 650ms 1 backwards;
+  }
+  @keyframes ai-pop {
+    0% {
+      transform: scale(1);
+    }
+    45% {
+      transform: scale(1.16);
+      fill: var(--ai-accent);
+    }
+    100% {
+      transform: scale(1);
+    }
+  }
+  /* the Bitwave logo while the assistant works: it breathes with a soft blue glow */
+  .bm-live {
+    animation: bm-breathe 1.6s ease-in-out infinite;
+  }
+  @keyframes bm-breathe {
+    0%,
+    100% {
+      filter: drop-shadow(0 0 0 rgba(59, 125, 224, 0));
+      transform: scale(1);
+    }
+    50% {
+      filter: drop-shadow(0 0 7px rgba(59, 125, 224, 0.75));
+      transform: scale(1.06);
+    }
+  }
+
+  /* a reading in the red: one short shake after the needle settles */
+  .ai-quiver {
+    animation: ai-quiver 900ms ease-in-out 1350ms 1;
+  }
+  @keyframes ai-quiver {
+    20% {
+      transform: rotate(-3deg);
+    }
+    40% {
+      transform: rotate(2.5deg);
+    }
+    60% {
+      transform: rotate(-1.6deg);
+    }
+    80% {
+      transform: rotate(0.8deg);
+    }
+  }
+  .ai-blink-soft {
+    animation: ai-blink-soft 1.8s ease-in-out infinite;
+  }
+  /* a trend line drawing itself in on first sight, its fill fading in behind it */
+  .ai-draw {
+    stroke-dasharray: 1;
+    animation: ai-draw 1100ms cubic-bezier(0.65, 0, 0.35, 1) backwards;
+  }
+  @keyframes ai-draw {
+    from {
+      stroke-dashoffset: 1;
+    }
+    to {
+      stroke-dashoffset: 0;
+    }
+  }
+  .ai-fade {
+    animation: ai-fade 900ms ease-out 350ms backwards;
+  }
+  .ai-draw-wait {
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+  }
+  .ai-dot-in {
+    animation: ai-fade 400ms ease-out 950ms backwards;
+  }
+  /* panels and device cards lift in as they come into view */
+  .ai-reveal {
+    opacity: 0;
+    transform: translateY(14px);
+    transition:
+      opacity 600ms ease,
+      transform 750ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .ai-reveal.is-in {
+    opacity: 1;
+    transform: none;
+  }
+  @keyframes ai-fade {
+    from {
+      opacity: 0;
+    }
+  }
+
+  /* a figure that just changed: a short amber glow, then back to its own colour */
+  .ai-flash {
+    animation: ai-flash 1.6s ease-out;
+  }
+  @keyframes ai-flash {
+    0%,
+    25% {
+      color: var(--ai-accent);
+      text-shadow: 0 0 14px var(--ai-glow), 0 0 2px var(--ai-accent-soft);
+    }
+  }
+  @keyframes ai-blink-soft {
+    50% {
+      opacity: 0.3;
+    }
+  }
+
+  /* a gauge or meter filling up the first time it is drawn */
+  .ai-fill {
+    transition: stroke-dasharray 900ms cubic-bezier(0.16, 1, 0.3, 1), width 900ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  /*
+   * Reduced motion: the calm version, not nothing. What lights, fills, counts or draws
+   * still does (a change of colour or opacity, not movement), so everyone sees the page
+   * arrive; what swings, slides, overshoots, shakes or flashes is left out.
+   */
+  @media (prefers-reduced-motion: reduce) {
+    .ai-spin,
+    .ai-live::after,
+    .ai-signal > i,
+    .ai-shimmer::after,
+    .ai-caret > :last-child::after,
+    .ai-blink-soft,
+    .ai-flash,
+    .ai-quiver,
+    .ai-pop,
+    .bm-live {
+      animation: none;
+    }
+    .ai-rise {
+      animation-name: ai-fade;
+    }
+    .ai-needle {
+      transition: transform 700ms ease-out;
+    }
+    .ai-reveal {
+      transform: none;
+      transition: opacity 500ms ease;
+    }
+  }
+
+  /* the question box draws its focus on the card around it, not on the text area */
+  .ai-root .ai-ask:focus-visible {
+    outline: none;
+  }
+  /* the question box: a soft amber ring when it has the cursor */
+  .ai-composer {
+    transition: border-color 160ms ease, box-shadow 160ms ease;
+  }
+  .ai-composer:focus-within {
+    border-color: color-mix(in srgb, var(--ai-accent) 55%, transparent);
+    box-shadow: inset 0 1px 0 var(--ai-edge), 0 0 0 4px var(--ai-accent-soft), 0 20px 44px -24px rgba(0, 0, 0, 0.6);
+  }
+}
+
+/*
+ * Touch gets the same feel as a mouse. A mouse sees hover (a row lights, an arrow
+ * slides); a finger never hovers, so on touch screens the same response plays on
+ * the press: the control dips a little and tints, the arrow slides, and the grey
+ * flash the browser draws on a tap is replaced by ours.
+ */
+.ai-root {
+  -webkit-tap-highlight-color: transparent;
+}
+@media (hover: none) {
+  .ai-root :is(button, a, summary):not(:disabled) {
+    transition:
+      transform 140ms cubic-bezier(0.2, 0.7, 0.2, 1),
+      background-color 140ms ease,
+      border-color 140ms ease,
+      color 140ms ease,
+      opacity 140ms ease;
+  }
+  .ai-root :is(button, a, summary):not(:disabled):active {
+    transform: scale(0.97);
+  }
+  /* wide things (a row, a card) dip less, or the dip reads as a jump */
+  .ai-root :is(.ai-tap, li > button, section > button, .ai-card button.w-full):not(:disabled):active {
+    transform: scale(0.99);
+  }
+  .ai-root .ai-chip:not(:disabled):active {
+    background: var(--ai-accent-soft);
+    border-color: color-mix(in srgb, var(--ai-accent) 60%, transparent);
+    color: var(--ai-ink1);
+  }
+  .ai-root .ai-btn-ghost:not(:disabled):active,
+  .ai-root .ai-btn-quiet:not(:disabled):active {
+    background: var(--ai-s2);
+    color: var(--ai-ink1);
+  }
+  .ai-root .ai-btn-primary:not(:disabled):active {
+    background: var(--ai-accent-fill-hover);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ai-root :is(button, a, summary):active {
+    transform: none !important;
+  }
+}
+
+/* Touch screens: every control at least 40 px, about a fingertip. A mouse keeps
+   the compact sizes. .ai-tap marks text-like controls (a sort header, "Show all"). */
+@media (pointer: coarse) {
+  .ai-btn-quiet,
+  .ai-tap-sq {
+    min-width: 40px;
+    min-height: 40px;
+  }
+  .ai-btn,
+  .ai-chip,
+  .ai-tap {
+    min-height: 40px;
+  }
+  /* a one-word link ("Plans") is still a fingertip wide */
+  .ai-tap {
+    min-width: 40px;
+  }
+}

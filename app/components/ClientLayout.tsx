@@ -12,6 +12,8 @@ import StaffNoAccess from './StaffNoAccess';
 import { canAccessPath, firstAccessiblePath, isStaffUser } from '../lib/permissions';
 import { SOLUTION_PATHS } from '../solutions/paths';
 import { isAdminAllowedPath } from '../lib/adminPaths';
+import { homePath, markStartPageDecided, rememberedHome, startPageDecided } from '../lib/assistant';
+import { isStandalone } from '../lib/standalone';
 
 const CollapsibleSidebar = dynamic(() => import('./CollapsibleSidebar'), { ssr: false });
 const MobileBottomNav = dynamic(() => import('./MobileBottomNav'), { ssr: false });
@@ -23,6 +25,7 @@ const StaffBanner = dynamic(() => import('./StaffBanner'), { ssr: false });
 const PUBLIC_PATHS = ['/', '/demo', '/login', '/landing', '/pricing', '/signup', '/forgot-password', '/reset-password', ...SOLUTION_PATHS];
 const PUBLIC_PREFIXES = ['/store', '/r', '/blog', '/promo'];
 const FULLSCREEN_AUTH_PATHS = ['/setup'];
+const AI_HOME_PATH = '/assistant';
 
 function matchesPathPrefix(pathname: string, prefix: string): boolean {
   return pathname === prefix || pathname.startsWith(`${prefix}/`);
@@ -86,7 +89,9 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   const router = useRouter();
   const { isAuthenticated, isLoading, isDemo, user } = useAuth();
 
-  const isPublicPage = PUBLIC_PATHS.includes(pathname) || PUBLIC_PREFIXES.some(p => matchesPathPrefix(pathname, p));
+  // the assistant's design preview (made-up figures; development and Vercel previews only) needs no sign-in
+  const isDevPreview = (process.env.NODE_ENV !== 'production' || process.env.NEXT_PUBLIC_VERCEL_ENV === 'preview') && pathname === `${AI_HOME_PATH}/preview`;
+  const isPublicPage = isDevPreview || PUBLIC_PATHS.includes(pathname) || PUBLIC_PREFIXES.some(p => matchesPathPrefix(pathname, p));
   const isDemoEntry = pathname === '/demo';
 
   const isAdmin = user?.role === 'admin';
@@ -100,8 +105,9 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     || (!isAdmin && isOnAdminPage)
   );
 
+  // Signing in from the assistant comes back to the assistant.
   const redirectTarget = !isAuthenticated
-    ? '/login'
+    ? (pathname === AI_HOME_PATH || isStandalone() ? `/login?next=${AI_HOME_PATH}` : '/login')
     : (isAdmin && isOnResellerPage && !isOnAdminAllowedPath)
       ? '/admin'
       : '/dashboard';
@@ -128,12 +134,50 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     }
   }, [staffRedirect, router]);
 
+  // The accounts that start on the AI home are taken there when a browser session
+  // opens on the dashboard (most people stay signed in and never see /login).
+  // Decided once per session: after that, the classic dashboard is one tap away.
+  const startUserKey = isAuthenticated && !isDemo && user ? `${user.id}:${user.staff?.id ?? 0}` : null;
+  const onStartPage = pathname === '/dashboard' || pathname === '/admin';
+  useEffect(() => {
+    if (isLoading || !startUserKey || !onStartPage || needsRedirect) return;
+    if (startPageDecided()) return;
+    markStartPageDecided();
+    if (rememberedHome(startUserKey)) {
+      router.replace(AI_HOME_PATH);
+      return;
+    }
+    let cancelled = false;
+    homePath('', startUserKey).then((path) => {
+      if (!cancelled && path) router.replace(path);
+    });
+    return () => { cancelled = true; };
+  }, [isLoading, startUserKey, onStartPage, needsRedirect, router]);
+
   if (isPublicPage && !isDemoEntry) {
     return <main className="min-h-screen">{children}</main>;
   }
 
   if (needsRedirect) {
     return null;
+  }
+
+  // The AI home fills the screen: no sidebar and no bottom bar, only the banners
+  // that say whose account this is. Its own header links back to the dashboard.
+  if (pathname === AI_HOME_PATH) {
+    return (
+      <div className="ai-root flex h-dvh flex-col overflow-hidden">
+        {!isLoading && isDemo && <DemoBanner />}
+        {!isLoading && !isDemo && isAuthenticated && <ViewAsBanner />}
+        {isStaff && <StaffBanner />}
+        <main className="min-h-0 flex-1">
+          <ErrorBoundary key={pathname}>
+            {staffRedirect ? null : staffBlocked ? <StaffNoAccess landing={staffLanding} /> : children}
+          </ErrorBoundary>
+        </main>
+        {!isLoading && !isDemo && <SubscriptionBlockedModal />}
+      </div>
+    );
   }
 
   const isFullscreenAuth = FULLSCREEN_AUTH_PATHS.includes(pathname);
