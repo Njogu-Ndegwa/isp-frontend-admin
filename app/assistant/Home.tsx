@@ -15,7 +15,7 @@ import { RankedBars } from './charts/RankedBars';
 import { SegmentsBar } from './charts/SegmentsBar';
 import { toneColor } from './charts/shared';
 import { ArrowRightIcon, CameraIcon, CheckIcon, CopyIcon } from './icons';
-import { AreaSpark, CountUp, Led, Meter, Panel, Pill, Readout } from './ui';
+import { AreaSpark, Cells, CountUp, Led, Meter, Panel, Pill, Readout } from './ui';
 
 /*
  * The home screen, drawn like a network console: a sentence that says how things
@@ -65,7 +65,7 @@ const Rows = ({ children }: { children: React.ReactNode }) => (
 
 const Big = ({ value, format, label }: { value: number; format: (v: number) => string; label?: React.ReactNode }) => (
   <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
-    <CountUp value={value} format={format} className="ai-mono text-[30px] font-medium leading-none tracking-tight text-ink-1" />
+    <span className="ai-mono text-[30px] font-medium leading-none tracking-tight text-ink-1">{format(value)}</span>
     {label ? <span className="text-[13px] text-ink-3">{label}</span> : null}
   </div>
 );
@@ -214,7 +214,7 @@ function Vitals({ ctx }: { ctx: Ctx }) {
     key: 'customers', label: t('Paying customers'), value: b.customers.active, format: n, ask: 'List my active customers',
     picture: (
       <div>
-        <div className="flex h-[30px] items-end pb-1"><Meter value={b.customers.active} max={Math.max(1, b.customers.total)} color="var(--ai-series-2)" height={6} label={`${b.customers.active} of ${b.customers.total}`} /></div>
+        <div className="flex h-[30px] items-end"><Cells value={b.customers.active} max={Math.max(1, b.customers.total)} count={24} color="var(--ai-series-2)" height={22} label={`${b.customers.active} of ${b.customers.total}`} /></div>
         <p className="mt-1.5 truncate text-[12px] text-ink-3">{t('of {n} on your books', { n: n(b.customers.total) })}</p>
       </div>
     ),
@@ -246,7 +246,7 @@ function Vitals({ ctx }: { ctx: Ctx }) {
               ${cells.length === 3 && i === 2 ? 'col-span-2 lg:col-span-1' : ''}`}>
             {c.accent ? <span aria-hidden className="pointer-events-none absolute inset-0" style={{ background: 'radial-gradient(120% 120% at 0% 0%, var(--ai-accent-soft), transparent 60%)' }} /> : null}
             <span className="relative flex items-center gap-2">
-              {c.live ? <Led tone="live" pulse size={6} /> : null}
+              {c.live ? <Led tone="live" size={6} /> : null}
               <span className="ai-eyebrow">{c.label}</span>
             </span>
             <CountUp value={c.value} format={c.format}
@@ -743,7 +743,7 @@ export default function Home({ userKey, name, organization, admin, readOnly, ena
           </span>
           {loaded && (b || platform) ? (
             <span className="ai-mono inline-flex items-center gap-1.5 rounded-full border border-line bg-surface-1/60 px-2 py-0.5 text-[11px] text-ink-2">
-              <Led tone="live" pulse size={5} />
+              <Led tone="live" size={5} />
               {fixed ? t('Preview') : t('Live')} · {clockFmt.format(b ? asUtc(b.as_of) : new Date())}
             </span>
           ) : null}
@@ -775,18 +775,18 @@ export default function Home({ userKey, name, organization, admin, readOnly, ena
       {admin && platform ? <div className="ai-rise"><AdminCards d={platform} onAsk={onAsk} /></div> : null}
 
       {ctx && b ? (
-        <div className="ai-rise flex flex-col gap-3 sm:gap-4">
-          {settingUp && setup ? <SetupCard setup={setup} onAsk={onAsk} /> : null}
+        <div className="flex flex-col gap-3 sm:gap-4">
+          {settingUp && setup ? <div className="ai-rise"><SetupCard setup={setup} onAsk={onAsk} /></div> : null}
           {!fresh ? (
             <>
-              <Vitals ctx={ctx} />
-              <div className="grid gap-3 sm:gap-4 lg:grid-cols-12">
+              <div className="ai-rise"><Vitals ctx={ctx} /></div>
+              <div className="ai-rise grid gap-3 sm:gap-4 lg:grid-cols-12" style={{ animationDelay: '70ms' }}>
                 {b.money ? <div className="min-w-0 lg:col-span-7"><RevenuePanel ctx={ctx} /></div> : null}
                 <div className={`min-w-0 ${b.money ? 'lg:col-span-5' : 'lg:col-span-12'}`}><AttentionPanel ctx={ctx} /></div>
               </div>
-              {hasNetwork ? <div className="mt-4"><NetworkSection ctx={ctx} /></div> : null}
+              {hasNetwork ? <div className="ai-rise mt-4" style={{ animationDelay: '140ms' }}><NetworkSection ctx={ctx} /></div> : null}
               {lower.length ? (
-                <div className={`mt-2 grid gap-3 sm:gap-4 ${lowerCols}`}>
+                <div className={`ai-rise mt-2 grid gap-3 sm:gap-4 ${lowerCols}`} style={{ animationDelay: '210ms' }}>
                   {lower.map((card, i) => (
                     // an odd card out takes the rest of the row instead of sitting beside a gap
                     <div key={i} className={`grid min-w-0 ${lower.length === 3 && i === 2 ? 'md:col-span-2 xl:col-span-1' : ''}`}>{card}</div>

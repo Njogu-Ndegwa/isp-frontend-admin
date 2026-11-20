@@ -478,6 +478,59 @@
     }
   }
 
+  /* a dial: ticks light one after another, the needle swings out and settles past
+     its mark and back (the overshoot in the curve), the arc follows */
+  .ai-tick {
+    transition: stroke 260ms ease;
+  }
+  .ai-needle {
+    transition: transform 1300ms cubic-bezier(0.34, 1.45, 0.5, 1);
+  }
+  .ai-cell {
+    transition: opacity 240ms ease;
+  }
+  .ai-blink-soft {
+    animation: ai-blink-soft 1.8s ease-in-out infinite;
+  }
+  /* a trend line drawing itself in on first sight, its fill fading in behind it */
+  .ai-draw {
+    stroke-dasharray: 1;
+    animation: ai-draw 1100ms cubic-bezier(0.65, 0, 0.35, 1) backwards;
+  }
+  @keyframes ai-draw {
+    from {
+      stroke-dashoffset: 1;
+    }
+    to {
+      stroke-dashoffset: 0;
+    }
+  }
+  .ai-fade {
+    animation: ai-fade 900ms ease-out 350ms backwards;
+  }
+  @keyframes ai-fade {
+    from {
+      opacity: 0;
+    }
+  }
+
+  /* a figure that just changed: a short amber glow, then back to its own colour */
+  .ai-flash {
+    animation: ai-flash 1.6s ease-out;
+  }
+  @keyframes ai-flash {
+    0%,
+    25% {
+      color: var(--ai-accent);
+      text-shadow: 0 0 14px var(--ai-glow), 0 0 2px var(--ai-accent-soft);
+    }
+  }
+  @keyframes ai-blink-soft {
+    50% {
+      opacity: 0.3;
+    }
+  }
+
   /* a gauge or meter filling up the first time it is drawn */
   .ai-fill {
     transition: stroke-dasharray 900ms cubic-bezier(0.16, 1, 0.3, 1), width 900ms cubic-bezier(0.16, 1, 0.3, 1);
@@ -492,8 +545,17 @@
     .ai-caret > :last-child::after {
       animation: none;
     }
-    .ai-fill {
-      transition: none;
+    .ai-fill,
+    .ai-tick,
+    .ai-needle,
+    .ai-cell {
+      transition: none !important;
+    }
+    .ai-blink-soft,
+    .ai-flash,
+    .ai-draw,
+    .ai-fade {
+      animation: none;
     }
   }
 

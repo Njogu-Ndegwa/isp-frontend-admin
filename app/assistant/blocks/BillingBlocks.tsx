@@ -11,7 +11,7 @@ import { copyText } from '../../lib/clipboard';
 import { formatMoney } from '../../lib/format';
 import { seriesColor } from '../charts/shared';
 import { ArrowRightIcon, CheckIcon, CopyIcon } from '../icons';
-import { Led, Meter, Panel, Pill } from '../ui';
+import { Battery, Led, Panel, Pill } from '../ui';
 import { DeviceCard } from './DeviceCard';
 
 /*
@@ -107,13 +107,15 @@ export function CustomerBlock({ title, rows, total, single, onAsk }: { title: st
             <h3 className="ai-display truncate text-[19px] font-semibold text-ink-1">{p.name}</h3>
             <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] text-ink-3"><Pill tone={st.tone}>{st.label}</Pill>{p.phone && p.phone !== p.name ? <span className="ai-mono">{p.phone}</span> : null}</p>
           </div>
-          {/* the paid time, read like charge left in a battery */}
-          <div className="min-w-[150px] text-right">
-            <p className="ai-eyebrow">{p.state === 'paused' ? 'Time frozen' : remaining ? 'Paid time left' : 'Paid time'}</p>
-            <p className={`ai-mono mt-1 text-[24px] font-medium leading-none ${st.tone === 'bad' ? 'text-[var(--ai-text-bad)]' : st.tone === 'warn' ? 'text-[var(--ai-text-warn)]' : 'text-ink-1'}`}>
-              {remaining ?? (p.left !== null && p.left <= 0 ? 'Ended' : '–')}
-            </p>
-            {p.left !== null && p.state !== 'paused' ? <div className="ml-auto mt-2 w-[150px]"><Meter value={Math.max(0, p.left)} max={WEEK} tone={st.tone} height={5} /></div> : null}
+          {/* the paid time, read like charge left in a battery (a week is a full charge) */}
+          <div className="flex items-center gap-3">
+            <div className="text-right">
+              <p className="ai-eyebrow">{p.state === 'paused' ? 'Time frozen' : remaining ? 'Paid time left' : 'Paid time'}</p>
+              <p className={`ai-mono mt-1 text-[24px] font-medium leading-none ${st.tone === 'bad' ? 'text-[var(--ai-text-bad)]' : st.tone === 'warn' ? 'text-[var(--ai-text-warn)]' : 'text-ink-1'}`}>
+                {remaining ?? (p.left !== null && p.left <= 0 ? 'Ended' : '–')}
+              </p>
+            </div>
+            {p.left !== null && p.state !== 'paused' ? <Battery value={Math.max(0, p.left)} max={WEEK} tone={st.tone === 'muted' ? 'info' : st.tone} label={remaining ? `${remaining} of paid time left` : 'No paid time left'} /> : null}
           </div>
         </div>
         <dl className="ai-well mt-4 grid grid-cols-2 gap-x-6 gap-y-3 px-3.5 py-3 @2xl:grid-cols-3">

@@ -4,7 +4,7 @@ import type { Tone } from '../../lib/assistantVisual';
 import { useT } from '../../lib/i18n';
 import { toneColor } from '../charts/shared';
 import { ArrowRightIcon } from '../icons';
-import { ArcGauge, Led, Meter, Pill, Throughput, reachTone } from '../ui';
+import { Cells, Dial, Led, Pill, Throughput } from '../ui';
 
 /*
  * One MikroTik, drawn like a device in a network console: a status light and its
@@ -58,10 +58,10 @@ export function DeviceCard({ d, actions, onOpen, onPeople, onCustomers }: {
   );
 
   return (
-    <li className={`ai-card relative flex min-w-0 list-none flex-col overflow-hidden ${down ? '!border-bad/35' : ''}`}>
+    <li className={`@container ai-card relative flex min-w-0 list-none flex-col overflow-hidden ${down ? '!border-bad/35' : ''}`}>
       {down ? <span aria-hidden className="absolute inset-x-0 top-0 h-[2px]" style={{ background: `linear-gradient(90deg, ${toneColor('bad')}, transparent 85%)` }} /> : null}
       <div className="flex items-start gap-3 px-4 pt-4">
-        <span className="mt-[7px]"><Led tone={down ? 'bad' : d.state === 'online' ? 'live' : 'muted'} pulse={d.state === 'online'} /></span>
+        <span className="mt-[7px]"><Led tone={down ? 'bad' : d.state === 'online' ? 'live' : 'muted'} blink={down} /></span>
         {onOpen ? <button type="button" onClick={onOpen} className="group flex min-w-0 flex-1 text-left">{name}</button> : name}
         <Pill tone={tone}>{down ? (d.downFor ? `${t('Down')} ${d.downFor}` : t('Offline')) : d.state === 'online' ? t('Online') : t('Not checked')}</Pill>
       </div>
@@ -81,19 +81,21 @@ export function DeviceCard({ d, actions, onOpen, onPeople, onCustomers }: {
           ) : null}
         </div>
       ) : (
-        <div className={`grid items-center gap-3 px-4 pt-3 ${gauges ? 'grid-cols-[auto_auto_minmax(0,1fr)]' : 'grid-cols-2'}`}>
-          {typeof d.cpu === 'number' ? <ArcGauge value={d.cpu} label="CPU" size={70} /> : null}
-          {typeof d.memory === 'number' ? <ArcGauge value={d.memory} label={t('Mem')} size={70} /> : null}
-          <div className={`flex min-w-0 flex-col gap-2.5 ${gauges ? 'border-l border-line pl-3' : 'col-span-2 grid grid-cols-2'}`}>
+        <div className={`grid items-center gap-x-3 gap-y-3 px-4 pt-3 ${gauges ? 'grid-cols-2 @min-[440px]:grid-cols-[auto_auto_minmax(0,1fr)]' : 'grid-cols-2'}`}>
+          {typeof d.cpu === 'number' ? <div className="flex justify-center"><Dial value={d.cpu} label="CPU" size={116} /></div> : null}
+          {typeof d.memory === 'number' ? <div className="flex justify-center"><Dial value={d.memory} label={t('Memory')} size={116} /></div> : null}
+          <div className={`min-w-0 ${gauges
+            ? 'col-span-2 grid grid-cols-2 gap-3 border-t border-line pt-3 @min-[440px]:col-span-1 @min-[440px]:flex @min-[440px]:flex-col @min-[440px]:gap-3 @min-[440px]:border-l @min-[440px]:border-t-0 @min-[440px]:pl-4 @min-[440px]:pt-0'
+            : 'col-span-2 grid grid-cols-2 gap-3'}`}>
             {hasOnline ? (
               <button type="button" disabled={!onPeople} onClick={onPeople} className="min-w-0 text-left">
-                <span className="ai-mono block text-[22px] font-medium leading-none text-ink-1">{online.toLocaleString('en-US')}</span>
+                <span className="ai-mono block text-[24px] font-medium leading-none text-ink-1">{online.toLocaleString('en-US')}</span>
                 <span className="mt-1 block truncate text-[11.5px] text-ink-3">{t('online now')}{d.pppoe ? ` · ${d.pppoe} PPPoE` : ''}</span>
               </button>
             ) : null}
             {typeof d.customers === 'number' ? (
               <button type="button" disabled={!onCustomers} onClick={onCustomers} className="min-w-0 text-left">
-                <span className="ai-mono block text-[22px] font-medium leading-none text-ink-1">{d.customers.toLocaleString('en-US')}</span>
+                <span className="ai-mono block text-[24px] font-medium leading-none text-ink-1">{d.customers.toLocaleString('en-US')}</span>
                 <span className="mt-1 block truncate text-[11.5px] text-ink-3">{t('paying')}</span>
               </button>
             ) : null}
@@ -107,7 +109,7 @@ export function DeviceCard({ d, actions, onOpen, onPeople, onCustomers }: {
             <span className="ai-eyebrow">{t('Reachable')}</span>
             <span className="ai-mono text-ink-1">{d.reach}%</span>
           </div>
-          <Meter value={d.reach} tone={reachTone(d.reach)} height={5} />
+          <Cells value={d.reach} scale="reach" count={30} height={14} label={`${t('Reachable')} ${d.reach}%`} />
         </div>
       ) : null}
 

@@ -16,11 +16,13 @@ const reduceMotion = () => typeof window !== 'undefined' && window.matchMedia('(
 /* ---------------- status ---------------- */
 
 /** A lit status dot. `pulse` sends out a ring, for things that are live right now. */
-export function Led({ tone, pulse = false, size = 8 }: { tone: Tone | 'live'; pulse?: boolean; size?: number }) {
+export function Led({ tone, pulse = false, blink = false, size = 8 }: { tone: Tone | 'live'; pulse?: boolean; blink?: boolean; size?: number }) {
   const color = tone === 'live' ? 'var(--ai-live)' : toneColor(tone);
   const lit = tone !== 'muted';
+  // motion is kept for what deserves an eye: `pulse` for the one live signal on screen,
+  // `blink` (slow) for something that is down
   return (
-    <span aria-hidden className={pulse ? 'ai-live' : 'inline-block shrink-0 rounded-full'}
+    <span aria-hidden className={pulse ? 'ai-live' : `inline-block shrink-0 rounded-full ${blink ? 'ai-blink-soft' : ''}`}
       style={{ width: size, height: size, background: color, boxShadow: lit ? `0 0 0 3px color-mix(in srgb, ${color} 16%, transparent), 0 0 10px color-mix(in srgb, ${color} 45%, transparent)` : undefined }} />
   );
 }
@@ -92,6 +94,16 @@ export function Panel({ eyebrow, icon, title, note, actions, children, className
 export function CountUp({ value, format, className }: { value: number; format: (v: number) => string; className?: string }) {
   const [shown, setShown] = useState(() => (reduceMotion() ? value : 0));
   const from = useRef(shown);
+  // a figure that changes while on screen (the home refreshes every two minutes)
+  // glows briefly, so a change is seen without anything else moving
+  const prev = useRef(value);
+  const [flash, setFlash] = useState(0);
+  useEffect(() => {
+    if (prev.current === value) return;
+    prev.current = value;
+    const raf = requestAnimationFrame(() => setFlash((k) => k + 1));
+    return () => cancelAnimationFrame(raf);
+  }, [value]);
   useEffect(() => {
     const instant = reduceMotion() || !Number.isFinite(value);
     const start = performance.now();
@@ -111,7 +123,7 @@ export function CountUp({ value, format, className }: { value: number; format: (
   }, [value]);
   // integers count in whole steps; money and the like keep their own rounding
   const v = Number.isInteger(value) ? Math.round(shown) : shown;
-  return <span className={className} aria-label={format(value)}>{format(v)}</span>;
+  return <span key={flash} className={`${className ?? ''} ${flash ? 'ai-flash' : ''}`} aria-label={format(value)}>{format(v)}</span>;
 }
 
 /* ---------------- gauges and meters ---------------- */
@@ -120,35 +132,232 @@ export function CountUp({ value, format, className }: { value: number; format: (
 export const loadTone = (pct: number): Tone => (pct >= 85 ? 'bad' : pct >= 65 ? 'warn' : 'good');
 export const reachTone = (pct: number): Tone => (pct >= 98 ? 'good' : pct >= 90 ? 'warn' : 'bad');
 
+/** What a reading means: `load` is bad when high, `reach` is bad when low, `plain` has no good or bad. */
+export type Scale = 'load' | 'reach' | 'plain';
+
 /**
- * A 270° arc gauge, the way system monitors draw CPU and memory: a quiet track, a
- * coloured arc that fills on first sight, and the value in the middle.
+ * The colour of a point on a scale, blended between the status colours so a gauge
+ * runs green into amber into red the way a tachometer does, instead of jumping.
+ * `f` is 0..1 along the scale.
  */
-export function ArcGauge({ value, label, tone, size = 76, stroke = 6 }: { value: number; label: string; tone?: Tone; size?: number; stroke?: number }) {
-  const v = Math.max(0, Math.min(100, value));
+export function scaleColor(f: number, scale: Scale, plain = 'var(--ai-accent-fill)'): string {
+  if (scale === 'plain') return plain;
+  const x = scale === 'reach' ? 1 - f : f;
+  const mix = (a: string, b: string, t: number) => `color-mix(in oklab, ${b} ${Math.round(Math.max(0, Math.min(1, t)) * 100)}%, ${a})`;
+  if (scale === 'reach') {
+    // reach lives near the top: 98 and up is green, below 90 is red
+    const pct = (1 - x) * 100;
+    if (pct >= 98) return 'var(--ai-good)';
+    if (pct >= 90) return mix('var(--ai-warn)', 'var(--ai-good)', (pct - 90) / 8);
+    if (pct >= 75) return mix('var(--ai-bad)', 'var(--ai-warn)', (pct - 75) / 15);
+    return 'var(--ai-bad)';
+  }
+  if (x <= 0.5) return 'var(--ai-good)';
+  if (x <= 0.72) return mix('var(--ai-good)', 'var(--ai-warn)', (x - 0.5) / 0.22);
+  if (x <= 0.88) return mix('var(--ai-warn)', 'var(--ai-bad)', (x - 0.72) / 0.16);
+  return 'var(--ai-bad)';
+}
+
+/** A value that eases in from zero the first time it is drawn (and moves smoothly after). */
+function useDrawn(v: number): number {
   const [drawn, setDrawn] = useState(() => (reduceMotion() ? v : 0));
   useEffect(() => {
     const raf = requestAnimationFrame(() => setDrawn(v));
     return () => cancelAnimationFrame(raf);
   }, [v]);
-  const r = (size - stroke) / 2;
-  const c = 2 * Math.PI * r;
-  const arc = c * 0.75;
-  const color = toneColor(tone ?? loadTone(v));
+  return drawn;
+}
+
+const STATE_WORD: Record<Scale, (v: number) => string> = {
+  load: (v) => (v >= 85 ? 'high' : v >= 65 ? 'busy' : 'fine'),
+  reach: (v) => (v >= 98 ? 'steady' : v >= 90 ? 'shaky' : 'poor'),
+  plain: () => '',
+};
+
+/**
+ * A dial, drawn like the tachometer of an instrument cluster: a 270° scale of tick
+ * marks with a major tick every quarter, the ticks lighting up one after another to
+ * the reading and running green into amber into red, a red line painted on the end
+ * of the scale, and a needle that swings out and settles on the value with a little
+ * overshoot. The reading sits in the opening at the bottom, with a word for what it
+ * means under the label. It is the one mark on the page allowed to show off.
+ */
+export function Dial({ value, label, scale = 'load', size = 112, word }: { value: number; label: string; scale?: Scale; size?: number; word?: string }) {
+  const v = Math.max(0, Math.min(100, value));
+  const drawn = useDrawn(v);
+  const id = useId().replace(/:/g, '');
+  const c = size / 2;
+  const R = size / 2 - 3;
+  const N = 40;
+  const START = 135;
+  const SWEEP = 270;
+  const at = (f: number) => START + f * SWEEP;
+  const pt = (r: number, deg: number): [number, number] => {
+    const a = (deg * Math.PI) / 180;
+    return [c + r * Math.cos(a), c + r * Math.sin(a)];
+  };
+  const arcPath = (r: number, f0: number, f1: number) => {
+    const [x0, y0] = pt(r, at(f0));
+    const [x1, y1] = pt(r, at(f1));
+    return `M${x0},${y0}A${r},${r} 0 ${(f1 - f0) * SWEEP > 180 ? 1 : 0} 1 ${x1},${y1}`;
+  };
+  const color = scaleColor(v / 100, scale);
+  const lit = drawn / 100;
+  const small = size < 100;
+  // the stretch of scale that means trouble, painted on the inside of the ticks
+  const red: [number, number] | null = scale === 'load' ? [0.85, 1] : scale === 'reach' ? [0, 0.9] : null;
+  const inner = R - (small ? 12 : 15);
+  const shownWord = word ?? STATE_WORD[scale](v);
+
   return (
     <div className="flex min-w-0 flex-col items-center">
-      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} role="img" aria-label={`${label} ${Math.round(v)}%`}>
-        <g transform={`rotate(135 ${size / 2} ${size / 2})`}>
-          <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--ai-track)" strokeWidth={stroke} strokeLinecap="round" strokeDasharray={`${arc} ${c}`} />
-          <circle className="ai-fill" cx={size / 2} cy={size / 2} r={r} fill="none" stroke={color} strokeWidth={stroke} strokeLinecap="round"
-            strokeDasharray={`${(drawn / 100) * arc} ${c}`} style={{ filter: `drop-shadow(0 0 4px color-mix(in srgb, ${color} 45%, transparent))` }} />
+      <svg width={size} height={size * 0.9} viewBox={`0 0 ${size} ${size * 0.9}`} role="img" aria-label={`${label} ${Math.round(v)}%${shownWord ? `, ${shownWord}` : ''}`} className="overflow-visible">
+        <defs>
+          <radialGradient id={`glass${id}`} cx="50%" cy="38%" r="60%">
+            <stop offset="0%" stopColor="var(--ai-ink1)" stopOpacity={0.07} />
+            <stop offset="70%" stopColor="var(--ai-ink1)" stopOpacity={0.015} />
+            <stop offset="100%" stopColor="var(--ai-ink1)" stopOpacity={0} />
+          </radialGradient>
+          <radialGradient id={`halo${id}`} cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stopColor={color} stopOpacity={0.22} />
+            <stop offset="100%" stopColor={color} stopOpacity={0} />
+          </radialGradient>
+        </defs>
+
+        {/* the face: a faint glass disc with a light from above */}
+        <circle cx={c} cy={c} r={inner - 2} fill={`url(#glass${id})`} />
+        <circle cx={c} cy={c} r={inner - 2} fill="none" stroke="var(--ai-line)" />
+
+        {/* the red line on the inside of the scale */}
+        {red ? <path d={arcPath(inner + 3, red[0], red[1])} fill="none" stroke="var(--ai-bad)" strokeOpacity={0.55} strokeWidth={2} strokeLinecap="round" /> : null}
+        {/* the reading as a thin lit arc under the ticks */}
+        <path className="ai-fill" d={arcPath(inner + 3, 0, 1)} pathLength={100} fill="none" stroke={color} strokeWidth={2} strokeLinecap="round"
+          strokeDasharray={`${lit > 0.005 ? lit * 100 : 0} 200`} opacity={lit > 0.005 ? 1 : 0} style={{ filter: `drop-shadow(0 0 3px ${color})` }} />
+
+        {/* the scale: each tick lights in turn up to the reading */}
+        {Array.from({ length: N + 1 }, (_, i) => {
+          const f = i / N;
+          const major = i % (N / 4) === 0;
+          const [x1, y1] = pt(R - (major ? (small ? 9 : 11) : small ? 5 : 7), at(f));
+          const [x2, y2] = pt(R, at(f));
+          const on = drawn > 0 && f <= lit + 1e-6;
+          const tip = on && f + 1 / N > lit;
+          const off = red && f >= red[0] && f <= red[1] ? 'color-mix(in srgb, var(--ai-bad) 32%, var(--ai-track))' : 'var(--ai-track)';
+          return (
+            <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} strokeLinecap="round" strokeWidth={major ? 2.4 : 1.7}
+              stroke={on ? scaleColor(f, scale) : off}
+              className="ai-tick"
+              style={{
+                transitionDelay: on ? `${i * 16}ms` : '0ms',
+                filter: tip ? `drop-shadow(0 0 4px ${scaleColor(f, scale)})` : undefined,
+              }} />
+          );
+        })}
+
+        {/* the needle: swings out from zero and settles, with a glow at its tip */}
+        <circle cx={c} cy={c} r={inner * 0.55} fill={`url(#halo${id})`} />
+        <g className="ai-needle" style={{ transform: `rotate(${at(lit)}deg)`, transformOrigin: `${c}px ${c}px` }}>
+          <line x1={c - inner * 0.16} y1={c} x2={c + inner - 4} y2={c} stroke={color} strokeWidth={small ? 1.8 : 2.2} strokeLinecap="round" />
+          <circle cx={c + inner - 4} cy={c} r={small ? 1.8 : 2.2} fill={color} style={{ filter: `drop-shadow(0 0 4px ${color})` }} />
         </g>
-        <text x="50%" y="50%" dy="0.1em" textAnchor="middle" dominantBaseline="middle" className="ai-mono" fontSize={size * 0.22} fontWeight={600} fill="var(--ai-ink1)">
-          {Math.round(v)}<tspan fontSize={size * 0.13} fill="var(--ai-ink3)">%</tspan>
+        <circle cx={c} cy={c} r={small ? 4 : 5} fill="var(--ai-s1)" stroke={color} strokeWidth={1.6} />
+        <circle cx={c} cy={c} r={1.6} fill={color} />
+
+        {/* the reading, in the opening at the bottom */}
+        <text x={c} y={c + inner * 0.78} textAnchor="middle" className="ai-mono" fontSize={size * 0.17} fontWeight={600} fill="var(--ai-ink1)">
+          {Math.round(v)}<tspan fontSize={size * 0.095} fill="var(--ai-ink3)" dx={1}>%</tspan>
         </text>
       </svg>
-      <span className="ai-eyebrow -mt-2.5">{label}</span>
+      <span className="ai-eyebrow -mt-1 whitespace-nowrap">
+        {label}{shownWord ? <span style={{ color }}> · {shownWord}</span> : null}
+      </span>
     </div>
+  );
+}
+
+/** The earlier ring gauge's name, kept for callers that still use it. */
+export const ArcGauge = ({ value, label, size }: { value: number; label: string; tone?: Tone; size?: number }) => <Dial value={value} label={label} size={size} />;
+
+/**
+ * An LED bar, the way an audio or link meter shows a level: a row of cells that
+ * light one after another up to the reading, each in the colour of its place on the
+ * scale (or one colour), the last lit cell glowing. A cell that is only partly
+ * reached is lit partly.
+ */
+export function Cells({ value, max = 100, count = 24, scale = 'plain', color = 'var(--ai-accent-fill)', height = 12, label }: {
+  value: number;
+  max?: number;
+  count?: number;
+  scale?: Scale;
+  /** the colour of every lit cell when `scale` is plain */
+  color?: string;
+  height?: number;
+  label?: string;
+}) {
+  const f = max > 0 ? Math.max(0, Math.min(1, value / max)) : 0;
+  const drawn = useDrawn(f);
+  const level = drawn * count;
+  const reading = scale === 'plain' ? color : scaleColor(f, scale, color);
+  return (
+    <div className="flex w-full items-end gap-[2px]" style={{ height }} role={label ? 'img' : undefined} aria-label={label}>
+      {Array.from({ length: count }, (_, i) => {
+        const part = Math.max(0, Math.min(1, level - i));
+        // cells rise a little towards the top of the scale, like a level meter
+        const h = Math.round(height * (0.55 + 0.45 * ((i + 1) / count)));
+        const cell = scale === 'plain' ? color : scale === 'reach' ? reading : scaleColor((i + 0.5) / count, scale, color);
+        const tip = part > 0 && level - i < 1.0001;
+        return (
+          <span key={i} className="relative block min-w-0 flex-1 overflow-hidden rounded-[2px] bg-[var(--ai-track)]" style={{ height: h }}>
+            <span className="ai-cell absolute inset-0 rounded-[2px]"
+              style={{
+                background: `linear-gradient(180deg, color-mix(in srgb, ${cell} 100%, white 18%), ${cell})`,
+                opacity: part > 0 ? 0.35 + 0.65 * part : 0,
+                transitionDelay: `${i * 22}ms`,
+                boxShadow: tip ? `0 0 8px ${cell}` : undefined,
+              }} />
+          </span>
+        );
+      })}
+    </div>
+  );
+}
+
+/**
+ * A battery, for paid time: a case with a terminal, cells inside that fill with
+ * the charge left, coloured by how it stands. Nearly empty, the last cell blinks.
+ */
+export function Battery({ value, max, tone, cells = 5, width = 76, height = 32, label }: { value: number; max: number; tone: Tone; cells?: number; width?: number; height?: number; label?: string }) {
+  const f = max > 0 ? Math.max(0, Math.min(1, value / max)) : 0;
+  const drawn = useDrawn(f);
+  const color = toneColor(tone);
+  const pad = 3.5;
+  const body = width - 6;
+  const gap = 2;
+  const cw = (body - pad * 2 - gap * (cells - 1)) / cells;
+  const ch = height - pad * 2;
+  const level = drawn * cells;
+  const low = f > 0 && f < 0.2;
+  return (
+    <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} role="img" aria-label={label ?? `${Math.round(f * 100)}%`}>
+      <rect x={0.75} y={0.75} width={body - 1.5} height={height - 1.5} rx={7} fill="color-mix(in srgb, var(--ai-ink1) 3%, transparent)" stroke="var(--ai-line2)" strokeWidth={1.5} />
+      <rect x={body + 0.5} y={height * 0.32} width={4} height={height * 0.36} rx={1.5} fill="var(--ai-line2)" />
+      {Array.from({ length: cells }, (_, i) => {
+        // any charge left shows as at least a sliver of the first cell, so nearly
+        // empty never looks the same as empty
+        const part = i === 0 && f > 0 && drawn > 0 ? Math.max(0.28, Math.min(1, level)) : Math.max(0, Math.min(1, level - i));
+        const x = pad + i * (cw + gap);
+        return (
+          <g key={i}>
+            <rect x={x} y={pad} width={cw} height={ch} rx={3} fill="var(--ai-track)" />
+            {part > 0 ? (
+              <rect x={x} y={pad} width={cw * part} height={ch} rx={3} fill={color}
+                className={low && i === 0 ? 'ai-blink-soft' : undefined}
+                style={{ filter: level - i < 1.0001 ? `drop-shadow(0 0 4px ${color})` : undefined, transition: 'width 600ms cubic-bezier(0.16,1,0.3,1)', transitionDelay: `${i * 90}ms` }} />
+            ) : null}
+          </g>
+        );
+      })}
+    </svg>
   );
 }
 
@@ -259,8 +468,9 @@ export function AreaSpark({ points, height = 64, color = 'var(--ai-accent-fill)'
                 <stop offset="100%" stopColor={color} stopOpacity={0} />
               </linearGradient>
             </defs>
-            <path d={area} fill={`url(#g${id})`} />
-            <path d={solid} fill="none" stroke={color} strokeWidth={1.75} strokeLinejoin="round" strokeLinecap="round" />
+            <path d={area} fill={`url(#g${id})`} className="ai-fade" />
+            {/* the line draws itself in once, left to right, then stays */}
+            <path d={solid} pathLength={1} className="ai-draw" fill="none" stroke={color} strokeWidth={1.75} strokeLinejoin="round" strokeLinecap="round" />
             {partialFrom !== null ? (
               <path d={monotonePath(pts.slice(partialFrom))} fill="none" stroke={color} strokeWidth={1.75} strokeDasharray="3 3" strokeLinecap="round" opacity={0.8} />
             ) : null}
