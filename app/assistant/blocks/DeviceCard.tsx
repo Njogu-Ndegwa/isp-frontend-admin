@@ -4,7 +4,7 @@ import type { Tone } from '../../lib/assistantVisual';
 import { useT } from '../../lib/i18n';
 import { toneColor } from '../charts/shared';
 import { ArrowRightIcon } from '../icons';
-import { Cells, Dial, Led, Pill, Throughput } from '../ui';
+import { Cells, Dial, Led, Pill, Throughput, useInView } from '../ui';
 
 /*
  * One MikroTik, drawn like a device in a network console: a status light and its
@@ -45,6 +45,7 @@ export function DeviceCard({ d, actions, onOpen, onPeople, onCustomers }: {
   onCustomers?: () => void;
 }) {
   const t = useT();
+  const [box, seen] = useInView<HTMLLIElement>({ threshold: 0.12, rootMargin: '0px 0px -4% 0px' });
   const down = d.state === 'offline';
   const tone: Tone = down ? 'bad' : d.state === 'online' ? 'good' : 'muted';
   const gauges = typeof d.cpu === 'number' || typeof d.memory === 'number';
@@ -58,7 +59,7 @@ export function DeviceCard({ d, actions, onOpen, onPeople, onCustomers }: {
   );
 
   return (
-    <li className={`@container ai-card relative flex min-w-0 list-none flex-col overflow-hidden ${down ? '!border-bad/35' : ''}`}>
+    <li ref={box} className={`@container ai-card ai-reveal relative flex min-w-0 list-none flex-col overflow-hidden ${seen ? 'is-in' : ''} ${down ? '!border-bad/35' : ''}`}>
       {down ? <span aria-hidden className="absolute inset-x-0 top-0 h-[2px]" style={{ background: `linear-gradient(90deg, ${toneColor('bad')}, transparent 85%)` }} /> : null}
       <div className="flex items-start gap-3 px-4 pt-4">
         <span className="mt-[7px]"><Led tone={down ? 'bad' : d.state === 'online' ? 'live' : 'muted'} blink={down} /></span>

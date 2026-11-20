@@ -518,6 +518,25 @@
   .ai-fade {
     animation: ai-fade 900ms ease-out 350ms backwards;
   }
+  .ai-draw-wait {
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+  }
+  .ai-dot-in {
+    animation: ai-fade 400ms ease-out 950ms backwards;
+  }
+  /* panels and device cards lift in as they come into view */
+  .ai-reveal {
+    opacity: 0;
+    transform: translateY(14px);
+    transition:
+      opacity 600ms ease,
+      transform 750ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .ai-reveal.is-in {
+    opacity: 1;
+    transform: none;
+  }
   @keyframes ai-fade {
     from {
       opacity: 0;
@@ -564,8 +583,17 @@
     .ai-blink-soft,
     .ai-flash,
     .ai-draw,
-    .ai-fade {
+    .ai-fade,
+    .ai-dot-in {
       animation: none;
+    }
+    .ai-reveal {
+      opacity: 1;
+      transform: none;
+      transition: none;
+    }
+    .ai-draw-wait {
+      stroke-dashoffset: 0;
     }
   }
 

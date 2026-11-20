@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useId, useRef, useState, type ReactNode, type RefObject } from 'react';
 import type { Tone } from '../lib/assistantVisual';
 import { toneColor, useWidth } from './charts/shared';
 
@@ -8,10 +8,45 @@ import { toneColor, useWidth } from './charts/shared';
  * The instrument kit: the few marks every part of the assistant is drawn with, so the
  * home and the answers read as one console. Numbers sit in the mono face, status is a
  * lit dot with a word next to it (never colour alone), and anything that fills (a
- * gauge, a meter) fills once when it first appears.
+ * gauge, a meter, a chart) fills when the reader scrolls to it, not on page load
+ * where most of it is below the fold.
  */
 
 const reduceMotion = () => typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/**
+ * Whether an element is on screen. Things that move do so when the reader gets to
+ * them. `once` keeps it true after the first sight; without it, it turns false again
+ * once the element has left the screen completely, so it plays again on the way back.
+ * With reduced motion it is true from the start (nothing waits to be revealed).
+ */
+export function useInView<T extends Element>({ once = true, threshold = 0.35, rootMargin = '0px' }: { once?: boolean; threshold?: number; rootMargin?: string } = {}): [RefObject<T | null>, boolean] {
+  const ref = useRef<T | null>(null);
+  const [inView, setInView] = useState(reduceMotion);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    if (typeof IntersectionObserver === 'undefined') {
+      const raf = requestAnimationFrame(() => setInView(true));
+      return () => cancelAnimationFrame(raf);
+    }
+    const io = new IntersectionObserver((entries) => {
+      for (const e of entries) {
+        // a tall element may never be 35% on screen: being on screen at all counts then
+        const tall = e.boundingClientRect.height > (e.rootBounds?.height ?? Infinity) * 0.8;
+        if (e.isIntersecting && (e.intersectionRatio >= threshold || (tall && e.intersectionRatio > 0))) {
+          setInView(true);
+          if (once) io.disconnect();
+        } else if (!once && !e.isIntersecting) {
+          setInView(false);
+        }
+      }
+    }, { threshold: [0, 0.05, threshold], rootMargin });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [once, threshold, rootMargin]);
+  return [ref, inView];
+}
 
 /* ---------------- status ---------------- */
 
@@ -67,8 +102,9 @@ export function Panel({ eyebrow, icon, title, note, actions, children, className
   /** a coloured top edge: trouble, or something waiting for a decision */
   tone?: Tone;
 }) {
+  const [box, seen] = useInView<HTMLElement>({ threshold: 0.12, rootMargin: '0px 0px -4% 0px' });
   return (
-    <section className={`@container ai-card relative min-w-0 overflow-hidden ${className}`}>
+    <section ref={box} className={`@container ai-card ai-reveal relative min-w-0 overflow-hidden ${seen ? 'is-in' : ''} ${className}`}>
       {tone ? <span aria-hidden className="absolute inset-x-0 top-0 h-[2px]" style={{ background: `linear-gradient(90deg, ${toneColor(tone)}, transparent 85%)` }} /> : null}
       {eyebrow || title || actions ? (
         <header className={`flex flex-wrap items-start gap-x-3 gap-y-2 ${flush ? 'px-4 pt-4 sm:px-5' : 'px-4 pt-4 sm:px-5 sm:pt-5'}`}>
@@ -92,6 +128,7 @@ export function Panel({ eyebrow, icon, title, note, actions, children, className
  * new value after that), then stays still. The final text is always the exact value.
  */
 export function CountUp({ value, format, className }: { value: number; format: (v: number) => string; className?: string }) {
+  const [box, seen] = useInView<HTMLSpanElement>({ threshold: 0.6 });
   const [shown, setShown] = useState(() => (reduceMotion() ? value : 0));
   const from = useRef(shown);
   // a figure that changes while on screen (the home refreshes every two minutes)
@@ -105,6 +142,7 @@ export function CountUp({ value, format, className }: { value: number; format: (
     return () => cancelAnimationFrame(raf);
   }, [value]);
   useEffect(() => {
+    if (!seen) return;
     const instant = reduceMotion() || !Number.isFinite(value);
     const start = performance.now();
     const a = from.current;
@@ -120,10 +158,10 @@ export function CountUp({ value, format, className }: { value: number; format: (
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [value]);
+  }, [value, seen]);
   // integers count in whole steps; money and the like keep their own rounding
   const v = Number.isInteger(value) ? Math.round(shown) : shown;
-  return <span key={flash} className={`${className ?? ''} ${flash ? 'ai-flash' : ''}`} aria-label={format(value)}>{format(v)}</span>;
+  return <span ref={box} key={flash} className={`${className ?? ''} ${flash ? 'ai-flash' : ''}`} aria-label={format(value)}>{format(v)}</span>;
 }
 
 /* ---------------- gauges and meters ---------------- */
@@ -158,14 +196,14 @@ export function scaleColor(f: number, scale: Scale, plain = 'var(--ai-accent-fil
   return 'var(--ai-bad)';
 }
 
-/** A value that eases in from zero the first time it is drawn (and moves smoothly after). */
-function useDrawn(v: number): number {
+/** A value that eases in from zero while `active` (on screen), and back to zero when not. */
+function useDrawn(v: number, active = true): number {
   const [drawn, setDrawn] = useState(() => (reduceMotion() ? v : 0));
   useEffect(() => {
-    const raf = requestAnimationFrame(() => setDrawn(v));
+    const raf = requestAnimationFrame(() => setDrawn(active ? v : 0));
     return () => cancelAnimationFrame(raf);
-  }, [v]);
-  return drawn;
+  }, [v, active]);
+  return reduceMotion() ? v : drawn;
 }
 
 const STATE_WORD: Record<Scale, (v: number) => string> = {
@@ -184,7 +222,9 @@ const STATE_WORD: Record<Scale, (v: number) => string> = {
  */
 export function Dial({ value, label, scale = 'load', size = 112, word }: { value: number; label: string; scale?: Scale; size?: number; word?: string }) {
   const v = Math.max(0, Math.min(100, value));
-  const drawn = useDrawn(v);
+  // the dial is the one mark that plays again each time it scrolls back into view
+  const [box, seen] = useInView<HTMLDivElement>({ once: false, threshold: 0.6 });
+  const drawn = useDrawn(v, seen);
   const id = useId().replace(/:/g, '');
   const c = size / 2;
   const R = size / 2 - 3;
@@ -210,7 +250,7 @@ export function Dial({ value, label, scale = 'load', size = 112, word }: { value
   const shownWord = word ?? STATE_WORD[scale](v);
 
   return (
-    <div className="flex min-w-0 flex-col items-center">
+    <div ref={box} className="flex min-w-0 flex-col items-center">
       <svg width={size} height={size * 0.9} viewBox={`0 0 ${size} ${size * 0.9}`} role="img" aria-label={`${label} ${Math.round(v)}%${shownWord ? `, ${shownWord}` : ''}`} className="overflow-visible">
         <defs>
           <radialGradient id={`glass${id}`} cx="50%" cy="38%" r="60%">
@@ -295,11 +335,12 @@ export function Cells({ value, max = 100, count = 24, scale = 'plain', color = '
   label?: string;
 }) {
   const f = max > 0 ? Math.max(0, Math.min(1, value / max)) : 0;
-  const drawn = useDrawn(f);
+  const [box, seen] = useInView<HTMLDivElement>({ threshold: 0.6 });
+  const drawn = useDrawn(f, seen);
   const level = drawn * count;
   const reading = scale === 'plain' ? color : scaleColor(f, scale, color);
   return (
-    <div className="flex w-full items-end gap-[2px]" style={{ height }} role={label ? 'img' : undefined} aria-label={label}>
+    <div ref={box} className="flex w-full items-end gap-[2px]" style={{ height }} role={label ? 'img' : undefined} aria-label={label}>
       {Array.from({ length: count }, (_, i) => {
         const part = Math.max(0, Math.min(1, level - i));
         // cells rise a little towards the top of the scale, like a level meter
@@ -328,7 +369,8 @@ export function Cells({ value, max = 100, count = 24, scale = 'plain', color = '
  */
 export function Battery({ value, max, tone, cells = 5, width = 76, height = 32, label }: { value: number; max: number; tone: Tone; cells?: number; width?: number; height?: number; label?: string }) {
   const f = max > 0 ? Math.max(0, Math.min(1, value / max)) : 0;
-  const drawn = useDrawn(f);
+  const [box, seen] = useInView<SVGSVGElement>({ threshold: 0.6 });
+  const drawn = useDrawn(f, seen);
   const color = toneColor(tone);
   const pad = 3.5;
   const body = width - 6;
@@ -338,7 +380,7 @@ export function Battery({ value, max, tone, cells = 5, width = 76, height = 32, 
   const level = drawn * cells;
   const low = f > 0 && f < 0.2;
   return (
-    <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} role="img" aria-label={label ?? `${Math.round(f * 100)}%`}>
+    <svg ref={box} width={width} height={height} viewBox={`0 0 ${width} ${height}`} role="img" aria-label={label ?? `${Math.round(f * 100)}%`}>
       <rect x={0.75} y={0.75} width={body - 1.5} height={height - 1.5} rx={7} fill="color-mix(in srgb, var(--ai-ink1) 3%, transparent)" stroke="var(--ai-line2)" strokeWidth={1.5} />
       <rect x={body + 0.5} y={height * 0.32} width={4} height={height * 0.36} rx={1.5} fill="var(--ai-line2)" />
       {Array.from({ length: cells }, (_, i) => {
@@ -364,14 +406,11 @@ export function Battery({ value, max, tone, cells = 5, width = 76, height = 32, 
 /** A capsule meter: a track and a fill, for one share of a whole. */
 export function Meter({ value, max = 100, color, tone, height = 6, label }: { value: number; max?: number; color?: string; tone?: Tone; height?: number; label?: string }) {
   const pct = max > 0 ? Math.max(0, Math.min(100, (value / max) * 100)) : 0;
-  const [drawn, setDrawn] = useState(() => (reduceMotion() ? pct : 0));
-  useEffect(() => {
-    const raf = requestAnimationFrame(() => setDrawn(pct));
-    return () => cancelAnimationFrame(raf);
-  }, [pct]);
+  const [box, seen] = useInView<HTMLDivElement>({ threshold: 0.6 });
+  const drawn = useDrawn(pct, seen);
   const fill = color ?? toneColor(tone ?? 'good');
   return (
-    <div className="w-full overflow-hidden rounded-full bg-[var(--ai-track)]" style={{ height }} role={label ? 'img' : undefined} aria-label={label}>
+    <div ref={box} className="w-full overflow-hidden rounded-full bg-[var(--ai-track)]" style={{ height }} role={label ? 'img' : undefined} aria-label={label}>
       <div className="ai-fill h-full rounded-full" style={{ width: `${drawn > 0 ? Math.max(drawn, 2) : 0}%`, background: `linear-gradient(90deg, color-mix(in srgb, ${fill} 70%, transparent), ${fill})` }} />
     </div>
   );
@@ -426,6 +465,7 @@ export function AreaSpark({ points, height = 64, color = 'var(--ai-accent-fill)'
   const [ref, width] = useWidth<HTMLDivElement>();
   const [active, setActive] = useState<number | null>(null);
   const id = useId().replace(/:/g, '');
+  const [box, seen] = useInView<HTMLDivElement>({ threshold: 0.5 });
   if (points.length === 0 || points.every((p) => p.value === 0)) {
     return <p className="text-[12.5px] leading-snug text-ink-3">{empty ?? 'Nothing in this period.'}</p>;
   }
@@ -450,7 +490,7 @@ export function AreaSpark({ points, height = 64, color = 'var(--ai-accent-fill)'
   };
 
   return (
-    <div>
+    <div ref={box}>
       {readout ? (
         <div className="mb-1.5 flex h-4 items-baseline justify-between gap-2 text-[11.5px] text-ink-3">
           <span className="truncate">{shown >= 0 ? points[shown].label : ''}</span>
@@ -468,18 +508,18 @@ export function AreaSpark({ points, height = 64, color = 'var(--ai-accent-fill)'
                 <stop offset="100%" stopColor={color} stopOpacity={0} />
               </linearGradient>
             </defs>
-            <path d={area} fill={`url(#g${id})`} className="ai-fade" />
-            {/* the line draws itself in once, left to right, then stays */}
-            <path d={solid} pathLength={1} className="ai-draw" fill="none" stroke={color} strokeWidth={1.75} strokeLinejoin="round" strokeLinecap="round" />
+            <path d={area} fill={`url(#g${id})`} className={seen ? 'ai-fade' : 'opacity-0'} />
+            {/* the line draws itself in, left to right, when it comes into view */}
+            <path d={solid} pathLength={1} className={seen ? 'ai-draw' : 'ai-draw-wait'} fill="none" stroke={color} strokeWidth={1.75} strokeLinejoin="round" strokeLinecap="round" />
             {partialFrom !== null ? (
-              <path d={monotonePath(pts.slice(partialFrom))} fill="none" stroke={color} strokeWidth={1.75} strokeDasharray="3 3" strokeLinecap="round" opacity={0.8} />
+              <path d={monotonePath(pts.slice(partialFrom))} fill="none" stroke={color} strokeWidth={1.75} strokeDasharray="3 3" strokeLinecap="round" className={seen ? 'ai-dot-in' : 'opacity-0'} />
             ) : null}
             {active !== null && at ? <line x1={at[0]} x2={at[0]} y1={0} y2={height} stroke="var(--ai-line2)" strokeDasharray="2 3" /> : null}
             {at ? (
-              <>
+              <g className={seen ? 'ai-dot-in' : 'opacity-0'}>
                 <circle cx={at[0]} cy={at[1]} r={6} fill={color} opacity={0.18} />
                 <circle cx={at[0]} cy={at[1]} r={3} fill={color} stroke="var(--ai-s1)" strokeWidth={1.5} />
-              </>
+              </g>
             ) : null}
           </svg>
         ) : null}

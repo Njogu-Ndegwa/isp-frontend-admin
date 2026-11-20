@@ -1,5 +1,6 @@
 'use client';
 
+import { useInView } from '../ui';
 import { EmptyChart } from './shared';
 
 export type RankedRow = { label: string; detail?: string; value: number; shown: string; share?: string };
@@ -16,11 +17,12 @@ export function RankedBars({ rows, color = 'var(--ai-accent-fill)', onPick }: {
   /** makes each row a button (a question about that item) */
   onPick?: (label: string) => void;
 }) {
+  const [box, seen] = useInView<HTMLUListElement>({ threshold: 0.3 });
   if (rows.length === 0) return <EmptyChart>No data to chart.</EmptyChart>;
   const max = Math.max(...rows.map((r) => r.value), 0);
 
   return (
-    <ul className="m-0 flex list-none flex-col gap-0.5 p-0">
+    <ul ref={box} className="m-0 flex list-none flex-col gap-0.5 p-0">
       {rows.map((row, i) => {
         const pct = max > 0 ? Math.max((row.value / max) * 100, row.value > 0 ? 1.5 : 0) : 0;
         const lead = i === 0;
@@ -37,8 +39,9 @@ export function RankedBars({ rows, color = 'var(--ai-accent-fill)', onPick }: {
             </span>
             {/* the bar: a capsule on a shared track, the leader lit */}
             <span aria-hidden className="mt-1.5 block h-[5px] w-full overflow-hidden rounded-full bg-[var(--ai-track)] pl-0">
-              <span className="ai-fill block h-full rounded-full" style={{
-                width: `${pct}%`,
+              <span className="block h-full rounded-full" style={{
+                width: `${seen ? pct : 0}%`,
+                transition: `width 900ms cubic-bezier(0.16, 1, 0.3, 1) ${i * 70}ms`,
                 background: lead ? `linear-gradient(90deg, color-mix(in srgb, ${color} 55%, transparent), ${color})` : 'color-mix(in srgb, var(--ai-ink3) 60%, transparent)',
                 boxShadow: lead ? `0 0 10px -1px color-mix(in srgb, ${color} 60%, transparent)` : undefined,
               }} />

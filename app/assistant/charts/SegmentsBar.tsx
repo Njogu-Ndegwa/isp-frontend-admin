@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useInView } from '../ui';
 import { EmptyChart } from './shared';
 
 export type Seg = { label: string; value: number; shown: string; color: string };
@@ -13,6 +14,7 @@ export type Seg = { label: string; value: number; shown: string; color: string }
  */
 export function SegmentsBar({ segments, slim = false, onPick }: { segments: Seg[]; slim?: boolean; onPick?: (label: string) => void }) {
   const [active, setActive] = useState<number | null>(null);
+  const [box, seen] = useInView<HTMLDivElement>({ threshold: 0.5 });
   const total = segments.reduce((a, s) => a + s.value, 0);
   if (total <= 0) return slim ? null : <EmptyChart>Nothing to show.</EmptyChart>;
   const share = (v: number) => (v / total) * 100;
@@ -20,12 +22,13 @@ export function SegmentsBar({ segments, slim = false, onPick }: { segments: Seg[
 
   return (
     <div className="@container">
-      <div className={`flex w-full gap-[3px] rounded-full bg-[var(--ai-track)] p-[3px] ${slim ? 'h-3.5' : 'h-5'}`} role="img"
+      <div ref={box} className={`flex w-full gap-[3px] rounded-full bg-[var(--ai-track)] p-[3px] ${slim ? 'h-3.5' : 'h-5'}`} role="img"
         aria-label={segments.map((s) => `${s.label}: ${s.shown}, ${shareText(s.value)}`).join('; ')}>
         {segments.map((s, i) => (s.value > 0 ? (
           <div key={s.label} className="h-full min-w-[4px] rounded-full transition-opacity first:rounded-l-full last:rounded-r-full"
             style={{
-              flexGrow: s.value, flexBasis: 0,
+              flexGrow: seen ? s.value : 0.0001, flexBasis: 0,
+              transition: `flex-grow 900ms cubic-bezier(0.16, 1, 0.3, 1) ${i * 90}ms, opacity 200ms ease`,
               background: `linear-gradient(180deg, color-mix(in srgb, ${s.color} 100%, white 12%), ${s.color})`,
               boxShadow: `0 0 10px -2px color-mix(in srgb, ${s.color} 55%, transparent)`,
               opacity: active !== null && active !== i ? 0.35 : 1,
