@@ -7,7 +7,8 @@ import { api } from '../lib/api';
 import { AdminEarnings } from '../lib/types';
 import { formatReporting, type ReportingCurrency } from '../lib/reportingCurrency';
 import {
-  PERIOD_FOR_CHIP, PERIOD_NOUN, SOURCE_LABELS, sourceSwatchStyle, toChartPoints,
+  PERIOD_FOR_CHIP, PERIOD_NOUN, SOURCE_LABELS, SOURCE_ORDER, bandTotals, pctChange,
+  sourceSwatchStyle, toChartPoints,
 } from './earnings/earningsChartData';
 import PeriodSelector, { type PeriodFilter } from './PeriodSelector';
 import { useT } from '../lib/i18n';
@@ -70,12 +71,14 @@ export default function EarningsSummaryCard({
 
   const points = useMemo(() => toChartPoints(data?.series ?? []), [data]);
 
-  const rows = data
-    ? [
-        { key: 'system' as const, label: SOURCE_LABELS.system, value: data.totals.system, change: data.change_percent.system },
-        { key: 'reseller' as const, label: SOURCE_LABELS.reseller, value: data.totals.reseller, change: data.change_percent.reseller },
-      ]
-    : [];
+  const rows = useMemo(() => {
+    if (!data) return [];
+    const cur = bandTotals(data.totals);
+    const prev = bandTotals(data.previous_totals);
+    return SOURCE_ORDER.map((key) => ({
+      key, label: SOURCE_LABELS[key], value: cur[key], change: pctChange(cur[key], prev[key]),
+    }));
+  }, [data]);
 
   const change = data?.change_percent.combined ?? 0;
   const rate = data?.usd_rate ?? usdRate;

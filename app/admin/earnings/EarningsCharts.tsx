@@ -7,7 +7,7 @@ import {
   formatReporting, formatReportingAxis, type ReportingCurrency,
 } from '../../lib/reportingCurrency';
 import {
-  EarningsChartPoint, SOURCE_COLORS, SOURCE_LABELS, TOTAL_COLOR, sourceSwatchStyle,
+  EarningsChartPoint, SOURCE_COLORS, SOURCE_LABELS, SOURCE_ORDER, sourceSwatchStyle,
 } from './earningsChartData';
 
 const axisTick = { fontSize: 10, fill: 'var(--color-foreground-muted)' };
@@ -30,31 +30,28 @@ function EarningsTooltip({
   // no `runningTotal` series, so a dataKey lookup silently returned 0 and the
   // tooltip claimed a running total of zero halfway through the month.
   const point = (payload[0]?.payload ?? {}) as Partial<EarningsChartPoint>;
-  const system = Number(point.system) || 0;
-  const reseller = Number(point.reseller) || 0;
+  const values = SOURCE_ORDER.map((key) => ({ key, value: Number(point[key]) || 0 }));
+  const bucketTotal = values.reduce((sum, v) => sum + v.value, 0);
   const runningTotal = Number(point.runningTotal) || 0;
 
   return (
     <div className="rounded-lg border border-border bg-background-secondary px-2.5 py-2 shadow-lg text-[11px]">
       <p className="text-[10px] text-foreground-muted mb-1">{label}</p>
       <div className="space-y-0.5">
-        <div className="flex items-center gap-2">
-          <span className="w-2 h-2 rounded-sm shrink-0" style={sourceSwatchStyle('system')} />
-          <span className="text-foreground-muted flex-1">{SOURCE_LABELS.system}</span>
-          <span className="text-foreground tabular-nums">{formatKES(system)}</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="w-2 h-2 rounded-sm shrink-0" style={sourceSwatchStyle('reseller')} />
-          <span className="text-foreground-muted flex-1">{SOURCE_LABELS.reseller}</span>
-          <span className="text-foreground tabular-nums">{formatKES(reseller)}</span>
-        </div>
+        {values.map(({ key, value }) => (
+          <div key={key} className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-sm shrink-0" style={sourceSwatchStyle(key)} />
+            <span className="text-foreground-muted flex-1">{SOURCE_LABELS[key]}</span>
+            <span className="text-foreground tabular-nums">{formatKES(value)}</span>
+          </div>
+        ))}
       </div>
       <div className="mt-1 pt-1 border-t border-border space-y-0.5">
-        {/* The headline figure of the hover: both businesses combined. */}
+        {/* The headline figure of the hover: every band combined. */}
         <div className="flex items-center justify-between gap-3">
-          <span className="text-foreground-muted">{cumulative ? 'Total' : 'Both, this day'}</span>
+          <span className="text-foreground-muted">{cumulative ? 'Total' : 'All, this bucket'}</span>
           <span className="text-foreground font-semibold tabular-nums">
-            {formatKES(system + reseller)}
+            {formatKES(bucketTotal)}
           </span>
         </div>
         {!cumulative && (
@@ -133,7 +130,7 @@ export default function EarningsChart({
       <ResponsiveContainer width="100%" height={height}>
         <AreaChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
           <defs>
-            {(['system', 'reseller'] as const).map((key) => (
+            {SOURCE_ORDER.map((key) => (
               <linearGradient key={key} id={`earningsGrad-${key}`} x1="0" y1="0" x2="0" y2="1">
                 <stop offset="5%" stopColor={SOURCE_COLORS[key]} stopOpacity={0.5} />
                 <stop offset="95%" stopColor={SOURCE_COLORS[key]} stopOpacity={0.12} />
@@ -141,7 +138,7 @@ export default function EarningsChart({
             ))}
           </defs>
           {axes}
-          {(['system', 'reseller'] as const).map((key) => (
+          {SOURCE_ORDER.map((key) => (
             <Area
               key={key}
               type="monotone"
@@ -162,21 +159,18 @@ export default function EarningsChart({
       <BarChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
         {axes}
         {/* No seam stroke: bars are ~8px wide on a phone, and a 1px stroke on
-            each edge eats the fill entirely. The two hues sit ~30 CVD-ΔE apart,
-            so the boundary reads without one. */}
-        <Bar
-          dataKey="system"
-          stackId="earnings"
-          fill={SOURCE_COLORS.system}
-          maxBarSize={compact ? 18 : 28}
-        />
-        <Bar
-          dataKey="reseller"
-          stackId="earnings"
-          fill={SOURCE_COLORS.reseller}
-          radius={[3, 3, 0, 0]}
-          maxBarSize={compact ? 18 : 28}
-        />
+            each edge eats the fill entirely. The hues are far enough apart
+            that the boundary reads without one. */}
+        {SOURCE_ORDER.map((key, i) => (
+          <Bar
+            key={key}
+            dataKey={key}
+            stackId="earnings"
+            fill={SOURCE_COLORS[key]}
+            radius={i === SOURCE_ORDER.length - 1 ? [3, 3, 0, 0] : undefined}
+            maxBarSize={compact ? 18 : 28}
+          />
+        ))}
       </BarChart>
     </ResponsiveContainer>
   );

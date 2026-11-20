@@ -908,6 +908,7 @@ export const FR: Record<string, string> = {
   "Subscriptions, SMS sales and ad commission vs my own reseller accounts": "Abonnements, ventes SMS et commission publicitaire, face à mes propres comptes revendeur",
   "Bitwave subscription fees, SMS credit sales and its 20% of ads sold, plus what my own reseller accounts collect.": "Frais d'abonnement Bitwave, ventes de crédits SMS et ses 20 % des publicités vendues, plus ce qu'encaissent mes propres comptes revendeur.",
   "Bitwave subscription fees": "Frais d'abonnement Bitwave",
+  "Subscriptions and ad commission": "Abonnements et commission publicitaire",
   "My own reseller accounts": "Mes propres comptes revendeur",
   "Bitwave subscription fees plus what my own reseller accounts collect. All of Bitwave's earnings, SMS included, are on the dashboard.": "Frais d'abonnement Bitwave plus ce qu'encaissent mes propres comptes revendeur. Tous les gains de Bitwave, SMS compris, sont sur le tableau de bord.",
   "Subscription earnings": "Gains d'abonnement",
