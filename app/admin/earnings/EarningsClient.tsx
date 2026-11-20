@@ -368,7 +368,7 @@ export default function EarningsClient() {
     <div className="space-y-6 pb-24 md:pb-6">
       <Header
         title={t('Earnings incl. my reseller accounts')}
-        subtitle={t("Bitwave subscription fees plus what my own reseller accounts collect. All of Bitwave's earnings, SMS included, are on the dashboard.")}
+        subtitle={t('Bitwave subscription fees, SMS credit sales and its 20% of ads sold, plus what my own reseller accounts collect.')}
         backHref="/admin"
       />
 

@@ -4,7 +4,7 @@ import { AdminEarningsPoint } from '../../lib/types';
 export type EarningsSourceKey = 'system' | 'reseller';
 
 export const SOURCE_LABELS: Record<EarningsSourceKey, string> = {
-  system: 'Bitwave subscription fees',
+  system: 'Bitwave earnings',
   reseller: 'My own reseller accounts',
 };
 
@@ -60,9 +60,10 @@ export function sourceSwatchStyle(key: EarningsSourceKey | 'total'): React.CSSPr
  * Collapse the API's per-stream series into the two businesses, and carry the
  * running total alongside.
  *
- * The backend splits system revenue into the hotspot commission, the PPPoE fee
- * and anything unattributable; comparing the two businesses rolls those into
- * one. The breakdown table still shows the split.
+ * The backend splits Bitwave's side into the hotspot commission, the PPPoE
+ * fee, anything unattributable, SMS credit sales and the 20% ad commission;
+ * comparing the two businesses rolls those into one. The breakdown table
+ * still shows the split.
  */
 export function toChartPoints(
   series: AdminEarningsPoint[],
@@ -72,7 +73,8 @@ export function toChartPoints(
   let resellerRun = 0;
 
   return series.map((point) => {
-    const daySystem = (point.saas_hotspot ?? 0) + (point.saas_pppoe ?? 0) + (point.saas_other ?? 0);
+    const daySystem = (point.saas_hotspot ?? 0) + (point.saas_pppoe ?? 0) + (point.saas_other ?? 0)
+      + (point.sms_credits ?? 0) + (point.ad_commission ?? 0);
     const dayReseller = point.reseller ?? 0;
     systemRun += daySystem;
     resellerRun += dayReseller;

@@ -5330,7 +5330,8 @@ export interface AdminSubscriptionRevenueHistory extends ChartWindow {
 }
 
 /** Keys of the individual bands that stack into total earnings. */
-export type AdminEarningsStreamKey = 'saas_hotspot' | 'saas_pppoe' | 'saas_other' | 'reseller';
+export type AdminEarningsStreamKey =
+  | 'saas_hotspot' | 'saas_pppoe' | 'saas_other' | 'sms_credits' | 'ad_commission' | 'reseller';
 
 export interface AdminEarningsStream {
   key: AdminEarningsStreamKey;
