@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { splitNext } from '../assistant';
 import { customerFacts, bpsText, entityOf, paymentFacts, planDuration, planSpeed, routerFacts, uptimeText } from '../assistantEntities';
-import { cardTitle, compactNumber, formatCell, statusSummary, toCsv, visualFor } from '../assistantVisual';
+import { cardTitle, compactNumber, formatCell, gaugesOf, statusSummary, toCsv, visualFor } from '../assistantVisual';
 
 const days = [
   { date: '2026-11-13', label: 'Fri', revenue: 4920, transactions: 20 },
@@ -143,5 +143,32 @@ describe('billing things', () => {
     expect(bpsText(2_300_000)).toBe('2.3 Mbps');
     expect(bpsText(640_000)).toBe('640 Kbps');
     expect(bpsText(null)).toBeNull();
+  });
+});
+
+describe('gaugesOf', () => {
+  it('turns RouterOS resource fields into CPU, memory and disk dials', () => {
+    const { gauges, used } = gaugesOf([
+      ['board_name', 'RB4011'], ['cpu_load', 34], ['free_memory', 600], ['total_memory', 1000],
+      ['free_hdd_space', 200], ['total_hdd_space', 1000], ['cpu_count', 4], ['uptime', '2w3d'],
+    ]);
+    expect(gauges.map((g) => [g.label, g.value, g.scale])).toEqual([
+      ['CPU', 34, 'load'], ['Memory', 40, 'load'], ['Disk', 80, 'load'],
+    ]);
+    expect(used.has('free_memory') && used.has('total_memory') && used.has('cpu_load')).toBe(true);
+    expect(used.has('cpu_count')).toBe(false);
+  });
+
+  it('reads percentages and fractions, with uptime as a reach scale', () => {
+    const { gauges } = gaugesOf([['uptime_pct', 99.2], ['online_share', 0.42], ['avg_cpu', 47], ['online_users', 340]]);
+    expect(gauges).toEqual([
+      { key: 'avg_cpu', label: 'CPU', value: 47, scale: 'load' },
+      { key: 'uptime_pct', label: 'Uptime', value: 99.2, scale: 'reach' },
+      { key: 'online_share', label: 'Online', value: 42, scale: 'plain' },
+    ]);
+  });
+
+  it('leaves counts, money and values over 100 alone', () => {
+    expect(gaugesOf([['customers', 50], ['revenue', 4000], ['cpu_frequency', 1400], ['memory_pct', 240]]).gauges).toEqual([]);
   });
 });

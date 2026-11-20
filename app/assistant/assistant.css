@@ -499,6 +499,42 @@
   .ai-cell {
     transition: opacity 240ms ease;
   }
+  /* the reading pulses once as the needle lands after a warm-up sweep */
+  .ai-pop {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: ai-pop 520ms cubic-bezier(0.34, 1.56, 0.64, 1) 650ms 1 backwards;
+  }
+  @keyframes ai-pop {
+    0% {
+      transform: scale(1);
+    }
+    45% {
+      transform: scale(1.16);
+      fill: var(--ai-accent);
+    }
+    100% {
+      transform: scale(1);
+    }
+  }
+  /* a reading in the red: one short shake after the needle settles */
+  .ai-quiver {
+    animation: ai-quiver 900ms ease-in-out 1350ms 1;
+  }
+  @keyframes ai-quiver {
+    20% {
+      transform: rotate(-3deg);
+    }
+    40% {
+      transform: rotate(2.5deg);
+    }
+    60% {
+      transform: rotate(-1.6deg);
+    }
+    80% {
+      transform: rotate(0.8deg);
+    }
+  }
   .ai-blink-soft {
     animation: ai-blink-soft 1.8s ease-in-out infinite;
   }
@@ -565,35 +601,32 @@
     transition: stroke-dasharray 900ms cubic-bezier(0.16, 1, 0.3, 1), width 900ms cubic-bezier(0.16, 1, 0.3, 1);
   }
 
+  /*
+   * Reduced motion: the calm version, not nothing. What lights, fills, counts or draws
+   * still does (a change of colour or opacity, not movement), so everyone sees the page
+   * arrive; what swings, slides, overshoots, shakes or flashes is left out.
+   */
   @media (prefers-reduced-motion: reduce) {
-    .ai-rise,
     .ai-spin,
     .ai-live::after,
     .ai-signal > i,
     .ai-shimmer::after,
-    .ai-caret > :last-child::after {
-      animation: none;
-    }
-    .ai-fill,
-    .ai-tick,
-    .ai-needle,
-    .ai-cell {
-      transition: none !important;
-    }
+    .ai-caret > :last-child::after,
     .ai-blink-soft,
     .ai-flash,
-    .ai-draw,
-    .ai-fade,
-    .ai-dot-in {
+    .ai-quiver,
+    .ai-pop {
       animation: none;
     }
-    .ai-reveal {
-      opacity: 1;
-      transform: none;
-      transition: none;
+    .ai-rise {
+      animation-name: ai-fade;
     }
-    .ai-draw-wait {
-      stroke-dashoffset: 0;
+    .ai-needle {
+      transition: transform 700ms ease-out;
+    }
+    .ai-reveal {
+      transform: none;
+      transition: opacity 500ms ease;
     }
   }
 

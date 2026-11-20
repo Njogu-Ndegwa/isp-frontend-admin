@@ -370,3 +370,69 @@ export function cardTitle(title: string): string {
   const text = words.map((w, i) => (i === 0 || /^[A-Z0-9]{2,}$/.test(w) || /[a-z][A-Z]/.test(w) ? w : w.toLowerCase())).join(' ');
   return text.charAt(0).toUpperCase() + text.slice(1);
 }
+
+/* ---------------- gauges ---------------- */
+
+/** A reading that is best drawn as a dial: a share of 0-100 and what a high value means. */
+export interface Gauge { key: string; label: string; value: number; scale: 'load' | 'reach' | 'plain' }
+
+const NOT_A_LEVEL = /(count|cores|frequency|freq|mhz|ghz|bytes|bps|seconds|days|hours|minutes|price|amount|total|number|id)$/i;
+const LOAD_LEVEL = /(^|_)(cpu|cpu_load|load|memory|mem|ram|disk|hdd|storage|usage|utili[sz]ation|util)(_|$)/i;
+const REACH_LEVEL = /(uptime|availability|reachab|success|delivery)/i;
+const PERCENT_WORD = /(^|_)(pct|percent|percentage)(_|$)/i;
+const FRACTION_WORD = /(^|_)(ratio|share)$/i;
+const RATE_WORD = /(^|_)rate$/i;
+
+function gaugeLabel(key: string): string {
+  const k = key.toLowerCase();
+  if (/(^|_)cpu/.test(k)) return 'CPU';
+  if (/(memory|(^|_)mem(_|$)|(^|_)ram(_|$))/.test(k)) return 'Memory';
+  if (/(disk|hdd|storage)/.test(k)) return 'Disk';
+  return humanizeKey(key.replace(/(^|_)(pct|percent|percentage|ratio|share|rate)(?=_|$)/gi, '').replace(/^_+|_+$/g, '') || key);
+}
+
+/**
+ * The readings in a set of fields that are levels (CPU, memory, disk, uptime, a
+ * percentage), as dials. Memory and disk are worked out from RouterOS's free_ and
+ * total_ pairs when no percentage is given. `used` lists the fields a dial now shows,
+ * so they are not repeated as plain figures. At most four.
+ */
+export function gaugesOf(entries: [string, unknown][]): { gauges: Gauge[]; used: Set<string> } {
+  const map = new Map(entries.map(([k, v]) => [k.toLowerCase().replace(/-/g, '_'), { key: k, v: num(v) }]));
+  const gauges: Gauge[] = [];
+  const used = new Set<string>();
+  const add = (g: Gauge, keys: string[]) => {
+    if (gauges.length >= 4 || gauges.some((x) => x.label === g.label)) return;
+    gauges.push({ ...g, value: Math.max(0, Math.min(100, Math.round(g.value * 10) / 10)) });
+    keys.forEach((k) => used.add(k));
+  };
+
+  // free/used + total pairs: memory, disk
+  for (const part of ['memory', 'hdd_space', 'disk', 'storage', 'ram']) {
+    const total = map.get(`total_${part}`);
+    const free = map.get(`free_${part}`);
+    const usedV = map.get(`used_${part}`);
+    if (total?.v && total.v > 0) {
+      const level = free?.v !== undefined && free?.v !== null ? ((total.v - free.v) / total.v) * 100
+        : usedV?.v !== undefined && usedV?.v !== null ? (usedV.v / total.v) * 100 : null;
+      if (level !== null && Number.isFinite(level)) {
+        add({ key: `total_${part}`, label: part === 'hdd_space' || part === 'disk' || part === 'storage' ? 'Disk' : 'Memory', value: level, scale: 'load' },
+          [total.key, free?.key ?? '', usedV?.key ?? ''].filter(Boolean));
+      }
+    }
+  }
+
+  for (const [norm, { key, v }] of map) {
+    if (v === null || used.has(key) || NOT_A_LEVEL.test(norm)) continue;
+    let value: number | null = null;
+    if (FRACTION_WORD.test(norm) && v >= 0 && v <= 1) value = v * 100;
+    else if ((PERCENT_WORD.test(norm) || LOAD_LEVEL.test(norm) || (REACH_LEVEL.test(norm) && (RATE_WORD.test(norm) || PERCENT_WORD.test(norm) || /reachab|availability/.test(norm)))) && v >= 0 && v <= 100) value = v;
+    if (value === null) continue;
+    const scale: Gauge['scale'] = LOAD_LEVEL.test(norm) ? 'load' : REACH_LEVEL.test(norm) ? 'reach' : 'plain';
+    add({ key, label: gaugeLabel(key), value, scale }, [key]);
+  }
+  // the order the router cards use: CPU, memory, disk, then the rest as found
+  const rank = (g: Gauge) => (g.label === 'CPU' ? 0 : g.label === 'Memory' ? 1 : g.label === 'Disk' ? 2 : 3);
+  gauges.sort((a, b) => rank(a) - rank(b));
+  return { gauges, used };
+}

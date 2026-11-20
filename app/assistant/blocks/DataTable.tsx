@@ -187,11 +187,12 @@ export function DataTable({ columns, rows, total, currency, onPick }: {
               </span>
               {line ? <span className="mt-0.5 block truncate text-[12.5px] text-ink-3">{line}</span> : null}
               {pairs.length ? (
-                <span className="mt-1.5 grid grid-cols-2 gap-x-4 gap-y-1 @md:grid-cols-3">
+                // figures inline ("Amount KES 50 · Date 20 Nov"), so a row is two or three lines, not six
+                <span className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-[12px] leading-snug">
                   {pairs.map((c) => (
-                    <span key={c.key} className="min-w-0">
-                      <span className="block truncate text-[11.5px] text-ink-3">{c.label}</span>
-                      <span className="ai-mono block break-words text-[12.5px] text-ink-1">{shown(row, c)}</span>
+                    <span key={c.key} className="min-w-0 max-w-full">
+                      <span className="text-ink-3">{c.label}</span>{' '}
+                      <span className="ai-mono break-words text-ink-1">{shown(row, c)}</span>
                     </span>
                   ))}
                 </span>
@@ -201,9 +202,9 @@ export function DataTable({ columns, rows, total, currency, onPick }: {
           return (
             <li key={r}>
               {onPick ? (
-                <button type="button" className="block w-full px-3 py-2.5 text-left transition-colors hover:bg-surface-2 active:bg-surface-2" onClick={() => onPick(row)}>{content}</button>
+                <button type="button" className="block w-full px-3 py-2 text-left transition-colors hover:bg-surface-2 active:bg-surface-2" onClick={() => onPick(row)}>{content}</button>
               ) : (
-                <div className="px-3 py-2.5">{content}</div>
+                <div className="px-3 py-2">{content}</div>
               )}
             </li>
           );

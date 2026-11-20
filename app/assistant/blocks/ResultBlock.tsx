@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import type { ShowFields } from '../../lib/assistant';
-import { cardTitle, formatCell, num, shortDate, toCsv, visualFor, type ChartModel, type Column, type TileItem, type Visual } from '../../lib/assistantVisual';
+import { cardTitle, formatCell, gaugesOf, num, shortDate, toCsv, visualFor, type ChartModel, type Column, type Gauge, type TileItem, type Visual } from '../../lib/assistantVisual';
 import { entityOf } from '../../lib/assistantEntities';
 import { formatValue, humanizeKey, type Row } from '../../lib/assistantView';
 import { ColumnChart } from '../charts/ColumnChart';
@@ -10,7 +10,7 @@ import { RankedBars } from '../charts/RankedBars';
 import { SegmentsBar } from '../charts/SegmentsBar';
 import { Legend, seriesColor, toneColor } from '../charts/shared';
 import { ChartIcon, DownloadIcon, TableIcon } from '../icons';
-import { CountUp, Panel } from '../ui';
+import { CountUp, Dial, Panel } from '../ui';
 import { CodeBox } from '../Markdown';
 import { CustomerBlock, PaymentBlock, PlanBlock, RouterBlock, VoucherBlock } from './BillingBlocks';
 import { DataTable } from './DataTable';
@@ -41,15 +41,38 @@ const TILE_COLUMNS: Record<number, string> = {
 };
 
 /**
+ * Levels in an answer (CPU, memory, disk, uptime, a percentage) drawn with the same
+ * tick dials as the router cards, a little smaller: same scale, same red line, same
+ * needle that swings in when the answer scrolls into view.
+ */
+function GaugeRow({ gauges }: { gauges: Gauge[] }) {
+  if (!gauges.length) return null;
+  return (
+    <div className={`grid gap-x-2 gap-y-3 px-3 pt-4 ${gauges.length === 1 ? 'grid-cols-1' : gauges.length === 2 ? 'grid-cols-2' : gauges.length === 3 ? 'grid-cols-3' : 'grid-cols-2 @md:grid-cols-4'}`}>
+      {gauges.map((g) => (
+        <div key={g.key} className="flex justify-center">
+          <Dial value={g.value} label={g.label} scale={g.scale} size={gauges.length >= 3 ? 96 : 108} />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/**
  * Headline figures as one strip of readouts, divided by hairlines like the panel of
  * an instrument: a small label over each figure. The number is the chart.
  */
-function Tiles({ title, items, rest, currency }: { title: string; items: TileItem[]; rest: [string, unknown][]; currency?: string | null }) {
+function Tiles({ title, items: all, rest: allRest, currency }: { title: string; items: TileItem[]; rest: [string, unknown][]; currency?: string | null }) {
+  // levels become dials; the rest stay figures
+  const { gauges, used } = gaugesOf([...all.map((i) => [i.key, i.value] as [string, unknown]), ...allRest]);
+  const items = all.filter((i) => !used.has(i.key));
+  const rest = allRest.filter(([k]) => !used.has(k));
   return (
     <section className="@container ai-card overflow-hidden">
       {title ? <p className="ai-eyebrow px-4 pt-3.5 sm:px-5">{title}</p> : null}
+      <GaugeRow gauges={gauges} />
       {/* every cell draws its top and left hairline and is pulled over its neighbour's by 1px, so the strip has inner lines only */}
-      <div className={`-mb-px -mr-px grid ${TILE_COLUMNS[items.length] ?? 'grid-cols-2 @lg:grid-cols-3'} ${title ? 'mt-1' : '-mt-px'}`}>
+      {items.length ? <div className={`-mb-px -mr-px grid ${TILE_COLUMNS[items.length] ?? 'grid-cols-2 @lg:grid-cols-3'} ${gauges.length ? 'mt-3' : title ? 'mt-1' : '-mt-px'}`}>
         {items.map((item) => {
           const shown = formatCell(item.value, item.kind, currency);
           // a long figure steps down a size rather than spilling out of its cell
@@ -62,7 +85,7 @@ function Tiles({ title, items, rest, currency }: { title: string; items: TileIte
             </div>
           );
         })}
-      </div>
+      </div> : null}
       {rest.length ? (
         <p className="flex flex-wrap gap-x-4 gap-y-0.5 border-t border-line px-4 py-2.5 text-[12px] text-ink-3 sm:px-5">
           {rest.map(([k, v]) => <span key={k}>{humanizeKey(k.replace(/\./g, ' '))}: <span className="ai-mono text-ink-2">{formatValue(v)}</span></span>)}
@@ -110,7 +133,8 @@ function ChartCard({ title, visual, currency, onAsk }: {
     picture = (
       <>
         <Legend items={series.map((s) => ({ label: s.label, color: s.color }))} />
-        <ColumnChart points={points} series={series} format={(v, k) => formatCell(v, chart.series[k]?.kind ?? 'number', currency)} />
+        <ColumnChart points={points} series={series} format={(v, k) => formatCell(v, chart.series[k]?.kind ?? 'number', currency)}
+          onPick={onAsk ? (i) => onAsk(`What happened on ${points[i].title}? Break down ${title.toLowerCase()} for that ${humanizeKey(chart.labelKey).toLowerCase() || 'period'}.`) : undefined} />
         {points[points.length - 1]?.partial ? <p className="mt-2 text-[12px] text-ink-3">The last period is still filling in.</p> : null}
       </>
     );
@@ -120,7 +144,7 @@ function ChartCard({ title, visual, currency, onAsk }: {
     subtitle = `${s.label} by ${humanizeKey(chart.labelKey).toLowerCase()}`;
     picture = (
       <>
-        <RankedBars
+        <RankedBars onPick={onAsk ? (label) => onAsk(`Tell me more about ${label} in "${title}"`) : undefined}
           rows={chart.rows.map((row) => {
             const v = num(row[s.key]) ?? 0;
             const others = chart.series.slice(1).map((o) => `${o.label} ${formatCell(row[o.key], o.kind, currency)}`).join(' · ');
@@ -139,7 +163,7 @@ function ChartCard({ title, visual, currency, onAsk }: {
   } else if (visual.kind === 'share') {
     subtitle = 'Share of the whole';
     picture = (
-      <SegmentsBar segments={visual.segments.map((seg, i) => ({
+      <SegmentsBar onPick={onAsk ? (label) => onAsk(`Tell me more about "${label}" in ${title.toLowerCase()}: who or what is in it?`) : undefined} segments={visual.segments.map((seg, i) => ({
         label: seg.label, value: seg.value, shown: formatCell(seg.value, visual.valueKind, currency), color: seg.tone ? toneColor(seg.tone) : seriesColor(i),
       }))} />
     );
@@ -169,6 +193,7 @@ function ChartCard({ title, visual, currency, onAsk }: {
   );
 }
 
+const isBlankValue = (v: unknown) => v === null || v === undefined || v === '';
 const NAME_KEYS = new Set(['name', 'customer_name', 'full_name', 'router_name', 'plan_name', 'organization_name', 'identity', 'title']);
 
 function TableCard({ title, visual, currency, onAsk }: {
@@ -178,12 +203,16 @@ function TableCard({ title, visual, currency, onAsk }: {
   onAsk?: (q: string) => void;
 }) {
   const first = visual.columns[0];
-  // a row whose first column names something is a question about that thing
-  const pick = onAsk && first && first.kind === 'text' && NAME_KEYS.has(first.key)
+  // every row is a question about that row: by its name when it has one, else by its values
+  const pick = onAsk && first
     ? (row: Row) => {
-        const name = formatValue(row[first.key]);
         const id = typeof row.id === 'number' || typeof row.id === 'string' ? ` (ID ${row.id})` : '';
-        onAsk(`Tell me more about ${name}${id}`);
+        if (first.kind === 'text' && NAME_KEYS.has(first.key)) {
+          onAsk(`Tell me more about ${formatValue(row[first.key])}${id}`);
+          return;
+        }
+        const said = visual.columns.slice(0, 4).filter((c) => !isBlankValue(row[c.key])).map((c) => `${c.label} ${formatCell(row[c.key], c.kind, currency)}`).join(', ');
+        onAsk(`Tell me more about this row of "${title}": ${said}${id}`);
       }
     : undefined;
   const count = visual.total ?? visual.rows.length;
@@ -208,13 +237,16 @@ function TableCard({ title, visual, currency, onAsk }: {
 
 /** Everything about one thing: commands to copy first, then label and value pairs. */
 function DetailCard({ title, visual }: { title: string; visual: Extract<Visual, { kind: 'record' }> }) {
+  const { gauges, used } = gaugesOf(visual.fields);
+  const fields = visual.fields.filter(([k]) => !used.has(k));
   return (
     <Panel eyebrow="Details" title={title}>
+      {gauges.length ? <div className="-mx-1 -mt-2 mb-3"><GaugeRow gauges={gauges} /></div> : null}
       <div className="flex flex-col gap-3">
         {visual.commands.map(([k, v]) => <CodeBox key={k} code={v} label={humanizeKey(k)} />)}
-        {visual.fields.length ? (
+        {fields.length ? (
           <dl className="ai-well grid grid-cols-1 gap-x-8 px-3.5 py-1 text-[13px] @2xl:grid-cols-2">
-            {visual.fields.filter(([, v]) => v !== null && v !== undefined && v !== '').map(([k, v]) => (
+            {fields.filter(([, v]) => v !== null && v !== undefined && v !== '').map(([k, v]) => (
               <div key={k} className="grid grid-cols-[minmax(7rem,40%)_1fr] gap-x-3 border-b border-line py-2 last:border-b-0">
                 <dt className="text-ink-3">{humanizeKey(k.replace(/\./g, ' '))}</dt>
                 <dd className="ai-num min-w-0 break-words text-ink-1">{formatValue(v)}</dd>

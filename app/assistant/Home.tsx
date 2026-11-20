@@ -9,13 +9,13 @@ import { copyText } from '../lib/clipboard';
 import { formatMoney } from '../lib/format';
 import { useT } from '../lib/i18n';
 import type { AdminDashboard } from '../lib/types';
-import { DeviceCard } from './blocks/DeviceCard';
+import { DeviceCard, type Device } from './blocks/DeviceCard';
 import { Delta } from './charts/Mini';
 import { RankedBars } from './charts/RankedBars';
 import { SegmentsBar } from './charts/SegmentsBar';
 import { toneColor } from './charts/shared';
 import { ArrowRightIcon, CameraIcon, CheckIcon, CopyIcon } from './icons';
-import { AreaSpark, Cells, CountUp, Led, Meter, Panel, Pill, Readout, ReadoutGrid } from './ui';
+import { AreaSpark, CountUp, Led, Meter, Panel, Pill, Readout, ReadoutGrid, useInView } from './ui';
 
 /*
  * The home screen, drawn like a network console: a sentence that says how things
@@ -86,24 +86,35 @@ function Skeleton() {
 
 function Starters({ groups, onAsk }: { groups: { title: string; questions: string[] }[]; onAsk: Ask }) {
   const t = useT();
+  const [tab, setTab] = useState(0);
+  const chip = (question: string) => (
+    <button key={question} type="button" className="ai-chip group !rounded-[12px] !py-2 text-[13px] max-sm:w-full max-sm:justify-between max-sm:!py-2.5" onClick={() => onAsk(question)}>
+      <span className="min-w-0">{question}</span>
+      <ArrowRightIcon width={12} height={12} className="shrink-0 text-ink-3 transition-transform group-hover:translate-x-0.5 group-active:translate-x-0.5 group-hover:text-accent group-active:text-accent" />
+    </button>
+  );
+  const current = groups[Math.min(tab, groups.length - 1)];
   return (
     <section className="mt-10">
       <div className="mb-4 flex items-center gap-3">
         <h2 className="ai-eyebrow shrink-0">{t('Or start with one of these')}</h2>
         <span aria-hidden className="h-px flex-1 bg-line" />
       </div>
-      <div className="grid gap-x-8 gap-y-6 sm:grid-cols-2 lg:grid-cols-4">
+      {/* a phone: one group at a time, chosen with tabs */}
+      <div className="sm:hidden">
+        <div className="mb-3 flex flex-wrap gap-1.5" role="tablist">
+          {groups.map((g, i) => (
+            <button key={g.title} type="button" role="tab" aria-selected={i === tab} onClick={() => setTab(i)}
+              className={`ai-tap rounded-full px-3 py-1.5 text-[12.5px] font-medium transition-colors ${i === tab ? 'bg-surface-3 text-ink-1' : 'text-ink-3'}`}>{g.title}</button>
+          ))}
+        </div>
+        {current ? <div key={current.title} className="ai-rise flex flex-col gap-1.5">{current.questions.map(chip)}</div> : null}
+      </div>
+      <div className="hidden gap-x-8 gap-y-6 sm:grid sm:grid-cols-2 lg:grid-cols-4">
         {groups.map((group) => (
           <div key={group.title} className="min-w-0">
             <h3 className="mb-2.5 text-[13px] font-semibold text-ink-1">{group.title}</h3>
-            <div className="flex flex-col items-start gap-1.5 max-sm:items-stretch">
-              {group.questions.map((question) => (
-                <button key={question} type="button" className="ai-chip group !rounded-[12px] !py-2 text-[13px] max-sm:w-full max-sm:justify-between max-sm:!py-2.5" onClick={() => onAsk(question)}>
-                  <span className="min-w-0">{question}</span>
-                  <ArrowRightIcon width={12} height={12} className="shrink-0 text-ink-3 transition-transform group-hover:translate-x-0.5 group-active:translate-x-0.5 group-hover:text-accent group-active:text-accent" />
-                </button>
-              ))}
-            </div>
+            <div className="flex flex-col items-start gap-1.5">{group.questions.map(chip)}</div>
           </div>
         ))}
       </div>
@@ -177,6 +188,33 @@ const reporting = (list: NetworkRouter[]) => list.filter((x) => x.status === 'on
 const peopleOnline = (list: NetworkRouter[]) => reporting(list).reduce((a, x) => a + (x.live?.hotspot_online ?? 0) + (x.live?.pppoe_online ?? 0), 0);
 
 /**
+ * Today's paying customers as one bar: green for those paid beyond today, amber for
+ * those whose time ends today, with the two counts in words under it.
+ */
+function PaidSplit({ active, endsToday }: { active: number; endsToday: number }) {
+  const t = useT();
+  const ends = Math.min(active, Math.max(0, endsToday));
+  const more = Math.max(0, active - ends);
+  const [box, seen] = useInView<HTMLDivElement>({ threshold: 0.6 });
+  if (active <= 0) return <p className="mt-1.5 text-[12px] leading-snug text-ink-3">{t('Nobody has paid time right now')}</p>;
+  return (
+    <div>
+      <div ref={box} className="flex h-[30px] items-end pb-1">
+        <div className="flex h-2 w-full gap-[3px]" role="img" aria-label={`${more} with more time, ${ends} ending today`}>
+          {[{ v: more, c: 'var(--ai-good)' }, { v: ends, c: 'var(--ai-warn)' }].filter((p) => p.v > 0).map((p, i) => (
+            <span key={i} className="block h-full min-w-[4px] rounded-full"
+              style={{ flexGrow: seen ? p.v : 0.0001, flexBasis: 0, background: p.c, boxShadow: `0 0 8px -2px ${p.c}`, transition: `flex-grow 900ms cubic-bezier(0.16, 1, 0.3, 1) ${i * 120}ms` }} />
+          ))}
+        </div>
+      </div>
+      <p className="mt-1.5 line-clamp-2 text-[12px] leading-snug text-ink-3">
+        {ends > 0 ? <><span className="text-[var(--ai-text-warn)]">{n(ends)} end today</span> · {n(more)} {t('have more time')}</> : t('all paid beyond today')}
+      </p>
+    </div>
+  );
+}
+
+/**
  * The vital signs, in one band: money today, people online with the traffic they
  * pull, paying customers, routers up. The one place figures are shouted; each cell
  * carries a small picture of the same thing and is a question.
@@ -214,8 +252,7 @@ function Vitals({ ctx }: { ctx: Ctx }) {
     key: 'customers', label: t('Paying'), value: b.customers.active, format: n, ask: 'List my active customers',
     picture: (
       <div>
-        <div className="flex h-[30px] items-end"><Cells value={b.customers.active} max={Math.max(1, b.customers.total)} count={24} color="var(--ai-series-2)" height={22} label={`${b.customers.active} of ${b.customers.total}`} /></div>
-        <p className="mt-1.5 line-clamp-2 text-[12px] leading-snug text-ink-3">{t('customers, of {n} on your books', { n: n(b.customers.total) })}</p>
+        <PaidSplit active={b.customers.active} endsToday={b.customers.expiring_today} />
       </div>
     ),
   });
@@ -285,7 +322,12 @@ function needsItems(b: Briefing, money: (v: number) => string): Item[] {
   const a = b.attention;
   const sub = a?.subscription;
   const items: Item[] = [];
-  if (b.routers && b.routers.offline > 0) items.push({ tone: 'bad', text: `${n(b.routers.offline)} ${plural(b.routers.offline, 'router is', 'routers are')} offline`, ask: 'Which routers are offline right now, and since when?' });
+  if (b.routers && b.routers.offline > 0) {
+    const only = b.routers.offline === 1 ? b.routers.down[0] : null;
+    items.push(only
+      ? { tone: 'bad', text: `${only.name} is offline. Find out why`, ask: `Why is router ${only.name} (ID ${only.id}) offline, and how do I fix it?` }
+      : { tone: 'bad', text: `${n(b.routers.offline)} routers are offline`, ask: 'Which routers are offline right now, and since when?' });
+  }
   for (const x of b.routers?.list ?? []) {
     if (x.status === 'online' && typeof x.live?.cpu === 'number' && x.live.cpu >= 85) {
       items.push({ tone: 'warn', text: `${x.name} is working hard: CPU at ${Math.round(x.live.cpu)}%`, ask: `Why is the CPU of router ${x.name} (ID ${x.id}) high, and what should I do?` });
@@ -294,7 +336,11 @@ function needsItems(b: Briefing, money: (v: number) => string): Item[] {
   if (sub && /suspend|inactive|expired/i.test(sub.status)) items.push({ tone: 'bad', text: `Your Bitwave subscription is ${sub.status}`, ask: 'What do I owe on my Bitwave subscription?' });
   else if (sub?.amount_due && sub.amount_due > 0) items.push({ tone: 'warn', text: `Bitwave subscription: ${money(sub.amount_due)} is due`, ask: 'What do I owe on my Bitwave subscription?' });
   if (a?.failed_payments_24h) items.push({ tone: 'bad', text: `${n(a.failed_payments_24h)} ${plural(a.failed_payments_24h, 'payment', 'payments')} failed in the last 24 hours`, ask: 'Show the payments that failed in the last 24 hours' });
-  if (b.customers && b.customers.expiring_today > 0) items.push({ tone: 'warn', text: `${n(b.customers.expiring_today)} ${plural(b.customers.expiring_today, 'customer expires', 'customers expire')} today`, ask: 'Who expires today?' });
+  if (b.customers && b.customers.expiring_today > 0) {
+    const k = b.customers.expiring_today;
+    items.push({ tone: 'info', text: `${n(k)} ${plural(k, "customer's internet time ends", "customers' internet time ends")} today. Remind them to buy again`,
+      ask: 'Send a reminder SMS to the customers whose internet time ends today, asking them to buy again' });
+  }
   if (a?.unmatched_payments) items.push({ tone: 'warn', text: `${n(a.unmatched_payments)} ${plural(a.unmatched_payments, 'payment is', 'payments are')} not matched to a customer`, ask: 'Show my unmatched payments' });
   if (typeof a?.sms_credits === 'number' && a.sms_credits < 50) items.push({ tone: 'warn', text: `Only ${n(a.sms_credits)} SMS ${plural(a.sms_credits, 'credit', 'credits')} left`, ask: 'How many SMS credits do I have, and how do I buy more?' });
   if (sub && /trial/i.test(sub.status) && sub.expires_at) items.push({ tone: 'info', text: `Free trial ends ${dateFmt.format(asUtc(sub.expires_at))}`, ask: 'When does my trial end and what happens then?' });
@@ -356,27 +402,33 @@ function NetworkSection({ ctx }: { ctx: Ctx }) {
         </div>
         <More label={t('All routers')} onClick={() => onAsk('Show my routers and their status')} />
       </header>
-      <ul className={`m-0 grid list-none gap-3 p-0 ${cols}`}>
-        {r.list.map((x) => {
+      {(() => {
+        const items = r.list.map((x) => {
           const lv = x.status === 'online' ? x.live : null;
           const named = `router ${x.name} (ID ${x.id})`;
           const last = x.last_online_at ? asUtc(x.last_online_at).getTime() : null;
-          return (
-            <DeviceCard key={x.id}
-              d={{
-                id: x.id, name: x.name, state: x.status,
-                model: lv ? [lv.board, lv.version ? `RouterOS ${lv.version}` : null].filter(Boolean).join(' · ') : x.identity,
-                downFor: x.status === 'offline' && last ? span(asOf - last) : null,
-                cpu: lv?.cpu, memory: lv?.memory_pct, down: bpsText(lv?.down_bps), up: bpsText(lv?.up_bps), uptime: uptimeText(lv?.uptime),
-                hotspot: lv ? lv.hotspot_online ?? 0 : null, pppoe: lv ? lv.pppoe_online ?? 0 : null,
-                customers: x.active_customers, reach: lv ? null : x.reachable_pct,
-              }}
-              onOpen={() => onAsk(x.status === 'offline' ? `Why is ${named} offline, and how do I fix it?` : `Check the health of ${named}`)}
-              onPeople={() => onAsk(`Who is online on ${named} right now?`)}
-              onCustomers={() => onAsk(`Which customers are on ${named}?`)} />
-          );
-        })}
-      </ul>
+          const d: Device = {
+            id: x.id, name: x.name, state: x.status,
+            model: lv ? [lv.board, lv.version ? `RouterOS ${lv.version}` : null].filter(Boolean).join(' · ') : x.identity,
+            downFor: x.status === 'offline' && last ? span(asOf - last) : null,
+            cpu: lv?.cpu, memory: lv?.memory_pct, down: bpsText(lv?.down_bps), up: bpsText(lv?.up_bps), uptime: uptimeText(lv?.uptime),
+            hotspot: lv ? lv.hotspot_online ?? 0 : null, pppoe: lv ? lv.pppoe_online ?? 0 : null,
+            customers: x.active_customers, reach: lv ? null : x.reachable_pct,
+          };
+          const handlers = {
+            onOpen: () => onAsk(x.status === 'offline' ? `Why is ${named} offline, and how do I fix it?` : `Check the health of ${named}`),
+            onPeople: () => onAsk(`Who is online on ${named} right now?`),
+            onCustomers: () => onAsk(`Which customers are on ${named}?`),
+          };
+          return { key: x.id, d, handlers, down: x.status === 'offline' };
+        });
+        return (
+          // every router keeps its full card with the big dials, on a phone too
+          <ul className={`m-0 grid list-none gap-3 p-0 ${cols}`}>
+            {items.map((it) => <DeviceCard key={it.key} d={it.d} {...it.handlers} />)}
+          </ul>
+        );
+      })()}
       {r.total > r.list.length ? <p className="mt-2 text-[12.5px] text-ink-3">{t('{n} more are not drawn here.', { n: n(r.total - r.list.length) })}</p> : null}
     </section>
   );
@@ -511,7 +563,7 @@ function PlansPanel({ ctx }: { ctx: Ctx }) {
 function summaryText(b: Briefing, money: (v: number) => string): string {
   const lines = [`${b.name ?? 'My network'} · ${dateFmt.format(asUtc(b.as_of))} ${clockFmt.format(asUtc(b.as_of))}`];
   if (b.money) lines.push(`Money: ${money(b.money.today)} today from ${n(b.money.payments_today)} payments. ${money(b.money.last7)} in the last 7 days (${money(b.money.prev7)} the week before). ${money(b.money.month)} this month.`);
-  if (b.customers) lines.push(`Customers: ${n(b.customers.active)} active of ${n(b.customers.total)}. ${n(b.customers.expiring_today)} expire today, ${n(b.customers.expired_7d)} expired this week.`);
+  if (b.customers) lines.push(`Customers: ${n(b.customers.active)} paying right now${b.customers.expiring_today ? `; ${n(b.customers.expiring_today)} of them have internet time ending today` : ''}. ${n(b.customers.expired_7d)} ran out this week and have not bought again.`);
   if (b.routers) lines.push(`Routers: ${n(b.routers.online)} of ${n(b.routers.total)} online${b.routers.offline ? `, offline: ${b.routers.down.map((d) => d.name).join(', ')}` : ''}.`);
   const needs = needsItems(b, money).map((i) => i.text);
   if (needs.length) lines.push(`Needs a look: ${needs.join('; ')}.`);
@@ -682,21 +734,35 @@ export default function Home({ userKey, name, organization, admin, readOnly, ena
     sub = <>{t('Tell me what you have, or tap Start setup. I ask one thing at a time and do the configuration for you.')}</>;
   } else if (b) {
     const m = b.money;
-    const offline = b.routers?.offline ?? 0;
-    const expiring = b.customers?.expiring_today ?? 0;
-    // The band below carries the figures; the headline says what they mean: trouble
-    // first, then how the week is going.
+    const r = b.routers;
+    const list = r?.list ?? [];
+    const offline = r?.offline ?? 0;
+    // paying customers on the routers that are down: who is affected, not just how many routers
+    const cutOff = list.filter((x) => x.status === 'offline').reduce((a, x) => a + (x.active_customers ?? 0), 0);
+    const live = reporting(list).length > 0;
+    const people = peopleOnline(list);
     const change = m && m.prev7 > 0 ? Math.round(((m.last7 - m.prev7) / m.prev7) * 100) : null;
-    headline = (
-      <>
-        {offline > 0 ? <><span className="text-[var(--ai-text-bad)]">{n(offline)} {plural(offline, 'router is', 'routers are')} down</span>{expiring > 0 ? <> and {n(expiring)} {plural(expiring, 'customer runs', 'customers run')} out today. </> : '. '}</>
-          : expiring > 0 ? <>Your network is up. <span className="text-[var(--ai-text-warn)]">{n(expiring)} {plural(expiring, 'customer runs', 'customers run')} out today.</span> </>
-            : b.routers && b.routers.total > 0 ? 'Your network is up and nothing needs you. ' : 'Here is where things stand. '}
-        {change !== null && Math.abs(change) >= 1 ? (
-          <span className="text-ink-3">Money is <span className={change > 0 ? 'text-[var(--ai-text-good)]' : 'text-[var(--ai-text-warn)]'}>{change > 0 ? 'up' : 'down'} {Math.abs(change)}%</span> on last week.</span>
-        ) : null}
-      </>
-    );
+    headline = offline === 1 && r?.down[0] ? (
+      <><span className="text-[var(--ai-text-bad)]">{r.down[0].name} is down.</span>{' '}
+        {cutOff > 0 ? `${n(cutOff)} paying ${plural(cutOff, 'customer', 'customers')} can't get online.` : "Customers on it can't get online."}</>
+    ) : offline > 1 ? (
+      <><span className="text-[var(--ai-text-bad)]">{n(offline)} routers are down</span>
+        {cutOff > 0 ? `, so ${n(cutOff)} paying customers can't get online.` : '.'}</>
+    ) : r && r.total > 0 ? (
+      <>All good: {r.total === 1 ? 'your router is up' : `all ${n(r.total)} routers are up`}
+        {live ? <> and <span className="text-[var(--ai-text-good)]">{n(people)} {plural(people, 'person is', 'people are')} online</span> right now</> : null}.</>
+    ) : <>Here is where things stand.</>;
+    if (m) {
+      sub = (
+        <>
+          You have made <b className="ai-mono font-medium text-ink-1">{money(m.today)}</b> today
+          {m.payments_today ? ` from ${n(m.payments_today)} ${plural(m.payments_today, 'payment', 'payments')}` : ''}
+          {change !== null && Math.abs(change) >= 1 ? (
+            <>, and this week is <span className={change > 0 ? 'text-[var(--ai-text-good)]' : 'text-[var(--ai-text-warn)]'}>{Math.abs(change)}% {change > 0 ? 'ahead of' : 'behind'}</span> last week</>
+          ) : null}.
+        </>
+      );
+    }
   }
   if (loaded && !sub) sub = <>{t('Every figure below is a question: tap it and the conversation carries on from there. Or ask anything in the box.')}</>;
 
@@ -758,7 +824,7 @@ export default function Home({ userKey, name, organization, admin, readOnly, ena
             </button>
           ) : null}
         </div>
-        <p className="mt-2.5 max-w-[760px] text-[14px] leading-relaxed text-ink-3">
+        <p className="mt-3 max-w-[760px] text-[15px] leading-relaxed text-ink-2">
           {sub ?? (enabled ? <span className="text-accent">{t('Ask anything below.')}</span> : null)}
         </p>
         {b && failedSections.length > 0 && !fresh ? (
