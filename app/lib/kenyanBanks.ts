@@ -3,8 +3,9 @@
  * account". Resellers kept typing these by hand on the Bank Account payment
  * method; now they pick the bank and only type their own account number.
  *
- * Only well-known, stable paybills belong here. A bank missing from the list
- * (or one that changes its paybill) still works through "Other", where the
+ * Only paybills the bank (or SACCO) itself publishes belong here: check its
+ * own website before adding one, not a paybill directory. A bank missing from
+ * the list (or one that changes its paybill) still works through "Other", where the
  * reseller types the paybill themselves. The stored data is unchanged: the
  * payment method still saves just `bank_paybill_number`.
  */
@@ -17,7 +18,10 @@ export interface KenyanBank {
 
 export const KENYAN_BANKS: KenyanBank[] = [
   { code: 'absa', name: 'Absa Bank Kenya', paybill: '303030' },
+  { code: 'boa', name: 'Bank of Africa', paybill: '972900' },
   { code: 'coop', name: 'Co-operative Bank', paybill: '400200' },
+  { code: 'consolidated', name: 'Consolidated Bank', paybill: '508400' },
+  { code: 'credit', name: 'Credit Bank', paybill: '972700' },
   { code: 'dtb', name: 'Diamond Trust Bank (DTB)', paybill: '516600' },
   { code: 'equity', name: 'Equity Bank', paybill: '247247' },
   { code: 'family', name: 'Family Bank', paybill: '222111' },
@@ -27,8 +31,12 @@ export const KENYAN_BANKS: KenyanBank[] = [
   { code: 'kcb', name: 'KCB Bank', paybill: '522522' },
   { code: 'national', name: 'National Bank of Kenya', paybill: '547700' },
   { code: 'ncba', name: 'NCBA Bank', paybill: '880100' },
+  { code: 'postbank', name: 'Postbank (Kenya Post Office Savings Bank)', paybill: '200999' },
+  { code: 'prime', name: 'Prime Bank', paybill: '982800' },
+  { code: 'sidian', name: 'Sidian Bank', paybill: '111999' },
   { code: 'stanbic', name: 'Stanbic Bank', paybill: '600100' },
   { code: 'stanchart', name: 'Standard Chartered', paybill: '329329' },
+  { code: 'unaitas', name: 'Unaitas Sacco', paybill: '544700' },
 ];
 
 /** Select value meaning "my bank isn't listed, I'll type the paybill". */
