@@ -89,8 +89,8 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   const router = useRouter();
   const { isAuthenticated, isLoading, isDemo, user } = useAuth();
 
-  // the assistant's design preview (made-up figures, development builds only) needs no sign-in
-  const isDevPreview = process.env.NODE_ENV !== 'production' && pathname === `${AI_HOME_PATH}/preview`;
+  // the assistant's design preview (made-up figures; development and Vercel previews only) needs no sign-in
+  const isDevPreview = (process.env.NODE_ENV !== 'production' || process.env.NEXT_PUBLIC_VERCEL_ENV === 'preview') && pathname === `${AI_HOME_PATH}/preview`;
   const isPublicPage = isDevPreview || PUBLIC_PATHS.includes(pathname) || PUBLIC_PREFIXES.some(p => matchesPathPrefix(pathname, p));
   const isDemoEntry = pathname === '/demo';
 
