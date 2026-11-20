@@ -5,7 +5,7 @@ import StatCard from '../../components/StatCard';
 import {
   PERIOD_NOUN, STREAM_LABELS, TERMS, earningsRows, formatTakeRate,
 } from '../platformEarnings';
-import { SOURCE_LABELS } from '../earnings/earningsChartData';
+import { SOURCE_LABELS, toChartPoints } from '../earnings/earningsChartData';
 import { FR } from '../../lib/locales/fr';
 import { translate, type TFunction } from '../../lib/i18n';
 import type { AdminPlatformEarnings } from '../../lib/types';
@@ -167,5 +167,17 @@ describe('StatCard tooltip', () => {
   it('renders a plain title without one', () => {
     const html = renderToStaticMarkup(<StatCard title="MRR" value="KES 1" icon={null} />);
     expect(html).not.toContain('aria-label');
+  });
+});
+
+describe('earnings incl. my reseller accounts', () => {
+  it("rolls SMS credit sales and ad commission into Bitwave's side of the chart", () => {
+    const [point] = toChartPoints([{
+      date: '2026-11-20', label: '20 Nov', total: 1_000, cumulative_total: 1_000,
+      saas_hotspot: 100, saas_pppoe: 50, saas_other: 0, sms_credits: 300, ad_commission: 150, reseller: 400,
+    }]);
+    expect(point.system).toBe(600);
+    expect(point.reseller).toBe(400);
+    expect(point.runningTotal).toBe(1_000);
   });
 });

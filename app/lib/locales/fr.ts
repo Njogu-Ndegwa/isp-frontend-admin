@@ -905,6 +905,8 @@ export const FR: Record<string, string> = {
   "Top resellers by transaction volume this month": "Meilleurs revendeurs par volume des transactions ce mois-ci",
   "Earnings incl. my reseller accounts": "Gains, y compris mes comptes revendeur",
   "Bitwave subscription fees vs my own reseller accounts": "Frais d'abonnement Bitwave et mes propres comptes revendeur",
+  "Subscriptions, SMS sales and ad commission vs my own reseller accounts": "Abonnements, ventes SMS et commission publicitaire, face à mes propres comptes revendeur",
+  "Bitwave subscription fees, SMS credit sales and its 20% of ads sold, plus what my own reseller accounts collect.": "Frais d'abonnement Bitwave, ventes de crédits SMS et ses 20 % des publicités vendues, plus ce qu'encaissent mes propres comptes revendeur.",
   "Bitwave subscription fees": "Frais d'abonnement Bitwave",
   "My own reseller accounts": "Mes propres comptes revendeur",
   "Bitwave subscription fees plus what my own reseller accounts collect. All of Bitwave's earnings, SMS included, are on the dashboard.": "Frais d'abonnement Bitwave plus ce qu'encaissent mes propres comptes revendeur. Tous les gains de Bitwave, SMS compris, sont sur le tableau de bord.",

@@ -86,7 +86,7 @@ export default function EarningsSummaryCard({
       <div className="flex items-start justify-between gap-2 mb-3 flex-wrap">
         <div>
           <h3 className="text-sm font-semibold text-foreground">{t('Earnings incl. my reseller accounts')}</h3>
-          <p className="text-[11px] text-foreground-muted mt-0.5">{t('Bitwave subscription fees vs my own reseller accounts')}</p>
+          <p className="text-[11px] text-foreground-muted mt-0.5">{t('Subscriptions, SMS sales and ad commission vs my own reseller accounts')}</p>
         </div>
         <div className="flex items-center gap-2">
           {onPeriodChange && <PeriodSelector value={period} onChange={onPeriodChange} />}
