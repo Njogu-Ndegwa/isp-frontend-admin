@@ -57,6 +57,15 @@ describe('how a result is drawn', () => {
     expect(visualFor({ name: 'Jane', phone: '2547', status: 'active', plan: 'Daily' }, 'auto').kind).toBe('record');
   });
 
+  it('names a nested figure by its own last word, and keeps ids off the tiles', () => {
+    const v = visualFor({ summary: { total_transactions: 40, total_revenue: 5200 }, router_ids: [1, 2], extracted_at: '2026-11-20T10:00:00' }, 'auto');
+    expect(v.kind).toBe('tiles');
+    if (v.kind !== 'tiles') return;
+    expect(v.items.map((t) => t.label)).toEqual(['Total transactions', 'Total revenue']);
+    expect(JSON.stringify(v)).not.toContain('router_ids');
+    expect(JSON.stringify(v)).not.toContain('extracted_at');
+  });
+
   it('draws nothing for an empty result or when the model says none', () => {
     expect(visualFor(null).kind).toBe('empty');
     expect(visualFor({ data: days }, 'none').kind).toBe('empty');

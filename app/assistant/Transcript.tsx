@@ -49,6 +49,8 @@ type Exchange = { key: number; user?: Of<'user'>; parts: Part[] };
 
 export function groupExchanges(items: TranscriptItem[]): Exchange[] {
   const out: Exchange[] = [];
+  // a lookup drawn again in the same answer replaces the earlier drawing
+  const replaced = new Set(items.flatMap((it) => (it.type === 'data' && it.replaces ? [it.replaces] : [])));
   let run: Run | null = null;
   const current = (i: number) => {
     if (!out.length) out.push({ key: i, parts: [] });
@@ -71,7 +73,7 @@ export function groupExchanges(items: TranscriptItem[]): Exchange[] {
         openRun(i).steps.push(item);
         break;
       case 'data':
-        if (item.show !== 'none') openRun(i).data.push(item);
+        if (item.show !== 'none' && !replaced.has(item.call_id)) openRun(i).data.push(item);
         break;
       case 'assistant': {
         const r = openRun(i);

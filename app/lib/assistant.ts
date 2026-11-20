@@ -12,7 +12,8 @@ export type AssistantEvent =
   | { type: 'conversation'; id: string; title: string }
   | { type: 'text'; delta: string }
   | { type: 'step'; call_id: string; label: string; phase: 'start' | 'end'; method?: string; path?: string; ok?: boolean; status?: number }
-  | { type: 'data'; call_id: string; title: string; method: string; path: string; query?: Record<string, unknown> | null; show: ShowHint; fields?: ShowFields | null; payload: unknown }
+  | { type: 'retract'; chars: number }
+  | { type: 'data'; call_id: string; title: string; method: string; path: string; query?: Record<string, unknown> | null; show: ShowHint; fields?: ShowFields | null; payload: unknown; replaces?: string }
   | { type: 'action'; action_id: string; title: string; summary: string; method: string; path: string; query?: Record<string, unknown> | null; body?: unknown; permission?: string | null; sensitive?: boolean; expires_at?: string; status: ActionStatus; form?: FormField[] }
   | { type: 'action_result'; action_id: string; status: ActionStatus; ok: boolean; http_status?: number; detail?: string; payload?: unknown }
   | { type: 'notice'; level: 'info' | 'error'; message: string }

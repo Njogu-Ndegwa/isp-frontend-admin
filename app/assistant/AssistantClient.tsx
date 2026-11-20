@@ -324,6 +324,23 @@ export default function AssistantClient() {
           return [...prev, { type: 'assistant', text: e.delta }];
         });
         return;
+      case 'retract':
+        // words the assistant wrote while still looking things up: not the answer
+        setItems((prev) => {
+          const idx = liveText.current;
+          if (idx === null || prev[idx]?.type !== 'assistant') return prev;
+          const cur = prev[idx] as Extract<TranscriptItem, { type: 'assistant' }>;
+          const text = cur.text.slice(0, Math.max(0, cur.text.length - e.chars));
+          if (text.trim()) {
+            const next = prev.slice();
+            next[idx] = { ...cur, text };
+            return next;
+          }
+          liveText.current = null;
+          setLiveIndex(null);
+          return prev.filter((_, i) => i !== idx);
+        });
+        return;
       case 'step':
         setLive(null);
         setItems((prev) => {
