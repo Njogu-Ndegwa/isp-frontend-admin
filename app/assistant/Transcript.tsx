@@ -20,7 +20,7 @@ export function actionCards(items: TranscriptItem[], records: Record<string, Act
       cards.set(item.action_id, {
         action_id: item.action_id, title: item.title, summary: item.summary, method: item.method,
         path: item.path, query: item.query, body: item.body, sensitive: item.sensitive,
-        expires_at: item.expires_at, status: item.status,
+        expires_at: item.expires_at, status: item.status, form: item.form,
       });
     } else if (item.type === 'action_result') {
       const card = cards.get(item.action_id);
@@ -49,6 +49,8 @@ type Exchange = { key: number; user?: Of<'user'>; parts: Part[] };
 
 export function groupExchanges(items: TranscriptItem[]): Exchange[] {
   const out: Exchange[] = [];
+  // a lookup drawn again in the same answer replaces the earlier drawing
+  const replaced = new Set(items.flatMap((it) => (it.type === 'data' && it.replaces ? [it.replaces] : [])));
   let run: Run | null = null;
   const current = (i: number) => {
     if (!out.length) out.push({ key: i, parts: [] });
@@ -71,7 +73,7 @@ export function groupExchanges(items: TranscriptItem[]): Exchange[] {
         openRun(i).steps.push(item);
         break;
       case 'data':
-        if (item.show !== 'none') openRun(i).data.push(item);
+        if (item.show !== 'none' && !replaced.has(item.call_id)) openRun(i).data.push(item);
         break;
       case 'assistant': {
         const r = openRun(i);
@@ -134,7 +136,7 @@ function Steps({ steps, working, first }: { steps: Of<'step'>[]; working: boolea
   return (
     <div className="flex min-w-0 flex-col gap-2">
       <div className="flex min-h-6 items-center gap-2.5 text-[13px]">
-        {first ? <BitwaveMark size={24} /> : <span className="w-6 shrink-0" aria-hidden />}
+        {first ? <BitwaveMark size={26} live={working} /> : <span className="w-6 shrink-0" aria-hidden />}
         {summary}
       </div>
       {expanded && steps.length > 0 ? (
@@ -216,7 +218,7 @@ export default function Transcript({ items, records = {}, busy = false, readOnly
   /** index of the assistant text that is arriving right now */
   liveIndex?: number | null;
   currency?: string | null;
-  onDecide?: (actionId: string, approve: boolean) => void;
+  onDecide?: (actionId: string, approve: boolean, values?: Record<string, unknown>) => void;
   /** asks a follow-up question (suggestion chips, rows that are questions) */
   onAsk?: (q: string) => void;
   /** the newest exchange: brought to the top of the view and kept one screen tall */
@@ -272,7 +274,7 @@ export default function Transcript({ items, records = {}, busy = false, readOnly
                       const card = cards.get(part.item.action_id);
                       if (!card) return null;
                       return <ActionCard key={part.key} action={card} busy={busy} readOnly={readOnly || !onDecide} currency={currency}
-                        onDecide={(approve) => onDecide?.(part.item.action_id, approve)} />;
+                        onDecide={(approve, values) => onDecide?.(part.item.action_id, approve, values)} />;
                     }
                     case 'support':
                       return (

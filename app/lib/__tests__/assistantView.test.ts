@@ -17,7 +17,15 @@ describe('assistant results', () => {
     expect(view.kind).toBe('record');
     if (view.kind !== 'record') return;
     expect(view.commands[0][0]).toBe('command');
-    expect(view.fields.map(([k]) => k)).toEqual(['id', 'expires_in_hours']);
+    // a database id means nothing to the reader, so it is left out
+    expect(view.fields.map(([k]) => k)).toEqual(['expires_in_hours']);
+  });
+
+  it('leaves out ids, lists of ids, housekeeping times and empty values', () => {
+    const view = viewFor({ name: 'Main Tower', router_ids: [3, 4], uuid: 'x', extracted_at: '2026-11-20T10:00:00', note: '', online: 12 });
+    expect(view.kind).toBe('record');
+    if (view.kind !== 'record') return;
+    expect(view.fields.map(([k]) => k)).toEqual(['name', 'online']);
   });
 
   it('finds the biggest list when no key is familiar', () => {

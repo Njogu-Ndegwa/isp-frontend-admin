@@ -7,7 +7,7 @@ import { useAuth } from '../context/AuthContext';
 import { api } from '../lib/api';
 import {
   assistantApi, AssistantError, markStartPageDecided, rememberHome,
-  type ActionRecord, type AssistantEvent, type AssistantStatus, type ConversationSummary,
+  type ActionRecord, type AssistantEvent, type AssistantStatus, type ConversationSummary, type Decision,
   type OutgoingImage, type TranscriptItem,
 } from '../lib/assistant';
 import { isStaffUser } from '../lib/permissions';
@@ -83,7 +83,7 @@ function Header({ status, live, canReset, busy, classicHref, standalone, onHome,
     <header className="z-30 shrink-0 border-b border-line bg-[color:var(--ai-bg)]/75 backdrop-blur-xl backdrop-saturate-150">
       <div className="mx-auto flex h-14 max-w-[1180px] items-center gap-2 px-3 sm:gap-3 sm:px-6">
         <button type="button" onClick={onHome} disabled={busy} className="ai-tap flex shrink-0 items-center gap-2 rounded-[10px] py-1 pr-1" aria-label={t('Bitwave home')}>
-          <BitwaveMark />
+          <BitwaveMark size={30} />
           <span className="ai-display text-[16.5px] font-semibold text-ink-1">Bitwave</span>
           <span className="ai-mono rounded-[6px] border border-accent/35 bg-accent-soft px-1.5 py-[1px] text-[11px] font-medium tracking-[0.12em] text-accent">AI</span>
         </button>
@@ -324,6 +324,23 @@ export default function AssistantClient() {
           return [...prev, { type: 'assistant', text: e.delta }];
         });
         return;
+      case 'retract':
+        // words the assistant wrote while still looking things up: not the answer
+        setItems((prev) => {
+          const idx = liveText.current;
+          if (idx === null || prev[idx]?.type !== 'assistant') return prev;
+          const cur = prev[idx] as Extract<TranscriptItem, { type: 'assistant' }>;
+          const text = cur.text.slice(0, Math.max(0, cur.text.length - e.chars));
+          if (text.trim()) {
+            const next = prev.slice();
+            next[idx] = { ...cur, text };
+            return next;
+          }
+          liveText.current = null;
+          setLiveIndex(null);
+          return prev.filter((_, i) => i !== idx);
+        });
+        return;
       case 'step':
         setLive(null);
         setItems((prev) => {
@@ -380,7 +397,7 @@ export default function AssistantClient() {
     await run((onEvent) => assistantApi.chat({ message, conversation_id: conversationId, images }, onEvent));
   }, [busy, conversationId, run]);
 
-  const decide = useCallback(async (decisions: { action_id: string; approve: boolean }[]) => {
+  const decide = useCallback(async (decisions: Decision[]) => {
     if (!conversationId || busy || decisions.length === 0) return;
     setRecords((prev) => {
       const next = { ...prev };
@@ -392,7 +409,8 @@ export default function AssistantClient() {
 
   const pending = useMemo(() => {
     const cards = actionCards(items, records);
-    return [...cards.values()].filter((c) => c.status === 'pending' && (!c.expires_at || new Date(c.expires_at).getTime() > Date.now()));
+    // a form waits for its own fields, so "Confirm all" covers the plain cards only
+    return [...cards.values()].filter((c) => c.status === 'pending' && !c.form?.length && (!c.expires_at || new Date(c.expires_at).getTime() > Date.now()));
   }, [items, records]);
 
   // Onboarding entry: /assistant?start=setup opens a chat that starts the setup.
@@ -497,7 +515,7 @@ export default function AssistantClient() {
           <div className="mx-auto flex w-full max-w-[880px] flex-col px-4 sm:px-6">
             {opening ? <p className="mt-6 text-[13.5px] text-ink-3">{t('Opening the chat…')}</p> : null}
             <Transcript items={items} records={records} busy={busy} readOnly={readOnly} liveIndex={liveIndex} currency={currency}
-              onDecide={(id, approve) => decide([{ action_id: id, approve }])} onAsk={live && !busy ? (q) => void send(q) : undefined}
+              onDecide={(id, approve, values) => decide([{ action_id: id, approve, ...(values ? { values } : {}) }])} onAsk={live && !busy ? (q) => void send(q) : undefined}
               lastRef={lastExchange} lastMinHeight={viewH} />
           </div>
         )}

@@ -136,6 +136,17 @@ function flatten(obj: Row, prefix = '', depth = 0, out: [string, unknown][] = []
 }
 
 /** Choose how to draw one result. ``show`` is the model's hint. */
+/**
+ * Fields that mean nothing to the person reading an answer: database ids (and
+ * lists of them), and housekeeping times of the report itself. The assistant
+ * still has them; the page does not show them.
+ */
+const NOISE_KEY = /(^|_)(ids?|uuids?|pk)$|^(extracted|generated|fetched|computed|cached)_at$/i;
+export const isNoiseField = (key: string, value: unknown): boolean => {
+  const leaf = key.split('.').pop() ?? key;
+  return NOISE_KEY.test(leaf) || value === null || value === undefined || value === '';
+};
+
 export function viewFor(payload: unknown, show: string = 'auto'): ResultView {
   if (payload === null || payload === undefined) return { kind: 'empty' };
   if (typeof payload === 'string') return { kind: 'text', text: payload };
@@ -160,7 +171,7 @@ export function viewFor(payload: unknown, show: string = 'auto'): ResultView {
     for (const [k, v] of fields) {
       if (typeof v === 'string' && (COMMAND_KEYS.test(k.split('.').pop() ?? '') || looksLikeRouterCommand(v))) {
         commands.push([k, v]);
-      } else {
+      } else if (!isNoiseField(k, v)) {
         rest.push([k, v]);
       }
     }

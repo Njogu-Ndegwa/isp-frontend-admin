@@ -278,14 +278,17 @@ export function visualFor(payload: unknown, show: ShowHint | string = 'auto', fi
     if (record.kind !== 'record') return { kind: 'empty' };
     const numeric: TileItem[] = [];
     const rest: [string, unknown][] = [];
+    // a figure is named by its own last word, unless two figures share it
+    const leaves = record.fields.map(([k]) => k.split('.').pop() ?? k);
+    const shared = new Set(leaves.filter((l, i) => leaves.indexOf(l) !== i));
     for (const [key, value] of record.fields) {
       const leaf = key.split('.').pop() ?? key;
       const n = typeof value === 'number' && Number.isFinite(value) ? value : MONEY_KEY.test(leaf) && !COUNT_KEY.test(leaf) ? num(value) : null;
       if (n !== null && !NOT_A_MEASURE.test(leaf)) {
         const kind: Kind = PERCENT_KEY.test(leaf) ? 'percent' : MONEY_KEY.test(key) && !COUNT_KEY.test(leaf) ? 'money' : 'number';
-        numeric.push({ key, label: humanizeKey(key.replace(/\./g, ' ')), value: n, kind });
-      } else if (!(typeof value === 'object' && value !== null)) {
-        rest.push([key, value]);
+        numeric.push({ key, label: humanizeKey(shared.has(leaf) ? key.replace(/\./g, ' ') : leaf), value: n, kind });
+      } else if (!(typeof value === 'object' && value !== null) && !/^currency$/i.test(leaf)) {
+        rest.push([key, value]);  // ids and empty values are already left out of the record
       }
     }
     if (show === 'share' && numeric.length >= 2) {

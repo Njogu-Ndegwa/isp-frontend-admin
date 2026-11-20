@@ -7,6 +7,7 @@ import Home from '../Home';
 import { BitwaveMark, MoonIcon, SunIcon } from '../icons';
 import Transcript from '../Transcript';
 import { Led } from '../ui';
+import { BrandMark } from '../BrandMark';
 
 /* Made-up figures only: nothing here is a real reseller, customer or router. */
 
@@ -97,6 +98,34 @@ function transcript(): TranscriptItem[] {
     ] },
     { type: 'data', call_id: 'd10', title: '6 one-day vouchers', method: 'GET', path: '/api/x', show: 'auto', payload: ['K7Q2M9', 'P3X8B1', 'H6N4T2', 'W9C5R7', 'D2L8F3', 'Z4V1J6'].map((code, i) => ({ code, batch_id: 9, status: i === 5 ? 'used' : 'active', redeemed_at: i === 5 ? iso(-H) : null, plan: { name: '1 day · 50', duration: '1 Day', price: 50 } })) },
     { type: 'data', call_id: 'd11', title: 'Failed payments', method: 'GET', path: '/api/x', show: 'table', payload: { rows: [{ date: iso(-2 * H), phone: '0712 000 009', amount: 50, reason: 'Cancelled by customer' }, { date: iso(-7 * H), phone: '0712 000 010', amount: 300, reason: 'Insufficient funds' }] } },
+    { type: 'user', text: 'help me set up a pppoe package 10 mbs at ksh 2000 period 1 month package name Diamond' },
+    { type: 'assistant', text: 'Here is the Diamond plan with what you told me filled in. Check it and tap Confirm.' },
+    { type: 'action', action_id: 'f1', title: 'Create Plan', summary: 'New PPPoE plan: Diamond', method: 'POST', path: '/api/plans/create', status: 'pending', expires_at: new Date(Date.now() + 20 * 60_000).toISOString(),
+      body: { name: 'Diamond', speed: '10M/10M', price: 2000, duration_value: 30, duration_unit: 'DAYS', connection_type: 'pppoe' },
+      form: [
+        { name: 'name', label: 'Name', kind: 'text', required: true, value: 'Diamond' },
+        { name: 'speed', label: 'Speed', kind: 'text', required: true, value: '10M/10M' },
+        { name: 'price', label: 'Price', kind: 'integer', required: true, value: 2000, minimum: 0 },
+        { name: 'duration_value', label: 'Duration value', kind: 'integer', required: true, value: 30 },
+        { name: 'duration_unit', label: 'Duration unit', kind: 'select', required: true, options: ['MINUTES', 'HOURS', 'DAYS'], value: 'DAYS' },
+        { name: 'connection_type', label: 'Connection type', kind: 'select', required: true, options: ['hotspot', 'pppoe', 'static_ip'], value: 'pppoe' },
+        { name: 'router_id', label: 'Router id', kind: 'select', required: false, options: ['1', '2'], option_labels: { 1: 'Main Tower', 2: 'Kahawa West AP' } },
+        { name: 'max_devices', label: 'Max devices', kind: 'integer', required: false },
+        { name: 'is_hidden', label: 'Is hidden', kind: 'boolean', required: false, value: false },
+        { name: 'badge_text', label: 'Badge text', kind: 'text', required: false },
+        { name: 'data_cap_mb', label: 'Data cap mb', kind: 'integer', required: false },
+        { name: 'description', label: 'Description', kind: 'text', required: false, maxLength: 500 },
+      ] },
+    { type: 'user', text: 'Add Jo as staff, she should only see customers' },
+    { type: 'action', action_id: 'f2', title: 'Create Staff', summary: 'New staff login: Jo', method: 'POST', path: '/api/staff', status: 'pending', expires_at: new Date(Date.now() + 20 * 60_000).toISOString(),
+      body: { name: 'Jo', permissions: ['customers.view'] },
+      form: [
+        { name: 'name', label: 'Name', kind: 'text', required: true, value: 'Jo' },
+        { name: 'email', label: 'Email', kind: 'text', required: true },
+        { name: 'password', label: 'Password', kind: 'password', required: true },
+        { name: 'permissions', label: 'Permissions', kind: 'list', item_kind: 'text', required: false, value: ['customers.view'],
+          options: ['customers.view', 'customers.manage', 'payments.view', 'plans.manage', 'routers.view', 'vouchers.manage'] },
+      ] },
     { type: 'action', action_id: 'a1', title: 'send_sms', summary: 'Send an expiry reminder SMS to 14 customers who run out today', method: 'POST', path: '/api/sms/bulk', body: { recipients: 14, template: 'expiry_reminder' }, status: 'pending', expires_at: new Date(Date.now() + 20 * 60_000).toISOString() },
   ];
 }
@@ -109,7 +138,10 @@ export default function PreviewClient() {
 
 function Preview() {
   const [theme, setTheme] = useState<'dark' | 'light'>(() => (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('theme') === 'light' ? 'light' : 'dark'));
-  const [view, setView] = useState<'home' | 'chat'>(() => (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('view') === 'chat' ? 'chat' : 'home'));
+  const [view, setView] = useState<'home' | 'chat' | 'brand'>(() => {
+    const v = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('view') : null;
+    return v === 'chat' || v === 'brand' ? v : 'home';
+  });
   const [b] = useState(briefing);
   const [items] = useState(transcript);
   useEffect(() => {
@@ -128,7 +160,7 @@ function Preview() {
           <span className="ai-mono ml-auto inline-flex items-center gap-1.5 rounded-full border border-line px-2 py-1 text-[11px] text-ink-2 max-sm:hidden"><Led tone="live" pulse size={6} />Preview</span>
           <span className="ml-auto sm:hidden" />
           <div className="flex rounded-full border border-line p-0.5 text-[12px]">
-            {(['home', 'chat'] as const).map((v) => (
+            {(['home', 'chat', 'brand'] as const).map((v) => (
               <button key={v} type="button" aria-pressed={view === v} onClick={() => setView(v)} className={`ai-tap rounded-full px-3 py-1 ${view === v ? 'bg-surface-3 text-ink-1' : 'text-ink-3'}`}>{v}</button>
             ))}
           </div>
@@ -136,7 +168,18 @@ function Preview() {
         </div>
       </header>
       <div className="min-h-0 flex-1 overflow-y-auto">
-        {view === 'home' ? (
+        {view === 'brand' ? (
+          <div className="mx-auto max-w-[880px] px-4 py-8 sm:px-6">
+            <p className="ai-eyebrow">The logo, at every size</p>
+            <div className="mt-4 flex flex-wrap items-end gap-6">
+              {[16, 24, 32, 48, 96, 160].map((s) => <div key={s} className="flex flex-col items-center gap-2"><BrandMark size={s} /><span className="ai-mono text-[11px] text-ink-3">{s}</span></div>)}
+            </div>
+            <p className="ai-eyebrow mt-10">Working (the assistant is answering)</p>
+            <div className="mt-4 flex items-center gap-4"><BrandMark size={26} live /><span className="text-[13px] text-ink-2">Checking your routers…</span></div>
+            <p className="ai-eyebrow mt-10">With the name</p>
+            <div className="mt-4 flex items-center gap-2.5"><BrandMark size={30} /><span className="ai-display text-[19px] font-semibold text-ink-1">Bitwave</span></div>
+          </div>
+        ) : view === 'home' ? (
           <Home userKey="preview" name={null} organization="Sample Networks" admin={false} readOnly={false} enabled onAsk={() => setView('chat')} preview={{ briefing: b }} />
         ) : (
           <div className="mx-auto flex w-full max-w-[880px] flex-col px-4 sm:px-6">
