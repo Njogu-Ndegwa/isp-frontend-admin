@@ -12,7 +12,12 @@ export function displayRouterName(name: string | null | undefined): string {
  * in the list shows the same name, its identity (or IP, or id) so the two options
  * can be told apart, e.g. "MtaaniNet Hotspot #3 · Router-1215 · ● online".
  */
-export function routerOptionLabel(router: Router, all: Router[], t: Translate = (s) => s): string {
+export function routerOptionLabel(
+  router: Router,
+  all: Router[],
+  t: Translate = (s) => s,
+  { statusGlyph = true }: { statusGlyph?: boolean } = {},
+): string {
   const name = displayRouterName(router.name);
   const key = name.toLowerCase();
   const parts = [name];
@@ -25,8 +30,11 @@ export function routerOptionLabel(router: Router, all: Router[], t: Translate = 
     else parts.push(`#${router.id}`);
   }
 
-  if (router.status === 'online') parts.push(`● ${t('online')}`);
-  else if (router.status === 'offline') parts.push(`○ ${t('offline')}`);
+  // Callers that draw their own coloured status dot pass statusGlyph: false —
+  // a native <option> can't colour just the glyph.
+  const glyph = (g: string) => (statusGlyph ? `${g} ` : '');
+  if (router.status === 'online') parts.push(`${glyph('●')}${t('online')}`);
+  else if (router.status === 'offline') parts.push(`${glyph('○')}${t('offline')}`);
 
   return parts.join(' · ');
 }

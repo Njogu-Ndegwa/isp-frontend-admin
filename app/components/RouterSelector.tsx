@@ -110,10 +110,22 @@ export default function RouterSelector({
     );
   }
 
+  const selectedStatus = routers.find((r) => r.id === selectedRouterId)?.status;
+  // Same colours as router status elsewhere (OpsHealthLookback, RoutersClient).
+  const dotClass =
+    selectedStatus === 'online' ? 'bg-emerald-500' : selectedStatus === 'offline' ? 'bg-red-500' : null;
+
   return (
     <div className={rootClass}>
       <span className="text-foreground-muted text-sm flex-none">Router:</span>
       <div className={`relative ${fullWidthOnMobile ? 'flex-1 md:flex-none' : ''}`}>
+        {dotClass && (
+          <span
+            aria-hidden="true"
+            data-testid="router-status-dot"
+            className={`pointer-events-none absolute z-10 left-3 top-1/2 -translate-y-1/2 h-2 w-2 rounded-full ${dotClass}`}
+          />
+        )}
         <select
           value={selectedRouterId ?? ''}
           onChange={(e) => {
@@ -123,11 +135,11 @@ export default function RouterSelector({
             rememberRouterId(memoryKey, id);
             onRouterChange(id);
           }}
-          className={`appearance-none px-3 py-2 pr-8 text-sm bg-background-tertiary border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-amber-500 cursor-pointer min-w-[160px] ${fullWidthOnMobile ? 'w-full md:w-auto' : ''}`}
+          className={`appearance-none ${dotClass ? 'pl-7' : 'pl-3'} pr-8 py-2 text-sm bg-background-tertiary border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-amber-500 cursor-pointer min-w-[160px] ${fullWidthOnMobile ? 'w-full md:w-auto' : ''}`}
         >
           {routers.map((router) => (
             <option key={router.id} value={router.id}>
-              {routerOptionLabel(router, routers, t)}
+              {routerOptionLabel(router, routers, t, { statusGlyph: false })}
             </option>
           ))}
         </select>
