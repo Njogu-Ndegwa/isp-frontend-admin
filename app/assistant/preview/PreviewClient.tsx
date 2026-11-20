@@ -7,6 +7,7 @@ import Home from '../Home';
 import { BitwaveMark, MoonIcon, SunIcon } from '../icons';
 import Transcript from '../Transcript';
 import { Led } from '../ui';
+import { BrandMark } from '../BrandMark';
 
 /* Made-up figures only: nothing here is a real reseller, customer or router. */
 
@@ -137,7 +138,10 @@ export default function PreviewClient() {
 
 function Preview() {
   const [theme, setTheme] = useState<'dark' | 'light'>(() => (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('theme') === 'light' ? 'light' : 'dark'));
-  const [view, setView] = useState<'home' | 'chat'>(() => (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('view') === 'chat' ? 'chat' : 'home'));
+  const [view, setView] = useState<'home' | 'chat' | 'brand'>(() => {
+    const v = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('view') : null;
+    return v === 'chat' || v === 'brand' ? v : 'home';
+  });
   const [b] = useState(briefing);
   const [items] = useState(transcript);
   useEffect(() => {
@@ -156,7 +160,7 @@ function Preview() {
           <span className="ai-mono ml-auto inline-flex items-center gap-1.5 rounded-full border border-line px-2 py-1 text-[11px] text-ink-2 max-sm:hidden"><Led tone="live" pulse size={6} />Preview</span>
           <span className="ml-auto sm:hidden" />
           <div className="flex rounded-full border border-line p-0.5 text-[12px]">
-            {(['home', 'chat'] as const).map((v) => (
+            {(['home', 'chat', 'brand'] as const).map((v) => (
               <button key={v} type="button" aria-pressed={view === v} onClick={() => setView(v)} className={`ai-tap rounded-full px-3 py-1 ${view === v ? 'bg-surface-3 text-ink-1' : 'text-ink-3'}`}>{v}</button>
             ))}
           </div>
@@ -164,7 +168,18 @@ function Preview() {
         </div>
       </header>
       <div className="min-h-0 flex-1 overflow-y-auto">
-        {view === 'home' ? (
+        {view === 'brand' ? (
+          <div className="mx-auto max-w-[880px] px-4 py-8 sm:px-6">
+            <p className="ai-eyebrow">The logo, at every size</p>
+            <div className="mt-4 flex flex-wrap items-end gap-6">
+              {[16, 24, 32, 48, 96, 160].map((s) => <div key={s} className="flex flex-col items-center gap-2"><BrandMark size={s} /><span className="ai-mono text-[11px] text-ink-3">{s}</span></div>)}
+            </div>
+            <p className="ai-eyebrow mt-10">Working (the assistant is answering)</p>
+            <div className="mt-4 flex items-center gap-4"><BrandMark size={26} live /><span className="text-[13px] text-ink-2">Checking your routers…</span></div>
+            <p className="ai-eyebrow mt-10">With the name</p>
+            <div className="mt-4 flex items-center gap-2.5"><BrandMark size={30} /><span className="ai-display text-[19px] font-semibold text-ink-1">Bitwave</span></div>
+          </div>
+        ) : view === 'home' ? (
           <Home userKey="preview" name={null} organization="Sample Networks" admin={false} readOnly={false} enabled onAsk={() => setView('chat')} preview={{ briefing: b }} />
         ) : (
           <div className="mx-auto flex w-full max-w-[880px] flex-col px-4 sm:px-6">

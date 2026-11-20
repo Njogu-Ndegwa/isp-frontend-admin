@@ -1,4 +1,5 @@
 import type { SVGProps } from 'react';
+import { BrandMark } from './BrandMark';
 
 /* Small line icons for the AI home. They inherit the text colour. */
 type P = SVGProps<SVGSVGElement>;
@@ -33,13 +34,7 @@ export function SortIcon({ dir, ...p }: P & { dir: 'asc' | 'desc' | null }) {
   );
 }
 
-/** The Bitwave mark: an amber tile with three rising waves. */
-export function BitwaveMark({ size = 26 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 32 32" aria-hidden className="shrink-0">
-      <rect width="32" height="32" rx="9" fill="var(--ai-accent-fill)" />
-      <path d="M7 20.5c2.4 0 2.4-3 4.8-3s2.4 3 4.8 3 2.4-3 4.8-3 2.4 3 4.6 3" fill="none" stroke="#1c1917" strokeWidth="2.3" strokeLinecap="round" />
-      <path d="M9.5 14.5c1.9 0 1.9-2.6 3.8-2.6s1.9 2.6 3.8 2.6 1.9-2.6 3.8-2.6 1.6 2 2.6 2.4" fill="none" stroke="#1c1917" strokeWidth="2.3" strokeLinecap="round" opacity="0.55" />
-    </svg>
-  );
+/** The Bitwave mark (see BrandMark): arcs rising from a wave. `live` broadcasts while the assistant works. */
+export function BitwaveMark({ size = 26, live = false }: { size?: number; live?: boolean }) {
+  return <BrandMark size={size} live={live} />;
 }

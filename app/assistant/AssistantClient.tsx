@@ -83,7 +83,7 @@ function Header({ status, live, canReset, busy, classicHref, standalone, onHome,
     <header className="z-30 shrink-0 border-b border-line bg-[color:var(--ai-bg)]/75 backdrop-blur-xl backdrop-saturate-150">
       <div className="mx-auto flex h-14 max-w-[1180px] items-center gap-2 px-3 sm:gap-3 sm:px-6">
         <button type="button" onClick={onHome} disabled={busy} className="ai-tap flex shrink-0 items-center gap-2 rounded-[10px] py-1 pr-1" aria-label={t('Bitwave home')}>
-          <BitwaveMark />
+          <BitwaveMark size={30} />
           <span className="ai-display text-[16.5px] font-semibold text-ink-1">Bitwave</span>
           <span className="ai-mono rounded-[6px] border border-accent/35 bg-accent-soft px-1.5 py-[1px] text-[11px] font-medium tracking-[0.12em] text-accent">AI</span>
         </button>

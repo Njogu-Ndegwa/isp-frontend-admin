@@ -517,6 +517,22 @@
       transform: scale(1);
     }
   }
+  /* the Bitwave logo while the assistant works: it breathes with a soft blue glow */
+  .bm-live {
+    animation: bm-breathe 1.6s ease-in-out infinite;
+  }
+  @keyframes bm-breathe {
+    0%,
+    100% {
+      filter: drop-shadow(0 0 0 rgba(59, 125, 224, 0));
+      transform: scale(1);
+    }
+    50% {
+      filter: drop-shadow(0 0 7px rgba(59, 125, 224, 0.75));
+      transform: scale(1.06);
+    }
+  }
+
   /* a reading in the red: one short shake after the needle settles */
   .ai-quiver {
     animation: ai-quiver 900ms ease-in-out 1350ms 1;
@@ -615,7 +631,8 @@
     .ai-blink-soft,
     .ai-flash,
     .ai-quiver,
-    .ai-pop {
+    .ai-pop,
+    .bm-live {
       animation: none;
     }
     .ai-rise {

@@ -134,7 +134,7 @@ function Steps({ steps, working, first }: { steps: Of<'step'>[]; working: boolea
   return (
     <div className="flex min-w-0 flex-col gap-2">
       <div className="flex min-h-6 items-center gap-2.5 text-[13px]">
-        {first ? <BitwaveMark size={24} /> : <span className="w-6 shrink-0" aria-hidden />}
+        {first ? <BitwaveMark size={26} live={working} /> : <span className="w-6 shrink-0" aria-hidden />}
         {summary}
       </div>
       {expanded && steps.length > 0 ? (
