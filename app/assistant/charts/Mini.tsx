@@ -68,18 +68,21 @@ export function MiniBars({ points, height = 56, format = (v: number) => v.toLoca
   );
 }
 
-/** Change against a named period. The arrow carries direction and tone; the words stay in ink. */
+/** Change against a named period: a tinted chip with the arrow and the share, then the words. */
 export function Delta({ now, before, label, upIsGood = true }: { now: number; before: number; label: string; upIsGood?: boolean }) {
   if (before <= 0) return null;
   const change = (now - before) / before;
   const flat = Math.abs(change) < 0.005;
   const up = change > 0;
   const good = flat ? null : up === upIsGood;
+  const color = good === null ? 'var(--ai-ink3)' : good ? 'var(--ai-good)' : 'var(--ai-warn)';
   return (
-    <span className="inline-flex flex-wrap items-center gap-1 text-[12.5px] text-ink-2">
-      <span aria-hidden style={{ color: good === null ? 'var(--ai-ink3)' : good ? 'var(--ai-good)' : 'var(--ai-warn)' }}>{flat ? '■' : up ? '▲' : '▼'}</span>
-      <span className="ai-num font-bold text-ink-1">{flat ? 'level' : `${Math.round(Math.abs(change) * 100)}%`}</span>
-      <span className="text-ink-3">{flat ? 'with' : up ? 'up on' : 'down on'} {label}</span>
+    <span className="inline-flex flex-wrap items-center gap-1.5 text-[12.5px] text-ink-3">
+      <span className="ai-mono inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[11.5px] font-medium"
+        style={{ color: good === null ? 'var(--ai-ink2)' : good ? 'var(--ai-text-good)' : 'var(--ai-text-warn)', background: `color-mix(in srgb, ${color} 13%, transparent)` }}>
+        <span aria-hidden>{flat ? '■' : up ? '▲' : '▼'}</span>{flat ? 'level' : `${Math.round(Math.abs(change) * 100)}%`}
+      </span>
+      <span>{flat ? 'with' : up ? 'up on' : 'down on'} {label}</span>
     </span>
   );
 }

@@ -6,8 +6,9 @@ import { cardTitle } from '../lib/assistantVisual';
 import { useT } from '../lib/i18n';
 import ActionCard, { type ActionCardData } from './ActionCard';
 import ResultBlock, { visualNoun } from './blocks/ResultBlock';
-import { AlertIcon, BitwaveMark, ChartIcon, CheckIcon, SpinnerIcon, TableIcon } from './icons';
+import { AlertIcon, ArrowRightIcon, BitwaveMark, ChartIcon, CheckIcon, SpinnerIcon, TableIcon } from './icons';
 import Markdown from './Markdown';
+import { Signal } from './ui';
 
 type Of<T extends TranscriptItem['type']> = Extract<TranscriptItem, { type: T }>;
 
@@ -100,45 +101,70 @@ export function groupExchanges(items: TranscriptItem[]): Exchange[] {
 /** If the words have not even started this long after the visuals were ready, show them anyway. */
 const REVEAL_FAILSAFE_MS = 9000;
 
+/**
+ * What the assistant did to answer, as a trace. While it works, each lookup ticks
+ * through live; once the words are written it folds into one line ("Checked 3
+ * things") that opens again on a tap, so the answer leads and the working stays
+ * one tap away.
+ */
 function Steps({ steps, working, first }: { steps: Of<'step'>[]; working: boolean; first: boolean }) {
   const t = useT();
+  const [open, setOpen] = useState(false);
   if (!first && steps.length === 0 && !working) return null;
+  const allDone = steps.length > 0 && steps.every((s) => s.done);
+  const failed = steps.filter((s) => s.done && s.ok === false).length;
+  const current = [...steps].reverse().find((s) => !s.done);
+  const expanded = working || open;
+
+  let summary: React.ReactNode;
+  if (working && steps.length === 0) summary = <span className="flex items-center gap-2 text-ink-2"><Signal />{t('Working…')}</span>;
+  else if (working && allDone) summary = <span className="flex items-center gap-2 text-ink-2"><Signal />{t('Writing the answer…')}</span>;
+  else if (working && current) summary = <span className="flex min-w-0 items-center gap-2 text-ink-2"><Signal /><span className="truncate">{current.label}</span></span>;
+  else if (steps.length > 0) {
+    summary = (
+      <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open}
+        className="ai-tap group inline-flex items-center gap-1.5 rounded-full text-ink-3 transition-colors hover:text-ink-1">
+        {failed ? <AlertIcon width={12} height={12} className="text-warn" /> : <CheckIcon width={12} height={12} className="text-good" />}
+        <span>{t('Checked {n}', { n: steps.length })} {steps.length === 1 ? t('thing') : t('things')}</span>
+        <ArrowRightIcon width={11} height={11} className={`transition-transform ${open ? 'rotate-90' : ''}`} />
+      </button>
+    );
+  } else summary = <span className="ai-display font-semibold text-ink-1">Bitwave</span>;
+
   return (
-    <div className="flex items-start gap-2.5">
-      {first ? <BitwaveMark size={24} /> : <span className="w-6 shrink-0" aria-hidden />}
-      <ul className="m-0 flex min-h-6 list-none flex-col justify-center gap-0.5 p-0 text-[13px] text-ink-3">
-        {steps.length === 0 ? (
-          <li className={`flex items-center gap-1.5 ${working ? 'text-ink-2' : ''}`}>
-            {working ? <SpinnerIcon width={12} height={12} className="shrink-0 text-accent" /> : null}
-            {working ? t('Working…') : 'Bitwave'}
-          </li>
-        ) : null}
-        {steps.map((s) => (
-          <li key={s.call_id} className="flex items-center gap-1.5">
-            {!s.done ? <SpinnerIcon width={12} height={12} className="shrink-0 text-accent" />
-              : s.ok === false ? <AlertIcon width={12} height={12} className="shrink-0 text-warn" />
-                : <CheckIcon width={12} height={12} className="shrink-0 text-good" />}
-            <span className={`min-w-0 break-words ${!s.done ? 'text-ink-2' : ''}`}>{s.label}</span>
-          </li>
-        ))}
-        {steps.length > 0 && working && steps.every((s) => s.done) ? (
-          <li className="flex items-center gap-1.5 text-ink-2"><SpinnerIcon width={12} height={12} className="shrink-0 text-accent" />{t('Writing the answer…')}</li>
-        ) : null}
-      </ul>
+    <div className="flex min-w-0 flex-col gap-2">
+      <div className="flex min-h-6 items-center gap-2.5 text-[13px]">
+        {first ? <BitwaveMark size={24} /> : <span className="w-6 shrink-0" aria-hidden />}
+        {summary}
+      </div>
+      {expanded && steps.length > 0 ? (
+        <ul className="m-0 ml-[11px] flex list-none flex-col gap-1.5 border-l border-line py-0.5 pl-[22px] text-[12.5px] text-ink-3">
+          {steps.map((s) => (
+            <li key={s.call_id} className="relative flex items-center gap-2">
+              <span aria-hidden className="absolute -left-[26px] top-1/2 h-[7px] w-[7px] -translate-y-1/2 rounded-full border border-line-strong"
+                style={{ background: !s.done ? 'var(--ai-accent-fill)' : s.ok === false ? 'var(--ai-warn)' : 'var(--ai-s3)' }} />
+              {!s.done ? <SpinnerIcon width={11} height={11} className="shrink-0 text-accent" />
+                : s.ok === false ? <AlertIcon width={11} height={11} className="shrink-0 text-warn" />
+                  : <CheckIcon width={11} height={11} className="shrink-0 text-good" />}
+              <span className={`min-w-0 break-words ${!s.done ? 'text-ink-2' : ''}`}>{s.label}</span>
+            </li>
+          ))}
+        </ul>
+      ) : null}
     </div>
   );
 }
 
-/** While the answer is being written, the finished visuals wait here as slim rows instead of jumping in above it. */
+/** While the answer is being written, the finished visuals wait here as shimmering placeholders instead of jumping in above it. */
 function PendingVisuals({ data }: { data: Of<'data'>[] }) {
   const rows = data.map((d) => ({ d, noun: visualNoun(d.payload, d.show, d.fields) })).filter((r) => r.noun);
   if (!rows.length) return null;
   return (
-    <ul className="m-0 flex list-none flex-col gap-1.5 p-0" aria-label="Results ready, shown once the answer is written">
+    <ul className="m-0 flex list-none flex-col gap-2 p-0" aria-label="Results ready, shown once the answer is written">
       {rows.map(({ d, noun }) => (
-        <li key={d.call_id} className="flex animate-pulse items-center gap-2.5 rounded-[10px] border border-line bg-surface-1/70 px-3 py-2.5 text-[13px] text-ink-3">
+        <li key={d.call_id} className="ai-shimmer flex items-center gap-2.5 rounded-[14px] border border-line px-3.5 py-3 text-[13px] text-ink-3">
           {noun === 'Chart' ? <ChartIcon width={14} height={14} className="shrink-0" /> : <TableIcon width={14} height={14} className="shrink-0" />}
-          <span className="shrink-0 font-bold text-ink-2">{noun}</span>
+          <span className="ai-eyebrow shrink-0 !text-ink-2">{noun}</span>
           <span className="truncate">{cardTitle(d.title)}</span>
         </li>
       ))}
@@ -216,7 +242,7 @@ export default function Transcript({ items, records = {}, busy = false, readOnly
             style={last && lastMinHeight ? { minHeight: lastMinHeight } : undefined}>
             {ex.user ? (
               <div className="flex justify-end">
-                <div className="max-w-[88%] rounded-[18px] rounded-br-[6px] border border-line-strong bg-surface-2 px-4 py-2.5 sm:max-w-[75%]">
+                <div className="max-w-[88%] rounded-[20px] rounded-br-[6px] border border-line bg-surface-2 px-4 py-2.5 shadow-[inset_0_1px_0_var(--ai-edge)] sm:max-w-[72%]">
                   {ex.user.images && ex.user.images.length > 0 && (
                     <div className={`flex flex-wrap justify-end gap-1.5 ${ex.user.text ? 'mb-2' : ''}`}>
                       {ex.user.images.map((src, j) => (
@@ -225,7 +251,7 @@ export default function Transcript({ items, records = {}, busy = false, readOnly
                       ))}
                     </div>
                   )}
-                  {ex.user.text ? <p className="whitespace-pre-wrap break-words text-[15px] leading-snug text-ink-1">{ex.user.text}</p> : null}
+                  {ex.user.text ? <p className="whitespace-pre-wrap break-words text-[15px] leading-relaxed text-ink-1">{ex.user.text}</p> : null}
                 </div>
               </div>
             ) : null}
@@ -250,14 +276,15 @@ export default function Transcript({ items, records = {}, busy = false, readOnly
                     }
                     case 'support':
                       return (
-                        <div key={part.key} className="rounded-[12px] border border-[color:var(--ai-info)]/40 bg-[color:var(--ai-info)]/10 px-4 py-3">
-                          <p className="text-[12px] font-bold text-ink-2">{t('Bitwave support')} · {part.item.author}</p>
-                          <p className="mt-0.5 whitespace-pre-wrap break-words text-[14.5px] text-ink-1">{part.item.text}</p>
+                        <div key={part.key} className="ai-card relative overflow-hidden px-4 py-3">
+                          <span aria-hidden className="absolute inset-y-0 left-0 w-[3px] bg-[var(--ai-info)]" />
+                          <p className="ai-eyebrow">{t('Bitwave support')} · {part.item.author}</p>
+                          <p className="mt-1.5 whitespace-pre-wrap break-words text-[14.5px] text-ink-1">{part.item.text}</p>
                         </div>
                       );
                     case 'notice':
                       return part.item.level === 'error' ? (
-                        <div key={part.key} role="alert" className="flex items-start gap-2 rounded-[10px] border border-bad/40 bg-bad/10 px-3 py-2.5 text-[14px] text-ink-1">
+                        <div key={part.key} role="alert" className="flex items-start gap-2.5 rounded-[14px] border border-bad/35 bg-bad/8 px-3.5 py-3 text-[14px] text-ink-1">
                           <AlertIcon className="mt-0.5 shrink-0 text-bad" />
                           <span>{part.item.message}</span>
                         </div>
@@ -270,8 +297,16 @@ export default function Transcript({ items, records = {}, busy = false, readOnly
                 {busy && last && lastPart && lastPart.kind !== 'run' ? <Steps steps={[]} working first={false} /> : null}
 
                 {next.length > 0 && !stillPending ? (
-                  <div className="flex flex-wrap gap-2">
-                    {next.map((q) => <button key={q} type="button" className="ai-chip" onClick={() => onAsk?.(q)}>{q}</button>)}
+                  <div className="mt-1">
+                    <p className="ai-eyebrow mb-2">{t('Ask next')}</p>
+                    <div className="flex flex-wrap gap-2">
+                      {next.map((q) => (
+                        <button key={q} type="button" className="ai-chip group" onClick={() => onAsk?.(q)}>
+                          <span className="min-w-0">{q}</span>
+                          <ArrowRightIcon width={12} height={12} className="shrink-0 text-ink-3 transition-transform group-hover:translate-x-0.5 group-hover:text-accent" />
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 ) : null}
               </article>

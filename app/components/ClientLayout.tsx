@@ -13,6 +13,7 @@ import { canAccessPath, firstAccessiblePath, isStaffUser } from '../lib/permissi
 import { SOLUTION_PATHS } from '../solutions/paths';
 import { isAdminAllowedPath } from '../lib/adminPaths';
 import { homePath, markStartPageDecided, rememberedHome, startPageDecided } from '../lib/assistant';
+import { isStandalone } from '../lib/standalone';
 
 const CollapsibleSidebar = dynamic(() => import('./CollapsibleSidebar'), { ssr: false });
 const MobileBottomNav = dynamic(() => import('./MobileBottomNav'), { ssr: false });
@@ -88,7 +89,9 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   const router = useRouter();
   const { isAuthenticated, isLoading, isDemo, user } = useAuth();
 
-  const isPublicPage = PUBLIC_PATHS.includes(pathname) || PUBLIC_PREFIXES.some(p => matchesPathPrefix(pathname, p));
+  // the assistant's design preview (made-up figures, development builds only) needs no sign-in
+  const isDevPreview = process.env.NODE_ENV !== 'production' && pathname === `${AI_HOME_PATH}/preview`;
+  const isPublicPage = isDevPreview || PUBLIC_PATHS.includes(pathname) || PUBLIC_PREFIXES.some(p => matchesPathPrefix(pathname, p));
   const isDemoEntry = pathname === '/demo';
 
   const isAdmin = user?.role === 'admin';
@@ -102,8 +105,9 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     || (!isAdmin && isOnAdminPage)
   );
 
+  // Signing in from the assistant comes back to the assistant.
   const redirectTarget = !isAuthenticated
-    ? '/login'
+    ? (pathname === AI_HOME_PATH || isStandalone() ? `/login?next=${AI_HOME_PATH}` : '/login')
     : (isAdmin && isOnResellerPage && !isOnAdminAllowedPath)
       ? '/admin'
       : '/dashboard';

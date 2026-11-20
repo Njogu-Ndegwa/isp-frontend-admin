@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { preparePhoto, type OutgoingImage } from '../lib/assistant';
 import { useT } from '../lib/i18n';
 import { ArrowUpIcon, CameraIcon, CloseIcon, SpinnerIcon } from './icons';
+import { Signal } from './ui';
 
 const MAX_PHOTOS = 4;
 
@@ -71,12 +72,14 @@ export default function Composer({ busy, disabled, placeholder, note, onSend }: 
   };
 
   return (
-    <div className="shrink-0 border-t border-line bg-[color:var(--ai-bg)]/95 backdrop-blur">
-      <div className="mx-auto max-w-[1040px] px-3 pb-[max(0.6rem,env(safe-area-inset-bottom))] pt-2.5 sm:px-6 sm:pb-4 sm:pt-3">
+    <div className="relative shrink-0 bg-[color:var(--ai-bg)]">
+      {/* the transcript fades out under the box instead of ending at a hard line */}
+      <div aria-hidden className="pointer-events-none absolute inset-x-0 -top-8 h-8 bg-gradient-to-t from-[var(--ai-bg)] to-transparent" />
+      <div className="mx-auto max-w-[880px] px-3 pb-[max(0.6rem,env(safe-area-inset-bottom))] pt-1.5 sm:px-6 sm:pb-4">
         {note}
         {error ? <p className="mb-1.5 text-[12.5px] text-[var(--ai-text-bad)]">{error}</p> : null}
         <form
-          className="ai-card flex cursor-text flex-col !rounded-[24px] px-4 pb-2.5 pt-3 focus-within:!border-accent/60"
+          className="ai-card ai-composer flex cursor-text flex-col !rounded-[24px] px-4 pb-2.5 pt-3"
           onSubmit={(e) => { e.preventDefault(); submit(); }}
           // a tap anywhere on the card (not just the text line) puts the cursor in the box
           onClick={(e) => { if (!(e.target as HTMLElement).closest('button, textarea, input')) ref.current?.focus(); }}
@@ -122,15 +125,15 @@ export default function Composer({ busy, disabled, placeholder, note, onSend }: 
               className="-ml-1.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-ink-3 transition-colors hover:bg-surface-2 hover:text-ink-1 disabled:opacity-40">
               {preparing ? <SpinnerIcon width={17} height={17} className="text-accent" /> : <CameraIcon width={19} height={19} />}
             </button>
-            <span className="hidden min-w-0 flex-1 truncate text-[12px] text-ink-3 [@media(pointer:fine)]:block">{t('Enter to send · Shift + Enter for a new line')}</span>
+            <span className="ai-mono hidden min-w-0 flex-1 truncate text-[11px] text-ink-3 [@media(pointer:fine)]:block">{busy ? <span className="inline-flex items-center gap-2"><Signal />{t('Working…')}</span> : t('Enter to send · Shift + Enter for a new line')}</span>
             <span className="flex-1 [@media(pointer:fine)]:hidden" />
             <button type="submit" disabled={!canSend} aria-label={t('Send')} title={t('Send')}
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent-fill text-accent-ink transition-opacity disabled:opacity-35">
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent-fill text-accent-ink shadow-[inset_0_1px_0_rgba(255,255,255,0.35),0_6px_18px_-8px_var(--ai-accent-fill)] transition-[opacity,transform] hover:scale-105 disabled:opacity-30 disabled:shadow-none disabled:hover:scale-100">
               {busy ? <SpinnerIcon width={17} height={17} /> : <ArrowUpIcon width={19} height={19} strokeWidth={2.4} />}
             </button>
           </div>
         </form>
-        <p className="mt-1.5 hidden text-center text-[11.5px] text-ink-3 sm:block">
+        <p className="mt-2 hidden text-center text-[11.5px] text-ink-3 sm:block">
           {t('Figures come from your account, not from the AI. Nothing is changed until you tap Confirm.')}
         </p>
       </div>

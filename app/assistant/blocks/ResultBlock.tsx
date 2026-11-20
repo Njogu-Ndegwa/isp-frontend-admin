@@ -10,6 +10,7 @@ import { RankedBars } from '../charts/RankedBars';
 import { SegmentsBar } from '../charts/SegmentsBar';
 import { Legend, seriesColor, toneColor } from '../charts/shared';
 import { ChartIcon, DownloadIcon, TableIcon } from '../icons';
+import { CountUp, Panel } from '../ui';
 import { CodeBox } from '../Markdown';
 import { CustomerBlock, PaymentBlock, PlanBlock, RouterBlock, VoucherBlock } from './BillingBlocks';
 import { DataTable } from './DataTable';
@@ -24,12 +25,12 @@ function downloadCsv(name: string, csv: string) {
 }
 
 /*
- * How many tiles sit side by side, from the width the row has (container queries), so
- * no tile is ever left alone on a row: two in narrow space, three in medium, all of
- * them when wide. Six make two rows of three.
+ * How many readouts sit side by side, from the width the row has (container
+ * queries), so none is ever left alone on a row: two in narrow space, three in
+ * medium, all of them when wide. Six make two rows of three.
  */
 const TILE_COLUMNS: Record<number, string> = {
-  1: 'grid-cols-1 @md:grid-cols-2',
+  1: 'grid-cols-1',
   2: 'grid-cols-2',
   3: 'grid-cols-2 @md:grid-cols-3',
   4: 'grid-cols-2 @2xl:grid-cols-4',
@@ -39,27 +40,32 @@ const TILE_COLUMNS: Record<number, string> = {
   8: 'grid-cols-2 @2xl:grid-cols-4',
 };
 
-/** Headline figures. Each tile is a label and the number: the number is the chart. */
+/**
+ * Headline figures as one strip of readouts, divided by hairlines like the panel of
+ * an instrument: a small label over each figure. The number is the chart.
+ */
 function Tiles({ title, items, rest, currency }: { title: string; items: TileItem[]; rest: [string, unknown][]; currency?: string | null }) {
   return (
-    <section className="@container">
-      {title ? <h3 className="mb-2 text-[12px] font-semibold uppercase tracking-[0.08em] text-ink-3">{title}</h3> : null}
-      <div className={`grid gap-2.5 ${TILE_COLUMNS[items.length] ?? 'grid-cols-2 @lg:grid-cols-3'}`}>
+    <section className="@container ai-card overflow-hidden">
+      {title ? <p className="ai-eyebrow px-4 pt-3.5 sm:px-5">{title}</p> : null}
+      {/* every cell draws its top and left hairline and is pulled over its neighbour's by 1px, so the strip has inner lines only */}
+      <div className={`-mb-px -mr-px grid ${TILE_COLUMNS[items.length] ?? 'grid-cols-2 @lg:grid-cols-3'} ${title ? 'mt-1' : '-mt-px'}`}>
         {items.map((item) => {
           const shown = formatCell(item.value, item.kind, currency);
-          // a long figure steps down a size rather than spilling out of its tile
-          const size = shown.length > 12 ? 'text-[18px] @md:text-[21px]' : shown.length > 8 ? 'text-[21px] @md:text-[24px]' : 'text-[25px]';
+          // a long figure steps down a size rather than spilling out of its cell
+          const size = shown.length > 12 ? 'text-[18px] @md:text-[21px]' : shown.length > 8 ? 'text-[21px] @md:text-[25px]' : 'text-[27px]';
           return (
-            <div key={item.key} className="ai-card px-4 py-3">
-              <div className="text-[12.5px] leading-tight text-ink-3">{item.label}</div>
-              <div className={`ai-num ai-display mt-1 break-words font-bold leading-tight text-ink-1 ${size}`}>{shown}</div>
+            <div key={item.key} className="-ml-px min-w-0 border-l border-t border-line px-4 py-3.5 sm:px-5">
+              <div className="truncate text-[12px] leading-tight text-ink-3">{item.label}</div>
+              <CountUp value={item.value} format={(v) => formatCell(v, item.kind, currency)}
+                className={`ai-mono mt-1.5 block break-words font-medium leading-tight tracking-tight text-ink-1 ${size}`} />
             </div>
           );
         })}
       </div>
       {rest.length ? (
-        <p className="mt-2 flex flex-wrap gap-x-4 gap-y-0.5 text-[12.5px] text-ink-3">
-          {rest.map(([k, v]) => <span key={k}>{humanizeKey(k.replace(/\./g, ' '))}: <span className="text-ink-2">{formatValue(v)}</span></span>)}
+        <p className="flex flex-wrap gap-x-4 gap-y-0.5 border-t border-line px-4 py-2.5 text-[12px] text-ink-3 sm:px-5">
+          {rest.map(([k, v]) => <span key={k}>{humanizeKey(k.replace(/\./g, ' '))}: <span className="ai-mono text-ink-2">{formatValue(v)}</span></span>)}
         </p>
       ) : null}
     </section>
@@ -141,29 +147,25 @@ function ChartCard({ title, visual, currency, onAsk }: {
 
   const canTable = !!chart && tableColumns.length > 0;
   void onAsk;
+  const eyebrow = visual.kind === 'trend' ? 'Trend' : visual.kind === 'bars' ? 'Ranking' : 'Share';
+  const seg = 'ai-btn ai-btn-quiet !rounded-full !px-2.5 !py-1.5';
   return (
-    <section className="ai-card p-4 sm:p-5">
-      <header className="mb-3 flex items-start gap-3">
-        <div className="min-w-0 flex-1">
-          <h3 className="ai-display text-[15px] font-bold leading-snug text-ink-1">{title}</h3>
-          {subtitle ? <p className="mt-0.5 text-[12.5px] leading-snug text-ink-3">{subtitle}</p> : null}
-        </div>
-        {canTable ? (
-          <div className="flex shrink-0 items-center gap-0.5" role="group" aria-label="View">
-            <button type="button" className="ai-btn ai-btn-quiet" aria-pressed={view === 'chart'} onClick={() => setView('chart')} title="Chart">
+    <Panel eyebrow={eyebrow} icon={<ChartIcon width={11} height={11} />} title={title} note={subtitle || undefined}
+      actions={canTable ? (
+          <div className="flex shrink-0 items-center gap-0.5 rounded-full border border-line p-0.5" role="group" aria-label="View">
+            <button type="button" className={seg} aria-pressed={view === 'chart'} onClick={() => setView('chart')} title="Chart">
               <ChartIcon /><span className="sr-only">Chart</span>
             </button>
-            <button type="button" className="ai-btn ai-btn-quiet" aria-pressed={view === 'table'} onClick={() => setView('table')} title="Table of the same data">
+            <button type="button" className={seg} aria-pressed={view === 'table'} onClick={() => setView('table')} title="Table of the same data">
               <TableIcon /><span className="sr-only">Table</span>
             </button>
-            <button type="button" className="ai-btn ai-btn-quiet" title="Download as CSV" onClick={() => downloadCsv(title, toCsv(chart.columns, chart.rows))}>
+            <button type="button" className={seg} title="Download as CSV" onClick={() => downloadCsv(title, toCsv(chart.columns, chart.rows))}>
               <DownloadIcon /><span className="sr-only">Download CSV</span>
             </button>
           </div>
-        ) : null}
-      </header>
+        ) : null}>
       {view === 'chart' || !chart ? picture : <DataTable columns={tableColumns} rows={chart.rows} currency={currency} />}
-    </section>
+    </Panel>
   );
 }
 
@@ -184,53 +186,44 @@ function TableCard({ title, visual, currency, onAsk }: {
         onAsk(`Tell me more about ${name}${id}`);
       }
     : undefined;
+  const count = visual.total ?? visual.rows.length;
   return (
-    <section className="ai-card p-4 sm:p-5">
-      <header className="mb-3 flex items-start gap-3">
-        <div className="min-w-0 flex-1">
-          <h3 className="ai-display text-[15px] font-bold leading-snug text-ink-1">{title}</h3>
-          {visual.rows.length ? (
-            <p className="mt-0.5 text-[12.5px] text-ink-3">
-              {(visual.total ?? visual.rows.length).toLocaleString('en-US')} {(visual.total ?? visual.rows.length) === 1 ? 'row' : 'rows'}
-              {visual.meta.slice(0, 3).map(([k, v]) => ` · ${humanizeKey(k)} ${formatValue(v)}`).join('')}
-            </p>
-          ) : null}
-        </div>
-        {visual.rows.length ? (
-          <button type="button" className="ai-btn ai-btn-quiet shrink-0" title="Download as CSV" onClick={() => downloadCsv(title, toCsv(visual.columns, visual.rows))}>
-            <DownloadIcon /><span className="sr-only">Download CSV</span>
-          </button>
-        ) : null}
-      </header>
+    <Panel eyebrow={<>Table{visual.rows.length ? <> · {count.toLocaleString('en-US')} {count === 1 ? 'row' : 'rows'}</> : null}</>}
+      icon={<TableIcon width={11} height={11} />} title={title}
+      note={visual.meta.length ? visual.meta.slice(0, 3).map(([k, v]) => `${humanizeKey(k)} ${formatValue(v)}`).join(' · ') : undefined}
+      actions={visual.rows.length ? (
+        <button type="button" className="ai-btn ai-btn-quiet shrink-0 !rounded-full border border-line !px-2.5 !py-1.5" title="Download as CSV" onClick={() => downloadCsv(title, toCsv(visual.columns, visual.rows))}>
+          <DownloadIcon /><span className="text-[12px]">CSV</span>
+        </button>
+      ) : null}>
       {visual.status ? (
         <div className="mb-3">
           <SegmentsBar slim segments={visual.status.segments.map((seg, i) => ({ label: seg.label, value: seg.value, shown: seg.value.toLocaleString('en-US'), color: seg.tone ? toneColor(seg.tone) : seriesColor(i) }))} />
         </div>
       ) : null}
       <DataTable columns={visual.columns} rows={visual.rows} total={visual.total} currency={currency} onPick={pick} />
-    </section>
+    </Panel>
   );
 }
 
 /** Everything about one thing: commands to copy first, then label and value pairs. */
 function DetailCard({ title, visual }: { title: string; visual: Extract<Visual, { kind: 'record' }> }) {
   return (
-    <section className="@container ai-card p-4 sm:p-5">
-      <h3 className="ai-display mb-3 text-[15px] font-bold leading-snug text-ink-1">{title}</h3>
+    <Panel eyebrow="Details" title={title}>
       <div className="flex flex-col gap-3">
         {visual.commands.map(([k, v]) => <CodeBox key={k} code={v} label={humanizeKey(k)} />)}
         {visual.fields.length ? (
-          <dl className="grid grid-cols-1 gap-x-8 gap-y-1.5 text-[13px] @2xl:grid-cols-2">
+          <dl className="ai-well grid grid-cols-1 gap-x-8 px-3.5 py-1 text-[13px] @2xl:grid-cols-2">
             {visual.fields.filter(([, v]) => v !== null && v !== undefined && v !== '').map(([k, v]) => (
-              <div key={k} className="grid grid-cols-[minmax(7rem,40%)_1fr] gap-x-3 border-b border-line pb-1.5">
+              <div key={k} className="grid grid-cols-[minmax(7rem,40%)_1fr] gap-x-3 border-b border-line py-2 last:border-b-0">
                 <dt className="text-ink-3">{humanizeKey(k.replace(/\./g, ' '))}</dt>
-                <dd className="min-w-0 break-words text-ink-1">{formatValue(v)}</dd>
+                <dd className="ai-num min-w-0 break-words text-ink-1">{formatValue(v)}</dd>
               </div>
             ))}
           </dl>
         ) : null}
       </div>
-    </section>
+    </Panel>
   );
 }
 

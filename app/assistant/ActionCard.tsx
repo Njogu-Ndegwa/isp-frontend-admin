@@ -8,6 +8,7 @@ import { formatMoney } from '../lib/format';
 import { useT } from '../lib/i18n';
 import ResultBlock from './blocks/ResultBlock';
 import { AlertIcon, CheckIcon, SpinnerIcon } from './icons';
+import { toneColor } from './charts/shared';
 
 export interface ActionCardData {
   action_id: string;
@@ -91,13 +92,15 @@ export default function ActionCard({ action, busy, readOnly, currency, onDecide 
 
   return (
     <section data-testid="assistant-action"
-      className={`@container ai-card overflow-hidden ${waiting ? (danger ? '!border-bad/50' : '!border-accent/50') : ''}`}>
-      <div className={`h-1 ${waiting ? (danger ? 'bg-bad' : 'bg-accent-fill') : status === 'done' ? 'bg-good' : status === 'failed' ? 'bg-bad' : 'bg-surface-3'}`} aria-hidden />
+      className={`@container ai-card relative overflow-hidden ${waiting ? (danger ? '!border-bad/45' : '!border-accent/45') : ''}`}
+      style={waiting ? { boxShadow: `inset 0 1px 0 var(--ai-edge), 0 0 0 4px ${danger ? 'color-mix(in srgb, var(--ai-bad) 10%, transparent)' : 'var(--ai-accent-soft)'}, var(--ai-shadow)` } : undefined}>
+      <span aria-hidden className="absolute inset-x-0 top-0 h-[2px]"
+        style={{ background: `linear-gradient(90deg, ${waiting ? (danger ? toneColor('bad') : 'var(--ai-accent-fill)') : status === 'done' ? toneColor('good') : status === 'failed' ? toneColor('bad') : 'var(--ai-s3)'}, transparent 85%)` }} />
       <div className="p-4 sm:p-5">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-[11.5px] font-semibold uppercase tracking-[0.08em] text-ink-3">{t(VERB[action.method] ?? 'Change')}</p>
-            <p className="ai-display mt-0.5 break-words text-[16px] font-bold leading-snug text-ink-1">{action.summary || action.title}</p>
+            <p className="ai-eyebrow">{waiting ? t('Needs your OK') : t('Change')} · {t(VERB[action.method] ?? 'Change')}</p>
+            <p className="ai-display mt-1.5 break-words text-[16.5px] font-semibold leading-snug text-ink-1">{action.summary || action.title}</p>
           </div>
           <span className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-[11.5px] font-semibold ${badge[status].cls}`}>
             {badge[status].icon}{badge[status].label}
@@ -105,9 +108,9 @@ export default function ActionCard({ action, busy, readOnly, currency, onDecide 
         </div>
 
         {params.length > 0 && (
-          <dl className="mt-3 grid grid-cols-1 gap-x-8 gap-y-1.5 text-[13px] @2xl:grid-cols-2">
+          <dl className="ai-well mt-4 grid grid-cols-1 gap-x-8 px-3.5 py-1 text-[13px] @2xl:grid-cols-2">
             {params.slice(0, 24).map(([k, v]) => (
-              <div key={k} className="grid grid-cols-[minmax(7rem,40%)_1fr] gap-x-3 border-b border-line pb-1.5">
+              <div key={k} className="grid grid-cols-[minmax(7rem,40%)_1fr] gap-x-3 border-b border-line py-2 last:border-b-0">
                 <dt className="text-ink-3">{k}</dt>
                 <dd className="min-w-0 break-words text-ink-1">{v}</dd>
               </div>
@@ -138,7 +141,7 @@ export default function ActionCard({ action, busy, readOnly, currency, onDecide 
         {status === 'failed' && action.detail && <p className="mt-3 break-words text-[13px] text-[var(--ai-text-bad)]">{action.detail}</p>}
         {status === 'expired' && <p className="mt-3 text-[12.5px] text-ink-3">{t('Not run. Ask again if you still want this.')}</p>}
 
-        <p className="mt-3 break-all font-mono text-[11px] text-ink-3">{action.title} · {action.method} {action.path}</p>
+        <p className="ai-mono mt-3 break-all text-[10.5px] text-ink-3"><span className="text-ink-2">{action.method}</span> {action.path} · {action.title}</p>
       </div>
       {status === 'done' && action.payload !== undefined && action.payload !== null && (
         <div className="border-t border-line bg-surface-2/40 p-3 sm:p-4">

@@ -51,14 +51,14 @@ export function FloatingTip({ tip, containerWidth }: { tip: Tip | null; containe
   return (
     <div
       role="status"
-      className="pointer-events-none absolute z-20 rounded-[10px] border border-line-strong bg-surface-2 px-3 py-2 text-[12px] shadow-[0_12px_30px_rgba(0,0,0,0.35)]"
+      className="pointer-events-none absolute z-20 rounded-[12px] border border-line-strong bg-[color:var(--ai-s2)]/90 px-3 py-2 text-[12px] shadow-[0_16px_36px_-12px_rgba(0,0,0,0.55)] backdrop-blur-md"
       style={{ left, top: Math.max(0, tip.y), width }}
     >
-      <div className="mb-1 truncate text-ink-2">{tip.title}</div>
+      <div className="ai-eyebrow mb-1.5 truncate">{tip.title}</div>
       {tip.rows.map((r, i) => (
         <div key={i} className="flex items-center gap-2 py-[1px]">
           {r.color ? <span className="h-[3px] w-3 shrink-0 rounded-full" style={{ background: r.color }} /> : null}
-          <span className="ai-num font-bold text-ink-1">{r.value}</span>
+          <span className="ai-mono font-medium text-ink-1">{r.value}</span>
           <span className="truncate text-ink-3">{r.label}</span>
         </div>
       ))}
@@ -74,7 +74,7 @@ export function Legend({ items }: { items: Array<{ label: string; color: string 
     <ul className="mb-3 flex list-none flex-wrap gap-x-4 gap-y-1 p-0 text-[12px] text-ink-2">
       {items.map((it) => (
         <li key={it.label} className="flex items-center gap-1.5">
-          <span aria-hidden className="h-2.5 w-2.5 rounded-[3px]" style={{ background: it.color }} />
+          <span aria-hidden className="h-2 w-2 rounded-full" style={{ background: it.color }} />
           {it.label}
         </li>
       ))}

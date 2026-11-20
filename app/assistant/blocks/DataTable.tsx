@@ -170,18 +170,18 @@ export function DataTable({ columns, rows, total, currency, onPick }: {
       ?? figures.find((c) => c.kind === 'money' && short(c))
       ?? figures.find((c) => c.kind !== 'date' && c.kind !== 'datetime' && short(c));
     body = (
-      <ul className="m-0 list-none divide-y divide-line overflow-hidden rounded-[10px] border border-line p-0">
+      <ul className="ai-well m-0 list-none divide-y divide-line overflow-hidden p-0">
         {visible.map((row, r) => {
           const line = foldedLine(row);
           const pairs = figures.filter((c) => c !== leadCol && !isBlank(row[c.key]));
           const content = (
             <>
               <span className="flex items-baseline gap-3">
-                <span className={`min-w-0 flex-1 truncate text-[14px] font-bold ${onPick ? 'text-accent' : 'text-ink-1'}`}>{isBlank(row[name.key]) ? '–' : shown(row, name)}</span>
+                <span className={`min-w-0 flex-1 truncate text-[14px] font-semibold ${onPick ? 'text-accent' : 'text-ink-1'}`}>{isBlank(row[name.key]) ? '–' : shown(row, name)}</span>
                 {leadCol && !isBlank(row[leadCol.key]) ? (
                   <span className="flex max-w-[60%] shrink-0 items-baseline justify-end gap-1 text-[12.5px] text-ink-3">
                     <span className="min-w-0 truncate">{leadCol.label}</span>
-                    <b className="ai-num shrink-0 text-[13.5px] text-ink-1">{shown(row, leadCol)}</b>
+                    <b className="ai-mono shrink-0 text-[13px] font-medium text-ink-1">{shown(row, leadCol)}</b>
                   </span>
                 ) : null}
               </span>
@@ -191,7 +191,7 @@ export function DataTable({ columns, rows, total, currency, onPick }: {
                   {pairs.map((c) => (
                     <span key={c.key} className="min-w-0">
                       <span className="block truncate text-[11.5px] text-ink-3">{c.label}</span>
-                      <span className="ai-num block truncate text-[13px] text-ink-1">{shown(row, c)}</span>
+                      <span className="ai-mono block truncate text-[12.5px] text-ink-1">{shown(row, c)}</span>
                     </span>
                   ))}
                 </span>
@@ -214,13 +214,13 @@ export function DataTable({ columns, rows, total, currency, onPick }: {
     const folded = layout.kind === 'folded';
     const cols = columns.filter((_, i) => !layout.folded.includes(i));
     body = (
-      <div className="overflow-hidden rounded-[10px] border border-line">
+      <div className="ai-well overflow-hidden">
         <table ref={tableRef} className="w-full border-collapse text-[13px]">
-          <thead className="bg-surface-2 text-ink-2">
+          <thead className="text-ink-3">
             <tr>
               {cols.map((c, i) => (
                 <th key={c.key} scope="col"
-                  className={`px-3 py-2 align-bottom font-bold leading-tight ${alignRight(c) ? 'text-right' : 'text-left'} ${folded && i === 0 ? 'w-full max-w-0' : ''}`}
+                  className={`ai-eyebrow px-3 py-2.5 align-bottom !font-medium leading-tight ${alignRight(c) ? 'text-right' : 'text-left'} ${folded && i === 0 ? 'w-full max-w-0' : ''}`}
                   aria-sort={sort?.key === c.key ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}>
                   <button type="button" onClick={() => toggle(c.key)} className={`ai-tap inline-flex items-center gap-1 hover:text-ink-1 ${alignRight(c) ? 'flex-row-reverse text-right' : 'text-left'}`}>
                     {c.label}
@@ -239,9 +239,9 @@ export function DataTable({ columns, rows, total, currency, onPick }: {
                   const line = folded && i === 0 ? foldedLine(row) : '';
                   return (
                     <td key={c.key} title={!isFigure(c) && text.length > 24 ? text : undefined}
-                      className={`px-3 py-1.5 align-top ${alignRight(c) ? 'ai-num whitespace-nowrap text-right text-ink-1' : isFigure(c) ? 'whitespace-nowrap text-ink-2' : 'text-ink-2'} ${folded && i === 0 ? 'w-full max-w-0' : isFigure(c) ? '' : 'max-w-[16rem]'}`}>
+                      className={`px-3 py-1.5 align-top ${alignRight(c) ? 'ai-mono whitespace-nowrap text-right text-[12.5px] text-ink-1' : isFigure(c) ? 'whitespace-nowrap text-ink-2' : 'text-ink-2'} ${folded && i === 0 ? 'w-full max-w-0' : isFigure(c) ? '' : 'max-w-[16rem]'}`}>
                       {i === 0 && onPick ? (
-                        <button type="button" className="ai-tap block max-w-full truncate text-left font-bold text-accent underline-offset-2 hover:underline" onClick={() => onPick(row)}>{text}</button>
+                        <button type="button" className="ai-tap block max-w-full truncate text-left font-semibold text-accent underline-offset-2 hover:underline" onClick={() => onPick(row)}>{text}</button>
                       ) : (
                         <span className={`block truncate ${i === 0 ? 'text-ink-1' : ''}`}>{text}</span>
                       )}
@@ -268,7 +268,7 @@ export function DataTable({ columns, rows, total, currency, onPick }: {
           {all > rows.length ? ` (${rows.length.toLocaleString('en-US')} loaded)` : ''}
         </span>
         {rows.length > PAGE ? (
-          <button type="button" className="ai-tap font-bold text-accent hover:underline" onClick={() => setExpanded((v) => !v)}>
+          <button type="button" className="ai-tap font-semibold text-accent hover:underline" onClick={() => setExpanded((v) => !v)}>
             {expanded ? 'Show fewer' : `Show all ${rows.length.toLocaleString('en-US')}`}
           </button>
         ) : null}
