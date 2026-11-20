@@ -43,6 +43,11 @@ describe('routerOptionLabel', () => {
     expect(routerOptionLabel(r(1, 'Home', { status: 'online' }), [r(1, 'Home'), r(2, 'Shop')])).toBe('Home · ● online');
     expect(routerOptionLabel(r(1, 'Home'), [r(1, 'Home')])).toBe('Home');
   });
+  it('can leave out the status glyph for callers that draw a coloured dot', () => {
+    const all = [oldDead, newLive];
+    expect(routerOptionLabel(newLive, all, undefined, { statusGlyph: false })).toBe('MtaaniNet Hotspot #3 · Router-1215 · online');
+    expect(routerOptionLabel(oldDead, all, undefined, { statusGlyph: false })).toBe('MtaaniNet Hotspot #3 · Router-1201 · offline');
+  });
   it('falls back to IP when identity does not tell the twins apart', () => {
     const a = r(10, 'Shop', { identity: 'Shop' });
     const b = r(11, 'Shop', { identity: 'Shop' });
