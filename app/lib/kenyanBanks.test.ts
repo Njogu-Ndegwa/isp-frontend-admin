@@ -25,6 +25,22 @@ describe('KENYAN_BANKS', () => {
     expect(byCode.im).toBe('542542');
     expect(byCode.dtb).toBe('516600');
     expect(byCode.stanbic).toBe('600100');
+    expect(byCode.postbank).toBe('200999');
+    expect(byCode.sidian).toBe('111999');
+    expect(byCode.boa).toBe('972900');
+    expect(byCode.credit).toBe('972700');
+    expect(byCode.consolidated).toBe('508400');
+    expect(byCode.prime).toBe('982800');
+    expect(byCode.unaitas).toBe('544700');
+  });
+
+  it('is sorted by name so the select reads alphabetically', () => {
+    const names = KENYAN_BANKS.map((b) => b.name);
+    expect(names).toEqual([...names].sort((a, b) => a.localeCompare(b, 'en')));
+  });
+
+  it('includes Postbank, which resellers asked for', () => {
+    expect(bankForPaybill('200999')?.code).toBe('postbank');
   });
 
   it('never uses the Other sentinel as a bank code', () => {
