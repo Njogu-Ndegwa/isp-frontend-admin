@@ -20,7 +20,7 @@ export function actionCards(items: TranscriptItem[], records: Record<string, Act
       cards.set(item.action_id, {
         action_id: item.action_id, title: item.title, summary: item.summary, method: item.method,
         path: item.path, query: item.query, body: item.body, sensitive: item.sensitive,
-        expires_at: item.expires_at, status: item.status,
+        expires_at: item.expires_at, status: item.status, form: item.form,
       });
     } else if (item.type === 'action_result') {
       const card = cards.get(item.action_id);
@@ -216,7 +216,7 @@ export default function Transcript({ items, records = {}, busy = false, readOnly
   /** index of the assistant text that is arriving right now */
   liveIndex?: number | null;
   currency?: string | null;
-  onDecide?: (actionId: string, approve: boolean) => void;
+  onDecide?: (actionId: string, approve: boolean, values?: Record<string, unknown>) => void;
   /** asks a follow-up question (suggestion chips, rows that are questions) */
   onAsk?: (q: string) => void;
   /** the newest exchange: brought to the top of the view and kept one screen tall */
@@ -272,7 +272,7 @@ export default function Transcript({ items, records = {}, busy = false, readOnly
                       const card = cards.get(part.item.action_id);
                       if (!card) return null;
                       return <ActionCard key={part.key} action={card} busy={busy} readOnly={readOnly || !onDecide} currency={currency}
-                        onDecide={(approve) => onDecide?.(part.item.action_id, approve)} />;
+                        onDecide={(approve, values) => onDecide?.(part.item.action_id, approve, values)} />;
                     }
                     case 'support':
                       return (

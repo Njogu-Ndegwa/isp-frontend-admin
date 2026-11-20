@@ -7,7 +7,7 @@ import { useAuth } from '../context/AuthContext';
 import { api } from '../lib/api';
 import {
   assistantApi, AssistantError, markStartPageDecided, rememberHome,
-  type ActionRecord, type AssistantEvent, type AssistantStatus, type ConversationSummary,
+  type ActionRecord, type AssistantEvent, type AssistantStatus, type ConversationSummary, type Decision,
   type OutgoingImage, type TranscriptItem,
 } from '../lib/assistant';
 import { isStaffUser } from '../lib/permissions';
@@ -380,7 +380,7 @@ export default function AssistantClient() {
     await run((onEvent) => assistantApi.chat({ message, conversation_id: conversationId, images }, onEvent));
   }, [busy, conversationId, run]);
 
-  const decide = useCallback(async (decisions: { action_id: string; approve: boolean }[]) => {
+  const decide = useCallback(async (decisions: Decision[]) => {
     if (!conversationId || busy || decisions.length === 0) return;
     setRecords((prev) => {
       const next = { ...prev };
@@ -392,7 +392,8 @@ export default function AssistantClient() {
 
   const pending = useMemo(() => {
     const cards = actionCards(items, records);
-    return [...cards.values()].filter((c) => c.status === 'pending' && (!c.expires_at || new Date(c.expires_at).getTime() > Date.now()));
+    // a form waits for its own fields, so "Confirm all" covers the plain cards only
+    return [...cards.values()].filter((c) => c.status === 'pending' && !c.form?.length && (!c.expires_at || new Date(c.expires_at).getTime() > Date.now()));
   }, [items, records]);
 
   // Onboarding entry: /assistant?start=setup opens a chat that starts the setup.
@@ -497,7 +498,7 @@ export default function AssistantClient() {
           <div className="mx-auto flex w-full max-w-[880px] flex-col px-4 sm:px-6">
             {opening ? <p className="mt-6 text-[13.5px] text-ink-3">{t('Opening the chat…')}</p> : null}
             <Transcript items={items} records={records} busy={busy} readOnly={readOnly} liveIndex={liveIndex} currency={currency}
-              onDecide={(id, approve) => decide([{ action_id: id, approve }])} onAsk={live && !busy ? (q) => void send(q) : undefined}
+              onDecide={(id, approve, values) => decide([{ action_id: id, approve, ...(values ? { values } : {}) }])} onAsk={live && !busy ? (q) => void send(q) : undefined}
               lastRef={lastExchange} lastMinHeight={viewH} />
           </div>
         )}

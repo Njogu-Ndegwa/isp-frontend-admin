@@ -13,12 +13,36 @@ export type AssistantEvent =
   | { type: 'text'; delta: string }
   | { type: 'step'; call_id: string; label: string; phase: 'start' | 'end'; method?: string; path?: string; ok?: boolean; status?: number }
   | { type: 'data'; call_id: string; title: string; method: string; path: string; query?: Record<string, unknown> | null; show: ShowHint; fields?: ShowFields | null; payload: unknown }
-  | { type: 'action'; action_id: string; title: string; summary: string; method: string; path: string; query?: Record<string, unknown> | null; body?: unknown; permission?: string | null; sensitive?: boolean; expires_at?: string; status: ActionStatus }
+  | { type: 'action'; action_id: string; title: string; summary: string; method: string; path: string; query?: Record<string, unknown> | null; body?: unknown; permission?: string | null; sensitive?: boolean; expires_at?: string; status: ActionStatus; form?: FormField[] }
   | { type: 'action_result'; action_id: string; status: ActionStatus; ok: boolean; http_status?: number; detail?: string; payload?: unknown }
   | { type: 'notice'; level: 'info' | 'error'; message: string }
   | { type: 'done'; conversation_id: string; usage?: { input_tokens: number; output_tokens: number } };
 
 export type ActionStatus = 'pending' | 'running' | 'done' | 'failed' | 'declined' | 'expired';
+
+/**
+ * One input of a change shown as a form. The server builds these from the API's own
+ * schema (never from the model) and checks the values again on Confirm.
+ */
+export interface FormField {
+  name: string;
+  label: string;
+  kind: 'text' | 'integer' | 'number' | 'boolean' | 'select' | 'date' | 'datetime' | 'password' | 'list';
+  required: boolean;
+  options?: string[];
+  /** a picker of the person's own records: id -> name */
+  option_labels?: Record<string, string>;
+  /** for a list: what each item is */
+  item_kind?: 'text' | 'integer' | 'number';
+  hint?: string;
+  value?: unknown;
+  minimum?: number;
+  maximum?: number;
+  maxLength?: number;
+}
+
+/** A Confirm or Cancel; `values` are what the person filled in on a form card. */
+export interface Decision { action_id: string; approve: boolean; values?: Record<string, unknown> }
 
 /** How the model would like a result drawn. The page draws it from the data; the model never writes the numbers. */
 export type ShowHint = 'auto' | 'table' | 'card' | 'none' | 'tiles' | 'trend' | 'bars' | 'share';
@@ -304,7 +328,7 @@ export const assistantApi = {
   ) => stream('/assistant/chat', body, onEvent, signal),
   decide: (
     conversationId: string,
-    decisions: { action_id: string; approve: boolean }[],
+    decisions: Decision[],
     onEvent: (e: AssistantEvent) => void,
   ) => stream(`/assistant/conversations/${encodeURIComponent(conversationId)}/decide`, { decisions }, onEvent),
 
