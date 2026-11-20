@@ -11,12 +11,14 @@ import {
   type OutgoingImage, type TranscriptItem,
 } from '../lib/assistant';
 import { isStaffUser } from '../lib/permissions';
+import { isStandalone } from '../lib/standalone';
 import { useT } from '../lib/i18n';
 import Composer from './Composer';
 import HistoryPanel from './HistoryPanel';
 import Home from './Home';
 import { BitwaveMark, CloseIcon, GridIcon, HistoryIcon, LogoutIcon, MoonIcon, MoreIcon, PlusIcon, SunIcon } from './icons';
 import Transcript, { actionCards } from './Transcript';
+import { Led } from './ui';
 
 const POLL_MS = 20_000;
 const INTRO_SEEN = 'bw_ai_intro_seen';
@@ -29,13 +31,15 @@ function applyTheme(theme: Theme) {
 
 /* ---------------- header ---------------- */
 
-function Header({ status, live, canReset, busy, classicHref, onHome, onHistory, onStatus }: {
+function Header({ status, live, canReset, busy, classicHref, standalone, onHome, onHistory, onStatus }: {
   status: AssistantStatus | null;
   /** null while checking */
   live: boolean | null;
   canReset: boolean;
   busy: boolean;
   classicHref: string;
+  /** on Bitwave AI's own address: the assistant is the whole app, so nothing links to the dashboard */
+  standalone: boolean;
   onHome: () => void;
   onHistory: () => void;
   onStatus: (s: AssistantStatus) => void;
@@ -76,18 +80,18 @@ function Header({ status, live, canReset, busy, classicHref, onHome, onHistory, 
   const item = 'flex w-full items-center gap-2.5 rounded-[8px] px-3 py-2.5 text-left text-[14px] text-ink-1 hover:bg-surface-2';
 
   return (
-    <header className="z-30 shrink-0 border-b border-line bg-[color:var(--ai-bg)]/90 backdrop-blur">
-      <div className="mx-auto flex h-14 max-w-[1040px] items-center gap-2 px-3 sm:gap-3 sm:px-6">
+    <header className="z-30 shrink-0 border-b border-line bg-[color:var(--ai-bg)]/75 backdrop-blur-xl backdrop-saturate-150">
+      <div className="mx-auto flex h-14 max-w-[1180px] items-center gap-2 px-3 sm:gap-3 sm:px-6">
         <button type="button" onClick={onHome} disabled={busy} className="ai-tap flex shrink-0 items-center gap-2 rounded-[10px] py-1 pr-1" aria-label={t('Bitwave home')}>
           <BitwaveMark />
-          <span className="ai-display text-[17px] font-bold text-ink-1">Bitwave</span>
-          <span className="rounded-full bg-accent-soft px-1.5 py-0.5 text-[11px] font-bold tracking-wide text-accent">AI</span>
+          <span className="ai-display text-[16.5px] font-semibold text-ink-1">Bitwave</span>
+          <span className="ai-mono rounded-[6px] border border-accent/35 bg-accent-soft px-1.5 py-[1px] text-[10.5px] font-medium tracking-[0.12em] text-accent">AI</span>
         </button>
 
         <div className="ml-auto flex items-center gap-1 sm:gap-1.5">
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-line px-2 py-1 text-[12px] text-ink-2 max-[359px]:hidden sm:px-2.5"
+          <span className="ai-mono inline-flex items-center gap-1.5 rounded-full border border-line bg-surface-1/60 px-2 py-1 text-[11px] text-ink-2 max-[359px]:hidden sm:px-2.5"
             title={live ? t('Answers use your live account data') : undefined}>
-            <span aria-hidden className="h-1.5 w-1.5 rounded-full" style={{ background: live === null ? 'var(--ai-muted)' : live ? 'var(--ai-good)' : 'var(--ai-warn)' }} />
+            <Led tone={live === null ? 'muted' : live ? 'live' : 'warn'} pulse={!!live} size={6} />
             <span className="hidden md:inline">{live === null ? t('Checking') : !live ? t('Assistant is off') : status?.read_only ? t('Live data · view only') : t('Live data')}</span>
             <span className="md:hidden">{live === false ? t('Off') : status?.read_only ? t('View only') : t('Live')}</span>
           </span>
@@ -99,20 +103,22 @@ function Header({ status, live, canReset, busy, classicHref, onHome, onHistory, 
               <PlusIcon width={14} height={14} /> <span className="hidden sm:inline">{t('New chat')}</span>
             </button>
           ) : null}
-          <Link href={classicHref} className="ai-btn ai-btn-quiet hidden lg:inline-flex" title={t('The dashboard you know, with every page')}>
-            <GridIcon /> {t('Classic dashboard')}
-          </Link>
+          {standalone ? null : (
+            <Link href={classicHref} className="ai-btn ai-btn-quiet hidden lg:inline-flex" title={t('The dashboard you know, with every page')}>
+              <GridIcon /> {t('Classic dashboard')}
+            </Link>
+          )}
           <div className="relative" ref={menuRef}>
             <button type="button" className="ai-btn ai-btn-quiet" onClick={() => setMenu((v) => !v)} aria-label={t('More')} aria-expanded={menu} aria-haspopup="menu">
               <MoreIcon width={18} height={18} />
             </button>
             {menu ? (
-              <div role="menu" className="ai-card absolute right-0 top-[calc(100%+6px)] z-40 w-[min(19rem,calc(100vw-1.5rem))] p-1.5">
-                <Link href={classicHref} role="menuitem" className={item}><GridIcon /> {t('Classic dashboard')}</Link>
+              <div role="menu" className="ai-card ai-rise absolute right-0 top-[calc(100%+8px)] z-40 w-[min(19rem,calc(100vw-1.5rem))] p-1.5">
+                {standalone ? null : <Link href={classicHref} role="menuitem" className={item}><GridIcon /> {t('Classic dashboard')}</Link>}
                 <button type="button" role="menuitem" className={item} onClick={flipTheme}>
                   {theme === 'dark' ? <SunIcon /> : <MoonIcon />} {theme === 'dark' ? t('Light mode') : t('Dark mode')}
                 </button>
-                {status && live && !status.read_only ? (
+                {status && live && !status.read_only && !standalone ? (
                   <div className="my-1 border-y border-line px-3 py-2.5">
                     <p className="text-[12px] text-ink-3">{t('When I sign in, open')}</p>
                     <div className="mt-1.5 grid grid-cols-2 gap-1 rounded-full border border-line p-0.5" role="group">
@@ -169,6 +175,7 @@ export default function AssistantClient() {
   const demo = typeof window !== 'undefined' && api.isDemoMode();
   const currency = user?.market?.currency ?? 'KES';
   const classicHref = admin ? '/admin' : '/dashboard';
+  const [standalone] = useState(isStandalone);
   const userKey = `${user?.id ?? 0}:${staff ? user?.staff?.id ?? 0 : 0}`;
   const setLive = (i: number | null) => { liveText.current = i; setLiveIndex(i); };
 
@@ -447,7 +454,7 @@ export default function AssistantClient() {
 
   return (
     <div className="flex h-full min-h-0 flex-col" data-busy={busy ? 'true' : 'false'}>
-      <Header status={status} live={live} canReset={!empty} busy={busy} classicHref={classicHref}
+      <Header status={status} live={live} canReset={!empty} busy={busy} classicHref={classicHref} standalone={standalone}
         onHome={goHome} onHistory={() => { setHistoryOpen(true); refreshHistory(); }}
         onStatus={(next) => { setStatus(next); rememberHome(userKey, !!(next.enabled && next.home)); }} />
       <HistoryPanel open={historyOpen} conversations={history} activeId={conversationId} retentionDays={status?.retention_days}
@@ -464,15 +471,15 @@ export default function AssistantClient() {
 
       <div ref={scroller} className="min-h-0 flex-1 overflow-y-auto overscroll-contain" tabIndex={-1}>
         {off ? (
-          <div className="mx-auto mt-4 w-full max-w-[1040px] px-4 sm:px-6">
-            <p role="status" className="rounded-[10px] border border-warn/50 bg-warn/10 px-3 py-2.5 text-[14px] text-ink-1">{off}</p>
+          <div className="mx-auto mt-4 w-full max-w-[1180px] px-4 sm:px-6">
+            <p role="status" className="flex items-center gap-2.5 rounded-[14px] border border-warn/40 bg-warn/10 px-3.5 py-3 text-[14px] text-ink-1"><Led tone="warn" />{off}</p>
           </div>
         ) : null}
         {empty ? (
           <>
-            {intro && live ? (
-              <div className="mx-auto mt-4 w-full max-w-[1040px] px-4 sm:px-6">
-                <div className="flex items-start gap-3 rounded-[12px] border border-accent/40 bg-accent-soft px-3.5 py-3 text-[13.5px] leading-snug text-ink-1">
+            {intro && live && !standalone ? (
+              <div className="mx-auto mt-4 w-full max-w-[1180px] px-4 sm:px-6">
+                <div className="flex items-start gap-3 rounded-[14px] border border-accent/30 bg-accent-soft px-3.5 py-3 text-[13.5px] leading-snug text-ink-1">
                   <p className="min-w-0 flex-1">
                     <b>{t('This is the new Bitwave.')}</b>{' '}
                     {t('Ask for anything in plain words, or tap a figure. Everything the dashboard does, you can do here.')}{' '}
@@ -487,7 +494,7 @@ export default function AssistantClient() {
               admin={!!admin && !readOnly} readOnly={readOnly} enabled={!!live} onAsk={(q) => void send(q)} />
           </>
         ) : (
-          <div className="mx-auto flex w-full max-w-[1040px] flex-col px-4 sm:px-6">
+          <div className="mx-auto flex w-full max-w-[880px] flex-col px-4 sm:px-6">
             {opening ? <p className="mt-6 text-[13.5px] text-ink-3">{t('Opening the chat…')}</p> : null}
             <Transcript items={items} records={records} busy={busy} readOnly={readOnly} liveIndex={liveIndex} currency={currency}
               onDecide={(id, approve) => decide([{ action_id: id, approve }])} onAsk={live && !busy ? (q) => void send(q) : undefined}
@@ -499,7 +506,7 @@ export default function AssistantClient() {
       <Composer busy={busy} disabled={off} onSend={(text, photos) => void send(text, photos)}
         placeholder={readOnly ? t('Ask about this account…') : t('Ask anything, or tell me what to do…')}
         note={pending.length > 1 && !readOnly ? (
-          <div className="mb-2 flex flex-wrap items-center justify-between gap-2 rounded-[14px] border border-accent/50 bg-surface-1 px-3.5 py-2">
+          <div className="ai-card mb-2 flex flex-wrap items-center justify-between gap-2 !rounded-[16px] !border-accent/40 px-3.5 py-2">
             <span className="text-[13px] text-ink-1">{t('{n} changes are waiting for you.', { n: pending.length })}</span>
             <div className="flex gap-1.5">
               <button type="button" disabled={busy} onClick={() => decide(pending.map((p) => ({ action_id: p.action_id, approve: true })))} className="ai-btn ai-btn-primary">{t('Confirm all')}</button>

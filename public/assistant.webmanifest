@@ -1,0 +1,16 @@
+{
+  "name": "Bitwave AI",
+  "short_name": "Bitwave AI",
+  "description": "Run your hotspot and PPPoE business by chat: money, customers and every MikroTik, live.",
+  "id": "/assistant",
+  "start_url": "/assistant",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#08090b",
+  "theme_color": "#08090b",
+  "icons": [
+    { "src": "/icon.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/apple-icon.png", "sizes": "180x180", "type": "image/png", "purpose": "any" }
+  ]
+}
