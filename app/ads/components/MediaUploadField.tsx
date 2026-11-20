@@ -44,10 +44,13 @@ export default function MediaUploadField({
   uploadsOff,
   onUploadsOff,
   inputId,
+  limitsText,
 }: {
   kind: MediaKind;
   label: string;
   hint?: string;
+  /** Replaces the default size/shape line under the field (e.g. "square works best" for a logo). */
+  limitsText?: string;
   value: string;
   onChange: (url: string) => void;
   required?: boolean;
@@ -71,9 +74,9 @@ export default function MediaUploadField({
   useEffect(() => () => abortRef.current?.abort(), []);
 
   const accept = (kind === 'image' ? IMAGE_TYPES : VIDEO_TYPES).join(',');
-  const limits = kind === 'image'
+  const limits = limitsText ?? (kind === 'image'
     ? t('JPG, PNG or WebP · up to 2 MB · wide (landscape) works best')
-    : t('MP4 · up to 12 MB · {s} seconds or less', { s: VIDEO_MAX_SECONDS });
+    : t('MP4 · up to 12 MB · {s} seconds or less', { s: VIDEO_MAX_SECONDS }));
 
   async function handleFile(file: File) {
     setProblem(null);

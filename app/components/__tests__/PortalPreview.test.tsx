@@ -77,3 +77,26 @@ describe('PortalPreview hero support button', () => {
     expect(html).toContain('href="tel:0712345678"');
   });
 });
+
+describe('PortalPreview hero branding', () => {
+  const LOGO = 'https://isp.bitwavetechnologies.com/media/c/2026/11/r7-logo.png';
+  const PHOTO = 'https://isp.bitwavetechnologies.com/media/c/2026/11/r7-shop.jpg';
+
+  it('draws an uploaded logo instead of the Wi-Fi icon', () => {
+    const html = render(settings({ company_logo_url: LOGO }));
+    expect(html).toContain(`src="${LOGO}"`);
+    expect(html).toContain('class="pp-hero-logo"');
+    expect(html).not.toContain('class="pp-hero-wifi"');
+  });
+
+  it('keeps the Wi-Fi icon without a logo', () => {
+    const html = render(settings({ company_logo_url: null }));
+    expect(html).toContain('class="pp-hero-wifi"');
+    expect(html).not.toContain('class="pp-hero-logo"');
+  });
+
+  it('paints an uploaded header photo behind the hero', () => {
+    const html = render(settings({ header_bg_image_url: PHOTO }));
+    expect(html).toContain(`url(${PHOTO})`);
+  });
+});
