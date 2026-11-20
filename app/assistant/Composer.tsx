@@ -122,7 +122,7 @@ export default function Composer({ busy, disabled, placeholder, note, onSend }: 
             <input ref={fileRef} type="file" accept="image/*" multiple className="hidden" onChange={(e) => attach(e.target.files)} />
             <button type="button" onClick={() => fileRef.current?.click()} disabled={busy || preparing || photos.length >= MAX_PHOTOS || !!disabled}
               aria-label={t('Add a photo')} title={t('Add a photo')}
-              className="-ml-1.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-ink-3 transition-colors hover:bg-surface-2 hover:text-ink-1 disabled:opacity-40">
+              className="-ml-1.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-ink-3 transition-colors hover:bg-surface-2 active:bg-surface-2 hover:text-ink-1 disabled:opacity-40">
               {preparing ? <SpinnerIcon width={17} height={17} className="text-accent" /> : <CameraIcon width={19} height={19} />}
             </button>
             <span className="ai-mono hidden min-w-0 flex-1 truncate text-[11px] text-ink-3 [@media(pointer:fine)]:block">{busy ? <span className="inline-flex items-center gap-2"><Signal />{t('Working…')}</span> : t('Enter to send · Shift + Enter for a new line')}</span>

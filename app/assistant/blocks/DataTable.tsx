@@ -191,7 +191,7 @@ export function DataTable({ columns, rows, total, currency, onPick }: {
                   {pairs.map((c) => (
                     <span key={c.key} className="min-w-0">
                       <span className="block truncate text-[11.5px] text-ink-3">{c.label}</span>
-                      <span className="ai-mono block truncate text-[12.5px] text-ink-1">{shown(row, c)}</span>
+                      <span className="ai-mono block break-words text-[12.5px] text-ink-1">{shown(row, c)}</span>
                     </span>
                   ))}
                 </span>
@@ -201,7 +201,7 @@ export function DataTable({ columns, rows, total, currency, onPick }: {
           return (
             <li key={r}>
               {onPick ? (
-                <button type="button" className="block w-full px-3 py-2.5 text-left transition-colors hover:bg-surface-2" onClick={() => onPick(row)}>{content}</button>
+                <button type="button" className="block w-full px-3 py-2.5 text-left transition-colors hover:bg-surface-2 active:bg-surface-2" onClick={() => onPick(row)}>{content}</button>
               ) : (
                 <div className="px-3 py-2.5">{content}</div>
               )}
@@ -233,7 +233,7 @@ export function DataTable({ columns, rows, total, currency, onPick }: {
           </thead>
           <tbody>
             {visible.map((row, r) => (
-              <tr key={r} className="border-t border-line hover:bg-surface-2/60">
+              <tr key={r} className="border-t border-line hover:bg-surface-2/60 active:bg-surface-2/60">
                 {cols.map((c, i) => {
                   const text = shown(row, c);
                   const line = folded && i === 0 ? foldedLine(row) : '';

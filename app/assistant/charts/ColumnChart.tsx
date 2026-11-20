@@ -2,6 +2,7 @@
 
 import { useId, useState } from 'react';
 import { compactNumber } from '../../lib/assistantVisual';
+import { useInView } from '../ui';
 import { EmptyChart, FloatingTip, niceTicks, useWidth, type Tip } from './shared';
 
 export type ColumnSeries = { key: string; label: string; color: string };
@@ -30,6 +31,7 @@ export function ColumnChart({ points, series, format, height = 240 }: {
   const [ref, width] = useWidth<HTMLDivElement>();
   const [active, setActive] = useState<number | null>(null);
   const gid = useId().replace(/:/g, '');
+  const [box, seen] = useInView<HTMLDivElement>({ threshold: 0.4 });
   if (points.length === 0 || series.length === 0) return <EmptyChart>No data to chart.</EmptyChart>;
 
   const max = Math.max(0, ...points.flatMap((p) => p.values));
@@ -57,6 +59,7 @@ export function ColumnChart({ points, series, format, height = 240 }: {
   };
 
   return (
+    <div ref={box}>
     <div ref={ref} className="relative" style={{ height }} onPointerLeave={() => setActive(null)}>
       {width > 0 ? (
         <svg width={width} height={height} role="img" aria-label="Column chart. The table view has the exact values.">
@@ -74,7 +77,7 @@ export function ColumnChart({ points, series, format, height = 240 }: {
             {ticks.map((t) => (
               <g key={t} transform={`translate(0,${y(t)})`}>
                 <line x1={0} x2={plotW} stroke={t === 0 ? 'var(--ai-axis)' : 'var(--ai-grid)'} strokeWidth={1} strokeDasharray={t === 0 ? undefined : '2 4'} />
-                <text x={-8} dy="0.32em" textAnchor="end" className="ai-mono" fill="var(--ai-ink3)" fontSize={10.5}>{compactNumber(t)}</text>
+                <text x={-8} dy="0.32em" textAnchor="end" className="ai-mono" fill="var(--ai-ink3)" fontSize={11}>{compactNumber(t)}</text>
               </g>
             ))}
 
@@ -91,12 +94,13 @@ export function ColumnChart({ points, series, format, height = 240 }: {
                     const v = p.values[k] ?? 0;
                     const h = v > 0 ? Math.max(1, plotH - y(v)) : 0;
                     const d = columnPath(gx + k * (w + 2), plotH - h, w, h);
+                    const grow = { transform: seen ? 'none' : 'scaleY(0)', transformBox: 'fill-box' as const, transformOrigin: '50% 100%', transition: `transform 760ms cubic-bezier(0.16, 1, 0.3, 1) ${Math.min(i, 24) * 32}ms` };
                     return p.partial
-                      ? <path key={s.key} d={d} fill="none" stroke={s.color} strokeWidth={1.5} strokeDasharray="3 2" />
-                      : <path key={s.key} d={d} fill={`url(#c${gid}-${k})`} />;
+                      ? <path key={s.key} d={d} fill="none" stroke={s.color} strokeWidth={1.5} strokeDasharray="3 2" style={grow} />
+                      : <path key={s.key} d={d} fill={`url(#c${gid}-${k})`} style={grow} />;
                   })}
                   {showValues && (p.values[0] ?? 0) > 0 ? (
-                    <text x={i * step + step / 2} y={y(p.values[0]) - 6} textAnchor="middle" fill="var(--ai-ink2)" fontSize={10.5} className="ai-mono">
+                    <text x={i * step + step / 2} y={y(p.values[0]) - 6} textAnchor="middle" fill="var(--ai-ink2)" fontSize={11} className="ai-mono">
                       {compactNumber(p.values[0])}
                     </text>
                   ) : null}
@@ -117,6 +121,7 @@ export function ColumnChart({ points, series, format, height = 240 }: {
         </svg>
       ) : null}
       <FloatingTip tip={tip} containerWidth={width} />
+    </div>
     </div>
   );
 }

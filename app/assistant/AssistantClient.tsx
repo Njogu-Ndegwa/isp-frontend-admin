@@ -77,7 +77,7 @@ function Header({ status, live, canReset, busy, classicHref, standalone, onHome,
       /* the choice is a convenience: the menu simply stays as it was */
     }
   };
-  const item = 'flex w-full items-center gap-2.5 rounded-[8px] px-3 py-2.5 text-left text-[14px] text-ink-1 hover:bg-surface-2';
+  const item = 'flex w-full items-center gap-2.5 rounded-[8px] px-3 py-2.5 text-left text-[14px] text-ink-1 hover:bg-surface-2 active:bg-surface-2';
 
   return (
     <header className="z-30 shrink-0 border-b border-line bg-[color:var(--ai-bg)]/75 backdrop-blur-xl backdrop-saturate-150">
@@ -85,7 +85,7 @@ function Header({ status, live, canReset, busy, classicHref, standalone, onHome,
         <button type="button" onClick={onHome} disabled={busy} className="ai-tap flex shrink-0 items-center gap-2 rounded-[10px] py-1 pr-1" aria-label={t('Bitwave home')}>
           <BitwaveMark />
           <span className="ai-display text-[16.5px] font-semibold text-ink-1">Bitwave</span>
-          <span className="ai-mono rounded-[6px] border border-accent/35 bg-accent-soft px-1.5 py-[1px] text-[10.5px] font-medium tracking-[0.12em] text-accent">AI</span>
+          <span className="ai-mono rounded-[6px] border border-accent/35 bg-accent-soft px-1.5 py-[1px] text-[11px] font-medium tracking-[0.12em] text-accent">AI</span>
         </button>
 
         <div className="ml-auto flex items-center gap-1 sm:gap-1.5">
@@ -123,9 +123,9 @@ function Header({ status, live, canReset, busy, classicHref, standalone, onHome,
                     <p className="text-[12px] text-ink-3">{t('When I sign in, open')}</p>
                     <div className="mt-1.5 grid grid-cols-2 gap-1 rounded-full border border-line p-0.5" role="group">
                       <button type="button" aria-pressed={!!status.home} onClick={() => setHome('assistant')}
-                        className={`rounded-full px-2 py-2 text-[13px] font-semibold ${status.home ? 'bg-accent-fill text-accent-ink' : 'text-ink-2 hover:bg-surface-2'}`}>{t('This chat')}</button>
+                        className={`rounded-full px-2 py-2 text-[13px] font-semibold ${status.home ? 'bg-accent-fill text-accent-ink' : 'text-ink-2 hover:bg-surface-2 active:bg-surface-2'}`}>{t('This chat')}</button>
                       <button type="button" aria-pressed={!status.home} onClick={() => setHome('classic')}
-                        className={`rounded-full px-2 py-2 text-[13px] font-semibold ${!status.home ? 'bg-surface-3 text-ink-1' : 'text-ink-2 hover:bg-surface-2'}`}>{t('Classic')}</button>
+                        className={`rounded-full px-2 py-2 text-[13px] font-semibold ${!status.home ? 'bg-surface-3 text-ink-1' : 'text-ink-2 hover:bg-surface-2 active:bg-surface-2'}`}>{t('Classic')}</button>
                     </div>
                   </div>
                 ) : null}
@@ -504,7 +504,7 @@ export default function AssistantClient() {
       </div>
 
       <Composer busy={busy} disabled={off} onSend={(text, photos) => void send(text, photos)}
-        placeholder={readOnly ? t('Ask about this account…') : t('Ask anything, or tell me what to do…')}
+        placeholder={readOnly ? t('Ask about this account…') : t('Ask, or tell me what to do…')}
         note={pending.length > 1 && !readOnly ? (
           <div className="ai-card mb-2 flex flex-wrap items-center justify-between gap-2 !rounded-[16px] !border-accent/40 px-3.5 py-2">
             <span className="text-[13px] text-ink-1">{t('{n} changes are waiting for you.', { n: pending.length })}</span>

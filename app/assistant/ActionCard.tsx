@@ -141,7 +141,7 @@ export default function ActionCard({ action, busy, readOnly, currency, onDecide 
         {status === 'failed' && action.detail && <p className="mt-3 break-words text-[13px] text-[var(--ai-text-bad)]">{action.detail}</p>}
         {status === 'expired' && <p className="mt-3 text-[12.5px] text-ink-3">{t('Not run. Ask again if you still want this.')}</p>}
 
-        <p className="ai-mono mt-3 break-all text-[10.5px] text-ink-3"><span className="text-ink-2">{action.method}</span> {action.path} · {action.title}</p>
+        <p className="ai-mono mt-3 break-all text-[11px] text-ink-3"><span className="text-ink-2">{action.method}</span> {action.path} · {action.title}</p>
       </div>
       {status === 'done' && action.payload !== undefined && action.payload !== null && (
         <div className="border-t border-line bg-surface-2/40 p-3 sm:p-4">

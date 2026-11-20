@@ -301,9 +301,9 @@ export default function Transcript({ items, records = {}, busy = false, readOnly
                     <p className="ai-eyebrow mb-2">{t('Ask next')}</p>
                     <div className="flex flex-wrap gap-2">
                       {next.map((q) => (
-                        <button key={q} type="button" className="ai-chip group" onClick={() => onAsk?.(q)}>
+                        <button key={q} type="button" className="ai-chip group max-sm:w-full max-sm:justify-between max-sm:!rounded-[14px] max-sm:!py-2.5" onClick={() => onAsk?.(q)}>
                           <span className="min-w-0">{q}</span>
-                          <ArrowRightIcon width={12} height={12} className="shrink-0 text-ink-3 transition-transform group-hover:translate-x-0.5 group-hover:text-accent" />
+                          <ArrowRightIcon width={12} height={12} className="shrink-0 text-ink-3 transition-transform group-hover:translate-x-0.5 group-active:translate-x-0.5 group-hover:text-accent group-active:text-accent" />
                         </button>
                       ))}
                     </div>
