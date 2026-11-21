@@ -40,7 +40,16 @@ export interface FormField {
   minimum?: number;
   maximum?: number;
   maxLength?: number;
+  /** shown only while another field holds one of these values (a till's number while the kind is "till") */
+  when?: Record<string, string[]>;
 }
+
+/** A field that belongs to one kind (a till's number) shows, and is sent, only while that kind is picked. */
+export const fieldApplies = (f: Pick<FormField, 'when'>, values: Record<string, unknown>): boolean =>
+  !f.when || Object.entries(f.when).every(([choice, allowed]) => {
+    const v = values[choice];
+    return typeof v === 'string' && allowed.some((a) => a.toLowerCase() === v.toLowerCase());
+  });
 
 /** A Confirm or Cancel; `values` are what the person filled in on a form card. */
 export interface Decision { action_id: string; approve: boolean; values?: Record<string, unknown> }
