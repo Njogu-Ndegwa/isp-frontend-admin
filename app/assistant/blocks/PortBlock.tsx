@@ -65,7 +65,8 @@ export function portFacts(r: Row): PortFacts {
     detail: [str(d.vendor) !== str(d.name) ? str(d.vendor) : '', str(d.board), str(d.ip)].filter(Boolean).join(' · '),
     routerMode: d.router_mode_suspect === true,
   }));
-  const customers = samples.filter((d) => (d.kind === 'known_customer' || d.device_class === 'customer') && str(d.name))
+  // a customer is a device matched to a billing customer, not any device with a name
+  const customers = samples.filter((d) => (d.kind === 'known_customer' || d.customer_id != null) && d.device_class !== 'infrastructure' && str(d.name))
     .map((d) => str(d.name));
   // a dead or silent internet line is a finding, "no devices behind it" is not
   const warnings = (Array.isArray(health.warnings) ? (health.warnings as unknown[]).map(str).filter(Boolean) : [])
