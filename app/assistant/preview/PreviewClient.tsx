@@ -146,6 +146,13 @@ function transcript(): TranscriptItem[] {
         { name: 'description', label: 'Description', kind: 'text', required: false, maxLength: 500 },
       ] },
     { type: 'user', text: 'Add Jo as staff, she should only see customers' },
+    { type: 'action', action_id: 'f3', title: 'Update Portal Settings', summary: 'Change the hotspot login page', method: 'PUT', path: '/api/portal/settings', status: 'pending', expires_at: new Date(Date.now() + 20 * 60_000).toISOString(),
+      form: [
+        { name: 'header_style', label: 'Header style', kind: 'select', required: false, options: ['compact', 'hero', 'minimal', 'standard'], value: 'hero' },
+        { name: 'header_bg_image_url', label: 'Header photo', kind: 'text', required: false, upload: { accept: 'image/*' }, presets: [{ label: 'City', value: 'https://images.unsplash.com/photo-1477959858617-67f85cf4f1df?w=750&h=370&fit=crop&q=80' }, { label: 'People', value: 'https://images.unsplash.com/photo-1529156069898-49953e39b3ac?w=750&h=370&fit=crop&q=80' }, { label: 'Nature', value: 'https://images.unsplash.com/photo-1523805009345-7448845a9e53?w=750&h=370&fit=crop&q=80' }, { label: 'Café', value: 'https://images.unsplash.com/photo-1554118811-1e0d58224f24?w=750&h=370&fit=crop&q=80' }, { label: 'Tech', value: 'https://images.unsplash.com/photo-1518770660439-4636190af475?w=750&h=370&fit=crop&q=80' }], value: 'https://images.unsplash.com/photo-1523805009345-7448845a9e53?w=750&h=370&fit=crop&q=80', when: { header_style: ['hero'] } },
+        { name: 'company_logo_url', label: 'Logo', kind: 'text', required: false, upload: { accept: 'image/*' }, when: { header_style: ['hero'] } },
+        { name: 'color_theme', label: 'Colours', kind: 'select', required: false, options: ['bright_violet', 'cherry_red', 'emerald_green', 'ocean_blue', 'rose_gold', 'royal_blue', 'slate_gray', 'sunset_orange', 'teal_lagoon'], value: 'slate_gray' },
+      ] },
     { type: 'action', action_id: 'f2', title: 'Create Staff', summary: 'New staff login: Jo', method: 'POST', path: '/api/staff', status: 'pending', expires_at: new Date(Date.now() + 20 * 60_000).toISOString(),
       body: { name: 'Jo', permissions: ['customers.view'] },
       form: [

@@ -199,12 +199,36 @@ function FormFields({ form, values, setValues, missing, disabled, currency }: {
         }
         if (f.upload) {
           // the dashboard's own uploader: pick a photo or video, it goes straight to storage, its address is the value
+          const now = String(values[f.name] ?? '');
+          const presets = f.presets ?? [];
+          const ownPhoto = presets.some((p) => p.value === now) ? '' : now;
+          const uploader = (
+            <MediaUploadField kind={(f.upload.accept ?? '').startsWith('video') ? 'video' : 'image'} inputId={id}
+              label={presets.length ? t('Or upload your own photo') : t(fieldLabel(f))} value={presets.length ? ownPhoto : now}
+              onChange={(url) => set(url || (presets.length ? presets[0].value : ''))}
+              required={f.required && !presets.length} error={bad ? t('needed') : undefined}
+              uploadsOff={uploadsOff} onUploadsOff={() => setUploadsOff(true)} />
+          );
+          if (!presets.length) return <div key={f.name} className="col-span-2 min-w-0">{uploader}</div>;
+          // built-in photos to tap, then their own: whichever was picked last is the one used
           return (
             <div key={f.name} className="col-span-2 min-w-0">
-              <MediaUploadField kind={(f.upload.accept ?? '').startsWith('video') ? 'video' : 'image'} inputId={id}
-                label={t(fieldLabel(f))} value={String(values[f.name] ?? '')} onChange={(url) => set(url)}
-                required={f.required} error={bad ? t('needed') : undefined}
-                uploadsOff={uploadsOff} onUploadsOff={() => setUploadsOff(true)} />
+              {label}
+              <div role="radiogroup" aria-label={fieldLabel(f)} className="grid grid-cols-3 gap-2 @md:grid-cols-5">
+                {presets.map((p) => {
+                  const on = now === p.value;
+                  return (
+                    <button key={p.value} type="button" role="radio" aria-checked={on} disabled={disabled} onClick={() => set(p.value)}
+                      className={`ai-tap group min-w-0 overflow-hidden rounded-[12px] border p-1 text-left transition-colors ${on ? 'border-accent bg-accent-soft' : 'border-line-strong hover:border-ink-3'}`}>
+                      <span aria-hidden className="block h-14 w-full rounded-[8px] bg-surface-3 bg-cover bg-center" style={{ backgroundImage: `url("${p.value}")` }} />
+                      <span className={`mt-1 flex items-center gap-1 px-1 pb-0.5 text-[12px] ${on ? 'font-semibold text-ink-1' : 'text-ink-2'}`}>
+                        {on ? <CheckIcon width={12} height={12} className="shrink-0 text-accent" /> : null}<span className="truncate">{t(p.label)}</span>
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="mt-3">{uploader}</div>
             </div>
           );
         }
@@ -232,7 +256,7 @@ function FormFields({ form, values, setValues, missing, disabled, currency }: {
           return (
             <div key={f.name} className="col-span-2 min-w-0">
               {label}
-              <div role="radiogroup" aria-label={fieldLabel(f)} className="grid grid-cols-3 gap-2 @md:grid-cols-4">
+              <div role="radiogroup" aria-label={fieldLabel(f)} className="grid grid-cols-2 gap-2 @md:grid-cols-3 @2xl:grid-cols-4">
                 {(f.options ?? []).map((o) => {
                   const p = THEME_PALETTES[o as keyof typeof THEME_PALETTES];
                   const on = values[f.name] === o;
