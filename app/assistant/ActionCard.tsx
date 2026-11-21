@@ -11,6 +11,7 @@ import { planDuration, planSpeed } from '../lib/assistantEntities';
 import { formatMoney } from '../lib/format';
 import { useT } from '../lib/i18n';
 import ResultBlock from './blocks/ResultBlock';
+import { RouterSetupBlock, isRouterSetup } from './blocks/RouterSetupBlock';
 import { AlertIcon, ArrowRightIcon, CheckIcon, SpinnerIcon } from './icons';
 import { toneColor } from './charts/shared';
 
@@ -495,7 +496,10 @@ export default function ActionCard({ action, busy, readOnly, currency, onDecide 
 
         {status === 'done' && action.awaiting ? <PaymentWaitNote wait={action.awaiting} /> : null}
       </div>
-      {status === 'done' && !action.awaiting && action.payload !== undefined && action.payload !== null && (
+      {status === 'done' && isRouterSetup(action.payload) ? (
+        <div className="border-t border-line bg-surface-2/40 p-3 sm:p-4"><RouterSetupBlock setup={action.payload} /></div>
+      ) : null}
+      {status === 'done' && !action.awaiting && !isRouterSetup(action.payload) && action.payload !== undefined && action.payload !== null && (
         <div className="border-t border-line bg-surface-2/40 p-3 sm:p-4">
           <ResultBlock title={t('Result')} payload={action.payload} currency={currency} />
         </div>
