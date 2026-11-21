@@ -155,6 +155,16 @@ function transcript(): TranscriptItem[] {
       ] },
     { type: 'action', action_id: 'm1', title: 'Purchase Credits', summary: 'Buy 500 SMS (KES 250)', method: 'POST', path: '/api/messaging/credits/purchase', status: 'pending', body: { quantity: 500, phone_number: '0712345678' } },
     { type: 'action_result', action_id: 'm1', status: 'done', ok: true, awaiting: { kind: 'mpesa', poll: '/api/messaging/credits/orders/0', message: 'Check the phone 254712345678: enter your M-Pesa PIN to pay.' } },
+    { type: 'action', action_id: 'c1', title: 'Register Customer', summary: 'Register a new hotspot customer', method: 'POST', path: '/api/customers/register', status: 'pending',
+      form: [
+        { name: 'name', label: 'Name', kind: 'text', required: true },
+        { name: 'phone', label: 'Phone', kind: 'text', required: true },
+        { name: 'latitude', label: 'Latitude', kind: 'number', required: false, geo: 'lat' },
+        { name: 'longitude', label: 'Longitude', kind: 'number', required: false, geo: 'lng' },
+        { name: 'notes', label: 'Notes', kind: 'text', required: false },
+        { name: 'email', label: 'Email', kind: 'text', required: false },
+        { name: 'building', label: 'Building', kind: 'text', required: false },
+      ] },
     { type: 'action', action_id: 'f2', title: 'Create Staff', summary: 'New staff login: Jo', method: 'POST', path: '/api/staff', status: 'pending', expires_at: new Date(Date.now() + 20 * 60_000).toISOString(),
       body: { name: 'Jo', permissions: ['customers.view'] },
       form: [
