@@ -107,7 +107,12 @@ export interface Decision { action_id: string; approve: boolean; values?: Record
 /** How the model would like a result drawn. The page draws it from the data; the model never writes the numbers. */
 export type ShowHint = 'auto' | 'table' | 'card' | 'none' | 'tiles' | 'trend' | 'bars' | 'share';
 /** Optional field names in the result: the label (category or date) and the figures. */
-export interface ShowFields { label?: string | null; value?: string[] | null }
+export interface ShowFields {
+  label?: string | null;
+  value?: string[] | null;
+  /** the one the question is about (a customer, a router): drawn lit among the others, with its rank */
+  highlight?: string | null;
+}
 
 /** What the chat draws; the server stores the same items (minus steps) as the transcript. */
 export type TranscriptItem =

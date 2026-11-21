@@ -141,11 +141,15 @@ function ChartCard({ title, visual, currency, onAsk }: {
   } else if (visual.kind === 'bars' && chart) {
     const s = chart.series[0];
     const total = chart.rows.reduce((a, r) => a + (num(r[s.key]) ?? 0), 0);
-    subtitle = `${s.label} by ${humanizeKey(chart.labelKey).toLowerCase()}`;
+    const f = chart.focus;
+    const fmt = (v: number) => formatCell(v, s.kind, currency);
+    subtitle = f
+      ? `${formatCell(f.label, chart.labelKind)}: #${f.rank} of ${f.of} · average ${fmt(f.average)} · top ${fmt(f.top)} · lowest ${fmt(f.bottom)}`
+      : `${s.label} by ${humanizeKey(chart.labelKey).toLowerCase()}`;
     picture = (
       <>
         <RankedBars onPick={onAsk ? (label) => onAsk(`Tell me more about ${label} in "${title}"`) : undefined}
-          rows={chart.rows.map((row) => {
+          rows={chart.rows.map((row, i) => {
             const v = num(row[s.key]) ?? 0;
             const others = chart.series.slice(1).map((o) => `${o.label} ${formatCell(row[o.key], o.kind, currency)}`).join(' · ');
             return {
@@ -153,7 +157,9 @@ function ChartCard({ title, visual, currency, onAsk }: {
               detail: others || undefined,
               value: v,
               shown: formatCell(v, s.kind, currency),
-              share: s.kind !== 'percent' && total > 0 && chart.rows.length > 1 ? `${Math.round((v / total) * 100)}%` : undefined,
+              share: !f && s.kind !== 'percent' && total > 0 && chart.rows.length > 1 ? `${Math.round((v / total) * 100)}%` : undefined,
+              rank: chart.ranks?.[i],
+              focus: !!f && String(row[chart.labelKey]) === f.label,
             };
           })}
         />

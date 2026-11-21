@@ -26,6 +26,10 @@ export interface ChartModel {
   columns: Column[];
   /** rows left out of the picture (still in the table view) */
   folded?: number;
+  /** each drawn row's place in the full ranking (1 = most), when rows were skipped to reach the one asked about */
+  ranks?: number[];
+  /** the row the question is about, set against the rest */
+  focus?: { label: string; rank: number; of: number; average: number; top: number; bottom: number };
 }
 
 export type Visual =
@@ -190,6 +194,18 @@ const timeOf = (v: unknown): number => {
 };
 
 const MAX_BARS = 12;
+
+/** Where the row a question is about stands: its rank, and the average, top and bottom it is set against. */
+function focusOf(sorted: Row[], labelKey: string, by: string, highlight?: string | null) {
+  const want = (highlight ?? '').trim().toLowerCase();
+  if (!want || sorted.length < 2) return null;
+  const at = sorted.findIndex((r) => String(r[labelKey] ?? '').trim().toLowerCase() === want);
+  const i = at >= 0 ? at : sorted.findIndex((r) => String(r[labelKey] ?? '').toLowerCase().includes(want));
+  if (i < 0) return null;
+  const values = sorted.map((r) => num(r[by]) ?? 0);
+  return { label: '', rank: i + 1, of: sorted.length, average: values.reduce((a, b) => a + b, 0) / values.length,
+           top: values[0], bottom: values[values.length - 1] };
+}
 const MAX_SEGMENTS = 6;
 
 /** Choose how to draw one result. `show` is the model's hint; "auto" lets the data decide. */
@@ -244,11 +260,20 @@ export function visualFor(payload: unknown, show: ShowHint | string = 'auto', fi
 
     // a ranking
     const rankable = label && measures.length > 0 && rows.length >= 2;
-    if (rankable && (show === 'bars' || (show === 'auto' && aggregate && !date && columns.length <= 6 && rows.length <= 20 && measures.length <= 3))) {
+    if (rankable && (show === 'bars' || !!fields?.highlight || (show === 'auto' && aggregate && !date && columns.length <= 6 && rows.length <= 20 && measures.length <= 3))) {
       const series = chartSeries(columns, wanted.values);
       if (series.length) {
         const by = series[0].key;
         const sorted = [...rows].sort((a, b) => (num(b[by]) ?? 0) - (num(a[by]) ?? 0));
+        const focus = focusOf(sorted, label.key, by, fields?.highlight);
+        if (focus) {
+          // the one asked about among the rest: the leaders, it in its own place, and the last
+          const keep = new Set<number>(sorted.length <= MAX_BARS ? sorted.map((_, i) => i)
+            : [...Array(MAX_BARS - 3).keys(), focus.rank - 1, sorted.length - 1]);
+          const idx = [...keep].sort((a, b) => a - b);
+          return { kind: 'bars', chart: { labelKey: label.key, labelKind: label.kind, series, rows: idx.map((i) => sorted[i]), columns,
+            folded: sorted.length - idx.length, ranks: idx.map((i) => i + 1), focus: { ...focus, label: String(sorted[focus.rank - 1][label.key]) } } };
+        }
         const shownRows = sorted.slice(0, MAX_BARS);
         return { kind: 'bars', chart: { labelKey: label.key, labelKind: label.kind, series, rows: shownRows, columns, folded: sorted.length - shownRows.length } };
       }

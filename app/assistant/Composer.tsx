@@ -35,7 +35,9 @@ export default function Composer({ busy, disabled, placeholder, note, onSend }: 
     const el = ref.current;
     if (!el) return;
     el.style.height = 'auto';
-    el.style.height = `${Math.min(el.scrollHeight, Math.max(120, Math.round(window.innerHeight * 0.4)))}px`;
+    // grows with what is typed, up to about 40% of the space the person can see (above the keyboard)
+    const room = window.visualViewport?.height ?? window.innerHeight;
+    el.style.height = `${Math.min(el.scrollHeight, Math.max(96, Math.round(room * 0.4)))}px`;
   }, [value]);
 
   // Keep the cursor in the box on a desktop. On a phone that would pop the keyboard over the answer.
@@ -80,7 +82,7 @@ export default function Composer({ busy, disabled, placeholder, note, onSend }: 
         {note}
         {error ? <p className="mb-1.5 text-[12.5px] text-[var(--ai-text-bad)]">{error}</p> : null}
         <form
-          className="ai-card ai-composer flex cursor-text flex-col !rounded-[26px] px-4 pb-2.5 pt-3.5 max-sm:px-3.5 max-sm:pb-2 max-sm:pt-3"
+          className="ai-card ai-composer flex cursor-text flex-col !rounded-[26px] px-4 pb-2.5 pt-3.5 max-sm:!rounded-[22px] max-sm:px-3.5 max-sm:pb-1.5 max-sm:pt-2.5"
           onSubmit={(e) => { e.preventDefault(); submit(); }}
           // a tap anywhere on the card (not just the text line) puts the cursor in the box
           onClick={(e) => { if (!(e.target as HTMLElement).closest('button, textarea, input')) ref.current?.focus(); }}
@@ -109,7 +111,7 @@ export default function Composer({ busy, disabled, placeholder, note, onSend }: 
             disabled={!!disabled}
             enterKeyHint="send"
             placeholder={disabled || placeholder}
-            className="ai-ask max-h-[40vh] min-h-[52px] w-full resize-none bg-transparent px-0.5 py-1 text-[16px] leading-relaxed text-ink-1 placeholder:text-ink-3 focus:outline-none"
+            className="ai-ask max-h-[40vh] min-h-[52px] w-full resize-none bg-transparent px-0.5 py-1 text-[16px] leading-relaxed text-ink-1 placeholder:text-ink-3 focus:outline-none max-sm:min-h-[28px] max-sm:py-0.5"
             onChange={(e) => setValue(e.target.value)}
             onKeyDown={(e) => {
               // Enter sends with a keyboard; on a phone Enter is a new line and the button sends
@@ -119,7 +121,7 @@ export default function Composer({ busy, disabled, placeholder, note, onSend }: 
               }
             }}
           />
-          <div className="mt-1 flex items-center gap-2">
+          <div className="mt-1 flex items-center gap-2 max-sm:mt-1.5">
             <input ref={fileRef} type="file" accept="image/*" multiple className="hidden" onChange={(e) => attach(e.target.files)} />
             <button type="button" onClick={() => fileRef.current?.click()} disabled={busy || preparing || photos.length >= MAX_PHOTOS || !!disabled}
               aria-label={t('Add a photo')} title={t('Add a photo')}
