@@ -410,6 +410,8 @@ export default function AssistantClient() {
 
   const decide = useCallback(async (decisions: Decision[]) => {
     if (!conversationId || busy || decisions.length === 0) return;
+    // a Confirm is not a new question: the view stays on the card, which shows the result where it is
+    readerScrolled.current = true;
     setRecords((prev) => {
       const next = { ...prev };
       for (const d of decisions) next[d.action_id] = { ...(next[d.action_id] ?? { id: d.action_id, title: '' }), status: d.approve ? 'running' : 'declined' };
@@ -504,31 +506,32 @@ export default function AssistantClient() {
             <p role="status" className="flex items-center gap-2.5 rounded-[14px] border border-warn/40 bg-warn/10 px-3.5 py-3 text-[14px] text-ink-1"><Led tone="warn" />{off}</p>
           </div>
         ) : null}
-        {empty ? (
-          <>
-            {intro && live && !standalone ? (
-              <div className="mx-auto mt-4 w-full max-w-[1180px] px-4 sm:px-6">
-                <div className="flex items-start gap-3 rounded-[14px] border border-accent/30 bg-accent-soft px-3.5 py-3 text-[13.5px] leading-snug text-ink-1">
-                  <p className="min-w-0 flex-1">
-                    <b>{t('This is the new Bitwave.')}</b>{' '}
-                    {t('Ask for anything in plain words, or tap a figure. Everything the dashboard does, you can do here.')}{' '}
-                    <Link href={classicHref} className="font-bold text-accent underline underline-offset-2" onClick={dismissIntro}>{t('The classic dashboard is one tap away.')}</Link>
-                  </p>
-                  <button type="button" className="ai-btn ai-btn-quiet -mr-1.5 -mt-1 shrink-0" onClick={dismissIntro} aria-label={t('Got it')}><CloseIcon /></button>
-                </div>
-              </div>
-            ) : null}
-            {rate === 'open' ? (
-              <div className="mx-auto w-full max-w-[880px] px-4 sm:px-6">
-                <RatingAsk mode="open" onClose={() => { setRate(null); setAskDone(true); }} />
-              </div>
-            ) : null}
-            <Home userKey={userKey} name={staff ? (user?.staff?.name ?? '').split(/\s+/)[0] || null : null}
-              organization={user?.organization_name || user?.business_name || null}
-              admin={!!admin && !readOnly} readOnly={readOnly} enabled={!!live} onAsk={(q) => void send(q)} />
-          </>
-        ) : (
+        {/* the overview is always at the top: a conversation continues under it, so scrolling up brings it back */}
+        {empty && intro && live && !standalone ? (
+          <div className="mx-auto mt-4 w-full max-w-[1180px] px-4 sm:px-6">
+            <div className="flex items-start gap-3 rounded-[14px] border border-accent/30 bg-accent-soft px-3.5 py-3 text-[13.5px] leading-snug text-ink-1">
+              <p className="min-w-0 flex-1">
+                <b>{t('This is the new Bitwave.')}</b>{' '}
+                {t('Ask for anything in plain words, or tap a figure. Everything the dashboard does, you can do here.')}{' '}
+                <Link href={classicHref} className="font-bold text-accent underline underline-offset-2" onClick={dismissIntro}>{t('The classic dashboard is one tap away.')}</Link>
+              </p>
+              <button type="button" className="ai-btn ai-btn-quiet -mr-1.5 -mt-1 shrink-0" onClick={dismissIntro} aria-label={t('Got it')}><CloseIcon /></button>
+            </div>
+          </div>
+        ) : null}
+        {empty && rate === 'open' ? (
+          <div className="mx-auto w-full max-w-[880px] px-4 sm:px-6">
+            <RatingAsk mode="open" onClose={() => { setRate(null); setAskDone(true); }} />
+          </div>
+        ) : null}
+        <Home userKey={userKey} name={staff ? (user?.staff?.name ?? '').split(/\s+/)[0] || null : null}
+          organization={user?.organization_name || user?.business_name || null}
+          admin={!!admin && !readOnly} readOnly={readOnly} enabled={!!live} onAsk={(q) => void send(q)} />
+        {!empty ? (
           <div className="mx-auto flex w-full max-w-[880px] flex-col px-4 sm:px-6">
+            <div className="mb-1 mt-6 flex items-center gap-3 text-[11.5px] text-ink-3" aria-hidden>
+              <span className="h-px flex-1 bg-line" />{t('Your conversation')}<span className="h-px flex-1 bg-line" />
+            </div>
             {opening ? <p className="mt-6 text-[13.5px] text-ink-3">{t('Opening the chat…')}</p> : null}
             <Transcript items={items} records={records} busy={busy} readOnly={readOnly} liveIndex={liveIndex} currency={currency}
               onDecide={(id, approve, values) => decide([{ action_id: id, approve, ...(values ? { values } : {}) }])} onAsk={live && !busy ? (q) => void send(q) : undefined}
@@ -537,7 +540,7 @@ export default function AssistantClient() {
               <RatingAsk key={rate ?? 'ask'} mode={rate === 'open' ? 'open' : 'ask'} onClose={() => { setRate(null); setAskDone(true); }} />
             ) : null}
           </div>
-        )}
+        ) : null}
       </div>
 
       <Composer busy={busy} disabled={off} onSend={(text, photos) => void send(text, photos)}

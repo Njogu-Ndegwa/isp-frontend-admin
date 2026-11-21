@@ -86,8 +86,8 @@ export function DeviceCard({ d, actions, onOpen, onPeople, onCustomers }: {
           {typeof d.cpu === 'number' ? <div className="flex justify-center"><Dial value={d.cpu} label="CPU" size={116} /></div> : null}
           {typeof d.memory === 'number' ? <div className="flex justify-center"><Dial value={d.memory} label={t('Memory')} size={116} /></div> : null}
           <div className={`min-w-0 ${gauges
-            ? 'col-span-2 grid grid-cols-2 gap-3 border-t border-line pt-3 @min-[440px]:col-span-1 @min-[440px]:flex @min-[440px]:flex-col @min-[440px]:gap-3 @min-[440px]:border-l @min-[440px]:border-t-0 @min-[440px]:pl-4 @min-[440px]:pt-0'
-            : 'col-span-2 grid grid-cols-2 gap-3'}`}>
+            ? 'col-span-2 grid grid-cols-3 gap-3 border-t border-line pt-3 @min-[440px]:col-span-1 @min-[440px]:flex @min-[440px]:flex-col @min-[440px]:gap-3 @min-[440px]:border-l @min-[440px]:border-t-0 @min-[440px]:pl-4 @min-[440px]:pt-0 @min-[640px]:grid @min-[640px]:grid-cols-3 @min-[640px]:gap-4'
+            : 'col-span-2 grid grid-cols-3 gap-3'}`}>
             {hasOnline ? (
               <button type="button" disabled={!onPeople} onClick={onPeople} className="min-w-0 text-left">
                 <span className="ai-mono block text-[24px] font-medium leading-none text-ink-1">{online.toLocaleString('en-US')}</span>
@@ -99,6 +99,13 @@ export function DeviceCard({ d, actions, onOpen, onPeople, onCustomers }: {
                 <span className="ai-mono block text-[24px] font-medium leading-none text-ink-1">{d.customers.toLocaleString('en-US')}</span>
                 <span className="mt-1 block truncate text-[11.5px] text-ink-3">{t('paying')}</span>
               </button>
+            ) : null}
+            {/* how long since it last restarted: a short one after a quiet spell explains drops */}
+            {d.uptime ? (
+              <div className="min-w-0" title={t('Time since the router last restarted')}>
+                <span className="ai-mono block text-[24px] font-medium leading-none text-ink-1">{d.uptime}</span>
+                <span className="mt-1 block truncate text-[11.5px] text-ink-3">{t('up since restart')}</span>
+              </div>
             ) : null}
           </div>
         </div>
@@ -116,7 +123,6 @@ export function DeviceCard({ d, actions, onOpen, onPeople, onCustomers }: {
 
       <div className="mt-auto flex flex-wrap items-center gap-x-3 gap-y-1 px-4 pb-4 pt-3.5">
         {!down ? <Throughput down={d.down ?? null} up={d.up ?? null} size="sm" /> : null}
-        {d.uptime && !down ? <span className="ai-mono text-[11.5px] text-ink-3">{t('up')} {d.uptime}</span> : null}
         {d.state === 'online' && !gauges && !hasOnline && typeof d.reach !== 'number' ? (
           <span className="text-[12px] leading-snug text-ink-3">{t('Reachable, but it sends no live report (CPU, people online).')}</span>
         ) : null}
