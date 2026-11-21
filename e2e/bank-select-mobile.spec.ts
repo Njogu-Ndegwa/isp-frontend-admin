@@ -73,10 +73,20 @@ for (const vp of [{ width: 360, height: 740 }, { width: 390, height: 844 }]) {
       const box = (await list.boundingBox())!;
       const cdp = await page.context().newCDPSession(page);
       const bodyScrollBefore = await page.evaluate(() => window.scrollY);
+      const gx = Math.round(box.x + box.width / 2);
+      const gy = Math.round(box.y + box.height / 2);
+      const diag = await page.evaluate(([x, y]) => {
+        const hit = document.elementFromPoint(x, y);
+        const lb = document.querySelector('[role="listbox"]') as HTMLElement;
+        (window as unknown as { __listScrolls: number }).__listScrolls = 0;
+        lb.addEventListener('scroll', () => { (window as unknown as { __listScrolls: number }).__listScrolls++; });
+        const cs = getComputedStyle(lb);
+        return { hit: hit ? `${hit.tagName}.${String(hit.className).slice(0, 40)}` : null, inList: !!hit && lb.contains(hit), overflowY: cs.overflowY, touchAction: cs.touchAction, dpr: devicePixelRatio, iw: innerWidth, ih: innerHeight };
+      }, [gx, gy]);
       for (let i = 0; i < 4; i++) {
         await cdp.send('Input.synthesizeScrollGesture', {
-          x: Math.round(box.x + box.width / 2),
-          y: Math.round(box.y + box.height / 2),
+          x: gx,
+          y: gy,
           yDistance: -Math.round(box.height * 0.8),
           gestureSourceType: 'touch',
           speed: 1200,
@@ -85,7 +95,8 @@ for (const vp of [{ width: 360, height: 740 }, { width: 390, height: 844 }]) {
 
       // Still open, scrolled to the end, page behind did not move.
       await expect(list).toBeVisible();
-      const m = await list.evaluate((el) => ({ top: el.scrollTop, client: el.clientHeight, height: el.scrollHeight }));
+      const m = await list.evaluate((el) => ({ top: el.scrollTop, client: el.clientHeight, height: el.scrollHeight, scrolls: (window as unknown as { __listScrolls: number }).__listScrolls, winY: window.scrollY, dir: el.dataset.direction, diag: '' }));
+      m.diag = JSON.stringify({ ...diag, box });
       expect(m.top + m.client, `list should reach its last option (${JSON.stringify(m)})`).toBeGreaterThanOrEqual(m.height - 2);
       expect(await page.evaluate(() => window.scrollY)).toBe(bodyScrollBefore);
 

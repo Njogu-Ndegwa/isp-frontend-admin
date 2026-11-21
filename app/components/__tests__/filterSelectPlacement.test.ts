@@ -29,9 +29,22 @@ describe('computeDropdownPlacement', () => {
 
   it('never extends past the bottom of the viewport when opening down', () => {
     const vh = 740;
-    const p = computeDropdownPlacement({ top: 380, bottom: 422, left: 16, width: 328 }, { width: 360, height: vh }, BANK_LIST_HEIGHT);
+    const p = computeDropdownPlacement({ top: 300, bottom: 342, left: 16, width: 328 }, { width: 360, height: vh }, BANK_LIST_HEIGHT);
     expect(p.direction).toBe('down');
     expect(p.top! + p.maxHeight).toBeLessThanOrEqual(vh - VIEWPORT_MARGIN);
+  });
+
+  it('flips up rather than squeezing a long list into a short gap below', () => {
+    // 217px free below, much more above (what CI measured on the bottom sheet).
+    const p = computeDropdownPlacement({ top: 500, bottom: 542, left: 16, width: 328 }, { width: 360, height: 773 }, BANK_LIST_HEIGHT);
+    expect(p.direction).toBe('up');
+    expect(p.maxHeight).toBe(DROPDOWN_MAX_HEIGHT);
+  });
+
+  it('stays below when the space below is the bigger side', () => {
+    const p = computeDropdownPlacement({ top: 150, bottom: 192, left: 16, width: 328 }, { width: 360, height: 500 }, BANK_LIST_HEIGHT);
+    expect(p.direction).toBe('down');
+    expect(p.maxHeight).toBe(500 - 192 - DROPDOWN_GAP - VIEWPORT_MARGIN);
   });
 
   it('keeps a short list at its natural height', () => {

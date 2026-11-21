@@ -37,8 +37,6 @@ export const DROPDOWN_GAP = 6;
 export const VIEWPORT_MARGIN = 8;
 /** Tallest the list gets even when the screen has room for more. */
 export const DROPDOWN_MAX_HEIGHT = 320;
-/** Below this much room underneath, prefer opening upward if above is bigger. */
-const MIN_COMFORTABLE_HEIGHT = 200;
 
 export function computeDropdownPlacement(
   rect: TriggerRect,
@@ -56,8 +54,10 @@ export function computeDropdownPlacement(
   const spaceAbove = rect.top - DROPDOWN_GAP - VIEWPORT_MARGIN;
   const wanted = Math.min(contentHeight, DROPDOWN_MAX_HEIGHT);
 
-  const fitsBelow = spaceBelow >= wanted || spaceBelow >= MIN_COMFORTABLE_HEIGHT;
-  const direction: 'down' | 'up' = fitsBelow || spaceBelow >= spaceAbove ? 'down' : 'up';
+  // Open down when the whole (capped) list fits there; otherwise use the
+  // bigger side, so a bottom-sheet field gets a tall list above it instead of
+  // a few cramped rows below.
+  const direction: 'down' | 'up' = spaceBelow >= wanted || spaceBelow >= spaceAbove ? 'down' : 'up';
   const available = direction === 'down' ? spaceBelow : spaceAbove;
   // Never collapse to nothing, even on a tiny viewport.
   const maxHeight = Math.max(120, Math.min(DROPDOWN_MAX_HEIGHT, available));
