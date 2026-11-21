@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { formatValue, humanizeKey } from '../lib/assistantView';
 import { fieldApplies, fieldSpans, type ActionStatus, type FormField } from '../lib/assistant';
+import MediaUploadField from '../ads/components/MediaUploadField';
 import { planDuration, planSpeed } from '../lib/assistantEntities';
 import { formatMoney } from '../lib/format';
 import { useT } from '../lib/i18n';
@@ -102,7 +103,7 @@ const isEmpty = (v: Value | undefined) => v === undefined || (typeof v === 'stri
 
 /** What a person fills in first: required fields and anything already filled; the rest waits under More options. */
 const isPrimary = (f: FormField, v: Value | undefined) =>
-  f.required || f.kind === 'password' || (f.kind === 'boolean' ? v === true : !isEmpty(v));
+  f.required || f.kind === 'password' || (!f.default && (f.kind === 'boolean' ? v === true : !isEmpty(v)));
 
 /** Short answers (a number, a choice) sit two to a row even on a phone; words take the full row there. */
 
@@ -124,11 +125,14 @@ function FormFields({ form, values, setValues, missing, disabled, currency }: {
   const t = useT();
   const [more, setMore] = useState(false);
   const [shown, setShown] = useState<Record<string, boolean>>({});
+  const [uploadsOff, setUploadsOff] = useState(false);  // storage not set up: every upload field offers a link instead
   // decided once from the first values, so a field does not jump away while it is being typed in
   const [primary] = useState(() => new Set(form.filter((f) => isPrimary(f, values[f.name])).map((f) => f.name)));
   const live = form.filter((f) => fieldApplies(f, values, form));
   // a field that belongs to the chosen kind (a static IP for a static plan) is the point of choosing it: always shown
-  const first = (f: FormField) => primary.has(f.name) || !!f.when;
+  // so is a choice other fields hang on (photo or video): the person may want to switch it
+  const deciders = new Set(form.flatMap((f) => Object.keys(f.when ?? {}).map((c) => c.split('.')[0])));
+  const first = (f: FormField) => primary.has(f.name) || !!f.when || deciders.has(f.name);
   const extra = live.filter((f) => !first(f));
   const visible = more || primary.size === 0 || extra.length <= 2 ? live : live.filter(first);
   const spans = fieldSpans(visible);
@@ -185,6 +189,17 @@ function FormFields({ form, values, setValues, missing, disabled, currency }: {
                   );
                 })}
               </div>
+            </div>
+          );
+        }
+        if (f.upload) {
+          // the dashboard's own uploader: pick a photo or video, it goes straight to storage, its address is the value
+          return (
+            <div key={f.name} className="col-span-2 min-w-0">
+              <MediaUploadField kind={(f.upload.accept ?? '').startsWith('video') ? 'video' : 'image'} inputId={id}
+                label={t(fieldLabel(f))} value={String(values[f.name] ?? '')} onChange={(url) => set(url)}
+                required={f.required} error={bad ? t('needed') : undefined}
+                uploadsOff={uploadsOff} onUploadsOff={() => setUploadsOff(true)} />
             </div>
           );
         }
@@ -255,6 +270,9 @@ export default function ActionCard({ action, busy, readOnly, currency, onDecide 
   const [now, setNow] = useState(() => Date.now());
   const form = action.form?.length ? action.form : null;
   const [values, setValues] = useState<Values>(() => (form ? initialValues(form) : {}));
+  // what the card opened with: a field nobody filled in and the person did not touch is not sent,
+  // so an edit never switches off or clears what it did not show a value for
+  const [opened] = useState<Values>(() => (form ? initialValues(form) : {}));
   const [missing, setMissing] = useState<Set<string>>(new Set());
   useEffect(() => {
     if (action.status !== 'pending') return;
@@ -272,10 +290,11 @@ export default function ActionCard({ action, busy, readOnly, currency, onDecide 
   const confirm = () => {
     if (!form) { onDecide(true); return; }
     const live = form.filter((f) => fieldApplies(f, values, form));  // another kind's fields are not sent
+    const sent = live.filter((f) => f.value !== undefined || JSON.stringify(values[f.name]) !== JSON.stringify(opened[f.name]));
     const empty = new Set(live.filter((f) => f.required && isEmpty(values[f.name])).map((f) => f.name));
     setMissing(empty);
     if (empty.size) return;
-    onDecide(true, Object.fromEntries(live.map((f) => [f.name, values[f.name]])));
+    onDecide(true, Object.fromEntries(sent.map((f) => [f.name, values[f.name]])));
   };
 
   const badge: Record<ActionStatus, { label: string; cls: string; icon?: React.ReactNode }> = {

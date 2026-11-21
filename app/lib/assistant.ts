@@ -44,6 +44,10 @@ export interface FormField {
   when?: Record<string, string[]>;
   /** for a picker of records: what each option is, for fields that hang on it (connection_type: id -> "pppoe") */
   option_attrs?: Record<string, Record<string, string>>;
+  /** a photo or video picked on the phone: uploaded with this ticket action, its address becomes the value */
+  upload?: { accept?: string; ticket?: string };
+  /** the API's own default, not something chosen: does not pull the field out of More options */
+  default?: boolean;
 }
 
 /**
