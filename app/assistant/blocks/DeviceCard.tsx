@@ -53,7 +53,7 @@ export function DeviceCard({ d, actions, onOpen, onPeople, onCustomers }: {
   const hasOnline = typeof d.hotspot === 'number' || typeof d.pppoe === 'number';
   const name = (
     <span className="min-w-0 flex-1">
-      <span className={`block truncate text-[15px] font-semibold text-ink-1 ${onOpen ? 'group-hover:text-accent group-active:text-accent' : ''}`}>{d.name}</span>
+      <span className={`block break-words text-[15px] font-semibold text-ink-1 ${onOpen ? 'group-hover:text-accent group-active:text-accent' : ''}`}>{d.name}</span>
       {d.model ? <span className="ai-mono block truncate text-[11.5px] text-ink-3">{d.model}</span> : null}
     </span>
   );

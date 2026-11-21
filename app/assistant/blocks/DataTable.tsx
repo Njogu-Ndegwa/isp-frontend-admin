@@ -30,7 +30,7 @@ const PAGE = 10;
 /** average width of a character at 13px, and a cell's horizontal padding */
 const CHAR_PX = 7.3;
 const CELL_PAD = 26;
-/** a text column wider than this is truncated in table view (the full text is in its title) */
+/** a text column wider than this wraps onto more lines in table view (nothing is cut off) */
 const MAX_TEXT_PX = 260;
 /** below this the table becomes cards whatever the columns */
 const CARDS_BELOW = 540;
@@ -177,7 +177,7 @@ export function DataTable({ columns, rows, total, currency, onPick }: {
           const content = (
             <>
               <span className="flex items-baseline gap-3">
-                <span className={`min-w-0 flex-1 truncate text-[14px] font-semibold ${onPick ? 'text-accent' : 'text-ink-1'}`}>{isBlank(row[name.key]) ? '–' : shown(row, name)}</span>
+                <span className={`min-w-0 flex-1 break-words text-[14px] font-semibold ${onPick ? 'text-accent' : 'text-ink-1'}`}>{isBlank(row[name.key]) ? '–' : shown(row, name)}</span>
                 {leadCol && !isBlank(row[leadCol.key]) ? (
                   <span className="flex max-w-[60%] shrink-0 items-baseline justify-end gap-1 text-[12.5px] text-ink-3">
                     <span className="min-w-0 truncate">{leadCol.label}</span>
@@ -185,7 +185,7 @@ export function DataTable({ columns, rows, total, currency, onPick }: {
                   </span>
                 ) : null}
               </span>
-              {line ? <span className="mt-0.5 block truncate text-[12.5px] text-ink-3">{line}</span> : null}
+              {line ? <span className="mt-0.5 block break-words text-[12.5px] text-ink-3">{line}</span> : null}
               {pairs.length ? (
                 // figures inline ("Amount KES 50 · Date 20 Nov"), so a row is two or three lines, not six
                 <span className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-[12px] leading-snug">
@@ -239,14 +239,14 @@ export function DataTable({ columns, rows, total, currency, onPick }: {
                   const text = shown(row, c);
                   const line = folded && i === 0 ? foldedLine(row) : '';
                   return (
-                    <td key={c.key} title={!isFigure(c) && text.length > 24 ? text : undefined}
-                      className={`px-3 py-1.5 align-top ${alignRight(c) ? 'ai-mono whitespace-nowrap text-right text-[12.5px] text-ink-1' : isFigure(c) ? 'whitespace-nowrap text-ink-2' : 'text-ink-2'} ${folded && i === 0 ? 'w-full max-w-0' : isFigure(c) ? '' : 'max-w-[16rem]'}`}>
+                    <td key={c.key}
+                      className={`px-3 py-1.5 align-top ${alignRight(c) ? 'ai-mono whitespace-nowrap text-right text-[12.5px] text-ink-1' : isFigure(c) ? 'whitespace-nowrap text-ink-2' : 'text-ink-2'} ${folded && i === 0 ? 'w-full max-w-0' : isFigure(c) ? '' : i === 0 ? 'min-w-[9rem] max-w-[22rem]' : 'max-w-[16rem]'}`}>
                       {i === 0 && onPick ? (
-                        <button type="button" className="ai-tap block max-w-full truncate text-left font-semibold text-accent underline-offset-2 hover:underline" onClick={() => onPick(row)}>{text}</button>
+                        <button type="button" className="ai-tap block max-w-full break-words text-left font-semibold text-accent underline-offset-2 hover:underline" onClick={() => onPick(row)}>{text}</button>
                       ) : (
-                        <span className={`block truncate ${i === 0 ? 'text-ink-1' : ''}`}>{text}</span>
+                        <span className={`block break-words ${i === 0 ? 'text-ink-1' : ''}`}>{text}</span>
                       )}
-                      {line ? <span className="block truncate text-[12px] text-ink-3">{line}</span> : null}
+                      {line ? <span className="block break-words text-[12px] text-ink-3">{line}</span> : null}
                     </td>
                   );
                 })}

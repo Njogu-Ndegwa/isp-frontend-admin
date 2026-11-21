@@ -104,7 +104,7 @@ export function CustomerBlock({ title, rows, total, single, onAsk }: { title: st
         <div className="flex flex-wrap items-start gap-x-4 gap-y-3">
           <Avatar name={p.name} size={46} />
           <div className="min-w-0 flex-1 basis-[160px]">
-            <h3 className="ai-display truncate text-[19px] font-semibold text-ink-1">{p.name}</h3>
+            <h3 className="ai-display break-words text-[19px] font-semibold text-ink-1">{p.name}</h3>
             <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] text-ink-3"><Pill tone={st.tone}>{st.label}</Pill>{p.phone && p.phone !== p.name ? <span className="ai-mono">{p.phone}</span> : null}</p>
           </div>
           {/* the paid time, read like charge left in a battery (a week is a full charge) */}
@@ -167,7 +167,7 @@ export function CustomerBlock({ title, rows, total, single, onAsk }: { title: st
               <Line onClick={onAsk ? () => onAsk(`Tell me about ${about(p)}`) : undefined}>
                 <Avatar name={p.name} />
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[14px] font-medium text-ink-1">{p.name}</span>
+                  <span className="block break-words text-[14px] font-medium text-ink-1">{p.name}</span>
                   <span className="block truncate text-[12px] text-ink-3">{[p.name !== p.phone ? p.phone : null, p.plan, p.router, p.connection !== 'Hotspot' ? p.connection : null].filter(Boolean).join(' · ')}</span>
                 </span>
                 {/* narrow: the dot and the time left; with room, the state in words too */}
@@ -260,7 +260,7 @@ export function PlanBlock({ title, rows, currency, onAsk }: { title: string; row
                 className="group flex w-full min-w-0 items-center gap-3 px-3.5 py-2.5 text-left transition-colors hover:bg-surface-2 active:bg-surface-2">
                 <span className="min-w-0 flex-1">
                   <span className="flex items-center gap-1.5">
-                    <span className="truncate text-[14px] font-medium text-ink-1">{p.name}</span>
+                    <span className="min-w-0 break-words text-[14px] font-medium text-ink-1">{p.name}</span>
                     {p.hidden ? <Pill tone="muted" dot={false}>Hidden</Pill> : null}
                     {p.badge ? <Pill tone="info" dot={false}>{p.badge}</Pill> : null}
                   </span>
@@ -284,7 +284,7 @@ export function PlanBlock({ title, rows, currency, onAsk }: { title: string; row
               {p.hidden ? <Pill tone="muted" dot={false}>Hidden</Pill> : null}
               {p.badge ? <Pill tone="info" dot={false}>{p.badge}</Pill> : null}
             </div>
-            <p className="mt-2 truncate text-[14px] font-medium text-ink-1">{p.name}</p>
+            <p className="mt-2 break-words text-[14px] font-medium text-ink-1">{p.name}</p>
             <p className="ai-mono mt-1 text-[24px] font-medium leading-tight tracking-tight text-ink-1">{p.price}</p>
             {p.duration || p.speed ? (
               <dl className="mt-2.5 grid grid-cols-2 gap-2 border-t border-line pt-2.5">
@@ -326,7 +326,7 @@ export function PaymentBlock({ title, rows, total, currency, onAsk }: { title: s
               <Line onClick={ask}>
                 <Led tone={tone} size={7} />
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[13.5px] text-ink-1">{p.who}</span>
+                  <span className="block break-words text-[13.5px] text-ink-1">{p.who}</span>
                   <span className={`block truncate text-[12px] ${p.reason ? 'text-[var(--ai-text-bad)]' : 'text-ink-3'}`}>
                     {p.reason ?? [p.plan, p.who !== p.phone ? p.phone : null, p.receipt].filter(Boolean).join(' · ')}
                   </span>
