@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { fieldApplies, fieldSpans } from './assistant';
+import { fieldApplies, fieldSpans, pickLabel, setChanges, smsSegments } from './assistant';
 
 describe('fieldApplies', () => {
   const till = { when: { method_type: ['mpesa_till'] } };
@@ -63,5 +63,39 @@ describe('fieldSpans', () => {
     expect(s.name).toContain('@md:col-span-1');
     expect(s.phone).toContain('@md:col-span-1');
     expect(s.email).toContain('@md:col-span-2');
+  });
+});
+
+describe('pickLabel', () => {
+  it('reads a record the way the server names it, leaving out parts with nothing in them', () => {
+    expect(pickLabel({ id: 1, name: 'Amina', phone: '0711' }, '{name} · {phone}')).toBe('Amina · 0711');
+    expect(pickLabel({ id: 1, name: 'Amina', phone: null }, '{name} · {phone}')).toBe('Amina');
+    expect(pickLabel({ id: 7, period_label: 'Oct', currency: 'KES', balance_remaining: 1500 }, '{period_label} · {currency} {balance_remaining}')).toBe('Oct · KES 1,500');
+  });
+  it('falls back to the name, then the id', () => {
+    expect(pickLabel({ id: 3, name: 'Main Tower' })).toBe('Main Tower');
+    expect(pickLabel({ id: 9 }, '{name}')).toBe('#9');
+  });
+});
+
+describe('setChanges', () => {
+  it('sends only what was ticked and unticked, so the other ports stay as they are', () => {
+    expect(setChanges(['ether2', 'ether4'], ['ether2', 'ether3'])).toEqual({ add: ['ether3'], remove: ['ether4'] });
+    expect(setChanges(['ether2'], ['ether2'])).toEqual({ add: [], remove: [] });
+  });
+});
+
+describe('smsSegments', () => {
+  it('counts 160 plain characters as one SMS and 153 per part after that', () => {
+    expect(smsSegments('')).toEqual({ chars: 0, segments: 0, unicode: false });
+    expect(smsSegments('a'.repeat(160)).segments).toBe(1);
+    expect(smsSegments('a'.repeat(161)).segments).toBe(2);
+    expect(smsSegments('a'.repeat(306)).segments).toBe(2);
+  });
+  it('counts the extension characters twice and emoji as a shorter SMS', () => {
+    expect(smsSegments('€').chars).toBe(2);
+    const emoji = smsSegments('Hi 😀');
+    expect(emoji.unicode).toBe(true);
+    expect(smsSegments('a'.repeat(69) + '😀').segments).toBe(2);
   });
 });

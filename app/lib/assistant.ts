@@ -14,8 +14,8 @@ export type AssistantEvent =
   | { type: 'step'; call_id: string; label: string; phase: 'start' | 'end'; method?: string; path?: string; ok?: boolean; status?: number }
   | { type: 'retract'; chars: number }
   | { type: 'data'; call_id: string; title: string; method: string; path: string; query?: Record<string, unknown> | null; show: ShowHint; fields?: ShowFields | null; payload: unknown; replaces?: string }
-  | { type: 'action'; action_id: string; title: string; summary: string; method: string; path: string; query?: Record<string, unknown> | null; body?: unknown; permission?: string | null; sensitive?: boolean; expires_at?: string; status: ActionStatus; form?: FormField[] }
-  | { type: 'action_result'; action_id: string; status: ActionStatus; ok: boolean; http_status?: number; detail?: string; payload?: unknown; awaiting?: PaymentWait }
+  | { type: 'action'; action_id: string; title: string; summary: string; method: string; path: string; query?: Record<string, unknown> | null; body?: unknown; permission?: string | null; sensitive?: boolean; expires_at?: string; status: ActionStatus; form?: FormField[]; previews?: boolean; retry_of?: string; reason?: string }
+  | { type: 'action_result'; action_id: string; status: ActionStatus; ok: boolean; http_status?: number; detail?: string; payload?: unknown; awaiting?: PaymentWait; preview?: unknown; preview_of?: string }
   | { type: 'notice'; level: 'info' | 'error'; message: string }
   | { type: 'done'; conversation_id: string; usage?: { input_tokens: number; output_tokens: number } };
 
@@ -52,6 +52,70 @@ export interface FormField {
   presets?: { label: string; value: string }[];
   /** the API's own default, not something chosen: does not pull the field out of More options */
   default?: boolean;
+  /** a picker whose values are numbers (record ids, 5/10/15 minutes) */
+  value_kind?: 'integer' | 'text';
+  /** a picker of the person's own records: where more are found by search (thousands of customers) */
+  pick?: PickSource;
+  /** a set changed by ticks (a router's PPPoE ports): what it is now; the page sends only what changed */
+  baseline?: string[];
+  /** the request fields that carry what was ticked and unticked */
+  changes?: { add: string; remove: string };
+  /** the order picked is the order sent (WAN 1, WAN 2...) */
+  ordered?: boolean;
+  /** the right keyboard and example for what it holds */
+  format?: 'mac' | 'ip' | 'phone';
+  /** long text: a text area; sms: with its SMS count while it is typed */
+  multiline?: boolean;
+  sms?: boolean;
+  /** a date and time on the person's own clock ("EAT") */
+  zone?: string;
+}
+
+/** Where a record picker's rows come from: the list, its search filter and how a row reads. */
+export interface PickSource {
+  from: string;
+  search?: string;
+  query?: Record<string, string | number>;
+  label?: string;
+}
+
+/** How one record reads in a picker, the way the server names it: "Amina · 0712 000 001". */
+export function pickLabel(row: Record<string, unknown>, template?: string): string {
+  const plain = (v: unknown) => (typeof v === 'number' ? v.toLocaleString('en-US') : String(v));
+  if (template) {
+    const parts = template.split(' · ').flatMap((piece) => {
+      const names = [...piece.matchAll(/\{(\w+)\}/g)].map((m) => m[1]);
+      if (!names.length || names.some((n) => row[n] === undefined || row[n] === null || row[n] === '')) return [];
+      return [piece.replace(/\{(\w+)\}/g, (_, n: string) => plain(row[n]))];
+    });
+    if (parts.length) return parts.join(' · ').slice(0, 80);
+  }
+  const name = row.name ?? row.identity ?? row.label;
+  return name !== undefined && name !== null && name !== '' ? String(name).slice(0, 80) : `#${String(row.id)}`;
+}
+
+/** What was ticked and unticked against what it is now: only that is sent, so nothing else moves. */
+export function setChanges(baseline: string[], picked: string[]): { add: string[]; remove: string[] } {
+  return { add: picked.filter((p) => !baseline.includes(p)), remove: baseline.filter((p) => !picked.includes(p)) };
+}
+
+// GSM 03.38 basic set plus its extension (each extension character costs two)
+const GSM = '@£$¥èéùìòÇ\nØø\rÅåΔ_ΦΓΛΩΠΨΣΘΞÆæßÉ !"#¤%&\'()*+,-./0123456789:;<=>?¡ABCDEFGHIJKLMNOPQRSTUVWXYZÄÖÑÜ§¿abcdefghijklmnopqrstuvwxyzäöñüà';
+const GSM_EXT = '^{}\\[~]|€\f';
+
+/** How many SMS a text is: 160 plain characters in one, 153 each when it is split; 70 / 67 with emoji or other letters. */
+export function smsSegments(text: string): { chars: number; segments: number; unicode: boolean } {
+  let units = 0;
+  let unicode = false;
+  for (const ch of text) {
+    if (GSM.includes(ch)) units += 1;
+    else if (GSM_EXT.includes(ch)) units += 2;
+    else { unicode = true; break; }
+  }
+  const chars = unicode ? [...text].reduce((n, ch) => n + (ch.length > 1 ? 2 : 1), 0) : units;
+  if (!chars) return { chars: 0, segments: 0, unicode };
+  const [one, many] = unicode ? [70, 67] : [160, 153];
+  return { chars, segments: chars <= one ? 1 : Math.ceil(chars / many), unicode };
 }
 
 /**
@@ -80,7 +144,7 @@ export const fieldApplies = (
 
 export const isShort = (f: FormField) => f.kind === 'integer' || f.kind === 'number' || f.kind === 'select';
 /** On a wide card, ordinary text and passwords can share a row too; long text never does. */
-const canHalfWide = (f: FormField) => isShort(f) || f.kind === 'password' || (f.kind === 'text' && (f.maxLength ?? 0) <= 120);
+const canHalfWide = (f: FormField) => isShort(f) || f.kind === 'password' || (f.kind === 'text' && !f.multiline && (f.maxLength ?? 0) <= 120);
 
 /**
  * How wide each field is: half a row only beside another half-row field, so a field
@@ -435,6 +499,17 @@ export const assistantApi = {
   myRating: () => getJson<{ rating: MyRating | null }>('/assistant/rating'),
   /** whether a started payment was paid (the path comes from the server, under /api) */
   paymentStatus: (poll: string) => getJson<PaymentStatus>(poll.replace(/^\/api(?=\/)/, '')),
+  /** a record picker's search: the list's own filter, read with the person's own access (the server picks the list) */
+  pickSearch: async (pick: PickSource, q: string): Promise<{ id: string; label: string }[]> => {
+    const params = new URLSearchParams();
+    for (const [k, v] of Object.entries(pick.query ?? {})) params.set(k, String(v));
+    if (pick.search) params.set(pick.search, q);
+    const data = await getJson<unknown>(`${pick.from.replace(/^\/api(?=\/)/, '')}?${params.toString()}`);
+    const rows = Array.isArray(data) ? data
+      : data && typeof data === 'object' ? (Object.values(data as Record<string, unknown>).find(Array.isArray) as unknown[] | undefined) ?? [] : [];
+    return rows.flatMap((r) => (r && typeof r === 'object' && (r as { id?: unknown }).id !== undefined
+      ? [{ id: String((r as { id: unknown }).id), label: pickLabel(r as Record<string, unknown>, pick.label) }] : [])).slice(0, 30);
+  },
   rate: (rating: number, review: string, source: 'prompt' | 'menu') => postJson<{ rating: MyRating }>('/assistant/rating', { rating, review, source }),
   ratingShown: () => postJson<{ ok: boolean }>('/assistant/rating/shown', {}),
   ratingDismiss: () => postJson<{ ok: boolean }>('/assistant/rating/dismiss', {}),

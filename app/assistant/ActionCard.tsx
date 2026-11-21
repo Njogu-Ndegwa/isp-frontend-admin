@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { formatValue, humanizeKey } from '../lib/assistantView';
-import { assistantApi, fieldApplies, fieldSpans, type ActionStatus, type FormField, type PaymentWait } from '../lib/assistant';
+import { assistantApi, fieldApplies, fieldSpans, setChanges, smsSegments, type ActionStatus, type FormField, type PaymentWait, type PickSource } from '../lib/assistant';
 import MediaUploadField from '../ads/components/MediaUploadField';
 import { PreviewFor, previewKind } from './blocks/Previews';
 import dynamic from 'next/dynamic';
@@ -32,6 +32,13 @@ export interface ActionCardData {
   form?: FormField[];
   /** a payment it only started: the card waits for the PIN instead of saying Done */
   awaiting?: PaymentWait;
+  /** the first Confirm shows what it would do (who gets credited, what the router check found) */
+  previews?: boolean;
+  preview?: unknown;
+  preview_of?: string;
+  /** the same change again, past the API's refusal: "Do it anyway" */
+  retry_of?: string;
+  reason?: string;
 }
 
 const POLL_MS = 5000;
@@ -166,8 +173,84 @@ const LocationPicker = dynamic(() => import('./LocationPicker'), { ssr: false, l
 const isPrimary = (f: FormField, v: Value | undefined) =>
   f.required || f.kind === 'password' || (!f.default && (f.kind === 'boolean' ? v === true : !isEmpty(v)));
 
-/** Short answers (a number, a choice) sit two to a row even on a phone; words take the full row there. */
+const FIELD = 'w-full min-w-0 rounded-[12px] border bg-[var(--ai-bg)] px-3.5 py-2.5 text-[16px] text-ink-1 outline-none transition-colors placeholder:text-ink-3 focus:border-accent/70 focus:shadow-[0_0_0_3px_var(--ai-accent-soft)] disabled:opacity-60';
 
+/**
+ * Find one of the person's own records by typing (a customer among thousands): the
+ * records already listed are filtered at once, and after two letters the list's own
+ * search is asked too. Each result is a thumb-sized row; tapping one picks it.
+ */
+function RecordSearch({ pick, known, picked, onPick, disabled, inputId }: {
+  pick: PickSource;
+  known: Record<string, string>;
+  picked: string[];
+  onPick: (id: string, label: string) => void;
+  disabled: boolean;
+  inputId: string;
+}) {
+  const t = useT();
+  const [q, setQ] = useState('');
+  const [found, setFound] = useState<{ id: string; label: string }[]>([]);
+  const [busy, setBusy] = useState(false);
+  const query = q.trim();
+  useEffect(() => {
+    if (!pick.search || query.length < 2) return;
+    let on = true;
+    const timer = setTimeout(() => {
+      setBusy(true);
+      assistantApi.pickSearch(pick, query)
+        .then((rows) => { if (on) setFound(rows); })
+        .catch(() => { if (on) setFound([]); })
+        .finally(() => { if (on) setBusy(false); });
+    }, 300);
+    return () => { on = false; clearTimeout(timer); };
+  }, [pick, query]);
+  const local = query
+    ? Object.entries(known).filter(([, label]) => label.toLowerCase().includes(query.toLowerCase())).map(([id, label]) => ({ id, label }))
+    : [];
+  const remote = pick.search && query.length >= 2 ? found : [];
+  const rows = [...local, ...remote.filter((r) => !local.some((l) => l.id === r.id))].slice(0, 8);
+  return (
+    <div className="min-w-0">
+      <input id={inputId} type="search" value={q} disabled={disabled} onChange={(e) => setQ(e.target.value)}
+        placeholder={t('Search by name or phone')} autoComplete="off" enterKeyHint="search"
+        className={`${FIELD} border-line-strong`} />
+      {query ? (
+        <ul className="mt-1.5 overflow-hidden rounded-[12px] border border-line">
+          {rows.map((r) => {
+            const on = picked.includes(r.id);
+            return (
+              <li key={r.id} className="border-b border-line last:border-b-0">
+                <button type="button" disabled={disabled} onClick={() => { onPick(r.id, r.label); setQ(''); }}
+                  className={`ai-tap flex min-h-[44px] w-full items-center gap-2 px-3.5 py-2 text-left text-[14px] ${on ? 'bg-accent-soft text-ink-1' : 'text-ink-2 hover:bg-surface-2'}`}>
+                  {on ? <CheckIcon width={13} height={13} className="shrink-0 text-accent" /> : null}
+                  <span className="min-w-0 truncate">{r.label}</span>
+                </button>
+              </li>
+            );
+          })}
+          {!rows.length ? <li className="px-3.5 py-2.5 text-[13px] text-ink-3">{busy ? t('Searching…') : query.length < 2 ? t('Type a little more…') : t('No match.')}</li> : null}
+        </ul>
+      ) : null}
+    </div>
+  );
+}
+
+/** The SMS count under a message: how long it is and how many SMS each person gets. */
+function SmsCount({ text }: { text: string }) {
+  const t = useT();
+  const { chars, segments, unicode } = smsSegments(text);
+  if (!chars) return null;
+  return (
+    <p className="mt-1 text-[11.5px] leading-snug text-ink-3">
+      {t('{chars} characters · {n} SMS per person', { chars, n: segments })}
+      {unicode ? ` · ${t('emoji or special letters make each SMS shorter')}` : ''}
+    </p>
+  );
+}
+
+/** Example values for inputs that hold one kind of thing. */
+const FORMAT_PLACEHOLDER: Record<string, string> = { mac: 'AA:BB:CC:DD:EE:FF', ip: 'e.g. 172.16.4.20', phone: 'e.g. 0712 345 678' };
 
 /**
  * The change as a form: each field the API takes, filled with what the assistant
@@ -197,7 +280,10 @@ function FormFields({ form, values, setValues, missing, disabled, currency }: {
   const extra = live.filter((f) => !first(f));
   const visible = more || primary.size === 0 || extra.length <= 2 ? live : live.filter(first);
   const spans = fieldSpans(visible);
-  const field = 'w-full min-w-0 rounded-[12px] border bg-[var(--ai-bg)] px-3.5 py-2.5 text-[16px] text-ink-1 outline-none transition-colors placeholder:text-ink-3 focus:border-accent/70 focus:shadow-[0_0_0_3px_var(--ai-accent-soft)] disabled:opacity-60';
+  const field = FIELD;
+  // records found by search, by field: named on screen once picked
+  const [learned, setLearned] = useState<Record<string, Record<string, string>>>({});
+  const [filters, setFilters] = useState<Record<string, string>>({});
   return (
     <>
     <div className="mt-4 grid grid-cols-2 gap-x-3 gap-y-3.5">
@@ -205,11 +291,14 @@ function FormFields({ form, values, setValues, missing, disabled, currency }: {
         const id = `ff-${f.name}`;
         const bad = missing.has(f.name);
         const set = (v: Value) => setValues((prev) => ({ ...prev, [f.name]: v }));
-        const optionText = (o: string) => f.option_labels?.[o] ?? optionLabel(o);
+        const labels = { ...(f.option_labels ?? {}), ...(learned[f.name] ?? {}) };
+        const optionText = (o: string) => labels[o] ?? optionLabel(o);
+        const learn = (o: string, text: string) => setLearned((l) => ({ ...l, [f.name]: { ...(l[f.name] ?? {}), [o]: text } }));
         const money = /(^|_)(price|amount|fee|cost)$/i.test(f.name);
+        const unit = money && currency ? currency : f.kind === 'datetime' && f.zone ? f.zone : null;
         const label = (
           <label htmlFor={id} className="mb-1.5 flex items-baseline justify-between gap-2 text-[12.5px]">
-            <span className="font-medium text-ink-2">{t(fieldLabel(f))}{money && currency ? <span className="text-ink-3"> ({currency})</span> : null}</span>
+            <span className="font-medium text-ink-2">{t(fieldLabel(f))}{unit ? <span className="text-ink-3"> ({unit})</span> : null}</span>
             {bad ? <span className="ai-mono text-[11px] text-[var(--ai-text-bad)]">{t('needed')}</span>
               : !f.required ? <span className="ai-mono text-[11px] text-ink-3">{t('optional')}</span> : null}
           </label>
@@ -232,24 +321,57 @@ function FormFields({ form, values, setValues, missing, disabled, currency }: {
             </div>
           );
         }
-        if (f.kind === 'list' && f.options?.length) {
-          // a fixed set (staff permissions): tap to toggle each one
+        if (f.kind === 'list' && (f.options?.length || f.pick?.search)) {
+          // a set to tick (staff permissions, a router's ports, the customers who get an SMS): tap to toggle each one
           const picked = Array.isArray(values[f.name]) ? (values[f.name] as string[]) : [];
+          const all = [...(f.options ?? []), ...picked.filter((p) => !(f.options ?? []).includes(p))];
+          const filter = (filters[f.name] ?? '').trim().toLowerCase();
+          const shownOptions = filter ? all.filter((o) => picked.includes(o) || optionText(o).toLowerCase().includes(filter)) : all;
           return (
             <div key={f.name} className="col-span-2 min-w-0">
               {label}
+              {all.length > 10 && !f.pick?.search ? (
+                <input type="search" aria-label={t('Filter')} value={filters[f.name] ?? ''} disabled={disabled}
+                  onChange={(e) => setFilters((v) => ({ ...v, [f.name]: e.target.value }))}
+                  placeholder={t('Filter')} className={`${field} mb-2 border-line-strong`} />
+              ) : null}
               <div className="flex flex-wrap gap-1.5">
-                {f.options.map((o) => {
+                {shownOptions.map((o) => {
                   const on = picked.includes(o);
+                  const order = f.ordered && on ? picked.indexOf(o) + 1 : null;
                   return (
                     <button key={o} type="button" aria-pressed={on} disabled={disabled}
                       onClick={() => set(on ? picked.filter((x) => x !== o) : [...picked, o])}
-                      className={`ai-tap rounded-full border px-3 py-1.5 text-[12.5px] transition-colors ${on ? 'border-accent/60 bg-accent-soft text-ink-1' : 'border-line-strong text-ink-3'}`}>
-                      {on ? '✓ ' : ''}{optionText(o)}
+                      className={`ai-tap inline-flex min-h-[40px] items-center gap-1.5 rounded-full border px-3 py-1.5 text-[13px] transition-colors ${on ? 'border-accent/60 bg-accent-soft text-ink-1' : 'border-line-strong text-ink-3'}`}>
+                      {order ? <span className="ai-mono rounded-full bg-accent-fill px-1.5 text-[11px] font-semibold text-white">{order}</span> : on ? '✓ ' : ''}{optionText(o)}
                     </button>
                   );
                 })}
               </div>
+              {f.pick?.search ? (
+                <div className="mt-2">
+                  <RecordSearch pick={f.pick} known={labels} picked={picked} disabled={disabled} inputId={id}
+                    onPick={(o, text) => { learn(o, text); set(picked.includes(o) ? picked.filter((x) => x !== o) : [...picked, o]); }} />
+                </div>
+              ) : null}
+              {f.ordered ? <p className="mt-1 text-[11.5px] leading-snug text-ink-3">{t('Tap in order: the first is number 1.')}</p> : null}
+              {f.hint && !f.ordered ? <p className="mt-1 text-[11.5px] leading-snug text-ink-3">{f.hint}</p> : null}
+            </div>
+          );
+        }
+        if (f.kind === 'select' && f.pick?.search) {
+          // one record among many (a customer): the chosen one, and a search to change it
+          const now = String(values[f.name] ?? '');
+          return (
+            <div key={f.name} className="col-span-2 min-w-0">
+              {label}
+              {now ? (
+                <p className={`mb-2 flex min-h-[44px] items-center gap-2 rounded-[12px] border px-3.5 py-2 text-[14px] text-ink-1 ${bad ? 'border-bad/60' : 'border-accent/50 bg-accent-soft'}`}>
+                  <CheckIcon width={13} height={13} className="shrink-0 text-accent" /><span className="min-w-0 truncate">{optionText(now)}</span>
+                </p>
+              ) : null}
+              <RecordSearch pick={f.pick} known={labels} picked={now ? [now] : []} disabled={disabled} inputId={id}
+                onPick={(o, text) => { learn(o, text); set(o); }} />
             </div>
           );
         }
@@ -355,14 +477,20 @@ function FormFields({ form, values, setValues, missing, disabled, currency }: {
                 <option value="">{t('Choose…')}</option>
                 {(f.options ?? []).map((o) => <option key={o} value={o}>{optionText(o)}</option>)}
               </select>
+            ) : f.multiline ? (
+              <textarea id={id} disabled={disabled} value={String(values[f.name] ?? '')} onChange={(e) => set(e.target.value)}
+                maxLength={f.maxLength} rows={f.sms ? 4 : 3} enterKeyHint="enter"
+                className={`${field} min-h-[96px] resize-y leading-snug ${bad ? 'border-bad/60' : 'border-line-strong'}`} />
             ) : (
               <input id={id} disabled={disabled} value={String(values[f.name] ?? '')} onChange={(e) => set(e.target.value)}
-                type={f.kind === 'date' ? 'date' : f.kind === 'datetime' ? 'datetime-local' : 'text'}
-                inputMode={f.kind === 'integer' ? 'numeric' : f.kind === 'number' ? 'decimal' : undefined}
-                maxLength={f.maxLength} autoComplete="off" enterKeyHint="next"
-                placeholder={f.name === 'speed' ? 'e.g. 5M/5M' : f.kind === 'list' ? t('Separate with commas') : f.kind === 'integer' || f.kind === 'number' ? '0' : ''}
-                className={`${field} ${f.kind === 'integer' || f.kind === 'number' ? 'ai-mono' : ''} ${bad ? 'border-bad/60' : 'border-line-strong'}`} />
+                type={f.kind === 'date' ? 'date' : f.kind === 'datetime' ? 'datetime-local' : f.format === 'phone' ? 'tel' : 'text'}
+                inputMode={f.kind === 'integer' ? 'numeric' : f.kind === 'number' || f.format === 'ip' ? 'decimal' : f.format === 'phone' ? 'tel' : undefined}
+                maxLength={f.maxLength} autoComplete={f.format === 'phone' ? 'tel' : 'off'} enterKeyHint="next"
+                autoCapitalize={f.format === 'mac' ? 'characters' : f.format ? 'off' : undefined} spellCheck={f.format ? false : undefined}
+                placeholder={f.name === 'speed' ? 'e.g. 5M/5M' : f.format ? t(FORMAT_PLACEHOLDER[f.format]) : f.kind === 'list' ? t('Separate with commas') : f.kind === 'integer' || f.kind === 'number' ? '0' : ''}
+                className={`${field} ${f.kind === 'integer' || f.kind === 'number' || f.format === 'mac' || f.format === 'ip' ? 'ai-mono' : ''} ${bad ? 'border-bad/60' : 'border-line-strong'}`} />
             )}
+            {f.sms ? <SmsCount text={String(values[f.name] ?? '')} /> : null}
             {f.hint && f.kind !== 'select' ? <p className="mt-1 text-[11.5px] leading-snug text-ink-3">{f.hint}</p> : null}
           </div>
         );
@@ -418,8 +546,22 @@ export default function ActionCard({ action, busy, readOnly, currency, onDecide 
     const empty = new Set(live.filter((f) => f.required && isEmpty(values[f.name])).map((f) => f.name));
     setMissing(empty);
     if (empty.size) return;
-    onDecide(true, Object.fromEntries(sent.map((f) => [f.name, values[f.name]])));
+    onDecide(true, Object.fromEntries(sent.map((f) => {
+      const v = values[f.name];
+      // a set the router has now (its PPPoE ports): only what was ticked and unticked is sent
+      if (f.changes && f.baseline && Array.isArray(v)) return [f.name, setChanges(f.baseline, v)];
+      return [f.name, v];
+    })));
   };
+  // a change that can be previewed: the first Confirm shows what it would do, the next one does it
+  const valuesNow = JSON.stringify(values);
+  // the form as it was when a preview arrived: an edit after it makes the preview out of date
+  const [previewedAt, setPreviewedAt] = useState<{ of: string; values: string } | null>(null);
+  if (action.preview_of && previewedAt?.of !== action.preview_of) setPreviewedAt({ of: action.preview_of, values: valuesNow });
+  const previewed = !!action.preview_of && (!form || (previewedAt?.of === action.preview_of && previewedAt.values === valuesNow));
+  const confirmLabel = action.retry_of ? t('Do it anyway')
+    : action.previews ? (previewed ? t('Apply') : action.preview_of ? t('Check again') : t('Preview'))
+      : t('Confirm');
 
   const badge: Record<ActionStatus, { label: string; cls: string; icon?: React.ReactNode }> = {
     pending: { label: t('Waiting for you'), cls: 'bg-accent-soft text-accent' },
@@ -441,7 +583,7 @@ export default function ActionCard({ action, busy, readOnly, currency, onDecide 
       <div className="p-4 sm:p-5">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="ai-eyebrow">{waiting ? t('Needs your OK') : t('Change')} · {t(VERB[action.method] ?? 'Change')}</p>
+            <p className="ai-eyebrow">{action.retry_of ? t('Do it anyway?') : waiting ? t('Needs your OK') : t('Change')} · {t(VERB[action.method] ?? 'Change')}</p>
             <p className="ai-display mt-1.5 break-words text-[16.5px] font-semibold leading-snug text-ink-1">{action.summary || action.title}</p>
           </div>
           <span className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-[11.5px] font-semibold ${badge[status].cls}`}>
@@ -471,7 +613,26 @@ export default function ActionCard({ action, busy, readOnly, currency, onDecide 
           </dl>
         )}
 
-        {action.sensitive && waiting && (
+        {action.retry_of && action.reason && waiting ? (
+          <p className="mt-3 flex items-start gap-2 rounded-[10px] border border-bad/40 bg-bad/10 px-3 py-2 text-[13px] text-ink-1">
+            <AlertIcon className="mt-0.5 shrink-0 text-bad" />
+            <span><span className="font-semibold">{t('It was refused:')}</span> {action.reason} {t('Tap Do it anyway only if you are sure.')}</span>
+          </p>
+        ) : null}
+
+        {waiting && action.preview !== undefined && action.preview !== null ? (
+          <div className="mt-4 overflow-hidden rounded-[12px] border border-line bg-surface-2/40 p-3">
+            <ResultBlock title={t('What it will do')} payload={action.preview} currency={currency} />
+            <p className="mt-2 text-[12.5px] text-ink-3">
+              {previewed ? t('Nothing has changed yet. Tap Apply to do it.') : t('You changed the form: tap Check again to see the new result.')}
+            </p>
+          </div>
+        ) : null}
+        {waiting && action.previews && !action.preview_of && !readOnly ? (
+          <p className="mt-3 text-[12.5px] text-ink-3">{t('Preview shows what it will do first. Nothing changes until you tap Apply.')}</p>
+        ) : null}
+
+        {action.sensitive && waiting && !action.retry_of && (
           <p className="mt-3 flex items-start gap-2 rounded-[10px] border border-bad/40 bg-bad/10 px-3 py-2 text-[13px] text-ink-1">
             <AlertIcon className="mt-0.5 shrink-0 text-bad" />
             {t('This moves money or changes where it goes. Check the amount and destination before you confirm.')}
@@ -482,7 +643,7 @@ export default function ActionCard({ action, busy, readOnly, currency, onDecide 
           <div className="mt-4 flex gap-2">
             <button type="button" disabled={busy} onClick={confirm}
               className={`ai-btn ${danger ? 'ai-btn-danger' : 'ai-btn-primary'} min-h-[44px] flex-1 px-6 text-[14px] @md:flex-none`}>
-              {t('Confirm')}
+              {confirmLabel}
             </button>
             <button type="button" disabled={busy} onClick={() => onDecide(false)} className="ai-btn ai-btn-ghost min-h-[44px] flex-1 px-5 text-[14px] @md:flex-none">
               {t('Cancel')}

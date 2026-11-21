@@ -179,6 +179,29 @@ function transcript(): TranscriptItem[] {
         { name: 'permissions', label: 'Permissions', kind: 'list', item_kind: 'text', required: false, value: ['customers.view'],
           options: ['customers.view', 'customers.manage', 'payments.view', 'plans.manage', 'routers.view', 'vouchers.manage'] },
       ] },
+    // deeper forms: a router's live ports to tick, a preview before apply, an SMS with its count, Do it anyway
+    { type: 'action', action_id: 'p1', title: 'Set PPPoE Ports', summary: 'PPPoE on ether3 at Main Tower', method: 'PUT', path: '/api/routers/1/pppoe-ports', status: 'pending', expires_at: new Date(Date.now() + 20 * 60_000).toISOString(),
+      body: { add: ['ether3'] },
+      form: [
+        { name: 'ports', label: 'Ports', kind: 'list', item_kind: 'text', required: false, value: ['ether2', 'ether3'], baseline: ['ether2'], changes: { add: 'add', remove: 'remove' },
+          options: ['ether2', 'ether3', 'ether4', 'ether5'], option_labels: { ether2: 'ether2 · PPPoE', ether3: 'ether3 · Hotspot', ether4: 'ether4 · Hotspot · no cable', ether5: 'ether5 · Not in use' } },
+      ] },
+    { type: 'action', action_id: 'o1', title: 'Apply Outage', summary: 'Credit customers for this morning’s outage', method: 'POST', path: '/api/compensation/outage', status: 'pending', previews: true, expires_at: new Date(Date.now() + 20 * 60_000).toISOString(),
+      form: [
+        { name: 'outage_start', label: 'Outage start', kind: 'datetime', required: true, value: '2026-11-21T08:00', zone: 'EAT' },
+        { name: 'outage_end', label: 'Outage end', kind: 'datetime', required: true, value: '2026-11-21T10:30', zone: 'EAT' },
+        { name: 'router_ids', label: 'Router ids', kind: 'list', item_kind: 'integer', required: false, value: ['1'], options: ['1', '2'], option_labels: { 1: 'Main Tower', 2: 'Zimmerman Block C' } },
+        { name: 'exclude_customer_ids', label: 'Exclude customer ids', kind: 'list', item_kind: 'integer', required: false, value: [], options: [], option_labels: {}, pick: { from: '/api/customers', search: 'search', label: '{name} · {phone}' } },
+        { name: 'note', label: 'Note', kind: 'text', required: false, multiline: true, maxLength: 500 },
+      ] },
+    { type: 'action_result', action_id: 'o1', status: 'pending', ok: true, preview_of: 'abc', preview: { customers: [{ name: 'Grace Wanjiku', phone: '0712 000 001', credit_minutes: 150 }, { name: 'Brian Otieno', phone: '0712 000 002', credit_minutes: 150 }], total_customers: 2 } },
+    { type: 'action', action_id: 's1', title: 'Send SMS', summary: 'Remind Grace her time ends today', method: 'POST', path: '/api/messaging/send', status: 'pending', expires_at: new Date(Date.now() + 20 * 60_000).toISOString(),
+      form: [
+        { name: 'body', label: 'Body', kind: 'text', required: true, multiline: true, sms: true, maxLength: 1000, value: 'Hi Grace, your internet ends today at 6pm. Pay 50 to 123456 to keep browsing 😊' },
+        { name: 'customer_ids', label: 'Customer ids', kind: 'list', item_kind: 'integer', required: false, value: ['1'], options: ['1'], option_labels: { 1: 'Grace Wanjiku · 0712 000 001' }, pick: { from: '/api/customers', search: 'search', label: '{name} · {phone}' } },
+      ] },
+    { type: 'action', action_id: 'r1', title: 'Activate PPPoE Customer', summary: 'Activate Mercy', method: 'POST', path: '/api/customers/6/activate-pppoe', status: 'pending', sensitive: true, retry_of: 'x', reason: 'Mercy is already active until 12 Dec and paid 2 minutes ago. Recording another payment would renew her twice.',
+      body: { payment_method: 'cash', force: true }, expires_at: new Date(Date.now() + 20 * 60_000).toISOString() },
     { type: 'action', action_id: 'a1', title: 'send_sms', summary: 'Send an expiry reminder SMS to 14 customers who run out today', method: 'POST', path: '/api/sms/bulk', body: { recipients: 14, template: 'expiry_reminder' }, status: 'pending', expires_at: new Date(Date.now() + 20 * 60_000).toISOString() },
   ];
 }
