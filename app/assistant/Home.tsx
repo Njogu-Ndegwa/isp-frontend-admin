@@ -267,7 +267,7 @@ function Vitals({ ctx }: { ctx: Ctx }) {
               style={{ background: toneColor(x.status === 'online' ? 'good' : x.status === 'offline' ? 'bad' : 'muted'), boxShadow: x.status === 'offline' ? `0 0 8px ${toneColor('bad')}` : undefined }} />
           ))}
         </div>
-        <p className="mt-1.5 truncate text-[12px] text-ink-3">{b.routers.offline > 0 ? <b className="font-semibold text-[var(--ai-text-bad)]">{n(b.routers.offline)} {t('down')}</b> : t('all reachable')}</p>
+        <p className="mt-1.5 truncate text-[12px] text-ink-3">{b.routers.offline > 0 ? <b className="font-semibold text-[var(--ai-text-bad)]">{n(b.routers.offline)} {t('down')}</b> : b.routers.unknown ? `${n(b.routers.unknown)} ${t('not checked yet')}` : t('all reachable')}</p>
       </div>
     ),
   });
@@ -748,6 +748,12 @@ export default function Home({ userKey, name, organization, admin, readOnly, ena
     ) : offline > 1 ? (
       <><span className="text-[var(--ai-text-bad)]">{n(offline)} routers are down</span>
         {cutOff > 0 ? `, so ${n(cutOff)} paying customers can't get online.` : '.'}</>
+    ) : r && r.total > 0 && r.online === 0 ? (
+      // none has reported in recently: say so, never claim they are up
+      <>{r.total === 1 ? "Your router hasn't reported in recently" : `None of your ${n(r.total)} routers has reported in recently`}: check {r.total === 1 ? 'that it is' : 'they are'} powered and online.</>
+    ) : r && r.total > 0 && (r.unknown ?? 0) > 0 ? (
+      <>{n(r.online)} of {n(r.total)} routers are up; {n(r.unknown)} {plural(r.unknown, "hasn't", "haven't")} reported in recently
+        {live ? <> · <span className="text-[var(--ai-text-good)]">{n(people)} {plural(people, 'person', 'people')} online</span></> : null}.</>
     ) : r && r.total > 0 ? (
       <>All good: {r.total === 1 ? 'your router is up' : `all ${n(r.total)} routers are up`}
         {live ? <> and <span className="text-[var(--ai-text-good)]">{n(people)} {plural(people, 'person is', 'people are')} online</span> right now</> : null}.</>

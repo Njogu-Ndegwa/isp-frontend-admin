@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
@@ -14,6 +14,7 @@ import { SOLUTION_PATHS } from '../solutions/paths';
 import { isAdminAllowedPath } from '../lib/adminPaths';
 import { homePath, markStartPageDecided, rememberedHome, startPageDecided } from '../lib/assistant';
 import { isStandalone } from '../lib/standalone';
+import { useVisibleFrame } from '../lib/useVisibleFrame';
 
 const CollapsibleSidebar = dynamic(() => import('./CollapsibleSidebar'), { ssr: false });
 const MobileBottomNav = dynamic(() => import('./MobileBottomNav'), { ssr: false });
@@ -82,6 +83,13 @@ function DemoBanner() {
       </div>
     </div>
   );
+}
+
+/** The AI screen: pinned to the part of the screen the person can see, so its header never scrolls away. */
+function AiFrame({ children }: { children: React.ReactNode }) {
+  const frame = useRef<HTMLDivElement>(null);
+  useVisibleFrame(frame);
+  return <div ref={frame} className="ai-root fixed inset-x-0 top-0 flex h-dvh flex-col overflow-hidden">{children}</div>;
 }
 
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
@@ -166,7 +174,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   // that say whose account this is. Its own header links back to the dashboard.
   if (pathname === AI_HOME_PATH) {
     return (
-      <div className="ai-root flex h-dvh flex-col overflow-hidden">
+      <AiFrame>
         {!isLoading && isDemo && <DemoBanner />}
         {!isLoading && !isDemo && isAuthenticated && <ViewAsBanner />}
         {isStaff && <StaffBanner />}
@@ -176,7 +184,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
           </ErrorBoundary>
         </main>
         {!isLoading && !isDemo && <SubscriptionBlockedModal />}
-      </div>
+      </AiFrame>
     );
   }
 
