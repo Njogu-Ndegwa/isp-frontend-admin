@@ -4,7 +4,9 @@ import { useMemo, useState } from 'react';
 import type { Tone } from '../../lib/assistantVisual';
 import type { Row } from '../../lib/assistantView';
 import { formatMoney } from '../../lib/format';
-import { Panel, Pill } from '../ui';
+import { useT } from '../../lib/i18n';
+import { Notice, Panel, Pill } from '../ui';
+import { MONEY_VIEW, useOffer } from './access';
 
 type Ask = ((q: string) => void) | undefined;
 
@@ -26,6 +28,8 @@ export interface PortFacts {
   paying: number;
   online: number;
   today: number;
+  week: number;
+  month: number;
   equipment: { name: string; detail: string; routerMode: boolean }[];
   customers: string[];
   warnings: string[];
@@ -81,6 +85,8 @@ export function portFacts(r: Row): PortFacts {
     paying: int(revenue.paying_customers),
     online: int(counts.known_customers_connected) || int(counts.active_hotspot_sessions) + int(counts.active_ppp_sessions),
     today: int(revenue.today),
+    week: int(revenue.this_week),
+    month: int(revenue.this_month),
     equipment, customers, warnings,
   };
 }
@@ -99,7 +105,20 @@ const STATE: Record<PortState, { label: string; tone: Tone; cell: string }> = {
  * router mode flagged), the customers on it, and its warnings in plain words. It opens on the
  * port that most needs a look.
  */
-export function PortBlock({ title, rows, currency, onAsk }: { title: string; rows: Row[]; currency?: string | null; onAsk: Ask }) {
+/** The router-wide money beside the ports (port-analytics' top-level revenue): how much of it the ports explain. Pure, for tests. */
+export function portMoney(revenue: unknown): { month: number; attributed: number; unattributed: number; share: number | null } | null {
+  const r = obj(revenue);
+  if (!('router_this_month' in r) && !('attributed_this_month' in r)) return null;
+  const month = int(r.router_this_month);
+  const attributed = int(r.attributed_this_month);
+  return { month, attributed, unattributed: Math.max(0, int(r.unattributed_this_month) || month - attributed), share: month > 0 ? Math.round((attributed / month) * 100) : null };
+}
+
+export function PortBlock({ title, rows, currency, revenue, onAsk }: { title: string; rows: Row[]; currency?: string | null; revenue?: unknown; onAsk: Ask }) {
+  const t = useT();
+  const offer = useOffer();
+  const seeMoney = offer.see(MONEY_VIEW);
+  const routerMoney = seeMoney ? portMoney(revenue) : null;
   const ports = useMemo(() => rows.map(portFacts).filter((p) => p.name), [rows]);
   const flagged = ports.filter((p) => p.warnings.length);
   // open on what most needs a look: equipment in router mode, then the most warnings
@@ -143,6 +162,13 @@ export function PortBlock({ title, rows, currency, onAsk }: { title: string; row
         </div>
       </div>
 
+      {routerMoney && routerMoney.month > 0 ? (
+        <Notice tone={routerMoney.share !== null && routerMoney.share < 60 ? 'warn' : 'muted'} className="mt-3">
+          {t("This month the router took {month}; {attributed} of it is tied to a port ({share}%).", { month: money(routerMoney.month), attributed: money(routerMoney.attributed), share: routerMoney.share ?? 0 })}
+          {routerMoney.unattributed > 0 ? ` ${t('{rest} came from customers whose port was not known when they paid.', { rest: money(routerMoney.unattributed) })}` : ''}
+        </Notice>
+      ) : null}
+
       {/* the port picked */}
       <section className="mt-3" aria-live="polite">
         <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5">
@@ -157,7 +183,8 @@ export function PortBlock({ title, rows, currency, onAsk }: { title: string; row
           <p className="mt-1.5 text-[13px] text-ink-2">Your internet comes in here. It has no customers behind it by design.</p>
         ) : p.state !== 'down' ? (
           <dl className="m-0 mt-2.5 grid grid-cols-2 gap-2 @md:grid-cols-4">
-            {[['Devices', String(p.devices)], ['Paying here', String(p.paying)], ['Online now', String(p.online)], ['Today', money(p.today)]].map(([k, v]) => (
+            {[[t('Devices'), String(p.devices)], [t('Paying here'), String(p.paying)], [t('Online now'), String(p.online)],
+              ...(seeMoney ? [[t('Today'), money(p.today)], ...(p.week || p.month ? [[t('This week'), money(p.week)], [t('This month'), money(p.month)]] : [])] : [])].map(([k, v]) => (
               <div key={k} className="ai-well px-3 py-2">
                 <dt className="ai-eyebrow">{k}</dt>
                 <dd className="ai-mono m-0 mt-0.5 text-[15px] font-medium text-ink-1">{v}</dd>

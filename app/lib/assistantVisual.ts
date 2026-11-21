@@ -380,6 +380,111 @@ export function visualFor(payload: unknown, show: ShowHint | string = 'auto', fi
 }
 
 // ---------------------------------------------------------------------------
+// How a trend is drawn, and what it says
+// ---------------------------------------------------------------------------
+
+const COMPARE_KEY = /(^|_)(prev|previous|prior|before|last_(week|month|period|year))(_|$)/i;
+const TOTAL_KEY = /(^|_)(total|all|sum)(_|$)/i;
+
+export interface TrendPlan {
+  /** drawn as columns; stacked when they are parts of one whole */
+  bars: Column[];
+  stacked: boolean;
+  /** drawn as a line over the columns: the same measure for the period before */
+  compare: Column | null;
+  /** a total the columns do not stack to, drawn as a line */
+  totalLine: Column | null;
+}
+
+const sumClose = (total: number, parts: number) => Math.abs(total - parts) <= Math.max(0.5, Math.abs(total) * 0.02);
+/** "trackedTotalMB" and "tracked_total_mb" read alike. */
+const snake = (k: string) => k.replace(/([a-z0-9])([A-Z])/g, '$1_$2').toLowerCase();
+
+/**
+ * From the shape of the rows: whether the measure drawn is a total that other columns of
+ * the same kind add up to (then those parts are stacked and the total is the stack's top),
+ * and whether a column holds the previous period of what is drawn (then it is a line to
+ * compare against). Pure, for tests.
+ */
+export function trendPlan(chart: ChartModel): TrendPlan {
+  const rows = chart.rows;
+  const drawn = chart.series.filter((s) => !COMPARE_KEY.test(snake(s.key)));
+  const compareOf = (lead: Column | undefined) => {
+    if (!lead) return null;
+    const stem = snake(lead.key).replace(TOTAL_KEY, '_').replace(/^_+|_+$/g, '');
+    return chart.columns.find((c) => c.key !== lead.key && c.kind === lead.kind && COMPARE_KEY.test(snake(c.key))
+      && (!stem || snake(c.key).includes(stem))) ?? null;
+  };
+  const plain: TrendPlan = { bars: drawn.length ? drawn : chart.series, stacked: false, compare: compareOf(drawn[0]), totalLine: null };
+  if (drawn.length !== 1 || !rows.length) return plain;
+  const total = drawn[0];
+  const totalKey = snake(total.key);
+  if (!TOTAL_KEY.test(totalKey)) return plain;
+  // parts: same kind, not a total, not a comparison, not a count or an average
+  const candidates = chart.columns.filter((c) => {
+    const k = snake(c.key);
+    return c.key !== total.key && c.kind === total.kind && (c.kind === 'money' || c.kind === 'number')
+      && !TOTAL_KEY.test(k) && !COMPARE_KEY.test(k) && !/(count|users|customers|sessions|queues|percent|pct|avg|average|peak|max|min|rate|mbps|kbps|bps)/i.test(k);
+  });
+  // the total's own family first: tracked_total_mb is tracked_upload_mb + tracked_download_mb
+  const [head, tail] = totalKey.split(/(?:^|_)(?:total|all|sum)(?:_|$)/);
+  const family = candidates.filter((c) => { const k = snake(c.key); return (!head || k.startsWith(`${head}_`)) && (!tail || k.endsWith(`_${tail}`)); });
+  const parts = family.length >= 2 ? family : candidates;
+  if (parts.length < 2 || parts.length > 5) return plain;
+  const checked = rows.filter((r) => (num(r[total.key]) ?? 0) > 0);
+  if (!checked.length) return plain;
+  const partSum = (r: Row) => parts.reduce((a, c) => a + (num(r[c.key]) ?? 0), 0);
+  const adds = checked.filter((r) => sumClose(num(r[total.key]) ?? 0, partSum(r))).length >= checked.length * 0.8;
+  if (adds) return { bars: parts, stacked: true, compare: compareOf(total), totalLine: null };
+  // parts that never pass the total but leave some of it out: stacked, with the total as a line above (the gap is the rest)
+  const under = checked.every((r) => partSum(r) <= (num(r[total.key]) ?? 0) + 0.5) && checked.some((r) => partSum(r) > 0);
+  if (under && parts.length <= 3) return { bars: parts, stacked: true, compare: compareOf(total), totalLine: total };
+  return plain;
+}
+
+export interface TrendTakeaway {
+  total: number;
+  peak: { index: number; value: number } | null;
+  /** the latest complete stretch against the one before it, as a percentage change */
+  change: { pct: number; size: number; latest: number; before: number } | null;
+}
+
+/**
+ * What a trend says in one line: its total, its peak, and whether the latest stretch is
+ * up or down on the one before (against the comparison column when there is one, else
+ * the second half of the complete periods against the first). A period still filling in
+ * is left out of the comparison. Pure, for tests.
+ */
+export function trendTakeaway(values: number[], partial: boolean[] = [], previous?: (number | null)[]): TrendTakeaway {
+  const total = values.reduce((a, v) => a + v, 0);
+  let peak: TrendTakeaway['peak'] = null;
+  values.forEach((v, i) => { if (!partial[i] && (peak === null || v > peak.value)) peak = { index: i, value: v }; });
+  const complete = values.map((v, i) => ({ v, i })).filter((x) => !partial[x.i]);
+  let change: TrendTakeaway['change'] = null;
+  if (previous && previous.some((p) => p !== null && p !== undefined)) {
+    const pairs = complete.filter((x) => previous[x.i] !== null && previous[x.i] !== undefined);
+    const latest = pairs.reduce((a, x) => a + x.v, 0);
+    const before = pairs.reduce((a, x) => a + (previous[x.i] ?? 0), 0);
+    if (pairs.length && before > 0) change = { pct: ((latest - before) / before) * 100, size: pairs.length, latest, before };
+  } else if (complete.length >= 4) {
+    const size = Math.floor(complete.length / 2);
+    const latest = complete.slice(-size).reduce((a, x) => a + x.v, 0);
+    const before = complete.slice(-2 * size, -size).reduce((a, x) => a + x.v, 0);
+    if (before > 0) change = { pct: ((latest - before) / before) * 100, size, latest, before };
+  }
+  return { total, peak, change };
+}
+
+/** "days", "weeks", "hours": what one step of a trend is, from its label column. */
+export function periodWord(labelKey: string, labelKind: Kind): string {
+  if (/hour/i.test(labelKey) || labelKind === 'datetime') return 'hours';
+  if (/week/i.test(labelKey)) return 'weeks';
+  if (/month/i.test(labelKey)) return 'months';
+  if (/day|date/i.test(labelKey) || labelKind === 'date') return 'days';
+  return 'periods';
+}
+
+// ---------------------------------------------------------------------------
 // Formatting
 // ---------------------------------------------------------------------------
 

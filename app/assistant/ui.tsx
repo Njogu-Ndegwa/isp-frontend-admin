@@ -615,3 +615,53 @@ export function ReadoutGrid({ cols, children }: { cols: 2 | 3; children: ReactNo
     </div>
   );
 }
+
+/* ---------------- notices and filters ---------------- */
+
+const NOTICE: Record<Tone, string> = {
+  good: 'border-good/30 bg-good/10',
+  warn: 'border-warn/35 bg-warn/10',
+  bad: 'border-bad/30 bg-bad/10',
+  info: 'border-accent/30 bg-accent-soft',
+  muted: 'border-line bg-surface-2',
+};
+
+/**
+ * A line the reader must take in before the list under it: a router that is down, a
+ * reading that is old. It says what is true and what it means for the rows.
+ */
+export function Notice({ tone, title, children, className = 'mb-3' }: { tone: Tone; title?: ReactNode; children?: ReactNode; className?: string }) {
+  return (
+    <div role="status" className={`flex min-w-0 items-start gap-2.5 rounded-[10px] border px-3 py-2.5 text-[12.5px] leading-snug text-ink-2 ${NOTICE[tone]} ${className}`}>
+      <span className="mt-[5px]"><Led tone={tone} size={7} blink={tone === 'bad'} /></span>
+      <span className="min-w-0 flex-1 break-words">
+        {title ? <span className="block font-semibold text-ink-1">{title}</span> : null}
+        {children}
+      </span>
+    </div>
+  );
+}
+
+/** A row of filter chips, each with its count; a chip with nothing under it is left out. */
+export function FilterChips<K extends string>({ value, options, onChange, label, size = 'md' }: {
+  value: K;
+  options: { key: K; label: string; count?: number; tone?: Tone }[];
+  onChange: (key: K) => void;
+  label: string;
+  size?: 'md' | 'sm';
+}) {
+  const shown = options.filter((o) => o.count === undefined || o.count > 0 || o.key === value);
+  if (shown.length < 2) return null;
+  return (
+    <div className={`flex flex-wrap gap-1.5 ${size === 'sm' ? 'text-[12px]' : 'text-[12.5px]'}`} role="group" aria-label={label}>
+      {shown.map((o) => (
+        <button key={o.key} type="button" aria-pressed={value === o.key} onClick={() => onChange(o.key)}
+          className={`ai-tap inline-flex items-center gap-1.5 rounded-full border font-medium transition-colors ${size === 'sm' ? 'px-2.5 py-0.5' : 'px-3 py-1'} ${value === o.key ? 'border-line-strong bg-surface-3 text-ink-1' : 'border-line text-ink-3 hover:text-ink-1'}`}>
+          {o.tone ? <Led tone={o.tone} size={5} /> : null}
+          {o.label}
+          {o.count !== undefined ? <span className="ai-mono text-ink-3">{o.count.toLocaleString('en-US')}</span> : null}
+        </button>
+      ))}
+    </div>
+  );
+}

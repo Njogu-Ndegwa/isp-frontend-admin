@@ -5,7 +5,7 @@ import type { ConversationSummary } from '../lib/assistant';
 import { useT } from '../lib/i18n';
 import { CloseIcon, PlusIcon, TrashIcon } from './icons';
 
-const whenFmt = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+const whenFmt = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Nairobi' });
 const when = (iso: string) => {
   const d = new Date(/(Z|[+-]\d{2}:?\d{2})$/.test(iso) ? iso : `${iso}Z`);
   return Number.isNaN(d.getTime()) ? '' : whenFmt.format(d);

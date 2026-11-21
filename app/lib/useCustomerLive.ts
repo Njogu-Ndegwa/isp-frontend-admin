@@ -9,7 +9,7 @@
  */
 import { useEffect, useMemo, useState } from 'react';
 import { api } from './api';
-import type { CustomerFacts } from './assistantEntities';
+import { asUtc, type CustomerFacts } from './assistantEntities';
 import type { CustomerUsageResponse } from './types';
 
 export interface CustomerLive {
@@ -22,7 +22,37 @@ export interface CustomerLive {
 /** Routers asked at most, so a long list never turns into a storm of router calls. */
 const MAX_ROUTERS = 4;
 
-type Users = { users?: Record<string, unknown>[]; router_reachable?: boolean | null } | null;
+type Users = {
+  users?: Record<string, unknown>[];
+  router_reachable?: boolean | null;
+  router_last_online_at?: string | null;
+  cache_age_seconds?: number | null;
+  stale?: boolean;
+} | null;
+
+/** What one router's monitor read says about the router itself. */
+export interface RouterRead {
+  id: number;
+  /** false: it did not answer, so nobody behind it is on; null: not checked */
+  reachable: boolean | null;
+  lastOnline: Date | null;
+  /** the read is an old cached one, not a live answer */
+  stale: boolean;
+  ageSeconds: number | null;
+}
+
+/** A monitor read's age above which it is a last-known list, not "now". */
+const MONITOR_MAX_AGE_S = 10 * 60;
+
+/** One router's state from its PPPoE and hotspot monitor reads. Pure, for tests. */
+export function routerRead(id: number, pppoe: Users, hotspot: Users): RouterRead {
+  const reads = [pppoe, hotspot].filter((r): r is NonNullable<Users> => !!r);
+  const reachable = reads.some((r) => r.router_reachable === false) ? false : reads.some((r) => r.router_reachable === true) ? true : null;
+  const last = reads.map((r) => asUtc(r.router_last_online_at)).filter((d): d is Date => !!d).sort((a, b) => b.getTime() - a.getTime())[0] ?? null;
+  const ages = reads.map((r) => r.cache_age_seconds).filter((a): a is number => typeof a === 'number');
+  const ageSeconds = ages.length ? Math.max(...ages) : null;
+  return { id, reachable, lastOnline: last, stale: reads.some((r) => r.stale === true) || (ageSeconds !== null && ageSeconds > MONITOR_MAX_AGE_S), ageSeconds };
+}
 const mac = (v: unknown) => (typeof v === 'string' ? v.replace(/[^0-9a-f]/gi, '').toLowerCase() : '');
 const rate = (v: unknown) => Number(v) || 0;
 
@@ -63,7 +93,7 @@ export function matchLive(people: CustomerFacts[], pppoe: Users, hotspot: Users)
   return out;
 }
 
-export function useCustomerLive(people: CustomerFacts[]): { live: Map<string | number, CustomerLive>; loaded: boolean } {
+export function useCustomerLive(people: CustomerFacts[]): { live: Map<string | number, CustomerLive>; routers: Map<number, RouterRead>; loaded: boolean } {
   type Answer = { id: number; pppoe: Users; hotspot: Users };
   const [state, setState] = useState<{ key: string; answers: Answer[] } | null>(null);
   // the routers to ask and whether each has PPPoE or hotspot customers, as a stable key
@@ -100,7 +130,8 @@ export function useCustomerLive(people: CustomerFacts[]): { live: Map<string | n
     }
     return out;
   }, [answers, people]);
-  return { live, loaded: !key || state?.key === key };
+  const routers = useMemo(() => new Map((answers ?? []).map((a) => [a.id, routerRead(a.id, a.pppoe, a.hotspot)])), [answers]);
+  return { live, routers, loaded: !key || state?.key === key };
 }
 
 /** This period's use against the plan's cap, as a list row shows it. */

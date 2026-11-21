@@ -73,6 +73,18 @@ export function hasPermission(user: UserLike, permission: string): boolean {
   return Array.isArray(granted) && granted.includes(permission);
 }
 
+/**
+ * May this user be offered an action in an assistant answer (a chip that prepares a
+ * change, sends an SMS, opens money figures)? A change is never offered in a
+ * read-only view (an admin viewing as a reseller); otherwise it is as
+ * `hasAnyPermission`. With no requirement the action is a plain question.
+ */
+export function canOffer(user: UserLike, readOnly: boolean, requirement?: PageRequirement, changes = true): boolean {
+  if (changes && readOnly) return false;
+  if (!requirement) return true;
+  return hasAnyPermission(user, requirement);
+}
+
 /** A page's requirement: one permission, or a list where any one is enough. */
 export type PageRequirement = string | readonly string[];
 

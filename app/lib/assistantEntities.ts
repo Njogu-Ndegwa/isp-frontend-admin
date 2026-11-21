@@ -69,6 +69,34 @@ export function asUtc(v: unknown): Date | null {
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
+/** Every time a reseller reads is Kenyan time (EAT), whatever the phone's own zone. */
+export const EAT_ZONE = 'Africa/Nairobi';
+const eatFmt = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZone: EAT_ZONE });
+const eatClock = new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZone: EAT_ZONE });
+const toDate = (v: Date | string | null | undefined): Date | null => (v instanceof Date ? (Number.isNaN(v.getTime()) ? null : v) : asUtc(v));
+
+/** "20 Nov, 14:22" in EAT; '–' for no time. Takes a Date or an API datetime (naive = UTC). */
+export function eatTime(v: Date | string | null | undefined): string {
+  const d = toDate(v);
+  return d ? eatFmt.format(d).replace(' at ', ', ') : '–';
+}
+
+/** "14:22" in EAT; '–' for no time. */
+export function eatClockTime(v: Date | string | null | undefined): string {
+  const d = toDate(v);
+  return d ? eatClock.format(d) : '–';
+}
+
+/**
+ * How old a reading is, and whether it is too old to be shown as live. A router's
+ * status, a monitor read or a push report older than `maxAgeMs` is a last-known value.
+ */
+export interface Freshness { stale: boolean; ageMs: number | null }
+export function freshness(at: Date | null, now: number, maxAgeMs = 15 * 60_000, flagged = false): Freshness {
+  const ageMs = at ? Math.max(0, now - at.getTime()) : null;
+  return { stale: flagged || (ageMs !== null && ageMs > maxAgeMs), ageMs };
+}
+
 /** "45 min", "3 h", "2 d": the size of a gap, without a direction. */
 export function span(ms: number): string {
   const h = Math.abs(ms) / 3_600_000;
@@ -123,6 +151,8 @@ export interface CustomerFacts {
   pausedLeft: number | null;
   graceMinutes: number | null;
   status: string;
+  /** paid at least once ("customer") or never ("visitor"); null when the answer does not say */
+  tier: 'customer' | 'visitor' | null;
 }
 
 export function customerFacts(r: Row, now: number): CustomerFacts {
@@ -155,16 +185,27 @@ export function customerFacts(r: Row, now: number): CustomerFacts {
     pausedLeft: typeof r.paused_remaining_seconds === 'number' ? r.paused_remaining_seconds * 1000 : null,
     graceMinutes: typeof r.grace_period_minutes === 'number' && r.grace_period_minutes > 0 ? r.grace_period_minutes : null,
     status,
+    tier: r.tier === 'visitor' || r.has_paid === false ? 'visitor' : r.tier === 'customer' || r.has_paid === true ? 'customer' : null,
   };
 }
 
-export interface RouterFacts { id: number | string | null; name: string; identity: string | null; state: 'online' | 'offline' | 'unknown'; since: Date | null; uptime: number | null; emergency: boolean }
+export interface RouterFacts {
+  id: number | string | null; name: string; identity: string | null; state: 'online' | 'offline' | 'unknown'; since: Date | null; uptime: number | null; emergency: boolean;
+  /** when its status was last checked, and whether that is too long ago to call it live */
+  checkedAt: Date | null;
+  stale: boolean;
+  lastOnline: Date | null;
+}
 
-export function routerFacts(r: Row): RouterFacts {
+/** A router status older than this is a last-known status, not a live one (checks run every few minutes). */
+export const ROUTER_STATUS_MAX_AGE = 15 * 60_000;
+
+export function routerFacts(r: Row, now: number = Date.now()): RouterFacts {
   const status = String(r.status ?? 'unknown').toLowerCase();
   const state = status === 'online' ? 'online' : status === 'offline' ? 'offline' : 'unknown';
   const checks = typeof r.availability_checks === 'number' ? r.availability_checks : 0;
   const ok = typeof r.availability_successes === 'number' ? r.availability_successes : 0;
+  const checkedAt = asUtc(r.status_last_checked_at) ?? (typeof r.status_age_seconds === 'number' ? new Date(now - r.status_age_seconds * 1000) : null);
   return {
     id: typeof r.id === 'number' || typeof r.id === 'string' ? r.id : null,
     name: text(r.name) ?? text(r.identity) ?? 'Router',
@@ -173,6 +214,10 @@ export function routerFacts(r: Row): RouterFacts {
     since: state === 'offline' ? asUtc(r.last_online_at) : asUtc(r.status_last_checked_at),
     uptime: checks > 0 ? Math.round((ok / checks) * 1000) / 10 : null,
     emergency: r.emergency_active === true,
+    checkedAt,
+    // the API flags a stale status itself; an old check is stale too, whatever the flag says
+    stale: state !== 'unknown' && freshness(checkedAt, now, ROUTER_STATUS_MAX_AGE, r.status_is_stale === true).stale,
+    lastOnline: asUtc(r.last_online_at),
   };
 }
 
@@ -196,11 +241,21 @@ export function planSpeed(v: unknown): string | null {
   return up === down && upUnit.toLowerCase() === downUnit.toLowerCase() ? `${down} ${unit(downUnit)}` : `${down} ${unit(downUnit)} down, ${up} ${unit(upUnit)} up`;
 }
 
-export interface PaymentFacts { id: number | string | null; amount: number; who: string; phone: string | null; plan: string | null; state: 'paid' | 'failed' | 'pending'; reason: string | null; when: Date | null; receipt: string | null; method: string | null }
+export type PaymentState = 'paid' | 'failed' | 'pending' | 'expired';
+export interface PaymentFacts {
+  id: number | string | null; amount: number; who: string; phone: string | null; plan: string | null; state: PaymentState; reason: string | null; when: Date | null; receipt: string | null; method: string | null;
+  /** false for a payment that is not money in (a voucher redemption, a free trial, a comp): never summed as revenue */
+  revenue: boolean;
+  /** where it came from, in words: "Voucher", "Free trial", "Paybill" */
+  source: string | null;
+}
+
+const SOURCES: Record<string, string> = { mpesa_stk: 'M-Pesa prompt', c2b_paybill: 'Paybill', voucher: 'Voucher', free_trial: 'Free trial', zenopay: 'ZenoPay', mtn_momo: 'MTN MoMo', fapshi: 'Fapshi' };
 
 export function paymentFacts(r: Row): PaymentFacts {
   const status = String(r.status ?? 'completed').toLowerCase();
-  const state = /fail|cancel|reject|timeout|expired/.test(status) ? 'failed' : /pend|process|initiat|queue/.test(status) ? 'pending' : 'paid';
+  // an expired prompt was never answered: nobody paid, but nothing failed either (the classic page shows it apart)
+  const state: PaymentState = /expire/.test(status) ? 'expired' : /fail|cancel|reject|timeout/.test(status) ? 'failed' : /pend|process|initiat|queue/.test(status) ? 'pending' : 'paid';
   const phone = text(r.phone_number) ?? text(r.customer_phone) ?? nested(r, 'customer', 'phone');
   const amount = typeof r.amount === 'number' ? r.amount : Number(r.amount) || 0;
   const method = text(r.payment_method);
@@ -215,5 +270,75 @@ export function paymentFacts(r: Row): PaymentFacts {
     when: asUtc(r.transaction_date) ?? asUtc(r.payment_date) ?? asUtc(r.created_at),
     receipt: text(r.mpesa_receipt_number) ?? text(r.payment_reference),
     method: method ? method.replace(/_/g, ' ') : null,
+    revenue: r.counts_as_revenue !== false,
+    source: typeof r.source === 'string' && r.source ? SOURCES[r.source] ?? r.source.replace(/_/g, ' ') : null,
   };
+}
+
+export interface PaymentTotals {
+  /** money in: completed payments that count as revenue */
+  received: number;
+  receivedCount: number;
+  /** completed but not revenue (vouchers, free trials) */
+  freeCount: number;
+  failed: number;
+  expired: number;
+  pending: number;
+}
+
+/** What a list of payments adds up to, the way the classic Transactions page sums it. Pure, for tests. */
+export function paymentTotals(payments: PaymentFacts[]): PaymentTotals {
+  const out: PaymentTotals = { received: 0, receivedCount: 0, freeCount: 0, failed: 0, expired: 0, pending: 0 };
+  for (const p of payments) {
+    if (p.state === 'paid') {
+      if (p.revenue) { out.received += p.amount; out.receivedCount += 1; } else out.freeCount += 1;
+    } else out[p.state] += 1;
+  }
+  return out;
+}
+
+/* ---------------- customer list filters (the classic Customers page's) ---------------- */
+
+export type CustomerFilter = 'all' | 'active' | 'inactive' | 'online' | 'offline' | 'overdue' | 'paused';
+export type ConnectionFilter = 'all' | 'Hotspot' | 'PPPoE' | 'Static IP';
+export type TierFilter = 'all' | 'customer' | 'visitor';
+
+/** On right now, as far as we know: true, false, or null when nothing was read (or the router is down). */
+export type OnlineNow = boolean | null;
+
+const paidUp = (p: CustomerFacts) => p.state === 'active' || p.state === 'expiring';
+
+/**
+ * Whether a customer belongs under a status filter, by the classic page's rules
+ * (app/lib/customerFilters.ts): overdue is paid time run out (grace included) and not
+ * paused; offline is paid up but not on; online needs a positive live reading.
+ */
+export function inCustomerFilter(p: CustomerFacts, filter: CustomerFilter, online: OnlineNow): boolean {
+  switch (filter) {
+    case 'all': return true;
+    case 'active': return p.status === 'active' && p.state !== 'paused';
+    case 'inactive': return p.status === 'inactive' || p.state === 'inactive';
+    case 'paused': return p.state === 'paused';
+    case 'overdue': return p.state === 'expired' || p.state === 'grace';
+    case 'online': return online === true;
+    case 'offline': return online === false && paidUp(p);
+  }
+}
+
+export interface CustomerCounts { filters: Record<CustomerFilter, number>; connections: Record<ConnectionFilter, number>; tiers: Record<TierFilter, number> }
+
+/** The counts on each filter, as the classic page shows them. Pure, for tests. */
+export function customerCounts(people: CustomerFacts[], onlineOf: (p: CustomerFacts) => OnlineNow): CustomerCounts {
+  const filters = { all: 0, active: 0, inactive: 0, online: 0, offline: 0, overdue: 0, paused: 0 } as Record<CustomerFilter, number>;
+  const connections = { all: 0, Hotspot: 0, PPPoE: 0, 'Static IP': 0 } as Record<ConnectionFilter, number>;
+  const tiers = { all: 0, customer: 0, visitor: 0 } as Record<TierFilter, number>;
+  for (const p of people) {
+    const on = onlineOf(p);
+    for (const f of Object.keys(filters) as CustomerFilter[]) if (inCustomerFilter(p, f, on)) filters[f] += 1;
+    connections.all += 1;
+    connections[p.connection] += 1;
+    tiers.all += 1;
+    if (p.tier) tiers[p.tier] += 1;
+  }
+  return { filters, connections, tiers };
 }
