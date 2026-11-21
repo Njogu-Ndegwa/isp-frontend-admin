@@ -3,7 +3,8 @@
 import { useMemo, useState } from 'react';
 import type { ShowFields } from '../../lib/assistant';
 import { cardTitle, formatCell, gaugesOf, num, shortDate, toCsv, visualFor, type ChartModel, type Column, type Gauge, type TileItem, type Visual } from '../../lib/assistantVisual';
-import { entityOf } from '../../lib/assistantEntities';
+import { entityOf, isUptime } from '../../lib/assistantEntities';
+import type { RouterUptimeResponse } from '../../lib/types';
 import { formatValue, humanizeKey, type Row } from '../../lib/assistantView';
 import { ColumnChart } from '../charts/ColumnChart';
 import { RankedBars } from '../charts/RankedBars';
@@ -15,6 +16,7 @@ import { CodeBox } from '../Markdown';
 import { LoginsBlock } from './LoginsBlock';
 import { CustomerBlock, PaymentBlock, PlanBlock, RouterBlock, VoucherBlock } from './BillingBlocks';
 import { PortBlock } from './PortBlock';
+import { UptimeBlock } from './UptimeBlock';
 import { AdPreviewBlock, PortalPreviewBlock, previewKind } from './Previews';
 import { DataTable } from './DataTable';
 
@@ -300,7 +302,8 @@ export default function ResultBlock({ title: rawTitle, payload, show = 'auto', f
   const shownLike = useMemo(() => previewOf(payload), [payload]);
   // customers, routers, plans, payments and vouchers have components of their own,
   // unless the model asked for a chart of them
-  const entity = useMemo(() => (CHART_HINTS.has(show) || show === 'none' ? null : entityOf(payload)), [payload, show]);
+  // (uptime has no chart that says more than its own panel, so it wins over a chart hint)
+  const entity = useMemo(() => (show === 'none' ? null : isUptime(payload) ? entityOf(payload) : CHART_HINTS.has(show) ? null : entityOf(payload)), [payload, show]);
   const title = cardTitle(rawTitle);
   if (shownLike && show !== 'none' && !CHART_HINTS.has(show)) {
     return (
@@ -329,6 +332,8 @@ export default function ResultBlock({ title: rawTitle, payload, show = 'auto', f
           routerDown={!!payload && typeof payload === 'object' && (payload as Record<string, unknown>).router_reachable === false} />;
       case 'port':
         return <PortBlock title={title} rows={entity.rows} currency={currency} onAsk={onAsk} />;
+      case 'uptime':
+        return <UptimeBlock title={title} data={entity.rows[0] as unknown as RouterUptimeResponse} onAsk={onAsk} />;
     }
   }
   switch (visual.kind) {

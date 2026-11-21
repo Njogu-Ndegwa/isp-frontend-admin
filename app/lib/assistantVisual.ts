@@ -187,6 +187,43 @@ function chartSeries(columns: Column[], wanted: Column[]): Column[] {
   return lead.length ? [lead[0]] : [];
 }
 
+/** Whether a column says anything as a chart: at least two different values among the rows. */
+export function varies(rows: Row[], key: string): boolean {
+  let first: number | null = null;
+  for (const r of rows) {
+    const n = num(r[key]);
+    if (n === null) continue;
+    if (first === null) first = n;
+    else if (n !== first) return true;
+  }
+  return false;
+}
+
+/**
+ * The series worth drawing: the ones asked for or chosen that move, else the first other
+ * measure that does. Empty when every measure is flat (all zero, or the same throughout):
+ * a flat line or equal bars carry no picture, so the caller says it in words instead.
+ */
+function movingSeries(columns: Column[], wanted: Column[], rows: Row[]): Column[] {
+  const chosen = chartSeries(columns, wanted).filter((c) => varies(rows, c.key));
+  if (chosen.length) return chosen;
+  const other = leadMeasures(columns).find((c) => varies(rows, c.key));
+  return other ? [other] : [];
+}
+
+/** "Downtime seconds was 0 throughout (42 readings, 14 Nov – 21 Nov)." */
+function flatStatement(columns: Column[], wanted: Column[], rows: Row[], date: Column): string | null {
+  const series = chartSeries(columns, wanted);
+  if (!series.length) return null;
+  const times = rows.map((r) => r[date.key]).filter((v) => v !== null && v !== undefined);
+  const range = times.length ? ` (${rows.length} readings, ${shortDate(times[0])} – ${shortDate(times[times.length - 1])})` : '';
+  const parts = series.map((c) => {
+    const v = rows.map((r) => r[c.key]).find((x) => num(x) !== null);
+    return `${c.label} was ${formatCell(v ?? 0, c.kind)} throughout`;
+  });
+  return `${parts.join('; ')}${range}.`;
+}
+
 const timeOf = (v: unknown): number => {
   if (typeof v !== 'string') return NaN;
   const iso = ISO_MONTH.test(v) ? `${v}-01` : v.length > 10 && !/(Z|[+-]\d{2}:?\d{2})$/.test(v) ? `${v}Z` : v;
@@ -226,11 +263,16 @@ export function visualFor(payload: unknown, show: ShowHint | string = 'auto', fi
 
     // values over time
     if ((show === 'trend' || (show === 'auto' && aggregate && rows.length >= 3)) && date && measures.length > 0) {
-      const series = chartSeries(columns, wanted.values);
+      const series = movingSeries(columns, wanted.values, rows);
       const distinct = new Set(rows.map((r) => String(r[date.key]))).size;
+      const sorted = [...rows].sort((a, b) => (timeOf(a[date.key]) || 0) - (timeOf(b[date.key]) || 0));
       if (series.length && (show === 'trend' || distinct >= 3)) {
-        const sorted = [...rows].sort((a, b) => (timeOf(a[date.key]) || 0) - (timeOf(b[date.key]) || 0));
         return { kind: 'trend', chart: { labelKey: date.key, labelKind: date.kind, series, rows: sorted, columns } };
+      }
+      // nothing moved: never a flat line, say it
+      if (!series.length && (show === 'trend' || distinct >= 3)) {
+        const said = flatStatement(columns, wanted.values, sorted, date);
+        if (said) return { kind: 'text', text: said };
       }
     }
 
@@ -261,7 +303,8 @@ export function visualFor(payload: unknown, show: ShowHint | string = 'auto', fi
     // a ranking
     const rankable = label && measures.length > 0 && rows.length >= 2;
     if (rankable && (show === 'bars' || !!fields?.highlight || (show === 'auto' && aggregate && !date && columns.length <= 6 && rows.length <= 20 && measures.length <= 3))) {
-      const series = chartSeries(columns, wanted.values);
+      // equal bars rank nothing: those rows read better as the table below
+      const series = movingSeries(columns, wanted.values, rows);
       if (series.length) {
         const by = series[0].key;
         const sorted = [...rows].sort((a, b) => (num(b[by]) ?? 0) - (num(a[by]) ?? 0));

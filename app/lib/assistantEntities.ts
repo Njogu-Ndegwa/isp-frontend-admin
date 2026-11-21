@@ -6,7 +6,7 @@
  */
 import { findRows, type Row } from './assistantView';
 
-export type Entity = 'customer' | 'router' | 'plan' | 'payment' | 'voucher' | 'port' | 'pppoe_user' | 'hotspot_user';
+export type Entity = 'customer' | 'router' | 'plan' | 'payment' | 'voucher' | 'port' | 'pppoe_user' | 'hotspot_user' | 'uptime';
 export interface EntityResult { entity: Entity; rows: Row[]; single: boolean; total?: number }
 
 const isObject = (v: unknown): v is Row => !!v && typeof v === 'object' && !Array.isArray(v);
@@ -20,14 +20,21 @@ const SHAPES: [Entity, (r: Row) => boolean][] = [
   ['hotspot_user', (r) => has(r, 'mac_address', 'online') && ('login_by' in r || 'binding_type' in r || 'online_source' in r)],
   // a PPPoE login on a router (the router's secrets with their live sessions)
   ['pppoe_user', (r) => has(r, 'username', 'online') && ('profile' in r || 'caller_id' in r || 'last_logged_out' in r)],
+  // the same login as the router's secrets list reads it (GET .../pppoe/secrets)
+  ['pppoe_user', (r) => has(r, 'name', 'online', 'service') && ('last_caller_id' in r || 'last_logged_out' in r)],
   ['customer', (r) => has(r, 'phone', 'status') && ('expiry' in r || 'effective_expiry' in r)],
   ['router', (r) => has(r, 'identity', 'ip_address')],
   ['plan', (r) => has(r, 'price', 'duration_unit', 'duration_value')],
   ['payment', (r) => 'amount' in r && ('phone_number' in r || 'customer_phone' in r || 'mpesa_receipt_number' in r)],
 ];
 
+/** A router uptime answer: its status now, the window's figures and the timeline. */
+export const isUptime = (p: unknown): p is Row => isObject(p) && isObject(p.current_status) && isObject(p.window) && Array.isArray(p.timeline);
+
 /** What a result is a list of (or one of), if it is something the chat has a component for. */
 export function entityOf(payload: unknown): EntityResult | null {
+  // a router's uptime (GET /api/routers/{id}/uptime): one answer, not its timeline as a list
+  if (isUptime(payload)) return { entity: 'uptime', rows: [payload], single: true };
   const found = findRows(payload);
   const rows = found && found.rows.length ? found.rows : isObject(payload) ? [payload] : [];
   if (!rows.length) return null;

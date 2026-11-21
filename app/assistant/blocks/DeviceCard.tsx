@@ -4,10 +4,13 @@ import { useEffect, useState } from 'react';
 import { api } from '../../lib/api';
 import type { Tone } from '../../lib/assistantVisual';
 import { useT } from '../../lib/i18n';
-import type { RouterUptimeResponse, UptimeTimelineSlice } from '../../lib/types';
+import type { RouterUptimeResponse } from '../../lib/types';
 import { toneColor } from '../charts/shared';
 import { ArrowRightIcon } from '../icons';
 import { Cells, Dial, Led, Meter, Pill, Throughput, useInView } from '../ui';
+import { UptimeStrip } from './UptimeBlock';
+
+export { weekSlices } from './UptimeBlock';
 
 /*
  * One MikroTik, drawn like a device in a network console: a status light and its
@@ -40,7 +43,6 @@ export interface Device {
 }
 
 const UPTIME_HOURS = 168;
-const SLICES = 42;   // a week in 4-hour slices, as a status page draws it
 
 /** A week of uptime for one router, read once the card is on screen (the classic Routers page's data). */
 function useUptime(id: Device['id'], seen: boolean): RouterUptimeResponse | null {
@@ -53,63 +55,6 @@ function useUptime(id: Device['id'], seen: boolean): RouterUptimeResponse | null
     return () => { on = false; };
   }, [seen, routerId]);
   return data;
-}
-
-/** The timeline in a fixed number of slices: a slice is as bad as the worst moment in it. */
-export function weekSlices(timeline: UptimeTimelineSlice[], count = SLICES): UptimeTimelineSlice[] {
-  if (timeline.length <= count) return timeline;
-  const rank = { down: 3, partial: 2, up: 1, no_data: 0 } as const;
-  const out: UptimeTimelineSlice[] = [];
-  const per = timeline.length / count;
-  for (let i = 0; i < count; i++) {
-    const part = timeline.slice(Math.floor(i * per), Math.floor((i + 1) * per));
-    if (!part.length) continue;
-    const known = part.filter((x) => x.status !== 'no_data');
-    const worst = known.reduce<UptimeTimelineSlice['status']>((w, x) => (rank[x.status] > rank[w] ? x.status : w), known.length ? 'up' : 'no_data');
-    // down only when it was down throughout; a short drop inside a slice is "partly down"
-    const status = worst === 'down' && known.some((x) => x.status !== 'down') ? 'partial' : worst;
-    out.push({ from: part[0].from, to: part[part.length - 1].to, status, downtime_seconds: part.reduce((a, x) => a + (x.downtime_seconds || 0), 0) });
-  }
-  return out;
-}
-
-const downtimeText = (seconds: number): string => {
-  const m = Math.round(seconds / 60);
-  if (m < 1) return '';
-  if (m < 60) return `${m} min`;
-  const h = Math.floor(m / 60);
-  return h < 48 ? `${h} h${m % 60 ? ` ${m % 60} min` : ''}` : `${Math.round(h / 24)} d`;
-};
-const SLICE: Record<string, string> = { up: 'var(--ai-good)', partial: 'var(--ai-warn)', down: 'var(--ai-bad)', no_data: 'var(--ai-track)' };
-
-/** The week as the classic Routers page shows it: one bar per slice, green up, amber partly down, red down. */
-function UptimeStrip({ data, restart }: { data: RouterUptimeResponse; restart?: string | null }) {
-  const t = useT();
-  const slices = weekSlices(data.timeline ?? []);
-  const pct = data.window.uptime_percentage;
-  const outages = data.window.outage_count ?? 0;
-  const down = downtimeText(data.window.downtime_seconds ?? 0);
-  const tone = pct === null ? 'text-ink-3' : pct >= 99 ? 'text-[var(--ai-text-good)]' : pct >= 95 ? 'text-ink-1' : pct >= 90 ? 'text-[var(--ai-text-warn)]' : 'text-[var(--ai-text-bad)]';
-  if (!slices.length) return null;
-  return (
-    <div className="min-w-0">
-      <div className="flex items-baseline justify-between gap-3">
-        <span className="ai-eyebrow">{t('Uptime · 7 days')}</span>
-        <span className={`ai-mono text-[15px] font-medium ${tone}`}>{pct === null ? '–' : `${pct.toFixed(pct >= 99.95 ? 0 : 1)}%`}</span>
-      </div>
-      <div className="mt-1.5 flex h-7 items-stretch gap-[2px]" role="img"
-        aria-label={`${t('Uptime · 7 days')} ${pct === null ? '' : `${pct.toFixed(1)}%`}, ${outages} ${t('outages')}`}>
-        {slices.map((x) => (
-          <span key={x.from} className="min-w-[2px] flex-1 rounded-[2px]" style={{ background: SLICE[x.status] ?? SLICE.no_data, opacity: x.status === 'no_data' ? 1 : 0.9 }}
-            title={`${new Date(x.from).toLocaleString('en-GB', { weekday: 'short', hour: '2-digit', minute: '2-digit' })}: ${x.status === 'up' ? t('up') : x.status === 'down' ? t('down') : x.status === 'partial' ? `${t('down')} ${downtimeText(x.downtime_seconds)}` : t('no data')}`} />
-        ))}
-      </div>
-      <div className="mt-1 flex flex-wrap justify-between gap-x-3 text-[11.5px] text-ink-3">
-        <span>{outages ? `${outages} ${outages === 1 ? t('outage') : t('outages')}${down ? ` · ${down} ${t('down')}` : ''}` : t('No outages this week')}</span>
-        {restart ? <span>{t('up {time} since restart', { time: restart })}</span> : <span>{t('now')}</span>}
-      </div>
-    </div>
-  );
 }
 
 export function DeviceCard({ d, actions, onOpen, onPeople, onCustomers }: {
