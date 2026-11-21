@@ -5636,8 +5636,13 @@ export interface PaystackSettlement {
 }
 
 export interface AdminSubscriptionCollectionsSummary {
+  /** Subscriptions + SMS credit sales: everything that landed in the platform paybill. */
   paybill_collected: number;
   total_collected: number;
+  /** Optional until every backend serving this page sends them. */
+  subscription_collected?: number;
+  sms_collected?: number;
+  sms_orders?: number;
   completed_sent: number;
   pending_send: number;
   completed_bank_net: number;
