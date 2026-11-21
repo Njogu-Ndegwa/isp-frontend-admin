@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { formatValue, humanizeKey } from '../lib/assistantView';
-import { fieldApplies, type ActionStatus, type FormField } from '../lib/assistant';
+import { fieldApplies, fieldSpans, type ActionStatus, type FormField } from '../lib/assistant';
 import { planDuration, planSpeed } from '../lib/assistantEntities';
 import { formatMoney } from '../lib/format';
 import { useT } from '../lib/i18n';
@@ -65,7 +65,7 @@ type Value = string | boolean | string[];
 type Values = Record<string, Value>;
 
 /** Choices read the way people say them: "HOURS" -> "Hours", "pppoe" -> "PPPoE". */
-const WORDS: Record<string, string> = { pppoe: 'PPPoE', ip: 'IP', mpesa: 'M-Pesa', sms: 'SMS', mtn: 'MTN', momo: 'MoMo', api: 'API', zenopay: 'ZenoPay' };
+const WORDS: Record<string, string> = { pppoe: 'PPPoE', ip: 'IP', mpesa: 'M-Pesa', sms: 'SMS', mtn: 'MTN', momo: 'MoMo', api: 'API', zenopay: 'ZenoPay', mac: 'MAC', url: 'URL', id: 'ID', mb: 'MB', fup: 'FUP' };
 
 function optionLabel(o: string): string {
   const words = o.toLowerCase().split('_').map((w) => WORDS[w] ?? w).join(' ');
@@ -78,8 +78,15 @@ function fieldLabel(f: FormField): string {
   const names: Record<string, string> = {
     duration_value: 'Duration', duration_unit: 'Unit', connection_type: 'Type', price: 'Price',
     max_devices: 'Devices per purchase', is_hidden: 'Hide from the portal', badge_text: 'Badge',
+    max_shared_users: 'Devices per purchase', data_cap_mb: 'Data cap (MB)', fup_action: 'After the cap',
+    fup_throttle_profile: 'Slow speed after the cap (e.g. 1M/1M)', fup_period: 'Cap resets',
+    original_price: 'Was price', trial_once_per_customer: 'Once per customer', method_type: 'Kind',
+    alt_phone: 'Other phone', mtn_target_environment: 'MTN environment',
   };
-  return names[f.name] ?? f.label;
+  if (names[f.name]) return names[f.name];
+  // a picker of records reads as the record ("Plan", not "Plan id"); known words keep their spelling
+  const words = (f.option_labels ? f.name.replace(/_ids?$/, '') : f.name).split('_').map((w) => WORDS[w] ?? w).join(' ');
+  return words.charAt(0).toUpperCase() + words.slice(1);
 }
 
 const initialValues = (form: FormField[]): Values => Object.fromEntries(form.map((f): [string, Value] => {
@@ -98,7 +105,7 @@ const isPrimary = (f: FormField, v: Value | undefined) =>
   f.required || f.kind === 'password' || (f.kind === 'boolean' ? v === true : !isEmpty(v));
 
 /** Short answers (a number, a choice) sit two to a row even on a phone; words take the full row there. */
-const isShort = (f: FormField) => f.kind === 'integer' || f.kind === 'number' || f.kind === 'select';
+
 
 /**
  * The change as a form: each field the API takes, filled with what the assistant
@@ -119,9 +126,12 @@ function FormFields({ form, values, setValues, missing, disabled, currency }: {
   const [shown, setShown] = useState<Record<string, boolean>>({});
   // decided once from the first values, so a field does not jump away while it is being typed in
   const [primary] = useState(() => new Set(form.filter((f) => isPrimary(f, values[f.name])).map((f) => f.name)));
-  const live = form.filter((f) => fieldApplies(f, values));
-  const extra = live.filter((f) => !primary.has(f.name));
-  const visible = more || primary.size === 0 || extra.length <= 2 ? live : live.filter((f) => primary.has(f.name));
+  const live = form.filter((f) => fieldApplies(f, values, form));
+  // a field that belongs to the chosen kind (a static IP for a static plan) is the point of choosing it: always shown
+  const first = (f: FormField) => primary.has(f.name) || !!f.when;
+  const extra = live.filter((f) => !first(f));
+  const visible = more || primary.size === 0 || extra.length <= 2 ? live : live.filter(first);
+  const spans = fieldSpans(visible);
   const field = 'w-full min-w-0 rounded-[12px] border bg-[var(--ai-bg)] px-3.5 py-2.5 text-[16px] text-ink-1 outline-none transition-colors placeholder:text-ink-3 focus:border-accent/70 focus:shadow-[0_0_0_3px_var(--ai-accent-soft)] disabled:opacity-60';
   return (
     <>
@@ -147,9 +157,12 @@ function FormFields({ form, values, setValues, missing, disabled, currency }: {
                 <span className="block text-[14px] text-ink-1">{t(fieldLabel(f))}</span>
                 {f.hint ? <span className="block text-[12px] leading-snug text-ink-3">{f.hint}</span> : null}
               </span>
+              {/* a thumb-sized tap area around the track, the knob anchored inside it */}
               <button type="button" role="switch" aria-checked={on} aria-label={fieldLabel(f)} disabled={disabled} onClick={() => set(!on)}
-                className={`relative h-7 w-12 shrink-0 rounded-full transition-colors ${on ? 'bg-accent-fill' : 'bg-surface-3'}`}>
-                <span className={`absolute top-0.5 h-6 w-6 rounded-full bg-white shadow transition-transform ${on ? 'translate-x-[22px]' : 'translate-x-0.5'}`} />
+                className="-mr-1 flex h-10 w-14 shrink-0 items-center justify-center rounded-full disabled:opacity-60">
+                <span className={`relative block h-7 w-12 rounded-full transition-colors ${on ? 'bg-accent-fill' : 'bg-surface-3'}`}>
+                  <span className={`absolute left-0.5 top-0.5 h-6 w-6 rounded-full bg-white shadow transition-transform ${on ? 'translate-x-5' : 'translate-x-0'}`} />
+                </span>
               </button>
             </div>
           );
@@ -178,7 +191,7 @@ function FormFields({ form, values, setValues, missing, disabled, currency }: {
         if (f.kind === 'password') {
           const visibleNow = !!shown[f.name];
           return (
-            <div key={f.name} className="col-span-2 min-w-0 @md:col-span-1">
+            <div key={f.name} className={`min-w-0 ${spans[f.name] ?? 'col-span-2'}`}>
               {label}
               <div className="relative">
                 <input id={id} disabled={disabled} value={String(values[f.name] ?? '')} onChange={(e) => set(e.target.value)}
@@ -194,7 +207,7 @@ function FormFields({ form, values, setValues, missing, disabled, currency }: {
           );
         }
         return (
-          <div key={f.name} className={`min-w-0 ${isShort(f) ? 'col-span-1' : f.kind === 'text' && (f.maxLength ?? 0) > 120 ? 'col-span-2' : 'col-span-2 @md:col-span-1'}`}>
+          <div key={f.name} className={`min-w-0 ${spans[f.name] ?? 'col-span-2'}`}>
             {label}
             {f.kind === 'select' ? (
               <select id={id} value={String(values[f.name] ?? '')} disabled={disabled} onChange={(e) => set(e.target.value)}
@@ -258,7 +271,7 @@ export default function ActionCard({ action, busy, readOnly, currency, onDecide 
   const refusal = waiting && action.detail ? action.detail : null;
   const confirm = () => {
     if (!form) { onDecide(true); return; }
-    const live = form.filter((f) => fieldApplies(f, values));  // another kind's fields are not sent
+    const live = form.filter((f) => fieldApplies(f, values, form));  // another kind's fields are not sent
     const empty = new Set(live.filter((f) => f.required && isEmpty(values[f.name])).map((f) => f.name));
     setMissing(empty);
     if (empty.size) return;
