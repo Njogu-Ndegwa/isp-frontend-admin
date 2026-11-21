@@ -181,3 +181,22 @@ describe('gaugesOf', () => {
     expect(gaugesOf([['customers', 50], ['revenue', 4000], ['cpu_frequency', 1400], ['memory_pct', 240]]).gauges).toEqual([]);
   });
 });
+describe('one row set against the rest', () => {
+  const users = Array.from({ length: 30 }, (_, i) => ({ name: `Guest ${1700 + i}`, total_mb: 3000 - i * 100 }));
+  it('lights the one asked about in its own place, with the leaders and the last', () => {
+    const v = visualFor({ users }, 'bars', { label: 'name', value: ['total_mb'], highlight: 'Guest 1725' });
+    expect(v.kind).toBe('bars');
+    if (v.kind !== 'bars') return;
+    expect(v.chart.focus).toMatchObject({ label: 'Guest 1725', rank: 26, of: 30, top: 3000, bottom: 100 });
+    const labels = v.chart.rows.map((r) => r.name);
+    expect(labels[0]).toBe('Guest 1700');
+    expect(labels).toContain('Guest 1725');
+    expect(labels[labels.length - 1]).toBe('Guest 1729');
+    expect(v.chart.ranks?.[v.chart.ranks.length - 1]).toBe(30);
+  });
+  it('draws a comparison even without a bars hint once a row is named', () => {
+    const v = visualFor({ users: users.slice(0, 5) }, 'auto', { label: 'name', value: ['total_mb'], highlight: 'guest 1702' });
+    expect(v.kind).toBe('bars');
+    if (v.kind === 'bars') expect(v.chart.focus?.rank).toBe(3);
+  });
+});
