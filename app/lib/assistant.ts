@@ -42,14 +42,60 @@ export interface FormField {
   maxLength?: number;
   /** shown only while another field holds one of these values (a till's number while the kind is "till") */
   when?: Record<string, string[]>;
+  /** for a picker of records: what each option is, for fields that hang on it (connection_type: id -> "pppoe") */
+  option_attrs?: Record<string, Record<string, string>>;
 }
 
-/** A field that belongs to one kind (a till's number) shows, and is sent, only while that kind is picked. */
-export const fieldApplies = (f: Pick<FormField, 'when'>, values: Record<string, unknown>): boolean =>
+/**
+ * A field that belongs to one choice shows, and is sent, only while that choice holds:
+ * a till's number while the kind is "till"; "*" means any value at all (the FUP fields
+ * once a data cap is filled in); "plan_id.connection_type" reads the picked plan's own
+ * type from the plan picker (a PPPoE login for a PPPoE plan). Every condition must hold.
+ */
+export const fieldApplies = (
+  f: Pick<FormField, 'when'>,
+  values: Record<string, unknown>,
+  form: Pick<FormField, 'name' | 'option_attrs'>[] = [],
+): boolean =>
   !f.when || Object.entries(f.when).every(([choice, allowed]) => {
-    const v = values[choice];
-    return typeof v === 'string' && allowed.some((a) => a.toLowerCase() === v.toLowerCase());
+    const [base, attr] = choice.split('.', 2);
+    let v: unknown = values[base];
+    if (attr) {
+      const picker = form.find((p) => p.name === base);
+      v = typeof v === 'string' ? picker?.option_attrs?.[attr]?.[v] : undefined;
+    }
+    if (typeof v === 'boolean') v = v ? 'true' : '';
+    if (typeof v === 'number') v = String(v);
+    if (typeof v !== 'string' || !v.trim() || (allowed.includes('*') && Number(v) === 0)) return false;
+    return allowed.includes('*') || allowed.some((a) => a.toLowerCase() === v.toLowerCase());
   });
+
+export const isShort = (f: FormField) => f.kind === 'integer' || f.kind === 'number' || f.kind === 'select';
+/** On a wide card, ordinary text and passwords can share a row too; long text never does. */
+const canHalfWide = (f: FormField) => isShort(f) || f.kind === 'password' || (f.kind === 'text' && (f.maxLength ?? 0) <= 120);
+
+/**
+ * How wide each field is: half a row only beside another half-row field, so a field
+ * that ends up alone (a picker between two text boxes, the till number once the other
+ * kinds are hidden) takes the whole row instead of leaving a hole next to it.
+ */
+export function fieldSpans(fields: FormField[]): Record<string, string> {
+  const pair = (fits: (f: FormField) => boolean) => {
+    const half = new Set<string>();
+    for (let i = 0; i < fields.length; i++) {
+      if (fits(fields[i]) && i + 1 < fields.length && fits(fields[i + 1])) {
+        half.add(fields[i].name);
+        half.add(fields[i + 1].name);
+        i++;
+      }
+    }
+    return half;
+  };
+  const narrow = pair(isShort);
+  const wide = pair(canHalfWide);
+  return Object.fromEntries(fields.map((f) => [f.name,
+    `${narrow.has(f.name) ? 'col-span-1' : 'col-span-2'} ${wide.has(f.name) ? '@md:col-span-1' : '@md:col-span-2'}`]));
+}
 
 /** A Confirm or Cancel; `values` are what the person filled in on a form card. */
 export interface Decision { action_id: string; approve: boolean; values?: Record<string, unknown> }
