@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useSyncExternalStore } from 'react';
 import type { Briefing, TranscriptItem } from '../../lib/assistant';
+import { demoRouterUptime } from '../../lib/demoData';
 import Composer from '../Composer';
 import Home from '../Home';
 import { BitwaveMark, MoonIcon, SunIcon } from '../icons';
@@ -87,6 +88,7 @@ function transcript(): TranscriptItem[] {
       { id: 14, name: 'Kahawa West AP', identity: 'KW-AP', ip_address: '10.0.0.14', status: 'offline', last_online_at: iso(-3 * H), availability_checks: 1000, availability_successes: 861 },
       { id: 11, name: 'Main Tower', identity: 'MAIN-TOWER', ip_address: '10.0.0.11', status: 'online', availability_checks: 1000, availability_successes: 998 },
     ] },
+    { type: 'data', call_id: 'up1', title: 'Uptime of Main Tower', method: 'GET', path: '/api/routers/1/uptime', show: 'trend', payload: demoRouterUptime(1, 168) },
     { type: 'data', call_id: 'p1', title: 'What is on each port of Main Tower', method: 'GET', path: '/api/x', show: 'auto', payload: {
       warnings: [{ port: 'ether6', warnings: ['x'] }],
       infrastructure_candidates: Array.from({ length: 14 }, (_, i) => ({ port: 'ether9', mac: `AA:00:00:00:00:${10 + i}`, name: `RAP-${i}` })),

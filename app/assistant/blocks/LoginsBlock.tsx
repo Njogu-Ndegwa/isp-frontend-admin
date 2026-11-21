@@ -108,9 +108,10 @@ const PAID: Record<string, { label: string; tone: Tone }> = {
 const HOW: Record<string, string> = { cookie: 'remembered', 'mac-cookie': 'remembered', mac: 'by MAC', http_chap: 'login page', 'http-chap': 'login page', http_pap: 'login page', 'http-pap': 'login page', trial: 'trial' };
 
 export function loginFacts(r: Row, kind: LoginKind, routerDown = false): LoginFacts {
-  const c = obj(r.customer);
-  const login = str(r.username);
-  const mac = str(r.mac_address) || str(r.caller_id);
+  // the router's own secrets list says "name" and "last_caller_id", and its customer as db_customer
+  const c = obj(r.customer) ?? obj(r.db_customer);
+  const login = str(r.username) || (kind === 'pppoe' ? str(r.name) : '');
+  const mac = str(r.mac_address) || str(r.caller_id) || str(r.last_caller_id);
   const status = str(c?.status).toLowerCase();
   const sessions = Array.isArray(r.sessions) ? r.sessions.length : 0;
   const online = r.online === true;
