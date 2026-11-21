@@ -113,7 +113,7 @@ export function Panel({ eyebrow, icon, title, note, actions, children, className
             {title ? <h3 className={`ai-display text-[15.5px] font-semibold leading-snug text-ink-1 ${eyebrow ? 'mt-1.5' : ''}`}>{title}</h3> : null}
             {note ? <p className="mt-0.5 text-[12.5px] leading-snug text-ink-3">{note}</p> : null}
           </div>
-          {actions ? <div className="flex shrink-0 flex-wrap items-center gap-1.5">{actions}</div> : null}
+          {actions ? <div className="flex max-w-full shrink-0 flex-wrap items-center gap-1.5">{actions}</div> : null}
         </header>
       ) : null}
       <div className={flush ? 'pt-3' : 'px-4 pb-4 pt-3 sm:px-5 sm:pb-5'}>{children}</div>

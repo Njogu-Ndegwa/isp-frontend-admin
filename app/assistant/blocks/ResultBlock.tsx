@@ -12,6 +12,7 @@ import { Legend, seriesColor, toneColor } from '../charts/shared';
 import { ChartIcon, DownloadIcon, TableIcon } from '../icons';
 import { CountUp, Dial, Panel } from '../ui';
 import { CodeBox } from '../Markdown';
+import { LoginsBlock } from './LoginsBlock';
 import { CustomerBlock, PaymentBlock, PlanBlock, RouterBlock, VoucherBlock } from './BillingBlocks';
 import { PortBlock } from './PortBlock';
 import { AdPreviewBlock, PortalPreviewBlock, previewKind } from './Previews';
@@ -313,7 +314,7 @@ export default function ResultBlock({ title: rawTitle, payload, show = 'auto', f
   if (entity && visual.kind !== 'empty') {
     switch (entity.entity) {
       case 'customer':
-        return <CustomerBlock title={title} rows={entity.rows} total={entity.total} single={entity.single} onAsk={onAsk} />;
+        return <CustomerBlock title={title} rows={entity.rows} total={entity.total} single={entity.single} currency={currency} onAsk={onAsk} />;
       case 'router':
         return <RouterBlock title={title} rows={entity.rows} onAsk={onAsk} />;
       case 'plan':
@@ -322,6 +323,10 @@ export default function ResultBlock({ title: rawTitle, payload, show = 'auto', f
         return <PaymentBlock title={title} rows={entity.rows} total={entity.total} currency={currency} onAsk={onAsk} />;
       case 'voucher':
         return <VoucherBlock title={title} rows={entity.rows} currency={currency} />;
+      case 'pppoe_user':
+      case 'hotspot_user':
+        return <LoginsBlock title={title} rows={entity.rows} kind={entity.entity === 'pppoe_user' ? 'pppoe' : 'hotspot'} onAsk={onAsk}
+          routerDown={!!payload && typeof payload === 'object' && (payload as Record<string, unknown>).router_reachable === false} />;
       case 'port':
         return <PortBlock title={title} rows={entity.rows} currency={currency} onAsk={onAsk} />;
     }

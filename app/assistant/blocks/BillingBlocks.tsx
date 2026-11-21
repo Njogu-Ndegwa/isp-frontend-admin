@@ -9,10 +9,13 @@ import type { Tone } from '../../lib/assistantVisual';
 import type { Row } from '../../lib/assistantView';
 import { copyText } from '../../lib/clipboard';
 import { formatMoney } from '../../lib/format';
-import { seriesColor } from '../charts/shared';
+import { toneColor } from '../charts/shared';
 import { ArrowRightIcon, CheckIcon, CopyIcon } from '../icons';
-import { Battery, Led, Panel, Pill } from '../ui';
+import { Led, Panel, Pill } from '../ui';
 import { DeviceCard } from './DeviceCard';
+import { CustomerProfile } from './CustomerProfile';
+import { FactLine, LiveAvatar, LiveState, Rates, UsageMark } from './LoginsBlock';
+import { useCustomerLive, useCustomerUsage, usageFacts, type CustomerLive } from '../../lib/useCustomerLive';
 
 /*
  * The billing parts of an answer. A list of customers is not a table of columns: it
@@ -52,19 +55,6 @@ const Action = ({ onClick, children }: { onClick: () => void; children: React.Re
   <button type="button" className="ai-chip !py-1.5 text-[12.5px] font-medium" onClick={onClick}>{children}</button>
 );
 
-/** A soft tile with a person's initial, its colour fixed by the name. */
-function Avatar({ name, size = 36 }: { name: string; size?: number }) {
-  let h = 0;
-  for (const ch of name) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
-  const color = seriesColor(h % 7);
-  return (
-    <span aria-hidden className="flex shrink-0 items-center justify-center rounded-[11px] font-semibold"
-      style={{ width: size, height: size, fontSize: size * 0.4, color, background: `color-mix(in srgb, ${color} 15%, transparent)`, boxShadow: `inset 0 0 0 1px color-mix(in srgb, ${color} 28%, transparent)` }}>
-      {name.trim().charAt(0).toUpperCase() || '?'}
-    </span>
-  );
-}
-
 /* ---------------- customers ---------------- */
 
 const CUSTOMER: Record<CustomerState, { label: string; tone: Tone }> = {
@@ -76,104 +66,100 @@ const CUSTOMER: Record<CustomerState, { label: string; tone: Tone }> = {
   inactive: { label: 'Inactive', tone: 'muted' },
 };
 const timeLeft = (left: number | null, state: CustomerState) =>
-  left === null ? '' : state === 'paused' ? 'time frozen' : left <= 0 ? `ended ${span(left)} ago` : `${span(left)} left`;
-/** Paid time drawn against a week, so a day left looks short and a month full. */
-const WEEK = 7 * 86_400_000;
+  left === null ? '' : state === 'paused' ? `${span(left)} kept` : left <= 0 ? `ended ${span(left)} ago` : `${span(left)} left`;
 
-export function CustomerBlock({ title, rows, total, single, onAsk }: { title: string; rows: Row[]; total?: number; single: boolean; onAsk: Ask }) {
-  const [filter, setFilter] = useState<'all' | 'on' | 'off'>('all');
+export function CustomerBlock({ title, rows, total, single, currency, onAsk }: { title: string; rows: Row[]; total?: number; single: boolean; currency?: string | null; onAsk: Ask }) {
+  if (single && rows.length === 1) return <CustomerProfile row={rows[0]} currency={currency} onAsk={onAsk} />;
+  return <CustomerList title={title} rows={rows} total={total} onAsk={onAsk} />;
+}
+
+function CustomerList({ title, rows, total, onAsk }: { title: string; rows: Row[]; total?: number; onAsk: Ask }) {
+  const [filter, setFilter] = useState<'all' | 'on' | 'off' | 'online'>('all');
   const [expanded, setExpanded] = useState(false);
   const [now] = useState(() => Date.now());
   const people = useMemo(() => rows.map((r) => customerFacts(r, now)), [rows, now]);
+  const { live: monitored, loaded } = useCustomerLive(people);
+  const usage = useCustomerUsage(people.flatMap((p) => (typeof p.id === 'number' ? [p.id] : [])));
+  // the router's own push report wins (as on the classic page); it also covers static IP customers
+  const live = useMemo(() => {
+    const out = new Map<string | number, CustomerLive>(monitored);
+    for (const [id, u] of usage) {
+      if (!u.live || out.get(id)?.state === 'router_down') continue;
+      out.set(id, { state: u.live.online ? 'online' : 'offline', down: u.live.rate_down_bps ?? 0, up: u.live.rate_up_bps ?? 0, address: u.live.ip ?? out.get(id)?.address ?? null });
+    }
+    return out;
+  }, [monitored, usage]);
   const isOn = (s: CustomerState) => s === 'active' || s === 'expiring' || s === 'grace';
+  const liveOf = (p: (typeof people)[number]) => (p.id !== null ? live.get(p.id) : undefined);
   const on = people.filter((p) => isOn(p.state)).length;
   const off = people.filter((p) => p.state === 'expired' || p.state === 'inactive').length;
   const soon = people.filter((p) => p.state === 'expiring').length;
+  const onlineNow = people.filter((p) => liveOf(p)?.state === 'online').length;
+  // paid up but not on: the ones who will call
+  const paidOff = people.filter((p) => isOn(p.state) && liveOf(p)?.state === 'offline').length;
   const about = (p: (typeof people)[number]) => `${p.name}${p.id !== null ? ` (customer ID ${p.id})` : ''}`;
-
-  if (single && people.length === 1) {
-    const p = people[0];
-    const st = CUSTOMER[p.state];
-    const facts: [string, string | null][] = [
-      ['Phone', p.phone], ['Plan', p.plan], ['Router', p.router], ['Connection', p.connection],
-      ['Paid until', p.expiry ? whenFmt.format(p.expiry) : null],
-    ];
-    const remaining = p.left !== null && p.left > 0 && p.state !== 'paused' ? span(p.left) : null;
-    return (
-      <Panel eyebrow="Customer" tone={st.tone === 'good' ? undefined : st.tone}>
-        <div className="flex flex-wrap items-start gap-x-4 gap-y-3">
-          <Avatar name={p.name} size={46} />
-          <div className="min-w-0 flex-1 basis-[160px]">
-            <h3 className="ai-display break-words text-[19px] font-semibold text-ink-1">{p.name}</h3>
-            <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] text-ink-3"><Pill tone={st.tone}>{st.label}</Pill>{p.phone && p.phone !== p.name ? <span className="ai-mono">{p.phone}</span> : null}</p>
-          </div>
-          {/* the paid time, read like charge left in a battery (a week is a full charge) */}
-          <div className="flex items-center gap-3">
-            <div className="text-right">
-              <p className="ai-eyebrow">{p.state === 'paused' ? 'Time frozen' : remaining ? 'Paid time left' : 'Paid time'}</p>
-              <p className={`ai-mono mt-1 text-[24px] font-medium leading-none ${st.tone === 'bad' ? 'text-[var(--ai-text-bad)]' : st.tone === 'warn' ? 'text-[var(--ai-text-warn)]' : 'text-ink-1'}`}>
-                {remaining ?? (p.left !== null && p.left <= 0 ? 'Ended' : '–')}
-              </p>
-            </div>
-            {p.left !== null && p.state !== 'paused' ? <Battery value={Math.max(0, p.left)} max={WEEK} tone={st.tone === 'muted' ? 'info' : st.tone} label={remaining ? `${remaining} of paid time left` : 'No paid time left'} /> : null}
-          </div>
-        </div>
-        <dl className="ai-well mt-4 grid grid-cols-2 gap-x-6 gap-y-3 px-3.5 py-3 @2xl:grid-cols-3">
-          {facts.filter(([, v]) => v).map(([k, v]) => (
-            <div key={k} className="min-w-0"><dt className="ai-eyebrow">{k}</dt><dd className="mt-1 truncate text-[13.5px] text-ink-1">{v}</dd></div>
-          ))}
-        </dl>
-        {onAsk ? (
-          <div className="mt-4 flex flex-wrap gap-1.5">
-            <Action onClick={() => onAsk(`Renew ${about(p)} on their current plan`)}>Renew</Action>
-            <Action onClick={() => onAsk(`Give ${about(p)} extra time`)}>Add time</Action>
-            <Action onClick={() => onAsk(`Send an SMS to ${about(p)}`)}>Send SMS</Action>
-            <Action onClick={() => onAsk(`Show the payments of ${about(p)}`)}>Payments</Action>
-            <Action onClick={() => onAsk(`${about(p)} has paid but has no internet. Check why.`)}>No internet?</Action>
-          </div>
-        ) : null}
-      </Panel>
-    );
-  }
 
   const order = (s: CustomerState) => (s === 'expiring' || s === 'grace' ? 0 : s === 'active' ? 1 : s === 'expired' ? 2 : 3);
   const list = people
-    .filter((p) => filter === 'all' || (filter === 'on' ? isOn(p.state) : !isOn(p.state)))
+    .filter((p) => filter === 'all' || (filter === 'online' ? liveOf(p)?.state === 'online' : filter === 'on' ? isOn(p.state) : !isOn(p.state)))
     .sort((a, b) => order(a.state) - order(b.state) || (order(a.state) === 2 ? (b.left ?? 0) - (a.left ?? 0) : (a.left ?? Infinity) - (b.left ?? Infinity)));
   const visible = expanded ? list : list.slice(0, PAGE);
   const all = total ?? people.length;
+  const filters: [typeof filter, string][] = [['all', `All ${n(people.length)}`], ['on', `Paid up ${n(on)}`], ['off', `Not paid ${n(people.length - on)}`]];
+  if (onlineNow) filters.push(['online', `Online now ${n(onlineNow)}`]);
   return (
     <Panel eyebrow={<>Customers · {n(all)}</>} title={title}
-      note={<>{all > people.length ? `${n(people.length)} loaded · ` : ''}<span className="text-[var(--ai-text-good)]">{n(on)} connected</span> · {n(off)} not</>}
+      note={<>{all > people.length ? `${n(people.length)} loaded · ` : ''}<span className="text-[var(--ai-text-good)]">{n(on)} paid up</span> · {n(off)} not
+        {onlineNow ? <> · <span style={{ color: toneColor('info') }}>{n(onlineNow)} online now</span></> : null}</>}
       actions={onAsk ? (
         <>
+          {paidOff > 0 ? <Action onClick={() => onAsk('Which paid customers are offline right now, and why?')}>{n(paidOff)} paid but offline</Action> : null}
           {soon > 0 ? <Action onClick={() => onAsk('Send an expiry reminder SMS to the customers who expire in the next 24 hours')}>Remind {n(soon)} expiring</Action> : null}
           {off > 0 ? <Action onClick={() => onAsk('Send a renewal reminder SMS to the customers who expired in the last 7 days')}>Win back {n(off)}</Action> : null}
         </>
       ) : null}>
-      {on > 0 && off > 0 ? (
-        <div className="mb-3 inline-flex rounded-full border border-line p-0.5 text-[12.5px]" role="group" aria-label="Filter">
-          {([['all', `All ${n(people.length)}`], ['on', `Connected ${n(on)}`], ['off', `Not connected ${n(people.length - on)}`]] as const).map(([key, label]) => (
+      {(on > 0 && off > 0) || onlineNow ? (
+        <div className="mb-3 flex flex-wrap gap-1.5 text-[12.5px]" role="group" aria-label="Filter">
+          {filters.map(([key, label]) => (
             <button key={key} type="button" aria-pressed={filter === key} onClick={() => { setFilter(key); setExpanded(false); }}
-              className={`ai-tap rounded-full px-3 py-1 font-medium transition-colors ${filter === key ? 'bg-surface-3 text-ink-1' : 'text-ink-3 hover:text-ink-1'}`}>{label}</button>
+              className={`ai-tap rounded-full border px-3 py-1 font-medium transition-colors ${filter === key ? 'border-line-strong bg-surface-3 text-ink-1' : 'border-line text-ink-3 hover:text-ink-1'}`}>{label}</button>
           ))}
         </div>
       ) : null}
       <ul className="ai-well m-0 list-none divide-y divide-line overflow-hidden p-0">
         {visible.map((p, i) => {
           const st = CUSTOMER[p.state];
+          const lv = liveOf(p);
+          const used = typeof p.id === 'number' ? usageFacts(usage.get(p.id)) : null;
+          // under the name, as on the classic card: how the router knows them, then the plan and router
+          const known = p.connection === 'Static IP' ? `Static IP ${p.staticIp ?? ''}`.trim() : p.account ? `acc ${p.account}` : p.pppoeUsername ?? (p.name !== p.phone ? p.phone : null);
+          const checking = !loaded && p.routerId !== null && p.connection !== 'Static IP';
           return (
             <li key={`${p.id}-${i}`}>
-              <Line onClick={onAsk ? () => onAsk(`Tell me about ${about(p)}`) : undefined}>
-                <Avatar name={p.name} />
+              <Line onClick={onAsk ? () => onAsk(lv?.state === 'offline' && isOn(p.state) ? `Why is ${about(p)} offline?` : `Tell me about ${about(p)}`) : undefined}>
+                <LiveAvatar name={p.name} state={lv ? lv.state : 'unknown'} />
                 <span className="min-w-0 flex-1">
-                  <span className="block break-words text-[14px] font-medium text-ink-1">{p.name}</span>
-                  <span className="block truncate text-[12px] text-ink-3">{[p.name !== p.phone ? p.phone : null, p.plan, p.router, p.connection !== 'Hotspot' ? p.connection : null].filter(Boolean).join(' · ')}</span>
-                </span>
-                {/* narrow: the dot and the time left; with room, the state in words too */}
-                <span className="flex shrink-0 flex-col items-end gap-1 @md:w-[104px]">
-                  <span className="flex items-center gap-1.5 text-[11.5px] font-medium text-ink-2" title={st.label}><Led tone={st.tone} size={6} /><span className="hidden @md:inline">{st.label}</span></span>
-                  <span className="ai-mono text-[11.5px] text-ink-3">{timeLeft(p.left, p.state)}</span>
+                  {/* the name, and on its line the paid state and the time left, so the lines under it get the full width */}
+                  <span className="flex items-start justify-between gap-3">
+                    <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5">
+                      <span className="break-words text-[14px] font-medium text-ink-1">{p.name}</span>
+                      {p.connection === 'PPPoE' ? <span className="text-[11px] font-medium text-ink-3">PPPoE</span> : null}
+                    </span>
+                    <span className="mt-0.5 flex shrink-0 items-center gap-1.5 text-[11.5px] text-ink-3" title={st.label}>
+                      <Led tone={st.tone} size={6} /><span className="hidden font-medium text-ink-2 @md:inline">{st.label} ·</span>
+                      <span className="ai-mono">{timeLeft(p.state === 'paused' ? p.pausedLeft : p.left, p.state) || st.label}</span>
+                    </span>
+                  </span>
+                  <span className="block truncate text-[12px] text-ink-3">{[known, p.plan, p.router].filter(Boolean).join(' · ')}</span>
+                  {lv || used ? (
+                    <FactLine>
+                      {lv ? <LiveState state={lv.state} /> : null}
+                      {used?.cap != null ? <UsageMark u={used} /> : null}
+                      {lv?.state === 'online' ? <span className="ai-mono"><Rates down={lv.down} up={lv.up} /></span> : null}
+                      {used && used.cap == null ? <UsageMark u={used} /> : null}
+                      {lv?.state === 'online' && lv.address ? <span className="ai-mono">{lv.address}</span> : null}
+                    </FactLine>
+                  ) : checking ? <span className="mt-1.5 block h-2.5 w-24 animate-pulse rounded bg-surface-3" aria-label="Checking who is online" /> : null}
                 </span>
               </Line>
             </li>
