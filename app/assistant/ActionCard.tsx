@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { formatValue, humanizeKey } from '../lib/assistantView';
-import type { ActionStatus, FormField } from '../lib/assistant';
+import { fieldApplies, type ActionStatus, type FormField } from '../lib/assistant';
 import { planDuration, planSpeed } from '../lib/assistantEntities';
 import { formatMoney } from '../lib/format';
 import { useT } from '../lib/i18n';
@@ -65,13 +65,13 @@ type Value = string | boolean | string[];
 type Values = Record<string, Value>;
 
 /** Choices read the way people say them: "HOURS" -> "Hours", "pppoe" -> "PPPoE". */
+const WORDS: Record<string, string> = { pppoe: 'PPPoE', ip: 'IP', mpesa: 'M-Pesa', sms: 'SMS', mtn: 'MTN', momo: 'MoMo', api: 'API', zenopay: 'ZenoPay' };
+
 function optionLabel(o: string): string {
-  const special: Record<string, string> = { pppoe: 'PPPoE', static_ip: 'Static IP', mpesa: 'M-Pesa', sms: 'SMS', ip: 'IP' };
-  const k = o.toLowerCase();
-  if (special[k]) return special[k];
-  const words = k.replace(/_/g, ' ');
+  const words = o.toLowerCase().split('_').map((w) => WORDS[w] ?? w).join(' ');
   return words.charAt(0).toUpperCase() + words.slice(1);
 }
+
 
 /** A friendlier name for a field than its key: "duration_value" -> "Duration", "speed" -> "Speed (e.g. 5M/5M)". */
 function fieldLabel(f: FormField): string {
@@ -119,8 +119,9 @@ function FormFields({ form, values, setValues, missing, disabled, currency }: {
   const [shown, setShown] = useState<Record<string, boolean>>({});
   // decided once from the first values, so a field does not jump away while it is being typed in
   const [primary] = useState(() => new Set(form.filter((f) => isPrimary(f, values[f.name])).map((f) => f.name)));
-  const extra = form.filter((f) => !primary.has(f.name));
-  const visible = more || primary.size === 0 || extra.length <= 2 ? form : form.filter((f) => primary.has(f.name));
+  const live = form.filter((f) => fieldApplies(f, values));
+  const extra = live.filter((f) => !primary.has(f.name));
+  const visible = more || primary.size === 0 || extra.length <= 2 ? live : live.filter((f) => primary.has(f.name));
   const field = 'w-full min-w-0 rounded-[12px] border bg-[var(--ai-bg)] px-3.5 py-2.5 text-[16px] text-ink-1 outline-none transition-colors placeholder:text-ink-3 focus:border-accent/70 focus:shadow-[0_0_0_3px_var(--ai-accent-soft)] disabled:opacity-60';
   return (
     <>
@@ -257,10 +258,11 @@ export default function ActionCard({ action, busy, readOnly, currency, onDecide 
   const refusal = waiting && action.detail ? action.detail : null;
   const confirm = () => {
     if (!form) { onDecide(true); return; }
-    const empty = new Set(form.filter((f) => f.required && isEmpty(values[f.name])).map((f) => f.name));
+    const live = form.filter((f) => fieldApplies(f, values));  // another kind's fields are not sent
+    const empty = new Set(live.filter((f) => f.required && isEmpty(values[f.name])).map((f) => f.name));
     setMissing(empty);
     if (empty.size) return;
-    onDecide(true, Object.fromEntries(form.map((f) => [f.name, values[f.name]])));
+    onDecide(true, Object.fromEntries(live.map((f) => [f.name, values[f.name]])));
   };
 
   const badge: Record<ActionStatus, { label: string; cls: string; icon?: React.ReactNode }> = {
