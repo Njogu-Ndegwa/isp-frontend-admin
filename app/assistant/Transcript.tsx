@@ -21,10 +21,12 @@ export function actionCards(items: TranscriptItem[], records: Record<string, Act
         action_id: item.action_id, title: item.title, summary: item.summary, method: item.method,
         path: item.path, query: item.query, body: item.body, sensitive: item.sensitive,
         expires_at: item.expires_at, status: item.status, form: item.form,
+        previews: item.previews, retry_of: item.retry_of, reason: item.reason,
       });
     } else if (item.type === 'action_result') {
       const card = cards.get(item.action_id);
-      if (card) Object.assign(card, { status: item.status, detail: item.detail, payload: item.payload, awaiting: item.awaiting });
+      if (card) Object.assign(card, { status: item.status, detail: item.detail, payload: item.payload, awaiting: item.awaiting,
+        preview: item.preview, preview_of: item.preview_of });
     }
   }
   for (const [id, rec] of Object.entries(records)) {
