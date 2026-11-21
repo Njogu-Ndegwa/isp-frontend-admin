@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react';
 import { formatValue, humanizeKey } from '../lib/assistantView';
 import { fieldApplies, fieldSpans, type ActionStatus, type FormField } from '../lib/assistant';
 import MediaUploadField from '../ads/components/MediaUploadField';
+import { PreviewFor, previewKind } from './blocks/Previews';
+import { THEME_PALETTES } from '../lib/portalThemes';
 import { planDuration, planSpeed } from '../lib/assistantEntities';
 import { formatMoney } from '../lib/format';
 import { useT } from '../lib/i18n';
@@ -83,6 +85,9 @@ function fieldLabel(f: FormField): string {
     fup_throttle_profile: 'Slow speed after the cap (e.g. 1M/1M)', fup_period: 'Cap resets',
     original_price: 'Was price', trial_once_per_customer: 'Once per customer', method_type: 'Kind',
     alt_phone: 'Other phone', mtn_target_environment: 'MTN environment',
+    header_bg_image_url: 'Header photo', company_logo_url: 'Logo', color_theme: 'Colours', header_style: 'Header style',
+    portal_support_phone: 'Support phone', portal_support_whatsapp: 'Support WhatsApp', image_url: 'Photo', video_url: 'Video',
+    poster_url: 'Video cover photo',
   };
   if (names[f.name]) return names[f.name];
   // a picker of records reads as the record ("Plan", not "Plan id"); known words keep their spelling
@@ -221,6 +226,29 @@ function FormFields({ form, values, setValues, missing, disabled, currency }: {
             </div>
           );
         }
+        // a choice of colour themes: swatches in each theme's own colours, not names in a list
+        const swatches = f.kind === 'select' && (f.options?.length ?? 0) > 1 && (f.options ?? []).every((o) => o in THEME_PALETTES);
+        if (swatches) {
+          return (
+            <div key={f.name} className="col-span-2 min-w-0">
+              {label}
+              <div role="radiogroup" aria-label={fieldLabel(f)} className="grid grid-cols-3 gap-2 @md:grid-cols-4">
+                {(f.options ?? []).map((o) => {
+                  const p = THEME_PALETTES[o as keyof typeof THEME_PALETTES];
+                  const on = values[f.name] === o;
+                  return (
+                    <button key={o} type="button" role="radio" aria-checked={on} disabled={disabled} onClick={() => set(o)}
+                      className={`ai-tap flex min-w-0 items-center gap-2 rounded-[12px] border px-2.5 py-2 text-left text-[12.5px] transition-colors ${on ? 'border-accent bg-accent-soft text-ink-1' : 'border-line-strong text-ink-2 hover:border-ink-3'}`}>
+                      <span aria-hidden className="h-6 w-6 shrink-0 rounded-full border border-black/10"
+                        style={{ background: `linear-gradient(135deg, ${p.primary}, ${p.primaryDark})` }} />
+                      <span className="min-w-0 truncate">{optionText(o)}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        }
         return (
           <div key={f.name} className={`min-w-0 ${spans[f.name] ?? 'col-span-2'}`}>
             {label}
@@ -326,6 +354,10 @@ export default function ActionCard({ action, busy, readOnly, currency, onDecide 
         {editing ? (
           <FormFields form={form!} values={values} disabled={busy} currency={currency}
             setValues={(fn) => { setValues(fn); setMissing(new Set()); }} missing={missing} />
+        ) : null}
+        {/* the login page or the ad as customers will see it: follows the form while it is filled in, stays after Confirm */}
+        {form && previewKind(form.map((f) => f.name)) && status !== 'declined' && status !== 'expired' ? (
+          <PreviewFor values={Object.fromEntries(form.filter((f) => fieldApplies(f, values, form)).map((f) => [f.name, values[f.name]]))} />
         ) : null}
         {editing && missing.size ? <p role="alert" className="mt-3 text-[13px] text-[var(--ai-text-bad)]">{t('Fill in the marked fields, then tap Confirm.')}</p> : null}
         {refusal && !missing.size ? <p role="alert" className="mt-3 break-words text-[13px] text-[var(--ai-text-bad)]">{refusal}</p> : null}

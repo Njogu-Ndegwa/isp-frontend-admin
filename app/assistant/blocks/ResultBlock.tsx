@@ -14,6 +14,7 @@ import { CountUp, Dial, Panel } from '../ui';
 import { CodeBox } from '../Markdown';
 import { CustomerBlock, PaymentBlock, PlanBlock, RouterBlock, VoucherBlock } from './BillingBlocks';
 import { PortBlock } from './PortBlock';
+import { AdPreviewBlock, PortalPreviewBlock, previewKind } from './Previews';
 import { DataTable } from './DataTable';
 
 function downloadCsv(name: string, csv: string) {
@@ -266,6 +267,19 @@ function DetailCard({ title, visual }: { title: string; visual: Extract<Visual, 
   );
 }
 
+/** A read of the portal settings ({settings: {...}} or the settings themselves) or of ads: drawn as customers see them. */
+function previewOf(payload: unknown): { kind: 'portal' | 'ad'; rows: Record<string, unknown>[] } | null {
+  if (!payload || typeof payload !== 'object') return null;
+  const p = payload as Record<string, unknown>;
+  const settings = p.settings && typeof p.settings === 'object' && !Array.isArray(p.settings) ? (p.settings as Record<string, unknown>) : p;
+  if (!Array.isArray(payload) && previewKind(Object.keys(settings)) === 'portal') return { kind: 'portal', rows: [settings] };
+  const list = Array.isArray(payload) ? payload : Object.values(p).find((v) => Array.isArray(v) && v.length && typeof v[0] === 'object');
+  if (Array.isArray(list) && list.length && list.every((r) => r && typeof r === 'object' && previewKind(Object.keys(r)) === 'ad')) {
+    return { kind: 'ad', rows: list as Record<string, unknown>[] };
+  }
+  return null;
+}
+
 // a split by status is already what the customer and router components show
 const CHART_HINTS = new Set(['trend', 'bars', 'tiles']);
 
@@ -282,10 +296,20 @@ export default function ResultBlock({ title: rawTitle, payload, show = 'auto', f
   onAsk?: (q: string) => void;
 }) {
   const visual = useMemo(() => visualFor(payload, show, fields), [payload, show, fields]);
+  const shownLike = useMemo(() => previewOf(payload), [payload]);
   // customers, routers, plans, payments and vouchers have components of their own,
   // unless the model asked for a chart of them
   const entity = useMemo(() => (CHART_HINTS.has(show) || show === 'none' ? null : entityOf(payload)), [payload, show]);
   const title = cardTitle(rawTitle);
+  if (shownLike && show !== 'none' && !CHART_HINTS.has(show)) {
+    return (
+      <Panel eyebrow={<>Preview</>} title={cardTitle(rawTitle)}>
+        {shownLike.kind === 'portal'
+          ? <PortalPreviewBlock values={{}} saved={shownLike.rows[0]} />
+          : <div className="grid gap-3 @xl:grid-cols-2">{shownLike.rows.slice(0, 6).map((r, i) => <AdPreviewBlock key={i} values={r} />)}</div>}
+      </Panel>
+    );
+  }
   if (entity && visual.kind !== 'empty') {
     switch (entity.entity) {
       case 'customer':
