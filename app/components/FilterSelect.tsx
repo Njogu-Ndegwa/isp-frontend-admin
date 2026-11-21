@@ -2,6 +2,10 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
+import { computeDropdownPlacement, DropdownPlacement } from './filterSelectPlacement';
+
+/** Row height of one option on phones (py-3 + one line of text-sm). */
+const OPTION_ROW_HEIGHT = 44;
 
 interface FilterOption {
   value: string;
@@ -22,7 +26,7 @@ export default function FilterSelect({
   className = '',
 }: FilterSelectProps) {
   const [open, setOpen] = useState(false);
-  const [pos, setPos] = useState<{ top: number; left: number; minWidth: number } | null>(null);
+  const [pos, setPos] = useState<DropdownPlacement | null>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const selectedLabel = options.find((o) => o.value === value)?.label || value;
@@ -30,26 +34,66 @@ export default function FilterSelect({
   const updatePosition = useCallback(() => {
     if (!triggerRef.current) return;
     const rect = triggerRef.current.getBoundingClientRect();
-    const dropdownWidth = Math.max(rect.width, 160);
-    const left = Math.min(rect.left, window.innerWidth - dropdownWidth - 8);
-    setPos({
-      top: rect.bottom + 6,
-      left: Math.max(8, left),
-      minWidth: rect.width,
-    });
-  }, []);
+    // visualViewport tracks the area actually visible on phones (address bar,
+    // on-screen keyboard); innerHeight can be taller than what the user sees.
+    const vv = window.visualViewport;
+    setPos(
+      computeDropdownPlacement(
+        rect,
+        { width: window.innerWidth, height: vv ? vv.height : window.innerHeight },
+        options.length * OPTION_ROW_HEIGHT + 2,
+      ),
+    );
+  }, [options.length]);
 
   useEffect(() => {
     if (!open) return;
     updatePosition();
-    const close = () => setOpen(false);
-    window.addEventListener('scroll', close, true);
-    window.addEventListener('resize', close);
+    // Scrolling anything else (the page, the modal body) moves the trigger, so
+    // close. Scrolling the list itself must not close it, or a long list could
+    // never be scrolled to its last option.
+    const closeOnOuterScroll = (e: Event) => {
+      const target = e.target as Node | null;
+      if (target && dropdownRef.current?.contains(target)) return;
+      setOpen(false);
+    };
+    // Phones fire resize when the address bar shows or hides; follow the
+    // trigger instead of closing under the user's finger.
+    const reposition = () => updatePosition();
+    window.addEventListener('scroll', closeOnOuterScroll, true);
+    window.addEventListener('resize', reposition);
+    window.visualViewport?.addEventListener('resize', reposition);
     return () => {
-      window.removeEventListener('scroll', close, true);
-      window.removeEventListener('resize', close);
+      window.removeEventListener('scroll', closeOnOuterScroll, true);
+      window.removeEventListener('resize', reposition);
+      window.visualViewport?.removeEventListener('resize', reposition);
     };
   }, [open, updatePosition]);
+
+  // Keep touch drags that start in the list inside the list. Some modals lock
+  // body scroll with a document-level touchmove preventDefault; stopping the
+  // event here keeps that lock from swallowing the list's own scroll.
+  useEffect(() => {
+    const el = dropdownRef.current;
+    if (!open || !el) return;
+    const stop = (e: TouchEvent) => e.stopPropagation();
+    el.addEventListener('touchmove', stop, { passive: true });
+    return () => el.removeEventListener('touchmove', stop);
+  }, [open, pos]);
+
+  // Show the selected option when the list opens part-way down (once per open,
+  // not on every reposition).
+  const scrolledToActive = useRef(false);
+  useEffect(() => {
+    if (!open) {
+      scrolledToActive.current = false;
+      return;
+    }
+    if (!pos || scrolledToActive.current || !dropdownRef.current) return;
+    scrolledToActive.current = true;
+    const active = dropdownRef.current.querySelector<HTMLElement>('[data-active="true"]');
+    active?.scrollIntoView?.({ block: 'nearest' });
+  }, [open, pos]);
 
   useEffect(() => {
     if (!open) return;
@@ -78,6 +122,8 @@ export default function FilterSelect({
       <button
         ref={triggerRef}
         type="button"
+        aria-haspopup="listbox"
+        aria-expanded={open}
         onClick={() => setOpen(!open)}
         className={`
           flex items-center justify-between gap-1.5 w-full
@@ -103,11 +149,19 @@ export default function FilterSelect({
       {open && pos && createPortal(
         <div
           ref={dropdownRef}
-          className="fixed rounded-xl border border-[var(--border)] bg-[var(--background-secondary)] shadow-[var(--shadow-lg)] overflow-hidden animate-fade-in"
+          role="listbox"
+          data-direction={pos.direction}
+          className="fixed rounded-xl border border-[var(--border)] bg-[var(--background-secondary)] shadow-[var(--shadow-lg)] overflow-x-hidden overflow-y-auto overscroll-contain animate-fade-in"
           style={{
             top: pos.top,
+            bottom: pos.bottom,
             left: pos.left,
             minWidth: pos.minWidth,
+            maxWidth: `calc(100vw - 16px)`,
+            maxHeight: pos.maxHeight,
+            overscrollBehavior: 'contain',
+            touchAction: 'pan-y',
+            WebkitOverflowScrolling: 'touch',
             zIndex: 99999,
             animationDuration: '150ms',
           }}
@@ -118,6 +172,9 @@ export default function FilterSelect({
               <button
                 key={opt.value}
                 type="button"
+                role="option"
+                aria-selected={isActive}
+                data-active={isActive ? 'true' : undefined}
                 onClick={() => {
                   onChange(opt.value);
                   setOpen(false);

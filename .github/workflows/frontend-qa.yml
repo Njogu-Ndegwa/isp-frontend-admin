@@ -26,6 +26,7 @@ jobs:
         run: |
           npx playwright install --with-deps chromium
           npx playwright test e2e/public-demo.spec.ts --workers=1 --grep 'mobile bottom navigation|mobile menu Light Mode'
+          npx playwright test e2e/bank-select-mobile.spec.ts --workers=1
       - name: Check the installation ledger in a production build
         env:
           NEXT_PUBLIC_API_BASE_URL: http://localhost:3197/api
