@@ -146,6 +146,8 @@ export interface CustomerFacts {
   account: string | null;
   planSpeed: string | null;
   planPrice: number | null;
+  /** the plan's data cap in MB: null when it has none, undefined when the record does not say */
+  planCap: number | null | undefined;
   wallet: number | null;
   /** paid time kept while paused, in ms */
   pausedLeft: number | null;
@@ -153,6 +155,14 @@ export interface CustomerFacts {
   status: string;
   /** paid at least once ("customer") or never ("visitor"); null when the answer does not say */
   tier: 'customer' | 'visitor' | null;
+  /** the router's state as the customer record carries it (newer backends); null when it does not */
+  routerState: { status: 'online' | 'offline' | 'unknown'; stale: boolean; lastOnline: Date | null } | null;
+}
+
+function routerStateOf(v: unknown): CustomerFacts['routerState'] {
+  if (!isObject(v) || typeof v.status !== 'string') return null;
+  const status = v.status.toLowerCase();
+  return { status: status === 'online' ? 'online' : status === 'offline' ? 'offline' : 'unknown', stale: v.status_is_stale === true, lastOnline: asUtc(v.last_online_at) };
 }
 
 export function customerFacts(r: Row, now: number): CustomerFacts {
@@ -181,11 +191,13 @@ export function customerFacts(r: Row, now: number): CustomerFacts {
     account: text(r.account_number),
     planSpeed: nested(r, 'plan', 'speed') ?? text(r.plan_speed),
     planPrice: isObject(r.plan) && r.plan.price !== undefined && r.plan.price !== null ? Number(r.plan.price) : null,
+    planCap: isObject(r.plan) && 'data_cap_mb' in r.plan ? (typeof r.plan.data_cap_mb === 'number' && r.plan.data_cap_mb > 0 ? r.plan.data_cap_mb : null) : undefined,
     wallet: typeof r.wallet_credit_kes === 'number' && r.wallet_credit_kes > 0 ? r.wallet_credit_kes : null,
     pausedLeft: typeof r.paused_remaining_seconds === 'number' ? r.paused_remaining_seconds * 1000 : null,
     graceMinutes: typeof r.grace_period_minutes === 'number' && r.grace_period_minutes > 0 ? r.grace_period_minutes : null,
     status,
     tier: r.tier === 'visitor' || r.has_paid === false ? 'visitor' : r.tier === 'customer' || r.has_paid === true ? 'customer' : null,
+    routerState: routerStateOf(r.router),
   };
 }
 
@@ -308,6 +320,12 @@ export type OnlineNow = boolean | null;
 
 const paidUp = (p: CustomerFacts) => p.state === 'active' || p.state === 'expiring';
 
+/** Paid once and their paid time has run out (grace included): overdue. A visitor, or someone with no paid time ever, is not. */
+export function isLapsed(p: CustomerFacts): boolean {
+  if (p.tier === 'visitor' || p.expiry === null) return false;
+  return p.state === 'expired' || p.state === 'grace';
+}
+
 /**
  * Whether a customer belongs under a status filter, by the classic page's rules
  * (app/lib/customerFilters.ts): overdue is paid time run out (grace included) and not
@@ -319,7 +337,8 @@ export function inCustomerFilter(p: CustomerFacts, filter: CustomerFilter, onlin
     case 'active': return p.status === 'active' && p.state !== 'paused';
     case 'inactive': return p.status === 'inactive' || p.state === 'inactive';
     case 'paused': return p.state === 'paused';
-    case 'overdue': return p.state === 'expired' || p.state === 'grace';
+    // a visitor never paid, so owes nothing: never overdue, never "won back"
+    case 'overdue': return isLapsed(p);
     case 'online': return online === true;
     case 'offline': return online === false && paidUp(p);
   }

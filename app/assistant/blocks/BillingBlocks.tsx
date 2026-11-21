@@ -67,6 +67,26 @@ export function CustomerBlock({ title, rows, total, single, currency, onAsk }: {
   return <CustomerList title={title} rows={rows} total={total} onAsk={onAsk} />;
 }
 
+/**
+ * Each router's state for the list: from the customer records when they carry it, else from
+ * asking the router. Pure, for tests.
+ */
+export function mergeRouterStates(people: CustomerFacts[], asked: Map<number, RouterRead>): Map<number, RouterRead> {
+  const out = new Map(asked);
+  for (const p of people) {
+    if (p.routerId === null || !p.routerState || p.routerState.status === 'unknown') continue;
+    const read = asked.get(p.routerId);
+    out.set(p.routerId, {
+      id: p.routerId,
+      reachable: p.routerState.status === 'online',
+      lastOnline: p.routerState.lastOnline ?? read?.lastOnline ?? null,
+      stale: p.routerState.stale,
+      ageSeconds: read?.ageSeconds ?? null,
+    });
+  }
+  return out;
+}
+
 /** The customers' routers that did not answer, with when each was last seen. */
 function RouterDownNotice({ people, routers, now }: { people: CustomerFacts[]; routers: Map<number, RouterRead>; now: number }) {
   const t = useT();
@@ -90,7 +110,9 @@ function RouterDownNotice({ people, routers, now }: { people: CustomerFacts[]; r
         const name = people.find((p) => p.routerId === r.id)?.router ?? t('Router {id}', { id: r.id });
         return (
           <Notice key={`s${r.id}`} tone="warn">
-            {t('Who is online on {router} is from {ago} ago, not live.', { router: name, ago: span((r.ageSeconds ?? 0) * 1000) })}
+            {r.ageSeconds !== null
+              ? t('Who is online on {router} is from {ago} ago, not live.', { router: name, ago: span(r.ageSeconds * 1000) })
+              : t('The status of {router} is last known, not live: it has not been checked lately.', { router: name })}
           </Notice>
         );
       })}
@@ -107,7 +129,9 @@ function CustomerList({ title, rows, total, onAsk }: { title: string; rows: Row[
   const [expanded, setExpanded] = useState(false);
   const [now] = useState(() => Date.now());
   const people = useMemo(() => rows.map((r) => customerFacts(r, now)), [rows, now]);
-  const { live: monitored, routers, loaded } = useCustomerLive(people);
+  const { live: monitored, routers: asked, loaded } = useCustomerLive(people);
+  // the router's state on the customer records (newer backends) wins; asking each router is the fallback
+  const routers = useMemo(() => mergeRouterStates(people, asked), [people, asked]);
   const usage = useCustomerUsage(people.flatMap((p) => (typeof p.id === 'number' ? [p.id] : [])));
   // the router's own push report wins (as on the classic page); it also covers static IP customers
   const live = useMemo(() => {
@@ -116,8 +140,13 @@ function CustomerList({ title, rows, total, onAsk }: { title: string; rows: Row[
       if (!u.live || out.get(id)?.state === 'router_down') continue;
       out.set(id, { state: u.live.online ? 'online' : 'offline', down: u.live.rate_down_bps ?? 0, up: u.live.rate_up_bps ?? 0, address: u.live.ip ?? out.get(id)?.address ?? null });
     }
+    // a router the records say is down: nobody on it can be on, whatever an older read says
+    for (const p of people) {
+      if (p.id === null || p.routerId === null || routers.get(p.routerId)?.reachable !== false) continue;
+      out.set(p.id, { state: 'router_down', down: 0, up: 0, address: null });
+    }
     return out;
-  }, [monitored, usage]);
+  }, [monitored, usage, people, routers]);
   const isOn = (s: CustomerState) => s === 'active' || s === 'expiring' || s === 'grace';
   const liveOf = (p: CustomerFacts) => (p.id !== null ? live.get(p.id) : undefined);
   // anything not positively on is not on; behind a router that is down nobody can be, so they are not counted "offline" (the banner says why)
@@ -178,7 +207,7 @@ function CustomerList({ title, rows, total, onAsk }: { title: string; rows: Row[
           {winBack ? <Action onClick={() => onAsk('Send a renewal reminder SMS to the customers who expired in the last 7 days')}>{t('Win back {n}', { n: n(lapsed) })}</Action> : null}
         </>
       ) : null}>
-      {loaded ? <RouterDownNotice people={people} routers={routers} now={now} /> : null}
+      {loaded || people.some((p) => p.routerState) ? <RouterDownNotice people={people} routers={routers} now={now} /> : null}
       <div className="mb-3 flex flex-col gap-2 empty:hidden">
         <FilterChips label={t('Filter by status')} value={filter} options={statusOptions} onChange={(k) => { setFilter(k); reset(); }} />
         {showConn || showTier ? (
@@ -193,7 +222,7 @@ function CustomerList({ title, rows, total, onAsk }: { title: string; rows: Row[
         {visible.map((p, i) => {
           const st = CUSTOMER_STATE[p.state];
           const lv = liveOf(p);
-          const used = typeof p.id === 'number' ? usageFacts(usage.get(p.id)) : null;
+          const used = typeof p.id === 'number' ? usageFacts(usage.get(p.id), p.planCap) : null;
           // under the name, as on the classic card: how the router knows them, then the plan and router
           const known = p.connection === 'Static IP' ? `${t('Static IP')} ${p.staticIp ?? ''}`.trim() : p.account ? `acc ${p.account}` : p.pppoeUsername ?? (p.name !== p.phone ? p.phone : null);
           const checking = !loaded && p.routerId !== null && p.connection !== 'Static IP';
@@ -299,7 +328,10 @@ export function planFacts(r: Row, currency?: string | null) {
     cap: cap && cap > 0 ? `${mbText(cap)}${fup === 'daily' ? ' a day' : ''}` : null,
     devices: num(r.max_devices),
     router: typeof router === 'string' && router ? router : null,
-    customers: num(r.active_customers) ?? num(r.customer_count) ?? num(r.customers),
+    // only a real head count (plan performance's active_customers): never a figure that may be money
+    customers: typeof r.active_customers === 'number' && Number.isInteger(r.active_customers) && r.active_customers >= 0 ? r.active_customers : null,
+    // "unlimited" only when the record says the plan has no cap, not when it does not say
+    uncapped: 'data_cap_mb' in r && !(cap && cap > 0),
     description: typeof r.description === 'string' && r.description.trim() ? r.description.trim() : null,
   };
 }
@@ -321,8 +353,8 @@ export function PlanBlock({ title, rows, currency, onAsk }: { title: string; row
     </>
   ) : null;
   const specs = (p: (typeof plans)[number]): [string, string][] => [
-    [t('Time'), p.duration], [t('Speed'), p.speed ?? ''], [t('Data'), p.cap ?? (p.type === 'hotspot' || p.type === 'pppoe' ? t('Unlimited') : '')],
-    [t('Devices'), p.devices ? String(p.devices) : ''], [t('Router'), p.router ?? ''], [t('Customers'), p.customers !== null ? n(p.customers) : ''],
+    [t('Time'), p.duration], [t('Speed'), p.speed ?? ''], [t('Data'), p.cap ?? (p.uncapped ? t('Unlimited') : '')],
+    [t('Devices'), p.devices ? String(p.devices) : ''], [t('Router'), p.router ?? ''], [t('Active customers'), p.customers !== null ? n(p.customers) : ''],
   ].filter(([, v]) => v) as [string, string][];
   const visible = expanded ? plans : plans.slice(0, PAGE);
   const hidden = plans.filter((p) => p.hidden).length;

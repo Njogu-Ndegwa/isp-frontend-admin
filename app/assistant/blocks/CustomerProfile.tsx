@@ -21,6 +21,7 @@ import { payByMpesaFor, payByMpesaMessage, whatsappShareUrl } from '../../lib/cu
 import { formatMoney } from '../../lib/format';
 import { useT, type TFunction } from '../../lib/i18n';
 import { QUEUE_STATUS_LABEL, formatMaxLimit } from '../../lib/live';
+import { periodCap } from '../../lib/useCustomerLive';
 import type {
   Customer, CustomerDevicesResponse, CustomerPaymentSummary, CustomerUsageResponse, CustomerUsageTimeline, MpesaTransaction, PayByMpesa,
   PPPoECustomerPresenceResponse,
@@ -147,30 +148,32 @@ function Connection({ presence }: { presence: PPPoECustomerPresenceResponse }) {
   );
 }
 
-function Usage({ usage }: { usage: CustomerUsageResponse }) {
+function Usage({ usage, planCap }: { usage: CustomerUsageResponse; planCap?: number | null }) {
   const t = useT();
   const period = usage.period;
   const action = (a: string | null | undefined) => (a === 'block' ? t('blocked') : a === 'throttle' ? t('slowed down') : t('flagged'));
+  // the period's cap, else the plan's (a period opened before the cap was set has none)
+  const { cap, known } = periodCap(usage, planCap);
   if (!period) {
     // a capped plan with no period yet: the cap is still worth knowing
-    if (!usage.plan_data_cap_mb) return null;
+    if (!cap) return null;
     return (
       <Part title={t('Data cap')} aside={usage.plan_fup_period === 'daily' ? t('per day') : t('per period')}>
-        <p className="ai-mono m-0 text-[20px] font-medium leading-none text-ink-1">{mbText(usage.plan_data_cap_mb)}</p>
+        <p className="ai-mono m-0 text-[20px] font-medium leading-none text-ink-1">{mbText(cap)}</p>
         <p className="m-0 mt-1.5 text-[12px] text-ink-3">{t('Counting starts at the next renewal')}{usage.plan_fup_action ? `; ${t('over it they are {what}', { what: action(usage.plan_fup_action) })}` : ''}.</p>
       </Part>
     );
   }
   const daily = usage.plan_fup_period === 'daily' && period.fup_window_used_mb != null;
   const used = daily ? period.fup_window_used_mb ?? 0 : period.total_mb;
-  const cap = period.cap_mb;
-  const pct = Math.max(0, Math.min(100, (daily ? period.fup_window_percent_used : period.percent_used) || 0));
+  const own = period.cap_mb ? (daily ? period.fup_window_percent_used : period.percent_used) : null;
+  const pct = cap ? Math.max(0, Math.min(100, own || (used / cap) * 100)) : 0;
   const tone: Tone = period.fup_active ? 'bad' : pct >= 90 ? 'warn' : 'info';
   return (
     <Part title={daily ? t("Today's usage") : t('Used this period')} aside={cap != null ? t('{pct}% of the cap', { pct: pct.toFixed(0) }) : undefined}>
       <p className="m-0 flex items-baseline justify-between gap-3">
         <span className="ai-mono text-[20px] font-medium leading-none text-ink-1">{mbText(used)}</span>
-        <span className="text-[12px] text-ink-3">{cap != null ? t('of {cap}', { cap: mbText(cap) }) : t('unlimited')}</span>
+        <span className="text-[12px] text-ink-3">{cap != null ? t('of {cap}', { cap: mbText(cap) }) : known ? t('unlimited') : t('cap not known')}</span>
       </p>
       {cap != null ? <div className="mt-2"><Meter value={used} max={cap} tone={tone} label={`${mbText(used)} / ${mbText(cap)}`} /></div> : null}
       <p className="ai-mono m-0 mt-1.5 text-[11.5px] text-ink-3">{daily ? `${t('this period')} ${mbText(period.total_mb)}` : `↓ ${mbText(period.download_mb)} · ↑ ${mbText(period.upload_mb)}`}</p>
@@ -324,8 +327,7 @@ export function CustomerProfile({ row, currency, onAsk }: { row: Row; currency?:
   const pppoeOn = extra.presence ? (extra.presence.mikrotik.state === 'online' ? true : extra.presence.mikrotik.state === 'session_unknown' ? null : false) : null;
   const online = liveFresh ? liveFresh.online : pppoeOn ?? devicesOn;
   const cur = currency || 'KES';
-  const plan = row.plan && typeof row.plan === 'object' ? (row.plan as Row) : null;
-  const cap = extra.usage?.period?.cap_mb ?? extra.usage?.plan_data_cap_mb ?? (typeof plan?.data_cap_mb === 'number' ? plan.data_cap_mb : null);
+  const cap = periodCap(extra.usage, p.planCap).cap;
   const about = `${p.name}${p.id !== null ? ` (customer ID ${p.id})` : ''}`;
   const kept = p.state === 'paused' ? p.pausedLeft : p.left !== null && p.left > 0 ? p.left : null;
   const how = p.connection === 'PPPoE' ? p.pppoeUsername : p.connection === 'Static IP' ? p.staticIp : p.mac;
@@ -376,7 +378,7 @@ export function CustomerProfile({ row, currency, onAsk }: { row: Row; currency?:
       <div className="mt-4 grid gap-2.5 @xl:grid-cols-2">
         {extra.presence && (extra.presence.mikrotik.state !== 'online' || !extra.usage?.live) ? <Connection presence={extra.presence} /> : null}
         {extra.usage ? <LiveNow usage={extra.usage} /> : null}
-        {extra.usage ? <Usage usage={extra.usage} /> : null}
+        {extra.usage ? <Usage usage={extra.usage} planCap={p.planCap} /> : null}
         {extra.devices ? <Devices devices={extra.devices} /> : null}
         {extra.week ? <Week week={extra.week} /> : null}
         {extra.payments || extra.history?.length ? <Money payments={extra.payments} history={extra.history} wallet={p.wallet} currency={cur} now={now} /> : null}

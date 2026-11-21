@@ -141,17 +141,36 @@ export interface UsageFacts {
   pct: number | null;
   over: boolean;
   daily: boolean;
+  /** false when nothing says whether the plan has a cap: then "no cap" or "unlimited" must not be said */
+  capKnown: boolean;
+}
+
+const capMb = (v: unknown): number | null | undefined => (typeof v === 'number' && Number.isFinite(v) ? (v > 0 ? v : null) : v === null ? null : undefined);
+
+/**
+ * The data cap a usage read is measured against. The period's own cap wins; a period
+ * opened before the cap was set has none, so the plan's cap (from the read, or from the
+ * customer record's plan) stands in. Uncapped only when the plan is known to have no
+ * cap; with nothing to go on the cap is unknown. Pure, for tests.
+ */
+export function periodCap(u: Pick<CustomerUsageResponse, 'plan_data_cap_mb'> & { period?: { cap_mb: number | null } | null } | null | undefined,
+  planCap?: number | null): { cap: number | null; known: boolean } {
+  const found = [capMb(u?.period?.cap_mb), capMb(u?.plan_data_cap_mb), capMb(planCap)];
+  const cap = found.find((c): c is number => typeof c === 'number') ?? null;
+  // a cap is known to be absent only when the plan itself says so
+  return { cap, known: cap !== null || capMb(u?.plan_data_cap_mb) === null || capMb(planCap) === null };
 }
 
 /** One customer's usage read (the bulk endpoint's row) in the few numbers a row needs. Pure, for tests. */
-export function usageFacts(u: CustomerUsageResponse | null | undefined): UsageFacts | null {
+export function usageFacts(u: CustomerUsageResponse | null | undefined, planCap?: number | null): UsageFacts | null {
   const period = u?.period;
   if (!period) return null;
   const daily = u?.plan_fup_period === 'daily' && period.fup_window_used_mb != null;
   const used = daily ? period.fup_window_used_mb ?? 0 : period.total_mb;
-  const cap = period.cap_mb ?? null;
-  const pct = cap ? Math.max(0, (daily ? period.fup_window_percent_used : period.percent_used) || (used / cap) * 100) : null;
-  return { used, cap, pct, over: period.fup_active || (cap !== null && used >= cap), daily };
+  const { cap, known } = periodCap(u, planCap);
+  const own = period.cap_mb ? (daily ? period.fup_window_percent_used : period.percent_used) : null;
+  const pct = cap ? Math.max(0, own || (used / cap) * 100) : null;
+  return { used, cap, pct, over: period.fup_active || (cap !== null && used >= cap), daily, capKnown: known };
 }
 
 /** Usage this period (and the router's last push report) for up to 100 customers, in one call. */

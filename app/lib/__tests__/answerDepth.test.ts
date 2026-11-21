@@ -6,14 +6,14 @@
  */
 import { describe, expect, it } from 'vitest';
 import {
-  customerCounts, customerFacts, eatClockTime, eatTime, freshness, inCustomerFilter, paymentFacts, paymentTotals, routerFacts,
+  customerCounts, customerFacts, eatClockTime, eatTime, freshness, inCustomerFilter, isLapsed, paymentFacts, paymentTotals, routerFacts,
 } from '../assistantEntities';
 import { periodWord, trendPlan, trendTakeaway, type ChartModel } from '../assistantVisual';
 import { formatValue } from '../assistantView';
 import { canOffer, PERMISSIONS } from '../permissions';
-import { routerRead } from '../useCustomerLive';
+import { periodCap, routerRead, usageFacts } from '../useCustomerLive';
 import { loginFacts, readFreshness, routerTime } from '../../assistant/blocks/LoginsBlock';
-import { planFacts } from '../../assistant/blocks/BillingBlocks';
+import { mergeRouterStates, planFacts } from '../../assistant/blocks/BillingBlocks';
 import { portFacts, portMoney } from '../../assistant/blocks/PortBlock';
 
 const NOW = Date.parse('2026-11-21T09:00:00Z'); // 12:00 EAT
@@ -86,6 +86,24 @@ describe('staleness', () => {
   });
 });
 
+describe("a customer's router, from the record or from asking it", () => {
+  const rec = (router: Record<string, unknown>) => customerFacts({ id: 1, name: 'A', phone: '07', status: 'active', expiry: '2026-11-25T00:00:00', router_id: 3, router: { id: 3, name: 'South-B', ...router } }, NOW);
+
+  it('reads the router state newer backends put on each customer', () => {
+    expect(rec({ status: 'offline', status_is_stale: false, last_online_at: '2026-11-21T06:00:00' }).routerState)
+      .toEqual({ status: 'offline', stale: false, lastOnline: new Date('2026-11-21T06:00:00Z') });
+    expect(rec({}).routerState).toBeNull();
+  });
+
+  it('prefers the record, and keeps asking the router for older responses', () => {
+    const asked = new Map([[3, { id: 3, reachable: true, lastOnline: null, stale: false, ageSeconds: 5 }]]);
+    const down = mergeRouterStates([rec({ status: 'offline', last_online_at: '2026-11-21T06:00:00' })], asked).get(3);
+    expect(down).toMatchObject({ reachable: false, lastOnline: new Date('2026-11-21T06:00:00Z'), ageSeconds: 5 });
+    expect(mergeRouterStates([rec({})], asked).get(3)).toEqual(asked.get(3));
+    expect(mergeRouterStates([rec({ status: 'online', status_is_stale: true })], new Map()).get(3)).toMatchObject({ reachable: true, stale: true });
+  });
+});
+
 describe('customer list filters, as on the classic page', () => {
   const c = (over: Record<string, unknown>) => customerFacts({ id: 1, name: 'A', phone: '07', status: 'active', expiry: '2026-11-25T00:00:00', ...over }, NOW);
   const active = c({});
@@ -103,6 +121,16 @@ describe('customer list filters, as on the classic page', () => {
     expect(inCustomerFilter(active, 'offline', false)).toBe(true);
     expect(inCustomerFilter(overdue, 'offline', false)).toBe(false);
     expect(inCustomerFilter(active, 'online', null)).toBe(false);
+  });
+
+  it('never calls a visitor, or someone who never had paid time, overdue', () => {
+    const lapsedVisitor = c({ status: 'expired', expiry: '2026-11-19T00:00:00', has_paid: false, tier: 'visitor' });
+    const neverHadTime = c({ status: 'expired', expiry: null });
+    expect(inCustomerFilter(lapsedVisitor, 'overdue', null)).toBe(false);
+    expect(inCustomerFilter(neverHadTime, 'overdue', null)).toBe(false);
+    expect(isLapsed(overdue)).toBe(true);
+    // so "Win back" (the overdue count) leaves them out
+    expect(customerCounts([overdue, lapsedVisitor, neverHadTime], () => null).filters.overdue).toBe(1);
   });
 
   it('counts paying customers and visitors', () => {
@@ -153,7 +181,46 @@ describe('port revenue', () => {
   });
 });
 
+describe('data caps', () => {
+  const period = (cap_mb: number | null) => ({ cap_mb, total_mb: 6000, download_mb: 5000, upload_mb: 1000, percent_used: 0, fup_active: false });
+  const usage = (cap: number | null | undefined, plan: number | null | undefined) =>
+    ({ period: period(cap ?? null), ...(plan !== undefined ? { plan_data_cap_mb: plan } : {}) }) as never;
+
+  it("fall back to the plan's cap when the usage read has none", () => {
+    expect(periodCap(usage(null, 10240))).toEqual({ cap: 10240, known: true });
+    expect(periodCap(usage(null, undefined), 51200)).toEqual({ cap: 51200, known: true });
+    expect(periodCap(usage(20480, 10240))).toEqual({ cap: 20480, known: true });
+    const u = usageFacts(usage(null, undefined), 5120);
+    expect(u).toMatchObject({ cap: 5120, over: true, capKnown: true });
+  });
+
+  it('are "unlimited" only when the plan says so, else unknown', () => {
+    expect(periodCap(usage(null, null))).toEqual({ cap: null, known: true });
+    expect(periodCap(usage(null, undefined))).toEqual({ cap: null, known: false });
+    expect(usageFacts(usage(null, undefined))?.capKnown).toBe(false);
+  });
+
+  it('come from the customer record’s plan when it carries one', () => {
+    expect(customerFacts({ id: 1, phone: '07', status: 'active', expiry: null, plan: { name: 'P', data_cap_mb: 51200 } }, NOW).planCap).toBe(51200);
+    expect(customerFacts({ id: 1, phone: '07', status: 'active', expiry: null, plan: { name: 'P', data_cap_mb: null } }, NOW).planCap).toBeNull();
+    expect(customerFacts({ id: 1, phone: '07', status: 'active', expiry: null, plan: { name: 'P' } }, NOW).planCap).toBeUndefined();
+  });
+});
+
 describe('plans', () => {
+  it('show a customer count only from a real count field, never a price', () => {
+    const base = { name: 'Weekly', price: 300, duration_value: 7, duration_unit: 'DAYS' };
+    expect(planFacts({ ...base, active_customers: 42 }).customers).toBe(42);
+    expect(planFacts({ ...base, customers: 300 }).customers).toBeNull();
+    expect(planFacts({ ...base, customer_count: '300' }).customers).toBeNull();
+    expect(planFacts({ ...base, active_customers: 12.5 }).customers).toBeNull();
+  });
+
+  it('say "unlimited" only for a plan recorded without a cap', () => {
+    expect(planFacts({ name: 'A', price: 1, duration_value: 1, duration_unit: 'DAYS', data_cap_mb: null }).uncapped).toBe(true);
+    expect(planFacts({ name: 'A', price: 1, duration_value: 1, duration_unit: 'DAYS' }).uncapped).toBe(false);
+  });
+
   it('carry the cap, devices and router the classic page shows', () => {
     expect(planFacts({ name: 'Home', price: 1500, duration_value: 30, duration_unit: 'DAYS', speed: '10M/10M', connection_type: 'pppoe', data_cap_mb: 51200, max_devices: 3, router: { name: 'Main' } }, 'KES'))
       .toMatchObject({ typeLabel: 'PPPoE', duration: '30 days', speed: '10 Mbps', cap: '50 GB', devices: 3, router: 'Main' });

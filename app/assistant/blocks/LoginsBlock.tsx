@@ -187,12 +187,17 @@ export const mbText = (v: number) => (v >= 1024 ? `${(v / 1024).toFixed(v >= 10_
 
 /** This period's use against the plan's cap: "12 GB of 50 GB · 24%", amber near the cap, red over it. */
 export function UsageMark({ u }: { u: UsageFacts }) {
+  const t = useT();
   const tone = u.over ? 'text-[var(--ai-text-bad)]' : u.pct !== null && u.pct >= 80 ? 'text-[var(--ai-text-warn)]' : '';
-  const when = u.daily ? 'today' : 'this period';
+  const used = mbText(u.used);
+  const title = u.cap !== null
+    ? t(u.daily ? 'Used {used} of the {cap} cap today' : 'Used {used} of the {cap} cap this period', { used, cap: mbText(u.cap) })
+    : u.capKnown ? t(u.daily ? 'Used {used} today, no cap' : 'Used {used} this period, no cap', { used })
+      : t(u.daily ? 'Used {used} today; the cap is not known' : 'Used {used} this period; the cap is not known', { used });
   return (
-    <span className={tone} title={u.cap !== null ? `Used ${mbText(u.used)} of the ${mbText(u.cap)} cap ${when}` : `Used ${mbText(u.used)} ${when}, no cap`}>
-      <span className="ai-mono">{mbText(u.used)}</span>
-      {u.cap !== null ? <>{' of '}<span className="ai-mono">{mbText(u.cap)}</span>{u.over ? ' · over cap' : u.pct !== null ? ` · ${Math.round(u.pct)}%` : ''}</> : u.daily ? ' today' : ' used'}
+    <span className={tone} title={title}>
+      <span className="ai-mono">{used}</span>
+      {u.cap !== null ? <>{` ${t('of')} `}<span className="ai-mono">{mbText(u.cap)}</span>{u.over ? ` · ${t('over cap')}` : u.pct !== null ? ` · ${Math.round(u.pct)}%` : ''}</> : u.daily ? ` ${t('today')}` : ` ${t('used')}`}
     </span>
   );
 }
