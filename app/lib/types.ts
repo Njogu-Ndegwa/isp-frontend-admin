@@ -3984,6 +3984,11 @@ export interface CpeCredentialView {
 export interface CpeResponse {
   customer_id: number;
   is_pppoe: boolean;
+  /** Static-IP customer: the device is reached on its fixed LAN address. */
+  is_static?: boolean;
+  static_ip?: string | null;
+  /** Status/restart available (PPPoE or static IP). Older backends omit it. */
+  controllable?: boolean;
   pppoe_username: string | null;
   suggested_wan_port: number;
   credential: CpeCredentialView | null;
