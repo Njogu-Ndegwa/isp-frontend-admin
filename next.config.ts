@@ -11,12 +11,14 @@ const securityHeaders = [
   { key: "X-Frame-Options", value: "DENY" },
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
-  { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
+  // geolocation for our own pages: "Use my location" when pinning a customer on the map
+  { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=(self)" },
   {
     key: "Content-Security-Policy",
     value: [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://www.google-analytics.com https://analytics.tiktok.com https://analytics-ipv6.tiktokw.us https://*.contentsquare.net https://va.vercel-scripts.com",
+      // dev only: React's dev tools need eval (never in production builds)
+      `script-src 'self' 'unsafe-inline'${process.env.NODE_ENV === "production" ? "" : " 'unsafe-eval'"} https://www.googletagmanager.com https://www.google-analytics.com https://analytics.tiktok.com https://analytics-ipv6.tiktokw.us https://*.contentsquare.net https://va.vercel-scripts.com`,
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: blob: https:",
       // Tutorial videos (e.g. the router setup walkthrough) are served from
@@ -29,7 +31,7 @@ const securityHeaders = [
       "font-src 'self' data:",
       // *.r2.cloudflarestorage.com: ad photos/videos are PUT straight to R2
       // with a presigned URL from POST /api/ads/media/upload-url.
-      `connect-src 'self' ${apiOrigin} https://*.r2.cloudflarestorage.com https://www.google.com https://www.google-analytics.com https://analytics.google.com https://*.google-analytics.com https://*.googletagmanager.com https://stats.g.doubleclick.net https://analytics.tiktok.com https://analytics-ipv6.tiktokw.us https://*.contentsquare.net https://va.vercel-scripts.com`,
+      `connect-src 'self' ${apiOrigin} https://nominatim.openstreetmap.org https://*.r2.cloudflarestorage.com https://www.google.com https://www.google-analytics.com https://analytics.google.com https://*.google-analytics.com https://*.googletagmanager.com https://stats.g.doubleclick.net https://analytics.tiktok.com https://analytics-ipv6.tiktokw.us https://*.contentsquare.net https://va.vercel-scripts.com`,
       "frame-ancestors 'none'",
     ].join("; "),
   },

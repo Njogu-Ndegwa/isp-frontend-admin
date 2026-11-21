@@ -5,6 +5,7 @@ import { formatValue, humanizeKey } from '../lib/assistantView';
 import { assistantApi, fieldApplies, fieldSpans, type ActionStatus, type FormField, type PaymentWait } from '../lib/assistant';
 import MediaUploadField from '../ads/components/MediaUploadField';
 import { PreviewFor, previewKind } from './blocks/Previews';
+import dynamic from 'next/dynamic';
 import { THEME_PALETTES } from '../lib/portalThemes';
 import { planDuration, planSpeed } from '../lib/assistantEntities';
 import { formatMoney } from '../lib/format';
@@ -157,6 +158,9 @@ const initialValues = (form: FormField[]): Values => Object.fromEntries(form.map
 
 const isEmpty = (v: Value | undefined) => v === undefined || (typeof v === 'string' && !v.trim()) || (Array.isArray(v) && !v.length);
 
+// the map loads only when a form has a place to pick (Leaflet needs the browser)
+const LocationPicker = dynamic(() => import('./LocationPicker'), { ssr: false, loading: () => <div className="h-[260px] rounded-[14px] bg-surface-2" /> });
+
 /** What a person fills in first: required fields and anything already filled; the rest waits under More options. */
 const isPrimary = (f: FormField, v: Value | undefined) =>
   f.required || f.kind === 'password' || (!f.default && (f.kind === 'boolean' ? v === true : !isEmpty(v)));
@@ -188,7 +192,7 @@ function FormFields({ form, values, setValues, missing, disabled, currency }: {
   // a field that belongs to the chosen kind (a static IP for a static plan) is the point of choosing it: always shown
   // so is a choice other fields hang on (photo or video): the person may want to switch it
   const deciders = new Set(form.flatMap((f) => Object.keys(f.when ?? {}).map((c) => c.split('.')[0])));
-  const first = (f: FormField) => primary.has(f.name) || !!f.when || deciders.has(f.name);
+  const first = (f: FormField) => primary.has(f.name) || !!f.when || deciders.has(f.name) || !!f.geo;
   const extra = live.filter((f) => !first(f));
   const visible = more || primary.size === 0 || extra.length <= 2 ? live : live.filter(first);
   const spans = fieldSpans(visible);
@@ -245,6 +249,22 @@ function FormFields({ form, values, setValues, missing, disabled, currency }: {
                   );
                 })}
               </div>
+            </div>
+          );
+        }
+        if (f.geo) {
+          // the latitude draws the map for both; the longitude has nothing of its own to draw
+          const other = form.find((g) => g.geo && g.geo !== f.geo);
+          if (f.geo === 'lng' && other) return null;
+          const latName = f.geo === 'lat' ? f.name : other?.name;
+          const lngName = f.geo === 'lng' ? f.name : other?.name;
+          const lat = Number(values[latName ?? '']);
+          const lng = Number(values[lngName ?? '']);
+          const has = latName && lngName && values[latName] !== '' && values[latName] != null && Number.isFinite(lat) && Number.isFinite(lng);
+          return (
+            <div key={f.name} className="col-span-2 min-w-0">
+              <LocationPicker label={t('Location on the map')} disabled={disabled} value={has ? { lat, lng } : null}
+                onChange={(p) => setValues((v) => ({ ...v, [latName ?? f.name]: p ? String(p.lat) : '', ...(lngName ? { [lngName]: p ? String(p.lng) : '' } : {}) }))} />
             </div>
           );
         }
