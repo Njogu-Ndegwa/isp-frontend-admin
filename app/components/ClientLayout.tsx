@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
@@ -15,6 +15,7 @@ import { isAdminAllowedPath } from '../lib/adminPaths';
 import { homePath, markStartPageDecided, rememberedHome, startPageDecided } from '../lib/assistant';
 import { isStandalone } from '../lib/standalone';
 import { useVisibleFrame } from '../lib/useVisibleFrame';
+import { BrandMark } from '../assistant/BrandMark';
 
 const CollapsibleSidebar = dynamic(() => import('./CollapsibleSidebar'), { ssr: false });
 const MobileBottomNav = dynamic(() => import('./MobileBottomNav'), { ssr: false });
@@ -92,6 +93,8 @@ function AiFrame({ children }: { children: React.ReactNode }) {
   return <div ref={frame} className="ai-root ai-frame fixed inset-x-0 top-0 flex h-dvh flex-col overflow-hidden">{children}</div>;
 }
 
+const noSubscribe = () => () => {};
+
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -147,20 +150,34 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   // Decided once per session: after that, the classic dashboard is one tap away.
   const startUserKey = isAuthenticated && !isDemo && user ? `${user.id}:${user.staff?.id ?? 0}` : null;
   const onStartPage = pathname === '/dashboard' || pathname === '/admin';
+  // Until the start page is known, the dashboard is not drawn: someone who starts on the
+  // assistant goes straight there and never sees the dashboard flash by first. Worked out
+  // while drawing (on the device, from what it last knew); the effect only navigates.
+  const onDevice = useSyncExternalStore(noSubscribe, () => true, () => false);
+  const [checked, setChecked] = useState<string | null>(null);  // checked with the server: the dashboard is home
+  const start = useMemo((): 'wait' | 'open' | 'assistant' | 'open-check' | 'ask' => {
+    if (!onStartPage) return 'open';
+    if (!onDevice || isLoading) return 'wait';
+    if (!startUserKey || needsRedirect || startPageDecided()) return 'open';
+    const known = rememberedHome(startUserKey);
+    return known === true ? 'assistant' : known === false ? 'open-check' : 'ask';
+  }, [onStartPage, onDevice, isLoading, startUserKey, needsRedirect]);
   useEffect(() => {
-    if (isLoading || !startUserKey || !onStartPage || needsRedirect) return;
-    if (startPageDecided()) return;
+    if (!startUserKey || (start !== 'assistant' && start !== 'open-check' && start !== 'ask')) return;
     markStartPageDecided();
-    if (rememberedHome(startUserKey)) {
-      router.replace(AI_HOME_PATH);
+    if (start === 'assistant') {
+      router.replace(AI_HOME_PATH);  // the screen stays on the assistant's background until it is there
       return;
     }
     let cancelled = false;
     homePath('', startUserKey).then((path) => {
-      if (!cancelled && path) router.replace(path);
+      if (cancelled) return;
+      if (path) router.replace(path);
+      else setChecked(startUserKey);
     });
     return () => { cancelled = true; };
-  }, [isLoading, startUserKey, onStartPage, needsRedirect, router]);
+  }, [start, startUserKey, router]);
+  const startOpen = start === 'open' || start === 'open-check' || (checked !== null && checked === startUserKey);
 
   if (isPublicPage && !isDemoEntry) {
     return <main className="min-h-screen">{children}</main>;
@@ -168,6 +185,15 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
 
   if (needsRedirect) {
     return null;
+  }
+
+  if (onStartPage && !startOpen) {
+    // deciding where this person starts: the assistant's own background, so going there looks like one app
+    return (
+      <div className="ai-root fixed inset-0 flex items-center justify-center" aria-busy="true">
+        <BrandMark size={44} live />
+      </div>
+    );
   }
 
   // The AI home fills the screen: no sidebar and no bottom bar, only the banners

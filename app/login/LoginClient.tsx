@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '../context/AuthContext';
 import { useAlert } from '../context/AlertContext';
 import { fullOnboardingCheck } from '../hooks/useOnboardingStatus';
-import { homePath, markStartPageDecided, onboardingPath } from '../lib/assistant';
+import { homePath, markStartPageDecided, onboardingPath, rememberedHome } from '../lib/assistant';
 import { wantsAssistant } from '../lib/standalone';
 import Link from 'next/link';
 import { useT } from '../lib/i18n';
@@ -77,7 +77,10 @@ export default function LoginPage() {
     if (isDemo) {
       logout();
     } else {
-      router.push(wantsAssistant(window.location.search) ? '/assistant' : '/dashboard');
+      // already signed in: straight to their start page (the assistant when this device knows it is)
+      const me = readStoredUser();
+      const startsOnAssistant = me ? rememberedHome(`${me.id}:${me.staff?.id ?? 0}`) === true : false;
+      router.push(wantsAssistant(window.location.search) || startsOnAssistant ? '/assistant' : '/dashboard');
     }
   }, [isAuthenticated, isDemo, logout, router]);
 
