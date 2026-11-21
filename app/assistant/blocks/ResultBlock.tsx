@@ -13,6 +13,7 @@ import { ChartIcon, DownloadIcon, TableIcon } from '../icons';
 import { CountUp, Dial, Panel } from '../ui';
 import { CodeBox } from '../Markdown';
 import { CustomerBlock, PaymentBlock, PlanBlock, RouterBlock, VoucherBlock } from './BillingBlocks';
+import { PortBlock } from './PortBlock';
 import { DataTable } from './DataTable';
 
 function downloadCsv(name: string, csv: string) {
@@ -297,6 +298,8 @@ export default function ResultBlock({ title: rawTitle, payload, show = 'auto', f
         return <PaymentBlock title={title} rows={entity.rows} total={entity.total} currency={currency} onAsk={onAsk} />;
       case 'voucher':
         return <VoucherBlock title={title} rows={entity.rows} currency={currency} />;
+      case 'port':
+        return <PortBlock title={title} rows={entity.rows} currency={currency} onAsk={onAsk} />;
     }
   }
   switch (visual.kind) {

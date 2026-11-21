@@ -139,7 +139,11 @@ export function DataTable({ columns, rows, total, currency, onPick }: {
   const visible = expanded ? sorted : sorted.slice(0, PAGE);
   const name = columns[0];
   const toggle = (key: string) => setSort((cur) => (cur?.key !== key ? { key, dir: 'desc' } : cur.dir === 'desc' ? { key, dir: 'asc' } : null));
-  const foldedLine = (row: Row) => layout.folded.map((i) => columns[i]).filter((c) => !isBlank(row[c.key])).map((c) => shown(row, c)).join(' · ');
+  // under a name there is no column header, so a yes/no reads as its label when yes ("Link up") and is left out when no
+  const yes = (v: unknown) => v === true || (typeof v === 'string' && /^(true|yes)$/i.test(v.trim()));
+  const foldedLine = (row: Row) => layout.folded.map((i) => columns[i])
+    .filter((c) => !isBlank(row[c.key]) && (c.kind !== 'bool' || yes(row[c.key])))
+    .map((c) => (c.kind === 'bool' ? c.label : shown(row, c))).join(' · ');
 
   const sortControl = layout.kind !== 'table' && rows.length > 1 ? (
     <div className="mb-2 flex flex-wrap items-center justify-end gap-2 text-[12.5px] text-ink-3">
