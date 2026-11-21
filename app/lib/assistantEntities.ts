@@ -35,6 +35,16 @@ export function entityOf(payload: unknown): EntityResult | null {
       return { entity, rows, single, total };
     }
   }
+  // an answer can hold several lists (port analytics: warnings, equipment found, the ports):
+  // the one that is a known kind of record is the answer, whichever is longest
+  if (isObject(payload)) {
+    for (const value of Object.values(payload)) {
+      if (!Array.isArray(value) || value === found?.rows || !value.length || !value.every(isObject)) continue;
+      for (const [entity, test] of SHAPES) {
+        if ((value as Row[]).slice(0, 5).every(test)) return { entity, rows: value as Row[], single: false };
+      }
+    }
+  }
   return null;
 }
 
