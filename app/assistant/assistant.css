@@ -724,3 +724,21 @@
     min-width: 40px;
   }
 }
+
+/* ============================================================
+   Laptop and desktop scale
+   At 100% browser zoom the AI screen drew as large as a phone's,
+   so a laptop showed little at once. On screens 1024px wide and
+   up the whole frame draws at 80%, as the browser would at 80%
+   zoom: every component, chart and form together, with nothing
+   re-laid out by hand. The frame's height is divided by the same
+   factor so it still fills the screen; useVisibleFrame does the
+   same for the height it sets. Phones and tablets are unchanged.
+   ============================================================ */
+@media (min-width: 1024px) {
+  .ai-frame {
+    --ai-zoom: 0.8;
+    zoom: var(--ai-zoom);
+    height: calc(100dvh / var(--ai-zoom));
+  }
+}

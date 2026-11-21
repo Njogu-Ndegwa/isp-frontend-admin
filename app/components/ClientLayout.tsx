@@ -89,7 +89,7 @@ function DemoBanner() {
 function AiFrame({ children }: { children: React.ReactNode }) {
   const frame = useRef<HTMLDivElement>(null);
   useVisibleFrame(frame);
-  return <div ref={frame} className="ai-root fixed inset-x-0 top-0 flex h-dvh flex-col overflow-hidden">{children}</div>;
+  return <div ref={frame} className="ai-root ai-frame fixed inset-x-0 top-0 flex h-dvh flex-col overflow-hidden">{children}</div>;
 }
 
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
