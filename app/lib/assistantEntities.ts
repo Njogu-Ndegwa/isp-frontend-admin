@@ -6,7 +6,7 @@
  */
 import { findRows, type Row } from './assistantView';
 
-export type Entity = 'customer' | 'router' | 'plan' | 'payment' | 'voucher';
+export type Entity = 'customer' | 'router' | 'plan' | 'payment' | 'voucher' | 'port';
 export interface EntityResult { entity: Entity; rows: Row[]; single: boolean; total?: number }
 
 const isObject = (v: unknown): v is Row => !!v && typeof v === 'object' && !Array.isArray(v);
@@ -14,6 +14,8 @@ const has = (r: Row, ...keys: string[]) => keys.every((k) => k in r);
 
 const SHAPES: [Entity, (r: Row) => boolean][] = [
   ['voucher', (r) => has(r, 'code') && ('voucher_type' in r || 'batch_id' in r)],
+  // a router port as port-analytics reads it: its link and its health
+  ['port', (r) => has(r, 'port') && isObject(r.link) && isObject(r.health)],
   ['customer', (r) => has(r, 'phone', 'status') && ('expiry' in r || 'effective_expiry' in r)],
   ['router', (r) => has(r, 'identity', 'ip_address')],
   ['plan', (r) => has(r, 'price', 'duration_unit', 'duration_value')],
