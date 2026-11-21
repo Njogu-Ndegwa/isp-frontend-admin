@@ -21,10 +21,10 @@ export function useVisibleFrame(ref: RefObject<HTMLElement | null>, enabled = tr
     const apply = () => {
       cancelAnimationFrame(frame);
       frame = requestAnimationFrame(() => {
+        // follow the visible area; never scroll the page ourselves: on iPhones a scroll while a
+        // field is being focused drops the focus, so the keyboard never opens on the composer
         el.style.height = `${Math.round(vv.height)}px`;
         el.style.transform = vv.offsetTop > 0 ? `translateY(${Math.round(vv.offsetTop)}px)` : '';
-        // the page itself never scrolls: only the conversation inside does
-        if (window.scrollY !== 0) window.scrollTo(0, 0);
       });
     };
     apply();
