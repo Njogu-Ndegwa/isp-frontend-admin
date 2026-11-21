@@ -10,8 +10,8 @@
  * empty chart (an uptime answer once came back as a flat "downtime seconds" line).
  */
 import { describe, expect, it } from 'vitest';
-import { entityOf } from '../assistantEntities';
-import { varies, visualFor, type Visual } from '../assistantVisual';
+import { customerCounts, customerFacts, entityOf, paymentFacts, paymentTotals, routerFacts } from '../assistantEntities';
+import { trendPlan, varies, visualFor, type Visual } from '../assistantVisual';
 import {
   demoAccessPoints, demoAdAnalytics, demoBandwidthHistory, demoCustomers, demoDashboardAnalytics, demoDashboardOverview,
   demoHotspotLogs, demoPlanPerformance, demoPlans, demoPortAnalytics, demoPortStatus, demoPPPoEActiveSessions, demoPPPoELogs,
@@ -91,6 +91,50 @@ describe('records with a component of their own are recognised', () => {
       expect(entityOf(payload)?.entity).toBe(entity);
     });
   }
+});
+
+describe('records are read with the classic pages’ depth', () => {
+  it('a page of payments: expired prompts are not failures, free ones are not revenue', () => {
+    const rows = entityOf({ transactions: demoTransactions })?.rows ?? [];
+    const facts = rows.map(paymentFacts);
+    const sum = paymentTotals(facts);
+    expect(sum.expired).toBe(demoTransactions.filter((t) => t.status === 'expired').length);
+    expect(sum.failed).toBe(demoTransactions.filter((t) => t.status === 'failed').length);
+    const revenue = demoTransactions.filter((t) => t.status === 'completed' && t.counts_as_revenue !== false).reduce((a, t) => a + t.amount, 0);
+    expect(sum.received).toBe(revenue);
+    // a voucher redemption among them changes the count, never the money
+    const withFree = paymentTotals([...facts, paymentFacts({ amount: 50, phone_number: '07', status: 'completed', counts_as_revenue: false, source: 'voucher' })]);
+    expect(withFree.received).toBe(revenue);
+    expect(withFree.freeCount).toBe(sum.freeCount + 1);
+  });
+
+  it('a list of customers carries what the classic filters need', () => {
+    const rows = entityOf({ customers: demoCustomers })?.rows ?? [];
+    const now = Date.now();
+    const people = rows.map((row) => customerFacts(row, now));
+    const counts = customerCounts(people, () => null);
+    expect(counts.filters.all).toBe(demoCustomers.length);
+    expect(counts.connections.PPPoE + counts.connections.Hotspot + counts.connections['Static IP']).toBe(demoCustomers.length);
+    expect(counts.filters.overdue).toBeGreaterThan(0);
+  });
+
+  it('routers: every status says whether it is live or last known', () => {
+    for (const row of entityOf(demoRouters)?.rows ?? []) expect(typeof routerFacts(row).stale).toBe('boolean');
+  });
+
+  it('bandwidth history: a total is drawn as the parts it adds up to', () => {
+    const v = visualFor(demoBandwidthHistory, 'trend');
+    expect(v.kind).toBe('trend');
+    if (v.kind !== 'trend') return;
+    for (const [total, parts] of [['trackedTotalMB', ['trackedUploadMB', 'trackedDownloadMB']], ['hotspotTotalMB', ['hotspotUploadMB', 'hotspotDownloadMB']]] as const) {
+      const series = v.chart.columns.filter((c) => c.key === total);
+      const plan = trendPlan({ ...v.chart, series });
+      expect(plan.stacked, total).toBe(true);
+      expect(plan.bars.map((b) => b.key).sort()).toEqual([...parts].sort());
+    }
+    // a speed is not a volume: never stacked
+    expect(trendPlan({ ...v.chart, series: v.chart.columns.filter((c) => c.key === 'totalDownloadMbps') }).stacked).toBe(false);
+  });
 });
 
 describe('an uptime answer', () => {

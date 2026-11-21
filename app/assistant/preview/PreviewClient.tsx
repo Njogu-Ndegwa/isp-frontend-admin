@@ -10,8 +10,14 @@ import Transcript from '../Transcript';
 import RatingAsk from '../RatingAsk';
 import { Led } from '../ui';
 import { BrandMark } from '../BrandMark';
+import { AnswerAccess } from '../blocks/access';
+import type { AuthUser } from '../../lib/types';
 
 /* Made-up figures only: nothing here is a real reseller, customer or router. */
+
+/** The account owner, who is offered every next step; and a staff member who may only view customers. */
+const OWNER: Pick<AuthUser, 'role' | 'staff'> = { role: 'reseller', staff: null };
+const VIEWER: Pick<AuthUser, 'role' | 'staff'> = { role: 'reseller', staff: { id: 9, name: 'Jo', email: 'jo@example.com', permissions: ['customers.view'] } };
 
 const iso = (msFromNow: number) => new Date(Date.now() + msFromNow).toISOString().replace('Z', '');
 const H = 3_600_000;
@@ -86,7 +92,9 @@ function transcript(): TranscriptItem[] {
     { type: 'data', call_id: 'd4', title: 'Payments by method', method: 'GET', path: '/api/x', show: 'share', payload: { methods: [{ method: 'M-Pesa till', amount: 38100 }, { method: 'Paybill', amount: 9200 }, { method: 'Voucher', amount: 2570 }] } },
     { type: 'data', call_id: 'd5', title: 'Your routers', method: 'GET', path: '/api/x', show: 'auto', payload: [
       { id: 14, name: 'Kahawa West AP', identity: 'KW-AP', ip_address: '10.0.0.14', status: 'offline', last_online_at: iso(-3 * H), availability_checks: 1000, availability_successes: 861 },
-      { id: 11, name: 'Main Tower', identity: 'MAIN-TOWER', ip_address: '10.0.0.11', status: 'online', availability_checks: 1000, availability_successes: 998 },
+      { id: 11, name: 'Main Tower', identity: 'MAIN-TOWER', ip_address: '10.0.0.11', status: 'online', availability_checks: 1000, availability_successes: 998, status_last_checked_at: iso(-2 * 60_000) },
+      // its status is three hours old: said as last known, not as a live green light
+      { id: 15, name: 'Ruaka Rooftop', identity: 'RUAKA', ip_address: '10.0.0.15', status: 'online', status_is_stale: true, status_last_checked_at: iso(-3 * H), availability_checks: 1000, availability_successes: 990 },
     ] },
     { type: 'data', call_id: 'up1', title: 'Uptime of Main Tower', method: 'GET', path: '/api/routers/1/uptime', show: 'trend', payload: demoRouterUptime(1, 168) },
     { type: 'data', call_id: 'p1', title: 'What is on each port of Main Tower', method: 'GET', path: '/api/x', show: 'auto', payload: {
@@ -110,18 +118,41 @@ function transcript(): TranscriptItem[] {
       { username: 'shop12', service: 'pppoe', profile: '5M', disabled: true, comment: 'CID:12|Wanjiru Shop|2026-08-01', online: false, address: null, uptime: null, caller_id: null, upload_bytes: 0, download_bytes: 0, upload_rate: '0', download_rate: '0', max_limit: '5M/5M', session_count: 0, sessions: [], last_logged_out: 'nov/02/2026 10:00:00', last_disconnect_reason: 'admin-reset', last_caller_id: '', customer: { id: 12, name: 'Wanjiru Shop', phone: '0712 000 012', status: 'expired', plan: 'Monthly PPPoE 5M', expiry: iso(-19 * D) } },
       { username: 'test1', service: 'pppoe', profile: 'default', disabled: false, comment: '', online: true, address: '10.20.0.99', uptime: '00:12:44', caller_id: 'AA:00', upload_bytes: 2e6, download_bytes: 9e6, upload_rate: '2000', download_rate: '6000', max_limit: '', session_count: 2, sessions: [{}, {}], last_logged_out: '', last_disconnect_reason: '', last_caller_id: '', customer: null },
     ], summary: { total: 4, online: 2, offline: 1, disabled: 1 } } },
-    { type: 'data', call_id: 'u2', title: 'Hotspot devices on Main Tower', method: 'GET', path: '/api/x', show: 'auto', payload: { success: true, router_reachable: true, users: [
+    { type: 'data', call_id: 'u2', title: 'Hotspot devices on Main Tower', method: 'GET', path: '/api/x', show: 'auto', payload: { success: true, router_reachable: true, cached: true, cache_age_seconds: 1500, users: [
       { username: '3C:22:FB:10:00:01', mac_address: '3C:22:FB:10:00:01', profile: 'day', disabled: false, comment: '', online: true, online_source: 'active', address: '10.5.50.21', uptime: '5h12m3s', idle_time: '2s', login_by: 'mac-cookie', upload_bytes: 4.1e8, download_bytes: 3.2e9, upload_rate: '310000', download_rate: '4200000', max_limit: '5M/5M', binding_type: '', bypassed: false, authorized: true, has_queue: true, customer: { id: 1, name: 'Grace Wanjiku', phone: '0712 000 001', status: 'active', plan: '1 day · 50', expiry: iso(2 * H) } },
       { username: 'K7Q2M9', mac_address: '9A:11:2B:00:10:77', profile: 'day', disabled: false, comment: '', online: true, online_source: 'active', address: '10.5.50.40', uptime: '1h2m', idle_time: '14m', login_by: 'http-chap', upload_bytes: 2e6, download_bytes: 4e7, upload_rate: '0', download_rate: '400', max_limit: '5M/5M', binding_type: '', bypassed: false, authorized: true, has_queue: true, customer: null },
       { username: '', mac_address: 'F0:99:AA:01:02:03', profile: '', disabled: false, comment: 'office printer', online: true, online_source: 'host', address: '10.5.50.250', uptime: '9d2h', idle_time: '', login_by: '', upload_bytes: 1e6, download_bytes: 5e8, upload_rate: '9000', download_rate: '2100000', max_limit: '', binding_type: 'bypassed', bypassed: true, authorized: false, has_queue: false, customer: null },
       { username: '3C:22:FB:10:00:05', mac_address: '3C:22:FB:10:00:05', profile: 'week', disabled: false, comment: '', online: false, online_source: null, address: null, uptime: null, idle_time: null, login_by: '', upload_bytes: 0, download_bytes: 0, upload_rate: '0', download_rate: '0', max_limit: '', binding_type: '', bypassed: false, authorized: false, has_queue: false, customer: { id: 5, name: 'Kevin Mutua', phone: '0712 000 005', status: 'expired', plan: 'Weekly 300', expiry: iso(-2 * D) } },
     ], summary: { total: 4 } } },
     { type: 'data', call_id: 'd7', title: 'Grace Wanjiku', method: 'GET', path: '/api/x', show: 'auto', payload: customers[0] },
+    // a PPPoE customer: the profile adds why they are offline, payments, Pay by M-Pesa and the week's use
+    { type: 'data', call_id: 'd7b', title: 'Mercy Njeri', method: 'GET', path: '/api/x', show: 'auto', payload: {
+      ...customers[3], id: 6, pay_by_mpesa: { paybill: '4159825', account_number: 'BW1006', amount: 1500, unavailable_reason: null }, payment_paybill: '4159825', has_paid: true, tier: 'customer' } },
+    // the customers of a router that is down (South-B Relay in the demo data): a banner, not "offline"
+    { type: 'data', call_id: 'd6b', title: 'Customers on South-B Relay', method: 'GET', path: '/api/x', show: 'auto', payload: { customers: [
+      { id: 21, name: 'Achieng Odhiambo', phone: '0712 000 021', status: 'active', expiry: iso(3 * D), plan: { name: 'Weekly 300' }, router: { id: 3, name: 'South-B Relay' }, router_id: 3, mac_address: '3C:22:FB:10:00:21', has_paid: true, tier: 'customer' },
+      { id: 22, name: 'Otieno Shop', phone: '0712 000 022', status: 'active', expiry: iso(12 * D), plan: { name: 'PPPoE Home', connection_type: 'pppoe' }, router: { id: 3, name: 'South-B Relay' }, router_id: 3, pppoe_username: 'otieno.shop', account_number: 'BW1022', has_paid: true, tier: 'customer' },
+      { id: 23, name: 'Wanjiru K.', phone: '0712 000 023', status: 'expired', expiry: iso(-1 * D), plan: { name: 'Daily 50' }, router: { id: 3, name: 'South-B Relay' }, router_id: 3, mac_address: '3C:22:FB:10:00:23', has_paid: true, tier: 'customer' },
+      { id: 24, name: '0712 000 024', phone: '0712 000 024', status: 'inactive', expiry: null, plan: null, router: { id: 3, name: 'South-B Relay' }, router_id: 3, mac_address: '3C:22:FB:10:00:24', has_paid: false, tier: 'visitor' },
+      { id: 25, name: '0712 000 025', phone: '0712 000 025', status: 'inactive', expiry: null, plan: null, router: { id: 3, name: 'South-B Relay' }, router_id: 3, mac_address: '3C:22:FB:10:00:25', has_paid: false, tier: 'visitor' },
+    ], total: 5 } },
     { type: 'data', call_id: 'd8', title: 'Payments today', method: 'GET', path: '/api/x', show: 'auto', payload: { transactions: [
-      { id: 1, amount: 300, phone_number: '0712 000 002', customer_name: 'Brian Otieno', plan_name: 'Weekly 300', status: 'completed', mpesa_receipt_number: 'SKD1X2Y3Z4', transaction_date: iso(-1 * H) },
+      { id: 1, amount: 300, phone_number: '0712 000 002', customer_name: 'Brian Otieno', plan_name: 'Weekly 300', status: 'completed', mpesa_receipt_number: 'SKD1X2Y3Z4', transaction_date: iso(-1 * H), source: 'mpesa_stk' },
       { id: 2, amount: 50, phone_number: '0712 000 009', status: 'failed', result_desc: 'The customer cancelled the request', transaction_date: iso(-2 * H) },
-      { id: 3, amount: 1500, phone_number: '0712 000 006', customer_name: 'Mercy Njeri', plan_name: 'Monthly PPPoE 10M', status: 'completed', mpesa_receipt_number: 'SKD9A8B7C6', transaction_date: iso(-5 * H) },
+      { id: 4, amount: 50, phone_number: '0712 000 011', customer_name: 'Faith Achieng', plan_name: '1 day · 50', status: 'completed', counts_as_revenue: false, source: 'voucher', transaction_date: iso(-3 * H) },
+      { id: 5, amount: 300, phone_number: '0712 000 012', status: 'expired', transaction_date: iso(-4 * H) },
+      { id: 3, amount: 1500, phone_number: '0712 000 006', customer_name: 'Mercy Njeri', plan_name: 'Monthly PPPoE 10M', status: 'completed', mpesa_receipt_number: 'SKD9A8B7C6', transaction_date: iso(-5 * H), source: 'c2b_paybill' },
     ], total: 71 } },
+    // a total that is made of parts: stacked, with the takeaway said under the title
+    { type: 'data', call_id: 't1', title: 'Data used per day', method: 'GET', path: '/api/x', show: 'trend', payload: { days: Array.from({ length: 14 }, (_, i) => {
+      const down = Math.round(38_000 + Math.sin(i / 2) * 9_000 + i * 900);
+      const up = Math.round(down * 0.18);
+      return { date: new Date(Date.now() - (13 - i) * D).toISOString().slice(0, 10), total_mb: down + up, download_mb: down, upload_mb: up };
+    }) } },
+    // the same measure for the period before: drawn as a dashed line to compare against
+    { type: 'data', call_id: 't2', title: 'Revenue this week against last week', method: 'GET', path: '/api/x', show: 'trend', payload: { days: Array.from({ length: 7 }, (_, i) => ({
+      date: new Date(Date.now() - (6 - i) * D).toISOString().slice(0, 10), revenue: [5200, 6100, 4800, 7300, 6900, 8100, 3100][i], previous_revenue: [4800, 5300, 5100, 6000, 6200, 7000, 6600][i],
+    })) } },
     { type: 'data', call_id: 'd9', title: 'Plans', method: 'GET', path: '/api/x', show: 'auto', payload: [
       { id: 1, name: 'Weekly 300', price: 300, duration_value: 7, duration_unit: 'days', speed: '5M/5M', connection_type: 'hotspot', badge_text: 'Popular' },
       { id: 2, name: 'Monthly PPPoE 10M', price: 1500, duration_value: 30, duration_unit: 'days', speed: '10M/10M', connection_type: 'pppoe' },
@@ -220,6 +251,10 @@ function Preview() {
   });
   const [b] = useState(briefing);
   const [items] = useState(transcript);
+  const [staffItems] = useState<TranscriptItem[]>(() => [
+    { type: 'user', text: 'Show me the customers on Main Tower and our plans' },
+    ...items.filter((it) => it.type === 'data' && ['d6', 'd7', 'd9', 'd5'].includes(it.call_id)),
+  ]);
   useEffect(() => {
     document.documentElement.classList.toggle('dark', theme === 'dark');
     document.documentElement.style.colorScheme = theme;
@@ -259,7 +294,14 @@ function Preview() {
           <Home userKey="preview" name={null} organization="Sample Networks" admin={false} readOnly={false} enabled onAsk={() => setView('chat')} preview={{ briefing: b }} />
         ) : (
           <div className="mx-auto flex w-full max-w-[880px] flex-col px-4 sm:px-6">
-            <Transcript items={items} currency="KES" onAsk={noop} onDecide={noop} />
+            <AnswerAccess user={OWNER}>
+              <Transcript items={items} currency="KES" onAsk={noop} onDecide={noop} />
+            </AnswerAccess>
+            {/* the same answers for a staff member who may only view customers: no chip they could not use */}
+            <p className="ai-eyebrow mt-10" id="view-only">As a staff member who may only view customers</p>
+            <AnswerAccess user={VIEWER}>
+              <Transcript items={staffItems} currency="KES" onAsk={noop} onDecide={noop} />
+            </AnswerAccess>
             <RatingAsk mode="ask" onClose={noop} />
             <RatingAsk mode="open" onClose={noop} />
           </div>

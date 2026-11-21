@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { api } from '../../lib/api';
+import { eatTime } from '../../lib/assistantEntities';
 import type { Tone } from '../../lib/assistantVisual';
 import { useT } from '../../lib/i18n';
 import type { RouterUptimeResponse } from '../../lib/types';
@@ -40,6 +41,12 @@ export interface Device {
   /** share of checks that reached it */
   reach?: number | null;
   emergency?: boolean;
+  /** the status is a last-known one: not checked for a while */
+  stale?: boolean;
+  /** how long ago the status was checked, already worded ("2 h") */
+  checkedAgo?: string | null;
+  checkedAt?: Date | null;
+  lastOnline?: Date | null;
 }
 
 const UPTIME_HOURS = 168;
@@ -68,7 +75,9 @@ export function DeviceCard({ d, actions, onOpen, onPeople, onCustomers }: {
   const t = useT();
   const [box, seen] = useInView<HTMLLIElement>({ threshold: 0.12, rootMargin: '0px 0px -4% 0px' });
   const down = d.state === 'offline';
-  const tone: Tone = down ? 'bad' : d.state === 'online' ? 'good' : 'muted';
+  // an old status is said as old: never a live green light for a router nobody checked lately
+  const stale = !!d.stale;
+  const tone: Tone = stale ? 'warn' : down ? 'bad' : d.state === 'online' ? 'good' : 'muted';
   const gauges = typeof d.cpu === 'number' || typeof d.memory === 'number';
   const online = (d.hotspot ?? 0) + (d.pppoe ?? 0);
   const hasOnline = typeof d.hotspot === 'number' || typeof d.pppoe === 'number';
@@ -84,10 +93,17 @@ export function DeviceCard({ d, actions, onOpen, onPeople, onCustomers }: {
     <li ref={box} className={`@container ai-card ai-reveal relative flex min-w-0 list-none flex-col overflow-hidden ${seen ? 'is-in' : ''} ${down ? '!border-bad/35' : ''}`}>
       {down ? <span aria-hidden className="absolute inset-x-0 top-0 h-[2px]" style={{ background: `linear-gradient(90deg, ${toneColor('bad')}, transparent 85%)` }} /> : null}
       <div className="flex items-start gap-3 px-4 pt-4">
-        <span className="mt-[7px]"><Led tone={down ? 'bad' : d.state === 'online' ? 'live' : 'muted'} blink={down} /></span>
+        <span className="mt-[7px]"><Led tone={stale ? 'muted' : down ? 'bad' : d.state === 'online' ? 'live' : 'muted'} blink={down && !stale} /></span>
         {onOpen ? <button type="button" onClick={onOpen} className="group flex min-w-0 flex-1 text-left">{name}</button> : name}
-        <Pill tone={tone}>{down ? (d.downFor ? `${t('Down')} ${d.downFor}` : t('Offline')) : d.state === 'online' ? t('Online') : t('Not checked')}</Pill>
+        <Pill tone={tone}>{stale ? (d.checkedAgo ? t('Checked {ago} ago', { ago: d.checkedAgo }) : t('Not checked lately'))
+          : down ? (d.downFor ? `${t('Down')} ${d.downFor}` : t('Offline')) : d.state === 'online' ? t('Online') : t('Not checked')}</Pill>
       </div>
+      {stale ? (
+        <p className="mx-4 mt-2.5 rounded-[9px] border border-warn/30 bg-warn/10 px-2.5 py-1.5 text-[12px] leading-snug text-ink-2">
+          {t('Last known: {state}', { state: down ? t('offline') : t('online') })}{d.checkedAt ? ` · ${t('checked {time} EAT', { time: eatTime(d.checkedAt) })}` : ''}
+          {down && d.lastOnline ? ` · ${t('last online {time}', { time: eatTime(d.lastOnline) })}` : ''}. {t('Not live: ask to check it now.')}
+        </p>
+      ) : null}
 
       {down ? (
         <div className="px-4 pb-1 pt-3">

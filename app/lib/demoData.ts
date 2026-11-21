@@ -2940,7 +2940,11 @@ export function demoPPPoEMonitor(routerId: number): PPPoEMonitorResponse {
       total_upload_rate_bps: users.reduce((t, u) => t + parseInt(u.upload_rate, 10), 0),
       total_download_rate_bps: users.reduce((t, u) => t + parseInt(u.download_rate, 10), 0),
     },
-    users,
+    // a router that is down does not answer: every user is forced offline, as the backend does
+    ...(router.status === 'offline'
+      ? { router_reachable: false, router_last_online_at: router.last_online_at ?? null, fallback_reason: 'router_recently_offline' }
+      : { router_reachable: true }),
+    users: router.status === 'offline' ? users.map((u) => ({ ...u, online: false })) : users,
   };
 }
 
@@ -3078,7 +3082,11 @@ export function demoHotspotMonitor(routerId: number): HotspotMonitorResponse {
       disabled: users.filter(u => u.disabled).length,
       total_upload_rate_bps: 2_800_000, total_download_rate_bps: 19_000_000,
     },
-    users,
+    // a router that is down does not answer: every user is forced offline, as the backend does
+    ...(router.status === 'offline'
+      ? { router_reachable: false, router_last_online_at: router.last_online_at ?? null, fallback_reason: 'router_recently_offline' }
+      : { router_reachable: true }),
+    users: router.status === 'offline' ? users.map((u) => ({ ...u, online: false })) : users,
   };
 }
 

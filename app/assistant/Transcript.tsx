@@ -6,6 +6,7 @@ import { cardTitle } from '../lib/assistantVisual';
 import { useT } from '../lib/i18n';
 import ActionCard, { type ActionCardData } from './ActionCard';
 import ResultBlock, { visualNoun } from './blocks/ResultBlock';
+import { AnswerAccess } from './blocks/access';
 import { AlertIcon, ArrowRightIcon, BitwaveMark, ChartIcon, CheckIcon, SpinnerIcon, TableIcon } from './icons';
 import Markdown from './Markdown';
 import { Signal } from './ui';
@@ -231,7 +232,7 @@ export default function Transcript({ items, records = {}, busy = false, readOnly
   const cards = actionCards(items, records);
   const exchanges = groupExchanges(items);
   return (
-    <>
+    <AnswerAccess readOnly={readOnly}>
       {exchanges.map((ex, e) => {
         const last = e === exchanges.length - 1;
         const lastPart = ex.parts[ex.parts.length - 1];
@@ -318,6 +319,6 @@ export default function Transcript({ items, records = {}, busy = false, readOnly
           </div>
         );
       })}
-    </>
+    </AnswerAccess>
   );
 }

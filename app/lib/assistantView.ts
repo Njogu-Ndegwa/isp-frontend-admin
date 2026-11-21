@@ -91,7 +91,7 @@ function labelOf(v: Row): string | null {
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:?\d{2})?)?$/;
 
-/** A cell or field as display text. Naive API datetimes are UTC. */
+/** A cell or field as display text. Naive API datetimes are UTC, and are shown in EAT. */
 export function formatValue(v: unknown, locale?: string): string {
   if (v === null || v === undefined || v === '') return '–';
   if (typeof v === 'boolean') return v ? 'Yes' : 'No';
@@ -103,8 +103,8 @@ export function formatValue(v: unknown, locale?: string): string {
       const d = new Date(iso);
       if (!Number.isNaN(d.getTime())) {
         return hasTime
-          ? d.toLocaleString(locale, { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
-          : d.toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' });
+          ? d.toLocaleString(locale, { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Nairobi' })
+          : d.toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
       }
     }
     return v;
@@ -118,7 +118,9 @@ export function formatValue(v: unknown, locale?: string): string {
 }
 
 export function humanizeKey(key: string): string {
-  const spaced = key.replace(/_/g, ' ').replace(/([a-z])([A-Z])/g, '$1 $2').trim();
+  const spaced = key.replace(/_/g, ' ').replace(/([a-z])([A-Z])/g, '$1 $2').trim()
+    // units read as units: "total mb" -> "total MB", "rate mbps" -> "rate Mbps"
+    .replace(/\b(kb|mb|gb|tb)\b/gi, (u) => u.toUpperCase()).replace(/\b([kmg])bps\b/gi, (_, p: string) => `${p.toUpperCase()}bps`);
   return spaced.charAt(0).toUpperCase() + spaced.slice(1);
 }
 

@@ -8,6 +8,8 @@ import { EmptyChart, FloatingTip, niceTicks, useWidth, type Tip } from './shared
 
 export type ColumnSeries = { key: string; label: string; color: string };
 export type ColumnPoint = { label: string; title: string; values: number[]; partial?: boolean };
+/** A line over the columns: the previous period, or a total that the columns do not stack to. */
+export type ColumnLine = { key: string; label: string; color: string; values: (number | null)[]; dashed?: boolean };
 
 /** A column with a 4px rounded data end and a square foot on the baseline. */
 function columnPath(x: number, y: number, w: number, h: number): string {
@@ -20,9 +22,11 @@ function columnPath(x: number, y: number, w: number, h: number): string {
  * Vertical columns over time, one series or a few side by side. Marks stay thin
  * (never wider than 24px), the grid is a quiet hairline, x labels are thinned so
  * neighbours never collide, and values are printed on the columns only while
- * there is room. A period that is still filling in is drawn as an outline.
+ * there is room. A period that is still filling in is drawn as an outline. Parts of
+ * one whole (download and upload, M-Pesa and paybill) stack into one column whose top
+ * is the total; a line over the columns compares them with another period.
  */
-export function ColumnChart({ points, series, format, height: tall = 240, onPick }: {
+export function ColumnChart({ points, series, format, height: tall = 240, onPick, stacked = false, lines = [], pickHint, valueLabels = true }: {
   points: ColumnPoint[];
   series: ColumnSeries[];
   /** a value as shown in the tooltip */
@@ -30,6 +34,13 @@ export function ColumnChart({ points, series, format, height: tall = 240, onPick
   height?: number;
   /** makes a period a question: a tap selects it and offers "More on <period>" */
   onPick?: (index: number) => void;
+  /** the series are parts of one whole: one column per period, the parts on top of each other */
+  stacked?: boolean;
+  lines?: ColumnLine[];
+  /** print each column's figure on it, while there is room */
+  valueLabels?: boolean;
+  /** the words under the chart that say a tap is a question */
+  pickHint?: string;
 }) {
   const [ref, width] = useWidth<HTMLDivElement>();
   const [active, setActive] = useState<number | null>(null);
@@ -40,7 +51,9 @@ export function ColumnChart({ points, series, format, height: tall = 240, onPick
   const [box, seen] = useInView<HTMLDivElement>({ threshold: 0.4 });
   if (points.length === 0 || series.length === 0) return <EmptyChart>No data to chart.</EmptyChart>;
 
-  const max = Math.max(0, ...points.flatMap((p) => p.values));
+  const stack = stacked && series.length > 1;
+  const sumOf = (p: ColumnPoint) => p.values.reduce((a, v) => a + Math.max(0, v ?? 0), 0);
+  const max = Math.max(0, ...points.flatMap((p) => (stack ? [sumOf(p)] : p.values)), ...lines.flatMap((l) => l.values.map((v) => v ?? 0)));
   const ticks = niceTicks(max);
   const top = ticks[ticks.length - 1];
   const leftPad = Math.max(30, Math.max(...ticks.map((t) => compactNumber(t).length)) * 7 + 12);
@@ -54,14 +67,19 @@ export function ColumnChart({ points, series, format, height: tall = 240, onPick
   // thin the x labels so neighbours never collide
   const longest = Math.max(...points.map((p) => p.label.length));
   const labelEvery = Math.max(1, Math.ceil((longest * 6.6 + 14) / Math.max(step, 1)));
-  const single = series.length === 1;
-  const showValues = single && points.length <= 16 && step >= 34;
+  const single = series.length === 1 || stack;
+  const showValues = valueLabels && single && points.length <= 16 && step >= 34;
+  const headline = (p: ColumnPoint) => (stack ? sumOf(p) : p.values[0] ?? 0);
 
   const tip: Tip | null = active === null || width === 0 ? null : {
     x: m.left + active * step + step / 2,
     y: 4,
     title: points[active].title + (points[active].partial ? ' (so far)' : ''),
-    rows: series.map((s, k) => ({ color: s.color, label: s.label, value: format(points[active].values[k] ?? 0, k) })),
+    rows: [
+      ...series.map((s, k) => ({ color: s.color, label: s.label, value: format(points[active].values[k] ?? 0, k) })),
+      ...lines.filter((l) => l.values[active] !== null && l.values[active] !== undefined).map((l) => ({ color: l.color, label: l.label, value: format(l.values[active] ?? 0, 0) })),
+    ],
+    footer: stack ? `Total ${format(sumOf(points[active]), 0)}` : undefined,
   };
 
   return (
@@ -88,7 +106,35 @@ export function ColumnChart({ points, series, format, height: tall = 240, onPick
               </g>
             ))}
 
-            {points.map((p, i) => {
+            {stack ? points.map((p, i) => {
+              const w = Math.max(2, Math.min(24, band));
+              const x = i * step + (step - w) / 2;
+              const dim = active !== null && active !== i ? 0.45 : 1;
+              const grow = { transform: seen ? 'none' : 'scaleY(0)', transformBox: 'fill-box' as const, transformOrigin: '50% 100%', transition: `transform 760ms cubic-bezier(0.16, 1, 0.3, 1) ${Math.min(i, 24) * 32}ms` };
+              const topIndex = p.values.reduce((t, v, k) => ((v ?? 0) > 0 ? k : t), -1);
+              let base = 0;
+              const total = sumOf(p);
+              return (
+                <g key={i} opacity={dim} style={grow}>
+                  {series.map((s, k) => {
+                    const v = Math.max(0, p.values[k] ?? 0);
+                    if (v <= 0) return null;
+                    const y0 = y(base);
+                    base += v;
+                    const y1 = y(base);
+                    const h = Math.max(1, y0 - y1);
+                    // only the top part gets the rounded end; a 1px gap keeps the parts apart
+                    const d = k === topIndex ? columnPath(x, y1, w, h) : `M${x},${y1 + h}V${y1 + 1}H${x + w}V${y1 + h}Z`;
+                    return p.partial
+                      ? <path key={s.key} d={d} fill="none" stroke={s.color} strokeWidth={1.5} strokeDasharray="3 2" />
+                      : <path key={s.key} d={d} fill={s.color} fillOpacity={0.9} />;
+                  })}
+                  {showValues && total > 0 ? (
+                    <text x={i * step + step / 2} y={y(total) - 6} textAnchor="middle" fill="var(--ai-ink2)" fontSize={11} className="ai-mono">{compactNumber(total)}</text>
+                  ) : null}
+                </g>
+              );
+            }) : points.map((p, i) => {
               const bx = i * step + (step - band) / 2;
               const n = series.length;
               const w = Math.max(2, Math.min(24, (band - (n - 1) * 2) / n));
@@ -106,11 +152,23 @@ export function ColumnChart({ points, series, format, height: tall = 240, onPick
                       ? <path key={s.key} d={d} fill="none" stroke={s.color} strokeWidth={1.5} strokeDasharray="3 2" style={grow} />
                       : <path key={s.key} d={d} fill={`url(#c${gid}-${k})`} style={grow} />;
                   })}
-                  {showValues && (p.values[0] ?? 0) > 0 ? (
-                    <text x={i * step + step / 2} y={y(p.values[0]) - 6} textAnchor="middle" fill="var(--ai-ink2)" fontSize={11} className="ai-mono">
-                      {compactNumber(p.values[0])}
+                  {showValues && headline(p) > 0 ? (
+                    <text x={i * step + step / 2} y={y(headline(p)) - 6} textAnchor="middle" fill="var(--ai-ink2)" fontSize={11} className="ai-mono">
+                      {compactNumber(headline(p))}
                     </text>
                   ) : null}
+                </g>
+              );
+            })}
+
+            {/* a comparison over the columns: a line through each period's centre, broken where it has no value */}
+            {lines.map((l) => {
+              const pts = l.values.map((v, i) => (v === null || v === undefined ? null : [i * step + step / 2, y(v)] as const));
+              const d = pts.reduce((acc, pt, i) => (pt ? `${acc}${i > 0 && pts[i - 1] ? 'L' : 'M'}${pt[0]},${pt[1]}` : acc), '');
+              return (
+                <g key={l.key} pointerEvents="none" opacity={seen ? 1 : 0} style={{ transition: 'opacity 600ms ease 400ms' }}>
+                  <path d={d} fill="none" stroke={l.color} strokeWidth={1.75} strokeDasharray={l.dashed ? '4 3' : undefined} strokeLinejoin="round" />
+                  {pts.map((pt, i) => (pt ? <circle key={i} cx={pt[0]} cy={pt[1]} r={2.25} fill="var(--ai-s1)" stroke={l.color} strokeWidth={1.5} /> : null))}
                 </g>
               );
             })}
@@ -137,7 +195,7 @@ export function ColumnChart({ points, series, format, height: tall = 240, onPick
         </button>
         <button type="button" className="ai-tap text-[12px] text-ink-3 hover:text-ink-1" onClick={() => setPicked(null)}>Clear</button>
       </div>
-    ) : onPick ? <p className="mt-2 text-[12px] text-ink-3">Tap a column for more on that day.</p> : null}
+    ) : onPick ? <p className="mt-2 text-[12px] text-ink-3">{pickHint ?? 'Tap a column for more on that day.'}</p> : null}
     </div>
   );
 }

@@ -33,9 +33,9 @@ export type Ask = (question: string) => void;
 const n = (v: number) => v.toLocaleString('en-US');
 const plural = (count: number, one: string, many: string) => (count === 1 ? one : many);
 const asUtc = (iso: string) => new Date(/(Z|[+-]\d{2}:?\d{2})$/.test(iso) || iso.length <= 10 ? iso : `${iso}Z`);
-const clockFmt = new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
+const clockFmt = new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZone: 'Africa/Nairobi' });
 const dayFmt = new Intl.DateTimeFormat('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' });
-const dateFmt = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short' });
+const dateFmt = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', timeZone: 'Africa/Nairobi' });
 
 /* ---------------- pieces ---------------- */
 

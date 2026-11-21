@@ -2,8 +2,9 @@
 
 import { useMemo, useState } from 'react';
 import type { ShowFields } from '../../lib/assistant';
-import { cardTitle, formatCell, gaugesOf, num, shortDate, toCsv, visualFor, type ChartModel, type Column, type Gauge, type TileItem, type Visual } from '../../lib/assistantVisual';
+import { cardTitle, formatCell, gaugesOf, num, periodWord, shortDate, toCsv, trendPlan, trendTakeaway, visualFor, type ChartModel, type Column, type Gauge, type TileItem, type Visual } from '../../lib/assistantVisual';
 import { entityOf, isUptime } from '../../lib/assistantEntities';
+import { useT } from '../../lib/i18n';
 import type { RouterUptimeResponse } from '../../lib/types';
 import { formatValue, humanizeKey, type Row } from '../../lib/assistantView';
 import { ColumnChart } from '../charts/ColumnChart';
@@ -13,7 +14,7 @@ import { Legend, seriesColor, toneColor } from '../charts/shared';
 import { ChartIcon, DownloadIcon, TableIcon } from '../icons';
 import { CountUp, Dial, Panel } from '../ui';
 import { CodeBox } from '../Markdown';
-import { LoginsBlock } from './LoginsBlock';
+import { LoginsBlock, readFreshness } from './LoginsBlock';
 import { CustomerBlock, PaymentBlock, PlanBlock, RouterBlock, VoucherBlock } from './BillingBlocks';
 import { PortBlock } from './PortBlock';
 import { UptimeBlock } from './UptimeBlock';
@@ -112,9 +113,9 @@ function ChartCard({ title, visual, currency, onAsk }: {
   currency?: string | null;
   onAsk?: (q: string) => void;
 }) {
+  const t = useT();
   const [view, setView] = useState<'chart' | 'table'>('chart');
   const chart: ChartModel | undefined = visual.chart;
-  const series = useMemo(() => (chart?.series ?? []).map((s, i) => ({ ...s, color: seriesColor(i) })), [chart]);
   const tableColumns: Column[] = useMemo(() => {
     if (!chart) return [];
     const first = chart.columns.find((c) => c.key === chart.labelKey);
@@ -128,19 +129,48 @@ function ChartCard({ title, visual, currency, onAsk }: {
   let subtitle = '';
   if (visual.kind === 'trend' && chart) {
     const today = todayKey();
+    const plan = trendPlan(chart);
+    const bars = plan.bars.map((s, i) => ({ ...s, color: seriesColor(i) }));
+    const overlay = [plan.compare, plan.totalLine].filter((c): c is Column => !!c);
+    const lines = overlay.map((c) => ({
+      key: c.key, label: c.label, color: c === plan.compare ? 'var(--ai-ink3)' : seriesColor(bars.length), dashed: c === plan.compare,
+      values: chart.rows.map((row) => num(row[c.key])),
+    }));
     const points = chart.rows.map((row, i) => ({
       label: shortDate(row[chart.labelKey]),
       title: formatCell(row[chart.labelKey], chart.labelKind),
-      values: chart.series.map((s) => num(row[s.key]) ?? 0),
+      values: plan.bars.map((s) => num(row[s.key]) ?? 0),
       partial: row.partial === true || (i === chart.rows.length - 1 && String(row[chart.labelKey] ?? '').slice(0, 10) === today),
     }));
-    subtitle = `${chart.series.map((s) => s.label).join(', ')} by ${humanizeKey(chart.labelKey).toLowerCase()}`;
+    const kind = plan.bars[0]?.kind ?? 'number';
+    const fmt = (v: number) => formatCell(v, kind, currency);
+    // the takeaway: one line that says what the chart shows, so nobody has to read it off the bars
+    const totalKey = plan.totalLine?.key;
+    const totals = totalKey ? chart.rows.map((r) => num(r[totalKey]) ?? 0)
+      : points.map((p) => (plan.stacked || p.values.length === 1 ? p.values.reduce((a, v) => a + v, 0) : p.values[0] ?? 0));
+    const said = trendTakeaway(totals, points.map((p) => !!p.partial), plan.compare ? lines[0].values : undefined);
+    const per = t(periodWord(chart.labelKey, chart.labelKind));
+    const lead = plan.stacked ? chart.series[0].label : plan.bars[0]?.label ?? '';
+    const parts: string[] = [];
+    if (kind !== 'percent') parts.push(t('{measure} {value} over {n} {per}', { measure: lead, value: fmt(said.total), n: points.length, per }));
+    if (said.peak && points.length > 2) parts.push(t('highest {label} ({value})', { label: points[said.peak.index].label, value: fmt(said.peak.value) }));
+    if (said.change) {
+      const pct = Math.abs(Math.round(said.change.pct));
+      const dir = pct < 1 ? 'level' : said.change.pct > 0 ? 'up' : 'down';
+      const vars = { pct, n: said.change.size, per, what: plan.compare?.label.toLowerCase() ?? '' };
+      parts.push(plan.compare
+        ? t(dir === 'level' ? 'level with {what}' : dir === 'up' ? 'up {pct}% on {what}' : 'down {pct}% on {what}', vars)
+        : t(dir === 'level' ? 'the last {n} {per} level with the {n} before' : dir === 'up' ? 'the last {n} {per} up {pct}% on the {n} before' : 'the last {n} {per} down {pct}% on the {n} before', vars));
+    }
+    const caption = parts.length ? `${parts.join('; ')}.` : '';
+    subtitle = caption ? caption.charAt(0).toUpperCase() + caption.slice(1) : `${plan.bars.map((s) => s.label).join(', ')} by ${humanizeKey(chart.labelKey).toLowerCase()}`;
+    const legend = [...bars.map((s) => ({ label: s.label, color: s.color })), ...lines.map((l) => ({ label: l.label, color: l.color }))];
     picture = (
       <>
-        <Legend items={series.map((s) => ({ label: s.label, color: s.color }))} />
-        <ColumnChart points={points} series={series} format={(v, k) => formatCell(v, chart.series[k]?.kind ?? 'number', currency)}
+        {legend.length > 1 ? <Legend items={legend} /> : null}
+        <ColumnChart points={points} series={bars} stacked={plan.stacked} lines={lines} format={(v, k) => formatCell(v, plan.bars[k]?.kind ?? kind, currency)}
           onPick={onAsk ? (i) => onAsk(`What happened on ${points[i].title}? Break down ${title.toLowerCase()} for that ${humanizeKey(chart.labelKey).toLowerCase() || 'period'}.`) : undefined} />
-        {points[points.length - 1]?.partial ? <p className="mt-2 text-[12px] text-ink-3">The last period is still filling in.</p> : null}
+        {points[points.length - 1]?.partial ? <p className="mt-2 text-[12px] text-ink-3">{said.change ? t('The last period is still filling in, so it is left out of the comparison.') : t('The last period is still filling in.')}</p> : null}
       </>
     );
   } else if (visual.kind === 'bars' && chart) {
@@ -329,9 +359,10 @@ export default function ResultBlock({ title: rawTitle, payload, show = 'auto', f
       case 'pppoe_user':
       case 'hotspot_user':
         return <LoginsBlock title={title} rows={entity.rows} kind={entity.entity === 'pppoe_user' ? 'pppoe' : 'hotspot'} onAsk={onAsk}
-          routerDown={!!payload && typeof payload === 'object' && (payload as Record<string, unknown>).router_reachable === false} />;
+          fresh={readFreshness(payload)} />;
       case 'port':
-        return <PortBlock title={title} rows={entity.rows} currency={currency} onAsk={onAsk} />;
+        return <PortBlock title={title} rows={entity.rows} currency={currency} onAsk={onAsk}
+          revenue={payload && typeof payload === 'object' ? (payload as Record<string, unknown>).revenue : undefined} />;
       case 'uptime':
         return <UptimeBlock title={title} data={entity.rows[0] as unknown as RouterUptimeResponse} onAsk={onAsk} />;
     }
