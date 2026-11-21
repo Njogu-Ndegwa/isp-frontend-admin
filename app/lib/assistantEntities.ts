@@ -6,7 +6,7 @@
  */
 import { findRows, type Row } from './assistantView';
 
-export type Entity = 'customer' | 'router' | 'plan' | 'payment' | 'voucher' | 'port';
+export type Entity = 'customer' | 'router' | 'plan' | 'payment' | 'voucher' | 'port' | 'pppoe_user' | 'hotspot_user';
 export interface EntityResult { entity: Entity; rows: Row[]; single: boolean; total?: number }
 
 const isObject = (v: unknown): v is Row => !!v && typeof v === 'object' && !Array.isArray(v);
@@ -16,6 +16,10 @@ const SHAPES: [Entity, (r: Row) => boolean][] = [
   ['voucher', (r) => has(r, 'code') && ('voucher_type' in r || 'batch_id' in r)],
   // a router port as port-analytics reads it: its link and its health
   ['port', (r) => has(r, 'port') && isObject(r.link) && isObject(r.health)],
+  // a hotspot device on a router (its user, host and binding, with live counters)
+  ['hotspot_user', (r) => has(r, 'mac_address', 'online') && ('login_by' in r || 'binding_type' in r || 'online_source' in r)],
+  // a PPPoE login on a router (the router's secrets with their live sessions)
+  ['pppoe_user', (r) => has(r, 'username', 'online') && ('profile' in r || 'caller_id' in r || 'last_logged_out' in r)],
   ['customer', (r) => has(r, 'phone', 'status') && ('expiry' in r || 'effective_expiry' in r)],
   ['router', (r) => has(r, 'identity', 'ip_address')],
   ['plan', (r) => has(r, 'price', 'duration_unit', 'duration_value')],
@@ -67,8 +71,11 @@ export function span(ms: number): string {
 /** RouterOS uptime ("1w2d03:04:05", "3d04:14:07", "05:12:44") in words: "9 d 3 h", "5 h". */
 export function uptimeText(v: unknown): string | null {
   if (typeof v !== 'string' || !v.trim()) return null;
-  const m = /^(?:(\d+)w)?(?:(\d+)d)?(\d+):(\d+):(\d+)$/.exec(v.trim());
+  const m = /^(?:(\d+)w)?(?:(\d+)d)?(\d+):(\d+):(\d+)$/.exec(v.trim())
+    // the hotspot's way: "1w2d3h4m5s", any part left out
+    ?? (/^(?=\d)(?:(\d+)w)?(?:(\d+)d)?(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?$/.exec(v.trim()) as RegExpExecArray | null)?.map((x) => x ?? '0') as RegExpExecArray | undefined;
   if (!m) return v.trim();
+  if ([1, 2, 3, 4].every((i) => !Number(m[i] ?? 0))) return `${Number(m[5] ?? 0)} s`;
   const days = Number(m[1] ?? 0) * 7 + Number(m[2] ?? 0);
   const hours = Number(m[3]);
   if (days > 0) return hours > 0 && days < 14 ? `${days} d ${hours} h` : `${days} d`;
@@ -96,6 +103,19 @@ export interface CustomerFacts {
   /** ms until the paid time ends (negative once it has) */
   left: number | null;
   expiry: Date | null;
+  routerId: number | null;
+  /** what the router knows this customer by */
+  pppoeUsername: string | null;
+  staticIp: string | null;
+  mac: string | null;
+  account: string | null;
+  planSpeed: string | null;
+  planPrice: number | null;
+  wallet: number | null;
+  /** paid time kept while paused, in ms */
+  pausedLeft: number | null;
+  graceMinutes: number | null;
+  status: string;
 }
 
 export function customerFacts(r: Row, now: number): CustomerFacts {
@@ -117,6 +137,17 @@ export function customerFacts(r: Row, now: number): CustomerFacts {
     plan: nested(r, 'plan') ?? text(r.plan_name),
     router: nested(r, 'router') ?? text(r.router_name),
     connection, state, left, expiry,
+    routerId: typeof r.router_id === 'number' ? r.router_id : isObject(r.router) && typeof (r.router as Row).id === 'number' ? (r.router as Row).id as number : null,
+    pppoeUsername: text(r.pppoe_username),
+    staticIp: text(r.static_ip),
+    mac: text(r.mac_address) ?? text(r.static_mac),
+    account: text(r.account_number),
+    planSpeed: nested(r, 'plan', 'speed') ?? text(r.plan_speed),
+    planPrice: isObject(r.plan) && r.plan.price !== undefined && r.plan.price !== null ? Number(r.plan.price) : null,
+    wallet: typeof r.wallet_credit_kes === 'number' && r.wallet_credit_kes > 0 ? r.wallet_credit_kes : null,
+    pausedLeft: typeof r.paused_remaining_seconds === 'number' ? r.paused_remaining_seconds * 1000 : null,
+    graceMinutes: typeof r.grace_period_minutes === 'number' && r.grace_period_minutes > 0 ? r.grace_period_minutes : null,
+    status,
   };
 }
 
