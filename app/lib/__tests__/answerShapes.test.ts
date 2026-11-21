@@ -131,3 +131,12 @@ describe('a flat series', () => {
     expect(v.kind).toBe('table');
   });
 });
+
+describe('a new router setup code', () => {
+  it('is recognised by its command and token, not by the question', async () => {
+    const { isRouterSetup } = await import('../../assistant/blocks/RouterSetupBlock');
+    expect(isRouterSetup({ token: 'abc', command: '/tool fetch url=...', expires_in_hours: 24, vpn_type: 'wireguard' })).toBe(true);
+    expect(isRouterSetup({ token: 'abc', status: 'pending' })).toBe(false);
+    expect(isRouterSetup([{ command: 'x', token: 'y', expires_in_hours: 1 }])).toBe(false);
+  });
+});
