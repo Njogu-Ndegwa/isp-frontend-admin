@@ -151,7 +151,7 @@ function Preview() {
   const noop = () => {};
 
   return (
-    <div className="ai-root fixed inset-0 z-[60] flex flex-col overflow-hidden">
+    <div className="ai-root ai-frame fixed inset-x-0 top-0 z-[60] flex h-dvh flex-col overflow-hidden">
       <header className="z-30 shrink-0 border-b border-line bg-[color:var(--ai-bg)]/75 backdrop-blur-xl">
         <div className="mx-auto flex h-14 max-w-[1180px] items-center gap-2 px-3 sm:px-6">
           <BitwaveMark />

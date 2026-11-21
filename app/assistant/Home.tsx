@@ -272,7 +272,9 @@ function Vitals({ ctx }: { ctx: Ctx }) {
     ),
   });
   if (cells.length < 2) return null;
-  const cols = cells.length >= 4 ? 'lg:grid-cols-4' : cells.length === 3 ? 'lg:grid-cols-3' : '';
+  // three tiles: the third spans the row on two columns instead of sitting alone at half width
+  const cols = cells.length >= 4 ? 'lg:grid-cols-4'
+    : cells.length === 3 ? 'lg:grid-cols-3 [&>*:last-child]:col-span-2 lg:[&>*:last-child]:col-span-1' : '';
   return (
     <section aria-label={t('Right now')} className="ai-card overflow-hidden">
       <div className={`grid grid-cols-2 ${cols}`}>
@@ -388,7 +390,11 @@ function NetworkSection({ ctx }: { ctx: Ctx }) {
   const asOf = asUtc(b.as_of).getTime();
   const live = reporting(r.list);
   const people = peopleOnline(r.list);
-  const cols = r.list.length === 1 ? 'md:grid-cols-2' : r.list.length === 2 || r.list.length === 4 ? 'md:grid-cols-2' : 'md:grid-cols-2 xl:grid-cols-3';
+  // one router takes the whole row; with an odd count the last card spans the row instead of
+  // sitting alone at half width (on three columns every card is one column again)
+  const cols = r.list.length === 1 ? ''
+    : r.list.length === 2 || r.list.length === 4 ? 'md:grid-cols-2'
+    : 'md:grid-cols-2 xl:grid-cols-3 md:[&>li:last-child:nth-child(odd)]:col-span-2 xl:[&>li:last-child:nth-child(odd)]:col-span-1';
   return (
     <section aria-label={t('Your network')}>
       <header className="mb-3 flex flex-wrap items-end gap-x-3 gap-y-1">

@@ -23,8 +23,10 @@ export function useVisibleFrame(ref: RefObject<HTMLElement | null>, enabled = tr
       frame = requestAnimationFrame(() => {
         // follow the visible area; never scroll the page ourselves: on iPhones a scroll while a
         // field is being focused drops the focus, so the keyboard never opens on the composer
-        el.style.height = `${Math.round(vv.height)}px`;
-        el.style.transform = vv.offsetTop > 0 ? `translateY(${Math.round(vv.offsetTop)}px)` : '';
+        // a frame drawn at a scale (80% on laptops) takes its height in its own, scaled pixels
+        const zoom = parseFloat(getComputedStyle(el).getPropertyValue('zoom')) || 1;
+        el.style.height = `${Math.round(vv.height / zoom)}px`;
+        el.style.transform = vv.offsetTop > 0 ? `translateY(${Math.round(vv.offsetTop / zoom)}px)` : '';
       });
     };
     apply();
