@@ -7,9 +7,10 @@ import { useT } from '../../lib/i18n';
 const STEPS = [0, 5, 10, 25, 50, 100];
 
 /**
- * How many reseller accounts start on the AI home instead of the classic dashboard.
- * Each account lands on the same side every time (it is not a coin toss per visit),
- * and a person's own choice always wins over this share.
+ * How many paying reseller accounts start on the AI home instead of the classic
+ * dashboard. Trial and suspended accounts are never moved. Each account lands on the
+ * same side every time (it is not a coin toss per visit), and a person's own choice
+ * always wins over this share.
  */
 export default function RolloutPanel() {
   const t = useT();
@@ -48,10 +49,15 @@ export default function RolloutPanel() {
         <div className="min-w-0">
           <p className="text-sm font-semibold text-foreground">{t('Who starts on the AI home')}</p>
           <p className="text-xs text-foreground-muted">
-            {t('Share of reseller accounts that open the chat-first home instead of the classic dashboard when they sign in. Everyone else still has it in the menu.')}
+            {t('Share of paying reseller accounts (active subscription) that open the chat-first home instead of the classic dashboard when they sign in. Trial and suspended accounts stay on the dashboard; everyone still has the chat in the menu.')}
           </p>
         </div>
-        <p className="text-2xl font-bold text-foreground tabular-nums">{percent}%</p>
+        <div className="text-right">
+          <p className="text-2xl font-bold text-foreground tabular-nums">{percent}%</p>
+          {rollout.paying_accounts !== undefined && percent === rollout.percent ? (
+            <p className="text-[11px] text-foreground-muted tabular-nums">{t('{n} of {m} paying accounts', { n: rollout.paying_inside ?? 0, m: rollout.paying_accounts })}</p>
+          ) : null}
+        </div>
       </div>
 
       <input type="range" min={0} max={100} step={5} value={percent} onChange={(e) => setPercent(Number(e.target.value))}

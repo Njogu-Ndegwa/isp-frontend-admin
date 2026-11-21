@@ -6,6 +6,7 @@ import Composer from '../Composer';
 import Home from '../Home';
 import { BitwaveMark, MoonIcon, SunIcon } from '../icons';
 import Transcript from '../Transcript';
+import RatingAsk from '../RatingAsk';
 import { Led } from '../ui';
 import { BrandMark } from '../BrandMark';
 
@@ -212,6 +213,8 @@ function Preview() {
         ) : (
           <div className="mx-auto flex w-full max-w-[880px] flex-col px-4 sm:px-6">
             <Transcript items={items} currency="KES" onAsk={noop} onDecide={noop} />
+            <RatingAsk mode="ask" onClose={noop} />
+            <RatingAsk mode="open" onClose={noop} />
           </div>
         )}
       </div>

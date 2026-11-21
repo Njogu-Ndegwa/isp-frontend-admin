@@ -174,6 +174,17 @@ export interface AssistantStatus {
   /** The assistant is this person's start page (their own choice, else the rollout share). */
   home?: boolean;
   home_choice?: HomeChoice | null;
+  /** Due a quiet "how is it working for you?" (first after a few questions, then days apart, a few times at most). */
+  ask_rating?: boolean;
+}
+
+export interface MyRating { rating: number; review: string; updated_at: string | null }
+export interface AssistantRatingsReport {
+  count: number;
+  average: number | null;
+  distribution: Record<string, number>;
+  dismissed_without_rating: number;
+  reviews: { user_id: number; account: string; staff_id: number | null; staff_name: string | null; rating: number; review: string; questions: number; updated_at: string | null }[];
 }
 
 export type HomeChoice = 'assistant' | 'classic';
@@ -203,7 +214,14 @@ export interface NetworkRouter {
   };
 }
 
-export interface AssistantRollout { percent: number; chose_assistant: number; chose_classic: number }
+export interface AssistantRollout {
+  percent: number;
+  chose_assistant: number;
+  chose_classic: number;
+  /** the rollout moves paying accounts (an active subscription) only */
+  paying_accounts?: number;
+  paying_inside?: number;
+}
 
 /** Live figures for the home screen (GET /api/assistant/briefing). A section the
  *  person may not see, or that failed, is absent and named in `unavailable`. */
@@ -299,6 +317,12 @@ async function getJson<T>(path: string): Promise<T> {
   return r.json();
 }
 
+async function postJson<T>(path: string, body: unknown): Promise<T> {
+  const r = await fetch(`${API_BASE_URL}${path}`, { method: 'POST', headers: headers(true), body: JSON.stringify(body) });
+  if (!r.ok) throw await errorFrom(r);
+  return r.json();
+}
+
 async function putJson<T>(path: string, body: unknown): Promise<T> {
   const r = await fetch(`${API_BASE_URL}${path}`, { method: 'PUT', headers: headers(true), body: JSON.stringify(body) });
   if (!r.ok) throw await errorFrom(r);
@@ -376,6 +400,18 @@ export const assistantApi = {
   briefing: () => getJson<Briefing>('/assistant/briefing'),
   /** The person's own start page: the assistant, the classic dashboard, or back to the default. */
   setHome: (choice: HomeChoice | 'default') => putJson<{ home: boolean; home_choice: HomeChoice | null }>('/assistant/home', { choice }),
+  /** What people think of it: a 1-5 rating with a review, and pacing for the quiet ask. */
+  myRating: () => getJson<{ rating: MyRating | null }>('/assistant/rating'),
+  rate: (rating: number, review: string, source: 'prompt' | 'menu') => postJson<{ rating: MyRating }>('/assistant/rating', { rating, review, source }),
+  ratingShown: () => postJson<{ ok: boolean }>('/assistant/rating/shown', {}),
+  ratingDismiss: () => postJson<{ ok: boolean }>('/assistant/rating/dismiss', {}),
+  /** An improvement idea, onto the shared feedback board (votes, triage) rather than kept with the rating. */
+  postIdea: (text: string, rating: number) => {
+    const line = text.split(/\r?\n/)[0].trim();
+    const title = `Assistant: ${line.length > 80 ? `${line.slice(0, 77)}...` : line}`;
+    return postJson<{ id: number }>('/feedback/posts', { kind: 'idea', title, body: `${text}\n\n(From the assistant, rated ${rating}/5.)` });
+  },
+  adminRatings: (limit = 50) => getJson<AssistantRatingsReport>(`/admin/assistant/ratings?limit=${limit}`),
   adminRollout: () => getJson<AssistantRollout>('/admin/assistant/rollout'),
   adminSetRollout: (percent: number) => putJson<AssistantRollout>('/admin/assistant/rollout', { percent }),
   conversations: () => getJson<{ conversations: ConversationSummary[] }>('/assistant/conversations'),

@@ -16,8 +16,9 @@ import { useT } from '../lib/i18n';
 import Composer from './Composer';
 import HistoryPanel from './HistoryPanel';
 import Home from './Home';
-import { BitwaveMark, CloseIcon, GridIcon, HistoryIcon, LogoutIcon, MoonIcon, MoreIcon, PlusIcon, SunIcon } from './icons';
+import { BitwaveMark, CloseIcon, GridIcon, HistoryIcon, LogoutIcon, MoonIcon, MoreIcon, PlusIcon, StarIcon, SunIcon } from './icons';
 import Transcript, { actionCards } from './Transcript';
+import RatingAsk from './RatingAsk';
 import { Led } from './ui';
 
 const POLL_MS = 20_000;
@@ -31,7 +32,7 @@ function applyTheme(theme: Theme) {
 
 /* ---------------- header ---------------- */
 
-function Header({ status, live, canReset, busy, classicHref, standalone, onHome, onHistory, onStatus }: {
+function Header({ status, live, canReset, busy, classicHref, standalone, onHome, onHistory, onStatus, onRate }: {
   status: AssistantStatus | null;
   /** null while checking */
   live: boolean | null;
@@ -43,6 +44,8 @@ function Header({ status, live, canReset, busy, classicHref, standalone, onHome,
   onHome: () => void;
   onHistory: () => void;
   onStatus: (s: AssistantStatus) => void;
+  /** opens the rating panel */
+  onRate: () => void;
 }) {
   const t = useT();
   const { logout } = useAuth();
@@ -129,6 +132,11 @@ function Header({ status, live, canReset, busy, classicHref, standalone, onHome,
                     </div>
                   </div>
                 ) : null}
+                {status && live && !status.read_only ? (
+                  <button type="button" role="menuitem" className={item} onClick={() => { setMenu(false); onRate(); }}>
+                    <StarIcon /> {t('Rate the assistant')}
+                  </button>
+                ) : null}
                 <button type="button" role="menuitem" className={item} onClick={() => { logout(); window.location.assign('/login'); }}>
                   <LogoutIcon /> {t('Sign out')}
                 </button>
@@ -162,6 +170,9 @@ export default function AssistantClient() {
   const [history, setHistory] = useState<ConversationSummary[]>([]);
   const [intro, setIntro] = useState(false);
   const [viewH, setViewH] = useState(0);
+  // the rating panel: 'ask' is the quiet line the server says this person is due, 'open' came from the menu
+  const [rate, setRate] = useState<'ask' | 'open' | null>(null);
+  const [askDone, setAskDone] = useState(false);
 
   const liveText = useRef<number | null>(null);
   const serverLen = useRef(0);
@@ -474,7 +485,7 @@ export default function AssistantClient() {
     <div className="flex h-full min-h-0 flex-col" data-busy={busy ? 'true' : 'false'}>
       <Header status={status} live={live} canReset={!empty} busy={busy} classicHref={classicHref} standalone={standalone}
         onHome={goHome} onHistory={() => { setHistoryOpen(true); refreshHistory(); }}
-        onStatus={(next) => { setStatus(next); rememberHome(userKey, !!(next.enabled && next.home)); }} />
+        onStatus={(next) => { setStatus(next); rememberHome(userKey, !!(next.enabled && next.home)); }}  onRate={() => setRate('open')}/>
       <HistoryPanel open={historyOpen} conversations={history} activeId={conversationId} retentionDays={status?.retention_days}
         onClose={() => setHistoryOpen(false)} onOpen={(id) => void openConversation(id)} onNew={goHome}
         onDelete={async (id) => {
@@ -507,6 +518,11 @@ export default function AssistantClient() {
                 </div>
               </div>
             ) : null}
+            {rate === 'open' ? (
+              <div className="mx-auto w-full max-w-[880px] px-4 sm:px-6">
+                <RatingAsk mode="open" onClose={() => { setRate(null); setAskDone(true); }} />
+              </div>
+            ) : null}
             <Home userKey={userKey} name={staff ? (user?.staff?.name ?? '').split(/\s+/)[0] || null : null}
               organization={user?.organization_name || user?.business_name || null}
               admin={!!admin && !readOnly} readOnly={readOnly} enabled={!!live} onAsk={(q) => void send(q)} />
@@ -517,6 +533,9 @@ export default function AssistantClient() {
             <Transcript items={items} records={records} busy={busy} readOnly={readOnly} liveIndex={liveIndex} currency={currency}
               onDecide={(id, approve, values) => decide([{ action_id: id, approve, ...(values ? { values } : {}) }])} onAsk={live && !busy ? (q) => void send(q) : undefined}
               lastRef={lastExchange} lastMinHeight={viewH} />
+            {rate === 'open' || (rate === null && !askDone && status?.ask_rating && !busy && !readOnly && items.some((it) => it.type === 'assistant')) ? (
+              <RatingAsk key={rate ?? 'ask'} mode={rate === 'open' ? 'open' : 'ask'} onClose={() => { setRate(null); setAskDone(true); }} />
+            ) : null}
           </div>
         )}
       </div>
