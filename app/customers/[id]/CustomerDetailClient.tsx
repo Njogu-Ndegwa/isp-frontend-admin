@@ -332,7 +332,9 @@ export default function EditCustomerPage() {
               onActivated={loadData}
             />
           )}
-          {isPPPoE && customer.pppoe_username && <RouterCpePanel customer={customer} />}
+          {((isPPPoE && customer.pppoe_username) || (isStatic && customer.static_ip)) && (
+            <RouterCpePanel customer={customer} />
+          )}
           {isStatic && <StaticIpPanel customer={customer} onChanged={loadData} />}
           {connectionType === 'hotspot' && <HotspotDevicesPanel customerId={customer.id} />}
           {tracksUsage && usage && <UsagePanel usage={usage} onRefresh={loadUsage} refreshing={usageLoading} />}

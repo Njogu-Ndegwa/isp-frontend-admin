@@ -116,26 +116,31 @@ export default function RouterCpePanel({ customer }: { customer: Customer }) {
     }
   };
 
+  const isStatic = !!data?.is_static;
+  const controllable = !!data && (data.controllable ?? data.is_pppoe);
+
   return (
     <div className="bg-background-secondary border border-border rounded-xl p-4 space-y-3">
       <div className="flex items-center justify-between gap-2">
         <div>
           <h3 className="text-sm font-semibold text-foreground">{t('Router (CPE) control')}</h3>
           <p className="text-xs text-foreground-muted">
-            {t("The customer's own router over PPPoE. Reached live through the MikroTik session.")}
+            {isStatic
+              ? t("The customer's own router on its static IP. Reached live through the MikroTik.")
+              : t("The customer's own router over PPPoE. Reached live through the MikroTik session.")}
           </p>
         </div>
       </div>
 
       {loading && <p className="text-xs text-foreground-muted">{t('Loading...')}</p>}
 
-      {!loading && data && !data.is_pppoe && (
+      {!loading && data && !controllable && (
         <p className="text-xs text-foreground-muted">
-          {t('Router (CPE) control is only for a PPPoE customer with a router assigned.')}
+          {t('Router (CPE) control is only for a PPPoE or static-IP customer with a router assigned.')}
         </p>
       )}
 
-      {!loading && data?.is_pppoe && (
+      {!loading && controllable && (
         <>
           {status && (
             <div className="text-xs text-foreground-muted space-y-0.5">
@@ -145,7 +150,7 @@ export default function RouterCpePanel({ customer }: { customer: Customer }) {
               </p>
               {status.session_address && (
                 <p>
-                  {t('Session')}: <span className="font-mono">{status.session_address}</span>
+                  {isStatic ? t('Static IP') : t('Session')}: <span className="font-mono">{status.session_address}</span>
                   {status.session_uptime ? ` · ${status.session_uptime}` : ''}
                 </p>
               )}
@@ -195,7 +200,9 @@ export default function RouterCpePanel({ customer }: { customer: Customer }) {
             </button>
           </div>
           <p className="text-[10px] text-foreground-muted">
-            {t('Use port 80 on the LAN, or the Tenda remote web-management port (often 8080/8888) over PPPoE. Remote management must allow the MikroTik.')}
+            {isStatic
+              ? t('Use the Tenda remote web-management port (often 8080/8888). Remote management must allow the MikroTik LAN address.')
+              : t('Use port 80 on the LAN, or the Tenda remote web-management port (often 8080/8888) over PPPoE. Remote management must allow the MikroTik.')}
           </p>
 
           {/* Actions */}
@@ -210,11 +217,13 @@ export default function RouterCpePanel({ customer }: { customer: Customer }) {
               className="btn-ghost text-xs px-2 py-1 disabled:opacity-40 disabled:cursor-not-allowed">
               {running === 'reboot' ? t('Restarting...') : t('Restart router')}
             </button>
-            <button type="button" onClick={() => setConfirm('disconnect')}
-              disabled={running !== null}
-              className="btn-ghost text-xs px-2 py-1 disabled:opacity-40 disabled:cursor-not-allowed">
-              {running === 'disconnect' ? t('Disconnecting...') : t('Disconnect line (redial)')}
-            </button>
+            {!isStatic && (
+              <button type="button" onClick={() => setConfirm('disconnect')}
+                disabled={running !== null}
+                className="btn-ghost text-xs px-2 py-1 disabled:opacity-40 disabled:cursor-not-allowed">
+                {running === 'disconnect' ? t('Disconnecting...') : t('Disconnect line (redial)')}
+              </button>
+            )}
           </div>
 
           <ConfirmDialog
@@ -222,7 +231,9 @@ export default function RouterCpePanel({ customer }: { customer: Customer }) {
             onClose={() => { if (!running) setConfirm(null); }}
             onConfirm={() => runAction('reboot')}
             title={t('Restart this router?')}
-            message={t('The router reboots and drops for about a minute. The PPPoE line reconnects once it is back up.')}
+            message={isStatic
+              ? t('The router reboots and drops for about a minute, then comes back on its static IP.')
+              : t('The router reboots and drops for about a minute. The PPPoE line reconnects once it is back up.')}
             confirmLabel={t('Restart router')}
             cancelLabel={t('Cancel')}
             variant="warning"
