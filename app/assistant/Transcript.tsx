@@ -24,7 +24,7 @@ export function actionCards(items: TranscriptItem[], records: Record<string, Act
       });
     } else if (item.type === 'action_result') {
       const card = cards.get(item.action_id);
-      if (card) Object.assign(card, { status: item.status, detail: item.detail, payload: item.payload });
+      if (card) Object.assign(card, { status: item.status, detail: item.detail, payload: item.payload, awaiting: item.awaiting });
     }
   }
   for (const [id, rec] of Object.entries(records)) {

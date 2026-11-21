@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { formatValue, humanizeKey } from '../lib/assistantView';
-import { fieldApplies, fieldSpans, type ActionStatus, type FormField } from '../lib/assistant';
+import { assistantApi, fieldApplies, fieldSpans, type ActionStatus, type FormField, type PaymentWait } from '../lib/assistant';
 import MediaUploadField from '../ads/components/MediaUploadField';
 import { PreviewFor, previewKind } from './blocks/Previews';
 import { THEME_PALETTES } from '../lib/portalThemes';
@@ -28,6 +28,57 @@ export interface ActionCardData {
   payload?: unknown;
   /** the change as a form the person completes before Confirm */
   form?: FormField[];
+  /** a payment it only started: the card waits for the PIN instead of saying Done */
+  awaiting?: PaymentWait;
+}
+
+const POLL_MS = 5000;
+const GIVE_UP_MS = 3 * 60_000;
+
+/**
+ * An M-Pesa payment after Confirm: the PIN prompt is on the phone, nothing is paid yet.
+ * Checks the payment every few seconds (as the classic Buy SMS window does) and says
+ * when it is paid or not; after a few minutes it stops and offers to check again.
+ */
+function PaymentWaitNote({ wait }: { wait: PaymentWait }) {
+  const t = useT();
+  const [state, setState] = useState<{ status: string; summary: string } | null>(null);
+  const [round, setRound] = useState(0);
+  const [gaveUp, setGaveUp] = useState(false);
+  useEffect(() => {
+    let on = true;
+    const started = Date.now();
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const check = async () => {
+      try {
+        const s = await assistantApi.paymentStatus(wait.poll);
+        if (!on) return;
+        setState({ status: s.paid ? 'completed' : s.status, summary: s.summary });
+        if (s.paid || s.status === 'failed') return;
+      } catch { /* a missed check is retried */ }
+      if (!on) return;
+      if (Date.now() - started > GIVE_UP_MS) { setGaveUp(true); return; }
+      timer = setTimeout(check, POLL_MS);
+    };
+    void check();
+    return () => { on = false; if (timer) clearTimeout(timer); };
+  }, [wait.poll, round]);
+
+  const status = state?.status ?? 'pending';
+  if (status === 'completed') {
+    return <p role="status" className="mt-3 flex items-center gap-2 rounded-[10px] border border-good/30 bg-good/10 px-3 py-2.5 text-[13.5px] text-ink-1"><CheckIcon className="shrink-0 text-[var(--ai-text-good)]" />{state?.summary || t('Paid.')}</p>;
+  }
+  if (status === 'failed') {
+    return <p role="status" className="mt-3 flex items-start gap-2 rounded-[10px] border border-bad/30 bg-bad/10 px-3 py-2.5 text-[13.5px] text-ink-1"><AlertIcon className="mt-0.5 shrink-0 text-[var(--ai-text-bad)]" />{state?.summary || t('Not paid.')}</p>;
+  }
+  return (
+    <div role="status" className="mt-3 rounded-[10px] border border-accent/30 bg-accent-soft px-3 py-2.5 text-[13.5px] text-ink-1">
+      <p className="m-0 flex items-start gap-2">{gaveUp ? <AlertIcon className="mt-0.5 shrink-0 text-accent" /> : <SpinnerIcon className="mt-0.5 shrink-0 text-accent" />}
+        <span>{gaveUp ? t('Not paid yet. If you entered the PIN, it can take a minute to show.') : wait.message}</span></p>
+      {gaveUp ? <button type="button" className="ai-chip mt-2 !py-1.5 text-[12.5px] font-medium" onClick={() => { setGaveUp(false); setRound((r) => r + 1); }}>{t('Check again')}</button>
+        : <p className="m-0 mt-1 pl-6 text-[12px] text-ink-3">{t('This updates by itself once it is paid.')}</p>}
+    </div>
+  );
 }
 
 function fields(value: unknown): [string, unknown][] {
@@ -352,7 +403,9 @@ export default function ActionCard({ action, busy, readOnly, currency, onDecide 
   const badge: Record<ActionStatus, { label: string; cls: string; icon?: React.ReactNode }> = {
     pending: { label: t('Waiting for you'), cls: 'bg-accent-soft text-accent' },
     running: { label: t('Running…'), cls: 'bg-surface-3 text-ink-2', icon: <SpinnerIcon width={11} height={11} /> },
-    done: { label: t('Done'), cls: 'bg-good/15 text-[var(--ai-text-good)]', icon: <CheckIcon width={11} height={11} /> },
+    done: action.awaiting
+      ? { label: t('Check your phone'), cls: 'bg-accent-soft text-accent', icon: <SpinnerIcon width={11} height={11} /> }
+      : { label: t('Done'), cls: 'bg-good/15 text-[var(--ai-text-good)]', icon: <CheckIcon width={11} height={11} /> },
     failed: { label: t('Failed'), cls: 'bg-bad/15 text-[var(--ai-text-bad)]', icon: <AlertIcon width={11} height={11} /> },
     declined: { label: t('Cancelled'), cls: 'bg-surface-3 text-ink-3' },
     expired: { label: t('Expired'), cls: 'bg-surface-3 text-ink-3' },
@@ -420,9 +473,9 @@ export default function ActionCard({ action, busy, readOnly, currency, onDecide 
         {status === 'failed' && action.detail && <p className="mt-3 break-words text-[13px] text-[var(--ai-text-bad)]">{action.detail}</p>}
         {status === 'expired' && <p className="mt-3 text-[12.5px] text-ink-3">{t('Not run. Ask again if you still want this.')}</p>}
 
-        <p className="ai-mono mt-3 break-all text-[11px] text-ink-3"><span className="text-ink-2">{action.method}</span> {action.path} · {action.title}</p>
+        {status === 'done' && action.awaiting ? <PaymentWaitNote wait={action.awaiting} /> : null}
       </div>
-      {status === 'done' && action.payload !== undefined && action.payload !== null && (
+      {status === 'done' && !action.awaiting && action.payload !== undefined && action.payload !== null && (
         <div className="border-t border-line bg-surface-2/40 p-3 sm:p-4">
           <ResultBlock title={t('Result')} payload={action.payload} currency={currency} />
         </div>

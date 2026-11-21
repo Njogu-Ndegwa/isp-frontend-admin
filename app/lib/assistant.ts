@@ -15,7 +15,7 @@ export type AssistantEvent =
   | { type: 'retract'; chars: number }
   | { type: 'data'; call_id: string; title: string; method: string; path: string; query?: Record<string, unknown> | null; show: ShowHint; fields?: ShowFields | null; payload: unknown; replaces?: string }
   | { type: 'action'; action_id: string; title: string; summary: string; method: string; path: string; query?: Record<string, unknown> | null; body?: unknown; permission?: string | null; sensitive?: boolean; expires_at?: string; status: ActionStatus; form?: FormField[] }
-  | { type: 'action_result'; action_id: string; status: ActionStatus; ok: boolean; http_status?: number; detail?: string; payload?: unknown }
+  | { type: 'action_result'; action_id: string; status: ActionStatus; ok: boolean; http_status?: number; detail?: string; payload?: unknown; awaiting?: PaymentWait }
   | { type: 'notice'; level: 'info' | 'error'; message: string }
   | { type: 'done'; conversation_id: string; usage?: { input_tokens: number; output_tokens: number } };
 
@@ -179,6 +179,10 @@ export interface AssistantStatus {
   /** Due a quiet "how is it working for you?" (first after a few questions, then days apart, a few times at most). */
   ask_rating?: boolean;
 }
+
+/** A payment the action only started (an M-Pesa PIN prompt): where to read whether it was paid. */
+export interface PaymentWait { kind: 'mpesa'; poll: string; message: string }
+export interface PaymentStatus { status: 'pending' | 'completed' | 'failed' | string; paid: boolean; summary: string }
 
 export interface MyRating { rating: number; review: string; updated_at: string | null }
 export interface AssistantRatingsReport {
@@ -404,6 +408,8 @@ export const assistantApi = {
   setHome: (choice: HomeChoice | 'default') => putJson<{ home: boolean; home_choice: HomeChoice | null }>('/assistant/home', { choice }),
   /** What people think of it: a 1-5 rating with a review, and pacing for the quiet ask. */
   myRating: () => getJson<{ rating: MyRating | null }>('/assistant/rating'),
+  /** whether a started payment was paid (the path comes from the server, under /api) */
+  paymentStatus: (poll: string) => getJson<PaymentStatus>(poll.replace(/^\/api(?=\/)/, '')),
   rate: (rating: number, review: string, source: 'prompt' | 'menu') => postJson<{ rating: MyRating }>('/assistant/rating', { rating, review, source }),
   ratingShown: () => postJson<{ ok: boolean }>('/assistant/rating/shown', {}),
   ratingDismiss: () => postJson<{ ok: boolean }>('/assistant/rating/dismiss', {}),
