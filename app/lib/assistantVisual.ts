@@ -370,6 +370,10 @@ export function visualFor(payload: unknown, show: ShowHint | string = 'auto', fi
     if (record.commands.length === 0 && numeric.length >= 2 && (show === 'tiles' || (show === 'auto' && numeric.length <= 8 && numeric.length * 2 >= scalars))) {
       return { kind: 'tiles', items: numeric.slice(0, 8), rest: rest.slice(0, 8) };
     }
+    // a card with nothing to read (only ids or lists of ids) is never drawn: the words say it
+    if (!record.commands.length && !record.fields.some(([, v]) => v !== null && v !== undefined && v !== '' && typeof v !== 'object')) {
+      return { kind: 'empty' };
+    }
     return record;
   }
   return { kind: 'text', text: formatValue(payload) };

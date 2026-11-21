@@ -46,9 +46,16 @@ const ANSWERS: [string, unknown][] = [
   ['port analytics', demoPortAnalytics(id)],
   ['access points', demoAccessPoints(id)],
   ['ad analytics', demoAdAnalytics()],
+  // ids only (the Customers page's online filter): nothing a person can read
+  ['realtime online ids', { router_ids: [12], online_customer_ids: [34733, 1850, 2889] }],
 ];
 
 const HINTS = ['auto', 'trend', 'bars', 'table', 'tiles', 'card'];
+
+function cardIsBlank(v: Visual): boolean {
+  if (v.kind !== 'record') return false;
+  return !v.commands.length && !v.fields.some(([, x]) => x !== null && x !== undefined && x !== '' && typeof x !== 'object');
+}
 
 function chartIsFlat(v: Visual): boolean {
   if (v.kind !== 'trend' && v.kind !== 'bars') return false;
@@ -60,8 +67,9 @@ describe('every common answer draws something that says what it holds', () => {
     it(`${name}: no flat chart, whatever the model hints`, () => {
       for (const hint of HINTS) {
         const v = visualFor(payload, hint);
-        expect(v.kind, `${name} / ${hint}`).not.toBe('empty');
+        if (name !== 'realtime online ids') expect(v.kind, `${name} / ${hint}`).not.toBe('empty');
         expect(chartIsFlat(v), `${name} / ${hint} drew a chart of nothing`).toBe(false);
+        expect(cardIsBlank(v), `${name} / ${hint} drew a card with nothing to read`).toBe(false);
       }
     });
   }
