@@ -184,6 +184,23 @@ export interface AssistantStatus {
 export interface PaymentWait { kind: 'mpesa'; poll: string; message: string }
 export interface PaymentStatus { status: 'pending' | 'completed' | 'failed' | string; paid: boolean; summary: string }
 
+/** A feature someone asked for (a feedback-board idea), as the admin queue lists it. */
+export interface FeatureRequest {
+  id: number;
+  title: string;
+  body: string;
+  status: string;
+  upvotes: number;
+  ai_severity: number | null;
+  ai_summary: string | null;
+  ai_affected_area: string | null;
+  priority: number;
+  admin_rank: number | null;
+  source: string | null;
+  created_at: string | null;
+  author?: { id: number; name: string | null } | null;
+}
+
 export interface MyRating { rating: number; review: string; updated_at: string | null }
 export interface AssistantRatingsReport {
   count: number;
@@ -329,6 +346,12 @@ async function postJson<T>(path: string, body: unknown): Promise<T> {
   return r.json();
 }
 
+async function patchJson<T>(path: string, body: unknown): Promise<T> {
+  const r = await fetch(`${API_BASE_URL}${path}`, { method: 'PATCH', headers: headers(true), body: JSON.stringify(body) });
+  if (!r.ok) throw await errorFrom(r);
+  return r.json();
+}
+
 async function putJson<T>(path: string, body: unknown): Promise<T> {
   const r = await fetch(`${API_BASE_URL}${path}`, { method: 'PUT', headers: headers(true), body: JSON.stringify(body) });
   if (!r.ok) throw await errorFrom(r);
@@ -419,6 +442,10 @@ export const assistantApi = {
     const title = `Assistant: ${line.length > 80 ? `${line.slice(0, 77)}...` : line}`;
     return postJson<{ id: number }>('/feedback/posts', { kind: 'idea', title, body: `${text}\n\n(From the assistant, rated ${rating}/5.)` });
   },
+  adminFeatureRequests: (status?: string) => getJson<{ items: FeatureRequest[]; total: number }>(`/admin/feedback/queue?kind=idea&page_size=100${status ? `&status=${status}` : ''}`),
+  adminSetFeatureOrder: (postIds: number[]) => putJson<{ ordered: number }>('/admin/feedback/order', { post_ids: postIds }),
+  adminSetFeedbackStatus: (id: number, status: string) => patchJson<FeatureRequest>(`/admin/feedback/posts/${id}`, { status }),
+  adminWorkPacket: (id: number) => getJson<{ post_id: number; markdown: string }>(`/admin/feedback/posts/${id}/work-packet`),
   adminRatings: (limit = 50) => getJson<AssistantRatingsReport>(`/admin/assistant/ratings?limit=${limit}`),
   adminRollout: () => getJson<AssistantRollout>('/admin/assistant/rollout'),
   adminSetRollout: (percent: number) => putJson<AssistantRollout>('/admin/assistant/rollout', { percent }),
