@@ -193,6 +193,8 @@ function transcript(): TranscriptItem[] {
     { type: 'action_result', action_id: 'm1', status: 'done', ok: true, awaiting: { kind: 'mpesa', poll: '/api/messaging/credits/orders/0', message: 'Check the phone 254712345678: enter your M-Pesa PIN to pay.' } },
     { type: 'action', action_id: 'm2', title: 'Pay subscription', summary: 'Pay your Bitwave subscription (KES 500)', method: 'POST', path: '/api/subscription/pay', status: 'pending', body: { amount: 500 } },
     { type: 'action_result', action_id: 'm2', status: 'done', ok: true, awaiting: { kind: 'mpesa', poll: '/api/subscription/payments/1', message: 'Check the phone 254712345678: enter your M-Pesa PIN to pay.' } },
+    { type: 'action', action_id: 'w1', title: 'Withdraw', summary: 'Withdraw KES 171 to My Bank Account (paybill 247247): net KES 166 after KES 5 fee', method: 'POST', path: '/api/reseller/withdraw', status: 'pending', body: {} },
+    { type: 'action_result', action_id: 'w1', status: 'done', ok: true, awaiting: { kind: 'payout', poll: '/api/reseller/withdrawals/7833/status', message: 'Sending KES 166 to My Bank Account. This updates when M-Pesa confirms it arrived.' } },
     { type: 'action', action_id: 'c1', title: 'Register Customer', summary: 'Register a new hotspot customer', method: 'POST', path: '/api/customers/register', status: 'pending',
       form: [
         { name: 'name', label: 'Name', kind: 'text', required: true },
