@@ -88,9 +88,9 @@ function PaymentWaitNote({ wait, onOutcome }: { wait: PaymentWait; onOutcome?: (
   return (
     <div role="status" className="mt-3 rounded-[10px] border border-accent/30 bg-accent-soft px-3 py-2.5 text-[13.5px] text-ink-1">
       <p className="m-0 flex items-start gap-2">{gaveUp ? <AlertIcon className="mt-0.5 shrink-0 text-accent" /> : <SpinnerIcon className="mt-0.5 shrink-0 text-accent" />}
-        <span>{gaveUp ? t('Not paid yet. If you entered the PIN, it can take a minute to show.') : wait.message}</span></p>
+        <span>{gaveUp ? (wait.kind === 'payout' ? t('Safaricom has not confirmed it yet. It can take a few minutes.') : t('Not paid yet. If you entered the PIN, it can take a minute to show.')) : wait.message}</span></p>
       {gaveUp ? <button type="button" className="ai-chip mt-2 !py-1.5 text-[12.5px] font-medium" onClick={() => { setGaveUp(false); setRound((r) => r + 1); }}>{t('Check again')}</button>
-        : <p className="m-0 mt-1 pl-6 text-[12px] text-ink-3">{t('This updates by itself once it is paid.')}</p>}
+        : <p className="m-0 mt-1 pl-6 text-[12px] text-ink-3">{wait.kind === 'payout' ? t('This updates by itself once Safaricom confirms it.') : t('This updates by itself once it is paid.')}</p>}
     </div>
   );
 }
@@ -570,11 +570,12 @@ export default function ActionCard({ action, busy, readOnly, currency, onDecide 
     : action.previews ? (previewed ? t('Apply') : action.preview_of ? t('Check again') : t('Preview'))
       : t('Confirm');
 
+  const payout = action.awaiting?.kind === 'payout';
   const paidLabel = paid === 'completed'
-    ? { label: t('Paid'), cls: 'bg-good/15 text-[var(--ai-text-good)]', icon: <CheckIcon width={11} height={11} /> }
+    ? { label: payout ? t('Sent') : t('Paid'), cls: 'bg-good/15 text-[var(--ai-text-good)]', icon: <CheckIcon width={11} height={11} /> }
     : paid === 'failed'
-      ? { label: t('Not paid'), cls: 'bg-bad/15 text-[var(--ai-text-bad)]', icon: <AlertIcon width={11} height={11} /> }
-      : { label: t('Check your phone'), cls: 'bg-accent-soft text-accent', icon: <SpinnerIcon width={11} height={11} /> };
+      ? { label: payout ? t('Not sent') : t('Not paid'), cls: 'bg-bad/15 text-[var(--ai-text-bad)]', icon: <AlertIcon width={11} height={11} /> }
+      : { label: payout ? t('Sending…') : t('Check your phone'), cls: 'bg-accent-soft text-accent', icon: <SpinnerIcon width={11} height={11} /> };
   const edge = status === 'done' && action.awaiting
     ? (paid === 'completed' ? toneColor('good') : paid === 'failed' ? toneColor('bad') : 'var(--ai-accent-fill)')
     : null;

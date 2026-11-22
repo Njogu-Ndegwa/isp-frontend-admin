@@ -247,7 +247,8 @@ export interface AssistantStatus {
 }
 
 /** A payment the action only started (an M-Pesa PIN prompt): where to read whether it was paid. */
-export interface PaymentWait { kind: 'mpesa'; poll: string; message: string }
+/** mpesa: a payment the person makes (PIN on the phone); payout: money sent to them (a withdrawal) */
+export interface PaymentWait { kind: 'mpesa' | 'payout'; poll: string; message: string }
 export interface PaymentStatus { status: 'pending' | 'completed' | 'failed' | string; paid: boolean; summary: string }
 
 /** A feature someone asked for (a feedback-board idea), as the admin queue lists it. */
