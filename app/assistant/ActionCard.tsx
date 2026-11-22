@@ -49,7 +49,9 @@ const GIVE_UP_MS = 3 * 60_000;
  * Checks the payment every few seconds (as the classic Buy SMS window does) and says
  * when it is paid or not; after a few minutes it stops and offers to check again.
  */
-function PaymentWaitNote({ wait }: { wait: PaymentWait }) {
+export type PaymentOutcome = 'pending' | 'completed' | 'failed';
+
+function PaymentWaitNote({ wait, onOutcome }: { wait: PaymentWait; onOutcome?: (o: PaymentOutcome) => void }) {
   const t = useT();
   const [state, setState] = useState<{ status: string; summary: string } | null>(null);
   const [round, setRound] = useState(0);
@@ -63,7 +65,9 @@ function PaymentWaitNote({ wait }: { wait: PaymentWait }) {
         const s = await assistantApi.paymentStatus(wait.poll);
         if (!on) return;
         setState({ status: s.paid ? 'completed' : s.status, summary: s.summary });
-        if (s.paid || s.status === 'failed') return;
+        // the card's badge and edge follow the money, not the Confirm
+        if (s.paid) { onOutcome?.('completed'); return; }
+        if (s.status === 'failed') { onOutcome?.('failed'); return; }
       } catch { /* a missed check is retried */ }
       if (!on) return;
       if (Date.now() - started > GIVE_UP_MS) { setGaveUp(true); return; }
@@ -71,6 +75,7 @@ function PaymentWaitNote({ wait }: { wait: PaymentWait }) {
     };
     void check();
     return () => { on = false; if (timer) clearTimeout(timer); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- onOutcome is a setter from the card
   }, [wait.poll, round]);
 
   const status = state?.status ?? 'pending';
@@ -522,6 +527,8 @@ export default function ActionCard({ action, busy, readOnly, currency, onDecide 
   const [now, setNow] = useState(() => Date.now());
   const form = action.form?.length ? action.form : null;
   const [values, setValues] = useState<Values>(() => (form ? initialValues(form) : {}));
+  // a payment started by Confirm: what M-Pesa said since (the badge reads it, not the Confirm)
+  const [paid, setPaid] = useState<PaymentOutcome>('pending');
   // what the card opened with: a field nobody filled in and the person did not touch is not sent,
   // so an edit never switches off or clears what it did not show a value for
   const [opened] = useState<Values>(() => (form ? initialValues(form) : {}));
@@ -563,11 +570,19 @@ export default function ActionCard({ action, busy, readOnly, currency, onDecide 
     : action.previews ? (previewed ? t('Apply') : action.preview_of ? t('Check again') : t('Preview'))
       : t('Confirm');
 
+  const paidLabel = paid === 'completed'
+    ? { label: t('Paid'), cls: 'bg-good/15 text-[var(--ai-text-good)]', icon: <CheckIcon width={11} height={11} /> }
+    : paid === 'failed'
+      ? { label: t('Not paid'), cls: 'bg-bad/15 text-[var(--ai-text-bad)]', icon: <AlertIcon width={11} height={11} /> }
+      : { label: t('Check your phone'), cls: 'bg-accent-soft text-accent', icon: <SpinnerIcon width={11} height={11} /> };
+  const edge = status === 'done' && action.awaiting
+    ? (paid === 'completed' ? toneColor('good') : paid === 'failed' ? toneColor('bad') : 'var(--ai-accent-fill)')
+    : null;
   const badge: Record<ActionStatus, { label: string; cls: string; icon?: React.ReactNode }> = {
     pending: { label: t('Waiting for you'), cls: 'bg-accent-soft text-accent' },
     running: { label: t('Running…'), cls: 'bg-surface-3 text-ink-2', icon: <SpinnerIcon width={11} height={11} /> },
     done: action.awaiting
-      ? { label: t('Check your phone'), cls: 'bg-accent-soft text-accent', icon: <SpinnerIcon width={11} height={11} /> }
+      ? paidLabel
       : { label: t('Done'), cls: 'bg-good/15 text-[var(--ai-text-good)]', icon: <CheckIcon width={11} height={11} /> },
     failed: { label: t('Failed'), cls: 'bg-bad/15 text-[var(--ai-text-bad)]', icon: <AlertIcon width={11} height={11} /> },
     declined: { label: t('Cancelled'), cls: 'bg-surface-3 text-ink-3' },
@@ -579,7 +594,7 @@ export default function ActionCard({ action, busy, readOnly, currency, onDecide 
       className={`@container ai-card relative overflow-hidden ${waiting ? (danger ? '!border-bad/45' : '!border-accent/45') : ''}`}
       style={waiting ? { boxShadow: `inset 0 1px 0 var(--ai-edge), 0 0 0 4px ${danger ? 'color-mix(in srgb, var(--ai-bad) 10%, transparent)' : 'var(--ai-accent-soft)'}, var(--ai-shadow)` } : undefined}>
       <span aria-hidden className="absolute inset-x-0 top-0 h-[2px]"
-        style={{ background: `linear-gradient(90deg, ${waiting ? (danger ? toneColor('bad') : 'var(--ai-accent-fill)') : status === 'done' ? toneColor('good') : status === 'failed' ? toneColor('bad') : 'var(--ai-s3)'}, transparent 85%)` }} />
+        style={{ background: `linear-gradient(90deg, ${edge ?? (waiting ? (danger ? toneColor('bad') : 'var(--ai-accent-fill)') : status === 'done' ? toneColor('good') : status === 'failed' ? toneColor('bad') : 'var(--ai-s3)')}, transparent 85%)` }} />
       <div className="p-4 sm:p-5">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
@@ -655,7 +670,7 @@ export default function ActionCard({ action, busy, readOnly, currency, onDecide 
         {status === 'failed' && action.detail && <p className="mt-3 break-words text-[13px] text-[var(--ai-text-bad)]">{action.detail}</p>}
         {status === 'expired' && <p className="mt-3 text-[12.5px] text-ink-3">{t('Not run. Ask again if you still want this.')}</p>}
 
-        {status === 'done' && action.awaiting ? <PaymentWaitNote wait={action.awaiting} /> : null}
+        {status === 'done' && action.awaiting ? <PaymentWaitNote wait={action.awaiting} onOutcome={setPaid} /> : null}
       </div>
       {status === 'done' && isRouterSetup(action.payload) ? (
         <div className="border-t border-line bg-surface-2/40 p-3 sm:p-4"><RouterSetupBlock setup={action.payload} /></div>

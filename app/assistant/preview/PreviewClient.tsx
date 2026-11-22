@@ -191,6 +191,8 @@ function transcript(): TranscriptItem[] {
       payload: { token: 'demo-setup-1', command: '/tool fetch url="https://isp.bitwavetechnologies.net/api/provision/demo-setup-1/script" dst-path=provision.rsc; :delay 2s; /import provision.rsc;', vpn_type: 'wireguard', ssid: 'Kwetu WiFi', router_name: 'Router-0412', created_at: new Date(Date.now() - 6 * 60_000).toISOString(), expires_in_hours: 24 } },
     { type: 'action', action_id: 'm1', title: 'Purchase Credits', summary: 'Buy 500 SMS (KES 250)', method: 'POST', path: '/api/messaging/credits/purchase', status: 'pending', body: { quantity: 500, phone_number: '0712345678' } },
     { type: 'action_result', action_id: 'm1', status: 'done', ok: true, awaiting: { kind: 'mpesa', poll: '/api/messaging/credits/orders/0', message: 'Check the phone 254712345678: enter your M-Pesa PIN to pay.' } },
+    { type: 'action', action_id: 'm2', title: 'Pay subscription', summary: 'Pay your Bitwave subscription (KES 500)', method: 'POST', path: '/api/subscription/pay', status: 'pending', body: { amount: 500 } },
+    { type: 'action_result', action_id: 'm2', status: 'done', ok: true, awaiting: { kind: 'mpesa', poll: '/api/subscription/payments/1', message: 'Check the phone 254712345678: enter your M-Pesa PIN to pay.' } },
     { type: 'action', action_id: 'c1', title: 'Register Customer', summary: 'Register a new hotspot customer', method: 'POST', path: '/api/customers/register', status: 'pending',
       form: [
         { name: 'name', label: 'Name', kind: 'text', required: true },
