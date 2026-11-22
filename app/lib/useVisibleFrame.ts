@@ -20,6 +20,23 @@ export function frameHeight(typing: boolean, visibleHeight: number, zoom: number
   return typing && visibleHeight > 0 ? Math.round(visibleHeight / (zoom || 1)) : null;
 }
 
+/**
+ * Put the keyboard away before leaving a page (sign-in, sign-up): blur the field and wait,
+ * at most `maxMs`, until the visible area is back to the full screen. Navigating with the
+ * keyboard still up left phones painting only the top half of the next page until a scroll.
+ */
+export async function closeKeyboard(maxMs = 700): Promise<void> {
+  if (typeof document === 'undefined') return;
+  const active = document.activeElement as HTMLElement | null;
+  if (opensKeyboard(active)) active?.blur();
+  const vv = window.visualViewport;
+  if (!vv) return;
+  const started = Date.now();
+  while (Date.now() - started < maxMs && vv.height < window.innerHeight - 60) {
+    await new Promise((r) => setTimeout(r, 50));
+  }
+}
+
 /** Re-measure a little after opening: a keyboard still closing (the login page's) reports a short screen. */
 const SETTLE_MS = [120, 400, 1000];
 
@@ -57,6 +74,9 @@ export function useVisibleFrame(ref: RefObject<HTMLElement | null>, enabled = tr
         const height = frameHeight(typing, vv.height, zoom);
         el.style.height = height === null ? '' : `${height}px`;
         el.style.transform = typing && vv.offsetTop > 0 ? `translateY(${Math.round(vv.offsetTop / zoom)}px)` : '';
+        // a page left scrolled by a keyboard that has gone (the sign-in one): put it back, as the
+        // person's own scroll would. Only when nobody is typing: then a scroll cannot drop a focus.
+        if (!typing && (window.scrollY !== 0 || vv.offsetTop > 0)) window.scrollTo(0, 0);
       });
     };
     apply();

@@ -12,6 +12,7 @@ import PhoneInput from '../components/PhoneInput';
 import { DEFAULT_COUNTRY, type Country } from '../lib/countries';
 import { trackSignup } from '../lib/analytics';
 import { getAttributionFields } from '../lib/attribution';
+import { closeKeyboard } from '../lib/useVisibleFrame';
 
 export default function SignupPage() {
   const router = useRouter();
@@ -46,6 +47,7 @@ export default function SignupPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    void closeKeyboard(0);   // the next page must not open under a keyboard (phones paint half of it)
 
     if (!registered && formData.password !== confirmPassword) {
       showAlert('error', 'Passwords do not match.');
@@ -95,6 +97,7 @@ export default function SignupPage() {
         }
       }
 
+      await closeKeyboard();
       router.push(await onboardingPath());
     } catch (err) {
       if (registered) {
