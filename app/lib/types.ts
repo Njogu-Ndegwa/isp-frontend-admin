@@ -5643,6 +5643,11 @@ export interface AdminSubscriptionCollectionsSummary {
   subscription_collected?: number;
   sms_collected?: number;
   sms_orders?: number;
+  /** SMS sales taken out of the paybill by hand before the cutoff date; not sendable. */
+  sms_withdrawn_manually?: number;
+  sms_withdrawn_manually_orders?: number;
+  /** ISO date (Kenya time) from which SMS sales count as sendable. */
+  sms_withdrawn_manually_before?: string;
   completed_sent: number;
   pending_send: number;
   completed_bank_net: number;
