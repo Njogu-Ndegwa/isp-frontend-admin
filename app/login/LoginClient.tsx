@@ -7,6 +7,7 @@ import { useAlert } from '../context/AlertContext';
 import { fullOnboardingCheck } from '../hooks/useOnboardingStatus';
 import { homePath, markStartPageDecided, onboardingPath, rememberedHome } from '../lib/assistant';
 import { wantsAssistant } from '../lib/standalone';
+import { closeKeyboard } from '../lib/useVisibleFrame';
 import Link from 'next/link';
 import { useT } from '../lib/i18n';
 import type { AuthUser } from '../lib/types';
@@ -98,11 +99,14 @@ export default function LoginPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    void closeKeyboard(0);   // start putting the keyboard away while signing in
     setLoading(true);
 
     try {
       const subscriptionAlert = await login(credentials);
       showAlert('success', 'Signed in successfully!');
+      // the password keyboard must be gone before the next page draws (or a phone paints half of it)
+      await closeKeyboard();
 
       // Staff go straight to the first page the owner gave them: no
       // onboarding (that's the owner's) and no subscription redirect unless

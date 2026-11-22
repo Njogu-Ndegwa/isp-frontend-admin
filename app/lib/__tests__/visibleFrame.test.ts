@@ -25,3 +25,21 @@ describe('the assistant frame follows the keyboard only while someone types', ()
     expect(opensKeyboard(null)).toBe(false);
   });
 });
+
+describe('leaving a form puts the keyboard away first', () => {
+  it('blurs the field and returns at once when the screen is already whole', async () => {
+    const { closeKeyboard } = await import('../useVisibleFrame');
+    let blurred = false;
+    const field = { tagName: 'INPUT', type: 'password', blur: () => { blurred = true; } };
+    const g = globalThis as Record<string, unknown>;
+    const before = { document: g.document, window: g.window };
+    g.document = { activeElement: field };
+    g.window = { innerHeight: 812, visualViewport: { height: 812 } };
+    try {
+      const t = Date.now();
+      await closeKeyboard(700);
+      expect(blurred).toBe(true);
+      expect(Date.now() - t).toBeLessThan(100);
+    } finally { g.document = before.document; g.window = before.window; }
+  });
+});
