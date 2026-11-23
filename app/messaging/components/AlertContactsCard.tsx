@@ -154,7 +154,7 @@ export function AlertContactsCard({ onChange }: AlertContactsCardProps) {
               type="button"
               onClick={save}
               disabled={saving || !dirty}
-              className="btn-primary text-xs"
+              className="btn-primary text-xs disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {saving ? t('Saving…') : t('Save')}
             </button>
