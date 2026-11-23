@@ -69,6 +69,10 @@ export interface FormField {
   sms?: boolean;
   /** a date and time on the person's own clock ("EAT") */
   zone?: string;
+  /** the one field the card was opened for ("add her phone"): shown first, Confirm waits for it */
+  purpose?: boolean;
+  /** for the purpose field: what the record holds now; Confirm waits for something else */
+  original?: unknown;
 }
 
 /** Where a record picker's rows come from: the list, its search filter and how a row reads. */

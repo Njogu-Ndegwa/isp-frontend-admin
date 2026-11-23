@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { formatValue, humanizeKey } from '../lib/assistantView';
-import { assistantApi, fieldApplies, fieldSpans, setChanges, smsSegments, type ActionStatus, type FormField, type PaymentWait, type PickSource } from '../lib/assistant';
+import { assistantApi, fieldApplies, fieldSpans, smsSegments, type ActionStatus, type FormField, type PaymentWait, type PickSource } from '../lib/assistant';
+import { initialValues, isEmpty, missingFields, purposeField, purposeReady, valuesToSend, type FormValue, type FormValues } from '../lib/assistantForm';
 import MediaUploadField from '../ads/components/MediaUploadField';
 import { PreviewFor, previewKind } from './blocks/Previews';
 import dynamic from 'next/dynamic';
@@ -129,8 +130,8 @@ const VERB: Record<string, string> = { POST: 'Create / run', PUT: 'Update', PATC
 
 /* ---------------- the form ---------------- */
 
-type Value = string | boolean | string[];
-type Values = Record<string, Value>;
+type Value = FormValue;
+type Values = FormValues;
 
 /** Choices read the way people say them: "HOURS" -> "Hours", "pppoe" -> "PPPoE". */
 const WORDS: Record<string, string> = { pppoe: 'PPPoE', ip: 'IP', mpesa: 'M-Pesa', sms: 'SMS', mtn: 'MTN', momo: 'MoMo', api: 'API', zenopay: 'ZenoPay', mac: 'MAC', url: 'URL', id: 'ID', mb: 'MB', fup: 'FUP' };
@@ -160,23 +161,12 @@ function fieldLabel(f: FormField): string {
   return words.charAt(0).toUpperCase() + words.slice(1);
 }
 
-const initialValues = (form: FormField[]): Values => Object.fromEntries(form.map((f): [string, Value] => {
-  if (f.kind === 'boolean') return [f.name, f.value === true];
-  if (f.kind === 'list') {
-    const items = Array.isArray(f.value) ? f.value.map(String) : [];
-    return [f.name, f.options?.length ? items : items.join(', ')];
-  }
-  return [f.name, f.value === undefined || f.value === null ? '' : String(f.value)];
-}));
-
-const isEmpty = (v: Value | undefined) => v === undefined || (typeof v === 'string' && !v.trim()) || (Array.isArray(v) && !v.length);
-
 // the map loads only when a form has a place to pick (Leaflet needs the browser)
 const LocationPicker = dynamic(() => import('./LocationPicker'), { ssr: false, loading: () => <div className="h-[260px] rounded-[14px] bg-surface-2" /> });
 
 /** What a person fills in first: required fields and anything already filled; the rest waits under More options. */
 const isPrimary = (f: FormField, v: Value | undefined) =>
-  f.required || f.kind === 'password' || (!f.default && (f.kind === 'boolean' ? v === true : !isEmpty(v)));
+  f.purpose || f.required || f.kind === 'password' || (!f.default && (f.kind === 'boolean' ? v === true : !isEmpty(v)));
 
 const FIELD = 'w-full min-w-0 rounded-[12px] border bg-[var(--ai-bg)] px-3.5 py-2.5 text-[16px] text-ink-1 outline-none transition-colors placeholder:text-ink-3 focus:border-accent/70 focus:shadow-[0_0_0_3px_var(--ai-accent-soft)] disabled:opacity-60';
 
@@ -277,7 +267,8 @@ function FormFields({ form, values, setValues, missing, disabled, currency }: {
   const [uploadsOff, setUploadsOff] = useState(false);  // storage not set up: every upload field offers a link instead
   // decided once from the first values, so a field does not jump away while it is being typed in
   const [primary] = useState(() => new Set(form.filter((f) => isPrimary(f, values[f.name])).map((f) => f.name)));
-  const live = form.filter((f) => fieldApplies(f, values, form));
+  // the field the card was opened for comes first, never under More options
+  const live = form.filter((f) => fieldApplies(f, values, form)).sort((a, b) => Number(!!b.purpose) - Number(!!a.purpose));
   // a field that belongs to the chosen kind (a static IP for a static plan) is the point of choosing it: always shown
   // so is a choice other fields hang on (photo or video): the person may want to switch it
   const deciders = new Set(form.flatMap((f) => Object.keys(f.when ?? {}).map((c) => c.split('.')[0])));
@@ -305,6 +296,7 @@ function FormFields({ form, values, setValues, missing, disabled, currency }: {
           <label htmlFor={id} className="mb-1.5 flex items-baseline justify-between gap-2 text-[12.5px]">
             <span className="font-medium text-ink-2">{t(fieldLabel(f))}{unit ? <span className="text-ink-3"> ({unit})</span> : null}</span>
             {bad ? <span className="ai-mono text-[11px] text-[var(--ai-text-bad)]">{t('needed')}</span>
+              : f.purpose ? <span className="ai-mono text-[11px] font-semibold text-accent">{t('fill this in')}</span>
               : !f.required ? <span className="ai-mono text-[11px] text-ink-3">{t('optional')}</span> : null}
           </label>
         );
@@ -473,7 +465,8 @@ function FormFields({ form, values, setValues, missing, disabled, currency }: {
           );
         }
         return (
-          <div key={f.name} className={`min-w-0 ${spans[f.name] ?? 'col-span-2'}`}>
+          <div key={f.name} data-purpose={f.purpose ? 'true' : undefined}
+            className={`min-w-0 ${f.purpose ? 'col-span-2 rounded-[14px] bg-accent-soft p-3 ring-1 ring-accent/50' : spans[f.name] ?? 'col-span-2'}`}>
             {label}
             {f.kind === 'select' ? (
               <select id={id} value={String(values[f.name] ?? '')} disabled={disabled} onChange={(e) => set(e.target.value)}
@@ -548,18 +541,14 @@ export default function ActionCard({ action, busy, readOnly, currency, onDecide 
   const refusal = waiting && action.detail ? action.detail : null;
   const confirm = () => {
     if (!form) { onDecide(true); return; }
-    const live = form.filter((f) => fieldApplies(f, values, form));  // another kind's fields are not sent
-    const sent = live.filter((f) => f.value !== undefined || JSON.stringify(values[f.name]) !== JSON.stringify(opened[f.name]));
-    const empty = new Set(live.filter((f) => f.required && isEmpty(values[f.name])).map((f) => f.name));
+    const empty = missingFields(form, values);
     setMissing(empty);
-    if (empty.size) return;
-    onDecide(true, Object.fromEntries(sent.map((f) => {
-      const v = values[f.name];
-      // a set the router has now (its PPPoE ports): only what was ticked and unticked is sent
-      if (f.changes && f.baseline && Array.isArray(v)) return [f.name, setChanges(f.baseline, v)];
-      return [f.name, v];
-    })));
+    if (empty.size || !purposeReady(form, values)) return;
+    onDecide(true, valuesToSend(form, values, opened));
   };
+  // a card opened for one field ("add her phone"): Confirm waits until it is filled in and changed
+  const purpose = form ? purposeField(form) : undefined;
+  const ready = !form || purposeReady(form, values);
   // a change that can be previewed: the first Confirm shows what it would do, the next one does it
   const valuesNow = JSON.stringify(values);
   // the form as it was when a preview arrived: an edit after it makes the preview out of date
@@ -656,8 +645,12 @@ export default function ActionCard({ action, busy, readOnly, currency, onDecide 
         )}
 
         {waiting && !readOnly && (
+          <>
+          {editing && purpose && !ready ? (
+            <p className="mt-3 text-[12.5px] text-ink-3">{t('Fill in {field} to confirm.', { field: t(fieldLabel(purpose)) })}</p>
+          ) : null}
           <div className="mt-4 flex gap-2">
-            <button type="button" disabled={busy} onClick={confirm}
+            <button type="button" disabled={busy || (editing && !ready)} onClick={confirm} data-testid="assistant-confirm"
               className={`ai-btn ${danger ? 'ai-btn-danger' : 'ai-btn-primary'} min-h-[44px] flex-1 px-6 text-[14px] @md:flex-none`}>
               {confirmLabel}
             </button>
@@ -665,6 +658,7 @@ export default function ActionCard({ action, busy, readOnly, currency, onDecide 
               {t('Cancel')}
             </button>
           </div>
+          </>
         )}
         {waiting && readOnly && <p className="mt-3 text-[12.5px] text-ink-3">{t('View-as is read-only: changes are disabled.')}</p>}
 
