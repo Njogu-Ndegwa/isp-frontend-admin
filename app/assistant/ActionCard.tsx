@@ -161,6 +161,13 @@ function fieldLabel(f: FormField): string {
   return words.charAt(0).toUpperCase() + words.slice(1);
 }
 
+/** A picture sent in this chat, by its reference (the server uploads it on Confirm). */
+const isChatImage = (v: unknown): v is string => typeof v === 'string' && v.startsWith('chat-image:');
+
+/** What the live preview draws for a field: a chat picture as its thumbnail, not its reference. */
+const previewValue = (f: FormField, v: Value | undefined) =>
+  isChatImage(v) ? (f.chat_images?.find((p) => p.ref === v)?.thumbnail ?? '') : v;
+
 // the map loads only when a form has a place to pick (Leaflet needs the browser)
 const LocationPicker = dynamic(() => import('./LocationPicker'), { ssr: false, loading: () => <div className="h-[260px] rounded-[14px] bg-surface-2" /> });
 
@@ -392,15 +399,43 @@ function FormFields({ form, values, setValues, missing, disabled, currency }: {
           // the dashboard's own uploader: pick a photo or video, it goes straight to storage, its address is the value
           const now = String(values[f.name] ?? '');
           const presets = f.presets ?? [];
-          const ownPhoto = presets.some((p) => p.value === now) ? '' : now;
+          const sent = f.chat_images ?? [];
+          // a picture sent in this chat is kept by the server: its ref is the value, Confirm uploads it
+          const fromChat = isChatImage(now);
+          const ownPhoto = presets.some((p) => p.value === now) || fromChat ? '' : now;
           const uploader = (
             <MediaUploadField kind={(f.upload.accept ?? '').startsWith('video') ? 'video' : 'image'} inputId={id}
-              label={presets.length ? t('Or upload your own photo') : t(fieldLabel(f))} value={presets.length ? ownPhoto : now}
+              label={presets.length || sent.length ? t('Or upload your own photo') : t(fieldLabel(f))} value={ownPhoto}
               onChange={(url) => set(url || (presets.length ? presets[0].value : ''))}
-              required={f.required && !presets.length} error={bad ? t('needed') : undefined}
+              required={f.required && !presets.length && !sent.length} error={bad ? t('needed') : undefined}
               uploadsOff={uploadsOff} onUploadsOff={() => setUploadsOff(true)} />
           );
-          if (!presets.length) return <div key={f.name} className="col-span-2 min-w-0">{uploader}</div>;
+          const chatPictures = sent.length ? (
+            <div role="radiogroup" aria-label={t('Use the picture you sent')} className="mb-3">
+              <p className="mb-1.5 text-[12.5px] font-medium text-ink-2">{t('Use the picture you sent')}</p>
+              <div className="flex flex-wrap gap-2">
+                {sent.map((p) => {
+                  const on = now === p.ref;
+                  return (
+                    <button key={p.ref} type="button" role="radio" aria-checked={on} disabled={disabled}
+                      onClick={() => set(on ? '' : p.ref)}
+                      className={`ai-tap relative overflow-hidden rounded-[12px] border p-1 transition-colors ${on ? 'border-accent bg-accent-soft' : 'border-line-strong hover:border-ink-3'}`}>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={p.thumbnail} alt={t('The picture you sent')} className="block h-16 w-16 rounded-[8px] object-cover" />
+                      {on ? <CheckIcon width={14} height={14} className="absolute right-1.5 top-1.5 rounded-full bg-accent-fill p-0.5 text-white" /> : null}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ) : null;
+          if (!presets.length) {
+            return (
+              <div key={f.name} className="col-span-2 min-w-0">
+                {sent.length ? label : null}{chatPictures}{uploader}
+              </div>
+            );
+          }
           // built-in photos to tap, then their own: whichever was picked last is the one used
           return (
             <div key={f.name} className="col-span-2 min-w-0">
@@ -419,6 +454,7 @@ function FormFields({ form, values, setValues, missing, disabled, currency }: {
                   );
                 })}
               </div>
+              {chatPictures ? <div className="mt-3">{chatPictures}</div> : null}
               <div className="mt-3">{uploader}</div>
             </div>
           );
@@ -602,7 +638,7 @@ export default function ActionCard({ action, busy, readOnly, currency, onDecide 
         ) : null}
         {/* the login page or the ad as customers will see it: follows the form while it is filled in, stays after Confirm */}
         {form && previewKind(form.map((f) => f.name)) && status !== 'declined' && status !== 'expired' ? (
-          <PreviewFor values={Object.fromEntries(form.filter((f) => fieldApplies(f, values, form)).map((f) => [f.name, values[f.name]]))} />
+          <PreviewFor values={Object.fromEntries(form.filter((f) => fieldApplies(f, values, form)).map((f) => [f.name, previewValue(f, values[f.name])]))} />
         ) : null}
         {editing && missing.size ? <p role="alert" className="mt-3 text-[13px] text-[var(--ai-text-bad)]">{t('Fill in the marked fields, then tap Confirm.')}</p> : null}
         {refusal && !missing.size ? <p role="alert" className="mt-3 break-words text-[13px] text-[var(--ai-text-bad)]">{refusal}</p> : null}

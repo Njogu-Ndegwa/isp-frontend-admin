@@ -50,6 +50,8 @@ export interface FormField {
   geo?: 'lat' | 'lng';
   /** ready-made values to pick instead of uploading (built-in hero photos), drawn as pictures */
   presets?: { label: string; value: string }[];
+  /** pictures sent in this chat (newest first): picking one sets the value to its ref; Confirm uploads it */
+  chat_images?: { ref: string; thumbnail: string }[];
   /** the API's own default, not something chosen: does not pull the field out of More options */
   default?: boolean;
   /** a picker whose values are numbers (record ids, 5/10/15 minutes) */
