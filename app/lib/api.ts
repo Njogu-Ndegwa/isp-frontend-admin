@@ -253,6 +253,8 @@ import {
   CustomerUsageTimeline,
   UsageTimelineGranularity,
   RouterLive,
+  RouterHealthHistory,
+  HealthHistoryRange,
   TopUsersWindow,
   ResellerTopUsageEntry,
   PortalSettingsResponse,
@@ -4198,6 +4200,16 @@ class ApiClient {
   async getRouterLive(routerId: number): Promise<RouterLive> {
     const response = await fetch(`${BASE_URL}/routers/${routerId}/live`, { headers: this.getHeaders() });
     return this.handleResponse<RouterLive>(response);
+  }
+
+  /** CPU and memory over time (bounded history: 5-min buckets for 24h, hourly for 7d). */
+  async getRouterHealthHistory(routerId: number, range: HealthHistoryRange = '24h'): Promise<RouterHealthHistory> {
+    if (this.isDemoMode()) return (await loadDemo()).demoRouterHealthHistory(routerId, range);
+    const response = await fetch(
+      `${BASE_URL}/routers/${routerId}/health-history?range=${range}`,
+      { headers: this.getHeaders() },
+    );
+    return this.handleResponse<RouterHealthHistory>(response);
   }
 
   async getCustomerUsageHistory(customerId: number, limit = 6): Promise<CustomerUsagePeriod[]> {

@@ -2,6 +2,8 @@ import type {
   DashboardAnalytics,
   DashboardOverview,
   MikroTikMetrics,
+  RouterHealthHistory,
+  HealthHistoryRange,
   BandwidthHistory,
   TopUsersResponse,
   Customer,
@@ -360,6 +362,61 @@ export const demoDashboardOverview: DashboardOverview = {
   })),
   generated_at: iso(),
 };
+
+// ─── Router health history (CPU / memory graphs) ────────────────────
+/** A plausible day: quiet nights, an evening peak, one short spike, one reboot. */
+export function demoRouterHealthHistory(routerId: number, range: HealthHistoryRange): RouterHealthHistory {
+  const step = range === '24h' ? 300 : 3600;
+  const slots = range === '24h' ? 288 : 168;
+  const now = Date.now();
+  const last = Math.floor(now / (step * 1000)) * step * 1000;
+  const start = last - (slots - 1) * step * 1000;
+  const cpuAvg: (number | null)[] = [];
+  const cpuMax: (number | null)[] = [];
+  const memAvg: (number | null)[] = [];
+  const memMax: (number | null)[] = [];
+  const reboots: number[] = [];
+  const linkDrops: number[] = [];
+  for (let i = 0; i < slots; i += 1) {
+    const t = start + i * step * 1000;
+    const hourEat = (new Date(t).getUTCHours() + 3) % 24;
+    const evening = Math.exp(-((hourEat - 21) ** 2) / 8);              // peak ~21:00
+    const wobble = Math.sin(i * 1.7) * 3 + Math.cos(i * 0.6) * 2;
+    const offline = range === '24h' && i > 200 && i < 206;            // a 30-min gap
+    const avg = Math.max(2, Math.min(96, 9 + 48 * evening + wobble));
+    cpuAvg.push(offline ? null : Math.round(avg * 10) / 10);
+    cpuMax.push(offline ? null : Math.min(100, Math.round(avg + 6 + Math.abs(wobble) * 3 + (i % 37 === 0 ? 30 : 0))));
+    const mem = 38 + (i / slots) * 6 + Math.sin(i * 0.3);
+    memAvg.push(offline ? null : Math.round(mem * 10) / 10);
+    memMax.push(offline ? null : Math.round(mem + 2));
+    reboots.push(range === '24h' ? (i === 206 ? 1 : 0) : (i === slots - 7 ? 1 : 0));
+    linkDrops.push(i % 97 === 50 ? 2 : 0);
+  }
+  const vals = (xs: (number | null)[]) => xs.filter((x): x is number => x !== null);
+  const mean = (xs: number[]) => (xs.length ? Math.round((xs.reduce((a, b) => a + b, 0) / xs.length) * 10) / 10 : null);
+  return {
+    router_id: routerId,
+    range,
+    step_seconds: step,
+    start: new Date(start).toISOString().slice(0, 19),
+    slots,
+    cpu_avg: cpuAvg,
+    cpu_max: cpuMax,
+    mem_avg: memAvg,
+    mem_max: memMax,
+    reboots,
+    link_drops: linkDrops,
+    summary: {
+      cpu_avg: mean(vals(cpuAvg)),
+      cpu_max: Math.max(...vals(cpuMax)),
+      mem_avg: mean(vals(memAvg)),
+      mem_max: Math.max(...vals(memMax)),
+      reboots: reboots.reduce((a, b) => a + b, 0),
+      link_drops: linkDrops.reduce((a, b) => a + b, 0),
+      buckets_with_data: vals(cpuAvg).length,
+    },
+  };
+}
 
 // ─── MikroTik Metrics ───────────────────────────────────────────────
 export const demoMikroTikMetrics: MikroTikMetrics = {

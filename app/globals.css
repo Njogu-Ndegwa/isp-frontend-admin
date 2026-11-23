@@ -41,6 +41,8 @@
   --chart-3: #059669; /* green  (upload / success) */
   --chart-4: #7c3aed; /* violet (pppoe) */
   --chart-5: #ea580c; /* orange (secondary) */
+  /* Router CPU / memory over time: kept off the status colours the dials use. */
+  --chart-health: #7c3aed;
 }
 
 /* ============================================================
@@ -95,6 +97,8 @@
   --chart-3: #34d399;
   --chart-4: #a78bfa;
   --chart-5: #fb923c;
+  /* #a78bfa is too light for a 2px line on #18181b (validated): one step down. */
+  --chart-health: #8b5cf6;
 }
 
 @theme inline {

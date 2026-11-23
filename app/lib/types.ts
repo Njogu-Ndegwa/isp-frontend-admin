@@ -1851,6 +1851,36 @@ export interface RouterLiveDevice {
   max_limit: string | null;
 }
 
+export type HealthHistoryRange = '24h' | '7d';
+
+/**
+ * GET /api/routers/{id}/health-history. Column-wise: slot i covers
+ * [start + i*step, start + (i+1)*step). `start` is naive UTC. null = the router
+ * sent nothing in that slot (offline, or not reporting health then).
+ */
+export interface RouterHealthHistory {
+  router_id: number;
+  range: HealthHistoryRange;
+  step_seconds: number;
+  start: string;
+  slots: number;
+  cpu_avg: (number | null)[];
+  cpu_max: (number | null)[];
+  mem_avg: (number | null)[];
+  mem_max: (number | null)[];
+  reboots: number[];
+  link_drops: number[];
+  summary: {
+    cpu_avg: number | null;
+    cpu_max: number | null;
+    mem_avg: number | null;
+    mem_max: number | null;
+    reboots: number;
+    link_drops: number;
+    buckets_with_data: number;
+  };
+}
+
 export interface RouterLive {
   router_id: number;
   reported_at: string;

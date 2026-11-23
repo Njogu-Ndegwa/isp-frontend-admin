@@ -382,7 +382,7 @@ export default function DashboardPage() {
             {!analyticsError && data && <div className="xl:col-span-4 min-w-0"><PlanPerformance plans={data.planPerformance} totalRevenue={data.summary.totalRevenue} /></div>}
 
             {/* Row 3 — Router Health (6) + Ports & Usage (6): the two router-level MikroTik views */}
-            {selectedRouterId && <div className="xl:col-span-6 min-w-0"><NetworkHealthCard data={mikrotik} loading={mikrotikLoading} error={mikrotikError} onRetry={loadMikrotik} /></div>}
+            {selectedRouterId && <div className="xl:col-span-6 min-w-0"><NetworkHealthCard data={mikrotik} loading={mikrotikLoading} error={mikrotikError} onRetry={loadMikrotik} routerId={selectedRouterId} /></div>}
             {selectedRouterId && (
               <div className="xl:col-span-6 min-w-0">
                 <PortsUsageCard
