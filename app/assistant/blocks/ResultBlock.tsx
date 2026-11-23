@@ -20,6 +20,7 @@ import { PortBlock } from './PortBlock';
 import { UptimeBlock } from './UptimeBlock';
 import { AdPreviewBlock, PortalPreviewBlock, previewKind } from './Previews';
 import { DataTable } from './DataTable';
+import { PppoeLoginBlock, pppoeLoginOf } from './PppoeLoginBlock';
 
 function downloadCsv(name: string, csv: string) {
   const url = URL.createObjectURL(new Blob([`﻿${csv}`], { type: 'text/csv;charset=utf-8' }));
@@ -335,6 +336,9 @@ export default function ResultBlock({ title: rawTitle, payload, show = 'auto', f
   // (uptime has no chart that says more than its own panel, so it wins over a chart hint)
   const entity = useMemo(() => (show === 'none' ? null : isUptime(payload) ? entityOf(payload) : CHART_HINTS.has(show) ? null : entityOf(payload)), [payload, show]);
   const title = cardTitle(rawTitle);
+  // a PPPoE customer's login: its own card, password behind Show (the server picks this, never the data's shape)
+  const login = show === 'pppoe_login' ? pppoeLoginOf(payload) : null;
+  if (login) return <PppoeLoginBlock title={title} login={login} />;
   if (shownLike && show !== 'none' && !CHART_HINTS.has(show)) {
     return (
       <Panel eyebrow={<>Preview</>} title={cardTitle(rawTitle)}>
@@ -387,6 +391,7 @@ export default function ResultBlock({ title: rawTitle, payload, show = 'auto', f
 
 /** What a result will be, as one word, for the slim "ready" rows shown while the answer is written. */
 export function visualNoun(payload: unknown, show?: string, fields?: ShowFields | null): string | null {
+  if (show === 'pppoe_login' && pppoeLoginOf(payload)) return 'Login';
   const kind = visualFor(payload, show, fields).kind;
   return kind === 'empty' ? null : kind === 'tiles' ? 'Figures' : kind === 'table' ? 'Table' : kind === 'record' || kind === 'text' ? 'Details' : 'Chart';
 }
