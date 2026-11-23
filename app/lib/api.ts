@@ -304,6 +304,7 @@ import {
   C2BRegisterResponse,
   SmsCreditInfo,
   ExpirySmsSettings,
+  AlertContacts,
   CustomerEventSmsSettings,
   CustomerEventSmsSettingsInput,
   CustomerSmsEvent,
@@ -4729,6 +4730,32 @@ class ApiClient {
       body: JSON.stringify(settings),
     });
     return this.handleResponse<ExpirySmsSettings>(response);
+  }
+
+  async getAlertContacts(): Promise<AlertContacts> {
+    if (this.isDemoMode()) {
+      return {
+        phones: [],
+        support_phone: '0712345678',
+        recipients: ['0712345678'],
+        using_support_phone: true,
+        max_phones: 3,
+      };
+    }
+    const response = await fetch(`${BASE_URL}/messaging/alert-contacts`, {
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<AlertContacts>(response);
+  }
+
+  async updateAlertContacts(phones: string[]): Promise<AlertContacts> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(`${BASE_URL}/messaging/alert-contacts`, {
+      method: 'PUT',
+      headers: this.getHeaders(),
+      body: JSON.stringify({ phones }),
+    });
+    return this.handleResponse<AlertContacts>(response);
   }
 
   async getCustomerEventSmsSettings(): Promise<CustomerEventSmsSettings> {

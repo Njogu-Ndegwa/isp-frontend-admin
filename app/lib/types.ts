@@ -6431,6 +6431,17 @@ export interface ExpirySmsSettings {
   expiry_include_hotspot: boolean;
 }
 
+/** Who gets router status SMS alerts (GET/PUT /api/messaging/alert-contacts). */
+export interface AlertContacts {
+  /** Saved alert numbers, in send order. Empty = alerts go to the support phone. */
+  phones: string[];
+  support_phone: string | null;
+  /** Where the next alert SMS goes (the support phone when `phones` is empty). */
+  recipients: string[];
+  using_support_phone: boolean;
+  max_phones: number;
+}
+
 export type CustomerSmsEvent = 'payment_receipt' | 'welcome' | 'reminder' | 'expiry';
 
 export interface CustomerEventSmsSettingsInput {

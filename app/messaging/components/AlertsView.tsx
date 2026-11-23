@@ -2,9 +2,11 @@
 import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { api } from '../../lib/api';
-import { Router, RouterAlertDelayMinutes, SmsCreditInfo } from '../../lib/types';
+import { AlertContacts, Router, RouterAlertDelayMinutes, SmsCreditInfo } from '../../lib/types';
 import { useAlert } from '../../context/AlertContext';
 import { PageLoader } from '../../components/LoadingSpinner';
+import { useT } from '../../lib/i18n';
+import { AlertContactsCard } from './AlertContactsCard';
 
 // ─── Router status alerts ──────────────────────────────────────────────────
 // Per-router opt-in: an inbox message when the router stays offline past the
@@ -19,9 +21,15 @@ interface AlertsViewProps {
 }
 
 export function AlertsView({ credits, onBuyCredits }: AlertsViewProps) {
+  const t = useT();
   const { showAlert } = useAlert();
   const [routers, setRouters] = useState<Router[]>([]);
   const [supportPhone, setSupportPhone] = useState<string | null | undefined>(undefined);
+  // Numbers alert SMS go to now (alert contacts, else the support phone).
+  const [alertRecipients, setAlertRecipients] = useState<string[] | undefined>(undefined);
+  const handleContactsChange = useCallback((contacts: AlertContacts) => {
+    setAlertRecipients(contacts.recipients);
+  }, []);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [togglingId, setTogglingId] = useState<number | null>(null);
@@ -78,17 +86,19 @@ export function AlertsView({ credits, onBuyCredits }: AlertsViewProps) {
 
   const balance = credits?.balance ?? 0;
   const noCredits = balance === 0;
-  const noPhone = supportPhone === null || supportPhone === '';
+  const noPhone = alertRecipients !== undefined
+    ? alertRecipients.length === 0
+    : supportPhone === null || supportPhone === '';
 
   return (
     <div className="space-y-4">
       <div className="card p-4">
         <h3 className="text-sm font-medium text-foreground mb-1">Router status alerts</h3>
         <p className="text-xs text-foreground-muted">
-          Get a message in your inbox — and an SMS to your phone — when a router stays
+          Get a message in your inbox — and an SMS to your alert contacts — when a router stays
           offline long enough to reach its selected delay, and again when it comes back online.
           The delay is a minimum. Detection and delivery can take longer.
-          Inbox alerts are free; each SMS costs 1 credit from your messaging balance
+          Inbox alerts are free; each SMS costs 1 credit per recipient from your messaging balance
           (refunded automatically if delivery fails).
         </p>
       </div>
@@ -110,16 +120,18 @@ export function AlertsView({ credits, onBuyCredits }: AlertsViewProps) {
       {noPhone && (
         <div className="card p-4 border-warning/30 bg-warning/10 flex items-start justify-between gap-3">
           <div>
-            <p className="text-sm font-medium text-foreground">No phone number on your profile</p>
+            <p className="text-sm font-medium text-foreground">{t('No phone number for alerts')}</p>
             <p className="text-xs text-foreground-muted mt-0.5">
-              Add a support phone so alert SMS have somewhere to go. Until then, alerts are inbox-only.
+              {t('Add a mobile number under Alert contacts below, or a support phone on your profile. Until then, alerts are inbox-only.')}
             </p>
           </div>
           <Link href="/settings/profile" className="btn-secondary text-xs shrink-0">
-            Add phone
+            {t('Add phone')}
           </Link>
         </div>
       )}
+
+      <AlertContactsCard onChange={handleContactsChange} />
 
       {routers.length === 0 ? (
         <div className="card p-8 text-center">

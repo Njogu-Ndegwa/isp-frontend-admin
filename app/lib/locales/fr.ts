@@ -1275,4 +1275,22 @@ export const FR: Record<string, string> = {
   '{n} questions': '{n} questions',
   'Questions asked, accounts using it, and estimated model cost.': 'Questions posées, comptes qui l\'utilisent et coût estimé du modèle.',
   'Busiest accounts': 'Comptes les plus actifs',
+
+  // Router alert contacts (Messaging > Alerts)
+  'Alert contacts': "Contacts d'alerte",
+  'Router alert SMS go to every number below, up to {max} numbers.': "Les SMS d'alerte des routeurs sont envoyés à chaque numéro ci-dessous, jusqu'à {max} numéros.",
+  'e.g. 0712 345 678': 'ex. 0712 345 678',
+  'Mobile number {n}': 'Numéro de mobile {n}',
+  'Remove mobile number {n}': 'Supprimer le numéro de mobile {n}',
+  '+ Add mobile number': '+ Ajouter un numéro de mobile',
+  'SMS credits are used for each recipient. Keep at least one mobile number.': 'Des crédits SMS sont utilisés pour chaque destinataire. Gardez au moins un numéro de mobile.',
+  'With no numbers, alerts go to your support phone {phone}.': "Sans numéro, les alertes sont envoyées à votre téléphone d'assistance {phone}.",
+  'With no numbers, alerts arrive in your inbox only.': 'Sans numéro, les alertes arrivent uniquement dans votre boîte de réception.',
+  'Saving…': 'Enregistrement…',
+  'Alert contacts saved': "Contacts d'alerte enregistrés",
+  'Failed to load alert contacts': "Impossible de charger les contacts d'alerte",
+  'Failed to save alert contacts': "Impossible d'enregistrer les contacts d'alerte",
+  'No phone number for alerts': 'Aucun numéro pour les alertes',
+  'Add a mobile number under Alert contacts below, or a support phone on your profile. Until then, alerts are inbox-only.': "Ajoutez un numéro de mobile dans Contacts d'alerte ci-dessous, ou un téléphone d'assistance dans votre profil. En attendant, les alertes arrivent uniquement dans la boîte de réception.",
+  'Add phone': 'Ajouter un téléphone',
 };
