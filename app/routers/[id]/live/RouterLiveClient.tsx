@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { api } from '../../../lib/api';
@@ -10,6 +11,11 @@ import {
   QUEUE_STATUS_LABEL, QUEUE_STATUS_TONE,
   formatAge, formatBps, formatBytes, formatMaxLimit,
 } from '../../../lib/live';
+
+const HealthHistoryPanel = dynamic(() => import('../../../components/HealthHistoryPanel'), {
+  ssr: false,
+  loading: () => <div className="h-[196px] rounded-2xl skeleton" />,
+});
 
 function Stat({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
@@ -82,6 +88,8 @@ export default function RouterLiveClient() {
             <Stat label="CPU" value={live.cpu_load !== null ? `${live.cpu_load}%` : '—'} sub={`Uptime ${live.uptime || '—'}`} />
             <Stat label="Memory used" value={memUsed !== null ? `${memUsed}%` : '—'} sub={`${live.queue_count} speed queues`} />
           </div>
+
+          <HealthHistoryPanel routerId={routerId} />
 
           <div className="card p-4 space-y-1 text-sm">
             <p className="font-medium text-foreground">Speed limits</p>

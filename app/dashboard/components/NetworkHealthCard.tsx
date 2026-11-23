@@ -1,5 +1,6 @@
 'use client';
 import React from 'react';
+import dynamic from 'next/dynamic';
 import SectionCard, { SectionError } from './SectionCard';
 import RadialGauge from './RadialGauge';
 import { BandwidthMeters, ActiveUsersBox } from './LiveThroughputCard';
@@ -10,26 +11,37 @@ import { parseUTCToGMT3, formatGMT3Date } from '../../lib/dateUtils';
 import { useT } from '../../lib/i18n';
 import { healthSourceCaption } from '../../lib/healthSource';
 
+// Charts load on demand (recharts stays out of the first dashboard bundle).
+const HealthHistoryPanel = dynamic(() => import('../../components/HealthHistoryPanel'), {
+  ssr: false,
+  loading: () => <div className="h-[196px] rounded-2xl skeleton" />,
+});
+
 // "Router Health" card — reproduces the original MikroTik section layout:
 // a 4-up row of CPU/Memory/Storage radial dials + an Active Users tile,
-// with the live bandwidth meters full-width underneath.
+// then CPU / memory over time, with the live bandwidth meters full-width
+// underneath.
 export default function NetworkHealthCard({
   data,
   loading,
   error,
   onRetry,
+  routerId,
 }: {
   data: MikroTikMetrics | null;
   loading: boolean;
   error: string | null;
   onRetry: () => void;
+  routerId?: number | null;
 }): React.JSX.Element {
   const t = useT();
-  // Error state
+  // Error state. History still shows: a router that cannot be read right now
+  // is exactly when "what was it doing before" matters.
   if (error) {
     return (
       <SectionCard title={t('Router Health')} accent="emerald">
         <SectionError message={error} onRetry={onRetry} />
+        {routerId ? <HealthHistoryPanel routerId={routerId} className="mt-4" /> : null}
       </SectionCard>
     );
   }
@@ -157,6 +169,9 @@ export default function NetworkHealthCard({
         />
         <ActiveUsersBox data={data} />
       </div>
+
+      {/* CPU / memory over time — the dials above are "now" */}
+      {routerId ? <HealthHistoryPanel routerId={routerId} className="mb-4 sm:mb-5" /> : null}
 
       {/* Live bandwidth meters — full width */}
       <BandwidthMeters data={data} />
