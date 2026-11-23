@@ -173,7 +173,9 @@ export function fieldSpans(fields: FormField[]): Record<string, string> {
 export interface Decision { action_id: string; approve: boolean; values?: Record<string, unknown> }
 
 /** How the model would like a result drawn. The page draws it from the data; the model never writes the numbers. */
-export type ShowHint = 'auto' | 'table' | 'card' | 'none' | 'tiles' | 'trend' | 'bars' | 'share';
+export type ShowHint = 'auto' | 'table' | 'card' | 'none' | 'tiles' | 'trend' | 'bars' | 'share'
+  /** set by the server, not the model: a PPPoE customer's login, drawn only for the person signed in */
+  | 'pppoe_login';
 /** Optional field names in the result: the label (category or date) and the figures. */
 export interface ShowFields {
   label?: string | null;
