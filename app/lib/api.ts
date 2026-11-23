@@ -274,6 +274,10 @@ import {
   ShareSubscriptionResponse,
   UpdatePortalSettingsRequest,
   UpdatePortalSettingsResponse,
+  ROUTER_THEME_FIELDS,
+  RouterThemeResponse,
+  RouterThemesListResponse,
+  UpdateRouterThemeRequest,
   RevenueOverTimePeriod,
   RevenueOverTimeResponse,
   DailyTransactionsPeriod,
@@ -4528,6 +4532,42 @@ class ApiClient {
       body: JSON.stringify(data),
     });
     return this.handleResponse<UpdatePortalSettingsResponse>(response);
+  }
+
+  /** Every router on the account, and whether it has its own portal theme. */
+  async getRouterThemes(): Promise<RouterThemesListResponse> {
+    if (this.isDemoMode()) return { theme_fields: [...ROUTER_THEME_FIELDS], routers: [] };
+    const response = await fetch(`${BASE_URL}/portal/router-themes`, {
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<RouterThemesListResponse>(response);
+  }
+
+  async getRouterTheme(routerId: number): Promise<RouterThemeResponse> {
+    const response = await fetch(`${BASE_URL}/portal/router-themes/${routerId}`, {
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<RouterThemeResponse>(response);
+  }
+
+  async updateRouterTheme(routerId: number, data: UpdateRouterThemeRequest): Promise<RouterThemeResponse> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(`${BASE_URL}/portal/router-themes/${routerId}`, {
+      method: 'PUT',
+      headers: this.getHeaders(),
+      body: JSON.stringify(data),
+    });
+    return this.handleResponse<RouterThemeResponse>(response);
+  }
+
+  /** Put a router back on the account's default theme. */
+  async resetRouterTheme(routerId: number): Promise<RouterThemeResponse> {
+    if (this.isDemoMode()) this.demoBlock();
+    const response = await fetch(`${BASE_URL}/portal/router-themes/${routerId}`, {
+      method: 'DELETE',
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<RouterThemeResponse>(response);
   }
 
   // ─── Admin Subscription Collections ────────────────────────────────

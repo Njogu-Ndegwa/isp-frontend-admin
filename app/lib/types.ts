@@ -6075,6 +6075,52 @@ export interface UpdatePortalSettingsResponse {
   settings: PortalSettings;
 }
 
+/** The part of the portal one router can override: its look. Everything else
+ * (ads, support contacts, language, package order) is shared by all routers. */
+export const ROUTER_THEME_FIELDS = [
+  'color_theme',
+  'header_style',
+  'show_welcome_banner',
+  'welcome_title',
+  'welcome_subtitle',
+  'company_logo_url',
+  'header_bg_image_url',
+  'footer_text',
+] as const;
+
+export type RouterThemeField = (typeof ROUTER_THEME_FIELDS)[number];
+
+/** PUT /api/portal/router-themes/{id}. A field sent as null goes back to the
+ * account default for that router. */
+export type UpdateRouterThemeRequest = Partial<Pick<UpdatePortalSettingsRequest, RouterThemeField>>;
+
+export interface RouterThemeSummary {
+  router_id: number;
+  router_name: string;
+  identity: string | null;
+  has_override: boolean;
+  overridden_fields: RouterThemeField[];
+  updated_at: string | null;
+}
+
+export interface RouterThemesListResponse {
+  theme_fields: RouterThemeField[];
+  routers: RouterThemeSummary[];
+}
+
+export interface RouterThemeResponse {
+  router_id: number;
+  router_name: string;
+  has_override: boolean;
+  overridden_fields: RouterThemeField[];
+  theme_fields: RouterThemeField[];
+  /** What this router's portal shows: account settings with its own theme on top. */
+  settings: PortalSettings;
+  account_settings: PortalSettings;
+  message?: string;
+  updated_fields?: string[];
+}
+
 // ─── Lead Pipeline / CRM ─────────────────────────────────────────────
 
 export type LeadStage =
