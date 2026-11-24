@@ -40,4 +40,15 @@ describe('router CPU series', () => {
     expect(changeAround(rb, 'not a date', 'avg')).toBeNull();
     expect(changeAround(data.models[0].points, data.deploys[0].at, 'avg')).toBeNull();
   });
+
+  it('leaves out the interval the deploy falls inside', () => {
+    // Live case, 24 Nov: deploy at 04:10:52, history only from the 04:10 bucket on.
+    const pts = [pt('2026-11-24T04:10:00Z', 30), pt('2026-11-24T04:15:00Z', 20)];
+    expect(changeAround(pts, '2026-11-24T04:10:52Z', 'avg', 300_000)).toBeNull();
+    // With a full bucket before it, the straddling one is still skipped on both sides.
+    const more = [pt('2026-11-24T04:05:00Z', 10), ...pts];
+    expect(changeAround(more, '2026-11-24T04:10:52Z', 'avg', 300_000)).toBe(10);
+    // Without the step, the straddling bucket wrongly counts as "before".
+    expect(changeAround(more, '2026-11-24T04:10:52Z', 'avg')).toBe(0);
+  });
 });

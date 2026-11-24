@@ -35,6 +35,11 @@ function fmtWhen(iso: string): string {
   }
 }
 
+/** Short commit for a deploy, or null when the heartbeat didn't record one. */
+function shortVersion(v: string | null | undefined): string | null {
+  return v && v !== 'unknown' ? v.slice(0, 7) : null;
+}
+
 function signed(v: number | null): string {
   if (v == null) return '—';
   return `${v > 0 ? '+' : ''}${v}`;
@@ -73,6 +78,7 @@ export default function RouterCpuByModelPanel() {
   const metricInfo = CPU_METRICS.find((m) => m.key === metric)!;
   const deploys = useMemo(() => (data?.deploys ?? []).filter((d) => d.runtime_mode !== 'shadow'), [data]);
   const lastDeploy = deploys.at(-1) ?? null;
+  const stepMs = (data?.step_seconds ?? 0) * 1000;
 
   const toggle = (key: string) => setHidden((prev) => {
     const next = new Set(prev);
@@ -135,7 +141,7 @@ export default function RouterCpuByModelPanel() {
                 onClick={(e: any) => e?.dataKey && toggle(String(e.dataKey))} />
               {deploys.map((d) => (
                 <ReferenceLine key={d.at} x={Date.parse(d.at)} stroke="var(--color-foreground-muted)" strokeDasharray="4 4"
-                  label={{ value: d.version ? d.version.slice(0, 7) : 'deploy', position: 'insideTopRight', fontSize: 9, fill: 'var(--color-foreground-muted)' }} />
+                  label={{ value: shortVersion(d.version) ?? 'deploy', position: 'insideTopRight', fontSize: 9, fill: 'var(--color-foreground-muted)' }} />
               ))}
               {metric === 'avg' && <ReferenceLine y={80} stroke="var(--color-danger)" strokeOpacity={0.4} />}
               {models.map((m, i) => {
@@ -164,7 +170,7 @@ export default function RouterCpuByModelPanel() {
             </thead>
             <tbody className="divide-y divide-border">
               {models.map((m) => {
-                const change = lastDeploy ? changeAround(m.points, lastDeploy.at, metric) : null;
+                const change = lastDeploy ? changeAround(m.points, lastDeploy.at, metric, stepMs) : null;
                 return (
                   <tr key={seriesKey(m)}>
                     <td className="py-1.5 pr-3">{seriesKey(m)}</td>
@@ -181,7 +187,7 @@ export default function RouterCpuByModelPanel() {
           </table>
           {lastDeploy && (
             <p className="text-xs text-foreground-muted mt-2">
-              Last deploy {fmtWhen(lastDeploy.at)}{lastDeploy.version ? ` (${lastDeploy.version.slice(0, 7)})` : ''}. A rise of 5 points or more is highlighted.
+              Last deploy {fmtWhen(lastDeploy.at)}{shortVersion(lastDeploy.version) ? ` (${shortVersion(lastDeploy.version)})` : ''}. A rise of 5 points or more is highlighted.
             </p>
           )}
         </div>
