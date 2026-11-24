@@ -1414,4 +1414,6 @@ export const FR: Record<string, string> = {
   'Completed': 'Terminé',
   'Queued': 'En file',
   'Dhcp': 'DHCP',
+  'What customers see': 'Ce que voient les clients',
+  'Customer login page preview': 'Aperçu de la page de connexion des clients',
 };

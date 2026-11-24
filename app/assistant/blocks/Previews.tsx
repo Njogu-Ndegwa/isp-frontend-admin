@@ -8,8 +8,10 @@
  */
 import { useEffect, useState } from 'react';
 import AdPreview, { type AdPreviewData } from '../../ads/components/AdPreview';
+import LivePortalPreview from '../../components/LivePortalPreview';
 import PortalPreview, { type PreviewPlan } from '../../components/PortalPreview';
 import { api } from '../../lib/api';
+import { useT } from '../../lib/i18n';
 import { planDuration } from '../../lib/assistantEntities';
 import type { Row } from '../../lib/assistantView';
 import { getThemePalette } from '../../lib/portalThemes';
@@ -58,16 +60,29 @@ function realPlans(): Promise<PreviewPlan[]> {
 
 /** The hotspot login page as customers will see it, from saved settings plus the values on the form. */
 export function PortalPreviewBlock({ values, saved }: { values: Values; saved?: Values | null }) {
+  const t = useT();
+  // The real portal, framed at phone size (the router's own plans, ads and
+  // saved settings, with the form's values on top).
+  const live = { ...asPortal(saved ?? {}), ...asPortal(values) };
+  return (
+    <figure className="m-0 mt-4">
+      <figcaption className="ai-eyebrow mb-2">{t('What customers see')}</figcaption>
+      <div className="mx-auto max-w-[360px]">
+        <LivePortalPreview settings={live} fallback={<ImitationPreview values={values} saved={saved} />} />
+      </div>
+    </figure>
+  );
+}
+
+/** The dashboard's drawing of the login page, for when the real one can't be framed. */
+function ImitationPreview({ values, saved }: { values: Values; saved?: Values | null }) {
   const [plans, setPlans] = useState<PreviewPlan[]>([]);
   useEffect(() => { let on = true; realPlans().then((p) => { if (on) setPlans(p); }); return () => { on = false; }; }, []);
   const settings = { ...PORTAL_DEFAULTS, ...asPortal(saved ?? {}), ...asPortal(values) } as PortalSettings;
   return (
-    <figure className="m-0 mt-4">
-      <figcaption className="ai-eyebrow mb-2">What customers see</figcaption>
-      <div className="mx-auto max-w-[300px] overflow-hidden rounded-[22px] border border-line">
-        <PortalPreview settings={settings} palette={getThemePalette(settings.color_theme)} plans={plans} />
-      </div>
-    </figure>
+    <div className="mx-auto max-w-[300px] overflow-hidden rounded-[22px] border border-line">
+      <PortalPreview settings={settings} palette={getThemePalette(settings.color_theme)} plans={plans} />
+    </div>
   );
 }
 

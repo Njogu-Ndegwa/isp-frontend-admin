@@ -5,6 +5,9 @@ const apiOrigin = (process.env.NEXT_PUBLIC_API_BASE_URL || "https://isp.bitwavet
   .replace(/\/api\/?$/, "")
   .replace(/\/+$/, "");
 
+// Keep in sync with PORTAL_URL in app/lib/livePortalPreview.ts.
+const portalOrigin = new URL(process.env.NEXT_PUBLIC_PORTAL_URL || "https://isp-frontend-two.vercel.app").origin;
+
 // 'unsafe-inline' script-src is required by Next's inline runtime and the GA /
 // TikTok bootstrap snippets; tighten with nonces if those move to external files.
 const securityHeaders = [
@@ -32,6 +35,9 @@ const securityHeaders = [
       // *.r2.cloudflarestorage.com: ad photos/videos are PUT straight to R2
       // with a presigned URL from POST /api/ads/media/upload-url.
       `connect-src 'self' ${apiOrigin} https://nominatim.openstreetmap.org https://*.r2.cloudflarestorage.com https://www.google.com https://www.google-analytics.com https://analytics.google.com https://*.google-analytics.com https://*.googletagmanager.com https://stats.g.doubleclick.net https://analytics.tiktok.com https://analytics-ipv6.tiktokw.us https://*.contentsquare.net https://va.vercel-scripts.com`,
+      // The assistant's "What customers see" card frames the real captive
+      // portal (app/lib/livePortalPreview.ts).
+      `frame-src ${portalOrigin}`,
       "frame-ancestors 'none'",
     ].join("; "),
   },
