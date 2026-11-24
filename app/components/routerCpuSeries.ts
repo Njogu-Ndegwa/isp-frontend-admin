@@ -56,11 +56,17 @@ export function periodMean(points: RouterCpuPoint[], metric: CpuMetric): number 
 /**
  * Average of the metric in the window after a deploy minus the window before it.
  * Positive = CPU went up after the release. Null when either side has no data.
+ *
+ * A point covers [t, t + stepMs). The one the deploy falls inside holds readings
+ * from both sides (or, after a restart, only from after it), so it counts for
+ * neither: otherwise a deploy minutes old already shows a "change".
  */
-export function changeAround(points: RouterCpuPoint[], atIso: string, metric: CpuMetric, windowMs = 3 * 3600_000): number | null {
+export function changeAround(
+  points: RouterCpuPoint[], atIso: string, metric: CpuMetric, stepMs = 0, windowMs = 3 * 3600_000,
+): number | null {
   const at = Date.parse(atIso);
   if (Number.isNaN(at)) return null;
-  const before = points.filter((p) => { const t = Date.parse(p.t); return t < at && t >= at - windowMs; });
+  const before = points.filter((p) => { const t = Date.parse(p.t); return t < at && t + stepMs <= at && t >= at - windowMs; });
   const after = points.filter((p) => { const t = Date.parse(p.t); return t >= at && t < at + windowMs; });
   const b = periodMean(before, metric);
   const a = periodMean(after, metric);
