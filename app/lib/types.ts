@@ -240,6 +240,38 @@ export interface DbLongRunningConnection {
   [key: string]: unknown;
 }
 
+// GET /api/admin/router-cpu/by-model. Each point is over routers (each router's
+// mean in the interval), not over samples. p50/p90 are upper edges of 10% bins.
+export interface RouterCpuPoint {
+  t: string;
+  routers: number;
+  avg: number;
+  p50: number | null;
+  p90: number | null;
+  max: number;
+  pct_over_80: number;
+  pct_peaked_95: number;
+  samples: number;
+}
+
+export interface RouterCpuModelSeries {
+  board_name: string;
+  ros_major: string | null;
+  routers_now: number;
+  avg_now: number | null;
+  points: RouterCpuPoint[];
+}
+
+export interface RouterCpuByModelResponse {
+  from: string;
+  to: string;
+  step_seconds: number;
+  bucket_seconds: number;
+  split_version: boolean;
+  models: RouterCpuModelSeries[];
+  deploys: { at: string; version: string | null; runtime_mode: string | null }[];
+}
+
 export interface DbPoolResponse {
   generated_at: string;
   pool_snapshot_timing: string;

@@ -1,0 +1,43 @@
+import { describe, expect, it } from 'vitest';
+import { changeAround, chartableModels, periodMean, seriesKey, toChartRows } from '../routerCpuSeries';
+import type { RouterCpuByModelResponse, RouterCpuPoint } from '../../lib/types';
+
+const pt = (t: string, avg: number, routers = 10): RouterCpuPoint => ({
+  t, routers, avg, p50: avg, p90: Math.min(avg + 20, 100), max: 100, pct_over_80: 0, pct_peaked_95: 0, samples: routers * 5,
+});
+
+const data: RouterCpuByModelResponse = {
+  from: '2026-11-23T00:00:00Z', to: '2026-11-23T06:00:00Z', step_seconds: 3600, bucket_seconds: 300, split_version: false,
+  deploys: [{ at: '2026-11-23T03:00:00Z', version: 'abc1234def', runtime_mode: 'active' }],
+  models: [
+    { board_name: 'hAP lite', ros_major: null, routers_now: 3, avg_now: 40, points: [pt('2026-11-23T01:00:00Z', 40, 3)] },
+    { board_name: 'RB951Ui-2HnD', ros_major: null, routers_now: 70, avg_now: 30, points: [
+      pt('2026-11-23T01:00:00Z', 20), pt('2026-11-23T02:00:00Z', 20, 30), pt('2026-11-23T03:00:00Z', 35), pt('2026-11-23T04:00:00Z', 35),
+    ] },
+    { board_name: 'RB4011iGS+', ros_major: '7', routers_now: 0, avg_now: null, points: [] },
+  ],
+};
+
+describe('router CPU series', () => {
+  it('charts the biggest fleets first and skips models with no history', () => {
+    expect(chartableModels(data).map((m) => m.board_name)).toEqual(['RB951Ui-2HnD', 'hAP lite']);
+    expect(chartableModels(null)).toEqual([]);
+    expect(seriesKey({ board_name: 'RB951Ui-2HnD', ros_major: '6' })).toBe('RB951Ui-2HnD · v6');
+  });
+
+  it('pivots to one row per time with a column per model', () => {
+    const rows = toChartRows(chartableModels(data), 'avg');
+    expect(rows).toHaveLength(4);
+    expect(rows[0]).toMatchObject({ t: '2026-11-23T01:00:00Z', 'RB951Ui-2HnD': 20, 'hAP lite': 40 });
+    expect(rows[1]['hAP lite']).toBeUndefined();
+    expect(rows.map((r) => r.ts)).toEqual([...rows.map((r) => r.ts)].sort());
+  });
+
+  it('weights the period mean by routers and measures the change around a deploy', () => {
+    const rb = data.models[1].points;
+    expect(periodMean(rb, 'avg')).toBe(Math.round(((20 * 10 + 20 * 30 + 35 * 10 + 35 * 10) / 60) * 10) / 10);
+    expect(changeAround(rb, data.deploys[0].at, 'avg')).toBe(15);
+    expect(changeAround(rb, 'not a date', 'avg')).toBeNull();
+    expect(changeAround(data.models[0].points, data.deploys[0].at, 'avg')).toBeNull();
+  });
+});

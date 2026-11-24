@@ -86,6 +86,10 @@ const OvesHealthPanel = dynamic(() => import('../components/OvesHealthPanel'), {
   ssr: false,
   loading: () => <SkeletonCard />,
 });
+const RouterCpuByModelPanel = dynamic(() => import('../components/RouterCpuByModelPanel'), {
+  ssr: false,
+  loading: () => <SkeletonCard />,
+});
 
 type PeriodFilter = SharedPeriodFilter;
 
@@ -737,6 +741,9 @@ export default function AdminDashboardPage() {
 
       {/* OVES platform health — Admin only: codes, MongoDB, clusters, dependencies */}
       {user?.role === 'admin' && <OvesHealthPanel />}
+
+      {/* Router CPU by model — Admin only: did a release or router change move CPU on a model? */}
+      {user?.role === 'admin' && <RouterCpuByModelPanel />}
 
       {loading ? (
         <div className="space-y-6">

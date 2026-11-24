@@ -283,6 +283,7 @@ import {
   TransactionPaymentMethod,
   TransactionStatusFilter,
   DbPoolResponse,
+  RouterCpuByModelResponse,
   OpsHealthResponse,
   OvesHealthResponse,
   OvesHistoryResponse,
@@ -769,6 +770,16 @@ class ApiClient {
     const url = `${BASE_URL}/admin/db-pool${qs ? `?${qs}` : ''}`;
     const response = await fetch(url, { headers: this.getHeaders() });
     return this.handleResponse<DbPoolResponse>(response);
+  }
+
+  // Router CPU by model - GET /api/admin/router-cpu/by-model (admin only).
+  // Fleet CPU history per board model with app deploys as markers.
+  async getRouterCpuByModel(params: { hours: number; splitVersion?: boolean; step?: number }): Promise<RouterCpuByModelResponse> {
+    const qs = new URLSearchParams({ hours: String(params.hours) });
+    if (params.splitVersion) qs.append('split_version', 'true');
+    if (params.step) qs.append('step', String(params.step));
+    const response = await fetch(`${BASE_URL}/admin/router-cpu/by-model?${qs.toString()}`, { headers: this.getHeaders() });
+    return this.handleResponse<RouterCpuByModelResponse>(response);
   }
 
   // Operations health - GET /api/admin/ops-health (admin only). Returns null on
