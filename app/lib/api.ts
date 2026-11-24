@@ -254,6 +254,7 @@ import {
   UsageTimelineGranularity,
   RouterLive,
   RouterHealthHistory,
+  RouterHealthRanking,
   HealthHistoryRange,
   TopUsersWindow,
   ResellerTopUsageEntry,
@@ -4221,6 +4222,16 @@ class ApiClient {
       { headers: this.getHeaders() },
     );
     return this.handleResponse<RouterHealthHistory>(response);
+  }
+
+  /** Every visible router's CPU/memory p95, p99 and peak over the range, busiest first. */
+  async getRouterHealthRanking(range: HealthHistoryRange = '24h'): Promise<RouterHealthRanking> {
+    if (this.isDemoMode()) return (await loadDemo()).demoRouterHealthRanking(range);
+    const response = await fetch(
+      `${BASE_URL}/router-health/ranking?range=${range}`,
+      { headers: this.getHeaders() },
+    );
+    return this.handleResponse<RouterHealthRanking>(response);
   }
 
   async getCustomerUsageHistory(customerId: number, limit = 6): Promise<CustomerUsagePeriod[]> {

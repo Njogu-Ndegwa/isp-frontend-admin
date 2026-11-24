@@ -1902,15 +1902,50 @@ export interface RouterHealthHistory {
   mem_max: (number | null)[];
   reboots: number[];
   link_drops: number[];
-  summary: {
-    cpu_avg: number | null;
-    cpu_max: number | null;
-    mem_avg: number | null;
-    mem_max: number | null;
-    reboots: number;
-    link_drops: number;
-    buckets_with_data: number;
-  };
+  summary: RouterHealthSummary;
+}
+
+/**
+ * Range totals. p95/p99 are taken over the range's slot averages (5-minute for
+ * 24h, hourly for 7d); max is the highest single reading (one per report).
+ */
+export interface RouterHealthSummary {
+  cpu_avg: number | null;
+  cpu_p95: number | null;
+  cpu_p99: number | null;
+  cpu_max: number | null;
+  mem_avg: number | null;
+  mem_p95: number | null;
+  mem_p99: number | null;
+  mem_max: number | null;
+  reboots: number;
+  link_drops: number;
+  buckets_with_data: number;
+  /** Naive UTC. Null when the router has never sent a health reading. */
+  last_report_at: string | null;
+  /** A reading arrived in the last 15 minutes. */
+  reporting: boolean;
+  /** False: this router's agent does not send the WAN link-down counter, so drops are unknown (not zero). */
+  link_drops_reported: boolean;
+}
+
+export interface RouterHealthRank extends RouterHealthSummary {
+  router_id: number;
+  name: string;
+  owner_id: number;
+  owner_name: string | null;
+  online: boolean;
+  board: string | null;
+}
+
+export interface RouterHealthRanking {
+  range: HealthHistoryRange;
+  step_seconds: number;
+  start: string;
+  /** Busiest first (CPU p95). */
+  routers: RouterHealthRank[];
+  /** Online routers with no health reading in the range (no graph). */
+  not_reporting: RouterHealthRank[];
 }
 
 export interface RouterLive {

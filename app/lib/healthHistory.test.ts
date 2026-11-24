@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { hasData, pct, slotLabel, startMs, tickLabel, ticksFor, toRows } from './healthHistory';
+import {
+  hasData, loadTone, pct, percentile, slotLabel, sortRanking, startMs, tickLabel, ticksFor, toRows,
+} from './healthHistory';
 import type { RouterHealthHistory } from './types';
 
 function history(over: Partial<RouterHealthHistory> = {}): RouterHealthHistory {
@@ -15,7 +17,12 @@ function history(over: Partial<RouterHealthHistory> = {}): RouterHealthHistory {
     mem_max: [null, null, null, null],
     reboots: [0, 0, 1, 0],
     link_drops: [0, 3, 0, 0],
-    summary: { cpu_avg: 35, cpu_max: 99, mem_avg: null, mem_max: null, reboots: 1, link_drops: 3, buckets_with_data: 3 },
+    summary: {
+      cpu_avg: 35, cpu_p95: 55.5, cpu_p99: 55.5, cpu_max: 99,
+      mem_avg: null, mem_p95: null, mem_p99: null, mem_max: null,
+      reboots: 1, link_drops: 3, buckets_with_data: 3,
+      last_report_at: '2026-11-23T09:19:00', reporting: true, link_drops_reported: true,
+    },
     ...over,
   };
 }
@@ -73,5 +80,40 @@ describe('time labels (GMT+3)', () => {
   it('formats percentages and blanks', () => {
     expect(pct(23.6)).toBe('24%');
     expect(pct(null)).toBe('—');
+  });
+});
+
+describe('percentile', () => {
+  it('matches the backend nearest-rank rule', () => {
+    const values = Array.from({ length: 100 }, (_, i) => i + 1);
+    expect(percentile(values, 95)).toBe(95);
+    expect(percentile(values, 99)).toBe(99);
+    expect(percentile([7], 99)).toBe(7);
+    expect(percentile([], 95)).toBeNull();
+    const quietThenBusy = [...Array(20).fill(10), 90];
+    expect(percentile(quietThenBusy, 95)).toBe(10);
+    expect(percentile(quietThenBusy, 99)).toBe(90);
+  });
+});
+
+describe('sortRanking', () => {
+  const rows = [
+    { router_id: 1, name: 'b', cpu_p95: 40, cpu_max: 99, reboots: 0 },
+    { router_id: 2, name: 'a', cpu_p95: 85, cpu_max: 90, reboots: 2 },
+    { router_id: 3, name: 'c', cpu_p95: null, cpu_max: null, reboots: 0 },
+  ];
+  it('puts the most affected first and missing values last', () => {
+    expect(sortRanking(rows, 'cpu_p95').map((r) => r.router_id)).toEqual([2, 1, 3]);
+    expect(sortRanking(rows, 'cpu_max').map((r) => r.router_id)).toEqual([1, 2, 3]);
+    expect(sortRanking(rows, 'reboots').map((r) => r.router_id)).toEqual([2, 1, 3]);
+  });
+  it('sorts names A-Z', () => {
+    expect(sortRanking(rows, 'name').map((r) => r.name)).toEqual(['a', 'b', 'c']);
+  });
+});
+
+describe('loadTone', () => {
+  it('bands p95', () => {
+    expect([loadTone(null), loadTone(20), loadTone(50), loadTone(80)]).toEqual(['none', 'normal', 'elevated', 'high']);
   });
 });
