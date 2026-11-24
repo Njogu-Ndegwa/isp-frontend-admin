@@ -2,7 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import { api } from '../../lib/api';
+import type { NetworkPort, NetworkRouter } from '../../lib/assistant';
 import { eatTime } from '../../lib/assistantEntities';
+import { lostPortAdvice, portLight, portNumber, portSetupLine, portTitle, ROLE_SHORT, type PortLight } from '../../lib/routerPorts';
 import type { Tone } from '../../lib/assistantVisual';
 import { useT } from '../../lib/i18n';
 import type { RouterUptimeResponse } from '../../lib/types';
@@ -47,6 +49,88 @@ export interface Device {
   checkedAgo?: string | null;
   checkedAt?: Date | null;
   lastOnline?: Date | null;
+  /** every socket, from the router's own report */
+  ports?: NetworkPort[] | null;
+  /** what the ports were set up for, said when there is no port report */
+  portSetup?: NetworkRouter['port_setup'];
+}
+
+const LIGHT_CELL: Record<PortLight, string> = {
+  up: 'border-good/55 bg-good/12 text-ink-1',
+  lost: 'border-bad/70 bg-bad/15 text-[var(--ai-text-bad)]',
+  off: 'border-dashed border-line-strong bg-transparent text-ink-3',
+  empty: 'border-line bg-surface-2 text-ink-3',
+};
+
+/**
+ * The router's front: one square per socket, numbered as printed on the box, lit when it
+ * has a link, red when it had one and lost it, with what the port is set up for under it.
+ * A socket that lost its link is said in words too, with what to check.
+ */
+function PortStrip({ ports, setup, onPort }: { ports?: NetworkPort[] | null; setup?: NetworkRouter['port_setup']; onPort?: (p: NetworkPort) => void }) {
+  const t = useT();
+  if (!ports?.length) {
+    const line = portSetupLine(setup ?? null);
+    return line ? (
+      <div className="px-4 pt-3.5">
+        <p className="ai-eyebrow mb-1">{t('Ports')}</p>
+        <p className="ai-mono text-[11.5px] leading-snug text-ink-2">{line}</p>
+      </div>
+    ) : null;
+  }
+  const lost = ports.filter((p) => p.lost_link);
+  const used = ports.filter((p) => p.up).length;
+  return (
+    <div className="px-4 pt-3.5">
+      <div className="mb-1.5 flex items-baseline justify-between gap-2">
+        <span className="ai-eyebrow">{t('Ports')}</span>
+        <span className="ai-mono text-[11px] text-ink-3">{used}/{ports.length} {t('connected')}</span>
+      </div>
+      {/* up to 8 sockets in one row; more in two even rows, as on the router itself */}
+      <ul className="ai-well m-0 grid w-fit max-w-full list-none gap-1.5 p-2" aria-label={t('Ports')}
+        style={{ gridTemplateColumns: `repeat(${ports.length <= 8 ? ports.length : Math.ceil(ports.length / 2)}, minmax(0, 64px))` }}>
+        {ports.map((p) => {
+          const light = portLight(p);
+          const cell = (
+            <>
+              <span className={`relative flex h-9 w-full items-center justify-center rounded-[8px] border font-mono text-[13px] font-semibold ${LIGHT_CELL[light]}`}
+                style={light === 'lost' ? { boxShadow: `0 0 10px -2px ${toneColor('bad')}` } : undefined}>
+                {portNumber(p.name)}
+                {light === 'up' && p.devices ? (
+                  <span className="absolute -right-1.5 -top-1.5 flex h-[16px] min-w-[16px] items-center justify-center rounded-full border border-line bg-[var(--ai-bg)] px-0.5 text-[9px] font-medium leading-none text-ink-1">
+                    {p.devices > 99 ? '99+' : p.devices}
+                  </span>
+                ) : null}
+              </span>
+              <span className={`block truncate text-center text-[10px] leading-tight ${light === 'lost' ? 'font-semibold text-[var(--ai-text-bad)]' : p.role === 'internet' ? 'text-[var(--ai-down)]' : 'text-ink-3'}`}>
+                {ROLE_SHORT[p.role] ? t(ROLE_SHORT[p.role]) : ' '}
+              </span>
+            </>
+          );
+          return (
+            <li key={p.name} className="min-w-0" title={portTitle(p)}>
+              {onPort ? (
+                <button type="button" onClick={() => onPort(p)} aria-label={portTitle(p)} className="ai-tap flex w-full flex-col gap-1 transition-transform active:scale-95">{cell}</button>
+              ) : <div className="flex flex-col gap-1" aria-label={portTitle(p)}>{cell}</div>}
+            </li>
+          );
+        })}
+      </ul>
+      {lost.length ? (
+        <ul className="m-0 mt-2 list-none space-y-1.5 p-0">
+          {lost.map((p) => (
+            <li key={p.name}>
+              <button type="button" disabled={!onPort} onClick={() => onPort?.(p)}
+                className="flex w-full gap-2 rounded-[10px] border border-bad/35 bg-bad/10 px-2.5 py-2 text-left text-[12.5px] leading-snug text-ink-1">
+                <span className="mt-[3px]"><Led tone="bad" size={6} blink /></span>
+                <span className="min-w-0">{t(lostPortAdvice(p))}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </div>
+  );
 }
 
 const UPTIME_HOURS = 168;
@@ -64,13 +148,15 @@ function useUptime(id: Device['id'], seen: boolean): RouterUptimeResponse | null
   return data;
 }
 
-export function DeviceCard({ d, actions, onOpen, onPeople, onCustomers }: {
+export function DeviceCard({ d, actions, onOpen, onPeople, onCustomers, onPort }: {
   d: Device;
   actions?: React.ReactNode;
   /** the name is a question about this router */
   onOpen?: () => void;
   onPeople?: () => void;
   onCustomers?: () => void;
+  /** a port square is a question about that port */
+  onPort?: (p: NetworkPort) => void;
 }) {
   const t = useT();
   const [box, seen] = useInView<HTMLLIElement>({ threshold: 0.12, rootMargin: '0px 0px -4% 0px' });
@@ -144,6 +230,8 @@ export function DeviceCard({ d, actions, onOpen, onPeople, onCustomers }: {
           </div>
         </div>
       )}
+
+      {d.ports !== undefined || d.portSetup !== undefined ? <PortStrip ports={down ? null : d.ports} setup={d.portSetup} onPort={onPort} /> : null}
 
       {week ? <div className="px-4 pt-3.5"><UptimeStrip data={week} restart={down ? null : d.uptime} /></div> : null}
 
