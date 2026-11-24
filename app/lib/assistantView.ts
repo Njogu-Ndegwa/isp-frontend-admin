@@ -207,13 +207,18 @@ export function safeHref(href: string): string | null {
   return null;
 }
 
+/** The classic dashboard's home: the one dashboard address a reseller's answer may link to. */
+export const CLASSIC_HOME = '/dashboard';
+
 /**
  * Where a link in an answer may go. For a reseller (pageLinks false) the assistant does the job
  * itself, so a same-site path that would open a dashboard page is shown as its words; only the
- * assistant's own address stays a link. https links are unchanged.
+ * assistant's own address stays a link, plus the classic dashboard's home for someone who asks
+ * for the way back. https links are unchanged.
  */
 export function answerHref(href: string, pageLinks: boolean): string | null {
   if (pageLinks || !href.startsWith('/')) return href;
+  if (href === CLASSIC_HOME) return href; // the way back to the classic dashboard, when they ask for it
   return href === '/assistant' || href.startsWith('/assistant?') || href.startsWith('/assistant/') ? href : null;
 }
 
