@@ -23,7 +23,7 @@ describe('PortalPreview deals section', () => {
     id: 1, title: 'Fresh onions', seller: 'Wanjiku - By the stage', price: 'KSH 120',
     imageUrl: 'https://media.example/o.webp', badgeType: 'hot', badgeText: 'HOT',
   };
-  const on = settings({ show_ads: true });
+  const on = settings({ show_ads: true, header_style: 'standard' });
   const asks = /your ad here|advertise/i;
 
   it('has no section when there are no ads', () => {
@@ -52,6 +52,12 @@ describe('PortalPreview deals section', () => {
     expect(html).not.toContain('<img');
     expect(html).not.toContain('class="pp-ad-price"');
     expect(html).not.toContain('class="pp-ad-badge-chip"');
+  });
+
+  it('shows no deals row under a photo (hero) header, like the portal', () => {
+    const html = renderToStaticMarkup(<PortalPreview settings={settings({ show_ads: true, header_style: 'hero' })} palette={palette} ads={[offer]} />);
+    expect(html).not.toContain('class="pp-ads"');
+    expect(html).not.toContain('Soko Deals Today');
   });
 
   it('respects Show Ads off even with offers', () => {
