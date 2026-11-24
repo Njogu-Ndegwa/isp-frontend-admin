@@ -72,3 +72,24 @@ export function changeAround(
   const a = periodMean(after, metric);
   return a == null || b == null ? null : Math.round((a - b) * 10) / 10;
 }
+
+/** Data needed after a deploy before its "change" means anything. */
+export const MIN_AFTER_MS = 30 * 60_000;
+// The newest 5-minute bucket is written 30 s after it closes.
+const BUCKET_MS = 5 * 60_000;
+const FLUSH_GRACE_MS = 30_000;
+
+/**
+ * How much written data lies after a deploy, from the first point that
+ * starts after it (the one it falls inside counts for neither side) up to
+ * the newest closed bucket. On 24 Nov 2026 a 10-minute-old deploy was judged
+ * on one 5-minute bucket against 2.5 hours before it, which is noise.
+ */
+export function dataAfterMs(atIso: string, nowIso: string, stepMs = 0): number {
+  const at = Date.parse(atIso);
+  const now = Date.parse(nowIso);
+  if (Number.isNaN(at) || Number.isNaN(now)) return 0;
+  const firstFull = stepMs > 0 ? Math.ceil(at / stepMs) * stepMs : at;
+  const newestClosedEnd = Math.floor((now - FLUSH_GRACE_MS) / BUCKET_MS) * BUCKET_MS;
+  return Math.max(0, newestClosedEnd - firstFull);
+}
