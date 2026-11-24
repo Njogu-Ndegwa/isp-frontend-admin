@@ -144,7 +144,9 @@ export default function RouterCpuByModelPanel() {
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 onClick={(e: any) => e?.dataKey && toggle(String(e.dataKey))} />
               {deploys.map((d) => (
-                <ReferenceLine key={d.at} x={Date.parse(d.at)} stroke="var(--color-foreground-muted)" strokeDasharray="4 4"
+                // extendDomain: a deploy newer than the last point still gets its line.
+                <ReferenceLine key={d.at} x={Date.parse(d.at)} ifOverflow="extendDomain"
+                  stroke="var(--color-foreground-muted)" strokeDasharray="4 4"
                   label={{ value: shortVersion(d.version) ?? 'deploy', position: 'insideTopRight', fontSize: 9, fill: 'var(--color-foreground-muted)' }} />
               ))}
               {metric === 'avg' && <ReferenceLine y={80} stroke="var(--color-danger)" strokeOpacity={0.4} />}
