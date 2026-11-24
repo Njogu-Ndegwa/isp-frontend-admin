@@ -43,6 +43,8 @@ export function purposeReady(form: FormField[], values: FormValues): boolean {
   const f = purposeField(form);
   if (!f) return true;
   const now = values[f.name];
+  // emptied to remove it (a plan's badge): ready when there was something to remove
+  if (f.clears && isEmpty(now)) return !isEmpty(inputValue(f, f.original));
   if (f.kind !== 'boolean' && isEmpty(now)) return false;
   return plain(f, now) !== plain(f, inputValue(f, f.original));
 }

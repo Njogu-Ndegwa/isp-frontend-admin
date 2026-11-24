@@ -52,6 +52,18 @@ describe('a card opened for one field', () => {
     expect(purposeReady(form, { name: 'Mama Njeri' })).toBe(true);
   });
 
+  it('lets a field the API clears be emptied to remove it (BD-11, a plan badge)', () => {
+    const badge: FormField = { kind: 'text', name: 'badge_text', label: 'Badge text', value: 'Best', original: 'Best', purpose: true, clears: true, required: false };
+    expect(purposeReady([badge], { badge_text: '' })).toBe(true);
+    expect(purposeReady([badge], { badge_text: 'Best' })).toBe(false);
+    expect(valuesToSend([badge], { badge_text: '' }, initialValues([badge]))).toEqual({ badge_text: '' });
+    // opened already emptied by the assistant: ready as it stands
+    expect(purposeReady([{ ...badge, value: '' }], { badge_text: '' })).toBe(true);
+    // nothing to remove, or a field the API does not clear: an empty field is still not ready
+    expect(purposeReady([{ ...badge, original: '' }], { badge_text: '' })).toBe(false);
+    expect(purposeReady([{ ...badge, clears: undefined }], { badge_text: '' })).toBe(false);
+  });
+
   it('is ready at once when the assistant already filled in a new value', () => {
     const form: FormField[] = [{ kind: 'text', name: 'speed', label: 'Speed', value: '5M/2M', original: '', purpose: true, required: false }];
     expect(purposeReady(form, initialValues(form))).toBe(true);
