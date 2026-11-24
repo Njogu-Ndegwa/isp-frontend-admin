@@ -90,3 +90,46 @@ export function slotLabel(t: number, stepSeconds: number, range: HealthHistoryRa
 export function pct(v: number | null | undefined): string {
   return v === null || v === undefined ? '—' : `${Math.round(v)}%`;
 }
+
+/**
+ * Nearest-rank percentile, the same rule as the backend: the smallest value
+ * with at least p% of the values at or below it. Always one of the values.
+ */
+export function percentile(values: number[], p: number): number | null {
+  if (!values.length) return null;
+  const ordered = [...values].sort((a, b) => a - b);
+  const rank = Math.max(1, Math.ceil((p / 100) * ordered.length));
+  return ordered[rank - 1];
+}
+
+export type RankSortKey =
+  | 'cpu_p95' | 'cpu_p99' | 'cpu_max' | 'cpu_avg'
+  | 'mem_p95' | 'mem_max' | 'reboots' | 'link_drops' | 'name';
+
+/**
+ * Highest first for numbers (the most affected router on top), A-Z for names.
+ * A router with no value for the key sorts last either way, and ties fall back
+ * to CPU p95 so the order never jumps between refreshes.
+ */
+export function sortRanking<T extends { name: string; cpu_p95: number | null; router_id: number }>(
+  rows: T[], key: RankSortKey,
+): T[] {
+  const val = (r: T): number | null => (key === 'name' ? null : ((r as unknown as Record<string, number | null>)[key] ?? null));
+  return [...rows].sort((a, b) => {
+    if (key === 'name') return a.name.localeCompare(b.name) || a.router_id - b.router_id;
+    const va = val(a);
+    const vb = val(b);
+    if (va === null && vb !== null) return 1;
+    if (vb === null && va !== null) return -1;
+    if (va !== null && vb !== null && va !== vb) return vb - va;
+    return (b.cpu_p95 ?? -1) - (a.cpu_p95 ?? -1) || a.router_id - b.router_id;
+  });
+}
+
+/** Load bands for a p95 figure: the colour is never the only signal (the number is shown too). */
+export function loadTone(v: number | null | undefined): 'high' | 'elevated' | 'normal' | 'none' {
+  if (v === null || v === undefined) return 'none';
+  if (v >= 80) return 'high';
+  if (v >= 50) return 'elevated';
+  return 'normal';
+}

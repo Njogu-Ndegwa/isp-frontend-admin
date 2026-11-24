@@ -3,6 +3,8 @@ import type {
   DashboardOverview,
   MikroTikMetrics,
   RouterHealthHistory,
+  RouterHealthRank,
+  RouterHealthRanking,
   HealthHistoryRange,
   BandwidthHistory,
   TopUsersResponse,
@@ -112,6 +114,7 @@ import type {
   InboxResponse,
 } from './types';
 import { phoneMatches } from './phoneSearch';
+import { percentile } from './healthHistory';
 
 const now = new Date();
 const iso = (daysAgo = 0, hoursAgo = 0) => {
@@ -408,13 +411,59 @@ export function demoRouterHealthHistory(routerId: number, range: HealthHistoryRa
     link_drops: linkDrops,
     summary: {
       cpu_avg: mean(vals(cpuAvg)),
+      cpu_p95: percentile(vals(cpuAvg), 95),
+      cpu_p99: percentile(vals(cpuAvg), 99),
       cpu_max: Math.max(...vals(cpuMax)),
       mem_avg: mean(vals(memAvg)),
+      mem_p95: percentile(vals(memAvg), 95),
+      mem_p99: percentile(vals(memAvg), 99),
       mem_max: Math.max(...vals(memMax)),
       reboots: reboots.reduce((a, b) => a + b, 0),
       link_drops: linkDrops.reduce((a, b) => a + b, 0),
       buckets_with_data: vals(cpuAvg).length,
+      last_report_at: new Date(now - 40_000).toISOString().slice(0, 19),
+      reporting: true,
+      link_drops_reported: true,
     },
+  };
+}
+
+/** Demo fleet for the Router load page: a few busy routers, a quiet one, one not reporting. */
+export function demoRouterHealthRanking(range: HealthHistoryRange): RouterHealthRanking {
+  const step = range === '24h' ? 300 : 3600;
+  const now = Date.now();
+  const slots = range === '24h' ? 288 : 168;
+  const start = new Date(Math.floor(now / (step * 1000)) * step * 1000 - (slots - 1) * step * 1000)
+    .toISOString().slice(0, 19);
+  const seen = new Date(now - 50_000).toISOString().slice(0, 19);
+  const row = (
+    router_id: number, name: string, board: string,
+    cpu: [number, number, number, number], mem: [number, number, number, number],
+    reboots: number, link_drops: number, link_drops_reported = true,
+  ): RouterHealthRank => ({
+    router_id, name, board, owner_id: 1, owner_name: 'Demo Networks', online: true,
+    last_report_at: seen, reporting: true, link_drops_reported,
+    cpu_avg: cpu[0], cpu_p95: cpu[1], cpu_p99: cpu[2], cpu_max: cpu[3],
+    mem_avg: mem[0], mem_p95: mem[1], mem_p99: mem[2], mem_max: mem[3],
+    reboots, link_drops, buckets_with_data: slots - 3,
+  });
+  return {
+    range,
+    step_seconds: step,
+    start,
+    routers: [
+      row(3, 'Kahawa West AP', 'RB951Ui-2HnD', [46.2, 91.4, 98.0, 100], [71, 78, 81, 83], 3, 5),
+      row(1, 'Main Office', 'RB4011iGS+', [23.5, 61.0, 74.2, 92], [40, 43, 44, 46], 0, 1),
+      row(4, 'Githurai Estate', 'hEX S', [12.1, 34.8, 52.5, 77], [55, 57, 58, 60], 1, 0, false),
+      row(2, 'Roysambu Shop', 'hAP ax S', [4.3, 9.2, 15.0, 41], [31, 32, 32, 33], 0, 0),
+    ],
+    not_reporting: [{
+      router_id: 5, name: 'Zimmerman Kiosk', board: null, owner_id: 1, owner_name: 'Demo Networks',
+      online: true, last_report_at: null, reporting: false, link_drops_reported: false,
+      cpu_avg: null, cpu_p95: null, cpu_p99: null, cpu_max: null,
+      mem_avg: null, mem_p95: null, mem_p99: null, mem_max: null,
+      reboots: 0, link_drops: 0, buckets_with_data: 0,
+    }],
   };
 }
 

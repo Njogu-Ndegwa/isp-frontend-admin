@@ -33,6 +33,7 @@ import { PERMISSIONS } from '../lib/permissions';
 import { portsRouterIdFromSearch } from '../lib/pppoePorts';
 import { useAlert } from '../context/AlertContext';
 import Link from 'next/link';
+import { useT } from '../lib/i18n';
 import PullToRefresh from '../components/PullToRefresh';
 import DataTable, { DataTableColumn } from '../components/DataTable';
 import MobileDataCard from '../components/MobileDataCard';
@@ -193,6 +194,7 @@ function formatInsuranceVerification(verification?: InsuranceWireGuardVerificati
 
 export default function RoutersPage() {
   const { isAuthenticated, user } = useAuth();
+  const t = useT();
   const [showAddRouter, setShowAddRouter] = useState(false);
 
   // Router state
@@ -388,7 +390,18 @@ export default function RoutersPage() {
 
   return (
     <div>
-      <Header title="Routers" subtitle="Manage your MikroTik routers and hotspot users" />
+      <Header
+        title="Routers"
+        subtitle="Manage your MikroTik routers and hotspot users"
+        action={(
+          <Link href="/routers/health" className="btn-secondary inline-flex items-center gap-2 text-sm min-h-[36px]" data-testid="router-load-link">
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 17l5-5 4 4 8-8M14 8h6v6" />
+            </svg>
+            {t('Router load')}
+          </Link>
+        )}
+      />
 
       <RoutersTab
         routers={routers}

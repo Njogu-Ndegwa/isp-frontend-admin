@@ -13,7 +13,8 @@ import {
   YAxis,
 } from 'recharts';
 import { api } from '../lib/api';
-import type { HealthHistoryRange, RouterHealthHistory } from '../lib/types';
+import type { HealthHistoryRange, RouterHealthHistory, RouterHealthSummary } from '../lib/types';
+import { formatDateGMT3, formatTimeSinceUTC } from '../lib/dateUtils';
 import { useT } from '../lib/i18n';
 import {
   hasData, pct, slotLabel, tickLabel, ticksFor, toRows,
@@ -27,6 +28,16 @@ import {
  * axes): the line is the average per slot, the light band reaches up to that
  * slot's peak so a short spike stays visible. Gaps are slots the router sent
  * nothing (offline, or no health reports then). Reboots are thin vertical rules.
+ *
+ * Each chart's heading reads Avg · p95 · p99 · Peak. p95/p99 come from the
+ * slot averages (5-minute for 24h, hourly for 7d), so "p95 60%" means the
+ * router averaged over 60% for 5% of the range (72 minutes of a day): sustained
+ * load, which a single spike cannot fake. Peak is the highest single reading.
+ *
+ * Never blind while looking sighted: a router that sends no health reports says
+ * so instead of "no history yet", a router that stopped says since when, and
+ * WAN link drops read "not reported" (not "none") where the agent does not
+ * send the counter.
  *
  * Fetches on open, on range change and every 5 minutes while the tab is visible.
  * The backend keeps this history small by design (5-min buckets for a day,
@@ -93,28 +104,61 @@ export default function HealthHistoryPanel({ routerId, className = '' }: { route
           {[0, 1].map((i) => <div key={i} className="h-[136px] rounded-xl skeleton" />)}
         </div>
       ) : current.summary.buckets_with_data === 0 ? (
-        <p className="text-xs text-foreground-muted py-6 text-center">
-          {t('No history yet. The graph fills in as the router reports its health, every few minutes.')}
+        <p className="text-xs text-foreground-muted py-6 text-center max-w-md mx-auto">
+          {emptyMessage(t, current.summary)}
         </p>
       ) : (
         <>
+          {!current.summary.reporting && <StaleNotice t={t} summary={current.summary} />}
           <div className="grid gap-4 @lg:grid-cols-2">
-            <MetricChart t={t} history={current} metric="cpu" title={t('CPU Load')}
-                         avg={current.summary.cpu_avg} peak={current.summary.cpu_max} />
-            <MetricChart t={t} history={current} metric="mem" title={t('Memory')}
-                         avg={current.summary.mem_avg} peak={current.summary.mem_max} />
+            <MetricChart t={t} history={current} metric="cpu" title={t('CPU Load')} />
+            <MetricChart t={t} history={current} metric="mem" title={t('Memory')} />
           </div>
           <EventsLine t={t} history={current} />
+          <p className="mt-1 text-[10px] leading-snug text-foreground-muted">
+            {current.range === '24h'
+              ? t('p95 / p99: the 5-minute average was above this for 5% / 1% of the time. Peak: highest single reading (one per report).')
+              : t('p95 / p99: the hourly average was above this for 5% / 1% of the time. Peak: highest single reading (one per report).')}
+          </p>
         </>
       )}
     </div>
   );
 }
 
-function MetricChart({ t, history, metric, title, avg, peak }: {
+function emptyMessage(t: T, s: RouterHealthSummary): string {
+  if (!s.last_report_at) {
+    return t('This router does not send health reports (no reporting agent on it), so there is no graph.');
+  }
+  if (!s.reporting) {
+    return t('No health report since {when}. The graph resumes when the router reports again.', { when: lastSeen(s.last_report_at) });
+  }
+  return t('No history yet. The graph fills in as the router reports its health, every few minutes.');
+}
+
+function lastSeen(iso: string): string {
+  const ago = formatTimeSinceUTC(iso);
+  const at = formatDateGMT3(iso, { weekday: 'short', hour: '2-digit', minute: '2-digit', hour12: false });
+  return ago ? `${at} (${ago})` : at;
+}
+
+function StaleNotice({ t, summary }: { t: T; summary: RouterHealthSummary }) {
+  return (
+    <p role="status" className="mb-3 rounded-lg border border-warning/40 bg-warning/10 px-3 py-2 text-[11px] text-foreground">
+      {summary.last_report_at
+        ? t('No health report since {when}. The graph after that is empty, not quiet.', { when: lastSeen(summary.last_report_at) })
+        : t('This router does not send health reports.')}
+    </p>
+  );
+}
+
+function MetricChart({ t, history, metric, title }: {
   t: T; history: RouterHealthHistory; metric: HealthMetric; title: string;
-  avg: number | null; peak: number | null;
 }) {
+  const s = history.summary;
+  const [avg, p95, p99, peak] = metric === 'cpu'
+    ? [s.cpu_avg, s.cpu_p95, s.cpu_p99, s.cpu_max]
+    : [s.mem_avg, s.mem_p95, s.mem_p99, s.mem_max];
   const rows = toRows(history, metric);
   const ticks = ticksFor(rows, history.range);
   const reboots = rows.filter((r) => r.reboots > 0).map((r) => r.t);
@@ -122,10 +166,12 @@ function MetricChart({ t, history, metric, title, avg, peak }: {
 
   return (
     <figure className="min-w-0 m-0">
-      <figcaption className="flex items-baseline justify-between gap-2 mb-1">
+      <figcaption className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5 mb-1">
         <span className="text-[11px] sm:text-xs font-medium text-foreground">{title}</span>
-        <span className="text-[11px] text-foreground-muted tabular-nums">
-          {t('Avg {avg} · Peak {peak}', { avg: pct(avg), peak: pct(peak) })}
+        <span className="text-[11px] text-foreground-muted tabular-nums" data-testid={`health-stats-${metric}`}>
+          {t('Avg {avg} · p95 {p95} · p99 {p99} · Peak {peak}', {
+            avg: pct(avg), p95: pct(p95), p99: pct(p99), peak: pct(peak),
+          })}
         </span>
       </figcaption>
       <div className="h-28 w-full">
@@ -218,14 +264,16 @@ function SlotTooltip({ t, title, history, active, payload }: {
 }
 
 function EventsLine({ t, history }: { t: T; history: RouterHealthHistory }) {
-  const { reboots, link_drops: drops } = history.summary;
+  const { reboots, link_drops: drops, link_drops_reported: dropsKnown } = history.summary;
   const period = history.range === '24h' ? t('Last 24 hours') : t('Last 7 days');
-  const parts: string[] = [];
-  if (reboots) parts.push(reboots === 1 ? t('1 reboot') : t('{n} reboots', { n: reboots }));
-  if (drops) parts.push(drops === 1 ? t('1 WAN link drop') : t('{n} WAN link drops', { n: drops }));
+  const parts: string[] = [
+    reboots === 0 ? t('No reboots') : reboots === 1 ? t('1 reboot') : t('{n} reboots', { n: reboots }),
+  ];
+  if (!dropsKnown && !drops) parts.push(t('WAN link drops not reported by this router'));
+  else parts.push(drops === 0 ? t('No WAN link drops') : drops === 1 ? t('1 WAN link drop') : t('{n} WAN link drops', { n: drops }));
   return (
     <p className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-foreground-muted">
-      <span>{period}: {parts.length ? parts.join(' · ') : t('No reboots or WAN link drops')}</span>
+      <span>{period}: {parts.join(' · ')}</span>
       {reboots > 0 && (
         <span className="inline-flex items-center gap-1.5">
           <span aria-hidden="true" className="inline-block w-px h-3 bg-foreground-muted" />
