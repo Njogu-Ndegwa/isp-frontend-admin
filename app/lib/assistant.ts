@@ -75,6 +75,8 @@ export interface FormField {
   purpose?: boolean;
   /** for the purpose field: what the record holds now; Confirm waits for something else */
   original?: unknown;
+  /** on an edit, emptying this field removes it (a plan's badge): an empty purpose field is a change */
+  clears?: boolean;
 }
 
 /** Where a record picker's rows come from: the list, its search filter and how a row reads. */
