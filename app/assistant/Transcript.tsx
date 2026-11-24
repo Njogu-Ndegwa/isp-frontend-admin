@@ -203,7 +203,7 @@ function RunView({ run, first, live, streaming, currency, onAsk }: {
           <div className="flex flex-col gap-3">
             {run.data.map((d, i) => (
               <div key={d.call_id} className="ai-rise" style={{ animationDelay: `${Math.min(i, 5) * 70}ms` }}>
-                <ResultBlock title={d.title} payload={d.payload} show={d.show} fields={d.fields} currency={currency} onAsk={onAsk} />
+                <ResultBlock title={d.title} payload={d.payload} show={d.show} fields={d.fields} path={d.path} currency={currency} onAsk={onAsk} />
               </div>
             ))}
           </div>

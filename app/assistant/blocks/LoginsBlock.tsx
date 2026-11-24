@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { asUtc, bpsText, eatTime, span, uptimeText } from '../../lib/assistantEntities';
+import { deviceLabel, isMac, macTail, nameFromRouterComment } from '../../lib/assistantTables';
 import type { Tone } from '../../lib/assistantVisual';
 import type { Row } from '../../lib/assistantView';
 import { formatBytes } from '../../lib/live';
@@ -129,7 +130,8 @@ export function loginFacts(r: Row, kind: LoginKind, routerDown = false): LoginFa
     key: login || mac,
     login, mac,
     // a hotspot "user" is often the MAC itself: then the MAC is not a name worth showing twice
-    name: str(c?.name) || nameFromComment(str(r.comment)) || login || mac,
+    // a device known only by its MAC is named by the MAC's tail ("Device ··C8:47"), as the chat's text says it
+    name: str(c?.name) || nameFromComment(str(r.comment)) || nameFromRouterComment(r.comment) || (login && !isMac(login) ? login : '') || (mac || login ? deviceLabel(mac || login) : ''),
     customerId: typeof c?.id === 'number' ? c.id : null,
     plan: str(c?.plan) || str(r.profile),
     paid,
@@ -265,7 +267,9 @@ function LiveLine({ p, now, usage }: { p: LoginFacts; now: number; usage: UsageF
 /** Under the name: the login or device, the plan, the speed limit. */
 export function subLine(p: LoginFacts): string {
   // the login (PPPoE) or the login and the MAC (hotspot), leaving out what the name already says
-  const ids = (p.kind === 'pppoe' ? [p.login] : [p.login, p.mac]).filter((x, i, all) => x && x !== p.name && all.indexOf(x) === i);
+  const ids = (p.kind === 'pppoe' ? [p.login] : [p.login, p.mac]).filter((x, i, all) => x && x !== p.name && all.indexOf(x) === i)
+    // a MAC is shown by its tail only, and not at all when the name already is that device
+    .map((x) => (isMac(x) ? macTail(x) : x)).filter((x, i, all) => !p.name.endsWith(x) && all.indexOf(x) === i);
   return [...ids, p.plan, p.limit && p.state === 'online' ? p.limit : null, p.state === 'online' && p.how ? p.how : null]
     .filter(Boolean).join(' · ');
 }

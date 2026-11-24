@@ -1,9 +1,11 @@
 'use client';
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { formatCell, isBlank, num, type Column } from '../../lib/assistantVisual';
+import { durationSeconds, formatCell, isBlank, num, toneFor, type Column } from '../../lib/assistantVisual';
 import type { Row } from '../../lib/assistantView';
+import { useT } from '../../lib/i18n';
 import { SortIcon } from '../icons';
+import { Pill } from '../ui';
 
 /*
  * A table that fits the space it is given, at any width, and never makes the reader
@@ -37,8 +39,16 @@ const CARDS_BELOW = 540;
 /** the name column keeps at least this much room once other columns fold into it */
 const NAME_MIN_PX = 200;
 
-const isFigure = (c: Column) => c.kind !== 'text' && c.kind !== 'bool';
-const alignRight = (c: Column) => c.kind === 'number' || c.kind === 'money' || c.kind === 'percent';
+// a status reads as a chip beside the name, like the customer and router lists draw it
+const isFigure = (c: Column) => c.kind !== 'text' && c.kind !== 'bool' && c.kind !== 'status';
+const alignRight = (c: Column) => c.kind === 'number' || c.kind === 'money' || c.kind === 'percent' || c.kind === 'bytes' || c.kind === 'mb' || c.kind === 'duration';
+/** a status value as a chip: its colour from the word (online / paid green, offline / failed red, pending amber) */
+function Chip({ value, text }: { value: unknown; text: string }) {
+  const word = String(value ?? '').trim();
+  return <Pill tone={toneFor(word.replace(/_/g, ' ')) ?? toneFor(word) ?? 'muted'}>{text}</Pill>;
+}
+/** what a column sorts by: durations by their length, the rest as they are */
+const sortValue = (c: Column | undefined, v: unknown): unknown => (c?.kind === 'duration' ? durationSeconds(v) ?? v : v);
 const useIsoLayoutEffect = typeof window === 'undefined' ? useEffect : useLayoutEffect;
 
 export function DataTable({ columns, rows, total, currency, onPick }: {
@@ -50,6 +60,7 @@ export function DataTable({ columns, rows, total, currency, onPick }: {
   /** makes each row's name a question about that row */
   onPick?: (row: Row) => void;
 }) {
+  const t = useT();
   const ref = useRef<HTMLDivElement | null>(null);
   const tableRef = useRef<HTMLTableElement | null>(null);
   const [width, setWidth] = useState(0);
@@ -70,14 +81,16 @@ export function DataTable({ columns, rows, total, currency, onPick }: {
     return () => ro.disconnect();
   }, []);
 
-  const shown = (row: Row, c: Column) => formatCell(row[c.key], c.kind, currency);
+  const shown = (row: Row, c: Column) => formatCell(row[c.key], c.kind, currency, t);
+  const cell = (row: Row, c: Column) => (c.kind === 'status' && !isBlank(row[c.key]) ? <Chip value={row[c.key]} text={shown(row, c)} /> : shown(row, c));
 
   const sorted = useMemo(() => {
     if (!sort) return rows;
     const dir = sort.dir === 'asc' ? 1 : -1;
+    const by = columns.find((c) => c.key === sort.key);
     return [...rows].sort((a, b) => {
-      const x = a[sort.key];
-      const y = b[sort.key];
+      const x = sortValue(by, a[sort.key]);
+      const y = sortValue(by, b[sort.key]);
       if (isBlank(x) && isBlank(y)) return 0;
       if (isBlank(x)) return 1; // blanks last, whichever way the column is sorted
       if (isBlank(y)) return -1;
@@ -86,7 +99,7 @@ export function DataTable({ columns, rows, total, currency, onPick }: {
       if (nx !== null && ny !== null) return (nx - ny) * dir;
       return String(x).localeCompare(String(y), undefined, { numeric: true }) * dir;
     });
-  }, [rows, sort]);
+  }, [rows, sort, columns]);
 
   // the width each column would like: its longest value among the first rows, or its header
   const natural = useMemo(() => {
@@ -94,13 +107,13 @@ export function DataTable({ columns, rows, total, currency, onPick }: {
     return columns.map((c) => {
       const header = (c.label.length <= 12 ? c.label.length : Math.max(...c.label.split(/\s+/).map((w) => w.length), Math.ceil(c.label.length / 2))) + 2;
       const longest = Math.max(header, ...sample.map((r) => formatCell(r[c.key], c.kind, currency).length));
-      const px = longest * CHAR_PX + CELL_PAD;
+      const px = longest * CHAR_PX + CELL_PAD + (c.kind === 'status' ? 22 : 0);
       return isFigure(c) ? px : Math.min(MAX_TEXT_PX, px);
     });
   }, [columns, rows, currency]);
 
   const layout = useMemo((): { kind: Layout; folded: number[] } => {
-    const textCols = columns.map((_, i) => i).filter((i) => i > 0 && !isFigure(columns[i]));
+    const textCols = columns.map((_, i) => i).filter((i) => i > 0 && !isFigure(columns[i]) && columns[i].kind !== 'status');
     if (!width) return { kind: 'table', folded: [] };
     const step = tooWide.width === width ? tooWide.step : 0;
     const cards = { kind: 'cards' as Layout, folded: textCols };
@@ -133,7 +146,7 @@ export function DataTable({ columns, rows, total, currency, onPick }: {
     }
   }, [layout, width, rows, columns]);
 
-  if (rows.length === 0) return <p className="text-[13.5px] text-ink-3">Nothing found.</p>;
+  if (rows.length === 0) return <p className="ai-well px-3 py-4 text-center text-[13.5px] text-ink-3">{t('Nothing found.')}</p>;
   if (columns.length === 0) return null;
 
   const visible = expanded ? sorted : sorted.slice(0, PAGE);
@@ -143,22 +156,25 @@ export function DataTable({ columns, rows, total, currency, onPick }: {
   const yes = (v: unknown) => v === true || (typeof v === 'string' && /^(true|yes)$/i.test(v.trim()));
   const foldedLine = (row: Row) => layout.folded.map((i) => columns[i])
     .filter((c) => !isBlank(row[c.key]) && (c.kind !== 'bool' || yes(row[c.key])))
-    .map((c) => (c.kind === 'bool' ? c.label : shown(row, c))).join(' · ');
+    .map((c) => (c.kind === 'bool' ? t(c.label) : shown(row, c))).join(' · ');
+  // the chips of a row, beside its name when the columns fold away (cards, folded rows)
+  const chipCols = columns.filter((c, i) => i > 0 && c.kind === 'status');
+  const chips = (row: Row) => chipCols.filter((c) => !isBlank(row[c.key])).map((c) => <Chip key={c.key} value={row[c.key]} text={shown(row, c)} />);
 
   const sortControl = layout.kind !== 'table' && rows.length > 1 ? (
     <div className="mb-2 flex flex-wrap items-center justify-end gap-2 text-[12.5px] text-ink-3">
       <label className="flex items-center gap-1.5">
-        Sort by
+        {t('Sort by')}
         <select className="ai-tap rounded-md border border-line bg-surface-2 px-2 py-1 text-[13px] text-ink-1"
           value={sort?.key ?? ''} onChange={(e) => setSort(e.target.value ? { key: e.target.value, dir: sort?.dir ?? 'desc' } : null)}>
-          <option value="">As listed</option>
-          {columns.map((c) => <option key={c.key} value={c.key}>{c.label}</option>)}
+          <option value="">{t('As listed')}</option>
+          {columns.map((c) => <option key={c.key} value={c.key}>{t(c.label)}</option>)}
         </select>
       </label>
       {sort ? (
         <button type="button" className="ai-btn ai-btn-quiet" onClick={() => setSort({ key: sort.key, dir: sort.dir === 'desc' ? 'asc' : 'desc' })}>
           <SortIcon dir={sort.dir} />
-          <span className="text-[12.5px]">{sort.dir === 'desc' ? 'High to low' : 'Low to high'}</span>
+          <span className="text-[12.5px]">{sort.dir === 'desc' ? t('High to low') : t('Low to high')}</span>
         </button>
       ) : null}
     </div>
@@ -170,7 +186,8 @@ export function DataTable({ columns, rows, total, currency, onPick }: {
     // The figure beside each card's name: the one sorted by, else a short one, so the
     // name is never cut to make room for it.
     const short = (c: Column) => visible.every((row) => shown(row, c).length <= 14);
-    const leadCol = (sort ? figures.find((c) => c.key === sort.key) : undefined)
+    // with a chip beside the name there is no room for a figure as well: it goes on the line below
+    const leadCol = chipCols.length ? undefined : (sort ? figures.find((c) => c.key === sort.key) : undefined)
       ?? figures.find((c) => c.kind === 'money' && short(c))
       ?? figures.find((c) => c.kind !== 'date' && c.kind !== 'datetime' && short(c));
     body = (
@@ -182,9 +199,10 @@ export function DataTable({ columns, rows, total, currency, onPick }: {
             <>
               <span className="flex items-baseline gap-3">
                 <span className={`min-w-0 flex-1 break-words text-[14px] font-semibold ${onPick ? 'text-accent' : 'text-ink-1'}`}>{isBlank(row[name.key]) ? '–' : shown(row, name)}</span>
+                {chips(row).length ? <span className="flex shrink-0 flex-wrap justify-end gap-1">{chips(row)}</span> : null}
                 {leadCol && !isBlank(row[leadCol.key]) ? (
                   <span className="flex max-w-[60%] shrink-0 items-baseline justify-end gap-1 text-[12.5px] text-ink-3">
-                    <span className="min-w-0 truncate">{leadCol.label}</span>
+                    <span className="min-w-0 truncate">{t(leadCol.label)}</span>
                     <b className="ai-mono shrink-0 text-[13px] font-medium text-ink-1">{shown(row, leadCol)}</b>
                   </span>
                 ) : null}
@@ -195,7 +213,7 @@ export function DataTable({ columns, rows, total, currency, onPick }: {
                 <span className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-[12px] leading-snug">
                   {pairs.map((c) => (
                     <span key={c.key} className="min-w-0 max-w-full">
-                      <span className="text-ink-3">{c.label}</span>{' '}
+                      <span className="text-ink-3">{t(c.label)}</span>{' '}
                       <span className="ai-mono break-words text-ink-1">{shown(row, c)}</span>
                     </span>
                   ))}
@@ -217,7 +235,8 @@ export function DataTable({ columns, rows, total, currency, onPick }: {
     );
   } else {
     const folded = layout.kind === 'folded';
-    const cols = columns.filter((_, i) => !layout.folded.includes(i));
+    // folded rows carry their chips beside the name, so the status column goes too
+    const cols = columns.filter((c, i) => !layout.folded.includes(i) && !(folded && i > 0 && c.kind === 'status'));
     body = (
       <div className="ai-well overflow-hidden">
         <table ref={tableRef} className="w-full border-collapse text-[13px]">
@@ -228,10 +247,10 @@ export function DataTable({ columns, rows, total, currency, onPick }: {
                   className={`ai-eyebrow px-3 py-2.5 align-bottom !font-medium leading-tight ${alignRight(c) ? 'text-right' : 'text-left'} ${folded && i === 0 ? 'w-full max-w-0' : ''}`}
                   aria-sort={sort?.key === c.key ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}>
                   <button type="button" onClick={() => toggle(c.key)} className={`ai-tap inline-flex items-center gap-1 hover:text-ink-1 ${alignRight(c) ? 'flex-row-reverse text-right' : 'text-left'}`}>
-                    {c.label}
+                    {t(c.label)}
                     <SortIcon dir={sort?.key === c.key ? sort.dir : null} />
                   </button>
-                  {folded && i === 0 ? <span className="block truncate text-[11.5px] font-normal text-ink-3">{layout.folded.map((j) => columns[j].label).join(' · ')}</span> : null}
+                  {folded && i === 0 ? <span className="block truncate text-[11.5px] font-normal text-ink-3">{layout.folded.map((j) => t(columns[j].label)).join(' · ')}</span> : null}
                 </th>
               ))}
             </tr>
@@ -240,7 +259,7 @@ export function DataTable({ columns, rows, total, currency, onPick }: {
             {visible.map((row, r) => (
               <tr key={r} className="border-t border-line hover:bg-surface-2/60 active:bg-surface-2/60">
                 {cols.map((c, i) => {
-                  const text = shown(row, c);
+                  const text = cell(row, c);
                   const line = folded && i === 0 ? foldedLine(row) : '';
                   return (
                     <td key={c.key}
@@ -248,8 +267,9 @@ export function DataTable({ columns, rows, total, currency, onPick }: {
                       {i === 0 && onPick ? (
                         <button type="button" className="ai-tap block max-w-full break-words text-left font-semibold text-accent underline-offset-2 hover:underline" onClick={() => onPick(row)}>{text}</button>
                       ) : (
-                        <span className={`block break-words ${i === 0 ? 'text-ink-1' : ''}`}>{text}</span>
+                        <span className={`block break-words ${i === 0 ? 'font-medium text-ink-1' : ''}`}>{text}</span>
                       )}
+                      {i === 0 && folded && chipCols.length ? <span className="mt-1 flex flex-wrap gap-1">{chips(row)}</span> : null}
                       {line ? <span className="block break-words text-[12px] text-ink-3">{line}</span> : null}
                     </td>
                   );
@@ -269,12 +289,12 @@ export function DataTable({ columns, rows, total, currency, onPick }: {
       {body}
       <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[12px] text-ink-3">
         <span>
-          Showing {visible.length.toLocaleString('en-US')} of {all.toLocaleString('en-US')}
-          {all > rows.length ? ` (${rows.length.toLocaleString('en-US')} loaded)` : ''}
+          {t('Showing {n} of {all}', { n: visible.length.toLocaleString('en-US'), all: all.toLocaleString('en-US') })}
+          {all > rows.length ? ` ${t('({n} loaded)', { n: rows.length.toLocaleString('en-US') })}` : ''}
         </span>
         {rows.length > PAGE ? (
           <button type="button" className="ai-tap font-semibold text-accent hover:underline" onClick={() => setExpanded((v) => !v)}>
-            {expanded ? 'Show fewer' : `Show all ${rows.length.toLocaleString('en-US')}`}
+            {expanded ? t('Show fewer') : t('Show all {n}', { n: rows.length.toLocaleString('en-US') })}
           </button>
         ) : null}
       </div>

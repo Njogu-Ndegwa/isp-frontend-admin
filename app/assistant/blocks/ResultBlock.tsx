@@ -244,11 +244,13 @@ function TableCard({ title, visual, currency, onAsk }: {
   currency?: string | null;
   onAsk?: (q: string) => void;
 }) {
+  const t = useT();
   const first = visual.columns[0];
   // every row is a question about that row: by its name when it has one, else by its values
   const pick = onAsk && first
     ? (row: Row) => {
-        const id = typeof row.id === 'number' || typeof row.id === 'string' ? ` (ID ${row.id})` : '';
+        const rid = row._id ?? row.id;
+        const id = typeof rid === 'number' || typeof rid === 'string' ? ` (ID ${rid})` : '';
         if (first.kind === 'text' && NAME_KEYS.has(first.key)) {
           onAsk(`Tell me more about ${formatValue(row[first.key])}${id}`);
           return;
@@ -259,11 +261,11 @@ function TableCard({ title, visual, currency, onAsk }: {
     : undefined;
   const count = visual.total ?? visual.rows.length;
   return (
-    <Panel eyebrow={<>Table{visual.rows.length ? <> · {count.toLocaleString('en-US')} {count === 1 ? 'row' : 'rows'}</> : null}</>}
-      icon={<TableIcon width={11} height={11} />} title={title}
-      note={visual.meta.length ? visual.meta.slice(0, 3).map(([k, v]) => `${humanizeKey(k)} ${formatValue(v)}`).join(' · ') : undefined}
+    <Panel eyebrow={<>{t('Table')}{visual.rows.length ? <> · {t(count === 1 ? '{n} row' : '{n} rows', { n: count.toLocaleString('en-US') })}</> : null}</>}
+      icon={<TableIcon width={11} height={11} />} title={t(title)}
+      note={visual.meta.length ? visual.meta.slice(0, 3).map(([k, v]) => `${t(humanizeKey(k))} ${formatValue(v)}`).join(' · ') : undefined}
       actions={visual.rows.length ? (
-        <button type="button" className="ai-btn ai-btn-quiet shrink-0 !rounded-full border border-line !px-2.5 !py-1.5" title="Download as CSV" onClick={() => downloadCsv(title, toCsv(visual.columns, visual.rows))}>
+        <button type="button" className="ai-btn ai-btn-quiet shrink-0 !rounded-full border border-line !px-2.5 !py-1.5" title={t('Download as CSV')} onClick={() => downloadCsv(title, toCsv(visual.columns.map((c) => ({ ...c, label: t(c.label) })), visual.rows))}>
           <DownloadIcon /><span className="text-[12px]">CSV</span>
         </button>
       ) : null}>
@@ -273,6 +275,7 @@ function TableCard({ title, visual, currency, onAsk }: {
         </div>
       ) : null}
       <DataTable columns={visual.columns} rows={visual.rows} total={visual.total} currency={currency} onPick={pick} />
+      {visual.dropped ? <p className="mt-1 text-[12px] text-ink-3">{t('Not listed: {what}.', { what: t(visual.dropped.what, { n: visual.dropped.n.toLocaleString('en-US') }) })}</p> : null}
     </Panel>
   );
 }
@@ -321,15 +324,17 @@ const CHART_HINTS = new Set(['trend', 'bars', 'tiles']);
  * One result, drawn. The model's hint and the shape of the data pick the picture;
  * the figures always come from the data.
  */
-export default function ResultBlock({ title: rawTitle, payload, show = 'auto', fields, currency, onAsk }: {
+export default function ResultBlock({ title: rawTitle, payload, show = 'auto', fields, currency, onAsk, path }: {
   title: string;
   payload: unknown;
   show?: string;
   fields?: ShowFields | null;
   currency?: string | null;
   onAsk?: (q: string) => void;
+  /** the API route the result came from: picks the table's spec (assistantTables.ts) */
+  path?: string | null;
 }) {
-  const visual = useMemo(() => visualFor(payload, show, fields), [payload, show, fields]);
+  const visual = useMemo(() => visualFor(payload, show, fields, path), [payload, show, fields, path]);
   const shownLike = useMemo(() => previewOf(payload), [payload]);
   // customers, routers, plans, payments and vouchers have components of their own,
   // unless the model asked for a chart of them

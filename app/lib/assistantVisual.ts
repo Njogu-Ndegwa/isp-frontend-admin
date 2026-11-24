@@ -8,10 +8,19 @@
  * are pure functions with unit tests (app/lib/__tests__/assistantVisual.test.ts).
  */
 import type { ShowFields, ShowHint } from './assistant';
-import { findRows, formatValue, humanizeKey, pickColumns, viewFor, type Row } from './assistantView';
+import { findRows, formatValue, humanizeKey, viewFor, type Row } from './assistantView';
 import { formatMoney } from './format';
+import { deviceLabel, isMac, macTail, maskMacs, metaShown, tableFor } from './assistantTables';
 
-export type Kind = 'text' | 'number' | 'money' | 'percent' | 'date' | 'datetime' | 'bool';
+/**
+ * What a value is, which decides how it reads everywhere. Beyond plain figures:
+ * `status` a chip (online, paid, failed); `bytes` / `mb` data in MB or GB; `duration` an
+ * uptime as "2h 5m"; `until` a paid time or deadline as "in 3h" / "ended 2d ago"; `when` a
+ * past moment in Kenyan time ("today 14:22"); `clock` a router's own clock reading;
+ * `device` a MAC, shown as its tail only ("··C8:47").
+ */
+export type Kind = 'text' | 'number' | 'money' | 'percent' | 'date' | 'datetime' | 'bool'
+  | 'status' | 'bytes' | 'mb' | 'duration' | 'until' | 'when' | 'clock' | 'device';
 export type Tone = 'good' | 'info' | 'warn' | 'bad' | 'muted';
 
 export interface Column { key: string; label: string; kind: Kind }
@@ -39,7 +48,9 @@ export type Visual =
   | { kind: 'trend'; chart: ChartModel }
   | { kind: 'bars'; chart: ChartModel }
   | { kind: 'share'; segments: Segment[]; valueKind: Kind; chart?: ChartModel }
-  | { kind: 'table'; rows: Row[]; columns: Column[]; total?: number; meta: [string, unknown][]; status?: { label: string; segments: Segment[] } }
+  | { kind: 'table'; rows: Row[]; columns: Column[]; total?: number; meta: [string, unknown][]; status?: { label: string; segments: Segment[] };
+      /** rows the table's spec left out, and what they are ("{n} router accounts that are not customers") */
+      dropped?: { n: number; what: string } }
   | { kind: 'record'; fields: [string, unknown][]; commands: [string, string][] };
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:?\d{2})?)?$/;
@@ -136,9 +147,9 @@ function leadMeasures(columns: Column[]): Column[] {
   return [...measures].sort((a, b) => rank(a) - rank(b));
 }
 
-const GOOD = /^(online|active|completed|complete|success|successful|paid|delivered|sent|verified|connected|yes|true|up|done)$/i;
-const BAD = /^(offline|expired|failed|inactive|suspended|cancelled|canceled|rejected|blocked|down|no|false|overdue|error)$/i;
-const WARN = /^(pending|trial|expiring|queued|processing|paused|partial|stale|unpaid|waiting)$/i;
+const GOOD = /^(online|active|completed|complete|success|successful|paid|delivered|sent|verified|connected|yes|true|up|done|won|converted|read)$/i;
+const BAD = /^(offline|expired|failed|inactive|suspended|cancelled|canceled|rejected|blocked|down|no|false|overdue|error|critical|lost|disabled)$/i;
+const WARN = /^(pending|trial|expiring|queued|processing|paused|partial|stale|unpaid|waiting|high|warning|unread|new|sending)$/i;
 
 export function toneFor(label: string): Tone | undefined {
   const s = label.trim();
@@ -152,9 +163,11 @@ export function toneFor(label: string): Tone | undefined {
 const statusText = (v: unknown) => (typeof v === 'boolean' ? (v ? 'Yes' : 'No') : v === null || v === undefined || v === '' ? 'Unknown' : humanizeKey(String(v)));
 
 /** A list's rows counted by its status-like column, when it has one worth showing. */
-export function statusSummary(rows: Row[]): { label: string; segments: Segment[] } | null {
+export function statusSummary(rows: Row[], columns?: Column[]): { label: string; segments: Segment[] } | null {
   if (rows.length < 4) return null;
-  const keys = Object.keys(rows[0] ?? {}).filter((k) => STATUS_KEY.test(k));
+  // a status splits the rows (online / offline); a category chip (a log's topic) does not
+  const keys = columns ? columns.filter((c) => (c.kind === 'status' && c.key !== 'topic') || STATUS_KEY.test(c.key)).map((c) => c.key)
+    : Object.keys(rows[0] ?? {}).filter((k) => STATUS_KEY.test(k));
   for (const key of keys) {
     const counts = new Map<string, number>();
     for (const row of rows) {
@@ -244,9 +257,27 @@ function focusOf(sorted: Row[], labelKey: string, by: string, highlight?: string
            top: values[0], bottom: values[values.length - 1] };
 }
 const MAX_SEGMENTS = 6;
+const CHART_SHOWS = new Set(['trend', 'bars', 'share', 'tiles']);
+
+/** A list drawn as a table: its human columns, the result's own figures beside it, the rows left out. */
+function tableVisual(payload: unknown, listKey: string | undefined, model: ReturnType<typeof tableFor>): Visual {
+  let total: number | undefined;
+  const meta: [string, unknown][] = [];
+  if (isPlainObject(payload)) {
+    for (const [k, v] of Object.entries(payload)) {
+      if (k === listKey || k.startsWith('_') || (typeof v === 'object' && v !== null)) continue;
+      if (['total', 'count', 'total_count', 'total_items', 'total_users', 'total_failed'].includes(k) && typeof v === 'number') total ??= v;
+      else if (metaShown(k, v)) meta.push([k, isMac(v) ? deviceLabel(v) : v]);
+    }
+  }
+  // a spec that leaves rows out (router accounts that are no one) counts what it shows
+  if (model.dropped) total = model.rows.length;
+  return { kind: 'table', rows: model.rows, columns: model.columns, total, meta: meta.slice(0, 8),
+    status: statusSummary(model.rows, model.columns) ?? undefined, ...(model.dropped ? { dropped: model.dropped } : {}) };
+}
 
 /** Choose how to draw one result. `show` is the model's hint; "auto" lets the data decide. */
-export function visualFor(payload: unknown, show: ShowHint | string = 'auto', fields?: ShowFields | null): Visual {
+export function visualFor(payload: unknown, show: ShowHint | string = 'auto', fields?: ShowFields | null, path?: string | null): Visual {
   if (payload === null || payload === undefined || show === 'none') return { kind: 'empty' };
   if (typeof payload === 'string') return payload.trim() ? { kind: 'text', text: payload } : { kind: 'empty' };
 
@@ -254,6 +285,9 @@ export function visualFor(payload: unknown, show: ShowHint | string = 'auto', fi
   const rows = found ? found.rows.filter((r) => !('_note' in r && Object.keys(r).length === 1)) : null;
 
   if (rows && rows.length > 0) {
+    // a route with a table of its own is that table, unless a chart was asked for
+    const own = !CHART_SHOWS.has(show) ? tableFor(path, rows) : null;
+    if (own?.spec) return tableVisual(payload, found?.key, own);
     const columns = describeColumns(rows);
     const wanted = resolveFields(columns, fields);
     const measures = columns.filter(isMeasure);
@@ -323,18 +357,7 @@ export function visualFor(payload: unknown, show: ShowHint | string = 'auto', fi
     }
 
     // a hinted chart that the data cannot carry falls through to the table
-    let total: number | undefined;
-    const meta: [string, unknown][] = [];
-    if (isPlainObject(payload)) {
-      for (const [k, v] of Object.entries(payload)) {
-        if (k === found?.key || k.startsWith('_') || (typeof v === 'object' && v !== null)) continue;
-        if (['total', 'count', 'total_count', 'total_items'].includes(k) && typeof v === 'number') total = v;
-        else meta.push([k, v]);
-      }
-    }
-    const picked = pickColumns(rows);
-    const tableColumns = picked.map((key) => columns.find((c) => c.key === key) ?? { key, label: humanizeKey(key), kind: 'text' as Kind });
-    return { kind: 'table', rows, columns: tableColumns, total, meta: meta.slice(0, 8), status: statusSummary(rows) ?? undefined };
+    return tableVisual(payload, found?.key, own ?? tableFor(path, rows));
   }
 
   if (rows && rows.length === 0 && (show === 'table' || !isPlainObject(payload) || Object.keys(payload).length <= 4)) {
@@ -511,8 +534,80 @@ export function compactNumber(n: number): string {
   return Number.isInteger(n) ? String(n) : n.toFixed(1);
 }
 
-/** A value as it is shown in a cell, a tile or a tooltip. */
-export function formatCell(value: unknown, kind: Kind, currency?: string | null): string {
+/** t() for pure code: the English text with its {placeholders} filled. */
+export type Translate = (text: string, vars?: Record<string, string | number>) => string;
+const english: Translate = (text, vars) => text.replace(/\{(\w+)\}/g, (m, k: string) => (vars && k in vars ? String(vars[k]) : m));
+
+/** A size in bytes as people say it: "640 KB", "12.4 MB", "1.25 GB". */
+export function bytesText(n: number): string {
+  const mb = n / (1024 * 1024);
+  if (mb >= 1024) return `${(mb / 1024).toFixed(mb >= 10_240 ? 1 : 2)} GB`;
+  if (mb >= 1) return `${mb.toFixed(mb >= 100 ? 0 : 1)} MB`;
+  return n > 0 ? `${Math.max(1, Math.round(n / 1024))} KB` : '0 MB';
+}
+
+/** Seconds as "2h 5m", "3d 4h", "45m", "30s". */
+export function spanText(seconds: number): string {
+  const s = Math.max(0, Math.round(seconds));
+  const d = Math.floor(s / 86_400);
+  const h = Math.floor((s % 86_400) / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  if (d > 0) return h > 0 && d < 14 ? `${d}d ${h}h` : `${d}d`;
+  if (h > 0) return m > 0 ? `${h}h ${m}m` : `${h}h`;
+  if (m > 0) return `${m}m`;
+  return `${s}s`;
+}
+
+/** A RouterOS uptime ("1w2d03:04:05", "3h12m4s") or a number of seconds, in seconds. */
+export function durationSeconds(v: unknown): number | null {
+  const n = num(v);
+  if (n !== null) return n;
+  if (typeof v !== 'string' || !v.trim()) return null;
+  const t = v.trim();
+  const clock = /^(?:(\d+)w)?(?:(\d+)d)?(\d{1,2}):(\d{2}):(\d{2})$/.exec(t);
+  if (clock) return (Number(clock[1] ?? 0) * 7 + Number(clock[2] ?? 0)) * 86_400 + Number(clock[3]) * 3600 + Number(clock[4]) * 60 + Number(clock[5]);
+  const parts = /^(?=\d)(?:(\d+)w)?(?:(\d+)d)?(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?$/.exec(t);
+  if (parts) return (Number(parts[1] ?? 0) * 7 + Number(parts[2] ?? 0)) * 86_400 + Number(parts[3] ?? 0) * 3600 + Number(parts[4] ?? 0) * 60 + Number(parts[5] ?? 0);
+  return null;
+}
+
+const utc = (v: unknown): Date | null => {
+  if (typeof v !== 'string' || !ISO_DATE.test(v)) return null;
+  const d = new Date(v.length > 10 && !/(Z|[+-]\d{2}:?\d{2})$/.test(v) ? `${v}Z` : v);
+  return Number.isNaN(d.getTime()) ? null : d;
+};
+const EAT = 'Africa/Nairobi';
+const eatDay = new Intl.DateTimeFormat('en-CA', { timeZone: EAT, year: 'numeric', month: '2-digit', day: '2-digit' });
+const eatHm = new Intl.DateTimeFormat('en-GB', { timeZone: EAT, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
+const eatDm = new Intl.DateTimeFormat('en-GB', { timeZone: EAT, day: 'numeric', month: 'short' });
+const MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+
+/** A past moment in Kenyan time: "today 14:22", "yesterday 09:05", "21 Nov, 14:22". */
+function whenText(d: Date, t: Translate, now: number): string {
+  const day = eatDay.format(d);
+  const hm = eatHm.format(d);
+  if (day === eatDay.format(new Date(now))) return t('today {time}', { time: hm });
+  if (day === eatDay.format(new Date(now - 86_400_000))) return t('yesterday {time}', { time: hm });
+  return `${eatDm.format(d)}, ${hm}`;
+}
+
+/** A router's clock (EAT): "14:52:10", "nov/24/2026 14:22:10" or "2026-11-24 14:22:10". */
+function clockText(v: unknown, t: Translate, now: number): string {
+  const s = typeof v === 'string' ? v.trim() : '';
+  if (!s) return formatValue(v);
+  const bare = /^(\d{2}):(\d{2})(?::\d{2})?$/.exec(s);
+  if (bare) return `${bare[1]}:${bare[2]}`;
+  const v6 = /^([a-z]{3})\/(\d{1,2})\/(\d{4})\s+(\d{2}):(\d{2})/i.exec(s);
+  const v7 = /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})/.exec(s);
+  const parts = v6 ? [Number(v6[3]), MONTHS.indexOf(v6[1].toLowerCase()), Number(v6[2]), Number(v6[4]), Number(v6[5])]
+    : v7 && !/(Z|[+-]\d{2}:?\d{2})$/.test(s) && s.length <= 19 ? [Number(v7[1]), Number(v7[2]) - 1, Number(v7[3]), Number(v7[4]), Number(v7[5])] : null;
+  if (parts && parts[1] >= 0) return whenText(new Date(Date.UTC(parts[0], parts[1], parts[2], parts[3], parts[4]) - 3 * 3_600_000), t, now);
+  const d = utc(s);
+  return d ? whenText(d, t, now) : s;
+}
+
+/** A value as it is shown in a cell, a tile or a tooltip. `t` translates the few words it adds. */
+export function formatCell(value: unknown, kind: Kind, currency?: string | null, t: Translate = english, now: number = Date.now()): string {
   if (value === null || value === undefined || value === '') return '–';
   if (kind === 'money') {
     const n = num(value);
@@ -526,8 +621,31 @@ export function formatCell(value: unknown, kind: Kind, currency?: string | null)
     const n = num(value);
     return n === null ? formatValue(value) : n.toLocaleString('en-US', { maximumFractionDigits: 2 });
   }
+  if (kind === 'status') return t(humanizeKey(String(value)));
+  if (kind === 'bytes' || kind === 'mb') {
+    const n = num(value);
+    return n === null ? formatValue(value) : bytesText(kind === 'mb' ? n * 1024 * 1024 : n);
+  }
+  if (kind === 'duration') {
+    const s = durationSeconds(value);
+    return s === null ? formatValue(value) : spanText(s);
+  }
+  if (kind === 'until') {
+    const d = utc(value);
+    if (!d) return formatValue(value);
+    const left = d.getTime() - now;
+    return left >= 0 ? t('in {span}', { span: spanText(left / 1000) }) : t('ended {span} ago', { span: spanText(-left / 1000) });
+  }
+  if (kind === 'when' || kind === 'datetime') {
+    const d = utc(value);
+    return d ? whenText(d, t, now) : formatValue(value);
+  }
+  if (kind === 'clock') return clockText(value, t, now);
+  if (kind === 'device') return isMac(value) ? macTail(value) : formatValue(value);
+  if (kind === 'bool') return value === true ? t('Yes') : value === false ? t('No') : formatValue(value);
   if (kind === 'date' && typeof value === 'string' && ISO_MONTH.test(value)) return shortDate(value);
-  return formatValue(value);
+  // a MAC never shows whole, even inside a line of text (a router log message)
+  return typeof value === 'string' ? maskMacs(formatValue(value)) : formatValue(value);
 }
 
 export const isBlank = (v: unknown) => v === null || v === undefined || v === '' || v === '–';
