@@ -161,7 +161,9 @@ export default function PortalPreview({ settings, palette, plans, ads, fullscree
   };
 
   const renderAds = () => {
-    if (!settings.show_ads || !ads || ads.length === 0) return null;
+    // Like the portal: under a photo (hero) header the login page shows no deals row;
+    // its only ads are the hero ads rotating inside the header.
+    if (isHero || !settings.show_ads || !ads || ads.length === 0) return null;
     return (
       <div className="pp-ads">
         <div className="pp-ads-head">
