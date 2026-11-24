@@ -186,7 +186,9 @@ export default function AssistantClient() {
   const demo = typeof window !== 'undefined' && api.isDemoMode();
   const currency = user?.market?.currency ?? 'KES';
   const classicHref = admin ? '/admin' : '/dashboard';
-  const [standalone] = useState(isStandalone);
+  const [ownAddress] = useState(isStandalone);
+  // no way back to the classic dashboard: on the assistant's own address, or when it is closed to this account
+  const standalone = ownAddress || (!admin && !!status?.classic_closed);
   const userKey = `${user?.id ?? 0}:${staff ? user?.staff?.id ?? 0 : 0}`;
   const setLive = (i: number | null) => { liveText.current = i; setLiveIndex(i); };
 
