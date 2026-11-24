@@ -18,6 +18,7 @@ import HistoryPanel from './HistoryPanel';
 import Home from './Home';
 import { BitwaveMark, CloseIcon, GridIcon, HistoryIcon, LogoutIcon, MoonIcon, MoreIcon, PlusIcon, StarIcon, SunIcon } from './icons';
 import Transcript, { actionCards } from './Transcript';
+import { PageLinks } from './Markdown';
 import RatingAsk from './RatingAsk';
 import { Led } from './ui';
 
@@ -32,7 +33,7 @@ function applyTheme(theme: Theme) {
 
 /* ---------------- header ---------------- */
 
-function Header({ status, live, canReset, busy, classicHref, standalone, onHome, onHistory, onStatus, onRate }: {
+export function Header({ status, live, canReset, busy, classicHref, standalone, onHome, onHistory, onStatus, onRate }: {
   status: AssistantStatus | null;
   /** null while checking */
   live: boolean | null;
@@ -186,10 +187,12 @@ export default function AssistantClient() {
   const demo = typeof window !== 'undefined' && api.isDemoMode();
   const currency = user?.market?.currency ?? 'KES';
   const classicHref = admin ? '/admin' : '/dashboard';
-  const [ownAddress] = useState(isStandalone);
-  // no way back to the classic dashboard: on the assistant's own address, or when it is closed to this account
-  const standalone = ownAddress || (!admin && !!status?.classic_closed);
+  // on the assistant's own address there is no classic dashboard to go back to
+  const [standalone] = useState(isStandalone);
   const userKey = `${user?.id ?? 0}:${staff ? user?.staff?.id ?? 0 : 0}`;
+  // Resellers do everything here: a name in an answer is not a link off to a dashboard page
+  // (the classic dashboard stays in the menu). Platform admins keep their page links.
+  const pageLinks = !!admin && !standalone;
   const setLive = (i: number | null) => { liveText.current = i; setLiveIndex(i); };
 
   // -- loading ----------------------------------------------------------------
@@ -515,7 +518,7 @@ export default function AssistantClient() {
               <p className="min-w-0 flex-1">
                 <b>{t('This is the new Bitwave.')}</b>{' '}
                 {t('Ask for anything in plain words, or tap a figure. Everything the dashboard does, you can do here.')}{' '}
-                <Link href={classicHref} className="font-bold text-accent underline underline-offset-2" onClick={dismissIntro}>{t('The classic dashboard is one tap away.')}</Link>
+                <Link href={classicHref} className="font-bold text-accent underline underline-offset-2" onClick={dismissIntro}>{t('The classic dashboard is still in the menu.')}</Link>
               </p>
               <button type="button" className="ai-btn ai-btn-quiet -mr-1.5 -mt-1 shrink-0" onClick={dismissIntro} aria-label={t('Got it')}><CloseIcon /></button>
             </div>
@@ -535,9 +538,11 @@ export default function AssistantClient() {
               <span className="h-px flex-1 bg-line" />{t('Your conversation')}<span className="h-px flex-1 bg-line" />
             </div>
             {opening ? <p className="mt-6 text-[13.5px] text-ink-3">{t('Opening the chat…')}</p> : null}
-            <Transcript items={items} records={records} busy={busy} readOnly={readOnly} liveIndex={liveIndex} currency={currency}
-              onDecide={(id, approve, values) => decide([{ action_id: id, approve, ...(values ? { values } : {}) }])} onAsk={live && !busy ? (q) => void send(q) : undefined}
-              lastRef={lastExchange} lastMinHeight={viewH} />
+            <PageLinks.Provider value={pageLinks}>
+              <Transcript items={items} records={records} busy={busy} readOnly={readOnly} liveIndex={liveIndex} currency={currency}
+                onDecide={(id, approve, values) => decide([{ action_id: id, approve, ...(values ? { values } : {}) }])} onAsk={live && !busy ? (q) => void send(q) : undefined}
+                lastRef={lastExchange} lastMinHeight={viewH} />
+            </PageLinks.Provider>
             {rate === 'open' || (rate === null && !askDone && status?.ask_rating && !busy && !readOnly && items.some((it) => it.type === 'assistant')) ? (
               <RatingAsk key={rate ?? 'ask'} mode={rate === 'open' ? 'open' : 'ask'} onClose={() => { setRate(null); setAskDone(true); }} />
             ) : null}

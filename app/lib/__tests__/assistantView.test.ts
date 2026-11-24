@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { findRows, formatValue, parseInline, parseMarkdown, pickColumns, safeHref, viewFor } from '../assistantView';
+import { answerHref, findRows, formatValue, parseInline, parseMarkdown, pickColumns, safeHref, viewFor } from '../assistantView';
 import { parseSseChunk } from '../assistant';
 
 describe('assistant results', () => {
@@ -69,5 +69,20 @@ describe('assistant stream', () => {
     );
     expect(events).toEqual([{ type: 'text', delta: 'Hi' }]);
     expect(rest).toBe('event: done\ndata: {"type":"do');
+  });
+});
+
+describe('answerHref', () => {
+  it('keeps page links for platform admins', () => {
+    expect(answerHref('/customers/5', true)).toBe('/customers/5');
+  });
+  it('turns dashboard page links into plain words for resellers', () => {
+    for (const href of ['/customers/62005', '/messaging', '/settings', '/settings/account-statement', '/plans', '/routers/7/live', '/dashboard']) {
+      expect(answerHref(href, false)).toBeNull();
+    }
+    expect(answerHref('/assistant', false)).toBe('/assistant');
+    expect(answerHref('/assistant?start=setup', false)).toBe('/assistant?start=setup');
+    expect(answerHref('/assistantx', false)).toBeNull();
+    expect(answerHref('https://wa.me/254700000000', false)).toBe('https://wa.me/254700000000');
   });
 });

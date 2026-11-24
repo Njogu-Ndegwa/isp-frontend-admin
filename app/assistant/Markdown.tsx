@@ -1,13 +1,20 @@
 'use client';
 
 import Link from 'next/link';
-import { Fragment, useState } from 'react';
-import { parseMarkdown, type Inline } from '../lib/assistantView';
+import { createContext, Fragment, useContext, useState } from 'react';
+import { answerHref, parseMarkdown, type Inline } from '../lib/assistantView';
 import { copyText } from '../lib/clipboard';
 import { useT } from '../lib/i18n';
 import { CheckIcon, CopyIcon } from './icons';
 
+/**
+ * Whether links in answers may open dashboard pages. False for resellers: the assistant does
+ * the job in the chat, so a customer's name stays a name. Platform admins keep page links.
+ */
+export const PageLinks = createContext(true);
+
 function InlineNodes({ nodes }: { nodes: Inline[] }) {
+  const pageLinks = useContext(PageLinks);
   return (
     <>
       {nodes.map((n, i) => {
@@ -18,12 +25,15 @@ function InlineNodes({ nodes }: { nodes: Inline[] }) {
             return <em key={i}>{n.v}</em>;
           case 'code':
             return <code key={i}>{n.v}</code>;
-          case 'link':
-            return n.href.startsWith('/') ? (
-              <Link key={i} href={n.href}>{n.v}</Link>
+          case 'link': {
+            const href = answerHref(n.href, pageLinks);
+            if (href === null) return <Fragment key={i}>{n.v}</Fragment>;
+            return href.startsWith('/') ? (
+              <Link key={i} href={href}>{n.v}</Link>
             ) : (
-              <a key={i} href={n.href} target="_blank" rel="noopener noreferrer">{n.v}</a>
+              <a key={i} href={href} target="_blank" rel="noopener noreferrer">{n.v}</a>
             );
+          }
           default:
             return <Fragment key={i}>{n.v}</Fragment>;
         }
