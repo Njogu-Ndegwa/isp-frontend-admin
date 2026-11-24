@@ -8,9 +8,10 @@ const STEPS = [0, 5, 10, 25, 50, 100];
 
 /**
  * How many paying reseller accounts start on the AI home instead of the classic
- * dashboard. Trial and suspended accounts are never moved. Each account lands on the
- * same side every time (it is not a coin toss per visit), and a person's own choice
- * always wins over this share.
+ * dashboard. Below Everyone, trial and suspended accounts are not moved; at Everyone
+ * every reseller account starts there. Each account lands on the same side every time
+ * (it is not a coin toss per visit), and a person's own choice always wins. The classic
+ * dashboard stays open to everyone.
  */
 export default function RolloutPanel() {
   const t = useT();
@@ -49,7 +50,7 @@ export default function RolloutPanel() {
         <div className="min-w-0">
           <p className="text-sm font-semibold text-foreground">{t('Who starts on the AI home')}</p>
           <p className="text-xs text-foreground-muted">
-            {t('Share of paying reseller accounts (active subscription) that open the chat-first home instead of the classic dashboard when they sign in. Trial and suspended accounts stay on the dashboard; everyone still has the chat in the menu.')}
+            {t('Share of paying reseller accounts (active subscription) that open the chat-first home instead of the classic dashboard when they sign in. At Everyone, trial and suspended accounts start there too. The classic dashboard stays in the menu for everyone.')}
           </p>
         </div>
         <div className="text-right">
@@ -76,8 +77,8 @@ export default function RolloutPanel() {
       </div>
 
       <p className="mt-2 text-[11px] text-foreground-muted">
-        {rollout.classic_closed
-          ? t('Everyone: every reseller account, trial and suspended included, starts on the AI home and the classic dashboard is closed to them. Their own choice no longer counts. Admins are not affected.')
+        {rollout.percent === 100
+          ? t('Everyone: every reseller account, trial and suspended included, starts on the AI home. {c} people chose the classic dashboard and start there; anyone can open it from the menu. Admins are not affected.', { c: rollout.chose_classic })
           : t('{a} people chose the AI home themselves and {c} chose the classic dashboard. Their choice wins over this share.', { a: rollout.chose_assistant, c: rollout.chose_classic })}
       </p>
       {error && <p className="mt-1 text-xs text-danger">{error}</p>}

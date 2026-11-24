@@ -207,6 +207,16 @@ export function safeHref(href: string): string | null {
   return null;
 }
 
+/**
+ * Where a link in an answer may go. For a reseller (pageLinks false) the assistant does the job
+ * itself, so a same-site path that would open a dashboard page is shown as its words; only the
+ * assistant's own address stays a link. https links are unchanged.
+ */
+export function answerHref(href: string, pageLinks: boolean): string | null {
+  if (pageLinks || !href.startsWith('/')) return href;
+  return href === '/assistant' || href.startsWith('/assistant?') || href.startsWith('/assistant/') ? href : null;
+}
+
 export function parseInline(text: string): Inline[] {
   const out: Inline[] = [];
   const re = /(`[^`\n]+`)|(\*\*[^*\n]+\*\*)|(\[[^\]\n]+\]\([^)\s]+\))|(\*[^*\n]+\*)/g;
