@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import type { ShowFields } from '../../lib/assistant';
+import { displayFor } from '../../lib/assistantTables';
 import { cardTitle, formatCell, gaugesOf, num, periodWord, shortDate, toCsv, trendPlan, trendTakeaway, visualFor, type ChartModel, type Column, type Gauge, type TileItem, type Visual } from '../../lib/assistantVisual';
 import { entityOf, isUptime } from '../../lib/assistantEntities';
 import { useT } from '../../lib/i18n';
@@ -324,16 +325,19 @@ const CHART_HINTS = new Set(['trend', 'bars', 'tiles']);
  * One result, drawn. The model's hint and the shape of the data pick the picture;
  * the figures always come from the data.
  */
-export default function ResultBlock({ title: rawTitle, payload, show = 'auto', fields, currency, onAsk, path }: {
+export default function ResultBlock({ title: rawTitle, payload, show: hint = 'auto', fields, currency, onAsk, path, query }: {
   title: string;
   payload: unknown;
   show?: string;
   fields?: ShowFields | null;
   currency?: string | null;
   onAsk?: (q: string) => void;
-  /** the API route the result came from: picks the table's spec (assistantTables.ts) */
+  /** the API route the result came from: picks its drawing and its table's spec (assistantTables.ts) */
   path?: string | null;
+  query?: Record<string, unknown> | null;
 }) {
+  // the route decides the drawing; the model's `show` is a hint it may accept
+  const show = displayFor(path, query, hint);
   const visual = useMemo(() => visualFor(payload, show, fields, path), [payload, show, fields, path]);
   const shownLike = useMemo(() => previewOf(payload), [payload]);
   // customers, routers, plans, payments and vouchers have components of their own,
@@ -395,8 +399,10 @@ export default function ResultBlock({ title: rawTitle, payload, show = 'auto', f
 }
 
 /** What a result will be, as one word, for the slim "ready" rows shown while the answer is written. */
-export function visualNoun(payload: unknown, show?: string, fields?: ShowFields | null): string | null {
+export function visualNoun(payload: unknown, hint?: string, fields?: ShowFields | null, path?: string | null, query?: Record<string, unknown> | null): string | null {
+  const show = displayFor(path, query, hint);
   if (show === 'pppoe_login' && pppoeLoginOf(payload)) return 'Login';
-  const kind = visualFor(payload, show, fields).kind;
+  if (show === 'none') return null;
+  const kind = visualFor(payload, show, fields, path).kind;
   return kind === 'empty' ? null : kind === 'tiles' ? 'Figures' : kind === 'table' ? 'Table' : kind === 'record' || kind === 'text' ? 'Details' : 'Chart';
 }

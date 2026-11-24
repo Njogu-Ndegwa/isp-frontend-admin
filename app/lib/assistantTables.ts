@@ -482,3 +482,95 @@ export function metaShown(key: string, value: unknown): boolean {
   if (/^(success|cached|cache_age_seconds|live|stale|filter_.*|.*_persisted|generated_at|scan_time|checked_at|note|recommendation|menu|page|per_page|pages|total_pages)$/i.test(key)) return false;
   return !(typeof value === 'string' && (value.length > 60 || ISO_DATE.test(value)));
 }
+
+/* ---------------- which picture a route gets ---------------- */
+
+/**
+ * The drawing a route always gets, whatever `show` the model sent: the model's choice is
+ * a hint the route may accept (`allow`), never the decider, so the same question draws
+ * the same way for everyone. From the display corpus of 19-24 Nov (app/lib/assistantIntents.json):
+ * lists are tables, one record a card, a period's totals tiles, a figure over time a trend,
+ * a ranking bars. `table` on a chart route is allowed because a reseller asks for it
+ * ("show it in a table, not a graph"). A route not listed keeps the model's hint.
+ */
+export type Display = 'table' | 'card' | 'tiles' | 'trend' | 'bars' | 'share' | 'none';
+export interface DisplayRule {
+  paths: string[];
+  display: Display;
+  /** hints the route also takes as asked */
+  allow?: Display[];
+  /** a route that serves two intents decides by its query (one router's health vs every router's) */
+  byQuery?: (q: Record<string, unknown>) => Display | null;
+}
+
+export const DISPLAY_RULES: DisplayRule[] = [
+  // lists of records: one table each (several have components of their own)
+  { display: 'table', paths: [
+    '/api/customers', '/api/customers/active', '/api/mpesa/transactions', '/api/mpesa/transactions/failed', '/api/c2b/unmatched',
+    '/api/routers', '/api/plans', '/api/plans/by-router/{router_id}', '/api/vouchers', '/api/payment-methods', '/api/staff',
+    '/api/pppoe/{router_id}/users', '/api/pppoe/{router_id}/secrets', '/api/pppoe/{router_id}/logs', '/api/hotspot/{router_id}/users',
+    '/api/hotspot/{router_id}/logs', '/api/routers/{router_id}/users', '/api/routers/{router_id}/ports', '/api/routers/{router_id}/port-analytics',
+    '/api/routers/{router_id}/access-points', '/api/routers/{router_id}/offline-customers', '/api/routers/{router_id}/illegal-connections',
+    '/api/routers/{router_id}/blocked-devices', '/api/routers/{router_id}/routeros', '/api/routers/{router_id}/checkup',
+    '/api/routers/{router_id}/interfaces', '/api/messaging/campaigns', '/api/messaging/inbox', '/api/messaging/templates',
+    '/api/ads/manage', '/api/ads/{ad_id}/clicks', '/api/subscription/invoices', '/api/subscription/payments', '/api/leads',
+    '/api/staff/activity', '/api/customers/{customer_id}/devices', '/api/customers/{customer_id}/audit-log', '/api/mikrotik/active-sessions',
+    '/api/mikrotik/{router_id}/pppoe/active', '/api/compensation/outage/history', '/api/access-credentials', '/api/feedback/posts',
+  ] },
+  // a period's totals: tiles
+  { display: 'tiles', paths: ['/api/mpesa/transactions/summary', '/api/dashboard/overview', '/api/dashboard/stats', '/api/messaging/credits',
+    '/api/profile/setup-status', '/api/customers/{customer_id}/payment-summary', '/api/pppoe/{router_id}/overview', '/api/hotspot/{router_id}/overview',
+    '/api/vouchers/stats', '/api/leads/pipeline/stats', '/api/ads/analytics'] },
+  // the dashboard's analytics hold totals, a daily series and a split by plan: totals unless the series or the split was asked for
+  { display: 'tiles', allow: ['trend', 'bars', 'share'], paths: ['/api/dashboard/analytics'] },
+  // one router's readings are dials; without a router it is every router's, a table
+  { display: 'tiles', paths: ['/api/mikrotik/health'], byQuery: (q) => (q.router_id === undefined || q.router_id === null || q.router_id === '' ? 'table' : null) },
+  // a figure over time
+  { display: 'trend', allow: ['table'], paths: ['/api/dashboard/revenue-over-time', '/api/dashboard/daily-revenue', '/api/dashboard/transactions-daily',
+    '/api/mikrotik/bandwidth-history', '/api/customers/{customer_id}/usage/timeline', '/api/customers/{customer_id}/usage/history',
+    '/api/routers/{router_id}/health-history'] },
+  // a ranking
+  { display: 'bars', allow: ['table'], paths: ['/api/plans/performance', '/api/mikrotik/top-users', '/api/resellers/me/usage/top',
+    '/api/customers/usage/bulk', '/api/router-health/ranking'] },
+  // one record
+  { display: 'card', paths: ['/api/customers/{customer_id}', '/api/routers/{router_id}/uptime', '/api/routers/{router_id}/live',
+    '/api/router_stats/{router_id}', '/api/reseller/payout-settings', '/api/portal/settings', '/api/profile', '/api/subscription',
+    '/api/subscription/current-invoice', '/api/customers/{customer_id}/usage', '/api/customers/{customer_id}/static/status',
+    '/api/customers/{customer_id}/cpe', '/api/customers/{customer_id}/cpe/status', '/api/routers/{router_id}/diagnose/{mac_address}',
+    '/api/pppoe/{router_id}/diagnose/{username}', '/api/pppoe/{router_id}/client-details/{username}', '/api/payment-methods/{method_id}',
+    '/api/ads/manage/{ad_id}', '/api/messaging/campaigns/{campaign_id}', '/api/messaging/credits/orders/{order_id}', '/api/messaging/gateway/status',
+    '/api/ad-sales/access', '/api/pppoe/customers/{customer_id}/presence', '/api/admin/routers/{router_id}/remote-access'] },
+  // ids only, nothing a person can read: "who is online" is GET /api/customers?online=true
+  { display: 'none', paths: ['/api/realtime/customers/online', '/api/realtime/routers'] },
+];
+
+const RULES = DISPLAY_RULES.map((r) => ({ rule: r, res: r.paths.map(templateRe) }));
+
+/** The rule for a route; of two that match, the one whose template has fewer placeholders. */
+export function displayRuleFor(path: string | null | undefined): DisplayRule | null {
+  const p = (path ?? '').split('?')[0].replace(/\/+$/, '');
+  if (!p) return null;
+  let best: DisplayRule | null = null;
+  let bestHoles = Infinity;
+  for (const { rule, res } of RULES) {
+    res.forEach((re, i) => {
+      const holes = (rule.paths[i].match(/\{/g) ?? []).length;
+      if (re.test(p) && holes < bestHoles) { best = rule; bestHoles = holes; }
+    });
+  }
+  return best;
+}
+
+/** Hints that are not drawings and always pass through ("pppoe_login" is the server's own card). */
+const PASS_THROUGH = new Set(['pppoe_login', 'none']);
+
+/** The drawing a result gets: the route's rule, the model's hint only where the rule allows it. */
+export function displayFor(path: string | null | undefined, query: Record<string, unknown> | null | undefined, show: string | null | undefined): string {
+  const hint = show || 'auto';
+  if (PASS_THROUGH.has(hint)) return hint;
+  const rule = displayRuleFor(path);
+  if (!rule) return hint;
+  const byQuery = rule.byQuery?.(query ?? {});
+  if (byQuery) return byQuery;
+  return rule.allow?.includes(hint as Display) ? hint : rule.display;
+}

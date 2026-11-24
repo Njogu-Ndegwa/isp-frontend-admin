@@ -162,7 +162,7 @@ function Steps({ steps, working, first }: { steps: Of<'step'>[]; working: boolea
 
 /** While the answer is being written, the finished visuals wait here as shimmering placeholders instead of jumping in above it. */
 function PendingVisuals({ data }: { data: Of<'data'>[] }) {
-  const rows = data.map((d) => ({ d, noun: visualNoun(d.payload, d.show, d.fields) })).filter((r) => r.noun);
+  const rows = data.map((d) => ({ d, noun: visualNoun(d.payload, d.show, d.fields, d.path, d.query) })).filter((r) => r.noun);
   if (!rows.length) return null;
   return (
     <ul className="m-0 flex list-none flex-col gap-2 p-0" aria-label="Results ready, shown once the answer is written">
@@ -203,7 +203,7 @@ function RunView({ run, first, live, streaming, currency, onAsk }: {
           <div className="flex flex-col gap-3">
             {run.data.map((d, i) => (
               <div key={d.call_id} className="ai-rise" style={{ animationDelay: `${Math.min(i, 5) * 70}ms` }}>
-                <ResultBlock title={d.title} payload={d.payload} show={d.show} fields={d.fields} path={d.path} currency={currency} onAsk={onAsk} />
+                <ResultBlock title={d.title} payload={d.payload} show={d.show} fields={d.fields} path={d.path} query={d.query} currency={currency} onAsk={onAsk} />
               </div>
             ))}
           </div>
