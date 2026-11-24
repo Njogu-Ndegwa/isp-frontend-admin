@@ -12,6 +12,7 @@ import { Led } from '../ui';
 import { BrandMark } from '../BrandMark';
 import { AnswerAccess } from '../blocks/access';
 import type { AuthUser } from '../../lib/types';
+import { TABLE_FIXTURES } from './tableFixtures';
 
 /* Made-up figures only: nothing here is a real reseller, customer or router. */
 
@@ -249,9 +250,9 @@ export default function PreviewClient() {
 
 function Preview() {
   const [theme, setTheme] = useState<'dark' | 'light'>(() => (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('theme') === 'light' ? 'light' : 'dark'));
-  const [view, setView] = useState<'home' | 'chat' | 'brand'>(() => {
+  const [view, setView] = useState<'home' | 'chat' | 'brand' | 'tables'>(() => {
     const v = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('view') : null;
-    return v === 'chat' || v === 'brand' ? v : 'home';
+    return v === 'chat' || v === 'brand' || v === 'tables' ? v : 'home';
   });
   const [b] = useState(briefing);
   const [items] = useState(transcript);
@@ -275,7 +276,7 @@ function Preview() {
           <span className="ai-mono ml-auto inline-flex items-center gap-1.5 rounded-full border border-line px-2 py-1 text-[11px] text-ink-2 max-sm:hidden"><Led tone="live" pulse size={6} />Preview</span>
           <span className="ml-auto sm:hidden" />
           <div className="flex rounded-full border border-line p-0.5 text-[12px]">
-            {(['home', 'chat', 'brand'] as const).map((v) => (
+            {(['home', 'chat', 'brand', 'tables'] as const).map((v) => (
               <button key={v} type="button" aria-pressed={view === v} onClick={() => setView(v)} className={`ai-tap rounded-full px-3 py-1 ${view === v ? 'bg-surface-3 text-ink-1' : 'text-ink-3'}`}>{v}</button>
             ))}
           </div>
@@ -283,7 +284,16 @@ function Preview() {
         </div>
       </header>
       <div className="min-h-0 flex-1 overflow-y-auto">
-        {view === 'brand' ? (
+        {view === 'tables' ? (
+          // every table the assistant draws, from made-up rows (?view=tables&only=routerUsers draws one)
+          <div className="mx-auto flex w-full max-w-[880px] flex-col px-4 sm:px-6">
+            <AnswerAccess user={OWNER}>
+              <Transcript currency="KES" onAsk={noop} onDecide={noop} items={Object.entries(TABLE_FIXTURES)
+                .filter(([k]) => { const only = new URLSearchParams(window.location.search).get('only'); return !only || only.split(',').includes(k); })
+                .map(([k, f]) => ({ type: 'data' as const, call_id: k, title: f.title, method: 'GET', path: f.path, query: f.query ?? null, show: f.show as 'table', payload: f.payload }))} />
+            </AnswerAccess>
+          </div>
+        ) : view === 'brand' ? (
           <div className="mx-auto max-w-[880px] px-4 py-8 sm:px-6">
             <p className="ai-eyebrow">The logo, at every size</p>
             <div className="mt-4 flex flex-wrap items-end gap-6">

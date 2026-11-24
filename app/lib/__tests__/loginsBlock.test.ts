@@ -45,7 +45,7 @@ describe('PPPoE logins', () => {
       authorized: true, has_queue: true, customer: null };
     expect(entityOf({ users: [dev] })?.entity).toBe('hotspot_user');
     const p = loginFacts(dev, 'hotspot');
-    expect(p.name).toBe('AA:BB:CC:00:00:01');
+    expect(p.name).toBe('Device ··00:01'); // a MAC alone is named by its tail, never whole
     expect(p.free).toBeNull();
     expect(p.how).toBe('remembered');
     expect(subLine(loginFacts({ ...dev, username: 'K7Q2M9', mac_address: '9A:11' }, 'hotspot'))).toBe('9A:11 · default · remembered');

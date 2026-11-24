@@ -1,0 +1,1043 @@
+[
+ {
+  "template": "/api/access-credentials",
+  "method": "GET",
+  "title": "List Credentials",
+  "sample": null
+ },
+ {
+  "template": "/api/access-credentials/{cred_id}",
+  "method": "GET",
+  "title": "Get Credential",
+  "sample": null
+ },
+ {
+  "template": "/api/ad-review/rules",
+  "method": "GET",
+  "title": "Get Review Rules",
+  "sample": null
+ },
+ {
+  "template": "/api/ad-sales",
+  "method": "GET",
+  "title": "List Sales",
+  "sample": null
+ },
+ {
+  "template": "/api/ad-sales/access",
+  "method": "GET",
+  "title": "Selling Access",
+  "sample": null
+ },
+ {
+  "template": "/api/admin/routers/{router_id}/remote-access",
+  "method": "GET",
+  "title": "Get Router Remote Access Options",
+  "sample": null
+ },
+ {
+  "template": "/api/ads/analytics",
+  "method": "GET",
+  "title": "Get Ads Analytics",
+  "sample": null
+ },
+ {
+  "template": "/api/ads/manage",
+  "method": "GET",
+  "title": "List Manage Ads",
+  "sample": null
+ },
+ {
+  "template": "/api/ads/manage/{ad_id}",
+  "method": "GET",
+  "title": "Get Manage Ad",
+  "sample": null
+ },
+ {
+  "template": "/api/ads/{ad_id}/clicks",
+  "method": "GET",
+  "title": "Get Ad Clicks",
+  "sample": null
+ },
+ {
+  "template": "/api/ads/{ad_id}/impressions",
+  "method": "GET",
+  "title": "Get Ad Impressions",
+  "sample": null
+ },
+ {
+  "template": "/api/ads/{ad_id}/sale",
+  "method": "GET",
+  "title": "Get Sale",
+  "sample": null
+ },
+ {
+  "template": "/api/ads/{ad_id}/stats",
+  "method": "GET",
+  "title": "Get Ad Stats",
+  "sample": null
+ },
+ {
+  "template": "/api/advertisers",
+  "method": "GET",
+  "title": "Get Advertisers",
+  "sample": null
+ },
+ {
+  "template": "/api/c2b/unmatched",
+  "method": "GET",
+  "title": "List Unmatched C2B",
+  "sample": null
+ },
+ {
+  "template": "/api/compensation/outage/history",
+  "method": "GET",
+  "title": "Outage History",
+  "sample": null
+ },
+ {
+  "template": "/api/compensation/outage/preview",
+  "method": "POST",
+  "title": "Preview Outage",
+  "sample": null
+ },
+ {
+  "template": "/api/compensation/outage/{compensation_id}",
+  "method": "GET",
+  "title": "Outage Detail",
+  "sample": null
+ },
+ {
+  "template": "/api/customers",
+  "method": "GET",
+  "title": "Get Customers",
+  "sample": null
+ },
+ {
+  "template": "/api/customers/active",
+  "method": "GET",
+  "title": "Get Active Customers",
+  "sample": null
+ },
+ {
+  "template": "/api/customers/map",
+  "method": "GET",
+  "title": "Get Customers Map Data",
+  "sample": null
+ },
+ {
+  "template": "/api/customers/national-id-matches",
+  "method": "GET",
+  "title": "National Id Matches",
+  "sample": null
+ },
+ {
+  "template": "/api/customers/usage/bulk",
+  "method": "POST",
+  "title": "Get Customer Usage Bulk",
+  "sample": {
+   "customer_id": 3,
+   "connection_type": "sample connection_type",
+   "pppoe_username": "sample pppoe_username",
+   "plan_name": "sample plan_name",
+   "plan_data_cap_mb": 3,
+   "plan_fup_action": "sample plan_fup_action",
+   "plan_fup_period": "sample plan_fup_period",
+   "period": {
+    "id": 3,
+    "period_start": "2026-11-24T10:15:00",
+    "period_end": "2026-11-24T10:15:00",
+    "upload_mb": 12.5,
+    "download_mb": 12.5,
+    "total_mb": 12.5,
+    "cap_mb": 3,
+    "percent_used": 12.5,
+    "fup_action": "sample fup_action",
+    "fup_triggered_at": "2026-11-24T10:15:00",
+    "fup_action_taken": "sample fup_action_taken",
+    "fup_reverted_at": "2026-11-24T10:15:00"
+   },
+   "live": {
+    "online": true,
+    "ip": "sample ip",
+    "rate_down_bps": 12.5,
+    "rate_up_bps": 12.5,
+    "seen_at": "2026-11-24T10:15:00",
+    "reported_at": "2026-11-24T10:15:00",
+    "report_age_seconds": 12.5,
+    "interval_seconds": 3,
+    "queue_status": "sample queue_status",
+    "max_limit": "sample max_limit"
+   }
+  }
+ },
+ {
+  "template": "/api/customers/{customer_id}",
+  "method": "GET",
+  "title": "Get Customer Detail",
+  "sample": null
+ },
+ {
+  "template": "/api/customers/{customer_id}/audit-log",
+  "method": "GET",
+  "title": "Customer Audit Log",
+  "sample": null
+ },
+ {
+  "template": "/api/customers/{customer_id}/audit-log/router-logs",
+  "method": "POST",
+  "title": "Pull Customer Router Logs",
+  "sample": null
+ },
+ {
+  "template": "/api/customers/{customer_id}/cpe",
+  "method": "GET",
+  "title": "Get Cpe",
+  "sample": null
+ },
+ {
+  "template": "/api/customers/{customer_id}/cpe/status",
+  "method": "GET",
+  "title": "Cpe Status",
+  "sample": null
+ },
+ {
+  "template": "/api/customers/{customer_id}/devices",
+  "method": "GET",
+  "title": "List Customer Devices",
+  "sample": null
+ },
+ {
+  "template": "/api/customers/{customer_id}/installation-charges",
+  "method": "GET",
+  "title": "List Charges",
+  "sample": null
+ },
+ {
+  "template": "/api/customers/{customer_id}/payment-summary",
+  "method": "GET",
+  "title": "Get Customer Payment Summary",
+  "sample": null
+ },
+ {
+  "template": "/api/customers/{customer_id}/pppoe-credentials",
+  "method": "GET",
+  "title": "Get Pppoe Credentials",
+  "sample": null
+ },
+ {
+  "template": "/api/customers/{customer_id}/pppoe-device-lock",
+  "method": "GET",
+  "title": "Get Pppoe Device Lock",
+  "sample": null
+ },
+ {
+  "template": "/api/customers/{customer_id}/related",
+  "method": "GET",
+  "title": "Get Related Customers",
+  "sample": null
+ },
+ {
+  "template": "/api/customers/{customer_id}/static/status",
+  "method": "GET",
+  "title": "Static Customer Status",
+  "sample": null
+ },
+ {
+  "template": "/api/customers/{customer_id}/usage",
+  "method": "GET",
+  "title": "Get Customer Usage",
+  "sample": null
+ },
+ {
+  "template": "/api/customers/{customer_id}/usage/history",
+  "method": "GET",
+  "title": "Get Customer Usage History",
+  "sample": {
+   "id": 3,
+   "period_start": "2026-11-24T10:15:00",
+   "period_end": "2026-11-24T10:15:00",
+   "upload_mb": 12.5,
+   "download_mb": 12.5,
+   "total_mb": 12.5,
+   "cap_mb": 3,
+   "percent_used": 12.5,
+   "fup_action": "sample fup_action",
+   "fup_triggered_at": "2026-11-24T10:15:00",
+   "fup_action_taken": "sample fup_action_taken",
+   "fup_reverted_at": "2026-11-24T10:15:00",
+   "fup_active": true,
+   "closed_at": "2026-11-24T10:15:00",
+   "shared_total_mb": 12.5,
+   "shared_percent_used": 12.5,
+   "fup_window_start": "2026-11-24T10:15:00",
+   "fup_window_used_mb": 12.5,
+   "fup_window_percent_used": 12.5
+  }
+ },
+ {
+  "template": "/api/customers/{customer_id}/usage/timeline",
+  "method": "GET",
+  "title": "Get Customer Usage Timeline",
+  "sample": {
+   "start": "2026-11-24T10:15:00",
+   "upload_mb": 12.5,
+   "download_mb": 12.5,
+   "total_mb": 12.5
+  }
+ },
+ {
+  "template": "/api/dashboard/analytics",
+  "method": "GET",
+  "title": "Get Dashboard Analytics",
+  "sample": null
+ },
+ {
+  "template": "/api/dashboard/daily-revenue",
+  "method": "GET",
+  "title": "Get Daily Revenue Metrics",
+  "sample": null
+ },
+ {
+  "template": "/api/dashboard/mikrotik",
+  "method": "GET",
+  "title": "Get Dashboard Mikrotik",
+  "sample": null
+ },
+ {
+  "template": "/api/dashboard/overview",
+  "method": "GET",
+  "title": "Get Dashboard Overview",
+  "sample": null
+ },
+ {
+  "template": "/api/dashboard/revenue-over-time",
+  "method": "GET",
+  "title": "Get Revenue Over Time",
+  "sample": null
+ },
+ {
+  "template": "/api/dashboard/stats",
+  "method": "GET",
+  "title": "Get Dashboard Stats",
+  "sample": null
+ },
+ {
+  "template": "/api/dashboard/transactions-daily",
+  "method": "GET",
+  "title": "Get Daily Transaction Counts",
+  "sample": null
+ },
+ {
+  "template": "/api/feedback/posts",
+  "method": "GET",
+  "title": "List Posts",
+  "sample": null
+ },
+ {
+  "template": "/api/feedback/posts/{post_id}",
+  "method": "GET",
+  "title": "Get Post",
+  "sample": null
+ },
+ {
+  "template": "/api/feedback/requests",
+  "method": "POST",
+  "title": "Record Feature Request",
+  "sample": null
+ },
+ {
+  "template": "/api/hotspot/{router_id}/logs",
+  "method": "GET",
+  "title": "Hotspot Logs",
+  "sample": null
+ },
+ {
+  "template": "/api/hotspot/{router_id}/overview",
+  "method": "GET",
+  "title": "Hotspot Overview",
+  "sample": null
+ },
+ {
+  "template": "/api/hotspot/{router_id}/users",
+  "method": "GET",
+  "title": "Hotspot Users",
+  "sample": null
+ },
+ {
+  "template": "/api/leads",
+  "method": "GET",
+  "title": "List Leads",
+  "sample": null
+ },
+ {
+  "template": "/api/leads/followups/upcoming",
+  "method": "GET",
+  "title": "Upcoming Followups",
+  "sample": null
+ },
+ {
+  "template": "/api/leads/pipeline/stats",
+  "method": "GET",
+  "title": "Pipeline Stats",
+  "sample": null
+ },
+ {
+  "template": "/api/leads/pipeline/summary",
+  "method": "GET",
+  "title": "Pipeline Summary",
+  "sample": null
+ },
+ {
+  "template": "/api/leads/sources",
+  "method": "GET",
+  "title": "List Lead Sources",
+  "sample": {
+   "id": 3,
+   "name": "sample name",
+   "description": "sample description",
+   "is_active": true,
+   "created_at": "2026-11-24T10:15:00"
+  }
+ },
+ {
+  "template": "/api/leads/{lead_id}",
+  "method": "GET",
+  "title": "Get Lead",
+  "sample": null
+ },
+ {
+  "template": "/api/leads/{lead_id}/activities",
+  "method": "GET",
+  "title": "List Activities",
+  "sample": null
+ },
+ {
+  "template": "/api/messaging/alert-contacts",
+  "method": "GET",
+  "title": "Get Alert Contacts",
+  "sample": null
+ },
+ {
+  "template": "/api/messaging/campaigns",
+  "method": "GET",
+  "title": "List Campaigns",
+  "sample": null
+ },
+ {
+  "template": "/api/messaging/campaigns/{campaign_id}",
+  "method": "GET",
+  "title": "Campaign Detail",
+  "sample": null
+ },
+ {
+  "template": "/api/messaging/credits",
+  "method": "GET",
+  "title": "Get Credits",
+  "sample": null
+ },
+ {
+  "template": "/api/messaging/credits/ledger",
+  "method": "GET",
+  "title": "Credit Ledger",
+  "sample": null
+ },
+ {
+  "template": "/api/messaging/credits/orders/{order_id}",
+  "method": "GET",
+  "title": "Credit Order Status",
+  "sample": null
+ },
+ {
+  "template": "/api/messaging/customer-events",
+  "method": "GET",
+  "title": "Get Customer Event Settings",
+  "sample": null
+ },
+ {
+  "template": "/api/messaging/customer-events/preview",
+  "method": "POST",
+  "title": "Preview Customer Event Message",
+  "sample": null
+ },
+ {
+  "template": "/api/messaging/expiry-settings",
+  "method": "GET",
+  "title": "Get Expiry Settings",
+  "sample": null
+ },
+ {
+  "template": "/api/messaging/gateway/status",
+  "method": "GET",
+  "title": "Get Gateway Status",
+  "sample": null
+ },
+ {
+  "template": "/api/messaging/inbox",
+  "method": "GET",
+  "title": "Get Inbox",
+  "sample": null
+ },
+ {
+  "template": "/api/messaging/provider-accounts",
+  "method": "GET",
+  "title": "List Own Provider Accounts",
+  "sample": null
+ },
+ {
+  "template": "/api/messaging/providers",
+  "method": "GET",
+  "title": "Reseller Provider Catalogue",
+  "sample": null
+ },
+ {
+  "template": "/api/messaging/recipients",
+  "method": "GET",
+  "title": "List Recipients",
+  "sample": null
+ },
+ {
+  "template": "/api/messaging/send/preview",
+  "method": "POST",
+  "title": "Preview Send",
+  "sample": null
+ },
+ {
+  "template": "/api/messaging/templates",
+  "method": "GET",
+  "title": "List Templates",
+  "sample": null
+ },
+ {
+  "template": "/api/mikrotik/active-sessions",
+  "method": "GET",
+  "title": "Get Mikrotik Active Sessions",
+  "sample": null
+ },
+ {
+  "template": "/api/mikrotik/bandwidth-history",
+  "method": "GET",
+  "title": "Get Bandwidth History",
+  "sample": null
+ },
+ {
+  "template": "/api/mikrotik/health",
+  "method": "GET",
+  "title": "Get Mikrotik Health",
+  "sample": null
+ },
+ {
+  "template": "/api/mikrotik/top-users",
+  "method": "GET",
+  "title": "Get Top Bandwidth Users",
+  "sample": null
+ },
+ {
+  "template": "/api/mikrotik/traffic",
+  "method": "GET",
+  "title": "Get Mikrotik Traffic",
+  "sample": null
+ },
+ {
+  "template": "/api/mikrotik/walled-garden",
+  "method": "GET",
+  "title": "Get Walled Garden",
+  "sample": null
+ },
+ {
+  "template": "/api/mikrotik/{router_id}/pppoe/active",
+  "method": "GET",
+  "title": "Get Active Pppoe Sessions",
+  "sample": null
+ },
+ {
+  "template": "/api/mpesa/transactions",
+  "method": "GET",
+  "title": "Get Mpesa Transactions",
+  "sample": null
+ },
+ {
+  "template": "/api/mpesa/transactions/failed",
+  "method": "GET",
+  "title": "Get Failed Mpesa Transactions",
+  "sample": null
+ },
+ {
+  "template": "/api/mpesa/transactions/summary",
+  "method": "GET",
+  "title": "Get Mpesa Transactions Summary",
+  "sample": null
+ },
+ {
+  "template": "/api/payment-methods",
+  "method": "GET",
+  "title": "List Payment Methods",
+  "sample": null
+ },
+ {
+  "template": "/api/payment-methods/{method_id}",
+  "method": "GET",
+  "title": "Get Payment Method",
+  "sample": null
+ },
+ {
+  "template": "/api/plans",
+  "method": "GET",
+  "title": "Get Plans",
+  "sample": null
+ },
+ {
+  "template": "/api/plans/by-router/{router_id}",
+  "method": "GET",
+  "title": "Get Plans For Router",
+  "sample": null
+ },
+ {
+  "template": "/api/plans/performance",
+  "method": "GET",
+  "title": "Get Plan Performance",
+  "sample": null
+ },
+ {
+  "template": "/api/portal/settings",
+  "method": "GET",
+  "title": "Get Portal Settings",
+  "sample": null
+ },
+ {
+  "template": "/api/pppoe/customers/{customer_id}/presence",
+  "method": "GET",
+  "title": "Pppoe Customer Presence",
+  "sample": null
+ },
+ {
+  "template": "/api/pppoe/{router_id}/client-details/{username}",
+  "method": "GET",
+  "title": "Pppoe Client Details",
+  "sample": null
+ },
+ {
+  "template": "/api/pppoe/{router_id}/diagnose/{username}",
+  "method": "GET",
+  "title": "Pppoe Diagnose",
+  "sample": null
+ },
+ {
+  "template": "/api/pppoe/{router_id}/logs",
+  "method": "GET",
+  "title": "Pppoe Logs",
+  "sample": null
+ },
+ {
+  "template": "/api/pppoe/{router_id}/overview",
+  "method": "GET",
+  "title": "Pppoe Overview",
+  "sample": null
+ },
+ {
+  "template": "/api/pppoe/{router_id}/secrets",
+  "method": "GET",
+  "title": "Pppoe Secrets",
+  "sample": null
+ },
+ {
+  "template": "/api/pppoe/{router_id}/users",
+  "method": "GET",
+  "title": "Pppoe Users",
+  "sample": null
+ },
+ {
+  "template": "/api/profile",
+  "method": "GET",
+  "title": "Get Profile",
+  "sample": null
+ },
+ {
+  "template": "/api/profile/setup-status",
+  "method": "GET",
+  "title": "Get Setup Status",
+  "sample": null
+ },
+ {
+  "template": "/api/provision/tokens",
+  "method": "GET",
+  "title": "List Provision Tokens",
+  "sample": null
+ },
+ {
+  "template": "/api/ratings",
+  "method": "GET",
+  "title": "Get Ratings",
+  "sample": null
+ },
+ {
+  "template": "/api/ratings/by-location",
+  "method": "GET",
+  "title": "Get Ratings By Location",
+  "sample": null
+ },
+ {
+  "template": "/api/ratings/summary",
+  "method": "GET",
+  "title": "Get Ratings Summary",
+  "sample": null
+ },
+ {
+  "template": "/api/realtime/customers/online",
+  "method": "GET",
+  "title": "List Realtime Online Customers",
+  "sample": null
+ },
+ {
+  "template": "/api/realtime/routers",
+  "method": "GET",
+  "title": "List Live Router Ids",
+  "sample": null
+ },
+ {
+  "template": "/api/reseller/account-statement",
+  "method": "GET",
+  "title": "Get Reseller Account Statement",
+  "sample": null
+ },
+ {
+  "template": "/api/reseller/payout-settings",
+  "method": "GET",
+  "title": "Get Reseller Payout Settings",
+  "sample": null
+ },
+ {
+  "template": "/api/reseller/withdrawals/{withdrawal_ids}/status",
+  "method": "GET",
+  "title": "Withdrawal Status",
+  "sample": null
+ },
+ {
+  "template": "/api/resellers/me/usage/top",
+  "method": "GET",
+  "title": "Get Top Usage For Reseller",
+  "sample": {
+   "customer_id": 3,
+   "customer_name": "sample customer_name",
+   "connection_type": "sample connection_type",
+   "pppoe_username": "sample pppoe_username",
+   "identifier": "sample identifier",
+   "plan_name": "sample plan_name",
+   "cap_mb": 3,
+   "total_mb": 12.5,
+   "percent_used": 12.5,
+   "fup_active": true
+  }
+ },
+ {
+  "template": "/api/router-health/ranking",
+  "method": "GET",
+  "title": "Get Router Health Ranking",
+  "sample": {
+   "router_id": 3,
+   "name": "sample name",
+   "owner_id": 3,
+   "owner_name": "sample owner_name",
+   "online": true,
+   "board": "sample board",
+   "last_report_at": "2026-11-24T10:15:00",
+   "reporting": true,
+   "link_drops_reported": true,
+   "cpu_avg": 12.5,
+   "cpu_p95": 12.5,
+   "cpu_p99": 12.5,
+   "cpu_max": 3,
+   "mem_avg": 12.5,
+   "mem_p95": 12.5,
+   "mem_p99": 12.5,
+   "mem_max": 3,
+   "reboots": 3,
+   "link_drops": 3,
+   "buckets_with_data": 3
+  }
+ },
+ {
+  "template": "/api/router_stats/{router_id}",
+  "method": "GET",
+  "title": "Get Router Stats",
+  "sample": null
+ },
+ {
+  "template": "/api/routers",
+  "method": "GET",
+  "title": "Get Routers",
+  "sample": null
+ },
+ {
+  "template": "/api/routers/by-identity/{identity}/device-mode",
+  "method": "GET",
+  "title": "Get Device Mode",
+  "sample": null
+ },
+ {
+  "template": "/api/routers/by-identity/{identity}/files",
+  "method": "GET",
+  "title": "List Router Files",
+  "sample": null
+ },
+ {
+  "template": "/api/routers/by-identity/{identity}/hotspot-diagnostics",
+  "method": "GET",
+  "title": "Get Hotspot Diagnostics By Identity",
+  "sample": null
+ },
+ {
+  "template": "/api/routers/{router_id}/access-points",
+  "method": "GET",
+  "title": "List Access Points",
+  "sample": null
+ },
+ {
+  "template": "/api/routers/{router_id}/access-points/{ap_mac}/status",
+  "method": "GET",
+  "title": "Ap Status",
+  "sample": null
+ },
+ {
+  "template": "/api/routers/{router_id}/bandwidth-check",
+  "method": "GET",
+  "title": "Check Bandwidth Limits",
+  "sample": null
+ },
+ {
+  "template": "/api/routers/{router_id}/blocked-devices",
+  "method": "GET",
+  "title": "List Blocked Hotspot Devices",
+  "sample": null
+ },
+ {
+  "template": "/api/routers/{router_id}/checkin-actions",
+  "method": "GET",
+  "title": "List Checkin Actions",
+  "sample": null
+ },
+ {
+  "template": "/api/routers/{router_id}/checkup",
+  "method": "GET",
+  "title": "Router Checkup",
+  "sample": null
+ },
+ {
+  "template": "/api/routers/{router_id}/diagnose/dual-port",
+  "method": "POST",
+  "title": "Diagnose Dual Port",
+  "sample": null
+ },
+ {
+  "template": "/api/routers/{router_id}/diagnose/{mac_address}",
+  "method": "GET",
+  "title": "Diagnose Mac Address",
+  "sample": null
+ },
+ {
+  "template": "/api/routers/{router_id}/health-history",
+  "method": "GET",
+  "title": "Get Router Health History",
+  "sample": null
+ },
+ {
+  "template": "/api/routers/{router_id}/illegal-connections",
+  "method": "GET",
+  "title": "Check Illegal Connections",
+  "sample": null
+ },
+ {
+  "template": "/api/routers/{router_id}/interfaces",
+  "method": "GET",
+  "title": "Get Router Interfaces",
+  "sample": null
+ },
+ {
+  "template": "/api/routers/{router_id}/interfaces/restart-options",
+  "method": "GET",
+  "title": "Get Port Restart Options",
+  "sample": null
+ },
+ {
+  "template": "/api/routers/{router_id}/live",
+  "method": "GET",
+  "title": "Get Router Live",
+  "sample": {
+   "kind": "sample kind",
+   "customer_id": 3,
+   "customer_name": "sample customer_name",
+   "mac": "02:00:00:00:00:01",
+   "ip": "sample ip",
+   "online": true,
+   "rate_down_bps": 12.5,
+   "rate_up_bps": 12.5,
+   "session_download_bytes": 3,
+   "session_upload_bytes": 3,
+   "seen_at": "2026-11-24T10:15:00",
+   "queue_status": "sample queue_status",
+   "max_limit": "sample max_limit"
+  }
+ },
+ {
+  "template": "/api/routers/{router_id}/load-balancing",
+  "method": "GET",
+  "title": "Get Load Balancing Status",
+  "sample": null
+ },
+ {
+  "template": "/api/routers/{router_id}/load-balancing/preflight",
+  "method": "POST",
+  "title": "Preflight Load Balancing",
+  "sample": null
+ },
+ {
+  "template": "/api/routers/{router_id}/load-balancing/verify",
+  "method": "POST",
+  "title": "Verify Load Balancing",
+  "sample": null
+ },
+ {
+  "template": "/api/routers/{router_id}/offline-customers",
+  "method": "GET",
+  "title": "Offline Customers",
+  "sample": null
+ },
+ {
+  "template": "/api/routers/{router_id}/port-analytics",
+  "method": "GET",
+  "title": "Get Router Port Analytics",
+  "sample": null
+ },
+ {
+  "template": "/api/routers/{router_id}/port-config-jobs/{job_id}",
+  "method": "GET",
+  "title": "Get Port Config Job",
+  "sample": null
+ },
+ {
+  "template": "/api/routers/{router_id}/ports",
+  "method": "GET",
+  "title": "Get Router Port Status",
+  "sample": null
+ },
+ {
+  "template": "/api/routers/{router_id}/routeros",
+  "method": "GET",
+  "title": "Read Router Menu",
+  "sample": null
+ },
+ {
+  "template": "/api/routers/{router_id}/uptime",
+  "method": "GET",
+  "title": "Get Router Uptime",
+  "sample": null
+ },
+ {
+  "template": "/api/routers/{router_id}/users",
+  "method": "GET",
+  "title": "Get Router Users",
+  "sample": null
+ },
+ {
+  "template": "/api/routers/{router_id}/wifi",
+  "method": "GET",
+  "title": "Get Router Wifi",
+  "sample": null
+ },
+ {
+  "template": "/api/shop/analytics",
+  "method": "GET",
+  "title": "Shop Analytics",
+  "sample": null
+ },
+ {
+  "template": "/api/shop/dashboard",
+  "method": "GET",
+  "title": "Shop Dashboard",
+  "sample": null
+ },
+ {
+  "template": "/api/staff",
+  "method": "GET",
+  "title": "List Staff",
+  "sample": null
+ },
+ {
+  "template": "/api/staff/activity",
+  "method": "GET",
+  "title": "Staff Activity",
+  "sample": null
+ },
+ {
+  "template": "/api/staff/me",
+  "method": "GET",
+  "title": "Staff Me",
+  "sample": null
+ },
+ {
+  "template": "/api/staff/permissions",
+  "method": "GET",
+  "title": "Staff Permission Catalog",
+  "sample": null
+ },
+ {
+  "template": "/api/subscription",
+  "method": "GET",
+  "title": "Get My Subscription",
+  "sample": null
+ },
+ {
+  "template": "/api/subscription/current-invoice",
+  "method": "GET",
+  "title": "Get Current Invoice",
+  "sample": null
+ },
+ {
+  "template": "/api/subscription/invoices",
+  "method": "GET",
+  "title": "List My Invoices",
+  "sample": null
+ },
+ {
+  "template": "/api/subscription/invoices/{invoice_id}",
+  "method": "GET",
+  "title": "Get Invoice Detail",
+  "sample": null
+ },
+ {
+  "template": "/api/subscription/payments",
+  "method": "GET",
+  "title": "List My Payments",
+  "sample": null
+ },
+ {
+  "template": "/api/subscription/payments/{payment_id}",
+  "method": "GET",
+  "title": "Subscription Payment Status",
+  "sample": null
+ },
+ {
+  "template": "/api/vouchers",
+  "method": "GET",
+  "title": "List Vouchers",
+  "sample": null
+ },
+ {
+  "template": "/api/vouchers/compensation-allowance",
+  "method": "GET",
+  "title": "Compensation Allowance",
+  "sample": null
+ },
+ {
+  "template": "/api/vouchers/download",
+  "method": "GET",
+  "title": "Download Vouchers",
+  "sample": null
+ },
+ {
+  "template": "/api/vouchers/stats",
+  "method": "GET",
+  "title": "Voucher Stats",
+  "sample": null
+ }
+]
