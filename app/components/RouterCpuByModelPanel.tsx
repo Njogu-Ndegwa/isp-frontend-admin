@@ -7,7 +7,8 @@ import {
 import { api } from '../lib/api';
 import type { RouterCpuByModelResponse } from '../lib/types';
 import {
-  CPU_METRICS, chartableModels, changeAround, periodMean, seriesKey, toChartRows, type CpuMetric,
+  CPU_METRICS, MIN_AFTER_MS, chartableModels, changeAround, dataAfterMs, periodMean, seriesKey, toChartRows,
+  type CpuMetric,
 } from './routerCpuSeries';
 
 const PERIODS = [
@@ -79,6 +80,9 @@ export default function RouterCpuByModelPanel() {
   const deploys = useMemo(() => (data?.deploys ?? []).filter((d) => d.runtime_mode !== 'shadow'), [data]);
   const lastDeploy = deploys.at(-1) ?? null;
   const stepMs = (data?.step_seconds ?? 0) * 1000;
+  const afterMs = lastDeploy && data ? dataAfterMs(lastDeploy.at, data.to, stepMs) : 0;
+  const collecting = lastDeploy != null && afterMs < MIN_AFTER_MS;
+  const readyInMin = Math.ceil((MIN_AFTER_MS - afterMs) / 60_000);
 
   const toggle = (key: string) => setHidden((prev) => {
     const next = new Set(prev);
@@ -165,12 +169,12 @@ export default function RouterCpuByModelPanel() {
                 <th className="py-1 pr-3 font-medium text-right">Reporting now</th>
                 <th className="py-1 pr-3 font-medium text-right">CPU now</th>
                 <th className="py-1 pr-3 font-medium text-right">{metricInfo.label}, period</th>
-                {lastDeploy && <th className="py-1 font-medium text-right" title={`3 h after vs 3 h before ${fmtWhen(lastDeploy.at)}`}>Since last deploy</th>}
+                {lastDeploy && <th className="py-1 font-medium text-right" title={`Up to 3 h after vs 3 h before ${fmtWhen(lastDeploy.at)}, once 30 min of data exist after it. Traffic also changes with the time of day.`}>Since last deploy</th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
               {models.map((m) => {
-                const change = lastDeploy ? changeAround(m.points, lastDeploy.at, metric, stepMs) : null;
+                const change = lastDeploy && !collecting ? changeAround(m.points, lastDeploy.at, metric, stepMs) : null;
                 return (
                   <tr key={seriesKey(m)}>
                     <td className="py-1.5 pr-3">{seriesKey(m)}</td>
@@ -178,7 +182,9 @@ export default function RouterCpuByModelPanel() {
                     <td className="py-1.5 pr-3 text-right">{m.avg_now == null ? '—' : `${m.avg_now}%`}</td>
                     <td className="py-1.5 pr-3 text-right">{periodMean(m.points, metric) ?? '—'}{metricInfo.unit === '%' ? '%' : ''}</td>
                     {lastDeploy && (
-                      <td className={`py-1.5 text-right ${change != null && change >= 5 ? 'text-danger font-medium' : ''}`}>{signed(change)}</td>
+                      <td className={`py-1.5 text-right ${change != null && change >= 5 ? 'text-danger font-medium' : ''} ${collecting ? 'text-foreground-muted' : ''}`}>
+                        {collecting ? 'collecting' : signed(change)}
+                      </td>
                     )}
                   </tr>
                 );
@@ -187,7 +193,10 @@ export default function RouterCpuByModelPanel() {
           </table>
           {lastDeploy && (
             <p className="text-xs text-foreground-muted mt-2">
-              Last deploy {fmtWhen(lastDeploy.at)}{shortVersion(lastDeploy.version) ? ` (${shortVersion(lastDeploy.version)})` : ''}. A rise of 5 points or more is highlighted.
+              Last deploy {fmtWhen(lastDeploy.at)}{shortVersion(lastDeploy.version) ? ` (${shortVersion(lastDeploy.version)})` : ''}.{' '}
+              {collecting
+                ? `The change is shown once 30 minutes of data exist after it (about ${readyInMin} min).`
+                : 'A rise of 5 points or more is highlighted.'}
             </p>
           )}
         </div>

@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { changeAround, chartableModels, periodMean, seriesKey, toChartRows } from '../routerCpuSeries';
+import {
+  MIN_AFTER_MS, changeAround, chartableModels, dataAfterMs, periodMean, seriesKey, toChartRows,
+} from '../routerCpuSeries';
 import type { RouterCpuByModelResponse, RouterCpuPoint } from '../../lib/types';
 
 const pt = (t: string, avg: number, routers = 10): RouterCpuPoint => ({
@@ -50,5 +52,18 @@ describe('router CPU series', () => {
     expect(changeAround(more, '2026-11-24T04:10:52Z', 'avg', 300_000)).toBe(10);
     // Without the step, the straddling bucket wrongly counts as "before".
     expect(changeAround(more, '2026-11-24T04:10:52Z', 'avg')).toBe(0);
+  });
+
+  it('counts only written data after a deploy before judging it', () => {
+    // Live case, 24 Nov: deploy 07:26:13, page read 07:36:24, 15-minute points.
+    // The 07:15 point holds the deploy; 07:30-07:35 is written; 07:35 is still open.
+    expect(dataAfterMs('2026-11-24T07:26:13Z', '2026-11-24T07:36:24Z', 900_000)).toBe(5 * 60_000);
+    expect(dataAfterMs('2026-11-24T07:26:13Z', '2026-11-24T07:36:24Z', 900_000)).toBeLessThan(MIN_AFTER_MS);
+    // At 08:16 the newest written bucket ends 08:15: 45 minutes, enough.
+    expect(dataAfterMs('2026-11-24T07:26:13Z', '2026-11-24T08:16:00Z', 900_000)).toBe(45 * 60_000);
+    // The newest bucket counts only once it has been written (30 s after it closes).
+    expect(dataAfterMs('2026-11-24T07:26:13Z', '2026-11-24T08:00:10Z', 900_000)).toBe(25 * 60_000);
+    expect(dataAfterMs('2026-11-24T07:26:13Z', '2026-11-24T08:00:40Z', 900_000)).toBe(MIN_AFTER_MS);
+    expect(dataAfterMs('bad', '2026-11-24T08:00:40Z')).toBe(0);
   });
 });
