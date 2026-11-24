@@ -252,6 +252,8 @@ export interface AssistantStatus {
   /** The assistant is this person's start page (their own choice, else the rollout share). */
   home?: boolean;
   home_choice?: HomeChoice | null;
+  /** The classic dashboard is closed for this person (rollout at Everyone): the app keeps them on the assistant. */
+  classic_closed?: boolean;
   /** Due a quiet "how is it working for you?" (first after a few questions, then days apart, a few times at most). */
   ask_rating?: boolean;
 }
@@ -316,6 +318,8 @@ export interface NetworkRouter {
 
 export interface AssistantRollout {
   percent: number;
+  /** at Everyone the classic dashboard is closed to reseller accounts */
+  classic_closed?: boolean;
   chose_assistant: number;
   chose_classic: number;
   /** the rollout moves paying accounts (an active subscription) only */
@@ -622,7 +626,40 @@ export async function preparePhoto(file: File): Promise<OutgoingImage> {
 // ---------------------------------------------------------------------------
 
 const HOME_CHECKED = 'bw_home_checked';
+const CLOSED_CHECKED = 'bw_classic_closed_checked';
 const homeKey = (who: string) => `bw_ai_home:${who}`;
+const closedKey = (who: string) => `bw_classic_closed:${who}`;
+
+/** Remember, on this device, whether the classic dashboard is closed for this person. */
+export function rememberClassicClosed(who: string, closed: boolean): void {
+  try { localStorage.setItem(closedKey(who), closed ? '1' : '0'); } catch { /* private mode */ }
+}
+
+/** What this device last knew: the classic dashboard is closed for this person. */
+export function rememberedClassicClosed(who: string): boolean {
+  try { return localStorage.getItem(closedKey(who)) === '1'; } catch { return false; }
+}
+
+/**
+ * Ask the server once per browser session whether the classic dashboard is closed for
+ * this person, so a change of the rollout reaches people who stay signed in. Returns
+ * the answer, or null when it was already asked this session or could not be read.
+ */
+export async function refreshClassicClosed(who: string): Promise<boolean | null> {
+  try {
+    if (sessionStorage.getItem(CLOSED_CHECKED) === who) return null;
+    sessionStorage.setItem(CLOSED_CHECKED, who);
+  } catch { /* private mode: ask every time */ }
+  try {
+    const status = await assistantApi.status();
+    const closed = !!(status.enabled && status.classic_closed);
+    rememberClassicClosed(who, closed);
+    rememberHome(who, !!(status.enabled && status.home));
+    return closed;
+  } catch {
+    return null;
+  }
+}
 
 /** Remember, on this device, whether the assistant is this person's start page. */
 export function rememberHome(who: string, home: boolean): void {
@@ -662,7 +699,10 @@ export async function homePath(fallback: string, who?: string): Promise<string> 
       assistantApi.status(),
       new Promise<null>((resolve) => setTimeout(() => resolve(null), 2500)),
     ]);
-    if (status && who) rememberHome(who, !!(status.enabled && status.home));
+    if (status && who) {
+      rememberHome(who, !!(status.enabled && status.home));
+      rememberClassicClosed(who, !!(status.enabled && status.classic_closed));
+    }
     return status && status.enabled && status.home ? '/assistant' : fallback;
   } catch {
     return fallback;

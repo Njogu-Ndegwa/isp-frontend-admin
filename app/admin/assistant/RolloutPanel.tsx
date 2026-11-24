@@ -76,7 +76,9 @@ export default function RolloutPanel() {
       </div>
 
       <p className="mt-2 text-[11px] text-foreground-muted">
-        {t('{a} people chose the AI home themselves and {c} chose the classic dashboard. Their choice wins over this share.', { a: rollout.chose_assistant, c: rollout.chose_classic })}
+        {rollout.classic_closed
+          ? t('Everyone: every reseller account, trial and suspended included, starts on the AI home and the classic dashboard is closed to them. Their own choice no longer counts. Admins are not affected.')
+          : t('{a} people chose the AI home themselves and {c} chose the classic dashboard. Their choice wins over this share.', { a: rollout.chose_assistant, c: rollout.chose_classic })}
       </p>
       {error && <p className="mt-1 text-xs text-danger">{error}</p>}
     </div>

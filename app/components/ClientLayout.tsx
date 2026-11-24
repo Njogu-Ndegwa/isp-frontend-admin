@@ -12,7 +12,9 @@ import StaffNoAccess from './StaffNoAccess';
 import { canAccessPath, firstAccessiblePath, isStaffUser } from '../lib/permissions';
 import { SOLUTION_PATHS } from '../solutions/paths';
 import { isAdminAllowedPath } from '../lib/adminPaths';
-import { homePath, markStartPageDecided, rememberedHome, startPageDecided } from '../lib/assistant';
+import {
+  homePath, markStartPageDecided, refreshClassicClosed, rememberedClassicClosed, rememberedHome, startPageDecided,
+} from '../lib/assistant';
 import { isStandalone } from '../lib/standalone';
 import { useVisibleFrame } from '../lib/useVisibleFrame';
 import { BrandMark } from '../assistant/BrandMark';
@@ -95,6 +97,19 @@ function AiFrame({ children }: { children: React.ReactNode }) {
 
 const noSubscribe = () => () => {};
 
+/** A page opened from the assistant while the classic dashboard is closed: the page alone, with the way back. */
+function BackToAssistantBar() {
+  return (
+    <div className="sticky top-0 z-40 border-b border-white/10 bg-[#09090b]/95 backdrop-blur">
+      <div className="max-w-7xl mx-auto px-3 py-2">
+        <Link href={AI_HOME_PATH} className="inline-flex min-h-[44px] items-center gap-2 rounded-lg px-2 text-sm font-semibold text-amber-400 hover:bg-amber-500/10">
+          <span aria-hidden="true">&larr;</span> Back to the assistant
+        </Link>
+      </div>
+    </div>
+  );
+}
+
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -155,13 +170,31 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   // while drawing (on the device, from what it last knew); the effect only navigates.
   const onDevice = useSyncExternalStore(noSubscribe, () => true, () => false);
   const [checked, setChecked] = useState<string | null>(null);  // checked with the server: the dashboard is home
+  // The classic dashboard closed to this reseller account (rollout at Everyone): every visit to
+  // the dashboard goes to the assistant, and pages the assistant links to open without the menus.
+  const [closedTick, setClosedTick] = useState(0);
+  const closedKey = startUserKey && !isAdmin ? startUserKey : null;
+  const classicClosed = useMemo(
+    () => onDevice && closedKey !== null && rememberedClassicClosed(closedKey),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- closedTick re-reads what the server said
+    [onDevice, closedKey, closedTick],
+  );
+  useEffect(() => {
+    if (!closedKey) return;
+    let cancelled = false;
+    refreshClassicClosed(closedKey).then((closed) => {
+      if (!cancelled && closed !== null) setClosedTick((n) => n + 1);
+    });
+    return () => { cancelled = true; };
+  }, [closedKey]);
   const start = useMemo((): 'wait' | 'open' | 'assistant' | 'open-check' | 'ask' => {
     if (!onStartPage) return 'open';
     if (!onDevice || isLoading) return 'wait';
+    if (startUserKey && !needsRedirect && classicClosed) return 'assistant';
     if (!startUserKey || needsRedirect || startPageDecided()) return 'open';
     const known = rememberedHome(startUserKey);
     return known === true ? 'assistant' : known === false ? 'open-check' : 'ask';
-  }, [onStartPage, onDevice, isLoading, startUserKey, needsRedirect]);
+  }, [onStartPage, onDevice, isLoading, startUserKey, needsRedirect, classicClosed]);
   useEffect(() => {
     if (!startUserKey || (start !== 'assistant' && start !== 'open-check' && start !== 'ask')) return;
     markStartPageDecided();
@@ -226,6 +259,24 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   // Keep the `/demo` child mounted in one stable tree while demo auth starts
   // or exits. Only its surrounding app chrome needs to wait for demo mode.
   const showAppChrome = !isDemoEntry || (!isLoading && isDemo);
+
+  if (classicClosed && !isDemo && isAuthenticated) {
+    // A page the assistant sent them to (a customer, a router, a password field): the page
+    // alone, without the classic menus, and one tap back to the assistant.
+    return (
+      <>
+        <ViewAsBanner />
+        {isStaff && <StaffBanner />}
+        <BackToAssistantBar />
+        <main className="min-h-screen p-4 md:p-8 pb-24 md:pb-8">
+          <ErrorBoundary key={pathname}>
+            {staffRedirect ? null : staffBlocked ? <StaffNoAccess landing={staffLanding} /> : children}
+          </ErrorBoundary>
+        </main>
+        <SubscriptionBlockedModal />
+      </>
+    );
+  }
 
   return (
     <>
