@@ -2,12 +2,13 @@
 
 import { useEffect, useState } from 'react';
 import { api } from '../lib/api';
-import { assistantApi, type Briefing, type NetworkRouter } from '../lib/assistant';
+import { assistantApi, type Briefing, type NetworkPort, type NetworkRouter } from '../lib/assistant';
 import { bpsText, span, uptimeText } from '../lib/assistantEntities';
 import type { Tone } from '../lib/assistantVisual';
 import { copyText } from '../lib/clipboard';
 import { formatMoney } from '../lib/format';
 import { useT } from '../lib/i18n';
+import { lostPorts, portNumber, ROLE_LABEL } from '../lib/routerPorts';
 import type { AdminDashboard } from '../lib/types';
 import { DeviceCard, type Device } from './blocks/DeviceCard';
 import { Delta } from './charts/Mini';
@@ -331,6 +332,15 @@ function needsItems(b: Briefing, money: (v: number) => string): Item[] {
       : { tone: 'bad', text: `${n(b.routers.offline)} routers are offline`, ask: 'Which routers are offline right now, and since when?' });
   }
   for (const x of b.routers?.list ?? []) {
+    // a port that had a link and lost it: what it feeds is cut off while the router looks fine
+    for (const p of lostPorts(x)) {
+      items.push({
+        tone: 'bad',
+        text: p.role === 'internet' ? `${x.name}: the internet line on port ${portNumber(p.name)} has no link`
+          : `${x.name}: port ${portNumber(p.name)} (${ROLE_LABEL[p.role].toLowerCase()}) lost its link`,
+        ask: `Port ${p.name} on router ${x.name} (ID ${x.id}) lost its link. What was on it, and what should I check?`,
+      });
+    }
     if (x.status === 'online' && typeof x.live?.cpu === 'number' && x.live.cpu >= 85) {
       items.push({ tone: 'warn', text: `${x.name} is working hard: CPU at ${Math.round(x.live.cpu)}%`, ask: `Why is the CPU of router ${x.name} (ID ${x.id}) high, and what should I do?` });
     }
@@ -420,11 +430,15 @@ function NetworkSection({ ctx }: { ctx: Ctx }) {
             cpu: lv?.cpu, memory: lv?.memory_pct, down: bpsText(lv?.down_bps), up: bpsText(lv?.up_bps), uptime: uptimeText(lv?.uptime),
             hotspot: lv ? lv.hotspot_online ?? 0 : null, pppoe: lv ? lv.pppoe_online ?? 0 : null,
             customers: x.active_customers, reach: lv ? null : x.reachable_pct,
+            ports: x.ports ?? null, portSetup: x.port_setup ?? null,
           };
           const handlers = {
             onOpen: () => onAsk(x.status === 'offline' ? `Why is ${named} offline, and how do I fix it?` : `Check the health of ${named}`),
             onPeople: () => onAsk(`Who is online on ${named} right now?`),
             onCustomers: () => onAsk(`Which customers are on ${named}?`),
+            onPort: (p: NetworkPort) => onAsk(p.lost_link
+              ? `Port ${p.name} on ${named} lost its link. What was on it, and what should I check?`
+              : `What is on port ${p.name} of ${named}?`),
           };
           return { key: x.id, d, handlers, down: x.status === 'offline' };
         });

@@ -312,6 +312,24 @@ export interface NetworkRouter {
     pppoe_online?: number | null;
     age_seconds?: number | null;
   };
+  /** what each port was set up for in Bitwave (saved settings: known for an offline router too) */
+  port_setup?: null | { internet: string[]; pppoe: string[]; both: string[]; free: string[] };
+  /** every socket on its front, from the router's own report (null when offline or not reporting) */
+  ports?: null | NetworkPort[];
+}
+
+export type PortRole = 'internet' | 'hotspot' | 'pppoe' | 'both' | 'free' | 'unused';
+
+export interface NetworkPort {
+  name: string;
+  role: PortRole;
+  up: boolean;
+  disabled: boolean;
+  /** no link now, but it had one since the router started: what was plugged in went dark */
+  lost_link: boolean;
+  link_downs: number;
+  /** devices seen behind it (null for the internet line, or when not reported) */
+  devices: number | null;
 }
 
 export interface AssistantRollout {
