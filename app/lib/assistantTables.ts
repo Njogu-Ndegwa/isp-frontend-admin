@@ -530,7 +530,7 @@ export const DISPLAY_RULES: DisplayRule[] = [
     '/api/mikrotik/bandwidth-history', '/api/customers/{customer_id}/usage/timeline', '/api/customers/{customer_id}/usage/history',
     '/api/routers/{router_id}/health-history'] },
   // a ranking
-  { display: 'bars', allow: ['table'], paths: ['/api/plans/performance', '/api/mikrotik/top-users', '/api/resellers/me/usage/top',
+  { display: 'bars', allow: ['table'], paths: ['/api/plans/performance', '/api/mpesa/transactions/by-router', '/api/mikrotik/top-users', '/api/resellers/me/usage/top',
     '/api/customers/usage/bulk', '/api/router-health/ranking'] },
   // one record
   { display: 'card', paths: ['/api/customers/{customer_id}', '/api/routers/{router_id}/uptime', '/api/routers/{router_id}/live',

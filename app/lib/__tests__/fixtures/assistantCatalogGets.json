@@ -563,6 +563,12 @@
   "sample": null
  },
  {
+  "template": "/api/mpesa/transactions/by-router",
+  "method": "GET",
+  "title": "Get Mpesa Transactions By Router",
+  "sample": null
+ },
+ {
   "template": "/api/mpesa/transactions/summary",
   "method": "GET",
   "title": "Get Mpesa Transactions Summary",
