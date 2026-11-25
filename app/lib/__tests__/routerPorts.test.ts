@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { NetworkPort } from '../assistant';
-import { lostPortAdvice, lostPorts, portLight, portNumber, portSetupLine, portTitle } from '../routerPorts';
+import { lostPortAdvice, lostPorts, portLight, portNumber, portSetupLine, portTitle, silentPortAdvice, silentPorts } from '../routerPorts';
 
 const port = (over: Partial<NetworkPort> = {}): NetworkPort => ({
   name: 'ether6', role: 'hotspot', up: true, disabled: false, lost_link: false, link_downs: 0, devices: 4, ...over,
@@ -12,6 +12,21 @@ describe('router ports on the home screen', () => {
     expect(portLight(port({ up: false, lost_link: true }))).toBe('lost');
     expect(portLight(port({ up: false }))).toBe('empty');
     expect(portLight(port({ up: false, disabled: true }))).toBe('off');
+  });
+
+  it('colours sockets as the classic Ports page: internet blue, cable in with no device amber', () => {
+    expect(portLight(port({ name: 'ether1', role: 'internet', devices: null }))).toBe('uplink');
+    expect(portLight(port({ devices: 0 }))).toBe('silent');
+    expect(portLight(port({ devices: null }))).toBe('up');
+    expect(portLight(port({ devices: 0, up: false }))).toBe('empty');
+    expect(portTitle(port({ name: 'ether7', devices: 0 }))).toBe('ether7 · Hotspot · cable in, no device talking');
+  });
+
+  it('says what to check on a silent port, only while the router is up', () => {
+    const ports = [port(), port({ name: 'ether7', devices: 0 }), port({ name: 'ether1', role: 'internet', devices: null })];
+    expect(silentPorts({ status: 'online', ports }).map((p) => p.name)).toEqual(['ether7']);
+    expect(silentPorts({ status: 'offline', ports })).toEqual([]);
+    expect(silentPortAdvice(port({ name: 'ether7', devices: 0 }))).toMatch(/^Port 7 \(hotspot\) has a cable in but no device.*power/);
   });
 
   it('numbers sockets as printed on the router', () => {

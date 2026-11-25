@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { api } from '../../lib/api';
 import type { NetworkPort, NetworkRouter } from '../../lib/assistant';
 import { eatTime } from '../../lib/assistantEntities';
-import { lostPortAdvice, portLight, portNumber, portSetupLine, portTitle, ROLE_SHORT, type PortLight } from '../../lib/routerPorts';
+import { lostPortAdvice, portLight, portNumber, portSetupLine, portTitle, ROLE_SHORT, silentPortAdvice, type PortLight } from '../../lib/routerPorts';
 import type { Tone } from '../../lib/assistantVisual';
 import { useT } from '../../lib/i18n';
 import type { RouterUptimeResponse } from '../../lib/types';
@@ -56,16 +56,19 @@ export interface Device {
 }
 
 const LIGHT_CELL: Record<PortLight, string> = {
+  uplink: 'border-info/55 bg-info/12 text-ink-1',
   up: 'border-good/55 bg-good/12 text-ink-1',
+  silent: 'border-warn/60 bg-warn/15 text-[var(--ai-text-warn)]',
   lost: 'border-bad/70 bg-bad/15 text-[var(--ai-text-bad)]',
   off: 'border-dashed border-line-strong bg-transparent text-ink-3',
   empty: 'border-line bg-surface-2 text-ink-3',
 };
 
 /**
- * The router's front: one square per socket, numbered as printed on the box, lit when it
- * has a link, red when it had one and lost it, with what the port is set up for under it.
- * A socket that lost its link is said in words too, with what to check.
+ * The router's front: one square per socket, numbered as printed on the box, coloured as on
+ * the classic Ports page (internet blue, devices talking green, cable in but silent amber,
+ * lost red), with what the port is set up for under it. A socket that lost its link or went
+ * silent is said in words too, with what to check.
  */
 function PortStrip({ ports, setup, onPort }: { ports?: NetworkPort[] | null; setup?: NetworkRouter['port_setup']; onPort?: (p: NetworkPort) => void }) {
   const t = useT();
@@ -79,6 +82,7 @@ function PortStrip({ ports, setup, onPort }: { ports?: NetworkPort[] | null; set
     ) : null;
   }
   const lost = ports.filter((p) => p.lost_link);
+  const silent = ports.filter((p) => portLight(p) === 'silent');
   const used = ports.filter((p) => p.up).length;
   return (
     <div className="px-4 pt-3.5">
@@ -102,7 +106,7 @@ function PortStrip({ ports, setup, onPort }: { ports?: NetworkPort[] | null; set
                   </span>
                 ) : null}
               </span>
-              <span className={`block truncate text-center text-[10px] leading-tight ${light === 'lost' ? 'font-semibold text-[var(--ai-text-bad)]' : p.role === 'internet' ? 'text-[var(--ai-down)]' : 'text-ink-3'}`}>
+              <span className={`block truncate text-center text-[10px] leading-tight ${light === 'lost' ? 'font-semibold text-[var(--ai-text-bad)]' : light === 'silent' ? 'font-semibold text-[var(--ai-text-warn)]' : p.role === 'internet' ? 'text-[var(--ai-down)]' : 'text-ink-3'}`}>
                 {ROLE_SHORT[p.role] ? t(ROLE_SHORT[p.role]) : ' '}
               </span>
             </>
@@ -124,6 +128,19 @@ function PortStrip({ ports, setup, onPort }: { ports?: NetworkPort[] | null; set
                 className="flex w-full gap-2 rounded-[10px] border border-bad/35 bg-bad/10 px-2.5 py-2 text-left text-[12.5px] leading-snug text-ink-1">
                 <span className="mt-[3px]"><Led tone="bad" size={6} blink /></span>
                 <span className="min-w-0">{t(lostPortAdvice(p))}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      {silent.length ? (
+        <ul className="m-0 mt-2 list-none space-y-1.5 p-0">
+          {silent.map((p) => (
+            <li key={p.name}>
+              <button type="button" disabled={!onPort} onClick={() => onPort?.(p)}
+                className="flex w-full gap-2 rounded-[10px] border border-warn/35 bg-warn/10 px-2.5 py-2 text-left text-[12.5px] leading-snug text-ink-1">
+                <span className="mt-[3px]"><Led tone="warn" size={6} /></span>
+                <span className="min-w-0">{t(silentPortAdvice(p))}</span>
               </button>
             </li>
           ))}

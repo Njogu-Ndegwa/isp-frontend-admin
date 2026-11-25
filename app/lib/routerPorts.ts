@@ -24,11 +24,20 @@ export const ROLE_SHORT: Record<PortRole, string> = {
   unused: '',
 };
 
-/** up: has a link · lost: had one since the router started and lost it · off: switched off · empty: nothing plugged in */
-export type PortLight = 'up' | 'lost' | 'off' | 'empty';
+/**
+ * The classic Ports page's colours (PortFaceplate): uplink blue for the internet line,
+ * up green when devices talk behind it, silent amber when a cable is in but no device
+ * talks (an access point that is off, frozen or not passing traffic), lost red when it
+ * had a link since the router started and lost it, off switched off, empty nothing plugged in.
+ */
+export type PortLight = 'uplink' | 'up' | 'silent' | 'lost' | 'off' | 'empty';
 
 export function portLight(p: NetworkPort): PortLight {
-  if (p.up) return 'up';
+  if (p.up) {
+    if (p.role === 'internet') return 'uplink';
+    // devices null = not reported: say nothing rather than guess
+    return p.devices === 0 ? 'silent' : 'up';
+  }
   if (p.lost_link) return 'lost';
   return p.disabled ? 'off' : 'empty';
 }
@@ -45,7 +54,9 @@ export function portNumber(name: string): string {
   return combo ? `C${combo[1]}` : name.slice(0, 4);
 }
 
-const LIGHT_WORDS: Record<PortLight, string> = { up: 'connected', lost: 'lost its link', off: 'switched off', empty: 'nothing plugged in' };
+const LIGHT_WORDS: Record<PortLight, string> = {
+  uplink: 'connected', up: 'connected', silent: 'cable in, no device talking', lost: 'lost its link', off: 'switched off', empty: 'nothing plugged in',
+};
 
 /** "ether6 · Hotspot · lost its link · dropped 3×" */
 export function portTitle(p: NetworkPort): string {
@@ -59,6 +70,16 @@ export function portTitle(p: NetworkPort): string {
 /** Ports that went dark while the router itself is up: the thing to tell someone. */
 export function lostPorts(r: Pick<NetworkRouter, 'status' | 'ports'>): NetworkPort[] {
   return r.status === 'online' ? (r.ports ?? []).filter((p) => p.lost_link) : [];
+}
+
+/** Ports with a cable in but no device talking on them, while the router itself is up. */
+export function silentPorts(r: Pick<NetworkRouter, 'status' | 'ports'>): NetworkPort[] {
+  return r.status === 'online' ? (r.ports ?? []).filter((p) => portLight(p) === 'silent') : [];
+}
+
+/** What to check on a port with a cable in but no device talking on it. */
+export function silentPortAdvice(p: NetworkPort): string {
+  return `Port ${portNumber(p.name)} (${ROLE_LABEL[p.role].toLowerCase()}) has a cable in but no device is talking on it: the access point or switch there may be off, frozen or not passing traffic. Check its power and restart it.`;
 }
 
 /** The plain-words fix for a port that lost its link. */
