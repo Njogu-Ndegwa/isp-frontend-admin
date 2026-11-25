@@ -4139,6 +4139,16 @@ class ApiClient {
     return this.handleResponse<CustomerUsageResponse>(response);
   }
 
+  /** Restore full speed for a customer the data cap slowed or blocked. The cap
+   * stays off until they renew (or the next daily reset on a daily plan). */
+  async liftCustomerFup(customerId: number): Promise<CustomerUsageResponse> {
+    const response = await fetch(`${BASE_URL}/customers/${customerId}/fup/lift`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<CustomerUsageResponse>(response);
+  }
+
   async getCustomersUsage(customerIds: number[]): Promise<CustomerUsageResponse[]> {
     if (this.isDemoMode()) {
       const demo = await loadDemo();
