@@ -337,7 +337,21 @@ export default function EditCustomerPage() {
           )}
           {isStatic && <StaticIpPanel customer={customer} onChanged={loadData} />}
           {connectionType === 'hotspot' && <HotspotDevicesPanel customerId={customer.id} />}
-          {tracksUsage && usage && <UsagePanel usage={usage} onRefresh={loadUsage} refreshing={usageLoading} />}
+          {tracksUsage && usage && (
+            <UsagePanel
+              usage={usage}
+              onRefresh={loadUsage}
+              refreshing={usageLoading}
+              onLift={async () => {
+                try {
+                  setUsage(await api.liftCustomerFup(customer.id));
+                  showAlert('success', 'Full speed restored. The cap stays off until they renew.');
+                } catch (err) {
+                  showAlert('error', err instanceof Error ? err.message : 'Could not restore full speed');
+                }
+              }}
+            />
+          )}
           {tracksUsage && <UsageHistoryPanel customerId={customer.id} />}
 
           <PaymentHistoryPanel key={customer.id} customerId={customer.id} />
@@ -728,11 +742,13 @@ function RefreshButton({ onClick, refreshing }: { onClick: () => void; refreshin
   );
 }
 
-function UsagePanel({ usage, onRefresh, refreshing }: {
+function UsagePanel({ usage, onRefresh, refreshing, onLift }: {
   usage: CustomerUsageResponse;
   onRefresh: () => void;
   refreshing: boolean;
+  onLift: () => Promise<void>;
 }) {
+  const [lifting, setLifting] = useState(false);
   const period = usage.period;
 
   if (!period) {
@@ -804,6 +820,22 @@ function UsagePanel({ usage, onRefresh, refreshing }: {
           <div className="text-xs text-danger">
             <p className="font-semibold">FUP triggered — {actionLabel(period.fup_action_taken || action)}</p>
             <p className="opacity-80">{isDaily ? 'Auto-lifts at midnight (EAT) or on renewal.' : 'Auto-lifts on next renewal.'}</p>
+            {(period.fup_action_taken === 'throttle' || period.fup_action_taken === 'block') && (
+              <button
+                type="button"
+                disabled={lifting}
+                onClick={async () => {
+                  if (!window.confirm(isDaily
+                    ? 'Restore full speed for this customer for the rest of today?'
+                    : 'Restore full speed for this customer until they renew?')) return;
+                  setLifting(true);
+                  try { await onLift(); } finally { setLifting(false); }
+                }}
+                className="mt-2 px-3 py-2 min-h-[36px] rounded-md bg-danger text-white text-xs font-semibold disabled:opacity-60"
+              >
+                {lifting ? 'Restoring…' : 'Restore full speed'}
+              </button>
+            )}
           </div>
         </div>
       )}
