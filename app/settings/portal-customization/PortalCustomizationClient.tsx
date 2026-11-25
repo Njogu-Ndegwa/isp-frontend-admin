@@ -11,7 +11,11 @@ import {
   PortalHeaderStyle,
   PortalLanguage,
   PortalPlanSortOrder,
+  ROUTER_THEME_FIELDS,
+  RouterThemeField,
+  RouterThemeSummary,
   UpdatePortalSettingsRequest,
+  UpdateRouterThemeRequest,
 } from '../../lib/types';
 import { getThemePalette } from '../../lib/portalThemes';
 import { isCustomHeaderPhoto, isPortalMediaUrl } from '../../lib/portalMedia';
@@ -139,6 +143,24 @@ export default function PortalCustomizationPage() {
   const [previewAds, setPreviewAds] = useState<PreviewAd[]>([]);
   // One 503 from the upload endpoint switches both picture fields to paste mode.
   const [uploadsOff, setUploadsOff] = useState(false);
+  // Which portal is being edited: null is the account default every router
+  // uses; a router id edits that router's own look.
+  const [routers, setRouters] = useState<RouterThemeSummary[]>([]);
+  const [selectedRouterId, setSelectedRouterId] = useState<number | null>(null);
+  const [overriddenFields, setOverriddenFields] = useState<RouterThemeField[]>([]);
+  const [switchingRouter, setSwitchingRouter] = useState(false);
+  const isRouter = selectedRouterId !== null;
+  const selectedRouter = routers.find((r) => r.router_id === selectedRouterId) ?? null;
+
+  const loadRouterList = useCallback(async () => {
+    try {
+      const resp = await api.getRouterThemes();
+      setRouters(Array.isArray(resp?.routers) ? resp.routers : []);
+    } catch {
+      // An older backend has no per-router themes, so the picker stays hidden.
+      setRouters([]);
+    }
+  }, []);
 
   const loadSettings = useCallback(async () => {
     try {
@@ -161,7 +183,31 @@ export default function PortalCustomizationPage() {
 
   useEffect(() => {
     loadSettings();
-  }, [loadSettings]);
+    loadRouterList();
+  }, [loadSettings, loadRouterList]);
+
+  const selectRouter = async (routerId: number | null) => {
+    if (routerId === selectedRouterId) return;
+    if (Object.keys(changed).length > 0 && !confirm('Discard your unsaved changes?')) return;
+    try {
+      setSwitchingRouter(true);
+      if (routerId === null) {
+        const resp = await api.getPortalSettings();
+        setData(resp);
+        setOverriddenFields([]);
+      } else {
+        const resp = await api.getRouterTheme(routerId);
+        setData((prev) => (prev ? { ...prev, settings: resp.settings } : prev));
+        setOverriddenFields(resp.overridden_fields);
+      }
+      setSelectedRouterId(routerId);
+      setChanged({});
+    } catch (err) {
+      showAlert('error', err instanceof Error ? err.message : 'Failed to load that router’s portal');
+    } finally {
+      setSwitchingRouter(false);
+    }
+  };
 
   // What the portal would show: this reseller's live ads plus Bitwave's
   // network-wide ones. If a call fails, the preview simply has fewer or no offers.
@@ -192,6 +238,27 @@ export default function PortalCustomizationPage() {
 
   const handleSave = async () => {
     if (!hasChanges) return;
+    if (selectedRouterId !== null) {
+      try {
+        setSaving(true);
+        // Only the look is per router; the form hides everything else.
+        const body: UpdateRouterThemeRequest = {};
+        for (const field of ROUTER_THEME_FIELDS) {
+          if (field in changed) (body as Record<string, unknown>)[field] = changed[field];
+        }
+        const resp = await api.updateRouterTheme(selectedRouterId, body);
+        setData((prev) => (prev ? { ...prev, settings: resp.settings } : prev));
+        setOverriddenFields(resp.overridden_fields);
+        setChanged({});
+        loadRouterList();
+        showAlert('success', `Saved the portal for ${resp.router_name}`);
+      } catch (err) {
+        showAlert('error', err instanceof Error ? err.message : 'Failed to save this router’s portal');
+      } finally {
+        setSaving(false);
+      }
+      return;
+    }
     try {
       setSaving(true);
       const resp = await api.updatePortalSettings(changed);
@@ -208,6 +275,24 @@ export default function PortalCustomizationPage() {
   };
 
   const handleReset = async () => {
+    if (selectedRouterId !== null) {
+      const name = selectedRouter?.router_name ?? 'this router';
+      if (!confirm(`Make ${name} use the default portal look again? Its own theme will be removed.`)) return;
+      try {
+        setResetting(true);
+        const resp = await api.resetRouterTheme(selectedRouterId);
+        setData((prev) => (prev ? { ...prev, settings: resp.settings } : prev));
+        setOverriddenFields(resp.overridden_fields);
+        setChanged({});
+        loadRouterList();
+        showAlert('success', `${resp.router_name} now uses the default portal look`);
+      } catch (err) {
+        showAlert('error', err instanceof Error ? err.message : 'Failed to reset this router');
+      } finally {
+        setResetting(false);
+      }
+      return;
+    }
     if (!confirm('Reset all portal customizations to defaults? This cannot be undone.')) return;
     try {
       setResetting(true);
@@ -297,16 +382,53 @@ export default function PortalCustomizationPage() {
         <p className="text-xs text-foreground-muted mt-0.5">Configure how your captive portal looks and behaves</p>
       </div>
 
+      {/* Which portal: the account default, or one router's own look */}
+      {routers.length > 0 && (
+        <div className="rounded-2xl bg-background-secondary border border-border p-4 space-y-2">
+          <label htmlFor="portal-router" className="block text-xs font-medium text-foreground-muted">
+            Router
+          </label>
+          <select
+            id="portal-router"
+            className="input"
+            value={selectedRouterId ?? ''}
+            disabled={switchingRouter || saving || resetting}
+            onChange={(e) => selectRouter(e.target.value === '' ? null : Number(e.target.value))}
+          >
+            <option value="">All routers (default)</option>
+            {routers.map((r) => (
+              <option key={r.router_id} value={r.router_id}>
+                {r.has_override ? `${r.router_name} · own theme` : r.router_name}
+              </option>
+            ))}
+          </select>
+          <p className="text-xs text-foreground-muted">
+            {!isRouter
+              ? 'Every router uses this look unless you give it its own.'
+              : overriddenFields.length > 0
+                ? `${selectedRouter?.router_name ?? 'This router'} has its own look. Anything you have not changed here follows the default.`
+                : `${selectedRouter?.router_name ?? 'This router'} uses the default look. Change anything below to give it its own.`}
+          </p>
+          {isRouter && (
+            <p className="text-xs text-foreground-muted">
+              Only the theme, header and branding can differ per router. Ads, package order, support contacts and
+              language are shared by all routers. Choose{' '}
+              <span className="font-semibold text-foreground">All routers (default)</span> to change them.
+            </p>
+          )}
+        </div>
+      )}
+
       {/* Action bar */}
       <div className="flex items-center justify-between gap-3">
         <div className="flex-1" />
         <div className="flex items-center gap-3">
           <button
             onClick={handleReset}
-            disabled={resetting}
+            disabled={resetting || (isRouter && overriddenFields.length === 0)}
             className="btn-danger text-xs px-3 py-1.5"
           >
-            {resetting ? 'Resetting...' : 'Reset to Defaults'}
+            {resetting ? 'Resetting...' : isRouter ? 'Reset to Default' : 'Reset to Defaults'}
           </button>
           <button
             onClick={handleSave}
@@ -501,6 +623,8 @@ export default function PortalCustomizationPage() {
               </div>
             </>
           )}
+          {!isRouter && (
+          <>
           <div>
             <label className="block text-xs font-medium text-foreground-muted mb-1.5">Plans Section Title</label>
             <input
@@ -537,8 +661,13 @@ export default function PortalCustomizationPage() {
               {' '}Limited-time offers always stay at the top.
             </p>
           </div>
+          </>
+          )}
         </div>
       </section>
+
+      {!isRouter && (
+      <>
 
       {/* Features */}
       <section className="rounded-2xl bg-background-secondary border border-border overflow-hidden">
@@ -646,11 +775,14 @@ export default function PortalCustomizationPage() {
         </div>
       </section>
 
+      </>
+      )}
+
       {/* Save / Reset sticky on mobile */}
       <div className="md:hidden flex items-center gap-3 pt-2 pb-6">
         <button
           onClick={handleReset}
-          disabled={resetting}
+          disabled={resetting || (isRouter && overriddenFields.length === 0)}
           className="btn-danger flex-1 text-sm"
         >
           {resetting ? 'Resetting...' : 'Reset'}
